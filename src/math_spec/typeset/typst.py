@@ -1,0 +1,153 @@
+"""Typst. The format that compiles without a toolchain.
+
+Here to keep :mod:`lpspec.typeset.format` honest: a seam with one
+implementation behind it is a shape, not an abstraction, and Typst's syntax
+differs from LaTeX's in every respect that matters — ``sum_(…)`` not
+``\\sum_{…}``, ``cal(T)`` not ``\\mathcal{T}``, function-call grouping instead
+of brace groups, a term list instead of a ``description`` environment. If the
+walk needed changing to accommodate it, the split was in the wrong place.
+
+Practical difference: the compiler is one self-contained binary (a pip wheel,
+so the suite compiles every example without apt), and multi-letter identifiers
+in math are upright by default, which is why names go through ``italic("…")``
+rather than being emitted bare.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from lpspec.typeset.format import Entry, Line
+
+_PREAMBLE = """#set page(margin: 2.5cm)
+#set text(size: 11pt)
+"""
+
+
+def _quote(text: str) -> str:
+    """A Typst string literal — only the quote and the backslash can bite."""
+    return '"' + text.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+
+def _raw(text: str) -> str:
+    """Inline raw text. Backticks are the only character that can end it."""
+    return '`' + text.replace('`', "'") + '`'
+
+
+class TypstFormat:
+    """See :class:`lpspec.typeset.format.Format`."""
+
+    suffix: ClassVar[str] = '.typ'
+
+    operators: ClassVar[dict[str, str]] = {
+        'cdot': 'dot',
+        'plus': '+',
+        'minus': '-',
+        'equal': '=',
+        'le': '<=',
+        'ge': '>=',
+        'lt': '<',
+        'gt': '>',
+        'ne': '!=',
+        'in': 'in',
+        'and': 'and',
+        'or': 'or',
+        'not': 'not',
+        'true': 'top',
+        'false': 'bot',
+        'forall': 'forall',
+        'such_that': 'colon',
+        'infinity': 'infinity',
+        'minus_infinity': '-infinity',
+        # `.o` is Typst's circled modifier; `minus.circle` is not a thing,
+        # which the compile gate caught on the first run.
+        'cyclic_minus': 'minus.o',
+        'cyclic_plus': 'plus.o',
+        'times': 'times',
+        'maps_to': 'arrow.r',
+        'reals': 'RR',
+        'integers': 'ZZ',
+        'binary_set': '{0, 1}',
+        'minimize': 'min',
+        'maximize': 'max',
+    }
+
+    # -- atoms -------------------------------------------------------------
+
+    def italic(self, name: str) -> str:
+        return f'italic({_quote(name)})'
+
+    def upright(self, name: str) -> str:
+        return f'upright({_quote(name)})'
+
+    def script(self, letter: str) -> str:
+        return f'cal({letter})'
+
+    def prose(self, text: str) -> str:
+        return f'upright({_quote(text)})'
+
+    def mono(self, text: str) -> str:
+        return _raw(text)
+
+    def math(self, expression: str) -> str:
+        return f'${expression}$'
+
+    # -- structure ---------------------------------------------------------
+
+    def subscript(self, base: str, indices: list[str]) -> str:
+        return f'{base}_({",".join(indices)})' if indices else base
+
+    def superscript(self, base: str, tail: str) -> str:
+        return f'{base}^({tail})'
+
+    def parenthesise(self, inner: str) -> str:
+        return f'({inner})'
+
+    def fraction(self, numerator: str, denominator: str) -> str:
+        return f'frac({numerator}, {denominator})'
+
+    def power(self, base: str, exponent: str) -> str:
+        return f'{base}^({exponent})'
+
+    def summation(self, domain: str, body: str) -> str:
+        return f'sum_({domain}) {body}'
+
+    def apply(self, function: str, argument: str) -> str:
+        # `f(x)` in Typst math is a call on `f`; with an `upright("bus")` head
+        # that is exactly the notation wanted, and it needs no thin space.
+        return f'{function}({argument})'
+
+    def joined(self, parts: list[str], operator: str) -> str:
+        return f' {operator} '.join(parts) if operator else ', '.join(parts)
+
+    # -- document ----------------------------------------------------------
+
+    def equations(self, lines: list[Line], *, numbered: bool) -> str:
+        # Typst aligns on `&` inside a block equation exactly as amsmath does,
+        # so the Line split carries over unchanged — which is the point.
+        rows = [
+            f'{self.prose(line.label)} & {line.left} & {line.right} & {line.condition}'.rstrip(' &') for line in lines
+        ]
+        body = ' \\\n  '.join(rows)
+        numbering = '#set math.equation(numbering: "(1)")\n' if numbered else ''
+        return f'{numbering}$ {body} $'
+
+    def glossary(self, title: str, entries: list[Entry]) -> str:
+        rows = '\n'.join(
+            f'/ {self.math(e.symbol)}: {e.name}{e.detail}' + (f' --- {e.description}' if e.description else '')
+            for e in entries
+        )
+        return f'== {title}\n{rows}'
+
+    def section(self, title: str, body: str) -> str:
+        return f'== {title}\n{body}'
+
+    def note(self, text: str) -> str:
+        return text
+
+    def document(self, blocks: list[str], *, standalone: bool) -> str:
+        body = '\n\n'.join(blocks) + '\n'
+        # Typst has no preamble/body split — a bare fragment is already a
+        # document — so `standalone` only decides whether page setup is emitted.
+        return f'{_PREAMBLE}\n{body}' if standalone else body

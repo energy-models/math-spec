@@ -1,0 +1,407 @@
+"""The walk: resolved AST → typeset lines. Written once, for every format.
+
+Everything here is a decision about the *math* — where a bracket changes the
+reading, which dimension a reduction binds, that a mask belongs on the ∀
+rather than in the equation, that a translation shows at the leaf it
+re-indexes. None of it is about a syntax, so none of it is duplicated per
+format: spelling comes from a :class:`~lpspec.typeset.format.Format`.
+
+The walk is the only consumer of the AST here, and it holds no opinion the
+lanes do not already hold — names come from ``resolution``, dim sets from
+``dimensions``, helper shapes from the closed ``BUILTINS`` set. A helper it
+forgot is an ``assert_never``, not a blank.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, assert_never
+
+from lpspec.dimensions import dims_of
+from lpspec.expression_parser import (
+    ArithmeticNode,
+    BinaryOperatorNode,
+    ComparisonNode,
+    CoordinateNode,
+    DimensionNode,
+    FunctionCallNode,
+    NameNode,
+    NumberNode,
+    ParameterNode,
+    UnaryOperatorNode,
+    VariableNode,
+)
+from lpspec.resolution import expression_of, where_of
+from lpspec.typeset.format import Entry, Line
+from lpspec.where_parser import (
+    AndNode,
+    BooleanLiteralNode,
+    DimensionComparisonNode,
+    NotNode,
+    OrNode,
+    ParameterComparisonNode,
+    ParameterDefinedNode,
+    UnresolvedComparisonNode,
+    UnresolvedNameNode,
+    VariableDefinedNode,
+    WhereNode,
+)
+
+if TYPE_CHECKING:
+    from lpspec.resolution import Namespace
+    from lpspec.schema import MathSchema
+    from lpspec.typeset.format import Format
+    from lpspec.typeset.symbols import Symbols
+
+#: Operator precedence, for deciding brackets. A reduction sits at the bottom
+#: with ``+``: an unbracketed sum reads as capturing whatever follows it, so as
+#: a factor it has to be bracketed.
+_PRECEDENCE = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 4}
+_ATOM = 5
+
+_RELATIONS = {'==': 'equal', '<=': 'le', '>=': 'ge'}
+_PREDICATES = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>': 'gt'}
+
+
+@dataclass(frozen=True)
+class _Context:
+    """What a subscript means at this point in the tree.
+
+    ``offsets`` is how ``roll``/``shift`` are rendered: neither emits an
+    operator of its own, they re-index their operand, so the translation shows
+    up at the *leaves* underneath — which is exactly what the plan's
+    ``Translate`` node says it does.
+    """
+
+    walk: Walk
+    offsets: dict[str, tuple[int, bool]] = field(default_factory=dict)
+
+    def translated(self, dim: str, by: int, *, wrap: bool) -> _Context:
+        previous, previous_wrap = self.offsets.get(dim, (0, wrap))
+        return _Context(self.walk, {**self.offsets, dim: (previous + by, wrap or previous_wrap)})
+
+    def subscript(self, dim: str) -> str:
+        base = self.walk.symbols.index[dim]
+        by, wrap = self.offsets.get(dim, (0, False))
+        if by == 0:
+            return base
+        forward = 'cyclic_minus' if wrap else 'minus'
+        backward = 'cyclic_plus' if wrap else 'plus'
+        operator = self.walk.op(forward if by > 0 else backward)
+        return f'{base} {operator} {abs(by)}'
+
+    def indexed(self, symbol: str, dims: list[str]) -> str:
+        return self.walk.format.subscript(symbol, [self.subscript(d) for d in dims])
+
+
+class Walk:
+    """Walks a validated schema, emitting :class:`Line`s in one format.
+
+    Stateful only in what it has *noticed* — whether any ``roll`` appeared,
+    which the legend needs in order to explain cyclic translation.
+    """
+
+    def __init__(self, schema: MathSchema, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
+        self.schema = schema
+        self.namespace = namespace
+        self.symbols = symbols
+        self.format = fmt
+        self.saw_wraparound = False
+
+    def op(self, name: str) -> str:
+        return self.format.operators[name]
+
+    def context(self) -> _Context:
+        return _Context(self)
+
+    def number(self, value: float) -> str:
+        if value == float('inf'):
+            return self.op('infinity')
+        if value == float('-inf'):
+            return self.op('minus_infinity')
+        return str(int(value)) if value == int(value) else repr(value)
+
+    # -- arithmetic --------------------------------------------------------
+
+    def arithmetic(self, node: ArithmeticNode, ctx: _Context, *, need: int = 0) -> str:
+        text, precedence = self._arithmetic(node, ctx)
+        return self.format.parenthesise(text) if precedence < need else text
+
+    def _arithmetic(self, node: ArithmeticNode, ctx: _Context) -> tuple[str, int]:
+        if isinstance(node, NumberNode):
+            return self.number(node.value), _ATOM if node.value >= 0 else 1
+
+        if isinstance(node, ParameterNode):
+            return ctx.indexed(self.symbols.name[node.name], list(self.schema.parameters[node.name].dims)), _ATOM
+
+        if isinstance(node, VariableNode):
+            return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].foreach)), _ATOM
+
+        if isinstance(node, UnaryOperatorNode):
+            operand = self.arithmetic(node.operand, ctx, need=2)
+            return (f'{self.op("minus")}{operand}' if node.op == '-' else operand), 1
+
+        if isinstance(node, BinaryOperatorNode):
+            return self._binary(node, ctx)
+
+        if isinstance(node, FunctionCallNode):
+            return self._call(node, ctx)
+
+        if isinstance(node, (NameNode, DimensionNode, CoordinateNode)):
+            # A NameNode here means resolution was skipped; a bare dimension or
+            # coordinate in a value position is a language error caught long
+            # before this module runs.
+            msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
+            raise AssertionError(msg)
+
+        assert_never(node)
+
+    def _binary(self, node: BinaryOperatorNode, ctx: _Context) -> tuple[str, int]:
+        if node.op == '/':
+            top = self.arithmetic(node.left, ctx)
+            bottom = self.arithmetic(node.right, ctx)
+            return self.format.fraction(top, bottom), _ATOM
+        if node.op == '**':
+            base = self.arithmetic(node.left, ctx, need=_ATOM)
+            return self.format.power(base, self.arithmetic(node.right, ctx)), _PRECEDENCE['**']
+        precedence = _PRECEDENCE[node.op]
+        left = self.arithmetic(node.left, ctx, need=precedence)
+        # `a - (b - c)` and `a - (b + c)` need the bracket; `a - b*c` does not.
+        right = self.arithmetic(node.right, ctx, need=precedence + (1 if node.op == '-' else 0))
+        names = {'*': 'cdot', '+': 'plus', '-': 'minus'}
+        return self.format.joined([left, right], self.op(names[node.op])), precedence
+
+    def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
+        if node.name in ('roll', 'shift'):
+            dim, amount = next(iter(node.kwargs.items()))
+            assert isinstance(amount, NumberNode)
+            wrap = node.name == 'roll'
+            self.saw_wraparound = self.saw_wraparound or wrap
+            return self._arithmetic(node.args[0], ctx.translated(dim, int(amount.value), wrap=wrap))
+
+        over = node.kwargs['over']
+        assert isinstance(over, DimensionNode)
+        domain = self.membership(over.name)
+        if node.name == 'group_sum':
+            by = node.kwargs['by']
+            assert isinstance(by, CoordinateNode)
+            mapping = self.format.apply(self.format.upright(by.name), self.symbols.index[over.name])
+            domain = f'{domain} {self.op("such_that")} {mapping} {self.op("equal")} {ctx.subscript(by.into)}'
+        return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
+
+    def membership(self, dim: str) -> str:
+        return f'{self.symbols.index[dim]} {self.op("in")} {self.symbols.set[dim]}'
+
+    def reduction_body(self, node: ArithmeticNode, ctx: _Context) -> str:
+        """What sits to the right of a sum, bracketed only where it must be.
+
+        A sum binds everything up to the next ``+`` or ``-`` at its own level,
+        so an additive body needs the bracket and nothing else does —
+        including a nested reduction, which is unambiguous. Going through the
+        precedence rule instead would bracket that too, and a renderer that
+        brackets everything is one nobody trusts to bracket the thing that
+        matters.
+        """
+        additive = isinstance(node, UnaryOperatorNode) or (
+            isinstance(node, BinaryOperatorNode) and node.op in ('+', '-')
+        )
+        return self.arithmetic(node, ctx, need=2 if additive else 0)
+
+    # -- where strings -----------------------------------------------------
+
+    def where(self, node: WhereNode, ctx: _Context, *, need: int = 0) -> str:
+        text, precedence = self._where(node, ctx)
+        return self.format.parenthesise(text) if precedence < need else text
+
+    def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
+        if isinstance(node, BooleanLiteralNode):
+            return self.op('true' if node.value else 'false'), _ATOM
+
+        if isinstance(node, ParameterDefinedNode):
+            dims = list(self.schema.parameters[node.name].dims)
+            return f'{ctx.indexed(self.symbols.name[node.name], dims)} {self.format.prose(" is defined")}', 2
+
+        if isinstance(node, VariableDefinedNode):
+            dims = list(self.schema.variables[node.name].foreach)
+            return f'{ctx.indexed(self.symbols.name[node.name], dims)} {self.format.prose(" exists")}', 2
+
+        if isinstance(node, ParameterComparisonNode):
+            dims = list(self.schema.parameters[node.name].dims)
+            left = ctx.indexed(self.symbols.name[node.name], dims)
+            return f'{left} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+
+        if isinstance(node, DimensionComparisonNode):
+            return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+
+        if isinstance(node, NotNode):
+            return f'{self.op("not")} {self.where(node.operand, ctx, need=2)}', 2
+
+        if isinstance(node, AndNode):
+            sides = [self.where(node.left, ctx, need=1), self.where(node.right, ctx, need=1)]
+            return self.format.joined(sides, self.op('and')), 1
+
+        if isinstance(node, OrNode):
+            sides = [self.where(node.left, ctx, need=1), self.where(node.right, ctx, need=1)]
+            return self.format.joined(sides, self.op('or')), 0
+
+        if isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode)):
+            msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'
+            raise AssertionError(msg)
+
+        assert_never(node)
+
+    def literal(self, value: float | str) -> str:
+        return self.number(value) if isinstance(value, (int, float)) else self.format.prose(str(value))
+
+    def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
+        parts = [self.where(n, ctx, need=1) for n in nodes if n is not None]
+        return self.format.joined(parts, self.op('and')) if parts else ''
+
+    def quantifier(self, dims: list[str], condition: str) -> str:
+        if not dims and not condition:
+            return ''
+        over = self.format.joined([self.membership(d) for d in dims], '')
+        if not condition:
+            return f'{self.op("forall")} {over}'
+        if not over:
+            return f'{self.format.prose("where ")} {condition}'
+        return f'{self.op("forall")} {over} {self.op("such_that")} {condition}'
+
+    # -- declarations ------------------------------------------------------
+
+    def objectives(self) -> list[Line]:
+        lines = []
+        for name, block in self.schema.objectives.items():
+            sense = self.op('minimize' if block.sense == 'minimize' else 'maximize')
+            context = f"objective '{name}'"
+            node = expression_of(block.expression, self.schema, self.namespace, context)
+            assert not isinstance(node, ComparisonNode)
+            ctx = self.context()
+            # An objective sums each term over every dim that term carries
+            # — the reduction is implied by the declaration, so it is
+            # spelled out rather than left for the reader to assume.
+            dims = self._sorted(dims_of(node, self.schema, context))
+            body = self.reduction_body(node, ctx) if dims else self.arithmetic(node, ctx)
+            if dims:
+                domain = self.format.joined([self.membership(d) for d in dims], '')
+                body = self.format.summation(domain, body)
+            lines.append(Line(label=name, left=sense, right=body))
+        return lines
+
+    def constraints(self) -> list[Line]:
+        lines = []
+        for name, block in self.schema.constraints.items():
+            context = f"constraint '{name}'"
+            node = expression_of(block.expression, self.schema, self.namespace, context)
+            if not isinstance(node, ComparisonNode):
+                msg = f'{context}: expected a comparison, got {type(node).__name__}'
+                raise AssertionError(msg)
+            ctx = self.context()
+            condition = self.conjoined(ctx, where_of(block.where, self.namespace, context))
+            lines.append(
+                Line(
+                    label=name,
+                    left=self.arithmetic(node.left, ctx),
+                    right=f'{self.op(_RELATIONS[node.op])} {self.arithmetic(node.right, ctx)}',
+                    condition=self.quantifier(list(block.foreach), condition),
+                )
+            )
+        return lines
+
+    def variables(self) -> list[Line]:
+        lines = []
+        for name, block in self.schema.variables.items():
+            ctx = self.context()
+            symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
+            where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
+            condition = self.quantifier(list(block.foreach), self.conjoined(ctx, where))
+            lower, upper = block.bounds.lower, block.bounds.upper
+
+            if block.binary:
+                left, right = symbol, f'{self.op("in")} {self.op("binary_set")}'
+            else:
+                below, above = lower == float('-inf'), upper == float('inf')
+                if below and above:
+                    domain = self.op('integers' if block.integer else 'reals')
+                    left, right = symbol, f'{self.op("in")} {domain}'
+                elif below:
+                    left, right = symbol, f'{self.op("le")} {self._bound(ctx, upper)}'
+                elif above:
+                    left, right = symbol, f'{self.op("ge")} {self._bound(ctx, lower)}'
+                else:
+                    left = f'{self._bound(ctx, lower)} {self.op("le")} {symbol}'
+                    right = f'{self.op("le")} {self._bound(ctx, upper)}'
+                if block.integer and not (below and above):
+                    right = f'{right}, {symbol} {self.op("in")} {self.op("integers")}'
+            lines.append(Line(label=name, left=left, right=right, condition=condition))
+        return lines
+
+    def _bound(self, ctx: _Context, value: float | str) -> str:
+        if isinstance(value, str):
+            return ctx.indexed(self.symbols.name[value], list(self.schema.parameters[value].dims))
+        return self.number(value)
+
+    def _sorted(self, dims: frozenset[str]) -> list[str]:
+        order = list(self.schema.dimensions)
+        return sorted(dims, key=order.index)
+
+    # -- legend ------------------------------------------------------------
+
+    def glossaries(self) -> list[tuple[str, list[Entry]]]:
+        fmt = self.format
+        sets = [
+            Entry(
+                symbol=self.symbols.set[d],
+                name=f'index {fmt.math(self.symbols.index[d])} --- {fmt.mono(d)}',
+                detail=self._coords(d),
+                description=self.symbols.description.get(d, ''),
+            )
+            for d in self.schema.dimensions
+        ]
+        parameters = [
+            Entry(
+                symbol=self.symbols.name[p],
+                name=fmt.mono(p),
+                detail=self._over(list(block.dims)),
+                description=self.symbols.description.get(p, ''),
+            )
+            for p, block in self.schema.parameters.items()
+        ]
+        variables = [
+            Entry(
+                symbol=self.symbols.name[v],
+                name=fmt.mono(v),
+                detail=self._over(list(block.foreach)),
+                description=self.symbols.description.get(v, ''),
+            )
+            for v, block in self.schema.variables.items()
+        ]
+        return [group for group in (('Sets', sets), ('Parameters', parameters), ('Variables', variables)) if group[1]]
+
+    def _over(self, dims: list[str]) -> str:
+        if not dims:
+            return ' (scalar)'
+        product = self.format.joined([self.symbols.set[d] for d in dims], self.op('times'))
+        return f' over {self.format.math(product)}'
+
+    def _coords(self, dim: str) -> str:
+        coords = self.schema.dimensions[dim].coords
+        if not coords:
+            return ''
+        maps = self.format.joined(
+            [
+                f'{self.format.upright(c)}: {self.symbols.set[dim]} {self.op("maps_to")} {self.symbols.set[target]}'
+                for c, target in coords.items()
+            ],
+            '',
+        )
+        return f' with {self.format.math(maps)}'
+
+    def wraparound_note(self) -> str:
+        cyclic = self.format.math(f't {self.op("cyclic_minus")} k')
+        return (
+            f'{cyclic} denotes cyclic translation: index {self.format.math("t-k")} taken modulo the size of '
+            f'the dimension ({self.format.mono("roll")}). Plain {self.format.math("t-k")} '
+            f'({self.format.mono("shift")}) has no wraparound --- terms translated past the edge are '
+            f'simply absent.'
+        )
