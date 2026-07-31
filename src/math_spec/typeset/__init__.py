@@ -42,8 +42,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from lpspec.api import load_schema
+from lpspec.language.resolution import Namespace
 from lpspec.piecewise import expand_piecewise
-from lpspec.resolution import Namespace
 from lpspec.typeset.latex import LatexFormat
 from lpspec.typeset.markdown import MarkdownFormat
 from lpspec.typeset.symbols import Symbols, SymbolTable
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lpspec.schema import MathSchema
+    from lpspec.language.schema import MathSchema
     from lpspec.typeset.format import Format
 
 __all__ = ['FORMATS', 'SymbolTable', 'to_latex', 'to_markdown', 'to_typst', 'typeset']

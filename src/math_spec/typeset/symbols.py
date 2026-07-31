@@ -18,11 +18,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from lpspec._yaml import read_yaml
 from lpspec.errors import SchemaError, did_you_mean
+from lpspec.language._yaml import read_yaml
 
 if TYPE_CHECKING:
-    from lpspec.schema import MathSchema
+    from lpspec.language.schema import MathSchema
     from lpspec.typeset.format import Format
 
 __all__ = ['SymbolTable', 'Symbols']

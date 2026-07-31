@@ -17,8 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, assert_never
 
-from lpspec.dimensions import dims_of
-from lpspec.expression_parser import (
+from lpspec.language.dimensions import dims_of
+from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
@@ -32,9 +32,8 @@ from lpspec.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from lpspec.resolution import expression_of, where_of
-from lpspec.typeset.format import Entry, Line
-from lpspec.where_parser import (
+from lpspec.language.resolution import expression_of, where_of
+from lpspec.language.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -47,10 +46,11 @@ from lpspec.where_parser import (
     VariableDefinedNode,
     WhereNode,
 )
+from lpspec.typeset.format import Entry, Line
 
 if TYPE_CHECKING:
-    from lpspec.resolution import Namespace
-    from lpspec.schema import MathSchema
+    from lpspec.language.resolution import Namespace
+    from lpspec.language.schema import MathSchema
     from lpspec.typeset.format import Format
     from lpspec.typeset.symbols import Symbols
 
