@@ -24,6 +24,7 @@ from lpspec.expression_parser import (
     ComparisonNode,
     CoordinateNode,
     DimensionNode,
+    EdgeNode,
     FunctionCallNode,
     NameNode,
     NumberNode,
@@ -67,7 +68,7 @@ _PREDICATES = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>'
 class _Context:
     """What a subscript means at this point in the tree.
 
-    ``offsets`` is how ``roll``/``shift`` are rendered: neither emits an
+    ``offsets`` is how ``shift`` is rendered: neither emits an
     operator of its own, they re-index their operand, so the translation shows
     up at the *leaves* underneath — which is exactly what the plan's
     ``Translate`` node says it does.
@@ -97,7 +98,7 @@ class _Context:
 class Walk:
     """Walks a validated schema, emitting :class:`Line`s in one format.
 
-    Stateful only in what it has *noticed* — whether any ``roll`` appeared,
+    Stateful only in what it has *noticed* — whether any ``edge=wrap`` appeared,
     which the legend needs in order to explain cyclic translation.
     """
 
@@ -147,7 +148,7 @@ class Walk:
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
 
-        if isinstance(node, (NameNode, DimensionNode, CoordinateNode)):
+        if isinstance(node, (NameNode, DimensionNode, CoordinateNode, EdgeNode)):
             # A NameNode here means resolution was skipped; a bare dimension or
             # coordinate in a value position is a language error caught long
             # before this module runs.
@@ -172,12 +173,17 @@ class Walk:
         return self.format.joined([left, right], self.op(names[node.op])), precedence
 
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
-        if node.name in ('roll', 'shift'):
-            dim, amount = next(iter(node.kwargs.items()))
+        if node.name == 'shift':
+            dim = node.kwargs['over']
+            amount = node.kwargs['by']
+            assert isinstance(dim, DimensionNode)
             assert isinstance(amount, NumberNode)
-            wrap = node.name == 'roll'
+            # One node, so the render reads the edge policy rather than the
+            # spelling: only `edge=wrap` is cyclic, and a numeric edge is a
+            # fill that leaves the translation itself acyclic.
+            wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
             self.saw_wraparound = self.saw_wraparound or wrap
-            return self._arithmetic(node.args[0], ctx.translated(dim, int(amount.value), wrap=wrap))
+            return self._arithmetic(node.args[0], ctx.translated(dim.name, int(amount.value), wrap=wrap))
 
         over = node.kwargs['over']
         assert isinstance(over, DimensionNode)
