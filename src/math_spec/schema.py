@@ -244,7 +244,7 @@ class PiecewiseBlock(_StrictBlock):
     non-``"=="``, and only with exactly two links).
 
     Expanded (before building) into plain variables and constraints via the
-    λ convex-combination method — see ``lpspec.piecewise``.
+    λ convex-combination method — see ``lpspec.language.piecewise``.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'

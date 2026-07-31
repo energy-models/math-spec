@@ -20,10 +20,12 @@ load time if its body references something that does not exist.
 from __future__ import annotations
 
 import datetime
+from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Any, assert_never
 
 from lpspec.errors import SchemaError
+from lpspec.language._yaml import read_yaml
 from lpspec.language.dimensions import check_schema
 from lpspec.language.expansion import expand, parse_and_expand, parse_template
 from lpspec.language.expression_parser import (
@@ -41,13 +43,49 @@ from lpspec.language.expression_parser import (
     VariableNode,
 )
 from lpspec.language.helpers import BUILTINS, unknown_helper_message
+from lpspec.language.piecewise import expand_piecewise
 from lpspec.language.resolution import Namespace, resolve_expression, resolve_where
+from lpspec.language.schema import MathSchema
 from lpspec.language.where_parser import parse_where
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from lpspec.language.schema import MathSchema
+
+def load_schema(model: str | Path | dict[str, Any] | MathSchema) -> MathSchema:
+    """Load and validate a model definition — the language's front door.
+
+    Accepts a YAML file path, an already-parsed dict, or a ``MathSchema``.
+    Validation is complete at this point: schema shape, every expression and
+    where string, every named expression and macro template — and every
+    declaration a formulation emits, since those are language too. That is why
+    expansion runs *before* validation here, the order the linopy lane already
+    uses: validating the file as written checks a strict subset of the model
+    that gets built.
+
+    Returns the schema *as the file declares it*, with ``piecewise:`` blocks
+    intact — expansion is idempotent and each lane redoes it, while the
+    curvature data guard needs the blocks themselves
+    (:func:`lpspec.sources.validate_piecewise_data`).
+
+    This is the whole of what a consumer that binds no data needs, which is
+    why it lives in ``language/`` and not in the runner: ``typeset`` reaches
+    it without reaching an engine. ``lpspec.api`` re-exports it.
+    """
+    if isinstance(model, (list, tuple)):
+        msg = (
+            'composing multiple YAML files into one program is not implemented '
+            'yet — track https://github.com/FBumann/lpspec/issues/30'
+        )
+        raise NotImplementedError(msg)
+    if isinstance(model, MathSchema):
+        schema = model
+    elif isinstance(model, dict):
+        schema = MathSchema(**model)
+    else:
+        schema = MathSchema(**read_yaml(Path(model)))
+    validate_expressions(expand_piecewise(schema))
+    return schema
 
 
 def validate_expressions(

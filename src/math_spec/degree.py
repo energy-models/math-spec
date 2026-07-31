@@ -16,9 +16,13 @@ eager lane had to keep a hand-copy of the ``**`` message and let linopy raise
 its own error for ``x * y``, so one language rule had two spellings and one
 lane's version was untested.
 
-The check is deliberately narrow: it decides a *binary operator node*, which
-is the only place degree can be lost. Everything else either preserves degree
-(``+``, unary ``-``, a reduction) or cannot introduce a variable at all.
+The decision is deliberately narrow: :func:`check_binary` decides a *binary
+operator node*, which is the only place degree can be lost. Everything else
+either preserves degree (``+``, unary ``-``, a reduction) or cannot introduce
+a variable at all. :func:`check_expression` is that decision over a whole
+expression, for a caller that has one in hand rather than a descent to hang
+it on — the formulations, which must judge a link *before* there is a
+declaration to name in the error.
 """
 
 from __future__ import annotations
@@ -107,3 +111,28 @@ def check_binary(node: BinaryOperatorNode, context: str | None = None) -> None:
             f'{where}the divisor contains variables, which is not affine. '
             f'Divide by a parameter, or precompute the reciprocal as one.'
         )
+
+
+def check_expression(node: ArithmeticNode, context: str | None = None) -> None:
+    """Apply :func:`check_binary` everywhere in *node*.
+
+    Lowering asks per node as it descends, because it is already walking. A
+    caller that only wants the verdict on an expression it holds asks here,
+    and gets the identical sentence — which is the point: ``piecewise:``
+    judges its link expressions this way so that ``p * p`` is refused against
+    *the link the user wrote*, not against ``curve_link0``, the declaration
+    the expansion went on to generate.
+
+    Degree only, deliberately. What a plan node can represent is a different
+    question and a consuming lane's to ask; a formulation runs in lanes that
+    build no plan at all.
+    """
+    if isinstance(node, BinaryOperatorNode):
+        check_binary(node, context)
+        check_expression(node.left, context)
+        check_expression(node.right, context)
+    elif isinstance(node, UnaryOperatorNode):
+        check_expression(node.operand, context)
+    elif isinstance(node, FunctionCallNode):
+        for arg in (*node.args, *node.kwargs.values()):
+            check_expression(arg, context)

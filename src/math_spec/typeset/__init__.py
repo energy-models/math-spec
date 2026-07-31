@@ -41,9 +41,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from lpspec.api import load_schema
+from lpspec.language.piecewise import expand_piecewise
 from lpspec.language.resolution import Namespace
-from lpspec.piecewise import expand_piecewise
+from lpspec.language.validation import load_schema
 from lpspec.typeset.latex import LatexFormat
 from lpspec.typeset.markdown import MarkdownFormat
 from lpspec.typeset.symbols import Symbols, SymbolTable
