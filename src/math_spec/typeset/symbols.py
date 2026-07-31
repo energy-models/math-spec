@@ -12,7 +12,6 @@ decides *which* symbol a name gets, never how that symbol is written.
 
 from __future__ import annotations
 
-import difflib
 import string
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -20,7 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from lpspec._yaml import read_yaml
-from lpspec.errors import SchemaError
+from lpspec.errors import SchemaError, did_you_mean
 
 if TYPE_CHECKING:
     from lpspec.schema import MathSchema
@@ -194,6 +193,4 @@ class SymbolTable:
 
 
 def _unknown_entry(name: str, section: str, known: set[str]) -> str:
-    near = difflib.get_close_matches(name, sorted(known), n=1, cutoff=0.6)
-    fix = f"Did you mean '{near[0]}'?" if near else f'Declared: {", ".join(sorted(known)) or "nothing"}.'
-    return f"symbol table: '{name}' under {section}: is not declared by the model. {fix}"
+    return f"symbol table: '{name}' under {section}: is not declared by the model. {did_you_mean(name, known)}"
