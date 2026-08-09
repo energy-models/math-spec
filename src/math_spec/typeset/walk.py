@@ -78,12 +78,22 @@ class _Context:
 
     walk: Walk
     offsets: dict[str, tuple[int, bool]] = field(default_factory=dict)
+    #: dim -> the subscript that replaces its own index. ``at`` re-indexes its
+    #: operand exactly as ``shift`` does, so it shows up at the *leaves* too —
+    #: but through a coordinate rather than an offset, so it renders as an
+    #: application, ``period(t)``, and not as arithmetic on the index.
+    pullbacks: dict[str, str] = field(default_factory=dict)
 
     def translated(self, dim: str, by: int, *, wrap: bool) -> _Context:
         previous, previous_wrap = self.offsets.get(dim, (0, wrap))
-        return _Context(self.walk, {**self.offsets, dim: (previous + by, wrap or previous_wrap)})
+        return _Context(self.walk, {**self.offsets, dim: (previous + by, wrap or previous_wrap)}, self.pullbacks)
+
+    def pulled_back(self, dim: str, rendered: str) -> _Context:
+        return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered})
 
     def subscript(self, dim: str) -> str:
+        if dim in self.pullbacks:
+            return self.pullbacks[dim]
         base = self.walk.symbols.index[dim]
         by, wrap = self.offsets.get(dim, (0, False))
         if by == 0:
@@ -186,6 +196,18 @@ class Walk:
             wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
             self.saw_wraparound = self.saw_wraparound or wrap
             return self._arithmetic(node.args[0], ctx.translated(dim.name, int(amount.value), wrap=wrap))
+
+        if node.name == 'at':
+            onto = node.kwargs['onto']
+            assert isinstance(onto, DimensionNode)
+            # Not a reduction: it re-indexes its operand, so like `shift` it
+            # emits no operator of its own and the substitution appears at the
+            # leaves. Falling through to the summation below rendered it as a
+            # sum over the fine dim — the wrong equation, silently.
+            by = node.kwargs['by']
+            assert isinstance(by, CoordinateNode)
+            mapping = self.format.apply(self.format.upright(by.name), ctx.subscript(onto.name))
+            return self._arithmetic(node.args[0], ctx.pulled_back(by.into, mapping))
 
         over = node.kwargs['over']
         assert isinstance(over, DimensionNode)

@@ -75,6 +75,15 @@ BUILTINS: dict[str, Builtin] = {
         dimension_kwargs=('over',),
         coordinate_kwargs=('by',),
     ),
+    'at': Builtin(
+        1,
+        'at(<expr>, onto=<dim>, by=<coord>)',
+        # `onto`, not `over`: everywhere else `over=` is the dim a helper
+        # *consumes*, and this one produces it. One keyword meaning two
+        # directions would be worse than two keywords meaning one each.
+        dimension_kwargs=('onto',),
+        coordinate_kwargs=('by',),
+    ),
     'shift': Builtin(
         1,
         'shift(<expr>, over=<dim>, by=<n>[, edge=wrap|<number>])',

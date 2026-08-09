@@ -249,8 +249,12 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
             elif key in builtin.coordinate_kwargs:
                 # scoped to the sibling over= dim, so that kwarg has to be read
                 # here rather than resolved on its own
+                # scoped to the sibling dimension kwarg, whichever the helper
+                # names it — `over=` where the dim is consumed, `onto=` where
+                # it is produced
+                sibling = builtin.dimension_kwargs[0] if builtin.dimension_kwargs else 'over'
                 kwargs[key] = _resolve_coordinate_ref(
-                    value, node.kwargs.get('over'), ns, context, node.name, key, errors
+                    value, node.kwargs.get(sibling), ns, context, node.name, key, errors
                 )
             else:
                 kwargs[key] = _resolve_arith(value, ns, context, errors)

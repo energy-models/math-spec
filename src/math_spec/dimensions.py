@@ -174,6 +174,32 @@ def _dims_call(
             )
         return (inner - {over.name}) | {by.into}
 
+    if node.name == 'at':
+        inner = _dims(node.args[0], schema, context, external)
+        over = node.kwargs['onto']
+        by = node.kwargs['by']
+        assert isinstance(over, DimensionNode)
+        assert isinstance(by, CoordinateNode)
+        # The adjoint of group_sum, and deliberately the same two arguments:
+        # `(over, by)` names one mapping table, and which way it is walked is
+        # the helper. group_sum consumes the dim that *declares* the
+        # coordinate; `at` consumes the dim it *targets*.
+        if by.into not in inner:
+            raise DimensionError(
+                f'{context}: at(onto={over.name}, by={by.name}) reads through '
+                f"'{by.into}', which the expression does not carry (dims "
+                f'{sorted(inner)}). A pullback needs the coarse dim to read *from* — '
+                f'group_sum is the direction that produces it.'
+            )
+        if over.name in inner - {by.into}:
+            raise DimensionError(
+                f'{context}: at(onto={over.name}, by={by.name}) places terms onto '
+                f"'{over.name}', which the expression already carries ({sorted(inner)}). "
+                f"The result would need '{over.name}' twice — once as the operand's own "
+                f'dim and once as the dim it is spread onto. Sum over one of the two first.'
+            )
+        return (inner - {by.into}) | {over.name}
+
     if node.name == 'shift':
         inner = _dims(node.args[0], schema, context, external)
         over = node.kwargs['over']
