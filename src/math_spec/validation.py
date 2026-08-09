@@ -313,7 +313,7 @@ def _check_template_names(
             errors.append(f'{context}: {unknown_helper_message(node.name)}')
         for arg in node.args:
             _check_template_names(arg, template, context, ns, formals, errors)
-        # a formal may be bound to a dimension at the call site (ROADMAP 5c)
+        # a formal may be bound to a dimension at the call site
         known_dims = ns.dimensions | formals
         for kwarg in builtin.dimension_kwargs if builtin else ():
             value = node.kwargs.get(kwarg)
