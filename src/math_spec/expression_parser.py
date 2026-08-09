@@ -82,8 +82,21 @@ class CoordinateNode:
 
 
 @dataclass
+class KeywordNode:
+    """A quoted closed keyword in a kwarg value — ``shift(..., edge='wrap')``.
+
+    Unresolved on purpose: which keywords a kwarg accepts is the helper's
+    business, so this only records *that* the author wrote a literal rather
+    than a name. ``resolution.py`` turns it into the typed node the kwarg
+    wants, or reports it as not one of that kwarg's keywords.
+    """
+
+    value: str
+
+
+@dataclass
 class EdgeNode:
-    """A resolved edge policy for ``shift(x, over=d, by=n, edge=wrap)``.
+    """A resolved edge policy for ``shift(x, over=d, by=n, edge='wrap')``.
 
     Only legal as the value of ``shift``'s ``edge=`` kwarg. Like
     :class:`DimensionNode` and :class:`CoordinateNode` this names neither data
@@ -132,6 +145,7 @@ ArithmeticNode = (
     | DimensionNode
     | CoordinateNode
     | EdgeNode
+    | KeywordNode
     | UnaryOperatorNode
     | BinaryOperatorNode
     | FunctionCallNode
@@ -171,7 +185,12 @@ def _build_grammar() -> pp.ParserElement:
 
     name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
 
-    kwarg = (name + pp.Suppress('=') + (arith | name)).set_parse_action(lambda t: (t[0], t[1]))
+    # A quoted value is a **closed keyword**, never a model name — the same rule
+    # a `where` uses, where quoting says "literal, not something to resolve".
+    # Legal only here, in a kwarg value: a string has no meaning in arithmetic,
+    # so allowing it there would only create an error to report later.
+    quoted = (pp.QuotedString("'") | pp.QuotedString('"')).set_parse_action(lambda t: KeywordNode(str(t[0])))
+    kwarg = (name + pp.Suppress('=') + (quoted | arith | name)).set_parse_action(lambda t: (t[0], t[1]))
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)

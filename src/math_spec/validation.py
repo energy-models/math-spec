@@ -36,6 +36,7 @@ from lpspec.language.expression_parser import (
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
+    KeywordNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -277,6 +278,9 @@ def _check_template_names(
     """
     if isinstance(node, (NumberNode, VariableNode, ParameterNode, DimensionNode, CoordinateNode, EdgeNode)):
         return
+
+    if isinstance(node, KeywordNode):
+        return  # a closed keyword names nothing, so there is nothing to check it against
 
     if isinstance(node, NameNode):
         if node.name not in formals and ns.kind(node.name) is None:

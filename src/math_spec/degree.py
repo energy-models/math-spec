@@ -39,6 +39,7 @@ from lpspec.language.expression_parser import (
     EdgeNode,
     ExpressionNode,
     FunctionCallNode,
+    KeywordNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -65,6 +66,12 @@ def carries_variable(node: ExpressionNode) -> bool:
         return True
     if isinstance(node, (NumberNode, ParameterNode, DimensionNode, CoordinateNode, EdgeNode)):
         return False
+    if isinstance(node, KeywordNode):
+        msg = (
+            f'KeywordNode({node.value!r}) reached the degree check. A quoted keyword is '
+            f'consumed by its kwarg during resolution (docs/ARCHITECTURE.md hard rule 1).'
+        )
+        raise AssertionError(msg)
     if isinstance(node, NameNode):
         msg = (
             f'NameNode({node.name!r}) reached the degree check. Expressions must go '

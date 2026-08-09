@@ -37,7 +37,7 @@ class Builtin:
     coordinate carried by the sibling ``over=`` dimension
     (``sum(x, over=line, group_by=to)``), so they are only meaningful together;
     ``edge_kwargs`` take a closed keyword or a number
-    (``shift(x, over=t, by=1, edge=wrap)``). ``usage`` is the one wording every
+    (``shift(x, over=t, by=1, edge='wrap')``). ``usage`` is the one wording every
     lane quotes back.
 
     The remaining two are ordinary values — a number, never a name that has to
@@ -92,7 +92,7 @@ BUILTINS: dict[str, Builtin] = {
     ),
     'shift': Builtin(
         1,
-        'shift(<expr>, over=<dim>, by=<n>[, edge=wrap|<number>])',
+        "shift(<expr>, over=<dim>, by=<n>[, edge='wrap'|<number>])",
         dimension_kwargs=('over',),
         required_value_kwargs=('by',),
         edge_kwargs=('edge',),
@@ -110,7 +110,7 @@ def edge_error(name: str, given: str) -> str:
     """Why an ``edge=`` value is not one the language has."""
     return (
         f'{name}(edge={given}) is not an edge policy.\n'
-        f"Write 'edge={EDGE_WRAP}' for a cyclic translation, a number for the "
+        f"Write edge='{EDGE_WRAP}' for a cyclic translation, a number for the "
         f'value the vacated positions contribute, or omit it and they are '
         f'absent — which drops the row.'
     )

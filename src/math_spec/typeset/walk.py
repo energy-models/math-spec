@@ -26,6 +26,7 @@ from lpspec.language.expression_parser import (
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
+    KeywordNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -110,7 +111,7 @@ class _Context:
 class Walk:
     """Walks a validated schema, emitting :class:`Line`s in one format.
 
-    Stateful only in what it has *noticed* — whether any ``edge=wrap`` appeared,
+    Stateful only in what it has *noticed* — whether any ``edge='wrap'`` appeared,
     which the legend needs in order to explain cyclic translation.
     """
 
@@ -160,7 +161,7 @@ class Walk:
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
 
-        if isinstance(node, (NameNode, DimensionNode, CoordinateNode, EdgeNode)):
+        if isinstance(node, (NameNode, KeywordNode, DimensionNode, CoordinateNode, EdgeNode)):
             # A NameNode here means resolution was skipped; a bare dimension or
             # coordinate in a value position is a language error caught long
             # before this module runs.
@@ -191,7 +192,7 @@ class Walk:
             assert isinstance(dim, DimensionNode)
             assert isinstance(amount, NumberNode)
             # One node, so the render reads the edge policy rather than the
-            # spelling: only `edge=wrap` is cyclic, and a numeric edge is a
+            # spelling: only `edge='wrap'` is cyclic, and a numeric edge is a
             # fill that leaves the translation itself acyclic.
             wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
             self.saw_wraparound = self.saw_wraparound or wrap

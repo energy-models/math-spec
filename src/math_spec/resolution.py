@@ -32,6 +32,7 @@ from lpspec.language.expression_parser import (
     EdgeNode,
     ExpressionNode,
     FunctionCallNode,
+    KeywordNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -260,6 +261,17 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
                 kwargs[key] = _resolve_arith(value, ns, context, errors)
         return FunctionCallNode(node.name, args, kwargs)
 
+    if isinstance(node, KeywordNode):
+        # Unreachable from a file: the grammar only admits a quoted value in a
+        # kwarg position, and the branches above consume it there. Kept for a
+        # hand-built AST, and because the union must be exhausted.
+        errors.append(
+            f'{context}: {node.value!r} is a quoted keyword, which is only legal as a '
+            f"helper kwarg value such as shift(..., edge='wrap'). In an expression, quote "
+            f'nothing — names resolve and numbers are written bare.'
+        )
+        return node
+
     assert_never(node)
 
 
@@ -286,9 +298,23 @@ def _resolve_edge(
     """
     if isinstance(value, EdgeNode):
         return value
-    if isinstance(value, NameNode):
-        if value.name == EDGE_WRAP:
+    if isinstance(value, KeywordNode):
+        if value.value == EDGE_WRAP:
             return EdgeNode(EDGE_WRAP)
+        errors.append(f'{context}: {edge_error(helper, repr(value.value))}')
+        return value
+    if isinstance(value, NameNode):
+        # A bare word here reads as a name — `over=wrap` and `edge='wrap'` would
+        # be the same token meaning two things in one call. Quoting is what the
+        # language uses to say "literal, not a name" (SPEC §6.1), so the one
+        # keyword this kwarg takes has to be written that way.
+        if value.name == EDGE_WRAP:
+            errors.append(
+                f'{context}: {helper}(edge={EDGE_WRAP}) is a bare name where a keyword belongs. '
+                f"Write edge='{EDGE_WRAP}' — quoted, because a bare word in a kwarg value is a "
+                f'name to resolve and this one is a literal.'
+            )
+            return value
         errors.append(f'{context}: {edge_error(helper, value.name)}')
         return value
     return value

@@ -49,6 +49,7 @@ from lpspec.language.expression_parser import (
     EdgeNode,
     ExpressionNode,
     FunctionCallNode,
+    KeywordNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -110,7 +111,7 @@ def _dims(
             return frozenset(schema.variables[node.name].foreach)
         return frozenset(external[node.name])  # a variable already on the model
 
-    if isinstance(node, (NameNode, DimensionNode, CoordinateNode, EdgeNode)):
+    if isinstance(node, (NameNode, KeywordNode, DimensionNode, CoordinateNode, EdgeNode)):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 

@@ -49,6 +49,7 @@ from lpspec.language.expression_parser import (
     EdgeNode,
     ExpressionNode,
     FunctionCallNode,
+    KeywordNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -116,7 +117,8 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
     the other four cases is how the two drift apart.
     """
     if isinstance(
-        node, NumberNode | NameNode | VariableNode | ParameterNode | DimensionNode | CoordinateNode | EdgeNode
+        node,
+        NumberNode | NameNode | VariableNode | ParameterNode | DimensionNode | CoordinateNode | EdgeNode | KeywordNode,
     ):
         return node
     if isinstance(node, UnaryOperatorNode):
