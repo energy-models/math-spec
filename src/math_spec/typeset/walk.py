@@ -49,6 +49,8 @@ from lpspec.language.where_parser import (
 from lpspec.typeset.format import Entry, Line
 
 if TYPE_CHECKING:
+    import datetime
+
     from lpspec.language.resolution import Namespace
     from lpspec.language.schema import MathSchema
     from lpspec.typeset.format import Format
@@ -256,7 +258,7 @@ class Walk:
 
         assert_never(node)
 
-    def literal(self, value: float | str) -> str:
+    def literal(self, value: float | str | datetime.date) -> str:
         return self.number(value) if isinstance(value, (int, float)) else self.format.prose(str(value))
 
     def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:

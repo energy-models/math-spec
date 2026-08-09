@@ -19,6 +19,7 @@ import pyparsing as pp
 from lpspec.errors import SchemaError
 
 if TYPE_CHECKING:
+    import datetime
     from collections.abc import Callable
 
 PredicateOperator = Literal['<=', '>=', '==', '!=', '<', '>']
@@ -47,6 +48,11 @@ class UnresolvedComparisonNode:
     name: str
     op: PredicateOperator
     value: float | str
+    #: Whether the right-hand side arrived in quotes. A bare word is ambiguous
+    #: — it may name a declaration — and resolution refuses it for that reason;
+    #: a quoted one is unambiguously a label, which is the only way to write
+    #: ``combined-cycle`` or a date. Consumed by resolution, never lowered.
+    quoted: bool = False
 
 
 @dataclass
@@ -83,7 +89,7 @@ class DimensionComparisonNode:
 
     name: str
     op: PredicateOperator
-    value: float | str
+    value: float | str | datetime.date
 
 
 @dataclass
@@ -126,6 +132,23 @@ WhereNode = (
 # ---------------------------------------------------------------------------
 
 
+class _Quoted(str):
+    """A right-hand side that arrived in quotes.
+
+    A ``str`` subclass rather than a wrapper so pyparsing's own machinery keeps
+    working on it. It lives between the grammar and the comparison's parse
+    action and no further — :class:`UnresolvedComparisonNode` records the fact
+    as a plain flag, so nothing downstream has to know this type exists.
+    """
+
+    __slots__ = ()
+
+
+def _bare(value: float | str) -> float | str:
+    """The literal without the quoted marker, so equality is by value."""
+    return str(value) if isinstance(value, _Quoted) else value
+
+
 def _build_where_grammar() -> pp.ParserElement:
     """Build and return the pyparsing grammar for where strings."""
     where_expr = pp.Forward()
@@ -140,9 +163,17 @@ def _build_where_grammar() -> pp.ParserElement:
 
     name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
 
+    # Either quote, because YAML already owns one of them: a where lives inside
+    # a YAML scalar, so `where: "generator == 'wind'"` is the spelling that
+    # needs no escaping, and the double-quoted form is there for the file that
+    # quoted the other way round.
+    quoted = (pp.QuotedString("'", esc_char='\\') | pp.QuotedString('"', esc_char='\\')).set_parse_action(
+        lambda t: _Quoted(t[0])
+    )
+
     comparator = pp.one_of('<= >= == != < >')
-    comparison = (name + comparator + (number | name)).set_parse_action(
-        lambda t: UnresolvedComparisonNode(t[0], t[1], t[2])
+    comparison = (name + comparator + (number | quoted | name)).set_parse_action(
+        lambda t: UnresolvedComparisonNode(t[0], t[1], _bare(t[2]), quoted=isinstance(t[2], _Quoted))
     )
     # a bare name is an existence check
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))

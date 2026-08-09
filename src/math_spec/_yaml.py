@@ -14,8 +14,12 @@ can see them, so both are fixed here:
 
 Two further 1.1 coercions survive on purpose — the implicit timestamp
 (``2024-01-01`` → ``date``) and sexagesimal ints (``12:30`` → ``750``). Both
-interact with the ``dtype: datetime`` the schema accepts and does not yet
-implement, so they belong to the dtype guard in #65 rather than here.
+are load errors where they are wrong rather than problems here: a coerced
+coordinate is caught against its declared ``dtype`` (``validation.py``), and so
+is a literal on the other side of a ``where`` comparison
+(``resolution.py``). ``dtype: datetime`` is implemented — a label needs only an
+order and equality, and nothing does arithmetic on a coordinate — so the
+timestamp coercion is the *useful* reading here, not a hazard to route around.
 
 The output is plain ``dict``/``str``: no loader wrapper reaches the schema,
 the AST, the plan, or the engine.

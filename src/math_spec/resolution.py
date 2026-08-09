@@ -17,6 +17,8 @@ formals are the one scope, and may not collide with a declared dimension.
 
 from __future__ import annotations
 
+import datetime
+import re
 from typing import TYPE_CHECKING, assert_never
 
 from lpspec.errors import LanguageError
@@ -65,7 +67,7 @@ class Namespace:
     walk through several stores.
     """
 
-    __slots__ = ('coordinates', 'dimensions', 'parameters', 'variables')
+    __slots__ = ('coordinates', 'dimensions', 'dtypes', 'parameters', 'variables')
 
     def __init__(
         self,
@@ -73,10 +75,18 @@ class Namespace:
         parameters: Iterable[str],
         dimensions: Iterable[str],
         coordinates: Mapping[str, Mapping[str, str]] | None = None,
+        dtypes: Mapping[str, str] | None = None,
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
         self.dimensions = frozenset(dimensions)
+        #: name -> declared dtype, for dimensions and parameters alike. A where
+        #: comparison is the one place a *literal* meets a declared type, and
+        #: comparing the wrong one is silent: polars reads a datetime against
+        #: an integer as an epoch offset and drops rows, and row absence is the
+        #: structural zero. Empty when a caller builds a namespace by hand,
+        #: which only widens what is accepted.
+        self.dtypes: dict[str, str] = dict(dtypes or {})
         #: dim -> {coordinate name: target dim}. Scoped, so it is not part of
         #: :meth:`kind` — a coordinate name is only meaningful under its dim.
         self.coordinates: dict[str, dict[str, str]] = {d: dict(c) for d, c in (coordinates or {}).items()}
@@ -95,6 +105,10 @@ class Namespace:
             schema.parameters,
             schema.dimensions,
             {d: dd.coords for d, dd in schema.dimensions.items()},
+            {
+                **{p: pd.dtype for p, pd in schema.parameters.items()},
+                **{d: dd.dtype for d, dd in schema.dimensions.items()},
+            },
         )
 
     def kind(self, name: str) -> str | None:
@@ -358,6 +372,72 @@ def resolve_where(
     return None if len(errors) > before else resolved
 
 
+#: An ISO literal carrying a time-of-day, which decides date vs datetime.
+_HAS_TIME = re.compile(r'[T ]\d')
+
+
+def _typed_literal(
+    node: UnresolvedComparisonNode,
+    dtype: str | None,
+    context: str,
+    errors: list[str],
+) -> float | str | datetime.date | None:
+    """The comparison's literal, checked against the declared dtype.
+
+    A where comparison is the one place a literal meets a declared type, and
+    getting it wrong is **silent**: polars compares a datetime column against an
+    integer as an offset from the epoch, so ``snapshot > 0`` quietly means
+    *"after 1970-01-01"* and drops every earlier coordinate. Row absence is the
+    structural zero, so the model then solves a smaller problem without a word
+    (#460). This is the guard ``_check_dimension_values`` already applies to a
+    dimension's declared ``values:``, one construct over.
+
+    Returns ``None`` when it has recorded an error, so the caller leaves the
+    node unresolved rather than lowering something it could not type.
+    """
+    if dtype is None:  # a namespace built by hand declares no types
+        return node.value
+    value = node.value
+    text = isinstance(value, str)
+
+    if dtype == 'datetime':
+        if not text:
+            errors.append(
+                f"{context}: '{node.name}' is a datetime dimension, so comparing it to "
+                f'{value!r} compares against the epoch — {node.name} > 0 means "after '
+                f'1970-01-01", not what it looks like. Quote an ISO date instead: '
+                f"{node.name} {node.op} '2030-01-01'."
+            )
+            return None
+        try:
+            return (
+                datetime.datetime.fromisoformat(str(value))
+                if _HAS_TIME.search(str(value))
+                else datetime.date.fromisoformat(str(value))
+            )
+        except ValueError:
+            errors.append(
+                f"{context}: '{node.name}' is a datetime dimension and {value!r} is not an "
+                f"ISO date. Write '2030-01-01' or '2030-01-01T06:00'."
+            )
+            return None
+
+    if dtype == 'str' and not text:
+        errors.append(
+            f"{context}: '{node.name}' has dtype 'str', so comparing it to the number "
+            f'{value!r} matches no label. Quote it if it is one: {node.name} {node.op} '
+            f"'{value:g}'."
+        )
+        return None
+    if dtype in ('int', 'float', 'bool') and text:
+        errors.append(
+            f"{context}: '{node.name}' has dtype '{dtype}', so comparing it to the string "
+            f'{value!r} matches nothing. Drop the quotes if it is a number.'
+        )
+        return None
+    return value
+
+
 def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str, kind: str) -> str:
     """Why the right-hand side of a where-comparison may not name a declaration.
 
@@ -419,14 +499,25 @@ def _resolve_where(
 
     if isinstance(node, UnresolvedComparisonNode):
         value = node.value
-        # The grammar has no string quoting, so a bare-name RHS is ambiguous;
-        # resolving it like any other name keeps the meaning declaration-independent.
-        if isinstance(value, str) and (rhs_kind := ns.kind(value)) is not None:
+        # A *bare* name on the right is ambiguous — it may name a declaration —
+        # and is refused for that reason. Quoting is what says "label, not
+        # name", so a quoted one skips the check rather than colliding with it.
+        if not node.quoted and isinstance(value, str) and (rhs_kind := ns.kind(value)) is not None:
             errors.append(_declared_rhs_error(context, node, value, rhs_kind))
             return node
 
-        match ns.kind(node.name):
+        kind = ns.kind(node.name)
+        if kind in ('parameter', 'dimension'):
+            typed = _typed_literal(node, ns.dtypes.get(node.name), context, errors)
+            if typed is None:
+                return node
+            value = typed
+
+        match kind:
             case 'parameter':
+                # `_DTYPE_TYPES` gives a parameter float/int/bool/str and never
+                # datetime, so the date branch above cannot have fired here.
+                assert not isinstance(value, datetime.date)
                 return ParameterComparisonNode(node.name, node.op, value)
             case 'dimension':
                 return DimensionComparisonNode(node.name, node.op, value)
