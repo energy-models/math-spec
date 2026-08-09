@@ -212,8 +212,7 @@ class Walk:
         over = node.kwargs['over']
         assert isinstance(over, DimensionNode)
         domain = self.membership(over.name)
-        if node.name == 'group_sum':
-            by = node.kwargs['by']
+        if (by := node.kwargs.get('group_by')) is not None:
             assert isinstance(by, CoordinateNode)
             mapping = self.format.apply(self.format.upright(by.name), self.symbols.index[over.name])
             domain = f'{domain} {self.op("such_that")} {mapping} {self.op("equal")} {ctx.subscript(by.into)}'

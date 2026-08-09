@@ -35,7 +35,7 @@ class Builtin:
     resolution turns its value into. ``dimension_kwargs`` name a dimension in
     the *value* (``sum(x, over=generator)``); ``coordinate_kwargs`` name a
     coordinate carried by the sibling ``over=`` dimension
-    (``group_sum(x, over=line, by=to)``), so they are only meaningful together;
+    (``sum(x, over=line, group_by=to)``), so they are only meaningful together;
     ``edge_kwargs`` take a closed keyword or a number
     (``shift(x, over=t, by=1, edge=wrap)``). ``usage`` is the one wording every
     lane quotes back.
@@ -50,6 +50,10 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     coordinate_kwargs: tuple[str, ...] = ()
+    #: A coordinate kwarg the call *may* carry. ``sum`` is one helper whose
+    #: result shape depends on whether it is there: absent, the dim is reduced
+    #: away; present, it is reduced into the dim the coordinate targets.
+    optional_coordinate_kwargs: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
     value_kwargs: tuple[str, ...] = ()
@@ -64,16 +68,18 @@ class Builtin:
     @property
     def optional(self) -> frozenset[str]:
         """Every keyword the call may carry but need not."""
-        return frozenset(self.edge_kwargs) | frozenset(self.value_kwargs)
+        return frozenset(self.edge_kwargs) | frozenset(self.value_kwargs) | frozenset(self.optional_coordinate_kwargs)
 
 
 BUILTINS: dict[str, Builtin] = {
-    'sum': Builtin(1, 'sum(<expr>, over=<dim>)', dimension_kwargs=('over',)),
-    'group_sum': Builtin(
+    'sum': Builtin(
         1,
-        'group_sum(<expr>, over=<dim>, by=<coord>)',
+        'sum(<expr>, over=<dim>[, group_by=<coord>])',
         dimension_kwargs=('over',),
-        coordinate_kwargs=('by',),
+        # `group_by` rather than a bare `by`: with the grouping folded into
+        # `sum`, the verb no longer says a regrouping happened, so the keyword
+        # has to. `sum(x, over=flow, group_by=component)` reads as what it is.
+        optional_coordinate_kwargs=('group_by',),
     ),
     'at': Builtin(
         1,
@@ -123,8 +129,23 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     return None if fits else f'{name}() expects {builtin.usage}'
 
 
+#: Spellings that were once helpers, and what replaced them. A retired name
+#: fails at load naming its rewrite — there is no alias and no deprecation
+#: cycle, so the error *is* the migration story (CONTRIBUTING, "breaking
+#: changes are free").
+RETIRED: dict[str, str] = {
+    'group_sum': 'sum(<expr>, over=<dim>, group_by=<coord>)',
+}
+
+
 def unknown_helper_message(name: str) -> str:
     """The one wording for "that is not a helper", shared by both lanes."""
+    if name in RETIRED:
+        return (
+            f"'{name}' is no longer a helper — the grouping moved into `sum`, "
+            f'so one verb covers reducing a dim away and reducing it into '
+            f'another.\nWrite: {RETIRED[name]}'
+        )
     return (
         f"Unknown helper function '{name}'.\n"
         f'Available: {sorted(BUILTIN_NAMES)}\n'

@@ -68,7 +68,7 @@ class DimensionNode:
 class CoordinateNode:
     """A resolved reference to a coordinate declared on a dimension.
 
-    Only legal in helper kwarg *values* (``group_sum(x, over=line, by=to)``).
+    Only legal in helper kwarg *values* (``sum(x, over=line, group_by=to)``).
     Like :class:`DimensionNode` this names a coordinate space, not data — but it
     is scoped to the dimension carrying it, so ``name`` alone is meaningless
     without the sibling ``over=`` dimension. ``dimension`` records that binding

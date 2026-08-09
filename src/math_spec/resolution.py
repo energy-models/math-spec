@@ -246,7 +246,7 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
                 kwargs[key] = _resolve_edge(value, context, node.name, errors)
             elif key in builtin.dimension_kwargs:
                 kwargs[key] = _resolve_dim_ref(value, ns, context, node.name, key, errors)
-            elif key in builtin.coordinate_kwargs:
+            elif key in builtin.coordinate_kwargs or key in builtin.optional_coordinate_kwargs:
                 # scoped to the sibling over= dim, so that kwarg has to be read
                 # here rather than resolved on its own
                 # scoped to the sibling dimension kwarg, whichever the helper

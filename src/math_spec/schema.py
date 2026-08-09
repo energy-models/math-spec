@@ -60,7 +60,7 @@ class DimensionBlock(_StrictBlock):
     ``coords`` names non-index coordinates carried alongside this dimension's
     labels — a generator's bus, a line's endpoints, a snapshot's month. Each
     maps a coordinate name to the dimension its *values* are labels of, which
-    is what makes ``group_sum(x, over=..., by=...)`` checkable: the values are
+    is what makes ``sum(x, over=..., group_by=...)`` checkable: the values are
     verified to be coordinates of that dimension once data is bound, instead of
     being joined blind. Written either as a list, when the coordinate is named
     after its target dimension::

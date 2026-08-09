@@ -14,7 +14,7 @@ The rules::
     -x, +x                  -> same dims as x
     a + b, a * b, a / b     -> every dim either side carries (set union)
     sum(x, over=d)          -> x's dims without d;  error if x has no d
-    group_sum(x, over=d, by=c)
+    sum(x, over=d, group_by=c)
                             -> x's dims without d, plus the dim c targets;
                                error if x has no d, or d declares no coord c
     shift(x, over=d, by=n)  -> same dims as x;      error if x has no d
@@ -142,30 +142,24 @@ def _dims_call(
         inner = _dims(node.args[0], schema, context, external)
         over = node.kwargs['over']
         assert isinstance(over, DimensionNode)
+        by = node.kwargs.get('group_by')
+        verb = f'sum(over={over.name}, group_by=...)' if by is not None else f'sum(over={over.name})'
         if over.name not in inner:
             raise DimensionError(
-                f'{context}: sum(over={over.name}) but the expression has dims '
+                f'{context}: {verb} but the expression has dims '
                 f'{sorted(inner)}. Summing over a dim the operand does not carry '
                 f'is a no-op that builds and solves wrong — drop the sum, or fix '
                 f'the dim.'
             )
-        return inner - {over.name}
+        if by is None:
+            return inner - {over.name}
 
-    if node.name == 'group_sum':
-        inner = _dims(node.args[0], schema, context, external)
-        over = node.kwargs['over']
-        by = node.kwargs['by']
-        assert isinstance(over, DimensionNode)
+        # `group_by` reduces the dim *into* another rather than away: the terms
+        # land on the dim the coordinate targets instead of on nothing.
         assert isinstance(by, CoordinateNode)
-        if over.name not in inner:
-            raise DimensionError(
-                f'{context}: group_sum(over={over.name}) but the expression has dims '
-                f'{sorted(inner)}. Grouping a dim the operand does not carry cannot '
-                f'place its terms — drop the group_sum, or fix the dim.'
-            )
         if by.into in inner - {over.name}:
             raise DimensionError(
-                f"{context}: group_sum(over={over.name}, by={by.name}) targets '{by.into}', "
+                f"{context}: sum(over={over.name}, group_by={by.name}) targets '{by.into}', "
                 f'which the expression already carries ({sorted(inner)}). The result would '
                 f"need '{by.into}' twice — once as the operand's own dim and once as the "
                 f'group it is placed into — and neither lane can represent that: the union '
@@ -180,16 +174,16 @@ def _dims_call(
         by = node.kwargs['by']
         assert isinstance(over, DimensionNode)
         assert isinstance(by, CoordinateNode)
-        # The adjoint of group_sum, and deliberately the same two arguments:
+        # The adjoint of sum, and deliberately the same two arguments:
         # `(over, by)` names one mapping table, and which way it is walked is
-        # the helper. group_sum consumes the dim that *declares* the
+        # the helper. sum consumes the dim that *declares* the
         # coordinate; `at` consumes the dim it *targets*.
         if by.into not in inner:
             raise DimensionError(
                 f'{context}: at(onto={over.name}, by={by.name}) reads through '
                 f"'{by.into}', which the expression does not carry (dims "
                 f'{sorted(inner)}). A pullback needs the coarse dim to read *from* — '
-                f'group_sum is the direction that produces it.'
+                f'sum is the direction that produces it.'
             )
         if over.name in inner - {by.into}:
             raise DimensionError(
