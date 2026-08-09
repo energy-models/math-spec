@@ -56,7 +56,7 @@ nothing is an error with the near miss, because a silent typo is a symbol that
 never applies and a reader who never finds out.
 
 The values are LaTeX, including for Typst, which is a bug — see
-[#321](https://github.com/FBumann/lpspec/issues/321).
+[#321](https://github.com/fluxopt/lpspec/issues/321).
 
 ## Adding a format
 

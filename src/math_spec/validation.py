@@ -75,7 +75,7 @@ def load_schema(model: str | Path | dict[str, Any] | MathSchema) -> MathSchema:
     if isinstance(model, (list, tuple)):
         msg = (
             'composing multiple YAML files into one program is not implemented '
-            'yet — track https://github.com/FBumann/lpspec/issues/30'
+            'yet — track https://github.com/fluxopt/lpspec/issues/30'
         )
         raise NotImplementedError(msg)
     if isinstance(model, MathSchema):
