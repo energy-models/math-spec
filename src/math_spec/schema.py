@@ -107,6 +107,11 @@ class ParameterBlock(_StrictBlock):
     dims: list[str]
     dtype: str = 'float'
 
+    @property
+    def referenced_dims(self) -> list[str]:
+        """The dimensions this block names — `dims` here, `foreach` on the rest."""
+        return self.dims
+
     @field_validator('dtype')
     @classmethod
     def _check_dtype(cls, v: str) -> str:
@@ -139,6 +144,10 @@ class VariableBlock(_StrictBlock):
     binary: bool = False
     integer: bool = False
 
+    @property
+    def referenced_dims(self) -> list[str]:
+        return self.foreach
+
     @model_validator(mode='after')
     def _check_binary_integer(self) -> VariableBlock:
         if self.binary and self.integer:
@@ -155,6 +164,10 @@ class ConstraintBlock(_StrictBlock):
     foreach: list[str]
     where: str | None = None
     expression: str
+
+    @property
+    def referenced_dims(self) -> list[str]:
+        return self.foreach
 
     @model_validator(mode='before')
     @classmethod
@@ -341,13 +354,13 @@ class MathSchema(_StrictBlock):
 
         errors.extend(
             f"{kind} '{name}' references undeclared dimension '{d}'. Declare it under 'dimensions:'."
-            for kind, group, dims_of in (
-                ('Parameter', self.parameters, lambda p: p.dims),
-                ('Variable', self.variables, lambda v: v.foreach),
-                ('Constraint', self.constraints, lambda c: c.foreach),
+            for kind, group in (
+                ('Parameter', self.parameters),
+                ('Variable', self.variables),
+                ('Constraint', self.constraints),
             )
             for name, item in group.items()
-            for d in dims_of(item)
+            for d in item.referenced_dims
             if d not in self.dimensions
         )
 

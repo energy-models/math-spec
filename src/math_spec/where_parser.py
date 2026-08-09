@@ -156,8 +156,10 @@ def _build_where_grammar() -> pp.ParserElement:
     true_lit = pp.CaselessKeyword('True').set_parse_action(lambda: BooleanLiteralNode(True))
     false_lit = pp.CaselessKeyword('False').set_parse_action(lambda: BooleanLiteralNode(False))
 
+    # pyrefly: ignore[implicit-any-lambda]
     real = pp.Regex(r'-?\d+\.\d*([eE][+-]?\d+)?').set_parse_action(lambda t: float(t[0]))
     # float, not int: UnresolvedComparisonNode.value is declared float, so store one
+    # pyrefly: ignore[implicit-any-lambda]
     integer = pp.Regex(r'-?\d+').set_parse_action(lambda t: float(t[0]))
     number = real | integer
 
@@ -173,15 +175,18 @@ def _build_where_grammar() -> pp.ParserElement:
 
     comparator = pp.one_of('<= >= == != < >')
     comparison = (name + comparator + (number | quoted | name)).set_parse_action(
+        # pyrefly: ignore[implicit-any-lambda]
         lambda t: UnresolvedComparisonNode(t[0], t[1], _bare(t[2]), quoted=isinstance(t[2], _Quoted))
     )
     # a bare name is an existence check
+    # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
 
     atom = true_lit | false_lit | comparison | existence | (pp.Suppress('(') + where_expr + pp.Suppress(')'))
 
     # NOT binds tightest, then AND, then OR
     NOT = pp.CaselessKeyword('NOT').suppress()
+    # pyrefly: ignore[implicit-any-lambda]
     not_expr = (NOT + atom).set_parse_action(lambda t: NotNode(t[0])) | atom
 
     AND = pp.CaselessKeyword('AND').suppress()
