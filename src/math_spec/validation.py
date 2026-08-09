@@ -158,15 +158,6 @@ def validate_expressions(
 
     for vname, vdef in schema.variables.items():
         _check_where(vdef.where, ns, f"Variable '{vname}'", errors)
-        if not vdef.foreach and vdef.where is not None:
-            # A scalar variable's presence is `select()` over no dims, which
-            # polars collapses to no rows, so absence cannot reach the rows
-            # that reference it (#340).
-            errors.append(
-                f"Variable '{vname}': a scalar variable (foreach: []) may not have a where. "
-                f'Its absence could not reach the constraints that use it (#340). '
-                f'Put the condition on those constraints, or give the variable a dimension of size 1.'
-            )
 
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
