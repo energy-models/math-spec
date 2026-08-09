@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import metadata
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -306,11 +307,31 @@ class PiecewiseBlock(_StrictBlock):
         return v
 
 
+#: The language surfaces this reader understands. A **language** version, not a
+#: package one: it moves when the accepted YAML surface moves, which most
+#: releases do not. Deriving it from the package version would be automatic and
+#: wrong.
+#:
+#: `0` is the unstable surface — no compatibility promise, per *breaking changes
+#: are free* in CONTRIBUTING. What `1` is stays deliberately undecided; the one
+#: thing decided is that 0 does not silently become 1 without a changelog entry
+#: saying what moved.
+SUPPORTED_VERSIONS: tuple[int, ...] = (0,)
+
+
 class MathSchema(_StrictBlock):
     """Top-level schema for a lpspec YAML file."""
 
     _label: ClassVar[str] = 'the top level of the file'
 
+    #: Which language surface this file is written against. Absent means 0, so
+    #: the field is additive — every file that predates it stays valid.
+    #:
+    #: **0 means unstable**, which is the promise actually being made: the
+    #: surface may change in any release. Saying so in the file is more honest
+    #: than silence, and it is what lets a *later* reader refuse a file it
+    #: cannot read rather than misinterpret it.
+    version: int = 0
     dimensions: dict[str, DimensionBlock] = {}
     parameters: dict[str, ParameterBlock] = {}
     variables: dict[str, VariableBlock] = {}
@@ -319,6 +340,34 @@ class MathSchema(_StrictBlock):
     expressions: dict[str, str] = {}
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
+
+    @field_validator('version')
+    @classmethod
+    def _check_version(cls, v: int) -> int:
+        """Refuse a surface this reader does not know — never interpret it.
+
+        A file from the future must not be read by an older reader; that is the
+        whole reason the field exists. Rejecting is the entire policy: the
+        version gates *nothing* at runtime, because keeping two surfaces alive
+        in one codebase is a large permanent cost against a hard error that
+        costs one line.
+        """
+        if v in SUPPORTED_VERSIONS:
+            return v
+        # `importlib.metadata`, not `from lpspec import __version__`: a language
+        # module may not reach forward to the package that consumes its AST
+        # (docs/ARCHITECTURE.md, held by `test_language_never_reaches_a_consumer`).
+        # The distribution's metadata is the same string without the dependency.
+        try:
+            installed = metadata.version('lpspec')
+        except metadata.PackageNotFoundError:  # pragma: no cover — a tree with no dist-info
+            installed = 'unknown'
+        supported = ', '.join(str(s) for s in SUPPORTED_VERSIONS)
+        msg = (
+            f'model declares version {v}, and lpspec {installed} understands [{supported}]. '
+            f'Upgrade lpspec, or write the version this file actually targets.'
+        )
+        raise ValueError(msg)
 
     @model_validator(mode='after')
     def _validate_references(self) -> MathSchema:
