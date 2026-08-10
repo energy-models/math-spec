@@ -47,7 +47,6 @@ from lpspec.language.expression_parser import (
 )
 from lpspec.language.helpers import BUILTINS, unknown_helper_message
 from lpspec.language.model import Model
-from lpspec.language.piecewise import expand_piecewise
 from lpspec.language.resolution import Namespace, resolve_expression, resolve_where
 from lpspec.language.where_parser import parse_where
 
@@ -55,10 +54,17 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
 
-def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
+def load_model(
+    model: str | Path | dict[str, Any] | Model,
+    *,
+    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
+) -> Model:
     """Load and validate a model definition — the language's front door.
 
     Accepts a YAML file path, an already-parsed dict, or a ``Model``.
+    ``known_variables`` widens the variable set for the one file that is not
+    valid alone — an extension for ``linopy.extend()``, which references
+    variables already on the model it extends.
     Validation is complete at this point: schema shape, every expression and
     where string, every named expression and macro template — and every
     declaration a formulation emits, since those are language too. That is why
@@ -77,19 +83,19 @@ def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
     """
     if isinstance(model, (list, tuple)):
         msg = (
-            'composing multiple YAML files into one program is not implemented '
-            'yet — track https://github.com/fluxopt/lpspec/issues/30'
+            'a model is one file, one dict or one Model, never a list of them. '
+            'To compose several, merge the declarations into one dict and pass '
+            'that — a native schema merge was declined (#30) because a library '
+            'varying its declarations by data is already how you say this.'
         )
-        raise NotImplementedError(msg)
+        raise TypeError(msg)
     if isinstance(model, Model):
         return model
     raw = model if isinstance(model, dict) else read_yaml(Path(model))
     try:
-        schema = Model(**raw)
+        return Model.model_validate(raw, context={'known_variables': known_variables})
     except ValidationError as exc:
         raise schema_error(exc) from None
-    validate_expressions(expand_piecewise(schema))
-    return schema
 
 
 def validate_expressions(
@@ -116,10 +122,9 @@ def validate_expressions(
         The schema to validate.
     known_variables : Mapping[str, Sequence[str]]
         Variables valid in addition to those declared in *schema*, mapped to
-        their dims — used by ``linopy.extend()``, where expressions may
-        reference variables already present on the model. The dims are needed
-        for the same reason the names are: dim checking is a language rule. Parameters get no such widening: a
-        YAML file declares every parameter it uses (hard rule 5).
+        their dims — used by ``linopy.extend()``, whose expressions may
+        reference variables already on the model. Parameters get no such
+        widening: a YAML file declares every parameter it uses (hard rule 5).
 
     Raises
     ------

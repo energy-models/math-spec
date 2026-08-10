@@ -33,25 +33,22 @@ expressions lie on the piecewise curve exactly. Without it (``convex:
 true``), they range over the convex hull of the breakpoints — the correct
 relaxation for convex/concave curves under optimisation pressure.
 
-A link expression is judged against the *language* before it is expanded —
-resolved, degree-checked (:mod:`~lpspec.language.degree`), and its dims taken
-from :mod:`~lpspec.language.dimensions`. Judging it here rather than leaving
-it to a lane is what keeps ``p * p`` named against the link the user wrote
-instead of against ``curve_link0``, a declaration they never saw.
+A link expression is judged against the *language* before expansion —
+resolved, degree-checked (:mod:`~lpspec.language.degree`), dims from
+:mod:`~lpspec.language.dimensions`. Judging it here keeps ``p * p`` named
+against the link the user wrote rather than against ``curve_link0``, a
+declaration they never saw.
 
-It is deliberately *not* checked against what a plan node can represent. This
-module runs in every lane, including the ones that build no plan, and a
-refusal about plan shapes is the consuming lane's business
-(docs/ARCHITECTURE.md, "What counts as language"). Asking lowering for that
-verdict is what tied this file to an engine — for a message whose real
-payload was degree, which is language and now says so.
-
-The curvature guard is not here either: convexity is a property of the
-breakpoint *values*, so it needs data and lives in :mod:`lpspec.sources`.
-What remains is expansion, and expansion is language.
+Two verdicts are deliberately elsewhere. What a plan node can represent is the
+consuming lane's business — this module runs in lanes that build no plan
+(docs/ARCHITECTURE.md, "What counts as language"). Curvature is a property of
+the breakpoint *values*, so it needs data and lives in :mod:`lpspec.sources`.
 """
 
 from __future__ import annotations
+
+from types import MappingProxyType
+from typing import TYPE_CHECKING
 
 from lpspec.errors import LanguageError, PiecewiseExpansionError
 from lpspec.language.degree import check_expression
@@ -60,9 +57,22 @@ from lpspec.language.expression_parser import ComparisonNode, parse_expression
 from lpspec.language.model import Model, PiecewiseBlock
 from lpspec.language.resolution import Namespace, resolve_expression
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 
-def expand_piecewise(schema: Model) -> Model:
-    """Return *schema* with every ``piecewise:`` block expanded away."""
+
+def expand_piecewise(
+    schema: Model,
+    *,
+    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
+) -> Model:
+    """Return *schema* with every ``piecewise:`` block expanded away.
+
+    ``known_variables`` widens the variable set the same way it does for any
+    other expression: a link may name a variable the model being extended
+    already has, and the frame is the union of the links' dims, so resolution
+    has to see those names to compute it.
+    """
     if not schema.piecewise:
         return schema
 
@@ -70,7 +80,7 @@ def expand_piecewise(schema: Model) -> Model:
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
-        frame = _validate_block(schema, name, pw)
+        frame = _validate_block(schema, name, pw, known_variables)
         lam, seg = f'{name}_lam', f'{name}_seg'
 
         raw['variables'][lam] = {
@@ -110,10 +120,15 @@ def expand_piecewise(schema: Model) -> Model:
             }
 
     raw['piecewise'].clear()  # every block is now expanded away
-    return Model(**raw)
+    return Model.model_validate(raw, context={'known_variables': known_variables})
 
 
-def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
+def _validate_block(
+    schema: Model,
+    name: str,
+    pw: PiecewiseBlock,
+    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
+) -> tuple[str, ...]:
     """Check references and infer the frame (union of the links' dims)."""
     ctx = f"piecewise '{name}'"
     if pw.over not in schema.dimensions:
@@ -129,7 +144,7 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
                 f"{ctx}: link {i} values parameter '{values}' must carry dim "
                 f"'{pw.over}' (has {schema.parameters[values].dims})"
             )
-        for d in _declared_order(schema, _expr_dims(schema, expr_text, f'{ctx} link {i}')):
+        for d in _declared_order(schema, _expr_dims(schema, expr_text, f'{ctx} link {i}', known_variables)):
             if d == pw.over:
                 raise PiecewiseExpansionError(
                     f"{ctx}: link {i} expression already carries the breakpoint dim '{pw.over}'"
@@ -140,7 +155,7 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
     if pw.active is not None:
         if pw.active in schema.variables and not schema.variables[pw.active].binary:
             raise PiecewiseExpansionError(f"{ctx}: active variable '{pw.active}' must be binary")
-        for d in _declared_order(schema, _expr_dims(schema, pw.active, f'{ctx} active')):
+        for d in _declared_order(schema, _expr_dims(schema, pw.active, f'{ctx} active', known_variables)):
             if d == pw.over:
                 raise PiecewiseExpansionError(f"{ctx}: active expression must not carry the breakpoint dim '{pw.over}'")
             if d not in frame:
@@ -179,7 +194,12 @@ def _declared_order(schema: Model, dims: frozenset[str]) -> list[str]:
     return declared + sorted(dims.difference(declared))
 
 
-def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:
+def _expr_dims(
+    schema: Model,
+    text: str,
+    ctx: str,
+    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
+) -> frozenset[str]:
     """Dims of an affine link expression.
 
     The frame a block is emitted over is the union of its links' dims, so the
@@ -193,13 +213,13 @@ def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:
     if isinstance(ast, ComparisonNode):
         raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
     errors: list[str] = []
-    resolved = resolve_expression(ast, Namespace.of(schema), ctx, errors)
+    resolved = resolve_expression(ast, Namespace.of(schema, known_variables), ctx, errors)
     if resolved is None:
         raise PiecewiseExpansionError('\n'.join(errors))
     assert not isinstance(resolved, ComparisonNode)
     try:
         check_expression(resolved, ctx)
-        return dims_of(resolved, schema, ctx)
+        return dims_of(resolved, schema, ctx, known_variables)
     except LanguageError as exc:
         raise PiecewiseExpansionError(
             f'{ctx}: link expression {text!r} is not a valid affine expression: {exc}'

@@ -15,7 +15,7 @@ import math
 from importlib import metadata
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_serializer, model_validator
 
 from lpspec.errors import did_you_mean
 from lpspec.language.helpers import BUILTIN_NAMES
@@ -374,25 +374,18 @@ class Model(_StrictBlock):
     data, :meth:`to_yaml` for the file a reviewer reads. In goes through
     ``lps.load_model``, which takes a path, a dict or a ``Model``.
 
-    **Everything else on this class is pydantic's**, because this is a
-    ``BaseModel`` and inherits its whole surface — twenty-seven public names,
-    a dozen of them deprecated v1 aliases (``dict``, ``json``, ``parse_obj``).
-    They are not a contract this package keeps. Two are worth knowing about:
+    **Everything else on this class is pydantic's** and not a contract this
+    package keeps — the inherited surface is twenty-seven public names, a dozen
+    of them deprecated v1 aliases. Two are worth knowing about:
 
-    * ``model_json_schema()`` produces a complete Draft 2020-12 document with
-      no help from us, which is most of a machine-readable YAML surface. It
-      describes the *shape* pydantic validates and not the language, so it
-      accepts a constraint naming an undeclared parameter.
-    * ``model_construct()`` **skips validation entirely** — not the fields, not
-      the shape. So the guarantee this class offers is that a model built the
-      normal way is valid, not that a ``Model`` is valid. Overriding it to
-      raise would trade a documented escape hatch for a surprise, so it stays.
-
-    Pydantic earns its place here: forty-seven field declarations get types,
-    defaults, nested blocks, unknown-key rejection and multi-error aggregation
-    for free, and the alternative is several hundred lines of hand-written
-    checking whose failure mode is silently accepting a wrong model — the one
-    outcome this package spends the most effort avoiding.
+    * ``model_json_schema()`` gives a Draft 2020-12 document for free, which is
+      most of a machine-readable YAML surface. It describes the *shape*
+      pydantic validates, not the language, so it accepts a constraint naming
+      an undeclared parameter.
+    * ``model_construct()`` **skips validation entirely**, so the guarantee is
+      that a model built the normal way is valid, not that a ``Model`` is.
+      Overriding it to raise would trade a documented escape hatch for a
+      surprise.
     """
 
     _label: ClassVar[str] = 'the top level of the file'
@@ -563,4 +556,30 @@ class Model(_StrictBlock):
         if errors:
             raise ValueError('\n'.join(errors))
 
+        return self
+
+    @model_validator(mode='after')
+    def _validate_expressions(self, info: ValidationInfo) -> Model:
+        """Every expression and where string, checked here rather than beside.
+
+        The checkers are a layer above this one, so the imports are local and
+        declared in ``DELIBERATE_LAZY_IMPORTS``. Expansion runs first — a
+        formulation emits declarations that are language too — and terminates,
+        since an expanded model carries no ``piecewise:``.
+
+        An expansion *builds* a ``Model``, which validates itself on the way
+        out, so the check below runs only when there was nothing to expand.
+        Calling it either way validated a piecewise model twice.
+
+        ``known_variables`` arrives as pydantic validation context, for the file
+        deliberately not valid alone: an extension references variables already
+        on the model ``lpspec.linopy.extend`` puts it on. It travels into
+        expansion too, since a link may name one of those variables.
+        """
+        from lpspec.language.piecewise import expand_piecewise
+        from lpspec.language.validation import validate_expressions
+
+        known = (info.context or {}).get('known_variables', {})
+        if expand_piecewise(self, known_variables=known) is self:
+            validate_expressions(self, known_variables=known)
         return self
