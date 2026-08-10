@@ -15,9 +15,18 @@ import math
 from importlib import metadata
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
-from lpspec.errors import did_you_mean
+from lpspec.errors import did_you_mean, schema_error
 from lpspec.language.helpers import BUILTIN_NAMES
 
 if TYPE_CHECKING:
@@ -386,6 +395,10 @@ class Model(_StrictBlock):
       that a model built the normal way is valid, not that a ``Model`` is.
       Overriding it to raise would trade a documented escape hatch for a
       surprise.
+
+    The three that *build* one are overridden, so a wrong model raises this
+    package's :class:`~lpspec.errors.LanguageError` wherever it is built rather
+    than pydantic's ``ValidationError`` here and ours everywhere else (#527).
     """
 
     _label: ClassVar[str] = 'the top level of the file'
@@ -406,6 +419,41 @@ class Model(_StrictBlock):
     expressions: dict[str, str] = {}
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
+
+    # `typing.override` is 3.12+ and this package supports 3.11, so the
+    # decorator the rule asks for cannot be imported.
+    @classmethod
+    # pyrefly: ignore[missing-override-decorator]
+    def model_validate(cls, *args: Any, **kwargs: Any) -> Model:
+        """Validate, raising this package's exception tree.
+
+        Pydantic reports every failure as a ``ValidationError`` carrying an
+        ``input_value=`` dump and a link to its own docs — neither of which
+        means anything to someone who wrote a YAML file, and neither of which
+        is the type ``docs/api.md`` tells a caller to catch.
+
+        ``__init__`` is deliberately *not* wrapped the same way. Defining one
+        makes pydantic route validation through it, so every after-validator
+        runs twice — the first time with ``context=None``, which silently
+        drops ``known_variables`` and refuses every ``extend()`` file. The
+        constructor keeps pydantic's own error; ``lps.load_model`` is the door
+        this package documents, and it goes through here.
+        """
+        try:
+            return super().model_validate(*args, **kwargs)
+        except ValidationError as exc:
+            raise schema_error(exc) from None
+
+    # `typing.override` is 3.12+ and this package supports 3.11, so the
+    # decorator the rule asks for cannot be imported.
+    @classmethod
+    # pyrefly: ignore[missing-override-decorator]
+    def model_validate_json(cls, *args: Any, **kwargs: Any) -> Model:
+        """As :meth:`__init__`, for the door that takes JSON."""
+        try:
+            return super().model_validate_json(*args, **kwargs)
+        except ValidationError as exc:
+            raise schema_error(exc) from None
 
     @field_validator('version')
     @classmethod
