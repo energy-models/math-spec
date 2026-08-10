@@ -7,6 +7,11 @@ lowers it to SQL predicates (``lowering._lower_where``).
 
 Kept dependency-free on purpose — ``validation.py`` and ``lowering.py`` are
 linopy-free by hard rule 3, and they import this module.
+
+``NotNode``, ``AndNode`` and ``OrNode`` reference the ``WhereNode`` union in
+their annotations before it is defined, which works only because ``from
+__future__ import annotations`` makes annotations strings — removing that
+future-import requires reordering the definitions.
 """
 
 from __future__ import annotations
@@ -109,10 +114,6 @@ class OrNode:
     right: WhereNode
 
 
-# NOTE: NotNode / AndNode / OrNode reference `WhereNode` in their annotations
-# before this line — that works only because `from __future__ import
-# annotations` makes annotations strings. Don't remove that future-import
-# unless you also reorder these definitions.
 WhereNode = (
     BooleanLiteralNode
     | UnresolvedNameNode
@@ -150,7 +151,16 @@ def _bare(value: float | str) -> float | str:
 
 
 def _build_where_grammar() -> pp.ParserElement:
-    """Build and return the pyparsing grammar for where strings."""
+    """Build and return the pyparsing grammar for where strings.
+
+    Every numeric literal is stored as ``float``, since
+    ``UnresolvedComparisonNode.value`` is declared ``float``. Both quote
+    characters are accepted because YAML already owns one of them: a where
+    lives inside a YAML scalar, so ``where: "generator == 'wind'"`` is the
+    spelling that needs no escaping, and the double-quoted form is there for
+    the file that quoted the other way round. ``NOT`` binds tightest, then
+    ``AND``, then ``OR``.
+    """
     where_expr = pp.Forward()
 
     true_lit = pp.CaselessKeyword('True').set_parse_action(lambda: BooleanLiteralNode(True))
@@ -158,17 +168,12 @@ def _build_where_grammar() -> pp.ParserElement:
 
     # pyrefly: ignore[implicit-any-lambda]
     real = pp.Regex(r'-?\d+\.\d*([eE][+-]?\d+)?').set_parse_action(lambda t: float(t[0]))
-    # float, not int: UnresolvedComparisonNode.value is declared float, so store one
     # pyrefly: ignore[implicit-any-lambda]
     integer = pp.Regex(r'-?\d+').set_parse_action(lambda t: float(t[0]))
     number = real | integer
 
     name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
 
-    # Either quote, because YAML already owns one of them: a where lives inside
-    # a YAML scalar, so `where: "generator == 'wind'"` is the spelling that
-    # needs no escaping, and the double-quoted form is there for the file that
-    # quoted the other way round.
     quoted = (pp.QuotedString("'", esc_char='\\') | pp.QuotedString('"', esc_char='\\')).set_parse_action(
         lambda t: _Quoted(t[0])
     )
@@ -178,13 +183,11 @@ def _build_where_grammar() -> pp.ParserElement:
         # pyrefly: ignore[implicit-any-lambda]
         lambda t: UnresolvedComparisonNode(t[0], t[1], _bare(t[2]), quoted=isinstance(t[2], _Quoted))
     )
-    # a bare name is an existence check
     # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
 
     atom = true_lit | false_lit | comparison | existence | (pp.Suppress('(') + where_expr + pp.Suppress(')'))
 
-    # NOT binds tightest, then AND, then OR
     NOT = pp.CaselessKeyword('NOT').suppress()
     # pyrefly: ignore[implicit-any-lambda]
     not_expr = (NOT + atom).set_parse_action(lambda t: NotNode(t[0])) | atom
@@ -222,11 +225,14 @@ _WHERE_GRAMMAR = _build_where_grammar()
 
 
 def parse_where(text: str) -> WhereNode:
-    """Parse a where string into an AST."""
+    """Parse a where string into an AST.
+
+    With ``parse_all`` and a single top-level alternative, element 0 of the
+    parse result is the root node.
+    """
     try:
         result = _WHERE_GRAMMAR.parse_string(text, parse_all=True)
     except pp.ParseException as e:
         msg = f'Failed to parse where string: {text!r}\n{e}'
         raise SchemaError(msg) from e
-    # parseAll with a single top-level alternative: element 0 is the root node
     return cast('WhereNode', result[0])

@@ -142,6 +142,13 @@ class Walk:
         return self.format.parenthesise(text) if precedence < need else text
 
     def _arithmetic(self, node: ArithmeticNode, ctx: _Context) -> tuple[str, int]:
+        """Render *node*, returning the text and the precedence it binds at.
+
+        A ``NameNode`` here means resolution was skipped, and a bare dimension
+        or coordinate in a value position is a language error caught long
+        before this module runs — so meeting either is an assertion, not a
+        rendering decision.
+        """
         if isinstance(node, NumberNode):
             return self.number(node.value), _ATOM if node.value >= 0 else 1
 
@@ -162,15 +169,18 @@ class Walk:
             return self._call(node, ctx)
 
         if isinstance(node, (NameNode, KeywordNode, DimensionNode, CoordinateNode, EdgeNode)):
-            # A NameNode here means resolution was skipped; a bare dimension or
-            # coordinate in a value position is a language error caught long
-            # before this module runs.
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
         assert_never(node)
 
     def _binary(self, node: BinaryOperatorNode, ctx: _Context) -> tuple[str, int]:
+        """Render a binary operator, bracketing only where the reading demands.
+
+        Subtraction raises the requirement on its right operand by one:
+        ``a - (b - c)`` and ``a - (b + c)`` need the bracket; ``a - b*c``
+        does not.
+        """
         if node.op == '/':
             top = self.arithmetic(node.left, ctx)
             bottom = self.arithmetic(node.right, ctx)
@@ -180,20 +190,26 @@ class Walk:
             return self.format.power(base, self.arithmetic(node.right, ctx)), _PRECEDENCE['**']
         precedence = _PRECEDENCE[node.op]
         left = self.arithmetic(node.left, ctx, need=precedence)
-        # `a - (b - c)` and `a - (b + c)` need the bracket; `a - b*c` does not.
         right = self.arithmetic(node.right, ctx, need=precedence + (1 if node.op == '-' else 0))
         names = {'*': 'cdot', '+': 'plus', '-': 'minus'}
         return self.format.joined([left, right], self.op(names[node.op])), precedence
 
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
+        """Render a helper: a translation at the leaves, or a summation.
+
+        ``shift`` is one node, so the render reads the edge *policy* rather
+        than the spelling: only ``edge='wrap'`` is cyclic, and a numeric edge
+        is a fill that leaves the translation itself acyclic. ``at`` is not a
+        reduction — it re-indexes its operand, so like ``shift`` it emits no
+        operator of its own and the substitution appears at the leaves;
+        falling through to the summation below rendered it as a sum over the
+        fine dim — the wrong equation, silently.
+        """
         if node.name == 'shift':
             dim = node.kwargs['over']
             amount = node.kwargs['by']
             assert isinstance(dim, DimensionNode)
             assert isinstance(amount, NumberNode)
-            # One node, so the render reads the edge policy rather than the
-            # spelling: only `edge='wrap'` is cyclic, and a numeric edge is a
-            # fill that leaves the translation itself acyclic.
             wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
             self.saw_wraparound = self.saw_wraparound or wrap
             return self._arithmetic(node.args[0], ctx.translated(dim.name, int(amount.value), wrap=wrap))
@@ -201,10 +217,6 @@ class Walk:
         if node.name == 'at':
             onto = node.kwargs['onto']
             assert isinstance(onto, DimensionNode)
-            # Not a reduction: it re-indexes its operand, so like `shift` it
-            # emits no operator of its own and the substitution appears at the
-            # leaves. Falling through to the summation below rendered it as a
-            # sum over the fine dim — the wrong equation, silently.
             by = node.kwargs['by']
             assert isinstance(by, CoordinateNode)
             mapping = self.format.apply(self.format.upright(by.name), ctx.subscript(onto.name))
@@ -300,6 +312,12 @@ class Walk:
     # -- declarations ------------------------------------------------------
 
     def objectives(self) -> list[Line]:
+        """One line per objective, with its implied reduction made explicit.
+
+        An objective sums each term over every dim that term carries — the
+        reduction is implied by the declaration, so it is spelled out rather
+        than left for the reader to assume.
+        """
         lines = []
         for name, block in self.schema.objectives.items():
             sense = self.op('minimize' if block.sense == 'minimize' else 'maximize')
@@ -307,9 +325,6 @@ class Walk:
             node = expression_of(block.expression, self.schema, self.namespace, context)
             assert not isinstance(node, ComparisonNode)
             ctx = self.context()
-            # An objective sums each term over every dim that term carries
-            # — the reduction is implied by the declaration, so it is
-            # spelled out rather than left for the reader to assume.
             dims = self._sorted(dims_of(node, self.schema, context))
             body = self.reduction_body(node, ctx) if dims else self.arithmetic(node, ctx)
             if dims:

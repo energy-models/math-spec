@@ -67,7 +67,10 @@ class Symbols:
     dimension indices, so an index can be kept off a letter a variable already
     owns — without that, a model with a dimension ``plant`` and a variable
     ``p`` renders ``p_{t,p}`` and no reader can tell which ``p`` is which.
-    Deriving the two independently is exactly how that got through.
+    Deriving the two independently is exactly how that got through. Only
+    single-letter name symbols are kept off the index letters, because only
+    those can be mistaken for one — a ``\\mathit{load}`` never collides with
+    a ``t``.
     """
 
     def __init__(self, schema: Model, fmt: Format, table: SymbolTable | None = None) -> None:
@@ -78,8 +81,6 @@ class Symbols:
             name: table.names.get(name) or _derive_name_symbol(name, declared, fmt)
             for name in (*schema.parameters, *schema.variables)
         }
-        # Only single-letter symbols can be mistaken for an index; a
-        # `\mathit{load}` never collides with a `t`.
         spoken_for = {s for s in self.name.values() if len(s) == 1}
 
         self.index: dict[str, str] = {}

@@ -30,9 +30,13 @@ if TYPE_CHECKING:
 #: supplies one spelling each — and a missing key is an error at import time
 #: rather than a stray ``None`` in the output, because
 #: ``tests/test_typeset.py`` asserts every format covers exactly this set.
+#: The less obvious names: ``such_that`` is the colon in "∀ t ∈ T : condition",
+#: ``cyclic_minus``/``cyclic_plus`` are ``roll``'s wrapping translation,
+#: ``times`` sits between sets in the legend, and ``maps_to`` is the → in a
+#: coordinate map.
 OPERATOR_NAMES = frozenset(
     {
-        'cdot',  # multiplication
+        'cdot',
         'plus',
         'minus',
         'equal',
@@ -48,13 +52,13 @@ OPERATOR_NAMES = frozenset(
         'true',
         'false',
         'forall',
-        'such_that',  # the colon in "∀ t ∈ T : condition"
+        'such_that',
         'infinity',
         'minus_infinity',
-        'cyclic_minus',  # roll, which wraps
+        'cyclic_minus',
         'cyclic_plus',
-        'times',  # between sets in the legend
-        'maps_to',  # the → in a coordinate map
+        'times',
+        'maps_to',
         'reals',
         'integers',
         'binary_set',

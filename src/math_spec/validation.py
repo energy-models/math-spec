@@ -114,7 +114,13 @@ def validate_expressions(
       declared dimensions;
     - where strings parse *and* resolve — an unknown name in a where is an
       error, not a silently-empty mask;
-    - every dim rule (``dimensions.check_schema``), once names resolve.
+    - macro formals may shadow model names but not a declared dimension —
+      ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
+    - every dim rule (``dimensions.check_schema``), once names resolve. Dim
+      rules are language rules, not backend rules, so they run here rather
+      than at either entry point — ``linopy.build``/``extend`` and
+      ``api.load_model`` all arrive through this function, and a lane that
+      could skip them would be a lane with a different language (hard rule 3).
 
     Parameters
     ----------
@@ -144,8 +150,6 @@ def validate_expressions(
         except ValueError as e:
             errors.append(str(e) if str(e).startswith(context) else f'{context}: {e}')
             continue
-        # Formals may shadow model names but not a declared dimension:
-        # `over=snapshot` under a formal `snapshot` cannot say which it means.
         formals = {*macro.args, *macro.kwargs}
         errors.extend(
             f"{context}: formal '{f}' collides with declared dimension '{f}'. "
@@ -204,10 +208,6 @@ def validate_expressions(
     if errors:
         raise SchemaError('\n'.join(errors))
 
-    # Dim rules are language rules, not backend rules, so they run here rather
-    # than at either entry point — linopy.build/extend and api.load_model all
-    # arrive through this function, and a lane that could skip them would be a
-    # lane with a different language (hard rule 3).
     check_schema(schema, known_variables)
 
 
@@ -282,13 +282,15 @@ def _check_template_names(
     Not resolution: a formal has no kind until the call site substitutes an
     argument for it, so the body cannot be typed. This catches the free names
     that are *not* formals, which is what makes an uncalled macro still fail
-    at load time.
+    at load time. A closed keyword names nothing, so there is nothing to check
+    it against; a dimension kwarg accepts a formal as well as a declared
+    dimension, since the call site may bind one to it.
     """
     if isinstance(node, (NumberNode, VariableNode, ParameterNode, DimensionNode, CoordinateNode, EdgeNode)):
         return
 
     if isinstance(node, KeywordNode):
-        return  # a closed keyword names nothing, so there is nothing to check it against
+        return
 
     if isinstance(node, NameNode):
         if node.name not in formals and ns.kind(node.name) is None:
@@ -316,7 +318,6 @@ def _check_template_names(
             errors.append(f'{context}: {unknown_helper_message(node.name)}')
         for arg in node.args:
             _check_template_names(arg, template, context, ns, formals, errors)
-        # a formal may be bound to a dimension at the call site
         known_dims = ns.dimensions | formals
         for kwarg in builtin.dimension_kwargs if builtin else ():
             value = node.kwargs.get(kwarg)

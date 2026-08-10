@@ -197,11 +197,19 @@ def resolve_expression(
 
 
 def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: list[str]) -> ArithmeticNode:
+    """The recursive worker under :func:`resolve_expression`.
+
+    Idempotent — already-typed nodes pass through unchanged, because
+    piecewise re-resolves expanded links. The ``KeywordNode`` branch is
+    unreachable from a file: the grammar admits a quoted value only in a
+    kwarg position, and the kwarg branches consume it there. It exists for a
+    hand-built AST, and because the union must be exhausted.
+    """
     if isinstance(node, NumberNode):
         return node
 
     if isinstance(node, (VariableNode, ParameterNode, DimensionNode, CoordinateNode, EdgeNode)):
-        return node  # idempotent: piecewise re-resolves expanded links
+        return node
 
     if isinstance(node, NameNode):
         match ns.kind(node.name):
@@ -248,11 +256,6 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
             elif key in builtin.dimension_kwargs:
                 kwargs[key] = _resolve_dim_ref(value, ns, context, node.name, key, errors)
             elif key in builtin.coordinate_kwargs or key in builtin.optional_coordinate_kwargs:
-                # scoped to the sibling over= dim, so that kwarg has to be read
-                # here rather than resolved on its own
-                # scoped to the sibling dimension kwarg, whichever the helper
-                # names it — `over=` where the dim is consumed, `onto=` where
-                # it is produced
                 sibling = builtin.dimension_kwargs[0] if builtin.dimension_kwargs else 'over'
                 kwargs[key] = _resolve_coordinate_ref(
                     value, node.kwargs.get(sibling), ns, context, node.name, key, errors
@@ -262,9 +265,6 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
         return FunctionCallNode(node.name, args, kwargs)
 
     if isinstance(node, KeywordNode):
-        # Unreachable from a file: the grammar only admits a quoted value in a
-        # kwarg position, and the branches above consume it there. Kept for a
-        # hand-built AST, and because the union must be exhausted.
         errors.append(
             f'{context}: {node.value!r} is a quoted keyword, which is only legal as a '
             f"helper kwarg value such as shift(..., edge='wrap'). In an expression, quote "
@@ -295,6 +295,10 @@ def _resolve_edge(
     A bare name here is never a model name — the one keyword is closed, so an
     unrecognised name is a typo rather than a lookup. That is why this does not
     take a namespace: nothing in it could make ``edge=usual`` mean anything.
+    Even so, the keyword must be written quoted: a bare ``edge=wrap`` would
+    make ``over=wrap`` and ``edge='wrap'`` the same token meaning two things
+    in one call, and quoting is what the language uses to say "literal, not a
+    name" (SPEC §6.1).
     """
     if isinstance(value, EdgeNode):
         return value
@@ -304,10 +308,6 @@ def _resolve_edge(
         errors.append(f'{context}: {edge_error(helper, repr(value.value))}')
         return value
     if isinstance(value, NameNode):
-        # A bare word here reads as a name — `over=wrap` and `edge='wrap'` would
-        # be the same token meaning two things in one call. Quoting is what the
-        # language uses to say "literal, not a name" (SPEC §6.1), so the one
-        # keyword this kwarg takes has to be written that way.
         if value.name == EDGE_WRAP:
             errors.append(
                 f'{context}: {helper}(edge={EDGE_WRAP}) is a bare name where a keyword belongs. '
@@ -349,7 +349,13 @@ def _resolve_coordinate_ref(
     key: str,
     errors: list[str],
 ) -> ArithmeticNode:
-    """Resolve a helper kwarg naming a coordinate on the sibling ``over=`` dim."""
+    """Resolve a helper kwarg naming a coordinate on the sibling dimension kwarg.
+
+    A coordinate is scoped to that sibling — ``over=`` where the helper
+    consumes the dim, ``onto=`` where it produces it — so the caller reads
+    the sibling kwarg and passes it in rather than this resolving the
+    coordinate on its own.
+    """
     if isinstance(value, CoordinateNode):
         return value
     if not isinstance(value, (NameNode, DimensionNode)):
@@ -424,8 +430,13 @@ def _typed_literal(
 
     Returns ``None`` when it has recorded an error, so the caller leaves the
     node unresolved rather than lowering something it could not type.
+
+    ``dtype`` is ``None`` for a namespace built by hand, which accepts any
+    literal. A parameter's declared dtype is one of ``float``/``int``/
+    ``bool``/``str`` and never ``datetime`` (``_DTYPE_TYPES``), so only a
+    dimension comparison can receive a ``datetime.date`` from here.
     """
-    if dtype is None:  # a namespace built by hand declares no types
+    if dtype is None:
         return node.value
     value = node.value
     text = isinstance(value, str)
@@ -501,7 +512,7 @@ def _resolve_where(
         return node
 
     if isinstance(node, (ParameterComparisonNode, DimensionComparisonNode, ParameterDefinedNode, VariableDefinedNode)):
-        return node  # already resolved
+        return node
 
     if isinstance(node, UnresolvedNameNode):
         match ns.kind(node.name):
@@ -529,9 +540,6 @@ def _resolve_where(
 
     if isinstance(node, UnresolvedComparisonNode):
         value = node.value
-        # A *bare* name on the right is ambiguous — it may name a declaration —
-        # and is refused for that reason. Quoting is what says "label, not
-        # name", so a quoted one skips the check rather than colliding with it.
         if not node.quoted and isinstance(value, str) and (rhs_kind := ns.kind(value)) is not None:
             errors.append(_declared_rhs_error(context, node, value, rhs_kind))
             return node
@@ -545,8 +553,6 @@ def _resolve_where(
 
         match kind:
             case 'parameter':
-                # `_DTYPE_TYPES` gives a parameter float/int/bool/str and never
-                # datetime, so the date branch above cannot have fired here.
                 assert not isinstance(value, datetime.date)
                 return ParameterComparisonNode(node.name, node.op, value)
             case 'dimension':

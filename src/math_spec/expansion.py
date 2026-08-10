@@ -160,7 +160,6 @@ def _expand(
         _cycle(node.name, 'macro')
         return _expand_macro(node, schema, context, stack)
 
-    # a plain name or an ordinary helper call — only the children can expand
     return _descend(node, lambda child: _expand(child, schema, context, stack))
 
 
@@ -181,6 +180,13 @@ def _expand_macro(
     context: str,
     stack: tuple[str, ...],
 ) -> ArithmeticNode:
+    """Expand one macro call to its substituted, fully expanded body.
+
+    Call-by-value: arguments are expanded before substitution, so they may
+    themselves use named expressions and macros. The substituted body is then
+    expanded again, since a template may reference named expressions or other
+    macros of its own.
+    """
     macro = schema.macros[call.name]
     signature = macro_signature(call.name, macro)
     if len(call.args) != len(macro.args):
@@ -197,15 +203,12 @@ def _expand_macro(
         )
         raise SchemaError(msg)
 
-    # call-by-value: arguments are expanded before substitution, so they may
-    # themselves use named expressions and macros
     bindings = {
         **{formal: _expand(arg, schema, context, stack) for formal, arg in zip(macro.args, call.args, strict=False)},
         **{formal: _expand(call.kwargs[formal], schema, context, stack) for formal in macro.kwargs},
     }
     body = parse_template(call.name, macro, context)
     substituted = _substitute(body, bindings)
-    # the body may reference named expressions or other macros
     return _expand(substituted, schema, context, (*stack, call.name))
 
 

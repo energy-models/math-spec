@@ -100,6 +100,17 @@ def _dims(
     context: str,
     external: Mapping[str, Sequence[str]],
 ) -> frozenset[str]:
+    """The recursive worker under :func:`dims_of`.
+
+    A binary operator takes the *union* of its sides, deliberately without a
+    subset check: an outer product is legitimate when the frame declares the
+    result — the convex-piecewise epigraph multiplies a per-segment slope by
+    a per-snapshot variable and wants one row per (snapshot, generator,
+    segment). What must not be silent is the *declaration* disagreeing, and
+    ``dims == foreach`` in :func:`check_schema` catches that at the point
+    where model size is actually decided. A variable absent from the schema
+    is one already on the model, with its dims in ``external``.
+    """
     if isinstance(node, NumberNode):
         return frozenset()
 
@@ -109,7 +120,7 @@ def _dims(
     if isinstance(node, VariableNode):
         if node.name in schema.variables:
             return frozenset(schema.variables[node.name].foreach)
-        return frozenset(external[node.name])  # a variable already on the model
+        return frozenset(external[node.name])
 
     if isinstance(node, (NameNode, KeywordNode, DimensionNode, CoordinateNode, EdgeNode)):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
@@ -119,12 +130,6 @@ def _dims(
         return _dims(node.operand, schema, context, external)
 
     if isinstance(node, BinaryOperatorNode):
-        # Union, not subset. An outer product is legitimate when the frame
-        # declares the result — the convex-piecewise epigraph multiplies a
-        # per-segment slope by a per-snapshot variable and wants one row per
-        # (snapshot, generator, segment). What must not be silent is the
-        # *declaration* disagreeing, and `dims == foreach` catches that at the
-        # point where model size is actually decided.
         return _dims(node.left, schema, context, external) | _dims(node.right, schema, context, external)
 
     if isinstance(node, FunctionCallNode):
@@ -139,6 +144,15 @@ def _dims_call(
     context: str,
     external: Mapping[str, Sequence[str]],
 ) -> frozenset[str]:
+    """The dim rule of one helper call.
+
+    ``group_by`` reduces the ``over`` dim *into* another rather than away:
+    the terms land on the dim the coordinate targets instead of on nothing.
+    ``at`` is the adjoint of ``sum``, and deliberately takes the same two
+    arguments — ``(over, by)`` names one mapping table, and which way it is
+    walked is the helper: ``sum`` consumes the dim that *declares* the
+    coordinate, ``at`` the dim it *targets*.
+    """
     if node.name == 'sum':
         inner = _dims(node.args[0], schema, context, external)
         over = node.kwargs['over']
@@ -155,8 +169,6 @@ def _dims_call(
         if by is None:
             return inner - {over.name}
 
-        # `group_by` reduces the dim *into* another rather than away: the terms
-        # land on the dim the coordinate targets instead of on nothing.
         assert isinstance(by, CoordinateNode)
         if by.into in inner - {over.name}:
             raise DimensionError(
@@ -175,10 +187,6 @@ def _dims_call(
         by = node.kwargs['by']
         assert isinstance(over, DimensionNode)
         assert isinstance(by, CoordinateNode)
-        # The adjoint of sum, and deliberately the same two arguments:
-        # `(over, by)` names one mapping table, and which way it is walked is
-        # the helper. sum consumes the dim that *declares* the
-        # coordinate; `at` consumes the dim it *targets*.
         if by.into not in inner:
             raise DimensionError(
                 f'{context}: at(onto={over.name}, by={by.name}) reads through '

@@ -36,7 +36,12 @@ def _raw(text: str) -> str:
 
 
 class TypstFormat:
-    """See :class:`lpspec.typeset.format.Format`."""
+    """See :class:`lpspec.typeset.format.Format`.
+
+    The cyclic operators spell with ``.o``, Typst's circled modifier —
+    ``minus.circle`` is not a thing, which the compile gate caught on the
+    first run.
+    """
 
     suffix: ClassVar[str] = '.typ'
 
@@ -60,8 +65,6 @@ class TypstFormat:
         'such_that': 'colon',
         'infinity': 'infinity',
         'minus_infinity': '-infinity',
-        # `.o` is Typst's circled modifier; `minus.circle` is not a thing,
-        # which the compile gate caught on the first run.
         'cyclic_minus': 'minus.o',
         'cyclic_plus': 'plus.o',
         'times': 'times',
@@ -114,8 +117,11 @@ class TypstFormat:
         return f'sum_({domain}) {body}'
 
     def apply(self, function: str, argument: str) -> str:
-        # `f(x)` in Typst math is a call on `f`; with an `upright("bus")` head
-        # that is exactly the notation wanted, and it needs no thin space.
+        """``f(x)`` in Typst math is a call on ``f``.
+
+        With an ``upright("bus")`` head that is exactly the notation wanted,
+        and it needs no thin space.
+        """
         return f'{function}({argument})'
 
     def joined(self, parts: list[str], operator: str) -> str:
@@ -124,8 +130,12 @@ class TypstFormat:
     # -- document ----------------------------------------------------------
 
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
-        # Typst aligns on `&` inside a block equation exactly as amsmath does,
-        # so the Line split carries over unchanged — which is the point.
+        """A block equation, aligned on ``&``.
+
+        Typst aligns on ``&`` inside a block equation exactly as amsmath
+        does, so the :class:`Line` split carries over unchanged — which is
+        the point.
+        """
         rows = [
             f'{self.prose(line.label)} & {line.left} & {line.right} & {line.condition}'.rstrip(' &') for line in lines
         ]
@@ -147,7 +157,9 @@ class TypstFormat:
         return text
 
     def document(self, blocks: list[str], *, standalone: bool) -> str:
+        """Join the blocks; ``standalone`` only decides whether page setup is emitted.
+
+        Typst has no preamble/body split — a bare fragment is already a document.
+        """
         body = '\n\n'.join(blocks) + '\n'
-        # Typst has no preamble/body split — a bare fragment is already a
-        # document — so `standalone` only decides whether page setup is emitted.
         return f'{_PREAMBLE}\n{body}' if standalone else body

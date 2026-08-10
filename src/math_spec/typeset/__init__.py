@@ -90,13 +90,14 @@ def typeset(
     A symbol table is checked against it too: an entry naming nothing in the
     model is an error, since the alternative is a symbol that silently never
     applies.
+
+    The walk runs before the legend is assembled: ``saw_wraparound`` is
+    something it *discovers*, and the legend has to explain what was emitted.
     """
     schema = expand_piecewise(load_model(model))
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols or {})
     walk = Walk(schema, Namespace.of(schema), Symbols(schema, fmt, table.checked_against(schema)), fmt)
 
-    # The walk runs before the legend is assembled: `saw_wraparound` is
-    # something it *discovers*, and the legend has to explain what was emitted.
     sections = [
         ('Objective', walk.objectives()),
         ('Subject to', walk.constraints()),

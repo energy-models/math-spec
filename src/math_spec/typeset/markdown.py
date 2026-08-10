@@ -95,15 +95,18 @@ class MarkdownFormat:
         return _LATEX.apply(function, argument)
 
     def joined(self, parts: list[str], operator: str) -> str:
-        # `,\ ` is safe — a backslash before a *space* is not a Markdown
-        # escape — but spelling it `\enspace` says why without the reader
-        # having to know that.
+        """``a op b op c``, with ``\\enspace`` as the bare separator.
+
+        LaTeX's ``,\\ `` would be safe here too — a backslash before a *space*
+        is not a Markdown escape — but spelling it ``\\enspace`` says why
+        without the reader having to know that.
+        """
         return f' {operator} '.join(parts) if operator else r',\enspace '.join(parts)
 
     # -- the document layer, which is the whole difference -------------------
 
     def mono(self, text: str) -> str:
-        # A backtick span: this one lands in prose, not in math.
+        """A backtick span — this one lands in prose, not in math."""
         return f'`{text}`'
 
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
@@ -124,7 +127,7 @@ class MarkdownFormat:
         constraints as one block where the relations genuinely do line up.
         That difference is the reason these are two formats and not one.
         """
-        del numbered  # a display block carries no number
+        del numbered
         blocks = []
         for line in lines:
             body = f'{line.left} {line.right}'.strip()
@@ -147,7 +150,9 @@ class MarkdownFormat:
         return text
 
     def document(self, blocks: list[str], *, standalone: bool) -> str:
-        # Markdown has no preamble, so `standalone` only adds a heading — a
-        # fragment is meant to be pasted under one the page already has.
+        """Markdown has no preamble, so ``standalone`` only adds a heading.
+
+        A fragment is meant to be pasted under a heading the page already has.
+        """
         body = '\n\n'.join(blocks) + '\n'
         return f'## The math\n\n{body}' if standalone else body
