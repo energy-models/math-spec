@@ -61,24 +61,24 @@ from lpspec.language.expression_parser import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from lpspec.language.schema import MacroBlock, MathSchema
+    from lpspec.language.model import MacroBlock, Model
 
 #: Backstop against pathological nesting the cycle check cannot see.
 _MAX_DEPTH = 50
 
 
-def parse_and_expand(text: str, schema: MathSchema, context: str = 'expression') -> ExpressionNode:
+def parse_and_expand(text: str, schema: Model, context: str = 'expression') -> ExpressionNode:
     """Parse *text* and expand named sub-expressions and macros to core AST."""
     return expand(parse_expression(text), schema, context)
 
 
 @overload
-def expand(node: ArithmeticNode, schema: MathSchema, context: str = ...) -> ArithmeticNode: ...
+def expand(node: ArithmeticNode, schema: Model, context: str = ...) -> ArithmeticNode: ...
 @overload
-def expand(node: ComparisonNode, schema: MathSchema, context: str = ...) -> ComparisonNode: ...
+def expand(node: ComparisonNode, schema: Model, context: str = ...) -> ComparisonNode: ...
 
 
-def expand(node: ExpressionNode, schema: MathSchema, context: str = 'expression') -> ExpressionNode:
+def expand(node: ExpressionNode, schema: Model, context: str = 'expression') -> ExpressionNode:
     """Expand all named sub-expressions and macro calls under *node*.
 
     Expansion never changes the shape of the root: a comparison stays a
@@ -136,7 +136,7 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
 
 def _expand(
     node: ArithmeticNode,
-    schema: MathSchema,
+    schema: Model,
     context: str,
     stack: tuple[str, ...],
 ) -> ArithmeticNode:
@@ -164,7 +164,7 @@ def _expand(
     return _descend(node, lambda child: _expand(child, schema, context, stack))
 
 
-def _parse_named(name: str, schema: MathSchema, context: str) -> ArithmeticNode:
+def _parse_named(name: str, schema: Model, context: str) -> ArithmeticNode:
     body = parse_expression(schema.expressions[name])
     if isinstance(body, ComparisonNode):
         msg = (
@@ -177,7 +177,7 @@ def _parse_named(name: str, schema: MathSchema, context: str) -> ArithmeticNode:
 
 def _expand_macro(
     call: FunctionCallNode,
-    schema: MathSchema,
+    schema: Model,
     context: str,
     stack: tuple[str, ...],
 ) -> ArithmeticNode:

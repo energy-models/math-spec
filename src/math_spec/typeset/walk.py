@@ -52,8 +52,8 @@ from lpspec.typeset.format import Entry, Line
 if TYPE_CHECKING:
     import datetime
 
+    from lpspec.language.model import Model
     from lpspec.language.resolution import Namespace
-    from lpspec.language.schema import MathSchema
     from lpspec.typeset.format import Format
     from lpspec.typeset.symbols import Symbols
 
@@ -115,7 +115,7 @@ class Walk:
     which the legend needs in order to explain cyclic translation.
     """
 
-    def __init__(self, schema: MathSchema, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
+    def __init__(self, schema: Model, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
         self.schema = schema
         self.namespace = namespace
         self.symbols = symbols

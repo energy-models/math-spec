@@ -74,12 +74,12 @@ from lpspec.language.where_parser import (
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from lpspec.language.schema import MathSchema
+    from lpspec.language.model import Model
 
 
 def dims_of(
     node: ExpressionNode,
-    schema: MathSchema,
+    schema: Model,
     context: str,
     external: Mapping[str, Sequence[str]] = MappingProxyType({}),
 ) -> frozenset[str]:
@@ -96,7 +96,7 @@ def dims_of(
 
 def _dims(
     node: ArithmeticNode,
-    schema: MathSchema,
+    schema: Model,
     context: str,
     external: Mapping[str, Sequence[str]],
 ) -> frozenset[str]:
@@ -135,7 +135,7 @@ def _dims(
 
 def _dims_call(
     node: FunctionCallNode,
-    schema: MathSchema,
+    schema: Model,
     context: str,
     external: Mapping[str, Sequence[str]],
 ) -> frozenset[str]:
@@ -213,7 +213,7 @@ def _dims_call(
 
 
 def check_schema(
-    schema: MathSchema,
+    schema: Model,
     external: Mapping[str, Sequence[str]] = MappingProxyType({}),
 ) -> None:
     """Check every declaration's dim rules. Raises :class:`DimensionError`.
@@ -264,7 +264,7 @@ def check_schema(
 
 def _check_where_dims(
     node: WhereNode | None,
-    schema: MathSchema,
+    schema: Model,
     frame: frozenset[str],
     context: str,
 ) -> None:

@@ -3,7 +3,7 @@
 Derivation aims at *unambiguous*, not beautiful: it runs with no setup, so it
 has to be right rather than elegant. :class:`SymbolTable` is where a reader
 makes it conventional, and it is a file of its own — presentation is not
-language, so it never becomes keys on ``MathSchema``, which is the versioned
+language, so it never becomes keys on ``Model``, which is the versioned
 contract every lane sees.
 
 Spelling comes from a :class:`~lpspec.typeset.format.Format`: this module
@@ -22,7 +22,7 @@ from lpspec.errors import SchemaError, did_you_mean
 from lpspec.language._yaml import read_yaml
 
 if TYPE_CHECKING:
-    from lpspec.language.schema import MathSchema
+    from lpspec.language.model import Model
     from lpspec.typeset.format import Format
 
 __all__ = ['SymbolTable', 'Symbols']
@@ -70,7 +70,7 @@ class Symbols:
     Deriving the two independently is exactly how that got through.
     """
 
-    def __init__(self, schema: MathSchema, fmt: Format, table: SymbolTable | None = None) -> None:
+    def __init__(self, schema: Model, fmt: Format, table: SymbolTable | None = None) -> None:
         table = table or SymbolTable()
         declared = frozenset({*schema.dimensions, *schema.parameters, *schema.variables})
 
@@ -126,7 +126,7 @@ class SymbolTable:
     This is presentation, and presentation is not language: nothing here
     changes what the file means, no lane reads it, and a model with no table
     still renders. So it lives in its own file rather than as keys on
-    ``MathSchema``, which is the versioned contract every consumer sees.
+    ``Model``, which is the versioned contract every consumer sees.
 
     Its own format, deliberately strict: a name it does not recognise is an
     error naming the near miss, because the failure mode of a silent typo is a
@@ -178,7 +178,7 @@ class SymbolTable:
             descriptions={k: str(v) for k, v in (raw.get('descriptions') or {}).items()},
         )
 
-    def checked_against(self, schema: MathSchema) -> SymbolTable:
+    def checked_against(self, schema: Model) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
         everything = dims | set(schema.parameters) | set(schema.variables)

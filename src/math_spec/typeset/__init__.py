@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, Any
 
 from lpspec.language.piecewise import expand_piecewise
 from lpspec.language.resolution import Namespace
-from lpspec.language.validation import load_schema
+from lpspec.language.validation import load_model
 from lpspec.typeset.latex import LatexFormat
 from lpspec.typeset.markdown import MarkdownFormat
 from lpspec.typeset.symbols import Symbols, SymbolTable
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lpspec.language.schema import MathSchema
+    from lpspec.language.model import Model
     from lpspec.typeset.format import Format
 
 __all__ = ['FORMATS', 'SymbolTable', 'to_latex', 'to_markdown', 'to_typst', 'typeset']
@@ -68,7 +68,7 @@ FORMATS: dict[str, Format] = {
 
 
 def typeset(
-    model: str | Path | dict[str, Any] | MathSchema,
+    model: str | Path | dict[str, Any] | Model,
     fmt: Format,
     *,
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
@@ -78,7 +78,7 @@ def typeset(
 ) -> str:
     """Render *model* in *fmt*.
 
-    Accepts anything :func:`lpspec.load_schema` accepts. ``symbols`` is an
+    Accepts anything :func:`lpspec.load_model` accepts. ``symbols`` is an
     optional :class:`SymbolTable` — a path, a mapping, or the object — saying
     how names should print; everything it does not name is derived.
     ``standalone`` emits a compilable document rather than a fragment;
@@ -91,7 +91,7 @@ def typeset(
     model is an error, since the alternative is a symbol that silently never
     applies.
     """
-    schema = expand_piecewise(load_schema(model))
+    schema = expand_piecewise(load_model(model))
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols or {})
     walk = Walk(schema, Namespace.of(schema), Symbols(schema, fmt, table.checked_against(schema)), fmt)
 
@@ -112,16 +112,16 @@ def typeset(
     return fmt.document([*blocks, *rendered], standalone=standalone)
 
 
-def to_latex(model: str | Path | dict[str, Any] | MathSchema, **options: Any) -> str:
+def to_latex(model: str | Path | dict[str, Any] | Model, **options: Any) -> str:
     """Render *model* as LaTeX (amsmath ``align``). See :func:`typeset`."""
     return typeset(model, FORMATS['latex'], **options)
 
 
-def to_typst(model: str | Path | dict[str, Any] | MathSchema, **options: Any) -> str:
+def to_typst(model: str | Path | dict[str, Any] | Model, **options: Any) -> str:
     """Render *model* as Typst. See :func:`typeset`."""
     return typeset(model, FORMATS['typst'], **options)
 
 
-def to_markdown(model: str | Path | dict[str, Any] | MathSchema, **options: Any) -> str:
+def to_markdown(model: str | Path | dict[str, Any] | Model, **options: Any) -> str:
     """Render *model* as GitHub-flavoured Markdown. See :func:`typeset`."""
     return typeset(model, FORMATS['markdown'], **options)

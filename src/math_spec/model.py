@@ -1,11 +1,21 @@
-"""Pydantic models for YAML schema validation."""
+"""The YAML surface's types — every block a file may contain, rooted at :class:`Model`.
+
+A block per declaration kind, and one strict base: an unrecognised key is an
+error naming the near miss rather than a shrug, because a dropped ``bounds:``
+leaves a variable unbounded and says nothing.
+
+:class:`Model` is the first of the three stages the pipeline names — what a
+file *declares*, before ``plan.Program`` (what it lowers to) and an executor
+(what a build holds). Nothing here has seen data.
+"""
 
 from __future__ import annotations
 
+import math
 from importlib import metadata
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
 from lpspec.errors import did_you_mean
 from lpspec.language.helpers import BUILTIN_NAMES
@@ -319,8 +329,71 @@ class PiecewiseBlock(_StrictBlock):
 SUPPORTED_VERSIONS: tuple[int, ...] = (0,)
 
 
-class MathSchema(_StrictBlock):
-    """Top-level schema for a lpspec YAML file."""
+def _without_absence(value: Any) -> Any:
+    """Strip what is absent — a null, an infinite bound, or a mapping declaring nothing.
+
+    An empty **list** is kept, because in this schema a list carries
+    *cardinality* and zero is one of its values: ``foreach: []`` is a scalar
+    declaration and ``dims: []`` is a scalar parameter, both of them required
+    fields that mean something. An empty **mapping** carries declarations, and
+    none of them is nothing.
+
+    Nothing else is judged. A value that is there is written, whether or not it
+    equals a default.
+    """
+    if isinstance(value, dict):
+        pruned = {k: _without_absence(v) for k, v in value.items()}
+        return {k: v for k, v in pruned.items() if not _is_absent(v)}
+    return value
+
+
+def _is_absent(value: Any) -> bool:
+    """Whether a serialised value says *nothing is here*.
+
+    ``inf`` is included because an infinite bound is not a bound — it is the
+    unbounded side, which is what omitting the bound already means. Stripping
+    it is what makes JSON lossless as well: JSON has no infinity, so anything
+    that reached ``model_dump_json`` as ``inf`` came back as ``null`` and read
+    as absent anyway. Removing it here means the two agree instead of one being
+    quietly wrong.
+    """
+    if value is None or value == {}:
+        return True
+    return isinstance(value, float) and math.isinf(value)
+
+
+class Model(_StrictBlock):
+    """The declared math — one YAML file, or one dict, validated.
+
+    First of the three stages the pipeline names: ``Model`` is what a file
+    *says*, ``plan.Program`` is what it lowers to, and an executor is what a
+    build holds. Nothing here has seen data.
+
+    **The API is the declarations, and two ways back out.** The eight
+    declaration sections plus ``version``; :meth:`to_dict` for the model as
+    data, :meth:`to_yaml` for the file a reviewer reads. In goes through
+    ``lps.load_model``, which takes a path, a dict or a ``Model``.
+
+    **Everything else on this class is pydantic's**, because this is a
+    ``BaseModel`` and inherits its whole surface — twenty-seven public names,
+    a dozen of them deprecated v1 aliases (``dict``, ``json``, ``parse_obj``).
+    They are not a contract this package keeps. Two are worth knowing about:
+
+    * ``model_json_schema()`` produces a complete Draft 2020-12 document with
+      no help from us, which is most of a machine-readable YAML surface. It
+      describes the *shape* pydantic validates and not the language, so it
+      accepts a constraint naming an undeclared parameter.
+    * ``model_construct()`` **skips validation entirely** — not the fields, not
+      the shape. So the guarantee this class offers is that a model built the
+      normal way is valid, not that a ``Model`` is valid. Overriding it to
+      raise would trade a documented escape hatch for a surprise, so it stays.
+
+    Pydantic earns its place here: forty-seven field declarations get types,
+    defaults, nested blocks, unknown-key rejection and multi-error aggregation
+    for free, and the alternative is several hundred lines of hand-written
+    checking whose failure mode is silently accepting a wrong model — the one
+    outcome this package spends the most effort avoiding.
+    """
 
     _label: ClassVar[str] = 'the top level of the file'
 
@@ -351,13 +424,13 @@ class MathSchema(_StrictBlock):
         version gates *nothing* at runtime, because keeping two surfaces alive
         in one codebase is a large permanent cost against a hard error that
         costs one line.
+
+        The installed version comes from the distribution's metadata rather
+        than ``lpspec.__version__``: a language module may not reach forward to
+        the package that consumes its AST.
         """
         if v in SUPPORTED_VERSIONS:
             return v
-        # `importlib.metadata`, not `from lpspec import __version__`: a language
-        # module may not reach forward to the package that consumes its AST
-        # (docs/ARCHITECTURE.md, held by `test_language_never_reaches_a_consumer`).
-        # The distribution's metadata is the same string without the dependency.
         try:
             installed = metadata.version('lpspec')
         except metadata.PackageNotFoundError:  # pragma: no cover — a tree with no dist-info
@@ -369,8 +442,44 @@ class MathSchema(_StrictBlock):
         )
         raise ValueError(msg)
 
+    @model_serializer(mode='wrap')
+    def _drop_absence(self, handler: Any) -> dict[str, Any]:
+        """Absence is not serialised — a null, or a mapping declaring nothing.
+
+        On the *serializer* rather than beside it so there is one answer:
+        ``model_dump``, ``model_dump_json``, :meth:`to_dict` and
+        :meth:`to_yaml` all give the same content. A helper next to them would
+        have left pydantic's own methods disagreeing with the file, and which a
+        consumer got would depend on which name they reached for.
+
+        **Every value is kept, default or not.** Omitting *defaults* reads
+        better and needs a list of which ones are consequential; that list is a
+        second copy of the schema and it drifted on its first day, keeping
+        ``version`` and ``sense`` while dropping ``dtype``. An empty **list**
+        stays, because a list carries cardinality here and zero is one of its
+        values — ``foreach: []`` is a scalar declaration.
+        """
+        return _without_absence(handler(self))
+
+    def to_dict(self) -> dict[str, Any]:
+        """The model as plain data. ``load_model(m.to_dict())`` reproduces it."""
+        return self.model_dump()
+
+    def to_yaml(self) -> str:
+        """The file a reviewer reads — including for a model that never had one.
+
+        Hard rule 5 is that the model is the file you review and diff. A model
+        a framework emitted as a dict has no such file; this gives it one. The
+        output is generated for review rather than authored, so length costs a
+        reader nothing and being unambiguous saves them having to know this
+        package's defaults at all.
+        """
+        import yaml
+
+        return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
+
     @model_validator(mode='after')
-    def _validate_references(self) -> MathSchema:
+    def _validate_references(self) -> Model:
         errors = []
 
         # One flat namespace: shadowing would let a new declaration silently

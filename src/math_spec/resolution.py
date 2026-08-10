@@ -58,7 +58,7 @@ from lpspec.language.where_parser import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from lpspec.language.schema import MathSchema
+    from lpspec.language.model import Model
 
 
 class Namespace:
@@ -93,7 +93,7 @@ class Namespace:
         self.coordinates: dict[str, dict[str, str]] = {d: dict(c) for d, c in (coordinates or {}).items()}
 
     @classmethod
-    def of(cls, schema: MathSchema, known_variables: Iterable[str] = ()) -> Namespace:
+    def of(cls, schema: Model, known_variables: Iterable[str] = ()) -> Namespace:
         """Build the namespace of *schema*.
 
         ``known_variables`` widens the variable set only — used by
@@ -137,7 +137,7 @@ class Namespace:
 # ---------------------------------------------------------------------------
 
 
-def expression_of(text: str, schema: MathSchema, ns: Namespace, context: str) -> ExpressionNode:
+def expression_of(text: str, schema: Model, ns: Namespace, context: str) -> ExpressionNode:
     """Parse, expand and resolve *text* — the only way a backend gets an AST.
 
     Raises :class:`LanguageError` listing every problem. ``validation.py`` calls the

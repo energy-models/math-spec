@@ -57,16 +57,18 @@ from lpspec.errors import LanguageError, PiecewiseExpansionError
 from lpspec.language.degree import check_expression
 from lpspec.language.dimensions import dims_of
 from lpspec.language.expression_parser import ComparisonNode, parse_expression
+from lpspec.language.model import Model, PiecewiseBlock
 from lpspec.language.resolution import Namespace, resolve_expression
-from lpspec.language.schema import MathSchema, PiecewiseBlock
 
 
-def expand_piecewise(schema: MathSchema) -> MathSchema:
+def expand_piecewise(schema: Model) -> Model:
     """Return *schema* with every ``piecewise:`` block expanded away."""
     if not schema.piecewise:
         return schema
 
     raw = schema.model_dump()
+    raw.setdefault('variables', {})
+    raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
         frame = _validate_block(schema, name, pw)
         lam, seg = f'{name}_lam', f'{name}_seg'
@@ -108,10 +110,10 @@ def expand_piecewise(schema: MathSchema) -> MathSchema:
             }
 
     raw['piecewise'].clear()  # every block is now expanded away
-    return MathSchema(**raw)
+    return Model(**raw)
 
 
-def _validate_block(schema: MathSchema, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
+def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
     """Check references and infer the frame (union of the links' dims)."""
     ctx = f"piecewise '{name}'"
     if pw.over not in schema.dimensions:
@@ -163,7 +165,7 @@ def _validate_block(schema: MathSchema, name: str, pw: PiecewiseBlock) -> tuple[
     return tuple(frame)
 
 
-def _declared_order(schema: MathSchema, dims: frozenset[str]) -> list[str]:
+def _declared_order(schema: Model, dims: frozenset[str]) -> list[str]:
     """*dims* in the order the file declares them.
 
     An emitted ``foreach`` is a *language* object and inherits the label
@@ -177,7 +179,7 @@ def _declared_order(schema: MathSchema, dims: frozenset[str]) -> list[str]:
     return declared + sorted(dims.difference(declared))
 
 
-def _expr_dims(schema: MathSchema, text: str, ctx: str) -> frozenset[str]:
+def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:
     """Dims of an affine link expression.
 
     The frame a block is emitted over is the union of its links' dims, so the
