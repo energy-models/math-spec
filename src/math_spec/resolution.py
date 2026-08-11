@@ -68,7 +68,7 @@ class Namespace:
     walk through several stores.
     """
 
-    __slots__ = ('coordinates', 'dimensions', 'dtypes', 'parameters', 'variables')
+    __slots__ = ('coordinates', 'dimensions', 'dtypes', 'labels', 'parameters', 'variables')
 
     def __init__(
         self,
@@ -77,20 +77,27 @@ class Namespace:
         dimensions: Iterable[str],
         coordinates: Mapping[str, Mapping[str, str]] | None = None,
         dtypes: Mapping[str, str] | None = None,
+        labels: Mapping[str, Iterable[str]] | None = None,
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
         self.dimensions = frozenset(dimensions)
-        #: name -> declared dtype, for dimensions and parameters alike. A where
-        #: comparison is the one place a *literal* meets a declared type, and
-        #: comparing the wrong one is silent: polars reads a datetime against
-        #: an integer as an epoch offset and drops rows, and row absence is the
-        #: structural zero. Empty when a caller builds a namespace by hand,
-        #: which only widens what is accepted.
+        #: name -> declared dtype, for dimensions, parameters and inline label
+        #: coordinates alike. A where comparison is the one place a *literal*
+        #: meets a declared type, and comparing the wrong one is silent: polars
+        #: reads a datetime against an integer as an epoch offset and drops
+        #: rows, and row absence is the structural zero. Empty when a caller
+        #: builds a namespace by hand, which only widens what is accepted.
         self.dtypes: dict[str, str] = dict(dtypes or {})
-        #: dim -> {coordinate name: target dim}. Scoped, so it is not part of
-        #: :meth:`kind` — a coordinate name is only meaningful under its dim.
+        #: dim -> {coordinate name: target dim} — the groupable kind only.
+        #: Scoped, so it is not part of :meth:`kind` — a coordinate name is
+        #: only meaningful under its dim.
         self.coordinates: dict[str, dict[str, str]] = {d: dict(c) for d, c in (coordinates or {}).items()}
+        #: dim -> inline label-coordinate names — selection-only spaces that
+        #: target no dimension. Kept apart from :attr:`coordinates` so that
+        #: naming one in a ``group_by``/``at`` produces the promotion rewrite
+        #: rather than "does not name a coordinate".
+        self.labels: dict[str, frozenset[str]] = {d: frozenset(c) for d, c in (labels or {}).items()}
 
     @classmethod
     def of(cls, schema: Model, known_variables: Iterable[str] = ()) -> Namespace:
@@ -105,11 +112,13 @@ class Namespace:
             set(schema.variables) | set(known_variables),
             schema.parameters,
             schema.dimensions,
-            {d: dd.coords for d, dd in schema.dimensions.items()},
+            {d: dd.targeted for d, dd in schema.dimensions.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
+                **{c: spec.dtype for dd in schema.dimensions.values() for c, spec in dd.labels.items()},
             },
+            {d: dd.labels for d, dd in schema.dimensions.items()},
         )
 
     def kind(self, name: str) -> str | None:
@@ -368,6 +377,18 @@ def _resolve_coordinate_ref(
         )
         return value
     declared = ns.coordinates.get(over.name, {})
+    if value.name in ns.labels.get(over.name, ()):
+        errors.append(
+            f'{context}: {helper}(over={over.name}, {key}={value.name}): '
+            f"'{value.name}' is a label on '{over.name}', not a groupable coordinate — "
+            f'it targets no dimension for the terms to land on. To group into it, '
+            f'declare the axis and target it:\n'
+            f'  dimensions:\n'
+            f'    {value.name}: {{...}}\n'
+            f'    {over.name}:\n'
+            f'      coords: {{{value.name}: {value.name}}}'
+        )
+        return value
     if value.name not in declared:
         listing = (
             f'  Coordinates on {over.name}: {sorted(declared)}'

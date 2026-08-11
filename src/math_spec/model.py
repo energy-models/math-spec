@@ -74,32 +74,65 @@ def _one_of(value: str, allowed: set[str], field: str) -> str:
     return value
 
 
+class CoordinateSpec(_StrictBlock):
+    """An inline label space: structure a dimension's members carry, no axis.
+
+    The other kind of coordinate — a plain string naming a target dimension —
+    exists for *aggregation*: ``group_by=`` / ``at()`` land terms on the
+    target, so the target must be a real axis. This kind exists for
+    *selection*: it types a column of the owning dimension's index (a
+    snapshot's period, a generator's tech) for ``where`` comparisons and the
+    typeset legend, and it never puts an entry under ``dimensions:`` — which
+    is the point, because a label space nothing aggregates into is not part
+    of the model's dimensionality. Grouping into one is refused with the
+    promotion rewrite (:func:`lpspec.language.resolution.resolve`).
+    """
+
+    _label: ClassVar[str] = 'a coordinate declaration'
+
+    dtype: str = 'str'
+
+    @field_validator('dtype')
+    @classmethod
+    def _check_dtype(cls, v: str) -> str:
+        return _one_of(v, {'float', 'int', 'str', 'datetime'}, 'dtype')
+
+
 class DimensionBlock(_StrictBlock):
     """A declared dimension with optional dtype, values and coordinates.
 
     ``coords`` names non-index coordinates carried alongside this dimension's
-    labels — a generator's bus, a line's endpoints, a snapshot's month. Each
-    maps a coordinate name to the dimension its *values* are labels of, which
-    is what makes ``sum(x, over=..., group_by=...)`` checkable: the values are
-    verified to be coordinates of that dimension once data is bound, instead of
-    being joined blind. Written either as a list, when the coordinate is named
-    after its target dimension::
+    labels — a generator's bus, a line's endpoints, a snapshot's period. Each
+    entry is one of two kinds, told apart by the shape of its value:
 
-        generator:
-          coords: [bus]
+    - **a string** names the dimension the coordinate's values are labels of —
+      the *groupable* kind, which is what makes ``sum(x, over=...,
+      group_by=...)`` checkable: the values are verified to be coordinates of
+      that dimension once data is bound, instead of being joined blind.
+      Written as a list when the coordinate is named after its target::
 
-    or as a mapping, when it is not — including two coordinates onto one
-    dimension::
+          generator:
+            coords: [bus]
 
-        line:
-          coords: {from: bus, to: bus}
+      or as a mapping when it is not — including two coordinates onto one
+      dimension::
+
+          line:
+            coords: {from: bus, to: bus}
+
+    - **a mapping** declares an inline label space (:class:`CoordinateSpec`) —
+      the *selection-only* kind, which owns its values and targets nothing::
+
+          snapshot:
+            coords:
+              period: {dtype: int}
     """
 
     _label: ClassVar[str] = 'a dimension declaration'
 
     dtype: str = 'str'
     values: list[Any] | None = None
-    coords: dict[str, str] = Field(default_factory=dict)
+    coords: dict[str, str | CoordinateSpec] = Field(default_factory=dict)
 
     @field_validator('coords', mode='before')
     @classmethod
@@ -117,6 +150,16 @@ class DimensionBlock(_StrictBlock):
     @classmethod
     def _check_dtype(cls, v: str) -> str:
         return _one_of(v, {'float', 'int', 'str', 'datetime'}, 'dtype')
+
+    @property
+    def targeted(self) -> dict[str, str]:
+        """The groupable coordinates: name -> the dimension they map into."""
+        return {c: t for c, t in self.coords.items() if isinstance(t, str)}
+
+    @property
+    def labels(self) -> dict[str, CoordinateSpec]:
+        """The inline label spaces: selection only, never an axis."""
+        return {c: s for c, s in self.coords.items() if isinstance(s, CoordinateSpec)}
 
 
 class ParameterBlock(_StrictBlock):
@@ -521,6 +564,13 @@ class Model(_StrictBlock):
 
     @model_validator(mode='after')
     def _validate_references(self) -> Model:
+        """Every cross-declaration rule the schema can decide without data.
+
+        Inline label coordinates are new names, so they join the flat
+        namespace. Targeted coordinates deliberately do not: their name aliases
+        the target dimension (``generator: {coords: [bus]}``), and the
+        dedicated shadowing check covers the case where the two disagree.
+        """
         errors = []
 
         # One flat namespace: shadowing would let a new declaration silently
@@ -531,6 +581,7 @@ class Model(_StrictBlock):
             ('variable', self.variables),
             ('named expression', self.expressions),
             ('macro', self.macros),
+            ('label coordinate', [c for d in self.dimensions.values() for c in d.labels]),
         ]
         seen: dict[str, str] = {}
         for kind, group in kinds:
@@ -567,7 +618,7 @@ class Model(_StrictBlock):
         # the dimension carrying it: grouping a dim into itself is a no-op that
         # would read as a reduction.
         for dname, ddef in self.dimensions.items():
-            for cname, target in ddef.coords.items():
+            for cname, target in ddef.targeted.items():
                 if target not in self.dimensions:
                     errors.append(
                         f"Dimension '{dname}' coordinate '{cname}' targets undeclared "

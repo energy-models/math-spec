@@ -430,17 +430,28 @@ class Walk:
         return f' over {self.format.math(product)}'
 
     def _coords(self, dim: str) -> str:
-        coords = self.schema.dimensions[dim].coords
-        if not coords:
-            return ''
-        maps = self.format.joined(
-            [
-                f'{self.format.upright(c)}: {self.symbols.set[dim]} {self.op("maps_to")} {self.symbols.set[target]}'
-                for c, target in coords.items()
-            ],
-            '',
-        )
-        return f' with {self.format.math(maps)}'
+        """The dimension's carried structure, groupable maps before plain labels.
+
+        A targeted coordinate renders as the map it is (``bus: G ↦ B``); an
+        inline label space has no target set to point at, so it renders as the
+        label it is (``period — a label on T``).
+        """
+        block = self.schema.dimensions[dim]
+        clauses = []
+        if block.targeted:
+            maps = self.format.joined(
+                [
+                    f'{self.format.upright(c)}: {self.symbols.set[dim]} {self.op("maps_to")} {self.symbols.set[target]}'
+                    for c, target in block.targeted.items()
+                ],
+                '',
+            )
+            clauses.append(f' with {self.format.math(maps)}')
+        if block.labels:
+            named = self.format.joined([self.format.upright(c) for c in block.labels], '')
+            plural = 's' if len(block.labels) > 1 else ''
+            clauses.append(f' carrying label{plural} {self.format.math(named)}')
+        return ''.join(clauses)
 
     def wraparound_note(self) -> str:
         cyclic = self.format.math(f't {self.op("cyclic_minus")} k')
