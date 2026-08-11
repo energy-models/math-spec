@@ -2,12 +2,11 @@
 
 Derivation aims at *unambiguous*, not beautiful: it runs with no setup, so it
 has to be right rather than elegant. :class:`SymbolTable` is where a reader
-makes it conventional, and it is a file of its own — presentation is not
-language, so it never becomes keys on ``Model``, which is the versioned
-contract every lane sees.
+makes it conventional, in a file of its own — presentation is not language, so
+it never becomes keys on ``Model``.
 
-Spelling comes from a :class:`~lpspec.typeset.format.Format`: this module
-decides *which* symbol a name gets, never how that symbol is written.
+This module decides *which* symbol a name gets; a
+:class:`~lpspec.typeset.format.Format` decides how it is written.
 """
 
 from __future__ import annotations
@@ -42,17 +41,13 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format) -> str
     """``p`` → ``p``; ``load`` → ``\\mathit{load}``; ``p_max`` → ``p^{\\mathrm{max}}``.
 
     An underscore is a **qualifier** only when what precedes it is a symbol in
-    its own right — a single letter (``p_max``), or another declared name
-    (``soc_max``, ``bp_x``). Everywhere else it is word separation, and
-    splitting there produced nonsense: ``marginal_cost`` is not *marginal*
-    raised to *cost*, and ``shut_down`` is one word with a down-arrow's worth
-    of meaning in it.
-
-    So the fallback prints the name as written, underscore and all. That is
-    plain rather than beautiful, and deliberately: a derived symbol has to be
-    *unambiguous*, and a symbol table (``--symbols``) is what makes it pretty.
-    A qualifier lands in the superscript because the subscript slot is spoken
-    for — it carries the dimensions.
+    its own right — a single letter (``p_max``) or another declared name
+    (``soc_max``). Everywhere else it is word separation, where splitting
+    produces nonsense: ``marginal_cost`` is not *marginal* raised to *cost*.
+    The fallback therefore prints the name as written, underscore and all,
+    which is plain rather than beautiful; ``--symbols`` is what makes it
+    pretty. A qualifier lands in the superscript, the subscript slot being
+    spoken for by the dimensions.
     """
     head, _, tail = name.partition('_')
     if tail and (len(head) == 1 or head in declared):
@@ -63,13 +58,12 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format) -> str
 class Symbols:
     """How every declared name prints: overrides first, derivation for the rest.
 
-    Assignment order is load-bearing. Name symbols are settled *before*
-    dimension indices, so an index can be kept off a letter a variable already
-    owns — derived independently, a model with a dimension ``plant`` and a
-    variable ``p`` renders ``p_{t,p}`` and no reader can tell which ``p`` is
-    which. Only single-letter name symbols are kept off the index letters,
-    because only those can be mistaken for one — a ``\\mathit{load}`` never
-    collides with a ``t``.
+    Assignment order is load-bearing. Name symbols settle *before* dimension
+    indices, so an index can be kept off a letter a variable owns — derived
+    independently, a model with a dimension ``plant`` and a variable ``p``
+    renders ``p_{t,p}`` and no reader can tell which ``p`` is which. Only
+    single-letter name symbols are kept off the index letters, a
+    ``\\mathit{load}`` never colliding with a ``t``.
     """
 
     def __init__(self, schema: Model, fmt: Format, table: SymbolTable | None = None) -> None:
@@ -123,14 +117,12 @@ def _first_free(candidates: list[str], taken: set[str]) -> str:
 class SymbolTable:
     """How a *reader* wants the model to print — kept out of the model.
 
-    This is presentation, and presentation is not language: nothing here
-    changes what the file means, no lane reads it, and a model with no table
-    still renders. So it lives in its own file rather than as keys on
-    ``Model``, which is the versioned contract every consumer sees.
+    Presentation is not language: nothing here changes what the file means, no
+    lane reads it, and a model with no table still renders.
 
-    Its own format, deliberately strict: a name it does not recognise is an
-    error naming the near miss, because the failure mode of a silent typo is a
-    symbol that simply never applies and a reader who never finds out::
+    Deliberately strict — an unrecognised name is an error naming the near
+    miss, the failure mode of a silent typo being a symbol that never applies
+    and a reader who never finds out::
 
         dimensions:
           snapshot: {index: t, set: "\\\\mathcal{T}"}

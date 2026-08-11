@@ -37,10 +37,9 @@ if TYPE_CHECKING:
 class _StrictBlock(BaseModel):
     """Base for every schema model: unknown keys are an error, not a shrug.
 
-    Without this, a misspelled optional key is silently dropped and the
-    declaration it belonged to falls back to its default — ``boundz:`` leaves
-    the variable unbounded, ``wher:`` leaves it unmasked. Both build a model
-    the file does not describe, and neither says anything.
+    A misspelled optional key would otherwise be dropped and its declaration
+    fall back to a default — ``boundz:`` leaves the variable unbounded,
+    ``wher:`` leaves it unmasked — building a model the file does not describe.
     """
 
     model_config = ConfigDict(extra='forbid')
@@ -82,14 +81,13 @@ class CoordinateSpec(_StrictBlock):
     """An inline label space: structure a dimension's members carry, no axis.
 
     The other kind of coordinate — a plain string naming a target dimension —
-    exists for *aggregation*: ``group_by=`` / ``at()`` land terms on the
-    target, so the target must be a real axis. This kind exists for
-    *selection*: it types a column of the owning dimension's index (a
-    snapshot's period, a generator's tech) for ``where`` comparisons and the
-    typeset legend, and it never puts an entry under ``dimensions:`` — which
-    is the point, because a label space nothing aggregates into is not part
-    of the model's dimensionality. Grouping into one is refused with the
-    promotion rewrite (:func:`lpspec.language.resolution.resolve`).
+    exists for *aggregation*, so its target must be a real axis. This kind
+    exists for *selection*: it types a column of the owning dimension's index
+    (a snapshot's period, a generator's tech) for ``where`` comparisons and the
+    typeset legend, and never puts an entry under ``dimensions:``, a label
+    space nothing aggregates into being no part of the model's dimensionality.
+    Grouping into one is refused with the promotion rewrite
+    (:func:`lpspec.language.resolution.resolve`).
     """
 
     _label: ClassVar[str] = 'a coordinate declaration'
@@ -106,30 +104,21 @@ class DimensionBlock(_StrictBlock):
     """A declared dimension with optional dtype, values and coordinates.
 
     ``coords`` names non-index coordinates carried alongside this dimension's
-    labels — a generator's bus, a line's endpoints, a snapshot's period. Each
-    entry is one of two kinds, told apart by the shape of its value:
+    labels — a generator's bus, a line's endpoints, a snapshot's period. Two
+    kinds, told apart by the shape of the value:
 
-    - **a string** names the dimension the coordinate's values are labels of —
-      the *groupable* kind, which is what makes ``sum(x, over=...,
-      group_by=...)`` checkable: the values are verified to be coordinates of
-      that dimension once data is bound, instead of being joined blind.
-      Written as a list when the coordinate is named after its target::
+    - **a string** names the dimension the values are labels of — the
+      *groupable* kind, checked for containment once data is bound rather than
+      joined blind. A list is shorthand for naming the coordinate after its
+      target::
 
-          generator:
-            coords: [bus]
-
-      or as a mapping when it is not — including two coordinates onto one
-      dimension::
-
-          line:
-            coords: {from: bus, to: bus}
+          generator: {coords: [bus]}
+          line:      {coords: {from: bus, to: bus}}
 
     - **a mapping** declares an inline label space (:class:`CoordinateSpec`) —
-      the *selection-only* kind, which owns its values and targets nothing::
+      the *selection-only* kind, owning its values and targeting nothing::
 
-          snapshot:
-            coords:
-              period: {dtype: int}
+          snapshot: {coords: {period: {dtype: int}}}
     """
 
     _label: ClassVar[str] = 'a dimension declaration'
@@ -188,10 +177,9 @@ class ParameterBlock(_StrictBlock):
 class BoundsBlock(_StrictBlock):
     """Variable bounds — each side is a number or parameter name.
 
-    The defaults are linopy's (``add_variables(lower=-inf, upper=inf)``): a
-    declaration that omits a bound means the variable is unbounded on that
-    side, not implicitly non-negative. Non-negativity is a real constraint,
-    so the file has to say it.
+    linopy's defaults (``add_variables(lower=-inf, upper=inf)``): omitting a
+    bound leaves the variable unbounded on that side, not implicitly
+    non-negative. Non-negativity is a real constraint, so the file says it.
     """
 
     _label: ClassVar[str] = 'a bounds block'
@@ -264,15 +252,9 @@ class ObjectiveBlock(_StrictBlock):
 def _refuse_equations(data: Any, kind: str) -> Any:
     """Name the rewrite for a file written against the old surface.
 
-    ``equations:`` held a *list*, and a list needs names for its entries — which
-    it did not have, so they were numbered by position and the block's own name
-    resolved to nothing (#298). One rule per block removes the list rather than
-    labelling it, so the migration is mechanical in both directions and the
-    error can say exactly what to write.
-
-    Caught here rather than by the closed-schema check, which would only offer
-    "unknown key 'equations'" and a near miss against `expression` — true, and
-    useless for a file with three entries in it.
+    Caught here rather than by the closed-schema check, which would offer
+    "unknown key 'equations'" and a near miss against ``expression`` — true,
+    and useless for a file with three entries in it (#298).
     """
     if not isinstance(data, dict) or 'equations' not in data:
         return data
@@ -292,9 +274,9 @@ def _refuse_equations(data: Any, kind: str) -> Any:
 class MacroBlock(_StrictBlock):
     """A parameterised expression template, defined in the YAML itself.
 
-    The template is language, not code: formal names (``args`` positional,
-    ``kwargs`` keyword) shadow model names inside it, and every call site is
-    expanded into core AST before either backend sees the expression.
+    Language, not code: formals (``args`` positional, ``kwargs`` keyword)
+    shadow model names inside the template, and every call site expands into
+    core AST before either backend sees the expression.
     """
 
     _label: ClassVar[str] = 'a macro declaration'
@@ -315,20 +297,17 @@ class MacroBlock(_StrictBlock):
 class PiecewiseBlock(_StrictBlock):
     """N expressions jointly pinned to a breakpoint-indexed piecewise curve.
 
-    Mirrors ``linopy.Model.add_piecewise_formulation``: each link is a tuple
+    Mirrors ``linopy.Model.add_piecewise_formulation``. Each link is
     ``[expression, values_parameter]`` or ``[expression, values_parameter,
-    sign]``, where *expression* is any affine expression string (a bare
-    variable name being the simplest), *values_parameter* names a parameter
-    carrying the ``over`` dim (the breakpoint coordinates of this link), and
-    *sign* bounds the link by the curve instead of pinning it (at most one
-    non-``"=="``, and only with exactly two links).
+    sign]``: *expression* is any affine expression string, *values_parameter*
+    names a parameter carrying the ``over`` dim, and *sign* bounds the link by
+    the curve instead of pinning it (at most one non-``"=="``, and only with
+    exactly two links).
 
-    ``over`` names the breakpoint dimension. ``convex: true`` takes the
-    pure-LP convex hull, with no binaries; ``active`` names a gating
-    expression that pins the formulation to 0 when it is 0.
-
-    Expanded (before building) into plain variables and constraints via the
-    λ convex-combination method — see ``lpspec.language.piecewise``.
+    ``over`` names the breakpoint dimension; ``convex: true`` takes the pure-LP
+    convex hull with no binaries; ``active`` names a gating expression that
+    pins the formulation to 0 when it is 0. Expanded before building into plain
+    variables and constraints — see ``lpspec.language.piecewise``.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'
@@ -379,27 +358,18 @@ class PiecewiseBlock(_StrictBlock):
 
 #: The language surfaces this reader understands. A **language** version, not a
 #: package one: it moves when the accepted YAML surface moves, which most
-#: releases do not. Deriving it from the package version would be automatic and
-#: wrong.
-#:
-#: `0` is the unstable surface — no compatibility promise, per *breaking changes
-#: are free* in CONTRIBUTING. What `1` is stays deliberately undecided; the one
-#: thing decided is that 0 does not silently become 1 without a changelog entry
-#: saying what moved.
+#: releases do not, so deriving it from the package version would be automatic
+#: and wrong. `0` is the unstable surface — no compatibility promise, per
+#: *breaking changes are free* in CONTRIBUTING.
 SUPPORTED_VERSIONS: tuple[int, ...] = (0,)
 
 
 def _without_absence(value: Any) -> Any:
-    """Strip what is absent — a null, an infinite bound, or a mapping declaring nothing.
+    """Strip what is absent — a null, an infinite bound, or an empty mapping.
 
-    An empty **list** is kept, because in this schema a list carries
-    *cardinality* and zero is one of its values: ``foreach: []`` is a scalar
-    declaration and ``dims: []`` is a scalar parameter, both of them required
-    fields that mean something. An empty **mapping** carries declarations, and
-    none of them is nothing.
-
-    Nothing else is judged. A value that is there is written, whether or not it
-    equals a default.
+    An empty **list** is kept: a list carries *cardinality* here and zero is
+    one of its values, ``foreach: []`` being a scalar declaration. Nothing else
+    is judged — a value that is there is written, default or not.
     """
     if isinstance(value, dict):
         pruned = {k: _without_absence(v) for k, v in value.items()}
@@ -410,18 +380,16 @@ def _without_absence(value: Any) -> Any:
 def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
     """Run *validate*, raising this package's exception tree.
 
-    Pydantic reports every failure as a ``ValidationError`` carrying an
-    ``input_value=`` dump and a link to its own docs — neither of which means
-    anything to someone who wrote a YAML file, and neither of which is the type
-    ``docs/api.md`` tells a caller to catch. Both of :class:`Model`'s validating
-    doors go through here so they cannot answer differently.
+    Pydantic's ``ValidationError`` carries an ``input_value=`` dump and a link
+    to its own docs, neither of which is the type ``docs/api.md`` tells a
+    caller to catch. Both of :class:`Model`'s validating doors go through here
+    so they cannot answer differently.
 
-    ``__init__`` is deliberately *not* wrapped the same way. Defining one makes
-    pydantic route validation through it, so every after-validator runs twice —
-    the first time with ``context=None``, which silently drops
-    ``known_variables`` and refuses every ``extend()`` file. The constructor
-    keeps pydantic's own error; ``lps.load_model`` is the door this package
-    documents, and it goes through here.
+    ``__init__`` is deliberately *not* wrapped: defining one makes pydantic
+    route validation through it, so every after-validator runs twice — the
+    first time with ``context=None``, silently dropping ``known_variables`` and
+    refusing every ``extend()`` file. The constructor keeps pydantic's error;
+    ``lps.load_model`` is the documented door and comes through here.
     """
     try:
         return validate(*args, **kwargs)
@@ -448,30 +416,22 @@ class Model(_StrictBlock):
     """The declared math — one YAML file, or one dict, validated.
 
     First of the three stages the pipeline names: ``Model`` is what a file
-    *says*, ``plan.Program`` is what it lowers to, and an executor is what a
-    build holds. Nothing here has seen data.
+    *says*, ``plan.Program`` what it lowers to, an executor what a build holds.
+    Nothing here has seen data.
 
-    **The API is the declarations, and two ways back out.** The eight
-    declaration sections plus ``version``; :meth:`to_dict` for the model as
-    data, :meth:`to_yaml` for the file a reviewer reads. In goes through
-    ``lps.load_model``, which takes a path, a dict or a ``Model``.
+    **The API is the declarations, and two ways back out.** The eight sections
+    plus ``version``; :meth:`to_dict` for the model as data, :meth:`to_yaml`
+    for the file a reviewer reads. In goes through ``lps.load_model``.
 
-    **Everything else on this class is pydantic's** and not a contract this
-    package keeps — the inherited surface is twenty-seven public names, a dozen
-    of them deprecated v1 aliases. Two are worth knowing about:
+    **Everything else on this class is pydantic's**, not a contract this
+    package keeps. Two are worth knowing about: ``model_json_schema()`` gives a
+    Draft 2020-12 document describing the *shape* pydantic validates, not the
+    language, so it accepts a constraint naming an undeclared parameter; and
+    ``model_construct()`` **skips validation entirely**, so the guarantee is
+    that a model built the normal way is valid, not that a ``Model`` is.
 
-    * ``model_json_schema()`` gives a Draft 2020-12 document for free, which is
-      most of a machine-readable YAML surface. It describes the *shape*
-      pydantic validates, not the language, so it accepts a constraint naming
-      an undeclared parameter.
-    * ``model_construct()`` **skips validation entirely**, so the guarantee is
-      that a model built the normal way is valid, not that a ``Model`` is.
-      Overriding it to raise would trade a documented escape hatch for a
-      surprise.
-
-    The three that *build* one are overridden, so a wrong model raises this
-    package's :class:`~lpspec.errors.LanguageError` wherever it is built rather
-    than pydantic's ``ValidationError`` here and ours everywhere else (#527).
+    The doors that *build* one are overridden, so a wrong model raises this
+    package's :class:`~lpspec.errors.LanguageError` wherever it is built (#527).
     """
 
     _label: ClassVar[str] = 'the top level of the file'
@@ -483,12 +443,9 @@ class Model(_StrictBlock):
     _expansion: tuple[dict[str, tuple[str, ...]], Model] | None = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
-    #: the field is additive — every file that predates it stays valid.
-    #:
-    #: **0 means unstable**, which is the promise actually being made: the
-    #: surface may change in any release. Saying so in the file is more honest
-    #: than silence, and it is what lets a *later* reader refuse a file it
-    #: cannot read rather than misinterpret it.
+    #: the field is additive. **0 means unstable** — the surface may change in
+    #: any release — and declaring it is what lets a later reader refuse a file
+    #: it cannot read rather than misinterpret it.
     version: int = 0
     dimensions: dict[str, DimensionBlock] = {}
     parameters: dict[str, ParameterBlock] = {}
@@ -516,11 +473,9 @@ class Model(_StrictBlock):
     def _check_version(cls, v: int) -> int:
         """Refuse a surface this reader does not know — never interpret it.
 
-        A file from the future must not be read by an older reader; that is the
-        whole reason the field exists. Rejecting is the entire policy: the
-        version gates *nothing* at runtime, because keeping two surfaces alive
-        in one codebase is a large permanent cost against a hard error that
-        costs one line.
+        Rejecting is the entire policy: the version gates nothing at runtime,
+        keeping two surfaces alive in one codebase being a large permanent cost
+        against a hard error that costs one line.
 
         The installed version comes from the distribution's metadata rather
         than ``lpspec.__version__``: a language module may not reach forward to
@@ -543,17 +498,10 @@ class Model(_StrictBlock):
     def _drop_absence(self, handler: Any) -> dict[str, Any]:
         """Absence is not serialised — a null, or a mapping declaring nothing.
 
-        On the *serializer* rather than beside it so there is one answer:
-        ``model_dump``, ``model_dump_json``, :meth:`to_dict` and
-        :meth:`to_yaml` all give the same content. A helper next to them would
-        have left pydantic's own methods disagreeing with the file, and which a
-        consumer got would depend on which name they reached for.
-
-        **Every value is kept, default or not.** Omitting *defaults* reads
-        better but needs a list of which ones are consequential, and that list
-        is a second copy of the schema. An empty **list** stays, because a list
-        carries cardinality here and zero is one of its values — ``foreach: []``
-        is a scalar declaration.
+        On the *serializer* rather than beside it so ``model_dump``,
+        ``model_dump_json``, :meth:`to_dict` and :meth:`to_yaml` give the same
+        content; a helper next to them would leave pydantic's own methods
+        disagreeing with the file. See :func:`_without_absence` for what stays.
         """
         return _without_absence(handler(self))
 
@@ -564,11 +512,10 @@ class Model(_StrictBlock):
     def to_yaml(self) -> str:
         """The file a reviewer reads — including for a model that never had one.
 
-        Hard rule 5 is that the model is the file you review and diff. A model
-        a framework emitted as a dict has no such file; this gives it one. The
-        output is generated for review rather than authored, so length costs a
-        reader nothing and being unambiguous saves them having to know this
-        package's defaults at all.
+        Hard rule 5 is that the model is the file you review and diff; a model
+        a framework emitted as a dict has no such file. Generated rather than
+        authored, so length costs a reader nothing and being unambiguous saves
+        them knowing this package's defaults at all.
         """
         import yaml
 
@@ -578,18 +525,16 @@ class Model(_StrictBlock):
     def _validate_references(self) -> Model:
         """Every cross-declaration rule the schema can decide without data.
 
-        Names share one flat namespace, because shadowing would let a new
-        declaration silently change what an existing expression means (see
-        ``resolution.py``). Inline label coordinates are new names, so they
-        join it. Targeted coordinates deliberately do not: their name aliases
-        the target dimension (``generator: {coords: [bus]}``), and the
-        dedicated shadowing check covers the case where the two disagree.
+        Names share one flat namespace, shadowing being how a new declaration
+        would silently change what an existing expression means. Inline label
+        coordinates join it; targeted coordinates do not, their name aliasing
+        the target dimension (``generator: {coords: [bus]}``), with a dedicated
+        check for where the two disagree.
 
-        A coordinate's target must be a declared dimension, and must not be
-        the dimension carrying it: grouping a dim into itself is a no-op that
-        would read as a reduction. And bounds look like the expression
-        language but are not it, so their error says what they actually
-        accept.
+        A coordinate's target must be a declared dimension other than the one
+        carrying it — grouping a dim into itself is a no-op that reads as a
+        reduction. Bounds look like the expression language but are not it, so
+        their error says what they actually accept.
         """
         errors = []
 
@@ -677,19 +622,17 @@ class Model(_StrictBlock):
         The checkers are a layer above this one, so the imports are local and
         declared in ``DELIBERATE_LAZY_IMPORTS``. Expansion runs first — a
         formulation emits declarations that are language too — and terminates,
-        since an expanded model carries no ``piecewise:``.
+        an expanded model carrying no ``piecewise:``.
 
         An expansion *builds* a ``Model``, which validates itself on the way
-        out, so the check below runs only when there was nothing to expand.
-        Calling it either way validated a piecewise model twice — and for the
-        same reason ``expand_piecewise`` memoises its result on the instance
-        (:attr:`_expansion`): every consumer of a piecewise model asks for
-        the expansion next, and rebuilding it would re-validate it.
+        out, so the check below runs only when there was nothing to expand;
+        and ``expand_piecewise`` memoises on :attr:`_expansion` for the same
+        reason, every consumer asking for the expansion next.
 
-        ``known_variables`` arrives as pydantic validation context, for the file
-        deliberately not valid alone: an extension references variables already
-        on the model ``lpspec.linopy.extend`` puts it on. It travels into
-        expansion too, since a link may name one of those variables.
+        ``known_variables`` arrives as pydantic validation context, for the one
+        file deliberately not valid alone: an extension references variables
+        already on the model ``lpspec.linopy.extend`` puts it on. It travels
+        into expansion too, a link being able to name one.
         """
         from lpspec.language.piecewise import expand_piecewise
         from lpspec.language.validation import validate_expressions

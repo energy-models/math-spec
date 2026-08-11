@@ -1,15 +1,13 @@
 """The walk: resolved AST → typeset lines. Written once, for every format.
 
 Everything here is a decision about the *math* — where a bracket changes the
-reading, which dimension a reduction binds, that a mask belongs on the ∀
-rather than in the equation, that a translation shows at the leaf it
-re-indexes. None of it is about a syntax, so none of it is duplicated per
-format: spelling comes from a :class:`~lpspec.typeset.format.Format`.
+reading, which dimension a reduction binds, that a mask belongs on the ∀ rather
+than in the equation, that a translation shows at the leaf it re-indexes. None
+of it is about syntax, so none is duplicated per format.
 
-The walk is the only consumer of the AST here, and it holds no opinion the
-lanes do not already hold — names come from ``resolution``, dim sets from
-``dimensions``, helper shapes from the closed ``BUILTINS`` set. A helper it
-forgot is an ``assert_never``, not a blank.
+The walk holds no opinion the lanes do not: names come from ``resolution``, dim
+sets from ``dimensions``, helper shapes from the closed ``BUILTINS`` set, and a
+helper it forgot is an ``assert_never`` rather than a blank.
 """
 
 from __future__ import annotations
@@ -72,10 +70,8 @@ _PREDICATES = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>'
 class _Context:
     """What a subscript means at this point in the tree.
 
-    ``offsets`` is how ``shift`` is rendered: neither emits an
-    operator of its own, they re-index their operand, so the translation shows
-    up at the *leaves* underneath — which is exactly what the plan's
-    ``Translate`` node says it does.
+    ``offsets`` is how ``shift`` renders: it emits no operator of its own but
+    re-indexes its operand, so the translation shows at the *leaves*.
     """
 
     walk: Walk
@@ -202,12 +198,11 @@ class Walk:
         """Render a helper: a translation at the leaves, or a summation.
 
         ``shift`` is one node, so the render reads the edge *policy* rather
-        than the spelling: only ``edge='wrap'`` is cyclic, and a numeric edge
-        is a fill that leaves the translation itself acyclic. ``at`` is not a
+        than the spelling: only ``edge='wrap'`` is cyclic. ``at`` is not a
         reduction — it re-indexes its operand, so like ``shift`` it emits no
-        operator of its own and the substitution appears at the leaves; falling
-        through to the summation below would render it as a sum over the fine
-        dim, silently the wrong equation.
+        operator and the substitution appears at the leaves; falling through to
+        the summation would render it as a sum over the fine dim, silently the
+        wrong equation.
         """
         if node.name == 'shift':
             dim = node.kwargs['over']
@@ -242,11 +237,10 @@ class Walk:
         """What sits to the right of a sum, bracketed only where it must be.
 
         A sum binds everything up to the next ``+`` or ``-`` at its own level,
-        so an additive body needs the bracket and nothing else does —
-        including a nested reduction, which is unambiguous. Going through the
-        precedence rule instead would bracket that too, and a renderer that
-        brackets everything is one nobody trusts to bracket the thing that
-        matters.
+        so an additive body needs the bracket and nothing else does — including
+        a nested reduction, which is unambiguous. The precedence rule would
+        bracket that too, and a renderer that brackets everything is one nobody
+        trusts to bracket the thing that matters.
         """
         additive = isinstance(node, UnaryOperatorNode) or (
             isinstance(node, BinaryOperatorNode) and node.op in ('+', '-')
@@ -318,9 +312,8 @@ class Walk:
     def objectives(self) -> list[Line]:
         """One line per objective, with its implied reduction made explicit.
 
-        An objective sums each term over every dim that term carries — the
-        reduction is implied by the declaration, so it is spelled out rather
-        than left for the reader to assume.
+        An objective sums each term over every dim it carries; the reduction is
+        implied by the declaration, so it is spelled out rather than assumed.
         """
         lines = []
         for name, block in self.schema.objectives.items():

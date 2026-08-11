@@ -1,20 +1,18 @@
 """Load-time validation of expression and where strings.
 
-Every expression and where string in a schema is parsed, expanded and
-**resolved** before any backend runs, so typos and malformed math fail at load
-time with the offending component named — not mid-build, and not differently
-in each lane.
+Every expression and where string is parsed, expanded and **resolved** before
+any backend runs, so typos and malformed math fail at load time with the
+offending component named — not mid-build, and not differently in each lane.
 
-Resolution is the substance here (``resolution.py``): this module walks the
-schema and hands each string to the same pass the backends use, collecting
-every problem rather than raising on the first. Name *checking* is not a
-separate implementation of name *resolution* — that duplication is what let
-the two lanes disagree about scoping in the first place.
+Resolution is the substance (``resolution.py``): this module walks the schema
+and hands each string to the same pass the backends use, collecting every
+problem rather than raising on the first. Name *checking* is not a separate
+implementation of name *resolution*; that duplication is what let the two lanes
+disagree about scoping.
 
-Macro templates are the one thing checked without being resolved: their free
-names include formals, which are not model names. They are name-checked
-against the schema plus their own formals, so an unused macro still fails at
-load time if its body references something that does not exist.
+Macro templates are the one thing checked without being resolved, their free
+names including formals. They are name-checked against the schema plus their
+own formals, so an unused macro still fails at load time.
 """
 
 from __future__ import annotations
@@ -61,25 +59,21 @@ def load_model(
 ) -> Model:
     """Load and validate a model definition — the language's front door.
 
-    Accepts a YAML file path, an already-parsed dict, or a ``Model``.
-    ``known_variables`` widens the variable set for the one file that is not
-    valid alone — an extension for ``linopy.extend()``, which references
-    variables already on the model it extends.
-    Validation is complete at this point: schema shape, every expression and
-    where string, every named expression and macro template — and every
-    declaration a formulation emits, since those are language too. That is why
-    expansion runs *before* validation here, the order the linopy lane already
-    uses: validating the file as written checks a strict subset of the model
-    that gets built.
+    Accepts a YAML path, a dict, or a ``Model``. ``known_variables`` widens the
+    variable set for the one file that is not valid alone: an extension for
+    ``linopy.extend()``.
 
-    Returns the schema *as the file declares it*, with ``piecewise:`` blocks
-    intact — expansion is idempotent and each lane redoes it, while the
-    curvature data guard needs the blocks themselves
-    (:func:`lpspec.sources.validate_piecewise_data`).
+    Validation is complete on return — schema shape, every expression and where
+    string, every macro template, and every declaration a formulation emits,
+    which is why expansion runs *before* validation: validating the file as
+    written checks a strict subset of the model that gets built.
 
-    This is the whole of what a consumer that binds no data needs, which is
-    why it lives in ``language/`` and not in the runner: ``typeset`` reaches
-    it without reaching an engine. ``lpspec.api`` re-exports it.
+    Returns the schema *as the file declares it*, ``piecewise:`` intact —
+    expansion is idempotent and each lane redoes it, while the curvature guard
+    needs the blocks themselves.
+
+    Lives in ``language/`` rather than the runner because it is the whole of
+    what a consumer binding no data needs; ``lpspec.api`` re-exports it.
     """
     if isinstance(model, (list, tuple)):
         msg = (
@@ -105,37 +99,25 @@ def validate_expressions(
 ) -> None:
     """Validate and resolve every expression and where string in *schema*.
 
-    Checks, per constraint/objective equation:
+    Raises :class:`SchemaError` listing every problem found, one per line:
 
-    - the expression parses;
-    - constraints contain exactly one comparison, objectives none;
-    - every referenced name resolves to a declared variable or parameter;
-    - every helper function is a built-in, and its dimension arguments name
-      declared dimensions;
-    - where strings parse *and* resolve — an unknown name in a where is an
-      error, not a silently-empty mask;
-    - macro formals may shadow model names but not a declared dimension —
+    - the expression parses, and constraints hold exactly one comparison where
+      objectives hold none;
+    - every referenced name resolves, and every helper is a built-in whose
+      dimension arguments name declared dimensions;
+    - where strings parse *and* resolve — an unknown name there is an error,
+      not a silently-empty mask;
+    - macro formals may shadow model names but not a declared dimension, since
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
-    - every dim rule (``dimensions.check_schema``), once names resolve. Dim
-      rules are language rules, not backend rules, so they run here rather
-      than at either entry point — ``linopy.build``/``extend`` and
-      ``api.load_model`` all arrive through this function, and a lane that
-      could skip them would be a lane with a different language (hard rule 3).
+    - every dim rule (``dimensions.check_schema``), once names resolve.
 
-    Parameters
-    ----------
-    schema : Model
-        The schema to validate.
-    known_variables : Mapping[str, Sequence[str]]
-        Variables valid in addition to those declared in *schema*, mapped to
-        their dims — used by ``linopy.extend()``, whose expressions may
-        reference variables already on the model. Parameters get no such
-        widening: a YAML file declares every parameter it uses (hard rule 5).
+    Dim rules run here rather than at either entry point because they are
+    language rules: every lane arrives through this function, and one that
+    could skip them would be a lane with a different language (hard rule 3).
 
-    Raises
-    ------
-    SchemaError
-        Listing every problem found, one per line.
+    *known_variables* maps variables valid in addition to *schema*'s to their
+    dims, for ``linopy.extend()``. Parameters get no such widening — a YAML
+    file declares every parameter it uses (hard rule 5).
     """
     ns = Namespace.of(schema, known_variables)
     errors: list[str] = []
@@ -240,11 +222,10 @@ def _check_expression(
 ) -> None:
     """Parse, expand and resolve one expression, given whether it must compare.
 
-    The three kinds a file declares differ only in that answer — a constraint
-    holds exactly one comparison, an objective and a named expression none —
-    so the parse, the shape verdict and the resolve are one path. Nothing is
-    resolved once the shape is wrong: an expression that is the wrong kind
-    would report its names against the wrong question.
+    The three kinds a file declares differ only in that answer, so the parse,
+    the shape verdict and the resolve are one path. Nothing resolves once the
+    shape is wrong: an expression of the wrong kind would report its names
+    against the wrong question.
     """
     ast = _parse_expand(expression, schema, context, errors)
     if ast is None:
@@ -286,12 +267,11 @@ def _check_template_names(
 ) -> None:
     """Name-check a macro body, treating formals as bound.
 
-    Not resolution: a formal has no kind until the call site substitutes an
-    argument for it, so the body cannot be typed. This catches the free names
-    that are *not* formals, which is what makes an uncalled macro still fail
-    at load time. A closed keyword names nothing, so there is nothing to check
-    it against; a dimension kwarg accepts a formal as well as a declared
-    dimension, since the call site may bind one to it.
+    Not resolution: a formal has no kind until a call site substitutes for it,
+    so the body cannot be typed. This catches the free names that are *not*
+    formals, which is what makes an uncalled macro fail at load time. A closed
+    keyword names nothing; a dimension kwarg accepts a formal as well as a
+    declared dimension, the call site being able to bind one.
     """
     if isinstance(node, (NumberNode, VariableNode, ParameterNode, DimensionNode, CoordinateNode, EdgeNode)):
         return

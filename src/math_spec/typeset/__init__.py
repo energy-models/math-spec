@@ -1,26 +1,22 @@
 """Typeset a validated model — a *reading* of the math, not a lane.
 
-SPIKE. A third consumer of the resolved core AST, and deliberately not a
-backend: it produces no model, binds no data and never touches the plan. It
-exists because the file's whole point is that the math is declared, and a
-declared thing can be printed the way a paper prints it — which is also the
-cheapest review tool we have for "does this YAML say what I meant".
+SPIKE. A third consumer of the resolved core AST, deliberately not a backend:
+it produces no model, binds no data and never touches the plan. It exists
+because a declared thing can be printed the way a paper prints it, which is the
+cheapest review tool available for "does this YAML say what I meant".
 
 It reads the same seam both lanes read (hard rule 1): expand ``piecewise:``,
-resolve names to typed nodes, then walk. Because expansion runs first, a
-``piecewise:`` block prints as the λ-formulation it *is* rather than as the
-sugar it was written as — the honest rendering, if a verbose one.
+resolve names, walk. Expansion runs first, so a ``piecewise:`` block prints as
+the λ-formulation it *is* rather than the sugar it was written as.
 
 **One walk, many formats.** ``walk.py`` decides everything about the math and
 nothing about the syntax; a :class:`~lpspec.typeset.format.Format` decides only
 how to spell it. See the [README](README.md) for what adding one costs.
 
-Symbols are **derived** by default, so it prints with no setup at all, and
-derivation aims at unambiguous rather than beautiful. A
-:class:`~lpspec.typeset.symbols.SymbolTable` (a sidecar YAML, ``--symbols``)
-is what makes it conventional.
-
-What it does not do: line-breaking — a wide equation runs off the page.
+Symbols are **derived** by default, aiming at unambiguous rather than
+beautiful, so it prints with no setup; a
+:class:`~lpspec.typeset.symbols.SymbolTable` (``--symbols``) makes it
+conventional. It does not line-break: a wide equation runs off the page.
 
 Usage::
 
@@ -79,17 +75,14 @@ def typeset(
     """Render *model* in *fmt*.
 
     Accepts anything :func:`lpspec.load_model` accepts. ``symbols`` is an
-    optional :class:`SymbolTable` — a path, a mapping, or the object — saying
-    how names should print; everything it does not name is derived.
-    ``standalone`` emits a compilable document rather than a fragment;
-    ``legend`` prepends the sets / parameters / variables table; ``numbered``
-    numbers the equations.
+    optional :class:`SymbolTable` — a path, a mapping or the object — saying
+    how names print; everything it does not name is derived. ``standalone``
+    emits a compilable document rather than a fragment; ``legend`` prepends the
+    sets/parameters/variables table; ``numbered`` numbers the equations.
 
     The model is validated on the way in, so a file that does not compile does
-    not print either — the error is the same one :func:`lpspec.check` raises.
-    A symbol table is checked against it too: an entry naming nothing in the
-    model is an error, since the alternative is a symbol that silently never
-    applies.
+    not print. A symbol table naming nothing in the model is an error too, the
+    alternative being a symbol that silently never applies.
 
     The walk runs before the legend is assembled: ``saw_wraparound`` is
     something it *discovers*, and the legend has to explain what was emitted.

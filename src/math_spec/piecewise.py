@@ -29,20 +29,18 @@ with F = the union of the links' dims, it emits:
       curve_link1(F):         (fuel * eff) <= sum(curve_lam * fuel_bp, over=bp)
 
 With adjacency, at most two *neighbouring* λ are nonzero, so the linked
-expressions lie on the piecewise curve exactly. Without it (``convex:
-true``), they range over the convex hull of the breakpoints — the correct
-relaxation for convex/concave curves under optimisation pressure.
+expressions lie on the curve exactly. Without it (``convex: true``) they range
+over the convex hull of the breakpoints — the correct relaxation for
+convex/concave curves under optimisation pressure.
 
-A link expression is judged against the *language* before expansion —
-resolved, degree-checked (:mod:`~lpspec.language.degree`), dims from
-:mod:`~lpspec.language.dimensions`. Judging it here keeps ``p * p`` named
-against the link the user wrote rather than against ``curve_link0``, a
+A link expression is judged against the *language* before expansion — resolved,
+degree-checked, dims from :mod:`~lpspec.language.dimensions` — which keeps
+``p * p`` named against the link the user wrote rather than ``curve_link0``, a
 declaration they never saw.
 
-Two verdicts are deliberately elsewhere. What a plan node can represent is the
-consuming lane's business — this module runs in lanes that build no plan
-(docs/ARCHITECTURE.md, "What counts as language"). Curvature is a property of
-the breakpoint *values*, so it needs data and lives in :mod:`lpspec.sources`.
+Two verdicts are deliberately elsewhere: what a plan node can represent is the
+consuming lane's business, and curvature is a property of the breakpoint
+*values*, so it needs data and lives in :mod:`lpspec.sources`.
 """
 
 from __future__ import annotations

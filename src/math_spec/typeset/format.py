@@ -1,21 +1,18 @@
 """The seam between *what* a model says and *how* a format spells it.
 
-One walk, many formats — the same split ``relational/sinks/`` makes for the
-other end of the pipeline. The walk in :mod:`lpspec.typeset.walk` decides
-where a bracket is needed, which dimension a reduction binds and where a mask
-belongs; a :class:`Format` decides only that a sum is ``\\sum_{…}`` or
-``sum_(…)``. Those are genuinely different questions, and keeping them in one
-module is how the second format becomes a copy of the first — which is the
-divergence hard rule 3 spends its budget preventing at the other seam.
+One walk, many formats — the split ``relational/sinks/`` makes at the other end
+of the pipeline. :mod:`lpspec.typeset.walk` decides where a bracket is needed,
+which dimension a reduction binds and where a mask belongs; a :class:`Format`
+decides only that a sum is ``\\sum_{…}`` or ``sum_(…)``.
 
 Two rules make the split hold:
 
-- **Everything a walk emits is *bare math*.** No ``$``, no environment. A
-  format wraps it with :meth:`Format.math` when embedding it in prose, so the
-  walk never has to know which mode it is in.
-- **A format spells; it never decides.** No method here takes an AST node or
-  a schema. If a format had to look at the model to answer, the question
-  belongs in the walk.
+- **Everything a walk emits is *bare math*.** No ``$``, no environment; a
+  format wraps it with :meth:`Format.math` to embed it in prose, so the walk
+  never knows which mode it is in.
+- **A format spells; it never decides.** No method takes an AST node or a
+  schema. If a format had to look at the model, the question belongs in the
+  walk.
 """
 
 from __future__ import annotations
@@ -27,13 +24,12 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 #: Every operator a walk can emit, by the name the walk uses for it. A format
-#: supplies one spelling each — and a missing key is an error at import time
-#: rather than a stray ``None`` in the output, because
-#: ``tests/test_typeset.py`` asserts every format covers exactly this set.
-#: The less obvious names: ``such_that`` is the colon in "∀ t ∈ T : condition",
-#: ``cyclic_minus``/``cyclic_plus`` are ``roll``'s wrapping translation,
-#: ``times`` sits between sets in the legend, and ``maps_to`` is the → in a
-#: coordinate map.
+#: supplies one spelling each, and ``tests/test_typeset.py`` asserts every
+#: format covers exactly this set, so a missing key is a test failure rather
+#: than a stray ``None`` in the output. The less obvious names: ``such_that``
+#: is the colon in "∀ t ∈ T : condition", ``cyclic_minus``/``cyclic_plus`` are
+#: ``roll``'s wrapping translation, ``times`` sits between sets in the legend,
+#: ``maps_to`` is the → in a coordinate map.
 OPERATOR_NAMES = frozenset(
     {
         'cdot',

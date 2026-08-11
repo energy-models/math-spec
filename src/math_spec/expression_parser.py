@@ -167,14 +167,12 @@ def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
     """The sub-expressions of *node* — the structural half of any walk.
 
     Every pass that recurses the whole tree and acts only at certain leaves
-    goes through here, so a node added later reaches all of them rather than
-    whichever ones remembered to list it. A pass whose *answer* differs per
-    node type dispatches itself and keeps its ``assert_never``; this is for
-    the ones that only need to get everywhere.
+    goes through here, so a node added later reaches all of them. A pass whose
+    *answer* differs per node type dispatches itself and keeps its
+    ``assert_never``; this is for the ones that only need to get everywhere.
 
-    A helper's kwargs are children too: a dimension or a coordinate is an
-    ordinary node in a kwarg value, which is what lets a macro bind a formal
-    to one.
+    A helper's kwargs are children too — a dimension or coordinate is an
+    ordinary node in a kwarg value, which is what lets a macro bind a formal.
     """
     if isinstance(node, UnaryOperatorNode):
         return (node.operand,)

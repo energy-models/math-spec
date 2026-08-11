@@ -1,23 +1,19 @@
 """``python -m lpspec <format> model.yaml`` — the typeset shell front.
 
-**This is a document build step, not a command line under construction.**
-Rendering a model to LaTeX belongs in a Makefile next to ``pdflatex``, where a
-Python script would be awkward; that is the whole of why it exists. One verb per
-typeset format, read off :data:`lpspec.typeset.FORMATS` rather than listed again
-here, so a new format arrives with its verb already written.
+**A document build step, not a command line under construction.** Rendering a
+model to LaTeX belongs in a Makefile next to ``pdflatex``, where a Python
+script would be awkward. One verb per typeset format, read off
+:data:`lpspec.typeset.FORMATS`, so a new format arrives with its verb written.
 
-**The rule is that no verb becomes a second way to spell the source mapping.**
-``lps.solve`` takes a dict; ``--source p_max=a.parquet --source load=b.parquet``
-is that dict with worse errors, and ``solve_over`` cannot be said in flags at all
-— its axis is a typed object and its ``carry`` a mapping of parameter to
-``(variable, coordinate)``. So data-binding verbs live in a caller's script.
+**No verb becomes a second way to spell the source mapping.** ``lps.solve``
+takes a dict, and ``--source p_max=a.parquet`` is that dict with worse errors;
+``solve_over`` cannot be said in flags at all, its axis being a typed object.
+So data-binding verbs live in a caller's script. That bans a *spelling*, not a
+shell: driving a solve from a Makefile would arrive as one path argument over a
+run manifest (#479), where the file *is* the mapping.
 
-That rule bans a *spelling*, not a shell. If driving a solve from a Makefile or
-a Snakemake rule ever matters, it arrives as one path argument over a run
-manifest (#479) — which is not a second spelling, because the file *is* the
-mapping. Until then this stays at three verbs and no entry point:
-``python -m`` says which environment it ran in, which a bare name on ``PATH``
-does not.
+No entry point either — ``python -m`` says which environment it ran in, which a
+bare name on ``PATH`` does not.
 """
 
 from __future__ import annotations

@@ -6,13 +6,12 @@ each one into a typed node (``VariableNode`` / ``ParameterNode`` / ``DimensionNo
 ``ParameterComparisonNode`` / ``DimensionComparisonNode`` / ``ParameterDefinedNode`` on the where
 side), so the AST reaching either backend holds no unresolved names.
 
-Doing this once, here, is what makes scoping identical across the lanes by
-construction rather than by test. A backend that resolves for itself is a
-backend that can build a model the other refuses; SPEC §5.3 carries the
-scoping rules this pass applies.
+Doing this once here is what makes scoping identical across the lanes by
+construction rather than by test: a backend that resolves for itself is one
+that can build a model the other refuses. SPEC §5.3 carries the rules.
 
-The namespace is flat and collisions are load errors (``schema.py``); macro
-formals are the one scope, and may not collide with a declared dimension.
+The namespace is flat and collisions are load errors; macro formals are the one
+scope, and may not collide with a declared dimension.
 """
 
 from __future__ import annotations
@@ -149,10 +148,9 @@ class Namespace:
 def expression_of(text: str, schema: Model, ns: Namespace, context: str) -> ExpressionNode:
     """Parse, expand and resolve *text* — the only way a backend gets an AST.
 
-    Raises :class:`LanguageError` listing every problem. ``validation.py`` calls the
-    same path at load time, so by the time a backend calls this the result is
-    known to be clean; calling it again is how the backend gets a *typed* tree
-    without duplicating the pass.
+    Raises :class:`LanguageError` listing every problem. ``validation.py`` runs
+    the same path at load time, so a backend calling this gets a *typed* tree
+    off a result already known to be clean, without duplicating the pass.
     """
     errors: list[str] = []
     resolved = resolve_expression(parse_and_expand(text, schema, context), ns, context, errors)
@@ -301,13 +299,11 @@ def _resolve_edge(
 ) -> ArithmeticNode:
     """Resolve ``edge=``: the closed keyword ``wrap``, or a number to contribute.
 
-    A bare name here is never a model name — the one keyword is closed, so an
-    unrecognised name is a typo rather than a lookup. That is why this does not
-    take a namespace: nothing in it could make ``edge=usual`` mean anything.
-    Even so, the keyword must be written quoted: a bare ``edge=wrap`` would
-    make ``over=wrap`` and ``edge='wrap'`` the same token meaning two things
-    in one call, and quoting is what the language uses to say "literal, not a
-    name" (SPEC §6.1).
+    Takes no namespace: the keyword set is closed, so an unrecognised name here
+    is a typo rather than a lookup and nothing could make ``edge=usual`` mean
+    anything. The keyword must still be quoted — a bare ``edge=wrap`` would make
+    ``over=wrap`` and ``edge='wrap'`` the same token meaning two things in one
+    call, and quoting is how the language says "literal, not a name" (§6.1).
     """
     if isinstance(value, EdgeNode):
         return value
@@ -442,20 +438,17 @@ def _typed_literal(
     """The comparison's literal, checked against the declared dtype.
 
     A where comparison is the one place a literal meets a declared type, and
-    getting it wrong is **silent**: polars compares a datetime column against an
-    integer as an offset from the epoch, so ``snapshot > 0`` quietly means
-    *"after 1970-01-01"* and drops every earlier coordinate. Row absence is the
-    structural zero, so the model then solves a smaller problem without a word
-    (#460). This is the guard ``_check_dimension_values`` already applies to a
-    dimension's declared ``values:``, one construct over.
+    getting it wrong is **silent**: polars reads a datetime column against an
+    integer as an epoch offset, so ``snapshot > 0`` means *"after 1970-01-01"*
+    and drops every earlier coordinate — row absence being the structural zero,
+    the model then solves a smaller problem without a word (#460).
 
-    Returns ``None`` when it has recorded an error, so the caller leaves the
+    Returns ``None`` once it has recorded an error, so the caller leaves the
     node unresolved rather than lowering something it could not type.
 
-    ``dtype`` is ``None`` for a namespace built by hand, which accepts any
-    literal. A parameter's declared dtype is one of ``float``/``int``/
-    ``bool``/``str`` and never ``datetime`` (``_DTYPE_TYPES``), so only a
-    dimension comparison can receive a ``datetime.date`` from here.
+    ``dtype`` is ``None`` for a hand-built namespace, which accepts any
+    literal. A parameter's dtype is never ``datetime`` (``_DTYPE_TYPES``), so
+    only a dimension comparison receives a ``datetime.date`` from here.
     """
     if dtype is None:
         return node.value
