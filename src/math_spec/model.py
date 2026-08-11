@@ -19,6 +19,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     ValidationError,
     ValidationInfo,
     field_validator,
@@ -30,7 +31,7 @@ from lpspec.errors import did_you_mean, schema_error
 from lpspec.language.helpers import BUILTIN_NAMES
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
 
 class _StrictBlock(BaseModel):
@@ -50,8 +51,11 @@ class _StrictBlock(BaseModel):
     @model_validator(mode='before')
     @classmethod
     def _reject_unknown_keys(cls, data: Any) -> Any:
-        # pydantic's own extra='forbid' is the backstop; this runs first only
-        # to name the near-miss, which is what a typo actually needs.
+        """Name the near-miss, which is what a typo actually needs.
+
+        pydantic's own ``extra='forbid'`` is the backstop; this runs first
+        only for the wording.
+        """
         if not isinstance(data, dict):
             return data
         known = set(cls.model_fields)
@@ -319,16 +323,20 @@ class PiecewiseBlock(_StrictBlock):
     *sign* bounds the link by the curve instead of pinning it (at most one
     non-``"=="``, and only with exactly two links).
 
+    ``over`` names the breakpoint dimension. ``convex: true`` takes the
+    pure-LP convex hull, with no binaries; ``active`` names a gating
+    expression that pins the formulation to 0 when it is 0.
+
     Expanded (before building) into plain variables and constraints via the
     λ convex-combination method — see ``lpspec.language.piecewise``.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'
 
-    over: str  # breakpoint dimension
+    over: str
     links: list[list[str]]
-    convex: bool = False  # True: pure-LP convex hull (no binaries)
-    active: str | None = None  # gating expression: formulation pinned to 0 when 0
+    convex: bool = False
+    active: str | None = None
 
     @model_validator(mode='after')
     def _check_convex_shape(self) -> PiecewiseBlock:
@@ -399,6 +407,28 @@ def _without_absence(value: Any) -> Any:
     return value
 
 
+def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    """Run *validate*, raising this package's exception tree.
+
+    Pydantic reports every failure as a ``ValidationError`` carrying an
+    ``input_value=`` dump and a link to its own docs — neither of which means
+    anything to someone who wrote a YAML file, and neither of which is the type
+    ``docs/api.md`` tells a caller to catch. Both of :class:`Model`'s validating
+    doors go through here so they cannot answer differently.
+
+    ``__init__`` is deliberately *not* wrapped the same way. Defining one makes
+    pydantic route validation through it, so every after-validator runs twice —
+    the first time with ``context=None``, which silently drops
+    ``known_variables`` and refuses every ``extend()`` file. The constructor
+    keeps pydantic's own error; ``lps.load_model`` is the door this package
+    documents, and it goes through here.
+    """
+    try:
+        return validate(*args, **kwargs)
+    except ValidationError as exc:
+        raise schema_error(exc) from None
+
+
 def _is_absent(value: Any) -> bool:
     """Whether a serialised value says *nothing is here*.
 
@@ -446,6 +476,12 @@ class Model(_StrictBlock):
 
     _label: ClassVar[str] = 'the top level of the file'
 
+    #: The last expansion built from this model: the namespace it was expanded
+    #: against, and the expanded model. Owned entirely — written, read, keyed —
+    #: by :func:`~lpspec.language.piecewise.expand_piecewise`; only the slot
+    #: lives here.
+    _expansion: tuple[dict[str, tuple[str, ...]], Model] | None = PrivateAttr(default=None)
+
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive — every file that predates it stays valid.
     #:
@@ -463,40 +499,19 @@ class Model(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
 
-    # `typing.override` is 3.12+ and this package supports 3.11, so the
-    # decorator the rule asks for cannot be imported.
+    # The two doors below cannot carry `typing.override`, which is 3.12+ where
+    # this package supports 3.11 — hence the suppression on each.
     @classmethod
     # pyrefly: ignore[missing-override-decorator]
     def model_validate(cls, *args: Any, **kwargs: Any) -> Model:
-        """Validate, raising this package's exception tree.
+        """Validate a mapping — see :func:`_in_our_tree` for what it raises."""
+        return _in_our_tree(super().model_validate, *args, **kwargs)
 
-        Pydantic reports every failure as a ``ValidationError`` carrying an
-        ``input_value=`` dump and a link to its own docs — neither of which
-        means anything to someone who wrote a YAML file, and neither of which
-        is the type ``docs/api.md`` tells a caller to catch.
-
-        ``__init__`` is deliberately *not* wrapped the same way. Defining one
-        makes pydantic route validation through it, so every after-validator
-        runs twice — the first time with ``context=None``, which silently
-        drops ``known_variables`` and refuses every ``extend()`` file. The
-        constructor keeps pydantic's own error; ``lps.load_model`` is the door
-        this package documents, and it goes through here.
-        """
-        try:
-            return super().model_validate(*args, **kwargs)
-        except ValidationError as exc:
-            raise schema_error(exc) from None
-
-    # `typing.override` is 3.12+ and this package supports 3.11, so the
-    # decorator the rule asks for cannot be imported.
     @classmethod
     # pyrefly: ignore[missing-override-decorator]
     def model_validate_json(cls, *args: Any, **kwargs: Any) -> Model:
-        """As :meth:`__init__`, for the door that takes JSON."""
-        try:
-            return super().model_validate_json(*args, **kwargs)
-        except ValidationError as exc:
-            raise schema_error(exc) from None
+        """The same door, for JSON."""
+        return _in_our_tree(super().model_validate_json, *args, **kwargs)
 
     @field_validator('version')
     @classmethod
@@ -566,15 +581,21 @@ class Model(_StrictBlock):
     def _validate_references(self) -> Model:
         """Every cross-declaration rule the schema can decide without data.
 
-        Inline label coordinates are new names, so they join the flat
-        namespace. Targeted coordinates deliberately do not: their name aliases
+        Names share one flat namespace, because shadowing would let a new
+        declaration silently change what an existing expression means (see
+        ``resolution.py``). Inline label coordinates are new names, so they
+        join it. Targeted coordinates deliberately do not: their name aliases
         the target dimension (``generator: {coords: [bus]}``), and the
         dedicated shadowing check covers the case where the two disagree.
+
+        A coordinate's target must be a declared dimension, and must not be
+        the dimension carrying it: grouping a dim into itself is a no-op that
+        would read as a reduction. And bounds look like the expression
+        language but are not it, so their error says what they actually
+        accept.
         """
         errors = []
 
-        # One flat namespace: shadowing would let a new declaration silently
-        # change what an existing expression means. See resolution.py.
         kinds: list[tuple[str, Iterable[str]]] = [
             ('dimension', self.dimensions),
             ('parameter', self.parameters),
@@ -614,9 +635,6 @@ class Model(_StrictBlock):
             if d not in self.dimensions
         )
 
-        # A coordinate's target must be a declared dimension, and must not be
-        # the dimension carrying it: grouping a dim into itself is a no-op that
-        # would read as a reduction.
         for dname, ddef in self.dimensions.items():
             for cname, target in ddef.targeted.items():
                 if target not in self.dimensions:
@@ -637,8 +655,6 @@ class Model(_StrictBlock):
                         f'coordinate so a reader cannot mistake one for the other.'
                     )
 
-        # Bounds look like the expression language but are not it, so the
-        # error says what they actually accept.
         for vname, vdef in self.variables.items():
             for side in ('lower', 'upper'):
                 val = getattr(vdef.bounds, side)
@@ -668,7 +684,10 @@ class Model(_StrictBlock):
 
         An expansion *builds* a ``Model``, which validates itself on the way
         out, so the check below runs only when there was nothing to expand.
-        Calling it either way validated a piecewise model twice.
+        Calling it either way validated a piecewise model twice — and for the
+        same reason ``expand_piecewise`` memoises its result on the instance
+        (:attr:`_expansion`): every consumer of a piecewise model asks for
+        the expansion next, and rebuilding it would re-validate it.
 
         ``known_variables`` arrives as pydantic validation context, for the file
         deliberately not valid alone: an extension references variables already
