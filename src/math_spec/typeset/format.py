@@ -92,6 +92,15 @@ class Entry:
     detail: str = ''
     description: str = ''
 
+    @property
+    def meaning(self) -> str:
+        """Everything opposite the symbol, as one string.
+
+        What the row *says* is the walk's answer, not a spelling, so the three
+        formats differ only in the table cell they put it in.
+        """
+        return f'{self.name}{self.detail}' + (f' --- {self.description}' if self.description else '')
+
 
 @runtime_checkable
 class Format(Protocol):
@@ -137,8 +146,6 @@ class Format(Protocol):
     def parenthesise(self, inner: str) -> str: ...
 
     def fraction(self, numerator: str, denominator: str) -> str: ...
-
-    def power(self, base: str, exponent: str) -> str: ...
 
     def summation(self, domain: str, body: str) -> str: ...
 

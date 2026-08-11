@@ -160,14 +160,7 @@ def validate_expressions(
         _check_template_names(body_ast, macro.template, context, ns, formals, errors)
 
     for ename, body in schema.expressions.items():
-        context = f"Named expression '{ename}'"
-        ast = _parse_expand(body, schema, context, errors)
-        if ast is None:
-            continue
-        if isinstance(ast, ComparisonNode):
-            errors.append(f'{context}: must not contain a comparison operator.\nGot: {body!r}')
-            continue
-        resolve_expression(ast, ns, context, errors)
+        _check_expression(body, schema, ns, f"Named expression '{ename}'", errors, comparison=False)
 
     for vname, vdef in schema.variables.items():
         _check_where(vdef.where, ns, f"Variable '{vname}'", errors)
@@ -175,16 +168,7 @@ def validate_expressions(
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
         _check_where(cdef.where, ns, context, errors)
-        ast = _parse_expand(cdef.expression, schema, context, errors)
-        if ast is not None:
-            if not isinstance(ast, ComparisonNode):
-                errors.append(
-                    f'{context}: expression must contain exactly one '
-                    f'comparison operator (<=, >=, ==).\n'
-                    f'Got: {cdef.expression!r}'
-                )
-            else:
-                resolve_expression(ast, ns, context, errors)
+        _check_expression(cdef.expression, schema, ns, context, errors, comparison=True)
 
     if len(schema.objectives) > 1:
         names = ', '.join(repr(n) for n in schema.objectives)
@@ -195,15 +179,7 @@ def validate_expressions(
         )
 
     for oname, odef in schema.objectives.items():
-        context = f"Objective '{oname}'"
-        ast = _parse_expand(odef.expression, schema, context, errors)
-        if ast is not None:
-            if isinstance(ast, ComparisonNode):
-                errors.append(
-                    f'{context}: expression must not contain a comparison operator.\nGot: {odef.expression!r}'
-                )
-            else:
-                resolve_expression(ast, ns, context, errors)
+        _check_expression(odef.expression, schema, ns, f"Objective '{oname}'", errors, comparison=False)
 
     if errors:
         raise SchemaError('\n'.join(errors))
@@ -251,6 +227,37 @@ def _parse_expand(
     except ValueError as e:
         errors.append(f'{context}: {e}')
         return None
+
+
+def _check_expression(
+    expression: str,
+    schema: Model,
+    ns: Namespace,
+    context: str,
+    errors: list[str],
+    *,
+    comparison: bool,
+) -> None:
+    """Parse, expand and resolve one expression, given whether it must compare.
+
+    The three kinds a file declares differ only in that answer — a constraint
+    holds exactly one comparison, an objective and a named expression none —
+    so the parse, the shape verdict and the resolve are one path. Nothing is
+    resolved once the shape is wrong: an expression that is the wrong kind
+    would report its names against the wrong question.
+    """
+    ast = _parse_expand(expression, schema, context, errors)
+    if ast is None:
+        return
+    if comparison and not isinstance(ast, ComparisonNode):
+        errors.append(
+            f'{context}: expression must contain exactly one comparison operator (<=, >=, ==).\nGot: {expression!r}'
+        )
+        return
+    if not comparison and isinstance(ast, ComparisonNode):
+        errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {expression!r}')
+        return
+    resolve_expression(ast, ns, context, errors)
 
 
 def _check_where(

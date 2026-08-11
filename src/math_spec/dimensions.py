@@ -278,9 +278,9 @@ def _check_where_dims(
 ) -> None:
     """A predicate may only test dims the frame carries.
 
-    The eager lane used to reduce an outside dim with ``any()`` before
-    broadcasting — a mask that fails *open*, silently including everything.
-    Both lanes reject it now, and they reject it here, at load time.
+    Reducing an outside dim to fit — with ``any()``, say — is a mask that fails
+    *open*, silently including everything. Both lanes reject it, and they
+    reject it here, at load time.
     """
     if node is None:
         return

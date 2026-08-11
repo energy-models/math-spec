@@ -44,8 +44,12 @@ class _StrictLoader(yaml.SafeLoader):
 
 
 def _install_bool_resolver(loader: type[yaml.SafeLoader]) -> None:
-    # Copy before mutating: the resolver table is inherited from SafeLoader, so
-    # editing it in place would reconfigure PyYAML for the whole process.
+    """Give *loader* the 1.2 boolean set in place of 1.1's.
+
+    The table is rebuilt rather than edited: a subclass inherits
+    ``yaml_implicit_resolvers`` from ``SafeLoader``, so mutating it in place
+    would reconfigure PyYAML for the whole process.
+    """
     loader.yaml_implicit_resolvers = {
         ch: [(tag, rx) for tag, rx in pairs if tag != 'tag:yaml.org,2002:bool']
         for ch, pairs in yaml.SafeLoader.yaml_implicit_resolvers.items()

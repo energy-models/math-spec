@@ -85,9 +85,6 @@ class MarkdownFormat:
     def fraction(self, numerator: str, denominator: str) -> str:
         return _LATEX.fraction(numerator, denominator)
 
-    def power(self, base: str, exponent: str) -> str:
-        return _LATEX.power(base, exponent)
-
     def summation(self, domain: str, body: str) -> str:
         return _LATEX.summation(domain, body)
 
@@ -137,10 +134,7 @@ class MarkdownFormat:
         return '\n\n'.join(blocks)
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
-        rows = '\n'.join(
-            f'| {self.math(e.symbol)} | {e.name}{e.detail}' + (f' --- {e.description}' if e.description else '') + ' |'
-            for e in entries
-        )
+        rows = '\n'.join(f'| {self.math(e.symbol)} | {e.meaning} |' for e in entries)
         return f'#### {title}\n\n| Symbol | Meaning |\n|---|---|\n{rows}'
 
     def section(self, title: str, body: str) -> str:

@@ -7,9 +7,9 @@ each one into a typed node (``VariableNode`` / ``ParameterNode`` / ``DimensionNo
 side), so the AST reaching either backend holds no unresolved names.
 
 Doing this once, here, is what makes scoping identical across the lanes by
-construction rather than by test. When each backend resolved for itself they
-disagreed three ways, every one of which built a model on one lane and raised
-on the other — see SPEC §5.3 for the list and the rules that replace it.
+construction rather than by test. A backend that resolves for itself is a
+backend that can build a model the other refuses; SPEC §5.3 carries the
+scoping rules this pass applies.
 
 The namespace is flat and collisions are load errors (``schema.py``); macro
 formals are the one scope, and may not collide with a declared dimension.
@@ -421,8 +421,8 @@ def resolve_where(
 
     Both parameters and dimensions are legal here — a where-string is a
     predicate over the frame, and the frame carries its own coordinates. What
-    is *not* legal is an unknown name: it used to mean "scalar False" in the
-    eager lane, which silently produced an empty model.
+    is *not* legal is an unknown name: read as "scalar False" it would mask
+    every row out and produce an empty model in silence.
     """
     before = len(errors)
     resolved = _resolve_where(node, ns, context, errors, self_variable)

@@ -65,12 +65,11 @@ class Symbols:
 
     Assignment order is load-bearing. Name symbols are settled *before*
     dimension indices, so an index can be kept off a letter a variable already
-    owns — without that, a model with a dimension ``plant`` and a variable
-    ``p`` renders ``p_{t,p}`` and no reader can tell which ``p`` is which.
-    Deriving the two independently is exactly how that got through. Only
-    single-letter name symbols are kept off the index letters, because only
-    those can be mistaken for one — a ``\\mathit{load}`` never collides with
-    a ``t``.
+    owns — derived independently, a model with a dimension ``plant`` and a
+    variable ``p`` renders ``p_{t,p}`` and no reader can tell which ``p`` is
+    which. Only single-letter name symbols are kept off the index letters,
+    because only those can be mistaken for one — a ``\\mathit{load}`` never
+    collides with a ``t``.
     """
 
     def __init__(self, schema: Model, fmt: Format, table: SymbolTable | None = None) -> None:

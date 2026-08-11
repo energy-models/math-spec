@@ -163,6 +163,28 @@ class ComparisonNode:
 ExpressionNode = ArithmeticNode | ComparisonNode
 
 
+def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
+    """The sub-expressions of *node* — the structural half of any walk.
+
+    Every pass that recurses the whole tree and acts only at certain leaves
+    goes through here, so a node added later reaches all of them rather than
+    whichever ones remembered to list it. A pass whose *answer* differs per
+    node type dispatches itself and keeps its ``assert_never``; this is for
+    the ones that only need to get everywhere.
+
+    A helper's kwargs are children too: a dimension or a coordinate is an
+    ordinary node in a kwarg value, which is what lets a macro bind a formal
+    to one.
+    """
+    if isinstance(node, UnaryOperatorNode):
+        return (node.operand,)
+    if isinstance(node, (BinaryOperatorNode, ComparisonNode)):
+        return (node.left, node.right)
+    if isinstance(node, FunctionCallNode):
+        return (*node.args, *node.kwargs.values())
+    return ()
+
+
 # ---------------------------------------------------------------------------
 # Grammar
 # ---------------------------------------------------------------------------

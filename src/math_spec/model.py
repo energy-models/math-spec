@@ -499,16 +499,14 @@ class Model(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
 
-    # The two doors below cannot carry `typing.override`, which is 3.12+ where
-    # this package supports 3.11 — hence the suppression on each.
     @classmethod
-    # pyrefly: ignore[missing-override-decorator]
+    # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11
     def model_validate(cls, *args: Any, **kwargs: Any) -> Model:
         """Validate a mapping — see :func:`_in_our_tree` for what it raises."""
         return _in_our_tree(super().model_validate, *args, **kwargs)
 
     @classmethod
-    # pyrefly: ignore[missing-override-decorator]
+    # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11
     def model_validate_json(cls, *args: Any, **kwargs: Any) -> Model:
         """The same door, for JSON."""
         return _in_our_tree(super().model_validate_json, *args, **kwargs)
@@ -552,11 +550,10 @@ class Model(_StrictBlock):
         consumer got would depend on which name they reached for.
 
         **Every value is kept, default or not.** Omitting *defaults* reads
-        better and needs a list of which ones are consequential; that list is a
-        second copy of the schema and it drifted on its first day, keeping
-        ``version`` and ``sense`` while dropping ``dtype``. An empty **list**
-        stays, because a list carries cardinality here and zero is one of its
-        values — ``foreach: []`` is a scalar declaration.
+        better but needs a list of which ones are consequential, and that list
+        is a second copy of the schema. An empty **list** stays, because a list
+        carries cardinality here and zero is one of its values — ``foreach: []``
+        is a scalar declaration.
         """
         return _without_absence(handler(self))
 

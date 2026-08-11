@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, assert_never
 
+from lpspec.language import degree
 from lpspec.language.dimensions import dims_of
 from lpspec.language.expression_parser import (
     ArithmeticNode,
@@ -60,7 +61,7 @@ if TYPE_CHECKING:
 #: Operator precedence, for deciding brackets. A reduction sits at the bottom
 #: with ``+``: an unbracketed sum reads as capturing whatever follows it, so as
 #: a factor it has to be bracketed.
-_PRECEDENCE = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 4}
+_PRECEDENCE = {'+': 1, '-': 1, '*': 2, '/': 2}
 _ATOM = 5
 
 _RELATIONS = {'==': 'equal', '<=': 'le', '>=': 'ge'}
@@ -180,14 +181,17 @@ class Walk:
         Subtraction raises the requirement on its right operand by one:
         ``a - (b - c)`` and ``a - (b + c)`` need the bracket; ``a - b*c``
         does not.
+
+        ``degree.check_binary`` first, so the typesetter renders exactly what
+        the language accepts and says so in the language's own sentence: ``**``
+        and a quadratic product parse but are refused, and printing them would
+        typeset math no lane can build.
         """
+        degree.check_binary(node)
         if node.op == '/':
             top = self.arithmetic(node.left, ctx)
             bottom = self.arithmetic(node.right, ctx)
             return self.format.fraction(top, bottom), _ATOM
-        if node.op == '**':
-            base = self.arithmetic(node.left, ctx, need=_ATOM)
-            return self.format.power(base, self.arithmetic(node.right, ctx)), _PRECEDENCE['**']
         precedence = _PRECEDENCE[node.op]
         left = self.arithmetic(node.left, ctx, need=precedence)
         right = self.arithmetic(node.right, ctx, need=precedence + (1 if node.op == '-' else 0))
@@ -201,9 +205,9 @@ class Walk:
         than the spelling: only ``edge='wrap'`` is cyclic, and a numeric edge
         is a fill that leaves the translation itself acyclic. ``at`` is not a
         reduction — it re-indexes its operand, so like ``shift`` it emits no
-        operator of its own and the substitution appears at the leaves;
-        falling through to the summation below rendered it as a sum over the
-        fine dim — the wrong equation, silently.
+        operator of its own and the substitution appears at the leaves; falling
+        through to the summation below would render it as a sum over the fine
+        dim, silently the wrong equation.
         """
         if node.name == 'shift':
             dim = node.kwargs['over']
