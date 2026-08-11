@@ -41,9 +41,9 @@ class Builtin:
     lane quotes back.
 
     The remaining two are ordinary values — a number, never a name that has to
-    resolve. ``required_value_kwargs`` must be present (``shift(..., by=1)``),
-    ``value_kwargs`` are optional. Every dimension a helper names now arrives in
-    a kwarg *value*, which is what lets a macro pass one as a formal.
+    resolve. ``required_value_kwargs`` must be present (``shift(..., by=1)``).
+    Every dimension a helper names now arrives in a kwarg *value*, which is
+    what lets a macro pass one as a formal.
     """
 
     positional: int
@@ -56,7 +56,6 @@ class Builtin:
     optional_coordinate_kwargs: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
-    value_kwargs: tuple[str, ...] = ()
 
     @property
     def keywords(self) -> frozenset[str]:
@@ -68,7 +67,7 @@ class Builtin:
     @property
     def optional(self) -> frozenset[str]:
         """Every keyword the call may carry but need not."""
-        return frozenset(self.edge_kwargs) | frozenset(self.value_kwargs) | frozenset(self.optional_coordinate_kwargs)
+        return frozenset(self.edge_kwargs) | frozenset(self.optional_coordinate_kwargs)
 
 
 BUILTINS: dict[str, Builtin] = {
