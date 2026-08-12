@@ -415,23 +415,18 @@ def _is_absent(value: Any) -> bool:
 class Model(_StrictBlock):
     """The declared math — one YAML file, or one dict, validated.
 
-    First of the three stages the pipeline names: ``Model`` is what a file
-    *says*, ``plan.Program`` what it lowers to, an executor what a build holds.
-    Nothing here has seen data.
+    What a file *says*, before ``plan.Program`` (what it lowers to) and an
+    executor (what a build holds). Nothing here has seen data.
 
-    **The API is the declarations, and two ways back out.** The eight sections
-    plus ``version``; :meth:`to_dict` for the model as data, :meth:`to_yaml`
-    for the file a reviewer reads. In goes through ``lps.load_model``.
+    The API is the eight declaration sections plus ``version``, and two ways
+    back out: :meth:`to_dict` for the model as data, :meth:`to_yaml` for the
+    file a reviewer reads. In goes through ``lps.load_model``, which raises
+    :class:`~lpspec.errors.LanguageError` on a model the language refuses.
 
-    **Everything else on this class is pydantic's**, not a contract this
-    package keeps. Two are worth knowing about: ``model_json_schema()`` gives a
-    Draft 2020-12 document describing the *shape* pydantic validates, not the
-    language, so it accepts a constraint naming an undeclared parameter; and
-    ``model_construct()`` **skips validation entirely**, so the guarantee is
-    that a model built the normal way is valid, not that a ``Model`` is.
-
-    The doors that *build* one are overridden, so a wrong model raises this
-    package's :class:`~lpspec.errors.LanguageError` wherever it is built (#527).
+    Everything else on this class is pydantic's, not a contract this package
+    keeps — ``model_json_schema()`` describes the shape pydantic validates
+    rather than the language, and ``model_construct()`` skips validation
+    entirely, so a ``Model`` is valid when it was built the normal way.
     """
 
     _label: ClassVar[str] = 'the top level of the file'

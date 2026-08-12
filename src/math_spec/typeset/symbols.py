@@ -38,7 +38,7 @@ def _word(name: str, fmt: Format) -> str:
 
 
 def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format) -> str:
-    """``p`` → ``p``; ``load`` → ``\\mathit{load}``; ``p_max`` → ``p^{\\mathrm{max}}``.
+    r"""``p`` → ``p``; ``load`` → ``\mathit{load}``; ``p_max`` → ``p^{\mathrm{max}}``.
 
     An underscore is a **qualifier** only when what precedes it is a symbol in
     its own right — a single letter (``p_max``) or another declared name
@@ -56,14 +56,14 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format) -> str
 
 
 class Symbols:
-    """How every declared name prints: overrides first, derivation for the rest.
+    r"""How every declared name prints: overrides first, derivation for the rest.
 
     Assignment order is load-bearing. Name symbols settle *before* dimension
     indices, so an index can be kept off a letter a variable owns — derived
     independently, a model with a dimension ``plant`` and a variable ``p``
     renders ``p_{t,p}`` and no reader can tell which ``p`` is which. Only
     single-letter name symbols are kept off the index letters, a
-    ``\\mathit{load}`` never colliding with a ``t``.
+    ``\mathit{load}`` never colliding with a ``t``.
     """
 
     def __init__(self, schema: Model, fmt: Format, table: SymbolTable | None = None) -> None:
@@ -115,7 +115,7 @@ def _first_free(candidates: list[str], taken: set[str]) -> str:
 
 @dataclass(frozen=True)
 class SymbolTable:
-    """How a *reader* wants the model to print — kept out of the model.
+    r"""How a *reader* wants the model to print — kept out of the model.
 
     Presentation is not language: nothing here changes what the file means, no
     lane reads it, and a model with no table still renders.
@@ -125,10 +125,10 @@ class SymbolTable:
     and a reader who never finds out::
 
         dimensions:
-          snapshot: {index: t, set: "\\\\mathcal{T}"}
+          snapshot: {index: t, set: "\\mathcal{T}"}
           plant:    {index: n}
         names:
-          marginal_cost: "c^{\\\\mathrm{marg}}"
+          marginal_cost: "c^{\\mathrm{marg}}"
         descriptions:
           snapshot: hourly, over one year
     """

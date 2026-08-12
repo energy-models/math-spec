@@ -86,6 +86,9 @@ def dims_of(
     ``external`` gives the dims of variables that live on a model rather than
     in this schema — ``linopy.extend()``'s case, mirroring how
     ``known_variables`` widens the namespace.
+
+    Raises:
+        DimensionError: On the first rule broken.
     """
     if isinstance(node, ComparisonNode):
         return _dims(node.left, schema, context, external) | _dims(node.right, schema, context, external)
@@ -219,11 +222,14 @@ def check_schema(
     schema: Model,
     external: Mapping[str, Sequence[str]] = MappingProxyType({}),
 ) -> None:
-    """Check every declaration's dim rules. Raises :class:`DimensionError`.
+    """Check every declaration's dim rules.
 
     ``external`` maps variables already on a model to their dims, so
     ``linopy.extend()`` can reference them (hard rule 5 keeps parameters
     schema-local, but variables legitimately come from the model argument).
+
+    Raises:
+        DimensionError: On the first declaration that breaks one.
     """
     ns = Namespace.of(schema, external)
 

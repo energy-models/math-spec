@@ -59,21 +59,21 @@ def load_model(
 ) -> Model:
     """Load and validate a model definition — the language's front door.
 
-    Accepts a YAML path, a dict, or a ``Model``. ``known_variables`` widens the
-    variable set for the one file that is not valid alone: an extension for
-    ``linopy.extend()``.
+    Everything decidable without data is decided here: schema shape, every
+    expression and where string, every macro template, and every declaration a
+    formulation emits.
 
-    Validation is complete on return — schema shape, every expression and where
-    string, every macro template, and every declaration a formulation emits,
-    which is why expansion runs *before* validation: validating the file as
-    written checks a strict subset of the model that gets built.
+    Args:
+        model: A YAML path, a mapping, or a loaded :class:`Model`.
+        known_variables: Variables the file may reference without declaring,
+            mapped to their dims — what ``lpspec.linopy.extend`` passes for an
+            extension, which is the one file not valid alone.
 
-    Returns the schema *as the file declares it*, ``piecewise:`` intact —
-    expansion is idempotent and each lane redoes it, while the curvature guard
-    needs the blocks themselves.
+    Returns:
+        The schema *as the file declares it*, ``piecewise:`` intact.
 
-    Lives in ``language/`` rather than the runner because it is the whole of
-    what a consumer binding no data needs; ``lpspec.api`` re-exports it.
+    Raises:
+        LanguageError: Anything the language does not accept.
     """
     if isinstance(model, (list, tuple)):
         msg = (
@@ -99,7 +99,7 @@ def validate_expressions(
 ) -> None:
     """Validate and resolve every expression and where string in *schema*.
 
-    Raises :class:`SchemaError` listing every problem found, one per line:
+    What is checked:
 
     - the expression parses, and constraints hold exactly one comparison where
       objectives hold none;
@@ -118,6 +118,9 @@ def validate_expressions(
     *known_variables* maps variables valid in addition to *schema*'s to their
     dims, for ``linopy.extend()``. Parameters get no such widening — a YAML
     file declares every parameter it uses (hard rule 5).
+
+    Raises:
+        SchemaError: Listing every problem found, one per line.
     """
     ns = Namespace.of(schema, known_variables)
     errors: list[str] = []

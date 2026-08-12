@@ -82,6 +82,10 @@ def expand_piecewise(
     schema already carries the expansion its own validation built
     (:class:`Model` expands as a check on the way in), and asking again
     returns it rather than validating a second copy.
+
+    Raises:
+        PiecewiseExpansionError: A block naming something that does not exist,
+            or emitting a name the file already declares.
     """
     if not schema.piecewise:
         return schema

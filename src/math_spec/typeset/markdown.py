@@ -1,4 +1,4 @@
-"""GitHub-flavoured Markdown. The format that renders where the docs already live.
+r"""GitHub-flavoured Markdown. The format that renders where the docs already live.
 
 Markdown has no math of its own — GitHub delegates to MathJax, which eats
 LaTeX — so this is **not** a third spelling: it forwards every math method to
@@ -6,7 +6,7 @@ LaTeX — so this is **not** a third spelling: it forwards every math method to
 
 Forwarding rather than subclassing, deliberately. Inheritance would silently
 inherit a method later added to ``LatexFormat``, and the two differ precisely
-in the *document* methods, so the silent case is a ``\\paragraph`` in a
+in the *document* methods, so the silent case is a ``\paragraph`` in a
 Markdown file. Written out, a new seam method is simply missing until someone
 decides which side it belongs on.
 
@@ -81,10 +81,10 @@ class MarkdownFormat:
         return _LATEX.apply(function, argument)
 
     def joined(self, parts: list[str], operator: str) -> str:
-        """``a op b op c``, with ``\\enspace`` as the bare separator.
+        r"""``a op b op c``, with ``\enspace`` as the bare separator.
 
-        LaTeX's ``,\\ `` would be safe here too — a backslash before a *space*
-        is not a Markdown escape — but spelling it ``\\enspace`` says why
+        LaTeX's ``,\ `` would be safe here too — a backslash before a *space*
+        is not a Markdown escape — but spelling it ``\enspace`` says why
         without the reader having to know that.
         """
         return f' {operator} '.join(parts) if operator else r',\enspace '.join(parts)
@@ -96,11 +96,11 @@ class MarkdownFormat:
         return f'`{text}`'
 
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
-        """One display block per equation, with the name *outside* the math.
+        r"""One display block per equation, with the name *outside* the math.
 
         Not LaTeX's ``aligned``, for two reasons that only show up in a
-        browser: a name is not math (``\\text{total\\_cost}`` renders its
-        ``\\_`` escape literally under MathJax, where a backtick span outside
+        browser: a name is not math (``\text{total\_cost}`` renders its
+        ``\_`` escape literally under MathJax, where a backtick span outside
         the math does not), and ``aligned`` columns align *across rows*, which
         a page showing one equation per heading has nothing to line up against.
 

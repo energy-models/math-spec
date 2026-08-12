@@ -1,9 +1,9 @@
-"""The seam between *what* a model says and *how* a format spells it.
+r"""The seam between *what* a model says and *how* a format spells it.
 
 One walk, many formats — the split ``relational/sinks/`` makes at the other end
 of the pipeline. :mod:`lpspec.typeset.walk` decides where a bracket is needed,
 which dimension a reduction binds and where a mask belongs; a :class:`Format`
-decides only that a sum is ``\\sum_{…}`` or ``sum_(…)``.
+decides only that a sum is ``\sum_{…}`` or ``sum_(…)``.
 
 Two rules make the split hold:
 

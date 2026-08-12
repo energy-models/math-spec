@@ -302,9 +302,12 @@ _GRAMMAR = _build_grammar()
 def parse_expression(text: str) -> ExpressionNode:
     """Parse a math expression string into an AST.
 
-    Returns one of: NumberNode, NameNode, UnaryOperatorNode, BinaryOperatorNode,
-    ComparisonNode, or FunctionCallNode. With ``parse_all`` and a single
-    top-level alternative, element 0 of the parse result is the root node.
+    With ``parse_all`` and a single top-level alternative, element 0 of the
+    parse result is the root node.
+
+    Returns:
+        One of ``NumberNode``, ``NameNode``, ``UnaryOperatorNode``,
+        ``BinaryOperatorNode``, ``ComparisonNode`` or ``FunctionCallNode``.
     """
     try:
         result = _GRAMMAR.parse_string(text, parse_all=True)

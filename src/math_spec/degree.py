@@ -80,12 +80,14 @@ def carries_variable(node: ExpressionNode) -> bool:
 
 
 def check_binary(node: BinaryOperatorNode, context: str | None = None) -> None:
-    """Raise :class:`LanguageError` if *node* would leave degree 1.
+    """Check that *node* stays inside degree 1.
 
-    The three ways it can: both factors of a product carrying variables, a
-    divisor carrying one, and an operator the language does not have. Callers
-    want the *raise*, not the answer — this is the same shape as
+    Callers want the *raise*, not the answer — the same shape as
     ``dimensions.dims_of`` being asked for its verdict.
+
+    Raises:
+        LanguageError: Both factors of a product carrying variables, a divisor
+            carrying one, or an operator the language does not have.
     """
     where = f'{context}: ' if context else ''
     if node.op not in ARITHMETIC_OPERATORS:
