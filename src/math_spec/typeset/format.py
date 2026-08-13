@@ -18,7 +18,7 @@ Two rules make the split hold:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -106,7 +106,6 @@ class Glossary:
     entries: list[Entry]
 
 
-@runtime_checkable
 class Format(Protocol):
     """How one output format spells what a walk emits."""
 

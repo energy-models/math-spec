@@ -69,7 +69,15 @@ class _StrictBlock(BaseModel):
         return f"unknown key '{key}' in {label}. {did_you_mean(key, known, label='Valid keys')}"
 
 
-def _one_of(value: str, allowed: set[str], field: str) -> str:
+#: The dtypes a dimension index may declare (SPEC §2). The one home of the
+#: vocabulary: both dtype validators read it, and ``tests/test_architecture.py``
+#: pins the engine's empty-index dtype table (``relational/frames.py``) to the
+#: same set — a test rather than an import, because the fence keeps the engine
+#: from reaching the language.
+DIMENSION_DTYPES = frozenset({'float', 'int', 'str', 'datetime'})
+
+
+def _one_of(value: str, allowed: frozenset[str] | set[str], field: str) -> str:
     """Check an enumerated string field, in one wording for all of them."""
     if value not in allowed:
         msg = f"{field} must be one of {allowed}, got '{value}'"
@@ -97,7 +105,7 @@ class CoordinateSpec(_StrictBlock):
     @field_validator('dtype')
     @classmethod
     def _check_dtype(cls, v: str) -> str:
-        return _one_of(v, {'float', 'int', 'str', 'datetime'}, 'dtype')
+        return _one_of(v, DIMENSION_DTYPES, 'dtype')
 
 
 class DimensionBlock(_StrictBlock):
@@ -142,7 +150,7 @@ class DimensionBlock(_StrictBlock):
     @field_validator('dtype')
     @classmethod
     def _check_dtype(cls, v: str) -> str:
-        return _one_of(v, {'float', 'int', 'str', 'datetime'}, 'dtype')
+        return _one_of(v, DIMENSION_DTYPES, 'dtype')
 
     @property
     def targeted(self) -> dict[str, str]:

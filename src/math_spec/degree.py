@@ -110,7 +110,7 @@ def check_binary(node: BinaryOperatorNode, context: str | None = None) -> None:
         )
 
 
-def check_expression(node: ExpressionNode, context: str | None = None) -> None:
+def check_expression(node: ExpressionNode, context: str) -> None:
     """Apply :func:`check_binary` everywhere in *node*.
 
     Lowering asks per node as it descends, because it is already walking. A
