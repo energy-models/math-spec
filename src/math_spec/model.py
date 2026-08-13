@@ -5,7 +5,7 @@ error naming the near miss rather than a shrug, because a dropped ``bounds:``
 leaves a variable unbounded and says nothing.
 
 :class:`Model` is the first of the three stages the pipeline names — what a
-file *declares*, before ``plan.Program`` (what it lowers to) and an executor
+file *declares*, before ``plan.Program`` (what it lowers to) and an engine
 (what a build holds). Nothing here has seen data.
 """
 
@@ -415,8 +415,9 @@ def _is_absent(value: Any) -> bool:
 class Model(_StrictBlock):
     """The declared math — one YAML file, or one dict, validated.
 
-    What a file *says*, before ``plan.Program`` (what it lowers to) and an
-    executor (what a build holds). Nothing here has seen data.
+    First of the three stages the pipeline names: ``Model`` is what a file
+    *says*, ``plan.Program`` what it lowers to, an engine what a build holds.
+    Nothing here has seen data.
 
     The API is the eight declaration sections plus ``version``, and two ways
     back out: :meth:`to_dict` for the model as data, :meth:`to_yaml` for the
