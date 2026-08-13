@@ -98,6 +98,14 @@ class Entry:
         return f'{self.name}{self.detail}' + (f' --- {self.description}' if self.description else '')
 
 
+@dataclass(frozen=True)
+class Glossary:
+    """One legend section: its title, and the entries under it."""
+
+    title: str
+    entries: list[Entry]
+
+
 @runtime_checkable
 class Format(Protocol):
     """How one output format spells what a walk emits."""

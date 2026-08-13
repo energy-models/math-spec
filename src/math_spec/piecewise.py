@@ -45,6 +45,7 @@ consuming lane's business, and curvature is a property of the breakpoint
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
@@ -57,6 +58,18 @@ from lpspec.language.resolution import Namespace, resolve_expression
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+
+
+@dataclass(frozen=True)
+class _Expansion:
+    """One memoised expansion: the namespace it was keyed by, and its model.
+
+    Lives on ``Model._expansion``; the slot is there, the ownership is here —
+    written, read and compared by :func:`expand_piecewise` alone.
+    """
+
+    key: dict[str, tuple[str, ...]]
+    model: Model
 
 
 def expand_piecewise(
@@ -90,8 +103,8 @@ def expand_piecewise(
     if not schema.piecewise:
         return schema
     key = expansion_key(known_variables)
-    if schema._expansion is not None and schema._expansion[0] == key:
-        return schema._expansion[1]
+    if schema._expansion is not None and schema._expansion.key == key:
+        return schema._expansion.model
 
     raw = schema.model_dump()
     raw.setdefault('variables', {})
@@ -110,11 +123,9 @@ def expand_piecewise(
             'expression': f'sum({lam}, over={pw.over}) == {rhs}',
         }
         for i, link in enumerate(pw.links):
-            expr, values = link[0], link[1]
-            sign = link[2] if len(link) == 3 else '=='
             raw['constraints'][f'{name}_link{i}'] = {
                 'foreach': list(frame),
-                'expression': (f'({expr}) {sign} sum({lam} * {values}, over={pw.over})'),
+                'expression': (f'({link.expression}) {link.sign} sum({lam} * {link.values}, over={pw.over})'),
             }
         if not pw.convex:
             raw['variables'][seg] = {
@@ -133,7 +144,7 @@ def expand_piecewise(
 
     raw['piecewise'].clear()
     expanded = Model.model_validate(raw, context={'known_variables': known_variables})
-    schema._expansion = (key, expanded)
+    schema._expansion = _Expansion(key, expanded)
     return expanded
 
 
@@ -161,7 +172,7 @@ def _validate_block(
 
     frame: list[str] = []
     for i, link in enumerate(pw.links):
-        expr_text, values = link[0], link[1]
+        values = link.values
         if values not in schema.parameters:
             raise PiecewiseExpansionError(f"{ctx}: link {i} values references undeclared parameter '{values}'")
         if pw.over not in schema.parameters[values].dims:
@@ -169,7 +180,7 @@ def _validate_block(
                 f"{ctx}: link {i} values parameter '{values}' must carry dim "
                 f"'{pw.over}' (has {schema.parameters[values].dims})"
             )
-        for d in _declared_order(schema, _expr_dims(schema, expr_text, f'{ctx} link {i}', known_variables)):
+        for d in _declared_order(schema, _expr_dims(schema, link.expression, f'{ctx} link {i}', known_variables)):
             if d == pw.over:
                 raise PiecewiseExpansionError(
                     f"{ctx}: link {i} expression already carries the breakpoint dim '{pw.over}'"

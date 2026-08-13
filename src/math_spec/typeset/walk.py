@@ -46,7 +46,7 @@ from lpspec.language.where_parser import (
     VariableDefinedNode,
     WhereNode,
 )
-from lpspec.typeset.format import Entry, Line
+from lpspec.typeset.format import Entry, Glossary, Line
 
 if TYPE_CHECKING:
     import datetime
@@ -389,7 +389,7 @@ class Walk:
 
     # -- legend ------------------------------------------------------------
 
-    def glossaries(self) -> list[tuple[str, list[Entry]]]:
+    def glossaries(self) -> list[Glossary]:
         fmt = self.format
         sets = [
             Entry(
@@ -418,7 +418,8 @@ class Walk:
             )
             for v, block in self.schema.variables.items()
         ]
-        return [group for group in (('Sets', sets), ('Parameters', parameters), ('Variables', variables)) if group[1]]
+        groups = (Glossary('Sets', sets), Glossary('Parameters', parameters), Glossary('Variables', variables))
+        return [group for group in groups if group.entries]
 
     def _over(self, dims: list[str]) -> str:
         if not dims:

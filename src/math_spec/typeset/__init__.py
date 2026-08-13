@@ -103,7 +103,7 @@ def typeset(
 
     blocks = []
     if legend:
-        blocks += [fmt.glossary(title, entries) for title, entries in walk.glossaries()]
+        blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries()]
         if walk.saw_wraparound:
             blocks.append(fmt.note(walk.wraparound_note()))
     return fmt.document([*blocks, *rendered], standalone=standalone)

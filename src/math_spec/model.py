@@ -294,6 +294,43 @@ class MacroBlock(_StrictBlock):
         return self
 
 
+class PiecewiseLink(_StrictBlock):
+    """One link of a piecewise block: an expression pinned to a values curve.
+
+    Written in YAML as ``[expression, values]`` or ``[expression, values,
+    sign]`` and serialised back to exactly that form, so a round trip through
+    :meth:`Model.to_yaml` reproduces the file.
+    """
+
+    _label: ClassVar[str] = 'a piecewise link'
+
+    expression: str
+    values: str
+    sign: str = '=='
+
+    @model_validator(mode='before')
+    @classmethod
+    def _from_list(cls, data: Any) -> Any:
+        if isinstance(data, list):
+            if not 2 <= len(data) <= 3:
+                msg = f'each link must be [expression, values] or [expression, values, sign], got {data!r}'
+                raise ValueError(msg)
+            return dict(zip(('expression', 'values', 'sign'), data, strict=False))
+        return data
+
+    @field_validator('sign')
+    @classmethod
+    def _check_sign(cls, v: str) -> str:
+        if v not in ('==', '<=', '>='):
+            msg = f"link sign must be '==', '<=' or '>=', got {v!r}"
+            raise ValueError(msg)
+        return v
+
+    @model_serializer
+    def _as_list(self) -> list[str]:
+        return [self.expression, self.values] if self.sign == '==' else [self.expression, self.values, self.sign]
+
+
 class PiecewiseBlock(_StrictBlock):
     """N expressions jointly pinned to a breakpoint-indexed piecewise curve.
 
@@ -313,7 +350,7 @@ class PiecewiseBlock(_StrictBlock):
     _label: ClassVar[str] = 'a piecewise declaration'
 
     over: str
-    links: list[list[str]]
+    links: list[PiecewiseLink]
     convex: bool = False
     active: str | None = None
 
@@ -332,21 +369,11 @@ class PiecewiseBlock(_StrictBlock):
 
     @field_validator('links')
     @classmethod
-    def _check_links(cls, v: list[list[str]]) -> list[list[str]]:
+    def _check_links(cls, v: list[PiecewiseLink]) -> list[PiecewiseLink]:
         if len(v) < 2:
             msg = 'piecewise needs at least two links ([expression, values, sign?]).'
             raise ValueError(msg)
-        signs = []
-        for link in v:
-            if not 2 <= len(link) <= 3:
-                msg = f'each link must be [expression, values] or [expression, values, sign], got {link!r}'
-                raise ValueError(msg)
-            sign = link[2] if len(link) == 3 else '=='
-            if sign not in ('==', '<=', '>='):
-                msg = f"link sign must be '==', '<=' or '>=', got {sign!r}"
-                raise ValueError(msg)
-            signs.append(sign)
-        non_eq = [s for s in signs if s != '==']
+        non_eq = [link.sign for link in v if link.sign != '==']
         if len(non_eq) > 1:
             msg = "at most one link may carry a non-'==' sign."
             raise ValueError(msg)
@@ -432,11 +459,10 @@ class Model(_StrictBlock):
 
     _label: ClassVar[str] = 'the top level of the file'
 
-    #: The last expansion built from this model: the namespace it was expanded
-    #: against, and the expanded model. Owned entirely — written, read, keyed —
-    #: by :func:`~lpspec.language.piecewise.expand_piecewise`; only the slot
-    #: lives here.
-    _expansion: tuple[dict[str, tuple[str, ...]], Model] | None = PrivateAttr(default=None)
+    #: The last expansion built from this model. Owned entirely — written,
+    #: read, keyed — by :func:`~lpspec.language.piecewise.expand_piecewise`,
+    #: whose ``_Expansion`` this holds; only the slot lives here.
+    _expansion: Any = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
