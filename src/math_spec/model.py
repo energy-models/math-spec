@@ -270,6 +270,8 @@ def _refuse_equations(data: Any, kind: str) -> Any:
     n = len(entries) if isinstance(entries, list) else 1
     if n == 1:
         fix = f'Move the single entry up: replace `equations:` with `expression:` on the {kind}.'
+    elif kind == 'objective':
+        fix = 'A model optimises one: combine the entries into a single expression (a weighted sum is ordinary arithmetic).'
     else:
         fix = (
             f'Split it into {n} {kind}s, one per rule, each with its own name — the entries were '
@@ -574,11 +576,34 @@ class Model(_StrictBlock):
     parameters: dict[str, ParameterBlock] = {}
     variables: dict[str, VariableBlock] = {}
     constraints: dict[str, ConstraintBlock] = {}
-    objectives: dict[str, ObjectiveBlock] = {}
+    objective: ObjectiveBlock | None = None
     expressions: dict[str, str] = {}
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
+
+    @model_validator(mode='before')
+    @classmethod
+    def _refuse_objectives(cls, data: Any) -> Any:
+        """Name the rewrite for a file written against the mapping surface.
+
+        Caught here rather than by the closed-schema check: the near miss
+        (`objective`) is the right hint for a one-entry file and useless for
+        one declaring several.
+        """
+        if not isinstance(data, dict) or 'objectives' not in data:
+            return data
+        entries = data.get('objectives')
+        n = len(entries) if isinstance(entries, dict) else 1
+        if n == 1:
+            fix = 'Move the single block up: replace `objectives: {name: {...}}` with `objective: {...}` — the name did nothing.'
+        else:
+            fix = (
+                'A model optimises one. Combine them into a single expression '
+                '(a weighted sum is ordinary arithmetic) and declare it as `objective:`.'
+            )
+        msg = f'`objectives:` was removed; a file declares one `objective:` block. {fix}'
+        raise ValueError(msg)
 
     @classmethod
     # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11

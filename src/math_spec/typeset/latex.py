@@ -123,7 +123,10 @@ class LatexFormat:
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
         environment = 'align' if numbered else 'align*'
         rows = [
-            f'{self.prose(line.label)} && {line.left} & {line.right} && {line.condition}'.rstrip(' &') for line in lines
+            f'{self.prose(line.label) if line.label else ""} && {line.left} & {line.right} && {line.condition}'.rstrip(
+                ' &'
+            )
+            for line in lines
         ]
         body = ' \\\\\n'.join(rows)
         return f'\\begin{{{environment}}}\n{body}\n\\end{{{environment}}}'

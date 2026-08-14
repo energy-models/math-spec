@@ -309,26 +309,28 @@ class Walk:
 
     # -- declarations ------------------------------------------------------
 
-    def objectives(self) -> list[Line]:
-        """One line per objective, with its implied reduction made explicit.
+    def objective(self) -> list[Line]:
+        """The objective's line, with its implied reduction made explicit.
 
         An objective sums each term over every dim it carries; the reduction is
         implied by the declaration, so it is spelled out rather than assumed.
+        The line carries no label: the block has no name, and the section
+        heading already says what it is.
         """
-        lines = []
-        for name, block in self.schema.objectives.items():
-            sense = self.op('minimize' if block.sense == 'minimize' else 'maximize')
-            context = f"objective '{name}'"
-            node = expression_of(block.expression, self.schema, self.namespace, context)
-            assert not isinstance(node, ComparisonNode)
-            ctx = self.context()
-            dims = self._sorted(dims_of(node, self.schema, context))
-            body = self.reduction_body(node, ctx) if dims else self.arithmetic(node, ctx)
-            if dims:
-                domain = self.format.joined([self.membership(d) for d in dims], '')
-                body = self.format.summation(domain, body)
-            lines.append(Line(label=name, left=sense, right=body))
-        return lines
+        block = self.schema.objective
+        if block is None:
+            return []
+        sense = self.op('minimize' if block.sense == 'minimize' else 'maximize')
+        context = 'the objective'
+        node = expression_of(block.expression, self.schema, self.namespace, context)
+        assert not isinstance(node, ComparisonNode)
+        ctx = self.context()
+        dims = self._sorted(dims_of(node, self.schema, context))
+        body = self.reduction_body(node, ctx) if dims else self.arithmetic(node, ctx)
+        if dims:
+            domain = self.format.joined([self.membership(d) for d in dims], '')
+            body = self.format.summation(domain, body)
+        return [Line(label='', left=sense, right=body)]
 
     def constraints(self) -> list[Line]:
         lines = []

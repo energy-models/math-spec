@@ -155,16 +155,8 @@ def validate_expressions(
         _check_where(cdef.where, ns, context, errors)
         _check_expression(cdef.expression, schema, ns, context, errors, comparison=True)
 
-    if len(schema.objectives) > 1:
-        names = ', '.join(repr(n) for n in schema.objectives)
-        errors.append(
-            f'{len(schema.objectives)} objectives declared ({names}) — a model optimises one.\n'
-            f'Combine them into a single objective (a weighted sum is an ordinary expression), '
-            f'or keep one per file.'
-        )
-
-    for oname, odef in schema.objectives.items():
-        _check_expression(odef.expression, schema, ns, f"Objective '{oname}'", errors, comparison=False)
+    if schema.objective is not None:
+        _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False)
 
     _check_sos(schema, known_variables, errors)
 

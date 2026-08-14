@@ -133,7 +133,10 @@ class TypstFormat:
         the point.
         """
         rows = [
-            f'{self.prose(line.label)} & {line.left} & {line.right} & {line.condition}'.rstrip(' &') for line in lines
+            f'{self.prose(line.label) if line.label else ""} & {line.left} & {line.right} & {line.condition}'.rstrip(
+                ' &'
+            )
+            for line in lines
         ]
         body = ' \\\n  '.join(rows)
         numbering = '#set math.equation(numbering: "(1)")\n' if numbered else ''

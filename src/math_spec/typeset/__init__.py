@@ -95,7 +95,7 @@ def typeset(
     walk = Walk(schema, Namespace.of(schema), Symbols(schema, fmt, table.checked_against(schema)), fmt)
 
     sections = [
-        ('Objective', walk.objectives()),
+        ('Objective', walk.objective()),
         ('Subject to', walk.constraints()),
         ('Variable domains', walk.variables()),
     ]

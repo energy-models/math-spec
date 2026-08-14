@@ -266,9 +266,9 @@ def check_schema(
             )
             raise DimensionError(f'{context}: the expression {detail}.')
 
-    for oname, odef in schema.objectives.items():
-        context = f"Objective '{oname}'"
-        dims_of(expression_of(odef.expression, schema, ns, context), schema, context, external)
+    if schema.objective is not None:
+        context = 'The objective'
+        dims_of(expression_of(schema.objective.expression, schema, ns, context), schema, context, external)
 
 
 def _check_where_dims(

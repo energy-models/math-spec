@@ -113,7 +113,10 @@ class MarkdownFormat:
             body = f'{line.left} {line.right}'.strip()
             if line.condition:
                 body = f'{body} \\qquad {line.condition}'
-            blocks.append(f'**{self.mono(line.label)}**\n\n$${body}$$')
+            block = f'$${body}$$'
+            if line.label:
+                block = f'**{self.mono(line.label)}**\n\n{block}'
+            blocks.append(block)
         return '\n\n'.join(blocks)
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
