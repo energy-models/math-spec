@@ -42,6 +42,7 @@ class LatexFormat:
     """See :class:`lpspec.typeset.format.Format`."""
 
     suffix: ClassVar[str] = '.tex'
+    notation: ClassVar[str] = 'latex'
 
     operators: ClassVar[dict[str, str]] = {
         'cdot': r'\cdot',

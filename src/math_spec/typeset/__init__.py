@@ -78,7 +78,8 @@ def typeset(
         model: Anything :func:`lpspec.load_model` accepts.
         fmt: What spells the math — one of :data:`FORMATS`.
         symbols: How names print, as a :class:`SymbolTable`, a path or a
-            mapping. Names it does not carry are derived.
+            mapping. Names it does not carry are derived, and it must be
+            written in *fmt*'s notation.
         standalone: Emit a compilable document rather than a fragment.
         legend: Prepend the sets/parameters/variables table.
         numbered: Number the equations.
@@ -88,10 +89,13 @@ def typeset(
 
     Raises:
         LanguageError: A model that does not compile; it does not print.
-        SchemaError: A symbol table entry naming nothing in the model.
+        SchemaError: A symbol table entry naming nothing in the model, or a
+            table written in a notation *fmt* does not read.
     """
     schema = expand_piecewise(load_model(model))
-    table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols or {})
+    if symbols is None:
+        symbols = SymbolTable(fmt.notation)
+    table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     walk = Walk(schema, Namespace.of(schema), Symbols(schema, fmt, table.checked_against(schema)), fmt)
 
     sections = [

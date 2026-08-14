@@ -112,6 +112,9 @@ class Format(Protocol):
 
     #: File suffix, for the CLI's default output name.
     suffix: ClassVar[str]
+    #: The notation a symbol table must be written in — ``latex`` or ``typst``;
+    #: markdown reads ``latex``, its math being MathJax's.
+    notation: ClassVar[str]
     #: Spelling for each of :data:`OPERATOR_NAMES`.
     operators: ClassVar[Mapping[str, str]]
 

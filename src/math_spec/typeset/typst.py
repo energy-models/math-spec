@@ -42,6 +42,7 @@ class TypstFormat:
     """
 
     suffix: ClassVar[str] = '.typ'
+    notation: ClassVar[str] = 'typst'
 
     operators: ClassVar[dict[str, str]] = {
         'cdot': 'dot',

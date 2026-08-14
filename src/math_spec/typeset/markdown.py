@@ -33,6 +33,7 @@ class MarkdownFormat:
     """See :class:`lpspec.typeset.format.Format`. Math is LaTeX's; prose is not."""
 
     suffix: ClassVar[str] = '.md'
+    notation: ClassVar[str] = 'latex'
 
     #: LaTeX's, except where the spelling uses a backslash before punctuation.
     #: GitHub runs Markdown's escape processing *inside* `$$`, so `\,` arrives

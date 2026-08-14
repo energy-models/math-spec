@@ -45,18 +45,19 @@ caller already has — the CLI's `--symbols` is the path case:
 
 ```python
 lps.to_latex('dispatch.yaml', symbols='dispatch.symbols.yaml')  # a path
-lps.to_latex('dispatch.yaml', symbols={'names': {'load': r'\ell'}})  # a dict
+lps.to_latex('dispatch.yaml', symbols={'notation': 'latex', 'names': {'load': r'\ell'}})  # a dict
 lps.to_latex('dispatch.yaml', symbols=lps.SymbolTable.load(table))  # the object
 ```
 
-The dict is the same three sections as the file (`dimensions`, `names`,
+The dict is the same sections as the file (`notation`, `dimensions`, `names`,
 `descriptions`) — it is what the YAML parses to, not a flat `{name: symbol}`
 map. Whichever form, the table is checked against the model: a key naming
 nothing is an error with the near miss, because a silent typo is a symbol that
 never applies and a reader who never finds out.
 
-The values are LaTeX, including for Typst, which is a bug — see
-[#321](https://github.com/fluxopt/lpspec/issues/321).
+Every value is a spelling, printed verbatim — nothing parses or translates it.
+`notation` says which language the table is written in; a format that reads the
+other one refuses. Everything past that comparison is the caller's.
 
 ## Adding a format
 

@@ -64,14 +64,22 @@ class Symbols:
     renders ``p_{t,p}`` and no reader can tell which ``p`` is which. Only
     single-letter name symbols are kept off the index letters, a
     ``\mathit{load}`` never colliding with a ``t``.
+
+    Raises:
+        SchemaError: If *table* is written in a notation *fmt* does not read.
     """
 
-    def __init__(self, schema: Model, fmt: Format, table: SymbolTable | None = None) -> None:
-        table = table or SymbolTable()
+    def __init__(self, schema: Model, fmt: Format, table: SymbolTable) -> None:
+        if table.notation != fmt.notation:
+            msg = (
+                f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
+                f'and nothing translates between notations — write a {fmt.notation} table.'
+            )
+            raise SchemaError(msg)
         declared = frozenset({*schema.dimensions, *schema.parameters, *schema.variables})
 
         self.name: dict[str, str] = {
-            name: table.names.get(name) or _derive_name_symbol(name, declared, fmt)
+            name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt)
             for name in (*schema.parameters, *schema.variables)
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}
@@ -80,14 +88,13 @@ class Symbols:
         self.set: dict[str, str] = {}
         taken_index, taken_set = set(spoken_for), set()
         for dim in schema.dimensions:
-            override = table.indices.get(dim)
-            letter = override or _first_free(_index_candidates(dim), taken_index)
+            overridden = dim in table.indices
+            letter = table.indices[dim] if overridden else _first_free(_index_candidates(dim), taken_index)
             taken_index.add(letter)
-            self.index[dim] = letter if len(letter) <= 1 or override else fmt.upright(letter)
-            given = table.sets.get(dim)
+            self.index[dim] = letter if len(letter) <= 1 or overridden else fmt.upright(letter)
             upper = _first_free(_set_candidates(dim, letter), taken_set)
             taken_set.add(upper)
-            self.set[dim] = given or fmt.script(upper)
+            self.set[dim] = table.sets[dim] if dim in table.sets else fmt.script(upper)
 
         self.description: dict[str, str] = dict(table.descriptions)
 
@@ -120,10 +127,11 @@ class SymbolTable:
     Presentation is not language: nothing here changes what the file means, no
     lane reads it, and a model with no table still renders.
 
-    Deliberately strict — an unrecognised name is an error naming the near
-    miss, the failure mode of a silent typo being a symbol that never applies
-    and a reader who never finds out::
+    Every entry is a spelling, printed verbatim — nothing parses or translates
+    notation. ``notation:`` says which language they are written in, and a
+    render in the other one refuses::
 
+        notation: latex
         dimensions:
           snapshot: {index: t, set: "\\mathcal{T}"}
           plant:    {index: n}
@@ -131,8 +139,17 @@ class SymbolTable:
           marginal_cost: "c^{\\mathrm{marg}}"
         descriptions:
           snapshot: hourly, over one year
+
+    Deliberately strict — an unrecognised name is an error naming the near
+    miss, the failure mode of a silent typo being a symbol that never applies
+    and a reader who never finds out.
+
+    Attributes:
+        notation: The language the entries are written in, ``latex`` or
+            ``typst``; :meth:`load` lower-cases it.
     """
 
+    notation: str
     indices: dict[str, str] = field(default_factory=dict)
     sets: dict[str, str] = field(default_factory=dict)
     names: dict[str, str] = field(default_factory=dict)
@@ -140,12 +157,26 @@ class SymbolTable:
 
     @classmethod
     def load(cls, source: str | Path | Mapping[str, Any]) -> SymbolTable:
+        """A table from a YAML path or the mapping it parses to.
+
+        Raises:
+            SchemaError: An unknown section, a malformed dimension, or a
+                ``notation:`` that is missing or not ``latex``/``typst``.
+        """
         raw = dict(source) if isinstance(source, Mapping) else read_yaml(Path(source))
-        unknown = set(raw) - {'dimensions', 'names', 'descriptions'}
+        unknown = set(raw) - {'notation', 'dimensions', 'names', 'descriptions'}
         if unknown:
             msg = (
-                f'symbol table: unknown section(s) {sorted(unknown)}. Valid sections: dimensions, names, descriptions.'
+                f'symbol table: unknown section(s) {sorted(unknown)}. '
+                f'Valid sections: notation, dimensions, names, descriptions.'
             )
+            raise SchemaError(msg)
+        if 'notation' not in raw:
+            msg = "symbol table: 'notation:' is required — latex or typst, the language the entries are written in."
+            raise SchemaError(msg)
+        notation = str(raw['notation']).lower()
+        if notation not in ('latex', 'typst'):
+            msg = f'symbol table: unknown notation {raw["notation"]!r}. Valid notations: latex, typst.'
             raise SchemaError(msg)
 
         indices: dict[str, str] = {}
@@ -164,6 +195,7 @@ class SymbolTable:
                 sets[dim] = str(spec['set'])
 
         return cls(
+            notation=notation,
             indices=indices,
             sets=sets,
             names={k: str(v) for k, v in (raw.get('names') or {}).items()},
