@@ -339,6 +339,19 @@ class PiecewiseLink(_StrictBlock):
         return [self.expression, self.values] if self.sign == '==' else [self.expression, self.values, self.sign]
 
 
+#: How a ``piecewise:`` block restricts its interpolation weights, and what
+#: each one emits. The key is ``method:`` because that is
+#: ``linopy.Model.add_piecewise_formulation``'s (#23); ``sos2`` is its word
+#: too, and means the same thing. ``adjacency`` and ``convex`` are ours,
+#: linopy having no name for the first and a different formulation under
+#: ``lp`` for the second.
+PIECEWISE_METHODS = {
+    'adjacency': 'a binary per segment, and a row making the two nonzero weights neighbours',
+    'sos2': 'the same weights, restricted by a set the sink branches on (SPEC §4.1)',
+    'convex': 'nothing — the weights range over the hull, which is a pure LP',
+}
+
+
 class PiecewiseBlock(_StrictBlock):
     """N expressions jointly pinned to a breakpoint-indexed piecewise curve.
 
@@ -349,29 +362,69 @@ class PiecewiseBlock(_StrictBlock):
     the curve instead of pinning it (at most one non-``"=="``, and only with
     exactly two links).
 
-    ``over`` names the breakpoint dimension; ``convex: true`` takes the pure-LP
-    convex hull with no binaries; ``active`` names a gating expression that
-    pins the formulation to 0 when it is 0. Expanded before building into plain
-    variables and constraints — see ``lpspec.language.piecewise``.
+    ``over`` names the breakpoint dimension; ``method`` is which of
+    :data:`PIECEWISE_METHODS` restricts the weights; ``active`` names a gating
+    expression that pins the formulation to 0 when it is 0. Expanded before
+    building into plain variables and constraints — see
+    ``lpspec.language.piecewise``.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'
 
     over: str
     links: list[PiecewiseLink]
-    convex: bool = False
+    method: str = 'adjacency'
     active: str | None = None
+
+    @property
+    def convex(self) -> bool:
+        """Whether this block relaxes to the hull, which needs no binaries.
+
+        The curvature guard and the expansion both ask this rather than
+        comparing against the method name, since what they act on is the
+        absence of a restriction and not which word was written.
+        """
+        return self.method == 'convex'
+
+    @field_validator('method')
+    @classmethod
+    def _check_method(cls, v: str) -> str:
+        if v not in PIECEWISE_METHODS:
+            options = '\n'.join(f'  {name}: {what}' for name, what in PIECEWISE_METHODS.items())
+            msg = f'unknown piecewise method {v!r}. The formulations are:\n{options}'
+            raise ValueError(msg)
+        return v
+
+    @model_validator(mode='before')
+    @classmethod
+    def _migrate_convex(cls, data: Any) -> Any:
+        """Name the rewrite for a file written against the boolean.
+
+        ``convex:`` was one formulation wearing a flag, so a second one had
+        nowhere to go that did not interact with it. Caught here rather than
+        by the closed-schema check, which would offer a near miss against
+        ``method`` and leave the value to guess at.
+        """
+        if not isinstance(data, dict) or 'convex' not in data:
+            return data
+        wanted = 'convex' if data.get('convex') else 'adjacency'
+        msg = (
+            f'`convex:` was replaced by `method:`, which names the formulation instead of flagging '
+            f'one of them: write `method: {wanted}`. The other is `method: sos2`, which restricts '
+            f'the same weights with a set the sink branches on.'
+        )
+        raise ValueError(msg)
 
     @model_validator(mode='after')
     def _check_convex_shape(self) -> PiecewiseBlock:
         if self.convex and len(self.links) != 2:
             msg = (
-                'convex: true requires exactly two links (the hull relaxation '
+                'method: convex requires exactly two links (the hull relaxation '
                 'is only well-defined for a single y=f(x) curve).'
             )
             raise ValueError(msg)
         if self.convex and self.active is not None:
-            msg = 'active gating is not supported with convex: true.'
+            msg = 'active gating is not supported with method: convex.'
             raise ValueError(msg)
         return self
 

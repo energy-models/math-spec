@@ -20,18 +20,28 @@ with F = the union of the links' dims, it emits:
 
     variables:
       curve_lam(F, bp)  in [0, 1]
-      curve_seg(F, bp)  binary                            (omitted when convex)
+      curve_seg(F, bp)  binary                            (method: adjacency)
     constraints:
       curve_convexity(F):     sum(curve_lam, over=bp) == 1
-      curve_pick(F):          sum(curve_seg, over=bp) == 1        (when not convex)
+      curve_pick(F):          sum(curve_seg, over=bp) == 1        (method: adjacency)
       curve_adjacency(F, bp): curve_lam <= curve_seg + shift(curve_seg, over=bp, by=1, edge=0)
       curve_link0(F):         (power) == sum(curve_lam * power_bp, over=bp)
       curve_link1(F):         (fuel * eff) <= sum(curve_lam * fuel_bp, over=bp)
 
-With adjacency, at most two *neighbouring* λ are nonzero, so the linked
-expressions lie on the curve exactly. Without it (``convex: true``) they range
-over the convex hull of the breakpoints — the correct relaxation for
-convex/concave curves under optimisation pressure.
+**Only the restriction on λ varies**, which is why it is one ``method:`` key
+and not three formulations (:data:`~lpspec.language.model.PIECEWISE_METHODS`).
+Every method emits the weights, the convexity row and the links. Then
+``adjacency`` adds the binaries above, so at most two *neighbouring* λ are
+nonzero and the linked expressions lie on the curve exactly; ``sos2`` states
+that same restriction as a ``sos:`` block over the same weights, leaving a
+sink that branches on a set to do so; and ``convex`` adds nothing, leaving λ
+over the hull of the breakpoints — the correct relaxation for a convex or
+concave curve under optimisation pressure.
+
+``sos2`` is the one method emitting a declaration this module does not expand
+away, and that is what lets the choice reach a solver at all: an expansion is
+unconditional where a capability is per sink, so the *formulation* stays the
+file's and the *encoding* stays the sink's (``relational/sinks/sos.py``).
 
 A link expression is judged against the *language* before expansion — resolved,
 degree-checked, dims from :mod:`~lpspec.language.dimensions` — which keeps
@@ -127,7 +137,9 @@ def expand_piecewise(
                 'foreach': list(frame),
                 'expression': (f'({link.expression}) {link.sign} sum({lam} * {link.values}, over={pw.over})'),
             }
-        if not pw.convex:
+        if pw.method == 'sos2':
+            raw.setdefault('sos', {})[name] = {'variable': lam, 'over': pw.over, 'type': 2}
+        elif pw.method == 'adjacency':
             raw['variables'][seg] = {
                 'foreach': [*frame, pw.over],
                 'binary': True,
@@ -206,6 +218,7 @@ def _validate_block(
     for kind, emitted, declared in (
         ('variable', (f'{name}_lam', f'{name}_seg'), schema.variables),
         ('constraint', emitted_constraints, schema.constraints),
+        ('sos', (name,), schema.sos),
     ):
         for one in emitted:
             if one in declared:
