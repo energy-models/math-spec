@@ -51,7 +51,7 @@ from lpspec.typeset.format import Entry, Glossary, Line
 if TYPE_CHECKING:
     import datetime
 
-    from lpspec.language.model import Model
+    from lpspec.language.model import Model, SosBlock
     from lpspec.language.resolution import Namespace
     from lpspec.typeset.format import Format
     from lpspec.typeset.symbols import Symbols
@@ -351,6 +351,14 @@ class Walk:
         return lines
 
     def variables(self) -> list[Line]:
+        """One line per variable, and one more for a set the variable carries.
+
+        A ``sos:`` block restricts the *domain* — which members of a family may
+        be nonzero at once — so it prints under this heading, beside the
+        variable it is a property of, rather than among the constraints, where
+        it would read as a row a solver holds.
+        """
+        sets = {block.variable: block for block in self.schema.sos.values()}
         lines = []
         for name, block in self.schema.variables.items():
             ctx = self.context()
@@ -376,7 +384,25 @@ class Walk:
                 if block.integer and not (below and above):
                     right = f'{right}, {symbol} {self.op("in")} {self.op("integers")}'
             lines.append(Line(label=name, left=left, right=right, condition=condition))
+            if name in sets:
+                lines.append(self._sos(name, sets[name], ctx))
         return lines
+
+    def _sos(self, name: str, block: SosBlock, ctx: _Context) -> Line:
+        """``(x_{s,o})_{o ∈ O} ∈ SOS2  ∀ s ∈ S`` — the family, and its order.
+
+        The set runs along one dim and there is one of it per coordinate of the
+        rest, which is exactly the split between the subscript on the family
+        and the quantifier beside it.
+        """
+        foreach = self.schema.variables[name].foreach
+        family = self.format.parenthesise(ctx.indexed(self.symbols.name[name], list(foreach)))
+        return Line(
+            label=f'{name} sos',
+            left=self.format.subscript(family, [self.membership(block.over)]),
+            right=f'{self.op("in")} {self.op("sos_set")}{block.type}',
+            condition=self.quantifier([d for d in foreach if d != block.over], ''),
+        )
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
         if isinstance(value, str):

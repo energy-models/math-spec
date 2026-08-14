@@ -70,6 +70,7 @@ class TypstFormat:
         'reals': 'RR',
         'integers': 'ZZ',
         'binary_set': '{0, 1}',
+        'sos_set': 'upright("SOS")',
         'minimize': 'min',
         'maximize': 'max',
     }

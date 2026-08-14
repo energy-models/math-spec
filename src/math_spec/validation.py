@@ -166,10 +166,51 @@ def validate_expressions(
     for oname, odef in schema.objectives.items():
         _check_expression(odef.expression, schema, ns, f"Objective '{oname}'", errors, comparison=False)
 
+    _check_sos(schema, known_variables, errors)
+
     if errors:
         raise SchemaError('\n'.join(errors))
 
     check_schema(schema, known_variables)
+
+
+def _check_sos(schema: Model, known_variables: Mapping[str, Sequence[str]], errors: list[str]) -> None:
+    """Every ``sos:`` block names a variable, and a dim that variable carries.
+
+    A set runs along one dimension of one variable, so ``over`` outside that
+    variable's ``foreach`` has no members to hold — the one mistake here that
+    would otherwise surface as an empty set the solver accepts. A second block
+    over one variable is refused for a different reason: what an SOS *is* is a
+    property of the variable, which is the shape both sinks and the eager lane
+    take it in, so two would be two answers to one question.
+    """
+    foreach = {name: tuple(v.foreach) for name, v in schema.variables.items()}
+    foreach.update({name: tuple(dims) for name, dims in known_variables.items()})
+    claimed: dict[str, str] = {}
+    for name, block in schema.sos.items():
+        context = f"Sos '{name}'"
+        if block.over not in schema.dimensions:
+            errors.append(f"{context}: over references undeclared dimension '{block.over}'.")
+        elif block.variable not in foreach:
+            errors.append(
+                f"{context}: '{block.variable}' is not a declared variable.\n"
+                f'  Variables: {sorted(foreach)}\n'
+                f'A set is over one variable, so a parameter or an expression cannot carry one.'
+            )
+        elif block.over not in foreach[block.variable]:
+            errors.append(
+                f"{context}: over '{block.over}' is not a dim of variable "
+                f"'{block.variable}' (foreach {list(foreach[block.variable])}). The set runs "
+                f"along one of the variable's own dims — one set per coordinate of the rest."
+            )
+        elif block.variable in claimed:
+            errors.append(
+                f"{context}: variable '{block.variable}' already carries the set declared by "
+                f"'{claimed[block.variable]}'. A variable holds one set — declare a second "
+                f'variable, or state the other restriction as a constraint.'
+            )
+        else:
+            claimed[block.variable] = name
 
 
 #: What each declared dimension ``dtype`` accepts as a coordinate value. ``bool``

@@ -391,6 +391,46 @@ class PiecewiseBlock(_StrictBlock):
         return v
 
 
+class SosBlock(_StrictBlock):
+    """A special-ordered set over one dimension of one variable.
+
+    Mirrors ``linopy.Model.add_sos_constraints``, whose decomposition this
+    copies: a variable, the dimension the set runs along, the type, and the
+    optional big-M a reformulating sink caps its linking rows with. One set
+    per coordinate of the variable's ``foreach`` minus ``over``; the members
+    are the variable's *existing* coordinates along ``over``, and their order
+    is that dimension's declared one — what ``shift`` walks.
+
+    ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
+    and those two consecutive. Unlike every other block this one declares no
+    math a sink can read off ``A``: it is a *set*, carried to the sink that
+    has the concept and reformulated for the sink that does not.
+    """
+
+    _label: ClassVar[str] = 'a sos declaration'
+
+    variable: str
+    over: str
+    type: int
+    big_m: float | None = None
+
+    @field_validator('type')
+    @classmethod
+    def _check_type(cls, v: int) -> int:
+        if v not in (1, 2):
+            msg = f'sos type must be 1 or 2, got {v!r}. A set of any other order is not a construct solvers carry.'
+            raise ValueError(msg)
+        return v
+
+    @field_validator('big_m')
+    @classmethod
+    def _check_big_m(cls, v: float | None) -> float | None:
+        if v is not None and not (v > 0 and math.isfinite(v)):
+            msg = f'big_m must be a positive, finite number, got {v!r} — it caps a linking coefficient.'
+            raise ValueError(msg)
+        return v
+
+
 #: The language surfaces this reader understands. A **language** version, not a
 #: package one: it moves when the accepted YAML surface moves, which most
 #: releases do not, so deriving it from the package version would be automatic
@@ -454,7 +494,7 @@ class Model(_StrictBlock):
     *says*, ``plan.Program`` what it lowers to, an engine what a build holds.
     Nothing here has seen data.
 
-    The API is the eight declaration sections plus ``version``, and two ways
+    The API is the nine declaration sections plus ``version``, and two ways
     back out: :meth:`to_dict` for the model as data, :meth:`to_yaml` for the
     file a reviewer reads. In goes through ``lps.load_model``, which raises
     :class:`~lpspec.errors.LanguageError` on a model the language refuses.
@@ -485,6 +525,7 @@ class Model(_StrictBlock):
     expressions: dict[str, str] = {}
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
+    sos: dict[str, SosBlock] = {}
 
     @classmethod
     # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11
