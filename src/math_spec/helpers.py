@@ -1,11 +1,11 @@
-"""The closed set of built-in helpers and their call shapes.
+"""The closed set of built-in operators and their call shapes.
 
 Closed: there is no Python registry, so both lanes accept exactly the same
 language and the differential tests are a meaningful oracle (hard rule 3).
 Compositions belong in ``macros:``; math the language cannot say belongs in a
-declared ``escape:`` island (#38), not in a helper that reads like a built-in.
+declared ``escape:`` island (#38), not in an operator that reads like a built-in.
 
-The *language* side of a helper — its name and signature, nothing else. The
+The *language* side of an operator — its name and signature, nothing else. The
 signature lives here because four passes need it (resolution types the
 dimension arguments, validation name-checks macro bodies, lowering and the
 eager builder consume the call), and an arity spelled out once per pass is one
