@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Builtin:
-    """The call shape of one built-in helper.
+    """The call shape of one built-in operator.
 
     Keyword arguments come in four kinds, and the kind decides what resolution
     turns the value into: ``dimension_kwargs`` name a dimension
@@ -34,7 +34,7 @@ class Builtin:
     ``required_value_kwargs`` are ordinary values that must be present — a
     number, never a name to resolve (``shift(..., by=1)``).
 
-    Every dimension a helper names arrives in a kwarg *value*, which is what
+    Every dimension an operator names arrives in a kwarg *value*, which is what
     lets a macro pass one as a formal. ``usage`` is the wording every lane
     quotes back.
     """
@@ -43,7 +43,7 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     coordinate_kwargs: tuple[str, ...] = ()
-    #: A coordinate kwarg the call *may* carry. ``sum`` is one helper whose
+    #: A coordinate kwarg the call *may* carry. ``sum`` is one operator whose
     #: result shape depends on whether it is there: absent, the dim is reduced
     #: away; present, it is reduced into the dim the coordinate targets.
     optional_coordinate_kwargs: tuple[str, ...] = ()
@@ -63,12 +63,12 @@ class Builtin:
         return frozenset(self.edge_kwargs) | frozenset(self.optional_coordinate_kwargs)
 
 
-#: The closed helper set. Two keyword spellings are deliberate. ``sum`` takes
+#: The closed operator set. Two keyword spellings are deliberate. ``sum`` takes
 #: ``group_by`` rather than a bare ``by``: with the grouping folded into
 #: ``sum``, the verb no longer says a regrouping happened, so the keyword has
 #: to — ``sum(x, over=flow, group_by=component)`` reads as what it is. And
 #: ``at`` takes ``onto``, not ``over``: everywhere else ``over=`` is the dim a
-#: helper *consumes*, and this one produces it. One keyword meaning two
+#: operator *consumes*, and this one produces it. One keyword meaning two
 #: directions would be worse than two keywords meaning one each.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
@@ -122,7 +122,7 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     return None if fits else f'{name}() expects {builtin.usage}'
 
 
-#: Spellings that were once helpers, and what replaced them. A retired name
+#: Spellings that were once operators, and what replaced them. A retired name
 #: fails at load naming its rewrite — there is no alias and no deprecation
 #: cycle, so the error *is* the migration story (CONTRIBUTING, "breaking
 #: changes are free").
@@ -131,16 +131,16 @@ RETIRED: dict[str, str] = {
 }
 
 
-def unknown_helper_message(name: str) -> str:
-    """The one wording for "that is not a helper", shared by both lanes."""
+def unknown_operator_message(name: str) -> str:
+    """The one wording for "that is not an operator", shared by both lanes."""
     if name in RETIRED:
         return (
-            f"'{name}' is no longer a helper — the grouping moved into `sum`, "
+            f"'{name}' is no longer an operator — the grouping moved into `sum`, "
             f'so one verb covers reducing a dim away and reducing it into '
             f'another.\nWrite: {RETIRED[name]}'
         )
     return (
-        f"Unknown helper function '{name}'.\n"
+        f"Unknown operator '{name}'.\n"
         f'Available: {sorted(BUILTIN_NAMES)}\n'
         f"Define '{name}' as a macro under 'macros:' if it composes built-ins; "
         f'if the math is not sayable in the language, use a declared escape.'

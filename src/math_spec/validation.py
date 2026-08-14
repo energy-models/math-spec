@@ -43,8 +43,8 @@ from lpspec.language.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from lpspec.language.helpers import BUILTINS, unknown_helper_message
 from lpspec.language.model import Model
+from lpspec.language.operators import BUILTINS, unknown_operator_message
 from lpspec.language.resolution import Namespace, resolve_expression, resolve_where
 from lpspec.language.where_parser import parse_where
 
@@ -103,7 +103,7 @@ def validate_expressions(
 
     - the expression parses, and constraints hold exactly one comparison where
       objectives hold none;
-    - every referenced name resolves, and every helper is a built-in whose
+    - every referenced name resolves, and every operator is a built-in whose
       dimension arguments name declared dimensions;
     - where strings parse *and* resolve — an unknown name there is an error,
       not a silently-empty mask;
@@ -338,7 +338,7 @@ def _check_template_names(
     if isinstance(node, FunctionCallNode):
         builtin = BUILTINS.get(node.name)
         if builtin is None:
-            errors.append(f'{context}: {unknown_helper_message(node.name)}')
+            errors.append(f'{context}: {unknown_operator_message(node.name)}')
         for arg in node.args:
             _check_template_names(arg, template, context, ns, formals, errors)
         known_dims = ns.dimensions | formals

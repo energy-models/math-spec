@@ -6,8 +6,8 @@ than in the equation, that a translation shows at the leaf it re-indexes. None
 of it is about syntax, so none is duplicated per format.
 
 The walk holds no opinion the lanes do not: names come from ``resolution``, dim
-sets from ``dimensions``, helper shapes from the closed ``BUILTINS`` set, and a
-helper it forgot is an ``assert_never`` rather than a blank.
+sets from ``dimensions``, operator shapes from the closed ``BUILTINS`` set, and a
+operator it forgot is an ``assert_never`` rather than a blank.
 """
 
 from __future__ import annotations
@@ -195,7 +195,7 @@ class Walk:
         return self.format.joined([left, right], self.op(names[node.op])), precedence
 
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
-        """Render a helper: a translation at the leaves, or a summation.
+        """Render an operator: a translation at the leaves, or a summation.
 
         ``shift`` is one node, so the render reads the edge *policy* rather
         than the spelling: only ``edge='wrap'`` is cyclic. ``at`` is not a

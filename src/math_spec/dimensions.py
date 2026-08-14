@@ -1,6 +1,6 @@
 """Static dim-set checking — a type system whose type is a set of dim names.
 
-Parameter ``dims`` are declared, variable ``foreach`` is declared, and helper
+Parameter ``dims`` are declared, variable ``foreach`` is declared, and operator
 dimension arguments are name-checked, so **every node's dim set is computable
 before any data is bound**. That is the whole basis of this pass: it runs at
 load time, on the resolved core AST, so both lanes get the same answer by
@@ -144,7 +144,7 @@ def _dims_call(
     context: str,
     external: Mapping[str, Sequence[str]],
 ) -> frozenset[str]:
-    """The dim rule of one helper call.
+    """The dim rule of one operator call.
 
     ``group_by`` reduces the ``over`` dim *into* another rather than away.
     ``at`` is the adjoint of ``sum`` and takes the same two arguments, one
@@ -209,7 +209,7 @@ def _dims_call(
             raise DimensionError(f'{context}: shift(over={over.name}) but the expression has dims {sorted(inner)}.')
         return inner
 
-    msg = f"{context}: helper '{node.name}' has no dim rule"
+    msg = f"{context}: operator '{node.name}' has no dim rule"
     raise DimensionError(msg)
 
 

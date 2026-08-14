@@ -28,7 +28,7 @@ meaning never depends on Python-side registration state. This also makes
 load-time validation complete — every template can be name-checked against
 this schema (see ``validation.py``), used or not.
 
-There is no Python helper registry: the built-in set is closed, macros cover
+There is no Python operator registry: the built-in set is closed, macros cover
 composition, and math the language cannot say goes in a declared ``escape:``
 island (#38) — visible in the file and bounded by its ``where`` mask, rather
 than a registered function that reads like a built-in on the page.

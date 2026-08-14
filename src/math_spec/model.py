@@ -28,7 +28,7 @@ from pydantic import (
 )
 
 from lpspec.errors import did_you_mean, schema_error
-from lpspec.language.helpers import BUILTIN_NAMES
+from lpspec.language.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -720,8 +720,8 @@ class Model(_StrictBlock):
             for name in group:
                 if name in BUILTIN_NAMES:
                     errors.append(
-                        f"{kind.capitalize()} '{name}' collides with the built-in helper "
-                        f"'{name}'. The helper set is closed and its names are reserved; "
+                        f"{kind.capitalize()} '{name}' collides with the built-in operator "
+                        f"'{name}'. The operator set is closed and its names are reserved; "
                         f'rename the {kind}.'
                     )
                 if name in seen:

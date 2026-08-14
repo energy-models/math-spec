@@ -10,7 +10,7 @@ That is why it lives here and not in ``lowering.py``. Degree is a property of
 the *language*, not of any plan — the ceiling doc says so in as many words —
 so both lanes have to give the same verdict *and the same sentence*, the way
 they already do for dim sets (:mod:`lpspec.language.dimensions`) and the
-closed helper set (:mod:`lpspec.language.helpers`). Stated once here, every
+closed operator set (:mod:`lpspec.language.operators`). Stated once here, every
 consumer **asks**; none answers. A copy of the rule in a lane is a second
 spelling of one language rule, and the copy is the one no differential test
 covers.

@@ -65,7 +65,7 @@ class ParameterNode:
 class DimensionNode:
     """A resolved reference to a declared dimension.
 
-    Only legal in helper kwarg *values* (``sum(x, over=generator)``), never as
+    Only legal in operator kwarg *values* (``sum(x, over=generator)``), never as
     a value in arithmetic — a dimension is a coordinate space, not data.
     """
 
@@ -76,7 +76,7 @@ class DimensionNode:
 class CoordinateNode:
     """A resolved reference to a coordinate declared on a dimension.
 
-    Only legal in helper kwarg *values* (``sum(x, over=line, group_by=to)``).
+    Only legal in operator kwarg *values* (``sum(x, over=line, group_by=to)``).
     Like :class:`DimensionNode` this names a coordinate space, not data — but it
     is scoped to the dimension carrying it, so ``name`` alone is meaningless
     without the sibling ``over=`` dimension. ``dimension`` records that binding
@@ -93,7 +93,7 @@ class CoordinateNode:
 class KeywordNode:
     """A quoted closed keyword in a kwarg value — ``shift(..., edge='wrap')``.
 
-    Unresolved on purpose: which keywords a kwarg accepts is the helper's
+    Unresolved on purpose: which keywords a kwarg accepts is the operator's
     business, so this only records *that* the author wrote a literal rather
     than a name. ``resolution.py`` turns it into the typed node the kwarg
     wants, or reports it as not one of that kwarg's keywords.
@@ -171,7 +171,7 @@ def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
     *answer* differs per node type dispatches itself and keeps its
     ``assert_never``; this is for the ones that only need to get everywhere.
 
-    A helper's kwargs are children too — a dimension or coordinate is an
+    An operator's kwargs are children too — a dimension or coordinate is an
     ordinary node in a kwarg value, which is what lets a macro bind a formal.
     """
     if isinstance(node, UnaryOperatorNode):
