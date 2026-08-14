@@ -76,6 +76,11 @@ class _StrictBlock(BaseModel):
 #: from reaching the language.
 DIMENSION_DTYPES = frozenset({'float', 'int', 'str', 'datetime'})
 
+#: The domains a variable may declare (SPEC §2). Matches the plan's
+#: ``VariableType`` vocabulary (``relational/plan.py``), pinned by a test for
+#: the same fence reason as the dtype table above.
+VARIABLE_DOMAINS = frozenset({'continuous', 'integer', 'binary'})
+
 
 def _one_of(value: str, allowed: frozenset[str] | set[str], field: str) -> str:
     """Check an enumerated string field, in one wording for all of them."""
@@ -204,19 +209,34 @@ class VariableBlock(_StrictBlock):
     foreach: list[str]
     where: str | None = None
     bounds: BoundsBlock = BoundsBlock()
-    binary: bool = False
-    integer: bool = False
+    domain: str = 'continuous'
 
     @property
     def referenced_dims(self) -> list[str]:
         return self.foreach
 
-    @model_validator(mode='after')
-    def _check_binary_integer(self) -> VariableBlock:
-        if self.binary and self.integer:
-            msg = 'A variable cannot be both binary and integer.'
+    @field_validator('domain')
+    @classmethod
+    def _check_domain(cls, v: str) -> str:
+        return _one_of(v, VARIABLE_DOMAINS, 'domain')
+
+    @model_validator(mode='before')
+    @classmethod
+    def _refuse_flags(cls, data: Any) -> Any:
+        """Name the rewrite for a file written against the flag surface.
+
+        Caught here rather than by the closed-schema check, whose near miss
+        against the remaining fields would be noise for a key that used to be
+        real.
+        """
+        if not isinstance(data, dict):
+            return data
+        removed = [k for k in ('binary', 'integer') if k in data]
+        if removed:
+            k = removed[0]
+            msg = f'`{k}:` was removed from variable declarations; write `domain: {k}` instead.'
             raise ValueError(msg)
-        return self
+        return data
 
 
 class ConstraintBlock(_StrictBlock):

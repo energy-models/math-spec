@@ -142,7 +142,7 @@ def expand_piecewise(
         elif pw.method == 'adjacency':
             raw['variables'][seg] = {
                 'foreach': [*frame, pw.over],
-                'binary': True,
+                'domain': 'binary',
                 'bounds': {},
             }
             raw['constraints'][f'{name}_pick'] = {
@@ -201,7 +201,7 @@ def _validate_block(
                 frame.append(d)
 
     if pw.active is not None:
-        if pw.active in schema.variables and not schema.variables[pw.active].binary:
+        if pw.active in schema.variables and schema.variables[pw.active].domain != 'binary':
             raise PiecewiseExpansionError(f"{ctx}: active variable '{pw.active}' must be binary")
         for d in _declared_order(schema, _expr_dims(schema, pw.active, f'{ctx} active', known_variables)):
             if d == pw.over:

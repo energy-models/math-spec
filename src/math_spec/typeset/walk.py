@@ -369,12 +369,12 @@ class Walk:
             condition = self.quantifier(list(block.foreach), self.conjoined(ctx, where))
             lower, upper = block.bounds.lower, block.bounds.upper
 
-            if block.binary:
+            if block.domain == 'binary':
                 left, right = symbol, f'{self.op("in")} {self.op("binary_set")}'
             else:
                 below, above = lower == float('-inf'), upper == float('inf')
                 if below and above:
-                    domain = self.op('integers' if block.integer else 'reals')
+                    domain = self.op('integers' if block.domain == 'integer' else 'reals')
                     left, right = symbol, f'{self.op("in")} {domain}'
                 elif below:
                     left, right = symbol, f'{self.op("le")} {self._bound(ctx, upper)}'
@@ -383,7 +383,7 @@ class Walk:
                 else:
                     left = f'{self._bound(ctx, lower)} {self.op("le")} {symbol}'
                     right = f'{self.op("le")} {self._bound(ctx, upper)}'
-                if block.integer and not (below and above):
+                if block.domain == 'integer' and not (below and above):
                     right = f'{right}, {symbol} {self.op("in")} {self.op("integers")}'
             lines.append(Line(label=name, left=left, right=right, condition=condition))
             if name in sets:
