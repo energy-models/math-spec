@@ -341,7 +341,7 @@ class PiecewiseLink(_StrictBlock):
 
 #: How a ``piecewise:`` block restricts its interpolation weights, and what
 #: each one emits. The key is ``method:`` because that is
-#: ``linopy.Model.add_piecewise_formulation``'s (#23); ``sos2`` is its word
+#: ``linopy.Model.add_piecewise_formulation``'s (#695); ``sos2`` is its word
 #: too, and means the same thing. ``adjacency`` and ``convex`` are ours,
 #: linopy having no name for the first and a different formulation under
 #: ``lp`` for the second.
