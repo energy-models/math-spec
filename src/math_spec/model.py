@@ -577,9 +577,9 @@ class Model(_StrictBlock):
     *says*, ``plan.Program`` what it lowers to, an engine what a build holds.
     Nothing here has seen data.
 
-    The API is the nine declaration sections plus ``version``, and two ways
-    back out: :meth:`to_dict` for the model as data, :meth:`to_yaml` for the
-    file a reviewer reads. In goes through ``lps.load_model``, which raises
+    The API is the nine declaration sections plus ``version`` and
+    ``description``, and two ways back out: :meth:`to_dict` for the model as
+    data, :meth:`to_yaml` for the file a reviewer reads. In goes through ``lps.load_model``, which raises
     :class:`~lpspec.errors.LanguageError` on a model the language refuses.
 
     Everything else on this class is pydantic's, not a contract this package
@@ -600,6 +600,9 @@ class Model(_StrictBlock):
     #: any release — and declaring it is what lets a later reader refuse a file
     #: it cannot read rather than misinterpret it.
     version: int = 0
+    #: What the file as a whole is, in the same plain prose a declaration's
+    #: ``description:`` takes. The typeset document opens with it.
+    description: str | None = None
     dimensions: dict[str, DimensionBlock] = {}
     parameters: dict[str, ParameterBlock] = {}
     variables: dict[str, VariableBlock] = {}

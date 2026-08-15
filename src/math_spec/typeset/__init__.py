@@ -81,7 +81,9 @@ def typeset(
             mapping. Names it does not carry are derived, and it must be
             written in *fmt*'s notation.
         standalone: Emit a compilable document rather than a fragment.
-        legend: Prepend the sets/parameters/variables table.
+        legend: Prepend the sets/parameters/variables table. The model's own
+            ``description:`` opens the document either way — it is what the
+            file says it is, not a symbol table.
         numbered: Number the equations.
 
     Returns:
@@ -105,7 +107,7 @@ def typeset(
     ]
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
 
-    blocks = []
+    blocks = [fmt.note(schema.description)] if schema.description else []
     if legend:
         blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries()]
         if walk.saw_wraparound:
