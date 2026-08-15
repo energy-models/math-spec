@@ -166,11 +166,11 @@ def _expand(
 
 
 def _parse_named(name: str, schema: Model, context: str) -> ArithmeticNode:
-    body = parse_expression(schema.expressions[name])
+    body = parse_expression(schema.expressions[name].expression)
     if isinstance(body, ComparisonNode):
         msg = (
             f"{context}: named expression '{name}' must not contain a "
-            f'comparison operator. Got: {schema.expressions[name]!r}'
+            f'comparison operator. Got: {schema.expressions[name].expression!r}'
         )
         raise SchemaError(msg)
     return body

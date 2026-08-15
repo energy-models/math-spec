@@ -144,8 +144,8 @@ def validate_expressions(
         )
         _check_template_names(body_ast, macro.template, context, ns, formals, errors)
 
-    for ename, body in schema.expressions.items():
-        _check_expression(body, schema, ns, f"Named expression '{ename}'", errors, comparison=False)
+    for ename, block in schema.expressions.items():
+        _check_expression(block.expression, schema, ns, f"Named expression '{ename}'", errors, comparison=False)
 
     for vname, vdef in schema.variables.items():
         _check_where(vdef.where, ns, f"Variable '{vname}'", errors)

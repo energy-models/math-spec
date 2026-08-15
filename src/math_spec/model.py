@@ -330,6 +330,42 @@ class MacroBlock(_StrictBlock):
         return self
 
 
+class ExpressionBlock(_StrictBlock):
+    """A named quantity: one arithmetic expression, readable after a solve.
+
+    Written in YAML as a bare string, or as a mapping once it carries a
+    ``description:`` — and serialised back to whichever form it was written in,
+    so a round trip through :meth:`Model.to_yaml` reproduces the file::
+
+        expressions:
+          total_generation: sum(p, over=generator)
+          emissions:
+            expression: sum(p * rate, over=generator)
+            description: CO2 released, the quantity the cap bounds
+
+    The description matters more here than anywhere else: a named expression is
+    expanded away before the typeset walk, so its whole surface is
+    ``result.expression(name)`` after a solve — a name arriving in a summary
+    with nothing else to say what it counts.
+    """
+
+    _label: ClassVar[str] = 'a named expression'
+
+    expression: str
+    description: str | None = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def _from_string(cls, data: Any) -> Any:
+        return {'expression': data} if isinstance(data, str) else data
+
+    @model_serializer
+    def _as_written(self) -> str | dict[str, str]:
+        if self.description is None:
+            return self.expression
+        return {'expression': self.expression, 'description': self.description}
+
+
 class PiecewiseLink(_StrictBlock):
     """One link of a piecewise block: an expression pinned to a values curve.
 
@@ -608,7 +644,7 @@ class Model(_StrictBlock):
     variables: dict[str, VariableBlock] = {}
     constraints: dict[str, ConstraintBlock] = {}
     objective: ObjectiveBlock | None = None
-    expressions: dict[str, str] = {}
+    expressions: dict[str, ExpressionBlock] = {}
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
