@@ -60,7 +60,7 @@ def _install_bool_resolver(loader: type[yaml.SafeLoader]) -> None:
 _install_bool_resolver(_StrictLoader)
 
 
-def _check_duplicate_keys(node: yaml.Node, where: str) -> None:
+def _check_duplicate_keys(node: yaml.Node, origin: str) -> None:
     """Reject a mapping that declares the same key twice.
 
     Checked on the node tree before construction, so a ``<<:`` merge key that
@@ -73,33 +73,51 @@ def _check_duplicate_keys(node: yaml.Node, where: str) -> None:
             line = key_node.start_mark.line + 1
             if key in seen:
                 msg = (
-                    f'{where}:{line}: duplicate key {key!r} — first declared on '
+                    f'{origin}:{line}: duplicate key {key!r} — first declared on '
                     f'line {seen[key]}. YAML would silently keep the last one, '
                     f'discarding a declaration the file contains.'
                 )
                 raise SchemaError(msg)
             seen[key] = line
-            _check_duplicate_keys(value_node, where)
+            _check_duplicate_keys(value_node, origin)
     elif isinstance(node, yaml.SequenceNode):
         for item in node.value:
-            _check_duplicate_keys(item, where)
+            _check_duplicate_keys(item, origin)
 
 
 def read_yaml(path: Path | str) -> dict[str, Any]:
-    """Load *path* as a mapping of sections, in YAML 1.2's reading of scalars."""
-    where = str(path)
-    loader = _StrictLoader(Path(path).read_text())
+    """Read *path* off disk and parse it, in YAML 1.2's reading of scalars."""
+    return parse_yaml(Path(path).read_text(), str(path))
+
+
+def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
+    """Parse YAML *text* as a mapping of sections.
+
+    The half of :func:`read_yaml` that does not touch the filesystem, so a
+    caller holding the text rather than the path — a test fixture, a doc block
+    — resolves scalars the same way. ``yaml.safe_load`` is 1.1 and would read
+    ``no`` as a boolean, which is the divergence this module exists to remove.
+
+    Args:
+        text: The YAML source.
+        origin: What a load error should call this source. The two errors
+            raised here — a duplicate key and a document that is not a
+            mapping — name their location, and a caller that read a file
+            passes its path. The default is Python's own name for source
+            that never was a file.
+    """
+    loader = _StrictLoader(text)
     try:
         node = loader.get_single_node()
         if node is None:
             return {}
-        _check_duplicate_keys(node, where)
+        _check_duplicate_keys(node, origin)
         data = loader.construct_document(node)
     finally:
         loader.dispose()
     if data is None:
         return {}
     if not isinstance(data, dict):
-        msg = f'{where}: a model file must be a mapping of sections (dimensions:, variables:, …), got {type(data).__name__}.'
+        msg = f'{origin}: a model file must be a mapping of sections (dimensions:, variables:, …), got {type(data).__name__}.'
         raise SchemaError(msg)
     return data
