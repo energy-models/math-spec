@@ -126,6 +126,7 @@ def expand_piecewise(
         raw['variables'][lam] = {
             'foreach': [*frame, pw.over],
             'bounds': {'lower': 0.0, 'upper': 1.0},
+            'description': 'convex-combination weight on a breakpoint',
         }
         rhs = f'({pw.active})' if pw.active else '1'
         raw['constraints'][f'{name}_convexity'] = {

@@ -139,6 +139,7 @@ class DimensionBlock(_StrictBlock):
     dtype: str = 'str'
     values: list[Any] | None = None
     coords: dict[str, str | CoordinateSpec] = Field(default_factory=dict)
+    description: str | None = None
 
     @field_validator('coords', mode='before')
     @classmethod
@@ -175,6 +176,7 @@ class ParameterBlock(_StrictBlock):
 
     dims: list[str]
     dtype: str = 'float'
+    description: str | None = None
 
     @property
     def referenced_dims(self) -> list[str]:
@@ -210,6 +212,7 @@ class VariableBlock(_StrictBlock):
     where: str | None = None
     bounds: BoundsBlock = BoundsBlock()
     domain: str = 'continuous'
+    description: str | None = None
 
     @property
     def referenced_dims(self) -> list[str]:
@@ -247,6 +250,7 @@ class ConstraintBlock(_StrictBlock):
     foreach: list[str]
     where: str | None = None
     expression: str
+    description: str | None = None
 
     @property
     def referenced_dims(self) -> list[str]:
@@ -265,6 +269,7 @@ class ObjectiveBlock(_StrictBlock):
 
     sense: str = 'minimize'
     expression: str
+    description: str | None = None
 
     @field_validator('sense')
     @classmethod
@@ -314,6 +319,7 @@ class MacroBlock(_StrictBlock):
     args: list[str] = []
     kwargs: list[str] = []
     template: str
+    description: str | None = None
 
     @model_validator(mode='after')
     def _check_formals(self) -> MacroBlock:
@@ -397,6 +403,7 @@ class PiecewiseBlock(_StrictBlock):
     links: list[PiecewiseLink]
     method: str = 'adjacency'
     active: str | None = None
+    description: str | None = None
 
     @property
     def convex(self) -> bool:
@@ -488,6 +495,7 @@ class SosBlock(_StrictBlock):
     over: str
     type: int
     big_m: float | None = None
+    description: str | None = None
 
     @field_validator('type')
     @classmethod

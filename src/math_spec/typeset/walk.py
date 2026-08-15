@@ -424,16 +424,16 @@ class Walk:
                 symbol=self.symbols.set[d],
                 name=f'index {fmt.math(self.symbols.index[d])} --- {fmt.mono(d)}',
                 detail=self._coords(d),
-                description=self.symbols.description.get(d, ''),
+                description=block.description or '',
             )
-            for d in self.schema.dimensions
+            for d, block in self.schema.dimensions.items()
         ]
         parameters = [
             Entry(
                 symbol=self.symbols.name[p],
                 name=fmt.mono(p),
                 detail=self._over(list(block.dims)),
-                description=self.symbols.description.get(p, ''),
+                description=block.description or '',
             )
             for p, block in self.schema.parameters.items()
         ]
@@ -442,7 +442,7 @@ class Walk:
                 symbol=self.symbols.name[v],
                 name=fmt.mono(v),
                 detail=self._over(list(block.foreach)),
-                description=self.symbols.description.get(v, ''),
+                description=block.description or '',
             )
             for v, block in self.schema.variables.items()
         ]

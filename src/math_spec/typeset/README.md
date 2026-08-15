@@ -49,15 +49,22 @@ lps.to_latex('dispatch.yaml', symbols={'notation': 'latex', 'names': {'load': r'
 lps.to_latex('dispatch.yaml', symbols=lps.SymbolTable.load(table))  # the object
 ```
 
-The dict is the same sections as the file (`notation`, `dimensions`, `names`,
-`descriptions`) — it is what the YAML parses to, not a flat `{name: symbol}`
-map. Whichever form, the table is checked against the model: a key naming
-nothing is an error with the near miss, because a silent typo is a symbol that
-never applies and a reader who never finds out.
+The dict is the same sections as the file (`notation`, `dimensions`, `names`) —
+it is what the YAML parses to, not a flat `{name: symbol}` map. Whichever form,
+the table is checked against the model: a key naming nothing is an error with
+the near miss, because a silent typo is a symbol that never applies and a reader
+who never finds out.
 
 Every value is a spelling, printed verbatim — nothing parses or translates it.
 `notation` says which language the table is written in; a format that reads the
 other one refuses. Everything past that comparison is the caller's.
+
+The table carries **notation only**. What a declaration *is* — the prose in the
+legend's right-hand column — is the model's own `description:`, read straight
+off the block, because it is the model talking about itself rather than a reader
+choosing symbols. It travels with the file, survives a rename and needs no
+sidecar; the price is that it must be plain prose, since the same words are set
+by every format.
 
 ## Adding a format
 

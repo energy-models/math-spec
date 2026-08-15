@@ -3,7 +3,9 @@
 Derivation aims at *unambiguous*, not beautiful: it runs with no setup, so it
 has to be right rather than elegant. :class:`SymbolTable` is where a reader
 makes it conventional, in a file of its own — presentation is not language, so
-it never becomes keys on ``Model``.
+it never becomes keys on ``Model``. What a declaration *is* travels the other
+way: ``description:`` is a key on the declaration, because it is the model
+talking about itself rather than a reader choosing notation.
 
 This module decides *which* symbol a name gets; a
 :class:`~lpspec.typeset.format.Format` decides how it is written.
@@ -96,8 +98,6 @@ class Symbols:
             taken_set.add(upper)
             self.set[dim] = table.sets[dim] if dim in table.sets else fmt.script(upper)
 
-        self.description: dict[str, str] = dict(table.descriptions)
-
 
 def _index_candidates(dim: str) -> list[str]:
     alias = _INDEX_ALIASES.get(dim)
@@ -125,7 +125,9 @@ class SymbolTable:
     r"""How a *reader* wants the model to print — kept out of the model.
 
     Presentation is not language: nothing here changes what the file means, no
-    lane reads it, and a model with no table still renders.
+    lane reads it, and a model with no table still renders. *Notation* is all it
+    carries — what a declaration **is** is the model's own ``description:``,
+    which travels with the declaration and reaches every consumer.
 
     Every entry is a spelling, printed verbatim — nothing parses or translates
     notation. ``notation:`` says which language they are written in, and a
@@ -137,8 +139,6 @@ class SymbolTable:
           plant:    {index: n}
         names:
           marginal_cost: "c^{\\mathrm{marg}}"
-        descriptions:
-          snapshot: hourly, over one year
 
     Deliberately strict — an unrecognised name is an error naming the near
     miss, the failure mode of a silent typo being a symbol that never applies
@@ -153,7 +153,6 @@ class SymbolTable:
     indices: dict[str, str] = field(default_factory=dict)
     sets: dict[str, str] = field(default_factory=dict)
     names: dict[str, str] = field(default_factory=dict)
-    descriptions: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def load(cls, source: str | Path | Mapping[str, Any]) -> SymbolTable:
@@ -164,12 +163,9 @@ class SymbolTable:
                 ``notation:`` that is missing or not ``latex``/``typst``.
         """
         raw = dict(source) if isinstance(source, Mapping) else read_yaml(Path(source))
-        unknown = set(raw) - {'notation', 'dimensions', 'names', 'descriptions'}
+        unknown = set(raw) - {'notation', 'dimensions', 'names'}
         if unknown:
-            msg = (
-                f'symbol table: unknown section(s) {sorted(unknown)}. '
-                f'Valid sections: notation, dimensions, names, descriptions.'
-            )
+            msg = f'symbol table: unknown section(s) {sorted(unknown)}. Valid sections: notation, dimensions, names.'
             raise SchemaError(msg)
         if 'notation' not in raw:
             msg = "symbol table: 'notation:' is required — latex or typst, the language the entries are written in."
@@ -199,7 +195,6 @@ class SymbolTable:
             indices=indices,
             sets=sets,
             names={k: str(v) for k, v in (raw.get('names') or {}).items()},
-            descriptions={k: str(v) for k, v in (raw.get('descriptions') or {}).items()},
         )
 
     def checked_against(self, schema: Model) -> SymbolTable:
@@ -209,7 +204,6 @@ class SymbolTable:
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),
-            *(_unknown_entry(n, 'descriptions', everything) for n in set(self.descriptions) - everything),
         ]
         if errors:
             raise SchemaError('\n'.join(sorted(errors)))
