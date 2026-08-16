@@ -42,6 +42,9 @@ than being overwritten.
 rather than a table, and neither lane reads one: pass `array.to_series()`,
 whose index binds by name on both. `Result.to_dataarray()` is the way back out.
 
+Everything on this list is read by the [linopy lane](../../about/linopy.md#3-the-shim)
+too, so one `sources` mapping goes to either.
+
 Nothing on this path imports pandas, xarray or linopy on your behalf.
 
 ## Where coordinates come from
