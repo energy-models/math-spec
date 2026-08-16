@@ -169,6 +169,39 @@ them, and that asymmetry should be visible and the caller's to choose between
 rather than papered over. The rest — a capability *table*, and `check` taking
 an optional sink — is [Track 3](https://github.com/fluxopt/lpspec/issues/472).
 
+## Where the data-prep line falls
+
+The table below refuses data preparation as a language feature. It does not say
+*which* precomputation is data prep and which is work the compiler is declining
+to do — and from inside a model both look the same: a parameter arrives, a
+constraint reads it.
+
+> **Data preparation computes what the model cannot know. The compiler builds
+> what it can derive from data the model already has.**
+
+A cycle basis is the first kind: a graph algorithm over a topology only data
+supplies, so [`pypsa_kvl`](../models/pypsa_kvl.md) carrying `cycle_incidence`
+as a parameter is right, and would be in any language. A minimum up time is the
+second: `min_up_time` is a column the model already binds, and the window mask
+over it is a mechanical consequence — yet the modeller writes that loop, plus a
+mirror dimension and an `at()` to reach across it
+([#849](https://github.com/fluxopt/lpspec/issues/849) moves it).
+
+The first kind is a design, the second a tax, and refusing both under one rule
+reads as principle while billing as friction.
+
+**The trade is deliberate, and [Calliope](prior-art.md) made it differently.**
+Its components take a list of `where`-guarded equations, so alternatives that
+differ by a regime live in the file rather than being flattened into data — one
+block for cyclic and non-cyclic storage, where this language wants the
+constraint twice ([#711](https://github.com/fluxopt/lpspec/issues/711)). What
+buys the difference here is holding the plan's *shape* fixed before any data is
+read, which is what makes a streaming engine and a second independent lane
+possible at all. So the ceiling stays, and what is worth importing is the
+**checks and the rules, not the machinery**: validate that alternatives cover
+their rows exactly once, and stop making a compiler-derivable argument a
+literal. Neither widens the closure.
+
 ## Deliberate non-primitives
 
 The admissibility test above says what *may* enter. This is what has been asked
