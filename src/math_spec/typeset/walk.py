@@ -66,40 +66,90 @@ _RELATIONS = {'==': 'equal', '<=': 'le', '>=': 'ge'}
 _PREDICATES = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>': 'gt'}
 
 
+#: Edge policy -> the operator pair that renders it, backward then forward.
+#: Three policies get three spellings because §7's three are three different
+#: equations at the boundary — the vacated row dropped, wrapped, or filled.
+_TRANSLATIONS = {
+    'plain': ('minus', 'plus'),
+    'wrap': ('cyclic_minus', 'cyclic_plus'),
+    'edge': ('edge_minus', 'edge_plus'),
+}
+
+
+@dataclass(frozen=True)
+class _Step:
+    """One translation of an index, and what stands where it vacated.
+
+    ``fill`` is the rendered ``edge=`` value, and it rides on the operator
+    rather than in the legend because it is per call site: one model may pad a
+    sum with ``0`` and a product with ``1``, and one legend entry cannot say
+    which term is which. It is empty for the two policies that substitute
+    nothing.
+    """
+
+    by: int
+    policy: str
+    fill: str = ''
+
+    def absorbs(self, other: _Step) -> bool:
+        """Whether *other* applied under this one is still a single translation.
+
+        Only an identical policy composes: two cyclic steps are one cyclic step
+        of their sum, and two identical fills likewise. A cyclic step under an
+        acyclic one is genuinely two, and folding them into ``t ⊖ 2`` claims the
+        outer step wraps when it drops.
+        """
+        return (self.policy, self.fill) == (other.policy, other.fill)
+
+
 @dataclass(frozen=True)
 class _Context:
     """What a subscript means at this point in the tree.
 
     ``offsets`` is how ``shift`` renders: it emits no operator of its own but
-    re-indexes its operand, so the translation shows at the *leaves*.
+    re-indexes its operand, so the translation shows at the *leaves*. Its steps
+    are outermost first, the order they apply to the index — the outer shift of
+    ``shift(shift(x, by=a), by=b)`` moves ``t`` to ``t - b``, and the inner one
+    reads ``x`` from there.
     """
 
     walk: Walk
-    offsets: dict[str, tuple[int, bool]] = field(default_factory=dict)
+    offsets: dict[str, tuple[_Step, ...]] = field(default_factory=dict)
     #: dim -> the subscript that replaces its own index. ``at`` re-indexes its
     #: operand exactly as ``shift`` does, so it shows up at the *leaves* too —
     #: but through a coordinate rather than an offset, so it renders as an
     #: application, ``period(t)``, and not as arithmetic on the index.
     pullbacks: dict[str, str] = field(default_factory=dict)
 
-    def translated(self, dim: str, by: int, *, wrap: bool) -> _Context:
-        previous, previous_wrap = self.offsets.get(dim, (0, wrap))
-        return _Context(self.walk, {**self.offsets, dim: (previous + by, wrap or previous_wrap)}, self.pullbacks)
+    def translated(self, dim: str, step: _Step) -> _Context:
+        steps = self.offsets.get(dim, ())
+        merged = (
+            (*steps[:-1], _Step(steps[-1].by + step.by, step.policy, step.fill))
+            if steps and steps[-1].absorbs(step)
+            else (*steps, step)
+        )
+        return _Context(self.walk, {**self.offsets, dim: merged}, self.pullbacks)
 
     def pulled_back(self, dim: str, rendered: str) -> _Context:
         return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered})
 
     def subscript(self, dim: str) -> str:
-        if dim in self.pullbacks:
-            return self.pullbacks[dim]
-        base = self.walk.symbols.index[dim]
-        by, wrap = self.offsets.get(dim, (0, False))
-        if by == 0:
-            return base
-        forward = 'cyclic_minus' if wrap else 'minus'
-        backward = 'cyclic_plus' if wrap else 'plus'
-        operator = self.walk.op(forward if by > 0 else backward)
-        return f'{base} {operator} {abs(by)}'
+        """The index for *dim* here: its pullback if it has one, then every translation.
+
+        A pullback is a base like any other rather than a stopping point.
+        ``at`` and ``shift`` both re-index the leaf and the leaf has one
+        subscript, so a reading that showed only whichever ran last dropped the
+        other operator out of the equation.
+        """
+        text = self.pullbacks.get(dim, self.walk.symbols.index[dim])
+        translated = False
+        for step in self.offsets.get(dim, ()):
+            if step.by == 0:
+                continue
+            base = self.walk.format.parenthesise(text) if translated else text
+            text = f'{base} {self.walk.translation(step)} {abs(step.by)}'
+            translated = True
+        return text
 
     def indexed(self, symbol: str, dims: list[str]) -> str:
         return self.walk.format.subscript(symbol, [self.subscript(d) for d in dims])
@@ -108,8 +158,8 @@ class _Context:
 class Walk:
     """Walks a validated schema, emitting :class:`Line`s in one format.
 
-    Stateful only in what it has *noticed* — whether any ``edge='wrap'`` appeared,
-    which the legend needs in order to explain cyclic translation.
+    Stateful only in what it has *noticed* — which edge policies appeared,
+    which the legend needs in order to explain the symbols they print.
     """
 
     def __init__(self, schema: Model, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
@@ -117,10 +167,16 @@ class Walk:
         self.namespace = namespace
         self.symbols = symbols
         self.format = fmt
-        self.saw_wraparound = False
+        self.policies: set[str] = set()
 
     def op(self, name: str) -> str:
         return self.format.operators[name]
+
+    def translation(self, step: _Step) -> str:
+        """The operator for one translation, carrying its fill where it has one."""
+        backward, forward = _TRANSLATIONS[step.policy]
+        operator = self.op(backward if step.by > 0 else forward)
+        return self.format.subscript(operator, [step.fill]) if step.fill else operator
 
     def context(self) -> _Context:
         return _Context(self)
@@ -197,21 +253,21 @@ class Walk:
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
         """Render an operator: a translation at the leaves, or a summation.
 
-        ``shift`` is one node, so the render reads the edge *policy* rather
-        than the spelling: only ``edge='wrap'`` is cyclic. ``at`` is not a
-        reduction — it re-indexes its operand, so like ``shift`` it emits no
-        operator and the substitution appears at the leaves; falling through to
-        the summation would render it as a sum over the fine dim, silently the
-        wrong equation.
+        ``shift`` is one node carrying all three edge policies, and each gets
+        its own translation operator. ``at`` is not a reduction — it re-indexes
+        its operand, so like ``shift`` it emits no operator and the
+        substitution appears at the leaves; falling through to the summation
+        would render it as a sum over the fine dim, silently the wrong
+        equation.
         """
         if node.name == 'shift':
             dim = node.kwargs['over']
             amount = node.kwargs['by']
             assert isinstance(dim, DimensionNode)
             assert isinstance(amount, NumberNode)
-            wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
-            self.saw_wraparound = self.saw_wraparound or wrap
-            return self._arithmetic(node.args[0], ctx.translated(dim.name, int(amount.value), wrap=wrap))
+            step = self._step(int(amount.value), node.kwargs.get('edge'))
+            self.policies.add(step.policy)
+            return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 
         if node.name == 'at':
             onto = node.kwargs['onto']
@@ -229,6 +285,21 @@ class Walk:
             mapping = self.format.apply(self.format.upright(by.name), self.symbols.index[over.name])
             domain = f'{domain} {self.op("such_that")} {mapping} {self.op("equal")} {ctx.subscript(by.into)}'
         return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
+
+    def _step(self, by: int, edge: ArithmeticNode | None) -> _Step:
+        """Which of §7's three edge policies this ``shift`` asked for.
+
+        ``edge='wrap'`` is the language's one keyword and arrives as an
+        :class:`EdgeNode`; a number in the same position stays a
+        :class:`NumberNode` and is the value the vacated positions contribute;
+        absent is the bare shift, whose vacated positions are absent.
+        """
+        if isinstance(edge, EdgeNode):
+            return _Step(by, 'wrap')
+        if edge is None:
+            return _Step(by, 'plain')
+        assert isinstance(edge, NumberNode)
+        return _Step(by, 'edge', self.number(edge.value))
 
     def membership(self, dim: str) -> str:
         return f'{self.symbols.index[dim]} {self.op("in")} {self.symbols.set[dim]}'
@@ -479,11 +550,27 @@ class Walk:
             clauses.append(f' carrying label{plural} {self.format.math(named)}')
         return ''.join(clauses)
 
-    def wraparound_note(self) -> str:
-        cyclic = self.format.math(f't {self.op("cyclic_minus")} k')
-        return (
-            f'{cyclic} denotes cyclic translation: index {self.format.math("t-k")} taken modulo the size of '
-            f'the dimension ({self.format.mono("roll")}). Plain {self.format.math("t-k")} '
-            f'({self.format.mono("shift")}) has no wraparound --- terms translated past the edge are '
-            f'simply absent.'
-        )
+    def translation_notes(self) -> list[str]:
+        """A sentence for each translation symbol the model actually printed.
+
+        Only those: a legend explaining a symbol that is nowhere on the page is
+        a dead end, and plain ``t-k`` needs no note until something else stands
+        beside it.
+        """
+        notes = []
+        if 'wrap' in self.policies:
+            cyclic = self.format.math(f't {self.op("cyclic_minus")} k')
+            notes.append(
+                f'{cyclic} denotes cyclic translation: index {self.format.math("t-k")} taken modulo the size of '
+                f'the dimension ({self.format.mono("roll")}). Plain {self.format.math("t-k")} '
+                f'({self.format.mono("shift")}) has no wraparound --- terms translated past the edge are '
+                f'simply absent.'
+            )
+        if 'edge' in self.policies:
+            filled = self.format.math(f't {self.format.subscript(self.op("edge_minus"), ["v"])} k')
+            notes.append(
+                f'{filled} denotes translation with {self.format.math("v")} standing where index '
+                f'{self.format.math("t-k")} leaves the dimension ({self.format.mono("shift(edge=v)")}), so the row '
+                f'at that boundary is built and carries {self.format.math("v")} rather than being dropped.'
+            )
+        return notes

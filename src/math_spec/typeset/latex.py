@@ -66,6 +66,8 @@ class LatexFormat:
         'minus_infinity': r'-\infty',
         'cyclic_minus': r'\ominus',
         'cyclic_plus': r'\oplus',
+        'edge_minus': r'\boxminus',
+        'edge_plus': r'\boxplus',
         'times': r'\times',
         'maps_to': r'\to',
         'reals': r'\mathbb{R}',

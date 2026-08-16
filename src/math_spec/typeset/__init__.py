@@ -110,8 +110,7 @@ def typeset(
     blocks = [fmt.note(schema.description)] if schema.description else []
     if legend:
         blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries()]
-        if walk.saw_wraparound:
-            blocks.append(fmt.note(walk.wraparound_note()))
+        blocks += [fmt.note(text) for text in walk.translation_notes()]
     return fmt.document([*blocks, *rendered], standalone=standalone)
 
 

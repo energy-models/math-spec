@@ -27,9 +27,12 @@ if TYPE_CHECKING:
 #: supplies one spelling each, and ``tests/test_typeset.py`` asserts every
 #: format covers exactly this set, so a missing key is a test failure rather
 #: than a stray ``None`` in the output. The less obvious names: ``such_that``
-#: is the colon in "∀ t ∈ T : condition", ``cyclic_minus``/``cyclic_plus`` are
-#: ``roll``'s wrapping translation, ``times`` sits between sets in the legend,
-#: ``maps_to`` is the → in a coordinate map.
+#: is the colon in "∀ t ∈ T : condition", ``times`` sits between sets in the
+#: legend, ``maps_to`` is the → in a coordinate map. The three translations get
+#: one operator each because they are three models: plain ``minus``/``plus``
+#: leaves the vacated position absent, ``cyclic_*`` is ``roll``'s wrapping
+#: translation, and ``edge_*`` fills that position with the value it carries as
+#: a subscript.
 OPERATOR_NAMES = frozenset(
     {
         'cdot',
@@ -53,6 +56,8 @@ OPERATOR_NAMES = frozenset(
         'minus_infinity',
         'cyclic_minus',
         'cyclic_plus',
+        'edge_minus',
+        'edge_plus',
         'times',
         'maps_to',
         'reals',

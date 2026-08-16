@@ -66,6 +66,8 @@ class TypstFormat:
         'minus_infinity': '-infinity',
         'cyclic_minus': 'minus.o',
         'cyclic_plus': 'plus.o',
+        'edge_minus': 'minus.square',
+        'edge_plus': 'plus.square',
         'times': 'times',
         'maps_to': 'arrow.r',
         'reals': 'RR',
