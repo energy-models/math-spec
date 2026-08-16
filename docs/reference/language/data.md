@@ -59,20 +59,13 @@ highest precedence first:
    dimension, each named after it;
 3. **`values:` in the YAML** — the dimension's own, plus any
    [lookup](dimensions.md#values-puts-a-small-map-in-the-file) over it that
-   declares one, assembled into the index a caller would otherwise pass;
-4. **derived from the parameter tables** that carry the dim, as **sorted**
-   distinct values.
+   declares one, assembled into the index a caller would otherwise pass.
 
-Step 4 is unavailable to a dimension carrying lookups whose maps the file does
-not declare: it reads index columns only, so it cannot supply a lookup column.
-Otherwise it exists because a dim some parameter already spans needs no second
-declaration — but it costs the **declared order**, which
-[`shift`](operators.md#shift) reads positionally, so pass an explicit index
-whenever order matters. It also costs a full pass — a
-scan plus a dedup — over *every* parameter carrying the dim before building
-starts, where an explicit index is read as one dim-sized table.
-
-A dim that no source names and no parameter carries raises.
+There is no fourth step. A dimension none of the three supplies raises, and
+labels are never read out of the parameters: they would *be* the definition,
+so a mistyped label could not be told from a new one, and the index is also
+what fixes label **order**, which [`shift`](operators.md#shift) reads
+positionally.
 
 ## The data contract
 
@@ -100,16 +93,14 @@ Both lanes bind by these rules.
 | a coordinate with no row | sparse data gives sparse variables; what a missing row means where it is read is [absence](absence.md) |
 | values that are wrong but well-formed | not read |
 
-### A derived dimension has no label to be outside of
-
-Step 4 above defines a dimension's labels as what arrived, so a misspelling is
-a label rather than a stray:
+### The index is what makes a stray label a stray
 
 ```python
-cost = {'wind': 1.0, 'gsa': 2.0}  # 'gas' misspelled — builds, and solves
+cost = {'wind': 1.0, 'gsa': 2.0}  # 'gas' misspelled — refused by name
 ```
 
-Under steps 1–3 the same misspelling is refused by name.
+A dimension whose labels came from the parameters instead would read that as a
+third generator, and answer a different question.
 
 ## Growing or replacing the data
 
