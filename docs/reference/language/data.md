@@ -74,19 +74,42 @@ starts, where an explicit index is read as one dim-sized table.
 
 A dim that no source names and no parameter carries raises.
 
-## What is checked
+## The data contract
 
-- **Coordinate values in the data must be a subset of the master coordinate.**
-  Values outside it raise rather than being dropped silently.
-- **Every declared parameter must be provided, and every provided key must be
-  declared** — the YAML is the source of truth.
-- Validation order: lookup columns → parameter presence → dim names →
-  coordinate values → unknown keys.
+Both lanes bind by these rules.
 
-The loader deliberately does **not** check that values are sensible, that a
-parameter is used, or that coordinates *cover* the master index. Missing
-coordinates produce no rows — sparse data gives sparse variables, and what a
-missing row means where the model reads it is [absence](absence.md).
+### Refused
+
+| | |
+|---|---|
+| a declared parameter with no data | names the parameter |
+| a key naming neither a parameter nor a dimension | names the near miss |
+| a table missing a declared dim column, or `value` | names the columns needed |
+| a label outside the dimension's index | names the parameter and the strays |
+| two rows for one coordinate | |
+| a lookup with two values for one label | |
+| a lookup value that is not a label of its target | |
+| a dimension carrying lookups with no index | |
+| a dimension nothing can supply labels for | names both ways to fix it |
+
+### Accepted
+
+| | |
+|---|---|
+| an undeclared column in a table | ignored |
+| a coordinate with no row | sparse data gives sparse variables; what a missing row means where it is read is [absence](absence.md) |
+| values that are wrong but well-formed | not read |
+
+### A derived dimension has no label to be outside of
+
+Step 4 above defines a dimension's labels as what arrived, so a misspelling is
+a label rather than a stray:
+
+```python
+cost = {'wind': 1.0, 'gsa': 2.0}  # 'gas' misspelled — builds, and solves
+```
+
+Under steps 1–3 the same misspelling is refused by name.
 
 ## Growing or replacing the data
 
