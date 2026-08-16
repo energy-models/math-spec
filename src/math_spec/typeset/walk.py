@@ -76,6 +76,20 @@ _TRANSLATIONS = {
 }
 
 
+def _amount(node: ArithmeticNode) -> int:
+    """``shift``'s ``by=``, signed.
+
+    A negated literal parses as a unary minus over a number rather than as a
+    negative one, so reading the ``NumberNode`` alone both aborted on ``by=-1``
+    and left the forward direction of every translation operator unreachable.
+    """
+    if isinstance(node, UnaryOperatorNode):
+        assert isinstance(node.operand, NumberNode)
+        return -int(node.operand.value) if node.op == '-' else int(node.operand.value)
+    assert isinstance(node, NumberNode)
+    return int(node.value)
+
+
 @dataclass(frozen=True)
 class _Step:
     """One translation of an index, and what stands where it vacated.
@@ -262,10 +276,8 @@ class Walk:
         """
         if node.name == 'shift':
             dim = node.kwargs['over']
-            amount = node.kwargs['by']
             assert isinstance(dim, DimensionNode)
-            assert isinstance(amount, NumberNode)
-            step = self._step(int(amount.value), node.kwargs.get('edge'))
+            step = self._step(_amount(node.kwargs['by']), node.kwargs.get('edge'))
             self.policies.add(step.policy)
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 

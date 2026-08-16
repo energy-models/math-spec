@@ -1,0 +1,25 @@
+description: >-
+  The adjoint of the membership reduction — `at(array, by=lookup)` reads one
+  coarse value once per fine label pointing at it.
+
+dimensions:
+  snapshot: {dtype: int}
+  period: {dtype: int}
+
+lookups:
+  period_of: {over: snapshot, into: period}
+
+parameters:
+  cap: {dims: [period]}
+
+variables:
+  p:
+    foreach: [snapshot]
+    bounds: {lower: 0}
+
+constraints:
+  within_cap:
+    foreach: [snapshot]
+    expression: p <= at(cap, by=period_of)
+
+objective: {sense: minimize, expression: p}
