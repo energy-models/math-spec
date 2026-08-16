@@ -13,6 +13,7 @@ Dimension arguments are name-checked at load time, so
 | `shift(array, over=dim, by=n)` | the value at *t−n* along `dim`; the vacated edge is **absent** |
 | `shift(array, over=dim, by=n, edge='wrap')` | the value at *t−n*, cyclic: nothing is vacated |
 | `shift(array, over=dim, by=n, edge=v)` | the value at *t−n*, with the number `v` where the edge was vacated |
+| `shift(array, over=dim, by=p, edge=…)` | `p` an integer parameter: each entity is reached by **its own** offset |
 
 `array` is any expression of the right dim set, so these read a **parameter**
 as readily as a variable. Each row as the typesetter prints it is
@@ -129,6 +130,45 @@ Because `shift` reads parameters too, `shift(dt, over=t, by=1, edge=0)` is the
 previous snapshot's duration without shipping a pre-shifted copy of a table the
 model already has.
 
+### An offset that differs per entity
+
+`by=` may name an **integer parameter** instead of a number, and then each
+entity is reached by its own offset — a construction lead time, a transit time,
+a delay that the source data already carries as a column:
+
+```yaml
+dimensions:
+  technology: {dtype: str}
+  month: {dtype: int}
+parameters:
+  lead: {dims: [technology], dtype: int}
+  demand: {dims: [technology, month]}
+variables:
+  order:
+    foreach: [technology, month]
+    bounds: {lower: 0}
+constraints:
+  arrives_after_its_lead:
+    foreach: [technology, month]
+    expression: shift(order, over=month, by=lead, edge=0) >= demand
+objective: {sense: minimize, expression: order}
+```
+
+Three rules keep that a translation rather than something else, each a load
+error naming its rewrite:
+
+- **the parameter is integral** — an offset lands on a coordinate, so it counts
+  positions rather than measuring a distance;
+- **it does not span the dimension being translated** — an offset that varied
+  along the axis it moves is a permutation, not a lag;
+- **it says what the vacated positions contribute** — `edge='wrap'` or a
+  number. The bare form's *absence* is carried by a frame keyed by the
+  translated dimension alone, and a per-entity offset vacates a different slot
+  for each entity, which that frame cannot yet say.
+
+A named offset also carries its **sign in the values**: `by=-lead` is refused,
+so one row that points backwards says so where the data is read.
+
 This is the one construct whose cost is not obviously linear in model size.
 
 ## Composing
@@ -157,6 +197,7 @@ position.
 | `shift(array, over=dim, by=n)` | $p_{t} \le p_{t - 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `shift(array, over=dim, by=n, edge='wrap')` | $p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `shift(array, over=dim, by=n, edge=v)` | $p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
+| `shift(array, over=dim, by=p, edge=…)` | $\mathit{order}_{t,m \boxminus_{0} \mathit{lead}} \ge \mathit{demand}_{t,m} \qquad \forall\thinspace t \in \mathcal{T},\enspace m \in \mathcal{M}$ |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound --- terms translated past the edge are simply absent.
 

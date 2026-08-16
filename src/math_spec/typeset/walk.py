@@ -79,18 +79,30 @@ _TRANSLATIONS = {
 }
 
 
-def _amount(node: ArithmeticNode) -> int:
-    """``shift``'s ``by=``, signed.
+def _amount(node: ArithmeticNode) -> int | str:
+    """``shift``'s ``by=``: a signed number, or the name of a parameter.
 
     A negated literal parses as a unary minus over a number rather than as a
     negative one, so reading the ``NumberNode`` alone both aborted on ``by=-1``
     and left the forward direction of every translation operator unreachable.
+
+    A named offset comes back as its name. It is always backward — the language
+    refuses ``by=-p``, so the direction lives in the data — and it renders as
+    the parameter's own symbol rather than as a number.
     """
+    if isinstance(node, ParameterNode):
+        return node.name
     if isinstance(node, UnaryOperatorNode):
         assert isinstance(node.operand, NumberNode)
         return -int(node.operand.value) if node.op == '-' else int(node.operand.value)
     assert isinstance(node, NumberNode)
     return int(node.value)
+
+
+def _added(left: int | str, right: int | str) -> int:
+    """Two absorbed steps as one. Only numbers absorb, which ``absorbs`` decides."""
+    assert isinstance(left, int) and isinstance(right, int)
+    return left + right
 
 
 @dataclass(frozen=True)
@@ -104,7 +116,7 @@ class _Step:
     nothing.
     """
 
-    by: int
+    by: int | str
     policy: str
     fill: str = ''
 
@@ -116,6 +128,8 @@ class _Step:
         acyclic one is genuinely two, and folding them into ``t ⊖ 2`` claims the
         outer step wraps when it drops.
         """
+        if isinstance(self.by, str) or isinstance(other.by, str):
+            return False  # a named offset is not a number, so two do not add
         return (self.policy, self.fill) == (other.policy, other.fill)
 
 
@@ -141,7 +155,7 @@ class _Context:
     def translated(self, dim: str, step: _Step) -> _Context:
         steps = self.offsets.get(dim, ())
         merged = (
-            (*steps[:-1], _Step(steps[-1].by + step.by, step.policy, step.fill))
+            (*steps[:-1], _Step(_added(steps[-1].by, step.by), step.policy, step.fill))
             if steps and steps[-1].absorbs(step)
             else (*steps, step)
         )
@@ -164,7 +178,8 @@ class _Context:
             if step.by == 0:
                 continue
             base = self.walk.format.parenthesise(text) if translated else text
-            text = f'{base} {self.walk.translation(step)} {abs(step.by)}'
+            amount = self.walk.symbols.name[step.by] if isinstance(step.by, str) else str(abs(step.by))
+            text = f'{base} {self.walk.translation(step)} {amount}'
             translated = True
         return text
 
@@ -192,7 +207,9 @@ class Walk:
     def translation(self, step: _Step) -> str:
         """The operator for one translation, carrying its fill where it has one."""
         backward, forward = _TRANSLATIONS[step.policy]
-        operator = self.op(backward if step.by > 0 else forward)
+        # a named offset is always backward: `by=-p` is refused, so the sign is
+        # in the data and the operator cannot read it off the call
+        operator = self.op(backward if isinstance(step.by, str) or step.by > 0 else forward)
         return self.format.subscript(operator, [step.fill]) if step.fill else operator
 
     def context(self) -> _Context:
@@ -301,7 +318,7 @@ class Walk:
             domain = self.membership(over.name)
         return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
 
-    def _step(self, by: int, edge: ArithmeticNode | None) -> _Step:
+    def _step(self, by: int | str, edge: ArithmeticNode | None) -> _Step:
         """Which of the three edge policies this ``shift`` asked for.
 
         ``edge='wrap'`` is the language's one keyword and arrives as an
