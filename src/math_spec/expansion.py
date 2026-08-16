@@ -46,12 +46,12 @@ from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
-    CoordinateNode,
     DimensionNode,
     EdgeNode,
     ExpressionNode,
     FunctionCallNode,
     KeywordNode,
+    LookupNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -120,7 +120,7 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
     """
     if isinstance(
         node,
-        NumberNode | NameNode | VariableNode | ParameterNode | DimensionNode | CoordinateNode | EdgeNode | KeywordNode,
+        NumberNode | NameNode | VariableNode | ParameterNode | DimensionNode | LookupNode | EdgeNode | KeywordNode,
     ):
         return node
     if isinstance(node, UnaryOperatorNode):

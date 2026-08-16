@@ -32,11 +32,11 @@ from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
-    CoordinateNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
     KeywordNode,
+    LookupNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -309,7 +309,7 @@ def _check_template_names(
     keyword names nothing; a dimension kwarg accepts a formal as well as a
     declared dimension, the call site being able to bind one.
     """
-    if isinstance(node, (NumberNode, VariableNode, ParameterNode, DimensionNode, CoordinateNode, EdgeNode)):
+    if isinstance(node, (NumberNode, VariableNode, ParameterNode, DimensionNode, LookupNode, EdgeNode)):
         return
 
     if isinstance(node, KeywordNode):

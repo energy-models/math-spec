@@ -32,12 +32,12 @@ from lpspec.errors import LanguageError
 from lpspec.language.expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,
-    CoordinateNode,
     DimensionNode,
     EdgeNode,
     ExpressionNode,
     FunctionCallNode,
     KeywordNode,
+    LookupNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -60,7 +60,7 @@ def carries_variable(node: ExpressionNode) -> bool:
     """
     if isinstance(node, VariableNode):
         return True
-    if isinstance(node, (NumberNode, ParameterNode, DimensionNode, CoordinateNode, EdgeNode)):
+    if isinstance(node, (NumberNode, ParameterNode, DimensionNode, LookupNode, EdgeNode)):
         return False
     if isinstance(node, KeywordNode):
         msg = (

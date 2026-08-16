@@ -14,9 +14,10 @@ The rules::
     -x, +x                  -> same dims as x
     a + b, a * b, a / b     -> every dim either side carries (set union)
     sum(x, over=d)          -> x's dims without d;  error if x has no d
-    sum(x, over=d, group_by=c)
-                            -> x's dims without d, plus the dim c targets;
-                               error if x has no d, or d declares no coord c
+    sum(x, by=l)            -> x's dims without the dim l is over, plus the
+                               dim l maps into; error if x has no such dim
+    at(x, by=l)             -> the reverse: x's dims without l's target,
+                               plus the dim l is over
     shift(x, over=d, by=n)  -> same dims as x;      error if x has no d
 
 and at the declaration level::
@@ -42,12 +43,12 @@ from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
-    CoordinateNode,
     DimensionNode,
     EdgeNode,
     ExpressionNode,
     FunctionCallNode,
     KeywordNode,
+    LookupNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -122,7 +123,7 @@ def _dims(
             return frozenset(schema.variables[node.name].foreach)
         return frozenset(external[node.name])
 
-    if isinstance(node, (NameNode, KeywordNode, DimensionNode, CoordinateNode, EdgeNode)):
+    if isinstance(node, (NameNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
@@ -146,60 +147,64 @@ def _dims_call(
 ) -> frozenset[str]:
     """The dim rule of one operator call.
 
-    ``group_by`` reduces the ``over`` dim *into* another rather than away.
-    ``at`` is the adjoint of ``sum`` and takes the same two arguments, one
-    mapping table walked either way: ``sum`` consumes the dim that *declares*
-    the coordinate, ``at`` the dim it *targets*.
+    ``by=`` reduces the lookup's own dim *into* its target rather than away.
+    ``at`` is the adjoint of ``sum``, one mapping table walked either way:
+    ``sum`` consumes the dim the lookup is *over*, ``at`` the dim it maps
+    *into*, and each produces the other.
     """
     if node.name == 'sum':
         inner = _dims(node.args[0], schema, context, external)
-        over = node.kwargs['over']
-        assert isinstance(over, DimensionNode)
-        by = node.kwargs.get('group_by')
-        verb = f'sum(over={over.name}, group_by=...)' if by is not None else f'sum(over={over.name})'
-        if over.name not in inner:
-            raise DimensionError(
-                f'{context}: {verb} but the expression has dims '
-                f'{sorted(inner)}. Summing over a dim the operand does not carry '
-                f'is a no-op that builds and solves wrong — drop the sum, or fix '
-                f'the dim.'
-            )
+        by = node.kwargs.get('by')
         if by is None:
+            over = node.kwargs['over']
+            assert isinstance(over, DimensionNode)
+            if over.name not in inner:
+                raise DimensionError(
+                    f'{context}: sum(over={over.name}) but the expression has dims '
+                    f'{sorted(inner)}. Summing over a dim the operand does not carry '
+                    f'is a no-op that builds and solves wrong — drop the sum, or fix '
+                    f'the dim.'
+                )
             return inner - {over.name}
 
-        assert isinstance(by, CoordinateNode)
-        if by.into in inner - {over.name}:
+        assert isinstance(by, LookupNode)
+        if by.dimension not in inner:
             raise DimensionError(
-                f"{context}: sum(over={over.name}, group_by={by.name}) targets '{by.into}', "
+                f"{context}: sum(by={by.name}) consumes '{by.dimension}', the dim the "
+                f'lookup is over, but the expression has dims {sorted(inner)}. Summing '
+                f'over a dim the operand does not carry is a no-op that builds and '
+                f'solves wrong — drop the sum, or fix the dim.'
+            )
+        if by.into in inner - {by.dimension}:
+            raise DimensionError(
+                f"{context}: sum(by={by.name}) targets '{by.into}', "
                 f'which the expression already carries ({sorted(inner)}). The result would '
                 f"need '{by.into}' twice — once as the operand's own dim and once as the "
                 f'group it is placed into — and neither lane can represent that: the union '
                 f'below would silently absorb one of them. Sum over one of the two first, '
                 f'or group into a dimension the operand does not have.'
             )
-        return (inner - {over.name}) | {by.into}
+        return (inner - {by.dimension}) | {by.into}
 
     if node.name == 'at':
         inner = _dims(node.args[0], schema, context, external)
-        over = node.kwargs['onto']
         by = node.kwargs['by']
-        assert isinstance(over, DimensionNode)
-        assert isinstance(by, CoordinateNode)
+        assert isinstance(by, LookupNode)
         if by.into not in inner:
             raise DimensionError(
-                f'{context}: at(onto={over.name}, by={by.name}) reads through '
+                f'{context}: at(by={by.name}) reads through '
                 f"'{by.into}', which the expression does not carry (dims "
                 f'{sorted(inner)}). A pullback needs the coarse dim to read *from* — '
                 f'sum is the direction that produces it.'
             )
-        if over.name in inner - {by.into}:
+        if by.dimension in inner - {by.into}:
             raise DimensionError(
-                f'{context}: at(onto={over.name}, by={by.name}) places terms onto '
-                f"'{over.name}', which the expression already carries ({sorted(inner)}). "
-                f"The result would need '{over.name}' twice — once as the operand's own "
+                f'{context}: at(by={by.name}) places terms onto '
+                f"'{by.dimension}', which the expression already carries ({sorted(inner)}). "
+                f"The result would need '{by.dimension}' twice — once as the operand's own "
                 f'dim and once as the dim it is spread onto. Sum over one of the two first.'
             )
-        return (inner - {by.into}) | {over.name}
+        return (inner - {by.into}) | {by.dimension}
 
     if node.name == 'shift':
         inner = _dims(node.args[0], schema, context, external)

@@ -73,15 +73,15 @@ class DimensionNode:
 
 
 @dataclass
-class CoordinateNode:
-    """A resolved reference to a coordinate declared on a dimension.
+class LookupNode:
+    """A resolved reference to a declared lookup.
 
-    Only legal in operator kwarg *values* (``sum(x, over=line, group_by=to)``).
-    Like :class:`DimensionNode` this names a coordinate space, not data — but it
-    is scoped to the dimension carrying it, so ``name`` alone is meaningless
-    without the sibling ``over=`` dimension. ``dimension`` records that binding
-    and ``into`` the dimension the coordinate's values are labels of, both
-    resolved once here so no backend has to re-derive them.
+    Only legal in operator kwarg *values* (``sum(x, by=to)``). Like
+    :class:`DimensionNode` this names structure, not data. The lookup carries
+    its own dimensions: ``dimension`` is the one it is over — what ``sum``
+    consumes and ``at`` produces — and ``into`` the one its values are labels
+    of, both copied off the declaration once here so no backend has to
+    re-derive them.
     """
 
     name: str
@@ -107,7 +107,7 @@ class EdgeNode:
     """A resolved edge policy for ``shift(x, over=d, by=n, edge='wrap')``.
 
     Only legal as the value of ``shift``'s ``edge=`` kwarg. Like
-    :class:`DimensionNode` and :class:`CoordinateNode` this names neither data
+    :class:`DimensionNode` and :class:`LookupNode` this names neither data
     nor a coordinate — it is a closed keyword, and the only one the language
     has. A *number* in the same position stays an ordinary
     :class:`NumberNode`, the value the vacated positions contribute, so one
@@ -144,7 +144,7 @@ ArithmeticNode = (
     | VariableNode
     | ParameterNode
     | DimensionNode
-    | CoordinateNode
+    | LookupNode
     | EdgeNode
     | KeywordNode
     | UnaryOperatorNode

@@ -2,7 +2,7 @@
 
 Parsers emit ``NameNode``: a token, not yet a meaning. This module rewrites
 each one into a typed node (``VariableNode`` / ``ParameterNode`` / ``DimensionNode`` /
-``CoordinateNode``, and
+``LookupNode``, and
 ``ParameterComparisonNode`` / ``DimensionComparisonNode`` / ``ParameterDefinedNode`` on the where
 side), so the AST reaching either backend holds no unresolved names.
 
@@ -26,12 +26,12 @@ from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
-    CoordinateNode,
     DimensionNode,
     EdgeNode,
     ExpressionNode,
     FunctionCallNode,
     KeywordNode,
+    LookupNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -67,36 +67,35 @@ class Namespace:
     walk through several stores.
     """
 
-    __slots__ = ('coordinates', 'dimensions', 'dtypes', 'labels', 'parameters', 'variables')
+    __slots__ = ('dimensions', 'dtypes', 'labels', 'lookups', 'parameters', 'variables')
 
     def __init__(
         self,
         variables: Iterable[str],
         parameters: Iterable[str],
         dimensions: Iterable[str],
-        coordinates: Mapping[str, Mapping[str, str]] | None = None,
+        lookups: Mapping[str, tuple[str, str]] | None = None,
         dtypes: Mapping[str, str] | None = None,
-        labels: Mapping[str, Iterable[str]] | None = None,
+        labels: Mapping[str, str] | None = None,
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
         self.dimensions = frozenset(dimensions)
-        #: name -> declared dtype, for dimensions, parameters and inline label
-        #: coordinates alike. A where comparison is the one place a *literal*
+        #: name -> declared dtype, for dimensions, parameters and label-space
+        #: lookups alike. A where comparison is the one place a *literal*
         #: meets a declared type, and comparing the wrong one is silent: polars
         #: reads a datetime against an integer as an epoch offset and drops
         #: rows, and row absence is the structural zero. Empty when a caller
         #: builds a namespace by hand, which only widens what is accepted.
         self.dtypes: dict[str, str] = dict(dtypes or {})
-        #: dim -> {coordinate name: target dim} — the groupable kind only.
-        #: Scoped, so it is not part of :meth:`kind` — a coordinate name is
-        #: only meaningful under its dim.
-        self.coordinates: dict[str, dict[str, str]] = {d: dict(c) for d, c in (coordinates or {}).items()}
-        #: dim -> inline label-coordinate names — selection-only spaces that
-        #: target no dimension. Kept apart from :attr:`coordinates` so that
-        #: naming one in a ``group_by``/``at`` produces the promotion rewrite
-        #: rather than "does not name a coordinate".
-        self.labels: dict[str, frozenset[str]] = {d: frozenset(c) for d, c in (labels or {}).items()}
+        #: lookup name -> (over, into) — the groupable kind only. Flat like
+        #: every other store here (law 3): the name alone addresses the map.
+        self.lookups: dict[str, tuple[str, str]] = dict(lookups or {})
+        #: label-space lookup name -> the dim it is over — selection-only,
+        #: targeting no dimension. Kept apart from :attr:`lookups` so that
+        #: naming one in a ``by=`` produces the promotion rewrite rather than
+        #: "does not name a lookup".
+        self.labels: dict[str, str] = dict(labels or {})
 
     @classmethod
     def of(cls, schema: Model, known_variables: Iterable[str] = ()) -> Namespace:
@@ -111,13 +110,13 @@ class Namespace:
             set(schema.variables) | set(known_variables),
             schema.parameters,
             schema.dimensions,
-            {d: schema.targeted_of(d) for d in schema.dimensions},
+            {n: (lk.over, lk.into) for n, lk in schema.lookups.items() if lk.into is not None},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
                 **{n: lk.dtype for n, lk in schema.lookups.items() if lk.dtype is not None},
             },
-            {d: schema.labels_of(d) for d in schema.dimensions},
+            {n: lk.over for n, lk in schema.lookups.items() if lk.into is None},
         )
 
     def kind(self, name: str) -> str | None:
@@ -224,7 +223,7 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
     if isinstance(node, NumberNode):
         return node
 
-    if isinstance(node, (VariableNode, ParameterNode, DimensionNode, CoordinateNode, EdgeNode)):
+    if isinstance(node, (VariableNode, ParameterNode, DimensionNode, LookupNode, EdgeNode)):
         return node
 
     if isinstance(node, NameNode):
@@ -271,11 +270,8 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
                 kwargs[key] = _resolve_edge(value, context, node.name, errors)
             elif key in builtin.dimension_kwargs:
                 kwargs[key] = _resolve_dim_ref(value, ns, context, node.name, key, errors)
-            elif key in builtin.coordinate_kwargs or key in builtin.optional_coordinate_kwargs:
-                sibling = builtin.dimension_kwargs[0] if builtin.dimension_kwargs else 'over'
-                kwargs[key] = _resolve_coordinate_ref(
-                    value, node.kwargs.get(sibling), ns, context, node.name, key, errors
-                )
+            elif key in builtin.lookup_kwargs:
+                kwargs[key] = _resolve_lookup_ref(value, ns, context, node.name, key, errors)
             else:
                 kwargs[key] = _resolve_arith(value, ns, context, errors)
         return FunctionCallNode(node.name, args, kwargs)
@@ -354,58 +350,57 @@ def _resolve_dim_ref(
     return DimensionNode(value.name)
 
 
-def _resolve_coordinate_ref(
+def _resolve_lookup_ref(
     value: ArithmeticNode,
-    over: ArithmeticNode | None,
     ns: Namespace,
     context: str,
     operator: str,
     key: str,
     errors: list[str],
 ) -> ArithmeticNode:
-    """Resolve an operator kwarg naming a coordinate on the sibling dimension kwarg.
+    """Resolve an operator kwarg whose *value* must name a groupable lookup.
 
-    A coordinate is scoped to that sibling — ``over=`` where the operator
-    consumes the dim, ``onto=`` where it produces it — so the caller reads
-    the sibling kwarg and passes it in rather than this resolving the
-    coordinate on its own.
+    The lookup carries its own dimensions, so nothing else in the call is
+    consulted: the name alone decides both the dim the operator consumes and
+    the one it produces.
     """
-    if isinstance(value, CoordinateNode):
+    if isinstance(value, LookupNode):
         return value
     if not isinstance(value, (NameNode, DimensionNode)):
         errors.append(f'{context}: {operator}({key}=...) must name a lookup.')
         return value
-    if not isinstance(over, (NameNode, DimensionNode)):
+    name = value.name
+    if name in ns.labels:
+        over = ns.labels[name]
         errors.append(
-            f'{context}: {operator}({key}={value.name}) needs a sibling over=<dim> '
-            f'naming the dimension the lookup is over.'
-        )
-        return value
-    declared = ns.coordinates.get(over.name, {})
-    if value.name in ns.labels.get(over.name, ()):
-        errors.append(
-            f'{context}: {operator}(over={over.name}, {key}={value.name}): '
-            f"'{value.name}' is a label space over '{over.name}', not a groupable lookup — "
+            f'{context}: {operator}({key}={name}): '
+            f"'{name}' is a label space over '{over}', not a groupable lookup — "
             f'it targets no dimension for the terms to land on. To group into it, '
             f'declare the axis and target it under a name of its own:\n'
             f'  dimensions:\n'
-            f'    {value.name}: {{...}}\n'
+            f'    {name}: {{...}}\n'
             f'  lookups:\n'
-            f'    {value.name}_of: {{over: {over.name}, into: {value.name}}}'
+            f'    {name}_of: {{over: {over}, into: {name}}}'
         )
         return value
-    if value.name not in declared:
-        listing = (
-            f'  Lookups over {over.name}: {sorted(declared)}' if declared else f"  no lookup is over '{over.name}'."
-        )
-        errors.append(
-            f'{context}: {operator}(over={over.name}, {key}={value.name}) does not name a '
-            f"lookup over '{over.name}'.\n{listing}\n"
-            f"Declare it under 'lookups:' — {value.name}: {{over: {over.name}, "
-            f'into: <the dimension its values are labels of>}}.'
-        )
+    if name not in ns.lookups:
+        if name in ns.dimensions:
+            into_here = sorted(n for n, (_, into) in ns.lookups.items() if into == name)
+            hint = f"  Lookups into '{name}': {into_here}" if into_here else f"  No lookup maps into '{name}'."
+            errors.append(
+                f"{context}: {operator}({key}={name}): '{name}' is a dimension, and "
+                f'{key}= takes a lookup — the named map out of a dimension.\n{hint}'
+            )
+        else:
+            listing = f'  Lookups: {sorted(ns.lookups)}' if ns.lookups else '  No lookups are declared.'
+            errors.append(
+                f'{context}: {operator}({key}={name}) does not name a lookup.\n{listing}\n'
+                f"Declare it under 'lookups:' — {name}: {{over: <the dimension it maps "
+                f'out of>, into: <the dimension its values are labels of>}}.'
+            )
         return value
-    return CoordinateNode(value.name, dimension=over.name, into=declared[value.name])
+    over, into = ns.lookups[name]
+    return LookupNode(name, dimension=over, into=into)
 
 
 # ---------------------------------------------------------------------------

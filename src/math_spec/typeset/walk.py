@@ -21,11 +21,11 @@ from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
-    CoordinateNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
     KeywordNode,
+    LookupNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -221,7 +221,7 @@ class Walk:
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
 
-        if isinstance(node, (NameNode, KeywordNode, DimensionNode, CoordinateNode, EdgeNode)):
+        if isinstance(node, (NameNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
@@ -270,20 +270,20 @@ class Walk:
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 
         if node.name == 'at':
-            onto = node.kwargs['onto']
-            assert isinstance(onto, DimensionNode)
             by = node.kwargs['by']
-            assert isinstance(by, CoordinateNode)
-            mapping = self.format.apply(self.format.upright(by.name), ctx.subscript(onto.name))
+            assert isinstance(by, LookupNode)
+            mapping = self.format.apply(self.format.upright(by.name), ctx.subscript(by.dimension))
             return self._arithmetic(node.args[0], ctx.pulled_back(by.into, mapping))
 
-        over = node.kwargs['over']
-        assert isinstance(over, DimensionNode)
-        domain = self.membership(over.name)
-        if (by := node.kwargs.get('group_by')) is not None:
-            assert isinstance(by, CoordinateNode)
-            mapping = self.format.apply(self.format.upright(by.name), self.symbols.index[over.name])
+        if (by := node.kwargs.get('by')) is not None:
+            assert isinstance(by, LookupNode)
+            domain = self.membership(by.dimension)
+            mapping = self.format.apply(self.format.upright(by.name), self.symbols.index[by.dimension])
             domain = f'{domain} {self.op("such_that")} {mapping} {self.op("equal")} {ctx.subscript(by.into)}'
+        else:
+            over = node.kwargs['over']
+            assert isinstance(over, DimensionNode)
+            domain = self.membership(over.name)
         return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
 
     def _step(self, by: int, edge: ArithmeticNode | None) -> _Step:

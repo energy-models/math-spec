@@ -95,7 +95,7 @@ class LookupBlock(_StrictBlock):
     Two kinds, told apart by which field is set:
 
     - ``into:`` names the dimension the values are labels of — the *groupable*
-      kind, what ``sum(group_by=)`` lands terms on and ``at()`` reads through,
+      kind, what ``sum(by=)`` lands terms on and ``at(by=)`` reads through,
       checked for containment once data is bound rather than joined blind::
 
           lookups:

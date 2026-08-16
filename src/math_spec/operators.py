@@ -28,25 +28,26 @@ class Builtin:
 
     Keyword arguments come in four kinds, and the kind decides what resolution
     turns the value into: ``dimension_kwargs`` name a dimension
-    (``sum(x, over=generator)``); ``coordinate_kwargs`` name a coordinate
-    carried by the sibling ``over=`` dimension, so they are only meaningful
-    together; ``edge_kwargs`` take a closed keyword or a number;
+    (``sum(x, over=generator)``); ``lookup_kwargs`` name a lookup, which
+    carries its own dimensions, so it needs no sibling kwarg;
+    ``edge_kwargs`` take a closed keyword or a number;
     ``required_value_kwargs`` are ordinary values that must be present — a
     number, never a name to resolve (``shift(..., by=1)``).
 
-    Every dimension an operator names arrives in a kwarg *value*, which is what
-    lets a macro pass one as a formal. ``usage`` is the wording every lane
-    quotes back.
+    Every dimension or lookup an operator names arrives in a kwarg *value*,
+    which is what lets a macro pass one as a formal. ``usage`` is the wording
+    every lane quotes back.
     """
 
     positional: int
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
-    coordinate_kwargs: tuple[str, ...] = ()
-    #: A coordinate kwarg the call *may* carry. ``sum`` is one operator whose
-    #: result shape depends on whether it is there: absent, the dim is reduced
-    #: away; present, it is reduced into the dim the coordinate targets.
-    optional_coordinate_kwargs: tuple[str, ...] = ()
+    lookup_kwargs: tuple[str, ...] = ()
+    #: Kwargs of which the call carries exactly one — ``sum`` takes ``over=``
+    #: (reduce the dim away) or ``by=`` (reduce it into the lookup's target),
+    #: never both and never neither. Members are excluded from the required
+    #: set; their kind still comes from the tuples above.
+    exactly_one_of: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
 
@@ -54,34 +55,33 @@ class Builtin:
     def keywords(self) -> frozenset[str]:
         """Every keyword the call must carry, when they are named at all."""
         return (
-            frozenset(self.dimension_kwargs) | frozenset(self.coordinate_kwargs) | frozenset(self.required_value_kwargs)
-        )
+            frozenset(self.dimension_kwargs) | frozenset(self.lookup_kwargs) | frozenset(self.required_value_kwargs)
+        ) - frozenset(self.exactly_one_of)
 
     @property
     def optional(self) -> frozenset[str]:
         """Every keyword the call may carry but need not."""
-        return frozenset(self.edge_kwargs) | frozenset(self.optional_coordinate_kwargs)
+        return frozenset(self.edge_kwargs) | frozenset(self.exactly_one_of)
 
 
-#: The closed operator set. Two keyword spellings are deliberate. ``sum`` takes
-#: ``group_by`` rather than a bare ``by``: with the grouping folded into
-#: ``sum``, the verb no longer says a regrouping happened, so the keyword has
-#: to — ``sum(x, over=flow, group_by=component)`` reads as what it is. And
-#: ``at`` takes ``onto``, not ``over``: everywhere else ``over=`` is the dim a
-#: operator *consumes*, and this one produces it. One keyword meaning two
-#: directions would be worse than two keywords meaning one each.
+#: The closed operator set. ``by=`` is the one keyword that addresses a lookup,
+#: and a lookup carries its own dimensions, so the sibling kwargs that used to
+#: restate them (``sum``'s ``over=`` beside ``group_by=``, ``at``'s ``onto=``)
+#: are gone — what the two-keyword spelling once said, the name's *kind* now
+#: says, checked at load. ``shift``'s ``by=`` is a number; kinds are
+#: per-operator, which is law 4 doing the disambiguation.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
         1,
-        'sum(<expr>, over=<dim>[, group_by=<coord>])',
+        'sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>)',
         dimension_kwargs=('over',),
-        optional_coordinate_kwargs=('group_by',),
+        lookup_kwargs=('by',),
+        exactly_one_of=('over', 'by'),
     ),
     'at': Builtin(
         1,
-        'at(<expr>, onto=<dim>, by=<coord>)',
-        dimension_kwargs=('onto',),
-        coordinate_kwargs=('by',),
+        'at(<expr>, by=<lookup>)',
+        lookup_kwargs=('by',),
     ),
     'shift': Builtin(
         1,
@@ -114,10 +114,21 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
 
     Arity is a language rule, so it is checked in resolution — the pass every
     consumer goes through — and the same wording is available to any lane that
-    wants to state it again.
+    wants to state it again. A retired kwarg speaks before the generic
+    mismatch: naming the rewrite is the migration story.
     """
     builtin = BUILTINS[name]
     keys = set(kwargs)
+    for key in sorted(keys):
+        if (name, key) in RETIRED_KWARGS:
+            return RETIRED_KWARGS[(name, key)]
+    if builtin.exactly_one_of and len(keys & set(builtin.exactly_one_of)) != 1:
+        alternatives = ' or '.join(f'{k}=' for k in builtin.exactly_one_of)
+        return (
+            f'{name}() takes exactly one of {alternatives} — a lookup carries '
+            f'its own dimensions, so by= leaves over= nothing to add.\n'
+            f'Write: {builtin.usage}'
+        )
     fits = positional == builtin.positional and keys - builtin.optional == builtin.keywords
     return None if fits else f'{name}() expects {builtin.usage}'
 
@@ -127,7 +138,22 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
 #: cycle, so the error *is* the migration story (CONTRIBUTING, "breaking
 #: changes are free").
 RETIRED: dict[str, str] = {
-    'group_sum': 'sum(<expr>, over=<dim>, group_by=<coord>)',
+    'group_sum': 'sum(<expr>, by=<lookup>)',
+}
+
+#: Kwargs that were once part of an operator's signature, and the rewrite. Same
+#: contract as :data:`RETIRED`: the error is the migration story.
+RETIRED_KWARGS: dict[tuple[str, str], str] = {
+    ('sum', 'group_by'): (
+        'sum(group_by=...) was removed — a lookup carries its own dimensions, '
+        'so the over=/group_by= pair collapsed into one kwarg.\n'
+        'Write: sum(<expr>, by=<lookup>), dropping the over=.'
+    ),
+    ('at', 'onto'): (
+        'at(onto=...) was removed — a lookup carries its own dimensions, '
+        'so the onto=/by= pair collapsed into one kwarg.\n'
+        'Write: at(<expr>, by=<lookup>).'
+    ),
 }
 
 
