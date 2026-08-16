@@ -20,7 +20,17 @@ For a parameter declared `dims: [d1, d2]`:
 - a **parquet path**;
 - **any table exposing the Arrow PyCapsule protocol** — polars, pandas,
   pyarrow, duckdb — with columns `d1, d2, value`;
-- an **`int` or `float`** for a 0-D parameter.
+- an **`int` or `float`**, standing for every coordinate the parameter covers;
+- a **`dict`** of label to value, for a parameter over one dimension;
+- a **sequence** — list, tuple, `np.ndarray` — for a parameter over one
+  dimension, positional against that dimension's index.
+
+The last three are for models written out in Python. Each is dense, so each is
+materialised at bind: one number over `(snapshot, generator)` becomes a row per
+pair, and a value that really is constant is better declared `dims: []`. A
+sequence is positional, so the dimension's labels have to come from somewhere
+other than this parameter — the order below decides, and a dimension left to be
+inferred from the parameter tables cannot carry one.
 
 `pd.Series` keeps its dims in an *index* rather than in columns, so it is
 unwrapped first — but only if pandas is already imported, never by importing
