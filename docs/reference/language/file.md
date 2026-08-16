@@ -16,9 +16,10 @@ and `description`:
 | `piecewise` | piecewise-linear curves ([piecewise](piecewise.md)) |
 | `sos` | special-ordered sets ([sos](piecewise.md#sos)) |
 
-Any subset is accepted by `load_model`, but everything that lowers the model —
-`check`, `build`, `solve` and `write` — needs an objective, because there is
-nothing to optimise without one.
+Any subset is accepted, `objective` included: a file with none is a
+**feasibility problem**, and the answer is whether the constraints can be met
+at all. It solves, its variables read back, and `result.objective` is the zero
+the solver was handed.
 
 ## `description`
 
