@@ -29,8 +29,8 @@ The last three are for models written out in Python. Each is dense, so each is
 materialised at bind: one number over `(snapshot, generator)` becomes a row per
 pair, and a value that really is constant is better declared `dims: []`. A
 sequence is positional, so the dimension's labels have to come from somewhere
-other than this parameter — the order below decides, and a dimension left to be
-inferred from the parameter tables cannot carry one.
+other than this parameter — one of the three sources below, which is what fixes
+the order it is positional against.
 
 `pd.Series` keeps its dims in an *index* rather than in columns, so it is
 unwrapped first — but only if pandas is already imported, never by importing
@@ -110,4 +110,4 @@ one dimension is [`solve_over`](../sweeps.md). Both bind through the rules
 above.
 
 The opt-in [linopy lane](../../about/linopy.md#the-same-language-and-the-same-data)
-binds by these same rules, step 4 included.
+binds by these same rules, refusals included.
