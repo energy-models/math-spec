@@ -344,8 +344,12 @@ class Walk:
             return self.op('true' if node.value else 'false'), _ATOM
 
         if isinstance(node, ParameterDefinedNode):
-            dims = list(self.schema.parameters[node.name].dims)
-            return f'{ctx.indexed(self.symbols.name[node.name], dims)} {self.format.prose(" is defined")}', 2
+            block = self.schema.parameters[node.name]
+            indexed = ctx.indexed(self.symbols.name[node.name], list(block.dims))
+            if block.dtype == 'bool':
+                # a bool is the predicate, so there is no word to add — absence reads as false anyway
+                return indexed, _ATOM
+            return f'{indexed} {self.format.prose(" is defined")}', 2
 
         if isinstance(node, VariableDefinedNode):
             dims = list(self.schema.variables[node.name].foreach)
