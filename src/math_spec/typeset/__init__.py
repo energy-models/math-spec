@@ -107,7 +107,7 @@ def typeset(
     ]
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
 
-    blocks = [fmt.note(schema.description)] if schema.description else []
+    blocks = [fmt.note(fmt.escape(schema.description))] if schema.description else []
     if legend:
         blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries()]
         blocks += [fmt.note(text) for text in walk.translation_notes()]

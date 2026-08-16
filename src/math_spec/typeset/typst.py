@@ -24,9 +24,19 @@ _PREAMBLE = """#set page(margin: 2.5cm)
 """
 
 
+#: What Typst reads as markup in text mode, each escaped by a leading
+#: backslash. They are not LaTeX's: ``%`` and ``&`` are ordinary characters
+#: here, while ``*``, ``@`` and ``<`` are not.
+_SPECIALS = frozenset('\\#$*_@`<>~')
+
+
 def _quote(text: str) -> str:
     """A Typst string literal — only the quote and the backslash can bite."""
     return '"' + text.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+
+def _escape(text: str) -> str:
+    return ''.join(f'\\{c}' if c in _SPECIALS else c for c in text)
 
 
 def _raw(text: str) -> str:
@@ -94,6 +104,9 @@ class TypstFormat:
 
     def mono(self, text: str) -> str:
         return _raw(text)
+
+    def escape(self, prose: str) -> str:
+        return _escape(prose)
 
     def math(self, expression: str) -> str:
         return f'${expression}$'

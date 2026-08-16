@@ -145,6 +145,16 @@ class Format(Protocol):
         """A name exactly as the YAML spells it."""
         ...
 
+    def escape(self, prose: str) -> str:
+        """Author prose, made safe for this format's text mode.
+
+        Every other atom escapes as it wraps, so what passes through here is
+        what arrives already being prose — a ``description:``. Not
+        :meth:`prose`, which is words *inside* math, and not :meth:`note`,
+        which is handed generated markup too.
+        """
+        ...
+
     def math(self, expression: str) -> str:
         """Wrap bare math for embedding in prose."""
         ...

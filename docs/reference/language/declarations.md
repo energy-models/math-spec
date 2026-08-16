@@ -6,10 +6,11 @@ it is part of the loaded model, so it reaches everything downstream: the
 [typeset](../typeset.md) legend prints the one on a dimension, parameter or
 variable.
 
-A description is **plain prose, in no notation**. The same words are set by
-every output format and nothing translates between them, so a `$\ell$` that
-reads correctly in LaTeX is broken Typst. Write the thing rather than its
-symbol — "flow on a line", not "flow on line $\ell$".
+A description is **plain prose, in no notation**. Every output format sets the
+same words as text, escaping whatever its own syntax would otherwise read as
+markup — an underscore stays an underscore, and a `$\ell$` prints as those five
+characters rather than as a symbol. Write the thing rather than its symbol —
+"flow on a line", not "flow on line $\ell$".
 
 ## `parameters`
 

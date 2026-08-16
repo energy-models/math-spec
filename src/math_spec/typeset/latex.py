@@ -95,6 +95,9 @@ class LatexFormat:
     def mono(self, text: str) -> str:
         return rf'\texttt{{{_escape(text)}}}'
 
+    def escape(self, prose: str) -> str:
+        return _escape(prose)
+
     def math(self, expression: str) -> str:
         return f'${expression}$'
 

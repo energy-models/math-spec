@@ -96,6 +96,10 @@ class MarkdownFormat:
         """A backtick span — this one lands in prose, not in math."""
         return f'`{text}`'
 
+    def escape(self, prose: str) -> str:
+        """Markdown's text mode *is* prose, so author prose is already in it."""
+        return prose
+
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
         r"""One display block per equation, with the name *outside* the math.
 
