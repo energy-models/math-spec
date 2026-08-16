@@ -70,16 +70,15 @@ class Namespace:
     walk through several stores.
     """
 
-    __slots__ = ('dimensions', 'dtypes', 'labels', 'lookups', 'parameters', 'variables')
+    __slots__ = ('dimensions', 'dtypes', 'lookups', 'parameters', 'variables')
 
     def __init__(
         self,
         variables: Iterable[str],
         parameters: Iterable[str],
         dimensions: Iterable[str],
-        lookups: Mapping[str, tuple[str, str]] | None = None,
+        lookups: Mapping[str, tuple[str, str | None]] | None = None,
         dtypes: Mapping[str, str] | None = None,
-        labels: Mapping[str, str] | None = None,
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
@@ -91,14 +90,21 @@ class Namespace:
         #: rows, and row absence is the structural zero. Empty when a caller
         #: builds a namespace by hand, which only widens what is accepted.
         self.dtypes: dict[str, str] = dict(dtypes or {})
-        #: lookup name -> (over, into) — the groupable kind only. Flat like
-        #: every other store here (law 3): the name alone addresses the map.
-        self.lookups: dict[str, tuple[str, str]] = dict(lookups or {})
-        #: label-space lookup name -> the dim it is over — selection-only,
-        #: targeting no dimension. Kept apart from :attr:`lookups` so that
-        #: naming one in a ``by=`` produces the promotion rewrite rather than
-        #: "does not name a lookup".
-        self.labels: dict[str, str] = dict(labels or {})
+        #: lookup name -> ``(over, into)``, both kinds in one store: ``into`` is
+        #: ``None`` for a label space, which owns its values and targets
+        #: nothing. That is the schema's own discriminator
+        #: (:class:`~lpspec.language.model.LookupBlock` declares exactly one of
+        #: ``into:`` and ``dtype:``), carried rather than re-encoded as two
+        #: dicts — one fact, one home.
+        self.lookups: dict[str, tuple[str, str | None]] = dict(lookups or {})
+
+    def groupable(self) -> dict[str, str]:
+        """The lookups a ``by=`` may name: name -> the dimension it maps into.
+
+        A label space is absent, which is what makes naming one in a ``by=``
+        answerable with the promotion rewrite rather than "no such lookup".
+        """
+        return {n: into for n, (_, into) in self.lookups.items() if into is not None}
 
     @classmethod
     def of(cls, schema: Model, known_variables: Iterable[str] = ()) -> Namespace:
@@ -113,7 +119,7 @@ class Namespace:
             set(schema.variables) | set(known_variables),
             schema.parameters,
             schema.dimensions,
-            {n: (lk.over, lk.into) for n, lk in schema.lookups.items() if lk.into is not None},
+            {n: (lk.over, lk.into) for n, lk in schema.lookups.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
@@ -126,7 +132,6 @@ class Namespace:
                 },
                 **{n: lk.dtype for n, lk in schema.lookups.items() if lk.dtype is not None},
             },
-            {n: lk.over for n, lk in schema.lookups.items() if lk.into is None},
         )
 
     def kind(self, name: str) -> str | None:
@@ -137,13 +142,9 @@ class Namespace:
             return 'parameter'
         if name in self.dimensions:
             return 'dimension'
-        if name in self.lookups or name in self.labels:
+        if name in self.lookups:
             return 'lookup'
         return None
-
-    def over_of(self, lookup: str) -> str:
-        """The dimension *lookup* maps out of, whichever kind it is."""
-        return self.lookups[lookup][0] if lookup in self.lookups else self.labels[lookup]
 
     def _unknown(self, name: str, context: str, *, allow_dims: bool) -> str:
         shown = (
@@ -394,8 +395,9 @@ def _resolve_lookup_ref(
         errors.append(f'{context}: {operator}({key}=...) must name a lookup.')
         return value
     name = value.name
-    if name in ns.labels:
-        over = ns.labels[name]
+    groupable = ns.groupable()
+    if name in ns.lookups and name not in groupable:
+        over, _ = ns.lookups[name]
         errors.append(
             f'{context}: {operator}({key}={name}): '
             f"'{name}' is a label space over '{over}', not a groupable lookup — "
@@ -407,24 +409,23 @@ def _resolve_lookup_ref(
             f'    {name}_of: {{over: {over}, into: {name}}}'
         )
         return value
-    if name not in ns.lookups:
+    if name not in groupable:
         if name in ns.dimensions:
-            into_here = sorted(n for n, (_, into) in ns.lookups.items() if into == name)
+            into_here = sorted(n for n, into in groupable.items() if into == name)
             hint = f"  Lookups into '{name}': {into_here}" if into_here else f"  No lookup maps into '{name}'."
             errors.append(
                 f"{context}: {operator}({key}={name}): '{name}' is a dimension, and "
                 f'{key}= takes a lookup — the named map out of a dimension.\n{hint}'
             )
         else:
-            listing = f'  Lookups: {sorted(ns.lookups)}' if ns.lookups else '  No lookups are declared.'
+            listing = f'  Lookups: {sorted(groupable)}' if groupable else '  No lookups are declared.'
             errors.append(
                 f'{context}: {operator}({key}={name}) does not name a lookup.\n{listing}\n'
                 f"Declare it under 'lookups:' — {name}: {{over: <the dimension it maps "
                 f'out of>, into: <the dimension its values are labels of>}}.'
             )
         return value
-    over, into = ns.lookups[name]
-    return LookupNode(name, dimension=over, into=into)
+    return LookupNode(name, dimension=ns.lookups[name][0], into=groupable[name])
 
 
 # ---------------------------------------------------------------------------
@@ -584,7 +585,7 @@ def _resolve_where(
                 )
                 return node
             case 'lookup':
-                return LookupDefinedNode(node.name, ns.over_of(node.name))
+                return LookupDefinedNode(node.name, ns.lookups[node.name][0])
             case 'variable':
                 if node.name == self_variable:
                     errors.append(
@@ -601,8 +602,8 @@ def _resolve_where(
     if isinstance(node, UnresolvedComparisonNode):
         value = node.value
         if not node.quoted and isinstance(value, str) and (rhs_kind := ns.kind(value)) is not None:
-            if rhs_kind == 'lookup' and ns.kind(node.name) == 'lookup' and ns.over_of(node.name) == ns.over_of(value):
-                return LookupPairComparisonNode(node.name, value, ns.over_of(node.name), node.op)
+            if rhs_kind == 'lookup' and node.name in ns.lookups and ns.lookups[node.name][0] == ns.lookups[value][0]:
+                return LookupPairComparisonNode(node.name, value, ns.lookups[node.name][0], node.op)
             errors.append(_declared_rhs_error(context, node, value, rhs_kind))
             return node
 
@@ -620,7 +621,7 @@ def _resolve_where(
             case 'dimension':
                 return DimensionComparisonNode(node.name, node.op, value)
             case 'lookup':
-                return LookupComparisonNode(node.name, ns.over_of(node.name), node.op, value)
+                return LookupComparisonNode(node.name, ns.lookups[node.name][0], node.op, value)
             case 'variable':
                 errors.append(
                     f"{context}: where references variable '{node.name}'. A where "

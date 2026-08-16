@@ -109,6 +109,12 @@ class LookupBlock(_StrictBlock):
 
           lookups:
             period: {over: snapshot, dtype: int}
+
+    ``values:`` gives the map in the file — ``{label of over: value}`` — for a
+    relation small enough to read, the way a dimension's own ``values:`` does.
+    A label it omits maps to null, which is the partial case a lookup already
+    allows. Without it the map arrives as a column of the ``over`` dimension's
+    index at bind time (SPEC §8), and that stays the way to supply a large one.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
@@ -116,6 +122,7 @@ class LookupBlock(_StrictBlock):
     over: str
     into: str | None = None
     dtype: str | None = None
+    values: dict[Any, Any] | None = None
     description: str | None = None
 
     @field_validator('dtype')
@@ -660,6 +667,71 @@ class Model(_StrictBlock):
         """The label-space lookups over *dimension* — selection only, never an axis."""
         return {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.into is None}
 
+    def declared_index(self, dimension: str) -> dict[str, list[Any]] | None:
+        """*dimension*'s index as the file declares it, or ``None`` if it does not.
+
+        Columns are the label plus one per lookup over the dimension that
+        declares ``values:`` — the same shape a caller passes at bind time, so
+        neither lane learns a second way to receive one. Labels come from the
+        dimension's own ``values:`` where it has them, and otherwise from the
+        maps themselves, first appearance ordered; a label a map omits is null,
+        the partial case (SPEC §2).
+
+        **Columns rather than a frame** because ``language/`` may not import a
+        dataframe library: a typeset renderer reaches this module and would pay
+        for polars, which ``test_architecture`` forbids. Each lane builds its
+        own frame from this.
+
+        Returns:
+            ``{dimension: labels, lookup: values, …}``, or ``None`` where no
+            lookup over *dimension* declares its values — leaving every
+            existing model's index to arrive exactly as it does now.
+        """
+        declared = {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.values is not None}
+        if not declared:
+            return None
+        block = self.dimensions.get(dimension)
+        if block is not None and block.values is not None:
+            labels = list(block.values)
+        else:
+            labels = list(dict.fromkeys(key for lk in declared.values() for key in lk.values or {}))
+        index: dict[str, list[Any]] = {dimension: labels}
+        for name, lk in declared.items():
+            index[name] = [(lk.values or {}).get(label) for label in labels]
+        return index
+
+    def _declared_lookup_errors(self, name: str, lookup: LookupBlock) -> list[str]:
+        """What a lookup's inline ``values:`` can be wrong about, without data.
+
+        Law 2: both sides are in the file, so containment is decided here
+        rather than at bind time — which is the whole reason declaring the map
+        beats supplying it. Only checked against a target that declares its own
+        labels; against one bound at run time the check stays where it was.
+        """
+        if lookup.values is None:
+            return []
+        errors = []
+        over = self.dimensions.get(lookup.over)
+        if over is not None and over.values is not None:
+            strangers = [k for k in lookup.values if k not in set(over.values)]
+            if strangers:
+                errors.append(
+                    f"Lookup '{name}' declares values for {strangers!r}, which are not "
+                    f"labels of '{lookup.over}' ({over.values!r}). A lookup maps the labels "
+                    f'its dimension has.'
+                )
+        target = self.dimensions.get(lookup.into) if lookup.into is not None else None
+        if target is not None and target.values is not None:
+            known = set(target.values)
+            strangers = sorted({repr(v) for v in lookup.values.values() if v is not None and v not in known})
+            if strangers:
+                errors.append(
+                    f"Lookup '{name}' maps to {', '.join(strangers)}, which are not labels of "
+                    f"'{lookup.into}' ({target.values!r}). Every value must be a declared "
+                    f"'{lookup.into}' label — otherwise sum(by={name}) drops those terms."
+                )
+        return errors
+
     @model_validator(mode='before')
     @classmethod
     def _refuse_objectives(cls, data: Any) -> Any:
@@ -819,6 +891,7 @@ class Model(_StrictBlock):
                     errors.append(
                         f"Lookup '{lname}' maps '{lk.over}' into itself. A lookup maps into a different dimension."
                     )
+            errors.extend(self._declared_lookup_errors(lname, lk))
 
         for vname, vdef in self.variables.items():
             for side in ('lower', 'upper'):
