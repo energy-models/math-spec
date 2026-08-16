@@ -50,7 +50,7 @@ Nothing on this path imports pandas, xarray or linopy on your behalf.
 ## Where coordinates come from
 
 **Master coordinates are resolved per dimension before any parameter loads**,
-highest precedence first:
+from exactly one of:
 
 1. **a key in `sources`** — a table carrying a column of that name, or a
    parquet path. The first occurrence of each value is its position;
@@ -60,6 +60,14 @@ highest precedence first:
 3. **`values:` in the YAML** — the dimension's own, plus any
    [lookup](dimensions.md#values-puts-a-small-map-in-the-file) over it that
    declares one, assembled into the index a caller would otherwise pass.
+
+**3 is exclusive of 1 and 2 rather than outranked by them.** A dimension the
+file declares and the caller also supplies is refused at bind, naming the
+declaration and the key that collided with it. The file owns that dimension's
+index or the caller does, never both — so there is no precedence to remember,
+and no way for the file a reviewer reads to describe a relation the caller
+quietly replaced. A model whose label set varies from run to run should not
+declare one. Between 1 and 2, both being the caller's, `sources` wins.
 
 There is no fourth step. A dimension none of the three supplies raises, and
 labels are never read out of the parameters: they would *be* the definition,
@@ -84,6 +92,7 @@ Both lanes bind by these rules.
 | a lookup value that is not a label of its target | |
 | a dimension carrying lookups with no index | |
 | a dimension nothing can supply labels for | names both ways to fix it |
+| a dimension the file declares and the caller also supplies | names the declaration and the colliding key |
 
 ### Accepted
 

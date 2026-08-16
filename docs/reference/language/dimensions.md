@@ -103,9 +103,22 @@ where it is a label space.
 
 **Where the target declares its values too, the containment check runs at
 load** rather than at bind, which is the reason to prefer declaring a small map
-over supplying it. `coords=` still outranks it, exactly as it outranks a
-dimension's `values:` ([data binding](data.md)), so a declared map is a default
-and not a lock.
+over supplying it.
+
+**A declaration is exclusive, not a default.** A dimension's index has one
+home: either the file declares it — the dimension's own `values:`, or the
+`values:` of a lookup over it — or the caller supplies it under that
+dimension's key in `sources` or `coords=`. Passing both is refused at bind,
+naming the declaration and the key that collided with it
+([data binding](data.md)). There is no precedence to remember, and no way for
+the file a reviewer reads to describe a relation the caller quietly replaced.
+
+The unit is the dimension rather than the column, because the two halves are
+not independent: where the dimension declares no `values:` of its own, its
+labels are *derived* from the maps, so taking half a declaration changes what
+the other half means. A model whose label set varies from run to run should
+therefore not declare one — the declaration is precisely the claim that the set
+is fixed.
 
 ### Both kinds
 
