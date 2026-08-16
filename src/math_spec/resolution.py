@@ -43,6 +43,9 @@ from lpspec.language.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
+    LookupComparisonNode,
+    LookupDefinedNode,
+    LookupPairComparisonNode,
     NotNode,
     OrNode,
     ParameterComparisonNode,
@@ -114,20 +117,33 @@ class Namespace:
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
+                # A targeted lookup's values are labels of its target, so the
+                # target's dtype is what a literal is checked against.
+                **{
+                    n: schema.dimensions[lk.into].dtype
+                    for n, lk in schema.lookups.items()
+                    if lk.into is not None and lk.into in schema.dimensions
+                },
                 **{n: lk.dtype for n, lk in schema.lookups.items() if lk.dtype is not None},
             },
             {n: lk.over for n, lk in schema.lookups.items() if lk.into is None},
         )
 
     def kind(self, name: str) -> str | None:
-        """``'variable'`` | ``'parameter'`` | ``'dimension'`` | ``None``."""
+        """``'variable'`` | ``'parameter'`` | ``'dimension'`` | ``'lookup'`` | ``None``."""
         if name in self.variables:
             return 'variable'
         if name in self.parameters:
             return 'parameter'
         if name in self.dimensions:
             return 'dimension'
+        if name in self.lookups or name in self.labels:
+            return 'lookup'
         return None
+
+    def over_of(self, lookup: str) -> str:
+        """The dimension *lookup* maps out of, whichever kind it is."""
+        return self.lookups[lookup][0] if lookup in self.lookups else self.labels[lookup]
 
     def _unknown(self, name: str, context: str, *, allow_dims: bool) -> str:
         shown = (
@@ -239,6 +255,14 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
                     f"'foreach:', in operator arguments (sum(x, over={node.name})), "
                     f'and in where-comparisons — to use its coordinates as data, '
                     f'declare a parameter over it.'
+                )
+                return node
+            case 'lookup':
+                errors.append(
+                    f"{context}: '{node.name}' is a lookup, and a lookup is structure "
+                    f'rather than data, so it is not a value in an expression. A lookup '
+                    f'appears in a helper (sum(x, by={node.name})) and in a where — to '
+                    f'carry numbers along this dimension, declare a parameter over it.'
                 )
                 return node
             case _:
@@ -512,6 +536,13 @@ def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str
         )
     if kind == 'variable':
         return f'{context}: {shown} compares against variable {value!r}. A where mask is built before variables exist.'
+    if kind == 'lookup':
+        return (
+            f'{context}: {shown} compares {node.name!r} against lookup {value!r}, and the '
+            f'two are over different dimensions — there is no row carrying both, so the '
+            f'comparison has nothing to test. Two lookups may be compared only where they '
+            f'map out of the same dimension.'
+        )
     return (
         f'{context}: {shown} compares against dimension {value!r}, which the RHS reads '
         f'as the literal coordinate {value!r} — so the predicate tests one dimension '
@@ -527,7 +558,18 @@ def _resolve_where(
     if isinstance(node, BooleanLiteralNode):
         return node
 
-    if isinstance(node, (ParameterComparisonNode, DimensionComparisonNode, ParameterDefinedNode, VariableDefinedNode)):
+    if isinstance(
+        node,
+        (
+            ParameterComparisonNode,
+            DimensionComparisonNode,
+            LookupComparisonNode,
+            LookupPairComparisonNode,
+            LookupDefinedNode,
+            ParameterDefinedNode,
+            VariableDefinedNode,
+        ),
+    ):
         return node
 
     if isinstance(node, UnresolvedNameNode):
@@ -541,6 +583,8 @@ def _resolve_where(
                     f'Remove it, or compare it: where: "{node.name} > 0".'
                 )
                 return node
+            case 'lookup':
+                return LookupDefinedNode(node.name, ns.over_of(node.name))
             case 'variable':
                 if node.name == self_variable:
                     errors.append(
@@ -557,11 +601,13 @@ def _resolve_where(
     if isinstance(node, UnresolvedComparisonNode):
         value = node.value
         if not node.quoted and isinstance(value, str) and (rhs_kind := ns.kind(value)) is not None:
+            if rhs_kind == 'lookup' and ns.kind(node.name) == 'lookup' and ns.over_of(node.name) == ns.over_of(value):
+                return LookupPairComparisonNode(node.name, value, ns.over_of(node.name), node.op)
             errors.append(_declared_rhs_error(context, node, value, rhs_kind))
             return node
 
         kind = ns.kind(node.name)
-        if kind in ('parameter', 'dimension'):
+        if kind in ('parameter', 'dimension', 'lookup'):
             typed = _typed_literal(node, ns.dtypes.get(node.name), context, errors)
             if typed is None:
                 return node
@@ -573,6 +619,8 @@ def _resolve_where(
                 return ParameterComparisonNode(node.name, node.op, value)
             case 'dimension':
                 return DimensionComparisonNode(node.name, node.op, value)
+            case 'lookup':
+                return LookupComparisonNode(node.name, ns.over_of(node.name), node.op, value)
             case 'variable':
                 errors.append(
                     f"{context}: where references variable '{node.name}'. A where "

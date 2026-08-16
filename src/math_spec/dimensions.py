@@ -60,6 +60,9 @@ from lpspec.language.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
+    LookupComparisonNode,
+    LookupDefinedNode,
+    LookupPairComparisonNode,
     NotNode,
     OrNode,
     ParameterComparisonNode,
@@ -312,6 +315,14 @@ def _check_where_dims(
         if node.name not in frame:
             raise DimensionError(
                 f"{context}: where-comparison on dimension '{node.name}', which is not in the frame {sorted(frame)}."
+            )
+    elif isinstance(node, (LookupComparisonNode, LookupPairComparisonNode, LookupDefinedNode)):
+        if node.over not in frame:
+            raise DimensionError(
+                f"{context}: where-comparison on lookup '{node.name}', which is over "
+                f"dimension '{node.over}' — not in the frame {sorted(frame)}. A lookup is "
+                f'read on the dim it maps out of, so that dim has to be one the '
+                f'declaration ranges over.'
             )
     elif isinstance(node, NotNode):
         _check_where_dims(node.operand, schema, frame, context)

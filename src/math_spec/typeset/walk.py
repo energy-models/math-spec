@@ -37,6 +37,9 @@ from lpspec.language.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
+    LookupComparisonNode,
+    LookupDefinedNode,
+    LookupPairComparisonNode,
     NotNode,
     OrNode,
     ParameterComparisonNode,
@@ -355,6 +358,20 @@ class Walk:
 
         if isinstance(node, DimensionComparisonNode):
             return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+
+        if isinstance(node, LookupComparisonNode):
+            applied = self.format.apply(self.format.upright(node.name), ctx.subscript(node.over))
+            return f'{applied} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+
+        if isinstance(node, LookupPairComparisonNode):
+            index = ctx.subscript(node.over)
+            left = self.format.apply(self.format.upright(node.name), index)
+            right = self.format.apply(self.format.upright(node.other), index)
+            return f'{left} {self.op(_PREDICATES[node.op])} {right}', 2
+
+        if isinstance(node, LookupDefinedNode):
+            applied = self.format.apply(self.format.upright(node.name), ctx.subscript(node.over))
+            return f'{applied} {self.format.prose(" is defined")}', 2
 
         if isinstance(node, NotNode):
             return f'{self.op("not")} {self.where(node.operand, ctx, need=2)}', 2

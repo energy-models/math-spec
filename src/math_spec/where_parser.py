@@ -98,6 +98,51 @@ class DimensionComparisonNode:
 
 
 @dataclass
+class LookupComparisonNode:
+    """Compare a lookup's values against a literal — ``period_of == 2030``.
+
+    ``over`` is the dimension the lookup maps out of, copied off the
+    declaration during resolution so the frame check and both lanes read it
+    here rather than looking the lookup up again.
+    """
+
+    name: str
+    over: str
+    op: PredicateOperator
+    value: float | str | datetime.date
+
+
+@dataclass
+class LookupPairComparisonNode:
+    """Compare two lookups over one dimension — ``from != to``.
+
+    The one comparison whose both sides are structure: two maps out of the
+    same dimension, tested row by row on that dimension's own table. Over
+    different dims there is no row to compare them on, which resolution
+    refuses.
+    """
+
+    name: str
+    other: str
+    over: str
+    op: PredicateOperator
+
+
+@dataclass
+class LookupDefinedNode:
+    """True where the named lookup has a value — the partial-lookup case.
+
+    A lookup may be partial: a null says the label belongs to no group (a
+    generator on no bus, a line with one open end). This is how a declaration
+    asks for the labels that *do* map, spelled as a bare name exactly as a
+    parameter's definedness is.
+    """
+
+    name: str
+    over: str
+
+
+@dataclass
 class NotNode:
     operand: WhereNode
 
@@ -122,6 +167,9 @@ WhereNode = (
     | VariableDefinedNode
     | ParameterComparisonNode
     | DimensionComparisonNode
+    | LookupComparisonNode
+    | LookupPairComparisonNode
+    | LookupDefinedNode
     | NotNode
     | AndNode
     | OrNode
