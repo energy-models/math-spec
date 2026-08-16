@@ -146,6 +146,14 @@ class Namespace:
             return 'lookup'
         return None
 
+    def over_of(self, lookup: str) -> str:
+        """The dimension *lookup* maps out of, whichever kind it is."""
+        return self.lookups[lookup][0]
+
+    def into_of(self, lookup: str) -> str | None:
+        """The dimension *lookup*'s values are labels of, ``None`` for a label space."""
+        return self.lookups[lookup][1]
+
     def _unknown(self, name: str, context: str, *, allow_dims: bool) -> str:
         shown = (
             [('Parameters', self.parameters), ('Dimensions', self.dimensions)]
@@ -539,10 +547,10 @@ def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str
         return f'{context}: {shown} compares against variable {value!r}. A where mask is built before variables exist.'
     if kind == 'lookup':
         return (
-            f'{context}: {shown} compares {node.name!r} against lookup {value!r}, and the '
-            f'two are over different dimensions — there is no row carrying both, so the '
-            f'comparison has nothing to test. Two lookups may be compared only where they '
-            f'map out of the same dimension.'
+            f'{context}: {shown} compares {node.name!r} against lookup {value!r}, and a '
+            f'lookup is structure rather than data — every other comparison tests a name '
+            f'against a literal. A lookup on the right-hand side is the one exception, and '
+            f'only where the left-hand side is a lookup sharing its dimension and its target.'
         )
     return (
         f'{context}: {shown} compares against dimension {value!r}, which the RHS reads '
@@ -551,6 +559,43 @@ def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str
         f'dimensions to each other is not in the language; if {value!r} is a coordinate '
         f'rather than the dimension, rename one of the two.'
     )
+
+
+def _label_set_of(ns: Namespace, lookup: str) -> str:
+    """Where a lookup's values come from, as a refusal reads it."""
+    into = ns.into_of(lookup)
+    return f"'{lookup}' (mapping into '{into}')" if into is not None else f"'{lookup}' (a label space of its own)"
+
+
+def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str, ns: Namespace) -> str | None:
+    """Why two lookups may not be compared, or ``None`` where they may.
+
+    Two conditions, and each catches a *silent* wrong answer rather than an
+    obvious one. They must map out of the same dimension, or no row carries
+    both. And their values must come from the same label set, or no value of
+    one can equal a value of the other — a comparison the eager lane answers
+    ``True`` everywhere for ``!=`` while polars refuses the Enum mismatch, so
+    without this the two lanes disagree on a model both accepted. A label
+    space owns its values, so it is never the other side of one.
+    """
+    shown = f"'{node.name} {node.op} {other}'"
+    left_over, right_over = ns.over_of(node.name), ns.over_of(other)
+    if left_over != right_over:
+        return (
+            f'{context}: {shown} compares lookups over different dimensions '
+            f"('{left_over}' and '{right_over}') — there is no row carrying both, so the "
+            f'comparison has nothing to test. Two lookups may be compared only where they '
+            f'map out of the same dimension.'
+        )
+    left, right = ns.into_of(node.name), ns.into_of(other)
+    if left is None or right is None or left != right:
+        return (
+            f'{context}: {shown} compares {_label_set_of(ns, node.name)} with '
+            f'{_label_set_of(ns, other)}. No value of one is ever a value of the other, so '
+            f'the predicate can only mask everything out. Two lookups may be compared only '
+            f'where they map into the same dimension.'
+        )
+    return None
 
 
 def _resolve_where(
@@ -602,8 +647,11 @@ def _resolve_where(
     if isinstance(node, UnresolvedComparisonNode):
         value = node.value
         if not node.quoted and isinstance(value, str) and (rhs_kind := ns.kind(value)) is not None:
-            if rhs_kind == 'lookup' and node.name in ns.lookups and ns.lookups[node.name][0] == ns.lookups[value][0]:
-                return LookupPairComparisonNode(node.name, value, ns.lookups[node.name][0], node.op)
+            if rhs_kind == 'lookup' and ns.kind(node.name) == 'lookup':
+                if (refusal := _lookup_pair_error(context, node, value, ns)) is not None:
+                    errors.append(refusal)
+                    return node
+                return LookupPairComparisonNode(node.name, value, ns.over_of(node.name), node.op)
             errors.append(_declared_rhs_error(context, node, value, rhs_kind))
             return node
 
