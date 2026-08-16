@@ -1,6 +1,6 @@
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
-This is schema-level expansion (SPEC §12.4): a ``piecewise:`` block becomes
+This is schema-level expansion (the piecewise rules): a ``piecewise:`` block becomes
 ordinary affine declarations *before* anything is built, so both backends —
 eager and relational — receive identical schemas and stay differential-
 testable. Formulations never enter the plan as expression nodes.

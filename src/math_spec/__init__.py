@@ -3,7 +3,7 @@
 Everything from the bytes on disk to a fully typed, dim-checked core AST —
 the file reader, the schema, the two grammars, expansion, resolution, the dim
 rules, and the load-time pass that runs them all. The AST this package
-produces is the narrow waist of docs/ARCHITECTURE.md: everything downstream
+produces is the narrow waist of docs/about/architecture.md: everything downstream
 reads it, and nothing downstream is visible from here.
 
 **The directory is the rule, in the direction the engine's is not.** Hard rule

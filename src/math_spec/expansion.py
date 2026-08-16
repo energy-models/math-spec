@@ -9,7 +9,7 @@ Two mechanisms, one substitution engine, zero global state:
 - **Named sub-expressions**: the YAML ``expressions:`` block maps a name to
   an expression string. Referencing the name splices in the parsed subtree.
   Substitution is only half of what the block means, though: a named
-  expression has fixed dims and is readable after a solve (SPEC §3), which a
+  expression has fixed dims and is readable after a solve (the rules for named expressions), which a
   macro — parameterised, dimensionless until called — never is.
 
 - **Macros**: the YAML ``macros:`` block declares parameterised expression

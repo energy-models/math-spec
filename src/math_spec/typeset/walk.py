@@ -70,7 +70,7 @@ _PREDICATES = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>'
 
 
 #: Edge policy -> the operator pair that renders it, backward then forward.
-#: Three policies get three spellings because §7's three are three different
+#: Three policies get three spellings because they are three different
 #: equations at the boundary — the vacated row dropped, wrapped, or filled.
 _TRANSLATIONS = {
     'plain': ('minus', 'plus'),
@@ -302,7 +302,7 @@ class Walk:
         return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
 
     def _step(self, by: int, edge: ArithmeticNode | None) -> _Step:
-        """Which of §7's three edge policies this ``shift`` asked for.
+        """Which of the three edge policies this ``shift`` asked for.
 
         ``edge='wrap'`` is the language's one keyword and arrives as an
         :class:`EdgeNode`; a number in the same position stays a

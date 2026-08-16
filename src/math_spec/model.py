@@ -68,14 +68,14 @@ class _StrictBlock(BaseModel):
         return f"unknown key '{key}' in {label}. {did_you_mean(key, known, label='Valid keys')}"
 
 
-#: The dtypes a dimension index may declare (SPEC §2). The one home of the
+#: The dtypes a dimension index may declare (the declaration rules). The one home of the
 #: vocabulary: both dtype validators read it, and ``tests/test_architecture.py``
 #: pins the engine's empty-index dtype table (``relational/frames.py``) to the
 #: same set — a test rather than an import, because the fence keeps the engine
 #: from reaching the language.
 DIMENSION_DTYPES = frozenset({'float', 'int', 'str', 'datetime'})
 
-#: The domains a variable may declare (SPEC §2). Matches the plan's
+#: The domains a variable may declare (the declaration rules). Matches the plan's
 #: ``VariableType`` vocabulary (``relational/plan.py``), pinned by a test for
 #: the same fence reason as the dtype table above.
 VARIABLE_DOMAINS = frozenset({'continuous', 'integer', 'binary'})
@@ -90,7 +90,7 @@ def _one_of(value: str, allowed: frozenset[str] | set[str], field: str) -> str:
 
 
 class LookupBlock(_StrictBlock):
-    """A named single-valued map out of a dimension (SPEC §2).
+    """A named single-valued map out of a dimension (the declaration rules).
 
     Two kinds, told apart by which field is set:
 
@@ -114,7 +114,8 @@ class LookupBlock(_StrictBlock):
     relation small enough to read, the way a dimension's own ``values:`` does.
     A label it omits maps to null, which is the partial case a lookup already
     allows. Without it the map arrives as a column of the ``over`` dimension's
-    index at bind time (SPEC §8), and that stays the way to supply a large one.
+    index at bind time (the data-binding rules), and that stays the way to
+    supply a large one.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
@@ -419,7 +420,7 @@ class PiecewiseLink(_StrictBlock):
 #: ``lp`` for the second.
 PIECEWISE_METHODS = {
     'adjacency': 'a binary per segment, and a row making the two nonzero weights neighbours',
-    'sos2': 'the same weights, restricted by a set the sink branches on (SPEC §4.1)',
+    'sos2': 'the same weights, restricted by a set the sink branches on (the sos rules)',
     'convex': 'nothing — the weights range over the hull, which is a pure LP',
 }
 
@@ -583,7 +584,7 @@ def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any
     """Run *validate*, raising this package's exception tree.
 
     Pydantic's ``ValidationError`` carries an ``input_value=`` dump and a link
-    to its own docs, neither of which is the type ``docs/api.md`` tells a
+    to its own docs, neither of which is the type ``docs/reference/api.md`` tells a
     caller to catch. Both of :class:`Model`'s validating doors go through here
     so they cannot answer differently.
 
@@ -675,7 +676,7 @@ class Model(_StrictBlock):
         neither lane learns a second way to receive one. Labels come from the
         dimension's own ``values:`` where it has them, and otherwise from the
         maps themselves, first appearance ordered; a label a map omits is null,
-        the partial case (SPEC §2).
+        the partial case (the declaration rules).
 
         **Columns rather than a frame** because ``language/`` may not import a
         dataframe library: a typeset renderer reaches this module and would pay

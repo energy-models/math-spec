@@ -8,7 +8,8 @@ side), so the AST reaching either backend holds no unresolved names.
 
 Doing this once here is what makes scoping identical across the lanes by
 construction rather than by test: a backend that resolves for itself is one
-that can build a model the other refuses. SPEC §5.3 carries the rules.
+that can build a model the other refuses. The name-resolution rules live in
+the language reference.
 
 The namespace is flat and collisions are load errors; macro formals are the one
 scope, and may not collide with a declared dimension.
@@ -341,7 +342,8 @@ def _resolve_edge(
     is a typo rather than a lookup and nothing could make ``edge=usual`` mean
     anything. The keyword must still be quoted — a bare ``edge=wrap`` would make
     ``over=wrap`` and ``edge='wrap'`` the same token meaning two things in one
-    call, and quoting is how the language says "literal, not a name" (§6.1).
+    call, and quoting is how the language says "literal, not a name" (the
+    where-string rules).
     """
     if isinstance(value, EdgeNode):
         return value

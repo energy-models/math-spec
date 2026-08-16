@@ -4,7 +4,7 @@
 the resolved core AST with no data bound, which is what makes ``lps.check()``
 a real gate rather than a syntax pass, and it is the one admissibility rule
 that is a **scope choice** rather than a consequence of streaming
-(docs/design/ceiling.md).
+(docs/about/ceiling.md).
 
 That is why it lives here and not in ``lowering.py``. Degree is a property of
 the *language*, not of any plan — the ceiling doc says so in as many words —
@@ -65,13 +65,13 @@ def carries_variable(node: ExpressionNode) -> bool:
     if isinstance(node, KeywordNode):
         msg = (
             f'KeywordNode({node.value!r}) reached the degree check. A quoted keyword is '
-            f'consumed by its kwarg during resolution (docs/ARCHITECTURE.md hard rule 1).'
+            f'consumed by its kwarg during resolution (docs/about/architecture.md hard rule 1).'
         )
         raise AssertionError(msg)
     if isinstance(node, NameNode):
         msg = (
             f'NameNode({node.name!r}) reached the degree check. Expressions must go '
-            f'through resolution.expression_of() first (docs/ARCHITECTURE.md hard rule 1).'
+            f'through resolution.expression_of() first (docs/about/architecture.md hard rule 1).'
         )
         raise AssertionError(msg)
     if isinstance(node, (UnaryOperatorNode, BinaryOperatorNode, ComparisonNode, FunctionCallNode)):
@@ -94,14 +94,14 @@ def check_binary(node: BinaryOperatorNode, context: str | None = None) -> None:
         raise LanguageError(
             f"{where}operator '{node.op}' is not in the language. Multiply the "
             f'term out, or precompute it as a parameter — a variable base would '
-            f'make the model nonlinear (see docs/design/ceiling.md).'
+            f'make the model nonlinear (see docs/about/ceiling.md).'
         )
     if node.op == '*' and carries_variable(node.left) and carries_variable(node.right):
         raise LanguageError(
             f'{where}both factors of a product contain variables, which '
             f'is degree 2. Multiply the variable by a parameter instead, or '
             f'model the curve with a piecewise: block — see '
-            f'docs/design/ceiling.md.'
+            f'docs/about/ceiling.md.'
         )
     if node.op == '/' and carries_variable(node.right):
         raise LanguageError(
