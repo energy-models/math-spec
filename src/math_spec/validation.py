@@ -49,7 +49,7 @@ from lpspec.language.resolution import Namespace, resolve_expression, resolve_wh
 from lpspec.language.where_parser import parse_where
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
 
 def load_model(
@@ -125,7 +125,7 @@ def validate_expressions(
     ns = Namespace.of(schema, known_variables)
     errors: list[str] = []
 
-    _check_dimension_values(schema, errors)
+    _check_declared_values(schema, errors)
 
     for mname, macro in schema.macros.items():
         context = f"Macro '{mname}'"
@@ -215,23 +215,48 @@ _DTYPE_TYPES: dict[str, tuple[type, ...]] = {
 }
 
 
-def _check_dimension_values(schema: Model, errors: list[str]) -> None:
-    """Reject a declared coordinate that is not the dtype the file declares.
+def _mistyped_labels(lead: str, dtype: str, labels: Iterable[Any]) -> Iterator[str]:
+    """Every label in *labels* that is not *dtype*, as its own refusal.
 
     YAML resolves unquoted scalars by shape, and a coerced label does not join
     against the user's data — the rows vanish, and row absence is the structural
-    zero, so the model solves a smaller problem without a word.
+    zero, so the model solves a smaller problem without a word. *lead* names the
+    position, so one wording serves every place a label can be written.
+    """
+    accepted = _DTYPE_TYPES[dtype]
+    return (
+        f"{lead} {label!r} has type {type(label).__name__}, but dtype is '{dtype}'.\n"
+        f'YAML resolves unquoted scalars by shape (2024-01-01 → date, '
+        f'12:30 → int) — quote the label, or declare the dtype it really is.'
+        for label in labels
+        if isinstance(label, bool) or not isinstance(label, accepted)
+    )
+
+
+def _check_declared_values(schema: Model, errors: list[str]) -> None:
+    """Reject a declared label that is not the dtype the file declares.
+
+    Two positions write labels. A dimension's own ``values:`` is one. A
+    lookup's inline map is the other, on both sides: its keys are labels of the
+    dimension it is over, and its values are labels of the set it maps into —
+    the target dimension's, or its own where it is a label space. Declaring the
+    map puts both sides in the file, so law 2 puts the check here rather than at
+    bind time, where only the target side would ever have reached it.
     """
     for dname, ddef in schema.dimensions.items():
-        accepted = _DTYPE_TYPES[ddef.dtype]
-        errors.extend(
-            f"Dimension '{dname}': value {value!r} has type "
-            f"{type(value).__name__}, but dtype is '{ddef.dtype}'.\n"
-            f'YAML resolves unquoted scalars by shape (2024-01-01 → date, '
-            f'12:30 → int) — quote the label, or declare the dtype it really is.'
-            for value in ddef.values or ()
-            if isinstance(value, bool) or not isinstance(value, accepted)
-        )
+        errors.extend(_mistyped_labels(f"Dimension '{dname}': value", ddef.dtype, ddef.values or ()))
+
+    for lname, lookup in schema.lookups.items():
+        if lookup.values is None:
+            continue
+        over = schema.dimensions.get(lookup.over)
+        if over is not None:
+            errors.extend(_mistyped_labels(f"Lookup '{lname}': key", over.dtype, lookup.values))
+        target = schema.dimensions.get(lookup.into) if lookup.into is not None else None
+        dtype = target.dtype if target is not None else lookup.dtype
+        if dtype is not None:
+            mapped = [label for label in lookup.values.values() if label is not None]
+            errors.extend(_mistyped_labels(f"Lookup '{lname}': value", dtype, mapped))
 
 
 def _parse_expand(
