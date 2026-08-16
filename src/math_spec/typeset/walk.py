@@ -79,6 +79,9 @@ _TRANSLATIONS = {
 }
 
 
+PRIME = "'"
+
+
 def _amount(node: ArithmeticNode) -> int | str:
     """``shift``'s ``by=``: a signed number, or the name of a parameter.
 
@@ -301,6 +304,20 @@ class Walk:
             self.policies.add(step.policy)
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 
+        if node.name == 'sum_back':
+            over = node.kwargs['over']
+            assert isinstance(over, DimensionNode)
+            step = _Step(1, 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain')
+            self.policies.add(step.policy)
+            source = f'{self.symbols.index[over.name]}{PRIME}'
+            lag = f'{ctx.subscript(over.name)} {self.translation(step)} {source}'
+            domain = (
+                f'{source} {self.op("in")} {self.symbols.set[over.name]} {self.op("such_that")} '
+                f'0 {self.op("le")} {lag} {self.op("lt")} {self._width(node.kwargs["within"])}'
+            )
+            body = self.reduction_body(node.args[0], ctx.pulled_back(over.name, source))
+            return self.format.summation(domain, body), _PRECEDENCE['+']
+
         if node.name == 'at':
             by = node.kwargs['by']
             assert isinstance(by, LookupNode)
@@ -317,6 +334,19 @@ class Walk:
             assert isinstance(over, DimensionNode)
             domain = self.membership(over.name)
         return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
+
+    def _width(self, node: ArithmeticNode) -> str:
+        """``sum_back``'s ``within=``: a number, or a parameter's own symbol.
+
+        Unsubscripted where it is named, as a translation's named offset is:
+        the symbol identifies the parameter and the legend carries its dims,
+        where repeating them inside a summation's domain crowds out the
+        condition that domain exists to state.
+        """
+        if isinstance(node, ParameterNode):
+            return self.symbols.name[node.name]
+        assert isinstance(node, NumberNode)
+        return self.number(node.value)
 
     def _step(self, by: int | str, edge: ArithmeticNode | None) -> _Step:
         """Which of the three edge policies this ``shift`` asked for.

@@ -14,6 +14,9 @@ Dimension arguments are name-checked at load time, so
 | `shift(array, over=dim, by=n, edge='wrap')` | the value at *t−n*, cyclic: nothing is vacated |
 | `shift(array, over=dim, by=n, edge=v)` | the value at *t−n*, with the number `v` where the edge was vacated |
 | `shift(array, over=dim, by=p, edge=…)` | `p` an integer parameter: each entity is reached by **its own** offset |
+| `sum_back(array, over=dim, within=n)` | the sum of the last `n` positions along `dim`, ending at *t* |
+| `sum_back(array, over=dim, within=p)` | `p` an integer parameter: each entity gets **its own** window length |
+| `sum_back(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its start |
 
 `array` is any expression of the right dim set, so these read a **parameter**
 as readily as a variable. Each row as the typesetter prints it is
@@ -73,6 +76,56 @@ It reads a *variable* as readily as a parameter, which is what a per-component
 decision gating its own flows needs — one decision taken per bus, read once by
 every line that touches it. A fine label whose lookup value is null reads
 nothing and its row is absent, matching `sum(by=)`'s null group.
+
+## `sum_back`
+
+`sum_back(x, over=d, within=n)` is the sum of the last `n` positions along `d`,
+ending at the one being written — a minimum up time, a rolling budget, a
+delivery horizon. A width of `1` is `x` itself.
+
+The dimension **survives**: unlike `sum`, which reduces it away, this leaves one
+value per position, each reading a window of its own.
+
+```yaml
+dimensions:
+  unit: {dtype: str}
+  hour: {dtype: int}
+
+parameters:
+  min_up: {dims: [unit], dtype: int}
+
+variables:
+  started: {foreach: [unit, hour], domain: binary}
+  on: {foreach: [unit, hour], domain: binary}
+
+constraints:
+  stays_up_its_own_time:
+    foreach: [unit, hour]
+    expression: sum_back(started, over=hour, within=min_up) <= on
+
+objective: {sense: minimize, expression: on}
+```
+
+`within=` may name an **integer parameter** instead of a number, and then each
+entity gets a window of its own length — which is the case with no workaround.
+A fixed width can be written as a run of `shift`s; a width that is a column
+cannot, and the alternative is an incidence table over the dimension twice,
+built outside the model and shipped with it.
+
+Two rules make a named width mean one thing, and both are load errors:
+
+- **It is integral** — a width counts positions rather than measuring a
+  distance.
+- **It does not span the dimension being summed over.** A width that changes
+  along that axis is a different window at every position, which is no longer
+  "the last *n*".
+
+`edge=` takes `'wrap'` or nothing. A window that reaches past the start of the
+axis is **short**, not empty — the position being written is always inside its
+own window, so no row is lost and there is nothing vacated to fill. A number
+there is a load error, because adding a constant is something the expression can
+say for itself. `edge='wrap'` makes the window reach around instead, which is
+what a representative period that repeats asks for.
 
 ## `shift`
 
@@ -198,6 +251,9 @@ position.
 | `shift(array, over=dim, by=n, edge='wrap')` | $p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `shift(array, over=dim, by=n, edge=v)` | $p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `shift(array, over=dim, by=p, edge=…)` | $\mathit{order}_{t,m \boxminus_{0} \mathit{lead}} \ge \mathit{demand}_{t,m} \qquad \forall\thinspace t \in \mathcal{T},\enspace m \in \mathcal{M}$ |
+| `sum_back(array, over=dim, within=n)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+| `sum_back(array, over=dim, within=p)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+| `sum_back(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound --- terms translated past the edge are simply absent.
 

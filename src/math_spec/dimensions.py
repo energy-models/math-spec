@@ -19,6 +19,7 @@ The rules::
     at(x, by=l)             -> the reverse: x's dims without l's target,
                                plus the dim l is over
     shift(x, over=d, by=n)  -> same dims as x;      error if x has no d
+    sum_back(x, over=d, within=n) -> same dims as x; error if x has no d
 
 and at the declaration level::
 
@@ -196,12 +197,14 @@ def _dims_call(
             )
         return (inner - {by.into}) | {by.dimension}
 
-    if node.name == 'shift':
+    if node.name in ('shift', 'sum_back'):
         inner = _dims(node.args[0], schema, context)
         over = node.kwargs['over']
         assert isinstance(over, DimensionNode)
         if over.name not in inner:
-            raise DimensionError(f'{context}: shift(over={over.name}) but the expression has dims {sorted(inner)}.')
+            raise DimensionError(
+                f'{context}: {node.name}(over={over.name}) but the expression has dims {sorted(inner)}.'
+            )
         return inner
 
     msg = f"{context}: operator '{node.name}' has no dim rule"
