@@ -35,7 +35,6 @@ never uses just repeating one row across it — nearly always a typo.
 
 from __future__ import annotations
 
-from types import MappingProxyType
 from typing import TYPE_CHECKING, assert_never
 
 from lpspec.errors import DimensionError
@@ -74,8 +73,6 @@ from lpspec.language.where_parser import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
-
     from lpspec.language.model import Model
 
 
@@ -83,27 +80,21 @@ def dims_of(
     node: ExpressionNode,
     schema: Model,
     context: str,
-    external: Mapping[str, Sequence[str]] = MappingProxyType({}),
 ) -> frozenset[str]:
     """The dim set of a resolved expression, checking every rule on the way.
-
-    ``external`` gives the dims of variables that live on a model rather than
-    in this schema — ``linopy.extend()``'s case, mirroring how
-    ``known_variables`` widens the namespace.
 
     Raises:
         DimensionError: On the first rule broken.
     """
     if isinstance(node, ComparisonNode):
-        return _dims(node.left, schema, context, external) | _dims(node.right, schema, context, external)
-    return _dims(node, schema, context, external)
+        return _dims(node.left, schema, context) | _dims(node.right, schema, context)
+    return _dims(node, schema, context)
 
 
 def _dims(
     node: ArithmeticNode,
     schema: Model,
     context: str,
-    external: Mapping[str, Sequence[str]],
 ) -> frozenset[str]:
     """The recursive worker under :func:`dims_of`.
 
@@ -112,8 +103,7 @@ def _dims(
     convex-piecewise epigraph multiplies a per-segment slope by a per-snapshot
     variable and wants one row per (snapshot, generator, segment). What must
     not be silent is the *declaration* disagreeing, which ``dims == foreach``
-    in :func:`check_schema` catches where model size is decided. A variable
-    absent from the schema is one already on the model, its dims in *external*.
+    in :func:`check_schema` catches where model size is decided.
     """
     if isinstance(node, NumberNode):
         return frozenset()
@@ -122,22 +112,20 @@ def _dims(
         return frozenset(schema.parameters[node.name].dims)
 
     if isinstance(node, VariableNode):
-        if node.name in schema.variables:
-            return frozenset(schema.variables[node.name].foreach)
-        return frozenset(external[node.name])
+        return frozenset(schema.variables[node.name].foreach)
 
     if isinstance(node, (NameNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
     if isinstance(node, UnaryOperatorNode):
-        return _dims(node.operand, schema, context, external)
+        return _dims(node.operand, schema, context)
 
     if isinstance(node, BinaryOperatorNode):
-        return _dims(node.left, schema, context, external) | _dims(node.right, schema, context, external)
+        return _dims(node.left, schema, context) | _dims(node.right, schema, context)
 
     if isinstance(node, FunctionCallNode):
-        return _dims_call(node, schema, context, external)
+        return _dims_call(node, schema, context)
 
     assert_never(node)
 
@@ -146,7 +134,6 @@ def _dims_call(
     node: FunctionCallNode,
     schema: Model,
     context: str,
-    external: Mapping[str, Sequence[str]],
 ) -> frozenset[str]:
     """The dim rule of one operator call.
 
@@ -156,7 +143,7 @@ def _dims_call(
     *into*, and each produces the other.
     """
     if node.name == 'sum':
-        inner = _dims(node.args[0], schema, context, external)
+        inner = _dims(node.args[0], schema, context)
         by = node.kwargs.get('by')
         if by is None:
             over = node.kwargs['over']
@@ -190,7 +177,7 @@ def _dims_call(
         return (inner - {by.dimension}) | {by.into}
 
     if node.name == 'at':
-        inner = _dims(node.args[0], schema, context, external)
+        inner = _dims(node.args[0], schema, context)
         by = node.kwargs['by']
         assert isinstance(by, LookupNode)
         if by.into not in inner:
@@ -210,7 +197,7 @@ def _dims_call(
         return (inner - {by.into}) | {by.dimension}
 
     if node.name == 'shift':
-        inner = _dims(node.args[0], schema, context, external)
+        inner = _dims(node.args[0], schema, context)
         over = node.kwargs['over']
         assert isinstance(over, DimensionNode)
         if over.name not in inner:
@@ -226,20 +213,13 @@ def _dims_call(
 # ---------------------------------------------------------------------------
 
 
-def check_schema(
-    schema: Model,
-    external: Mapping[str, Sequence[str]] = MappingProxyType({}),
-) -> None:
+def check_schema(schema: Model) -> None:
     """Check every declaration's dim rules.
-
-    ``external`` maps variables already on a model to their dims, so
-    ``linopy.extend()`` can reference them (hard rule 5 keeps parameters
-    schema-local, but variables legitimately come from the model argument).
 
     Raises:
         DimensionError: On the first declaration that breaks one.
     """
-    ns = Namespace.of(schema, external)
+    ns = Namespace.of(schema)
 
     for vname, vdef in schema.variables.items():
         frame = frozenset(vdef.foreach)
@@ -260,7 +240,7 @@ def check_schema(
         frame = frozenset(cdef.foreach)
         _check_where_dims(where_of(cdef.where, ns, f"Constraint '{cname}'"), schema, frame, f"Constraint '{cname}'")
         context = f"Constraint '{cname}'"
-        got = dims_of(expression_of(cdef.expression, schema, ns, context), schema, context, external)
+        got = dims_of(expression_of(cdef.expression, schema, ns, context), schema, context)
         if got != frame:
             stray, missing = sorted(got - frame), sorted(frame - got)
             detail = (
@@ -276,7 +256,7 @@ def check_schema(
 
     if schema.objective is not None:
         context = 'The objective'
-        dims_of(expression_of(schema.objective.expression, schema, ns, context), schema, context, external)
+        dims_of(expression_of(schema.objective.expression, schema, ns, context), schema, context)
 
 
 def _check_where_dims(

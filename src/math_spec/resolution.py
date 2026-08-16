@@ -108,16 +108,15 @@ class Namespace:
         return {n: into for n, (_, into) in self.lookups.items() if into is not None}
 
     @classmethod
-    def of(cls, schema: Model, known_variables: Iterable[str] = ()) -> Namespace:
+    def of(cls, schema: Model) -> Namespace:
         """Build the namespace of *schema*.
 
-        ``known_variables`` widens the variable set only — used by
-        ``linopy.extend()``, where expressions may reference variables already
-        on the model. Parameters get no such widening: a YAML file declares
-        every parameter it uses (hard rule 5).
+        Every name a file may use is declared in that file (hard rule 5), so
+        the schema is the whole namespace and there is nothing to widen it
+        with.
         """
         return cls(
-            set(schema.variables) | set(known_variables),
+            set(schema.variables),
             schema.parameters,
             schema.dimensions,
             {n: (lk.over, lk.into) for n, lk in schema.lookups.items()},

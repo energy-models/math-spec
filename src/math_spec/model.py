@@ -20,7 +20,6 @@ from pydantic import (
     ConfigDict,
     PrivateAttr,
     ValidationError,
-    ValidationInfo,
     field_validator,
     model_serializer,
     model_validator,
@@ -589,10 +588,10 @@ def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any
     so they cannot answer differently.
 
     ``__init__`` is deliberately *not* wrapped: defining one makes pydantic
-    route validation through it, so every after-validator runs twice — the
-    first time with ``context=None``, silently dropping ``known_variables`` and
-    refusing every ``extend()`` file. The constructor keeps pydantic's error;
-    ``lps.load_model`` is the documented door and comes through here.
+    route validation through it, so every after-validator runs twice, and this
+    model's validate every expression in the file. The constructor keeps
+    pydantic's error; ``lps.load_model`` is the documented door and comes
+    through here.
     """
     try:
         return validate(*args, **kwargs)
@@ -636,9 +635,9 @@ class Model(_StrictBlock):
 
     _label: ClassVar[str] = 'the top level of the file'
 
-    #: The last expansion built from this model. Owned entirely — written,
-    #: read, keyed — by :func:`~lpspec.language.piecewise.expand_piecewise`,
-    #: whose ``_Expansion`` this holds; only the slot lives here.
+    #: The expansion built from this model. Owned entirely — written and read
+    #: — by :func:`~lpspec.language.piecewise.expand_piecewise`; only the slot
+    #: lives here.
     _expansion: Any = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
@@ -913,7 +912,7 @@ class Model(_StrictBlock):
         return self
 
     @model_validator(mode='after')
-    def _validate_expressions(self, info: ValidationInfo) -> Model:
+    def _validate_expressions(self) -> Model:
         """Every expression and where string, checked here rather than beside.
 
         The checkers are a layer above this one, so the imports are local and
@@ -925,16 +924,10 @@ class Model(_StrictBlock):
         out, so the check below runs only when there was nothing to expand;
         and ``expand_piecewise`` memoises on :attr:`_expansion` for the same
         reason, every consumer asking for the expansion next.
-
-        ``known_variables`` arrives as pydantic validation context, for the one
-        file deliberately not valid alone: an extension references variables
-        already on the model ``lpspec.linopy.extend`` puts it on. It travels
-        into expansion too, a link being able to name one.
         """
         from lpspec.language.piecewise import expand_piecewise
         from lpspec.language.validation import validate_expressions
 
-        known = (info.context or {}).get('known_variables', {})
-        if expand_piecewise(self, known_variables=known) is self:
-            validate_expressions(self, known_variables=known)
+        if expand_piecewise(self) is self:
+            validate_expressions(self)
         return self

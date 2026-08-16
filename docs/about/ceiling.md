@@ -232,8 +232,8 @@ table and a single `sum(by=)` balance. **Topology is data, not structure** —
 wiring a specific system is rows in a connectivity table, never generated YAML,
 so structure is bounded by the number of component *types* while cardinality
 lives entirely in data. Schema merge is therefore a pure **compose-then-build**
-step producing one `Model` before a single lower/stream pass (`linopy.extend`
-is a linopy-lane shim; native merge is #30). Namespacing via qualified names is
+step producing one `Model` before a single lower/stream pass (native merge is
+#30). Namespacing via qualified names is
 the missing primitive (#29) — the port/flow surface stays deliberately shared, as
 the coupling contract between templates — and signs and bidirectional flows need
 bounds-as-expressions (#31).

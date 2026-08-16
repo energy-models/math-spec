@@ -55,10 +55,6 @@ consuming lane's business, and curvature is a property of the breakpoint
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from types import MappingProxyType
-from typing import TYPE_CHECKING
-
 from lpspec.errors import LanguageError, PiecewiseExpansionError
 from lpspec.language.degree import check_expression
 from lpspec.language.dimensions import dims_of
@@ -66,27 +62,8 @@ from lpspec.language.expression_parser import ComparisonNode, parse_expression
 from lpspec.language.model import Model, PiecewiseBlock
 from lpspec.language.resolution import Namespace, resolve_expression
 
-if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
 
-
-@dataclass(frozen=True)
-class _Expansion:
-    """One memoised expansion: the namespace it was keyed by, and its model.
-
-    Lives on ``Model._expansion``; the slot is there, the ownership is here —
-    written, read and compared by :func:`expand_piecewise` alone.
-    """
-
-    key: dict[str, tuple[str, ...]]
-    model: Model
-
-
-def expand_piecewise(
-    schema: Model,
-    *,
-    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
-) -> Model:
+def expand_piecewise(schema: Model) -> Model:
     """Return *schema* with every ``piecewise:`` block expanded away.
 
     The adjacency constraint shifts with ``edge=0`` rather than a bare
@@ -95,16 +72,10 @@ def expand_piecewise(
     leaving the first lambda unconstrained by segment selection — a wrong MILP
     with no error, which is why #289 kept the escape hatch.
 
-    ``known_variables`` widens the variable set the same way it does for any
-    other expression: a link may name a variable the model being extended
-    already has, and the frame is the union of the links' dims, so resolution
-    has to see those names to compute it.
-
     Building the expanded ``Model`` validates it, so the result is memoised
-    on *schema* keyed by the namespace it was expanded against — a validated
-    schema already carries the expansion its own validation built
-    (:class:`Model` expands as a check on the way in), and asking again
-    returns it rather than validating a second copy.
+    on *schema* — a validated schema already carries the expansion its own
+    validation built (:class:`Model` expands as a check on the way in), and
+    asking again returns it rather than validating a second copy.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
@@ -112,15 +83,14 @@ def expand_piecewise(
     """
     if not schema.piecewise:
         return schema
-    key = expansion_key(known_variables)
-    if schema._expansion is not None and schema._expansion.key == key:
-        return schema._expansion.model
+    if schema._expansion is not None:
+        return schema._expansion
 
     raw = schema.model_dump()
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
-        frame = _validate_block(schema, name, pw, known_variables)
+        frame = _validate_block(schema, name, pw)
         lam, seg = f'{name}_lam', f'{name}_seg'
 
         raw['variables'][lam] = {
@@ -156,22 +126,12 @@ def expand_piecewise(
             }
 
     raw['piecewise'].clear()
-    expanded = Model.model_validate(raw, context={'known_variables': known_variables})
-    schema._expansion = _Expansion(key, expanded)
+    expanded = Model.model_validate(raw)
+    schema._expansion = expanded
     return expanded
 
 
-def expansion_key(known_variables: Mapping[str, Sequence[str]]) -> dict[str, tuple[str, ...]]:
-    """*known_variables* normalised for equality, however its sequences are typed."""
-    return {name: tuple(dims) for name, dims in known_variables.items()}
-
-
-def _validate_block(
-    schema: Model,
-    name: str,
-    pw: PiecewiseBlock,
-    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
-) -> tuple[str, ...]:
+def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
     """Check references and infer the frame (union of the links' dims).
 
     Every name the expansion will emit is checked against what the file
@@ -193,7 +153,7 @@ def _validate_block(
                 f"{ctx}: link {i} values parameter '{values}' must carry dim "
                 f"'{pw.over}' (has {schema.parameters[values].dims})"
             )
-        for d in _declared_order(schema, _expr_dims(schema, link.expression, f'{ctx} link {i}', known_variables)):
+        for d in _declared_order(schema, _expr_dims(schema, link.expression, f'{ctx} link {i}')):
             if d == pw.over:
                 raise PiecewiseExpansionError(
                     f"{ctx}: link {i} expression already carries the breakpoint dim '{pw.over}'"
@@ -204,7 +164,7 @@ def _validate_block(
     if pw.active is not None:
         if pw.active in schema.variables and schema.variables[pw.active].domain != 'binary':
             raise PiecewiseExpansionError(f"{ctx}: active variable '{pw.active}' must be binary")
-        for d in _declared_order(schema, _expr_dims(schema, pw.active, f'{ctx} active', known_variables)):
+        for d in _declared_order(schema, _expr_dims(schema, pw.active, f'{ctx} active')):
             if d == pw.over:
                 raise PiecewiseExpansionError(f"{ctx}: active expression must not carry the breakpoint dim '{pw.over}'")
             if d not in frame:
@@ -241,12 +201,7 @@ def _declared_order(schema: Model, dims: frozenset[str]) -> list[str]:
     return declared + sorted(dims.difference(declared))
 
 
-def _expr_dims(
-    schema: Model,
-    text: str,
-    ctx: str,
-    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
-) -> frozenset[str]:
+def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:
     """Dims of an affine link expression.
 
     The frame a block is emitted over is the union of its links' dims, so the
@@ -260,13 +215,13 @@ def _expr_dims(
     if isinstance(ast, ComparisonNode):
         raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
     errors: list[str] = []
-    resolved = resolve_expression(ast, Namespace.of(schema, known_variables), ctx, errors)
+    resolved = resolve_expression(ast, Namespace.of(schema), ctx, errors)
     if resolved is None:
         raise PiecewiseExpansionError('\n'.join(errors))
     assert not isinstance(resolved, ComparisonNode)
     try:
         check_expression(resolved, ctx)
-        return dims_of(resolved, schema, ctx, known_variables)
+        return dims_of(resolved, schema, ctx)
     except LanguageError as exc:
         raise PiecewiseExpansionError(
             f'{ctx}: link expression {text!r} is not a valid affine expression: {exc}'

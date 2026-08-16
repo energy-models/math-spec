@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, assert_never
 
 from pydantic import ValidationError
@@ -49,14 +48,10 @@ from lpspec.language.resolution import Namespace, resolve_expression, resolve_wh
 from lpspec.language.where_parser import parse_where
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping, Sequence
+    from collections.abc import Iterable, Iterator
 
 
-def load_model(
-    model: str | Path | dict[str, Any] | Model,
-    *,
-    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
-) -> Model:
+def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
@@ -65,9 +60,6 @@ def load_model(
 
     Args:
         model: A YAML path, a mapping, or a loaded :class:`Model`.
-        known_variables: Variables the file may reference without declaring,
-            mapped to their dims — what ``lpspec.linopy.extend`` passes for an
-            extension, which is the one file not valid alone.
 
     Returns:
         The schema *as the file declares it*, ``piecewise:`` intact.
@@ -87,16 +79,12 @@ def load_model(
         return model
     raw = model if isinstance(model, dict) else read_yaml(Path(model))
     try:
-        return Model.model_validate(raw, context={'known_variables': known_variables})
+        return Model.model_validate(raw)
     except ValidationError as exc:
         raise schema_error(exc) from None
 
 
-def validate_expressions(
-    schema: Model,
-    *,
-    known_variables: Mapping[str, Sequence[str]] = MappingProxyType({}),
-) -> None:
+def validate_expressions(schema: Model) -> None:
     """Validate and resolve every expression and where string in *schema*.
 
     What is checked:
@@ -115,14 +103,10 @@ def validate_expressions(
     language rules: every lane arrives through this function, and one that
     could skip them would be a lane with a different language (hard rule 3).
 
-    *known_variables* maps variables valid in addition to *schema*'s to their
-    dims, for ``linopy.extend()``. Parameters get no such widening — a YAML
-    file declares every parameter it uses (hard rule 5).
-
     Raises:
         SchemaError: Listing every problem found, one per line.
     """
-    ns = Namespace.of(schema, known_variables)
+    ns = Namespace.of(schema)
     errors: list[str] = []
 
     _check_declared_values(schema, errors)
@@ -158,15 +142,15 @@ def validate_expressions(
     if schema.objective is not None:
         _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False)
 
-    _check_sos(schema, known_variables, errors)
+    _check_sos(schema, errors)
 
     if errors:
         raise SchemaError('\n'.join(errors))
 
-    check_schema(schema, known_variables)
+    check_schema(schema)
 
 
-def _check_sos(schema: Model, known_variables: Mapping[str, Sequence[str]], errors: list[str]) -> None:
+def _check_sos(schema: Model, errors: list[str]) -> None:
     """Every ``sos:`` block names a variable, and a dim that variable carries.
 
     A set runs along one dimension of one variable, so ``over`` outside that
@@ -177,7 +161,6 @@ def _check_sos(schema: Model, known_variables: Mapping[str, Sequence[str]], erro
     take it in, so two would be two answers to one question.
     """
     foreach = {name: tuple(v.foreach) for name, v in schema.variables.items()}
-    foreach.update({name: tuple(dims) for name, dims in known_variables.items()})
     claimed: dict[str, str] = {}
     for name, block in schema.sos.items():
         context = f"Sos '{name}'"
