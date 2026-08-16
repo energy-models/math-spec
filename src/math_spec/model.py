@@ -69,7 +69,7 @@ class _StrictBlock(BaseModel):
 
 #: The dtypes a dimension index may declare (the declaration rules). The one home of the
 #: vocabulary: both dtype validators read it, and ``tests/test_architecture.py``
-#: pins the engine's empty-index dtype table (``relational/frames.py``) to the
+#: pins the engine's empty-index dtype table (``frames.py``) to the
 #: same set — a test rather than an import, because the fence keeps the engine
 #: from reaching the language.
 DIMENSION_DTYPES = frozenset({'float', 'int', 'str', 'datetime'})
