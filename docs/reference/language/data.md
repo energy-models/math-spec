@@ -22,11 +22,15 @@ For a parameter declared `dims: [d1, d2]`:
   pyarrow, duckdb — with columns `d1, d2, value`;
 - an **`int` or `float`** for a 0-D parameter.
 
-`pd.Series` and `xr.DataArray` keep their dims in an *index* rather than in
-columns, so they are unwrapped first — but only if that library is already
-imported, never by importing it. An unnamed index binds positionally to the
-declared `dims`; a named one binds by name in any order, and a name outside the
-declared dims raises rather than being overwritten.
+`pd.Series` keeps its dims in an *index* rather than in columns, so it is
+unwrapped first — but only if pandas is already imported, never by importing
+it. An unnamed index binds positionally to the declared `dims`; a named one
+binds by name in any order, and a name outside the declared dims raises rather
+than being overwritten.
+
+**Tables in, arrays out.** An `xr.DataArray` is a dense n-dimensional array
+rather than a table, and neither lane reads one: pass `array.to_series()`,
+whose index binds by name on both. `Result.to_dataarray()` is the way back out.
 
 Nothing on this path imports pandas, xarray or linopy on your behalf.
 
