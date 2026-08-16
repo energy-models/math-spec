@@ -3,7 +3,7 @@
 A model is a declaration, so it can be printed the way a paper prints it — from
 the file itself, with no data and no solver. It is the cheapest review tool
 available for *"does this YAML say what I meant"*, and it is how every
-[model page](../models/index.md) in these docs states its math.
+[model page](../examples/index.md) in these docs states its math.
 
 ```python
 import lpspec as lps

@@ -10,7 +10,7 @@ in the *document* methods, so the silent case is a ``\paragraph`` in a
 Markdown file. Written out, a new seam method is simply missing until someone
 decides which side it belongs on.
 
-It exists because `docs/models/` would otherwise write its math by hand with
+It exists because `docs/examples/` would otherwise write its math by hand with
 nothing checking it against the model beside it — see
 `test_the_gallery_notation_is_reproducible_from_the_model`.
 """

@@ -10,7 +10,7 @@ and what composition would force.
 
 It is a claim, so it carries evidence — math a ported model needed and this
 language could not state becomes a ledger row in
-[the gallery](../models/index.md#ledger--what-a-port-could-not-say).
+[the gallery](../examples/index.md#ledger--what-a-port-could-not-say).
 
 ## Two tiers, and the ceiling
 
@@ -76,7 +76,7 @@ finished when `lowering.py` accepts it and the differential test against the
 linopy oracle passes.
 
 **The ceiling is a claim, so it needs evidence.** In
-[docs/models/index.md](../models/index.md), math a ported model needed and this language
+[docs/examples/index.md](../examples/index.md), math a ported model needed and this language
 could not state becomes a ledger row with its triage verdict — what
 [the roadmap](roadmap.md) should be argued from. Those ports also cover a class
 no other test reaches: both lanes consume the same resolved AST by rule 1, so a
@@ -100,7 +100,7 @@ know how many snapshots there are either.
 
 That distinction decides more than it looks. A dimension whose members are
 *computed* in data prep is completely ordinary — a cycle basis for
-[KVL](../models/pypsa_kvl.md), the subsets of a subtour-elimination
+[KVL](../examples/pypsa_kvl.md), the subsets of a subtour-elimination
 family — because a graph algorithm run before the build is design-bounded, the
 row above. The line is **temporal, not computational**: it does not matter how
 clever the Python is or whether its output size depends on the data, only
@@ -180,7 +180,7 @@ constraint reads it.
 > what it can derive from data the model already has.**
 
 A cycle basis is the first kind: a graph algorithm over a topology only data
-supplies, so [`pypsa_kvl`](../models/pypsa_kvl.md) carrying `cycle_incidence`
+supplies, so [`pypsa_kvl`](../examples/pypsa_kvl.md) carrying `cycle_incidence`
 as a parameter is right, and would be in any language. A minimum up time is the
 second: `min_up_time` is a column the model already binds, and the window mask
 over it is a mechanical consequence — yet the modeller writes that loop, plus a
