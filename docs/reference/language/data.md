@@ -42,7 +42,7 @@ than being overwritten.
 rather than a table, and neither lane reads one: pass `array.to_series()`,
 whose index binds by name on both. `Result.to_dataarray()` is the way back out.
 
-Everything on this list is read by the [linopy lane](../../about/linopy.md#3-the-shim)
+Everything on this list is read by the [linopy lane](../../about/linopy.md#3-it-is-a-lane)
 too, so one `sources` mapping goes to either.
 
 Nothing on this path imports pandas, xarray or linopy on your behalf.
@@ -95,6 +95,5 @@ A model that is already built takes new numbers with
 one dimension is [`solve_over`](../sweeps.md). Both bind through the rules
 above.
 
-The opt-in [linopy shim](../../about/linopy.md#the-same-language-different-data-inputs)
-accepts the same *language* but a different set of data inputs, and has no
-step 4.
+The opt-in [linopy lane](../../about/linopy.md#the-same-language-and-the-same-data)
+binds by these same rules, step 4 included.
