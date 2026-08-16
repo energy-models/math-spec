@@ -111,13 +111,13 @@ class Namespace:
             set(schema.variables) | set(known_variables),
             schema.parameters,
             schema.dimensions,
-            {d: dd.targeted for d, dd in schema.dimensions.items()},
+            {d: schema.targeted_of(d) for d in schema.dimensions},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
-                **{c: spec.dtype for dd in schema.dimensions.values() for c, spec in dd.labels.items()},
+                **{n: lk.dtype for n, lk in schema.lookups.items() if lk.dtype is not None},
             },
-            {d: dd.labels for d, dd in schema.dimensions.items()},
+            {d: schema.labels_of(d) for d in schema.dimensions},
         )
 
     def kind(self, name: str) -> str | None:
@@ -373,38 +373,36 @@ def _resolve_coordinate_ref(
     if isinstance(value, CoordinateNode):
         return value
     if not isinstance(value, (NameNode, DimensionNode)):
-        errors.append(f'{context}: {operator}({key}=...) must name a coordinate.')
+        errors.append(f'{context}: {operator}({key}=...) must name a lookup.')
         return value
     if not isinstance(over, (NameNode, DimensionNode)):
         errors.append(
             f'{context}: {operator}({key}={value.name}) needs a sibling over=<dim> '
-            f'naming the dimension that carries the coordinate.'
+            f'naming the dimension the lookup is over.'
         )
         return value
     declared = ns.coordinates.get(over.name, {})
     if value.name in ns.labels.get(over.name, ()):
         errors.append(
             f'{context}: {operator}(over={over.name}, {key}={value.name}): '
-            f"'{value.name}' is a label on '{over.name}', not a groupable coordinate — "
+            f"'{value.name}' is a label space over '{over.name}', not a groupable lookup — "
             f'it targets no dimension for the terms to land on. To group into it, '
-            f'declare the axis and target it:\n'
+            f'declare the axis and target it under a name of its own:\n'
             f'  dimensions:\n'
             f'    {value.name}: {{...}}\n'
-            f'    {over.name}:\n'
-            f'      coords: {{{value.name}: {value.name}}}'
+            f'  lookups:\n'
+            f'    {value.name}_of: {{over: {over.name}, into: {value.name}}}'
         )
         return value
     if value.name not in declared:
         listing = (
-            f'  Coordinates on {over.name}: {sorted(declared)}'
-            if declared
-            else f"  '{over.name}' declares no coordinates."
+            f'  Lookups over {over.name}: {sorted(declared)}' if declared else f"  no lookup is over '{over.name}'."
         )
         errors.append(
             f'{context}: {operator}(over={over.name}, {key}={value.name}) does not name a '
-            f"coordinate of '{over.name}'.\n{listing}\n"
-            f"Declare it under 'dimensions.{over.name}.coords', naming the dimension "
-            f'its values are labels of.'
+            f"lookup over '{over.name}'.\n{listing}\n"
+            f"Declare it under 'lookups:' — {value.name}: {{over: {over.name}, "
+            f'into: <the dimension its values are labels of>}}.'
         )
         return value
     return CoordinateNode(value.name, dimension=over.name, into=declared[value.name])

@@ -529,24 +529,25 @@ class Walk:
     def _coords(self, dim: str) -> str:
         """The dimension's carried structure, groupable maps before plain labels.
 
-        A targeted coordinate renders as the map it is (``bus: G ↦ B``); an
-        inline label space has no target set to point at, so it renders as the
+        A targeted lookup renders as the map it is (``bus_of: G ↦ B``); a
+        label-space lookup has no target set to point at, so it renders as the
         label it is (``period — a label on T``).
         """
-        block = self.schema.dimensions[dim]
+        targeted = self.schema.targeted_of(dim)
+        labels = self.schema.labels_of(dim)
         clauses = []
-        if block.targeted:
+        if targeted:
             maps = self.format.joined(
                 [
                     f'{self.format.upright(c)}: {self.symbols.set[dim]} {self.op("maps_to")} {self.symbols.set[target]}'
-                    for c, target in block.targeted.items()
+                    for c, target in targeted.items()
                 ],
                 '',
             )
             clauses.append(f' with {self.format.math(maps)}')
-        if block.labels:
-            named = self.format.joined([self.format.upright(c) for c in block.labels], '')
-            plural = 's' if len(block.labels) > 1 else ''
+        if labels:
+            named = self.format.joined([self.format.upright(c) for c in labels], '')
+            plural = 's' if len(labels) > 1 else ''
             clauses.append(f' carrying label{plural} {self.format.math(named)}')
         return ''.join(clauses)
 

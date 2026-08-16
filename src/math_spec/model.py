@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from pydantic import (
     BaseModel,
     ConfigDict,
-    Field,
     PrivateAttr,
     ValidationError,
     ValidationInfo,
@@ -90,83 +89,85 @@ def _one_of(value: str, allowed: frozenset[str] | set[str], field: str) -> str:
     return value
 
 
-class CoordinateSpec(_StrictBlock):
-    """An inline label space: structure a dimension's members carry, no axis.
+class LookupBlock(_StrictBlock):
+    """A named single-valued map out of a dimension (SPEC §2).
 
-    The other kind of coordinate — a plain string naming a target dimension —
-    exists for *aggregation*, so its target must be a real axis. This kind
-    exists for *selection*: it types a column of the owning dimension's index
-    (a snapshot's period, a generator's tech) for ``where`` comparisons and the
-    typeset legend, and never puts an entry under ``dimensions:``, a label
-    space nothing aggregates into being no part of the model's dimensionality.
-    Grouping into one is refused with the promotion rewrite
-    (:func:`lpspec.language.resolution.resolve`).
+    Two kinds, told apart by which field is set:
+
+    - ``into:`` names the dimension the values are labels of — the *groupable*
+      kind, what ``sum(group_by=)`` lands terms on and ``at()`` reads through,
+      checked for containment once data is bound rather than joined blind::
+
+          lookups:
+            bus_of: {over: generator, into: bus}
+            send:   {over: line, into: bus}
+
+    - ``dtype:`` declares an inline label space — the *selection-only* kind,
+      owning its values and targeting nothing, so no axis exists for terms to
+      land on. Grouping into one is refused with the promotion rewrite
+      (:func:`lpspec.language.resolution.resolve`)::
+
+          lookups:
+            period: {over: snapshot, dtype: int}
     """
 
-    _label: ClassVar[str] = 'a coordinate declaration'
+    _label: ClassVar[str] = 'a lookup declaration'
 
-    dtype: str = 'str'
+    over: str
+    into: str | None = None
+    dtype: str | None = None
+    description: str | None = None
 
     @field_validator('dtype')
     @classmethod
-    def _check_dtype(cls, v: str) -> str:
-        return _one_of(v, DIMENSION_DTYPES, 'dtype')
+    def _check_dtype(cls, v: str | None) -> str | None:
+        return v if v is None else _one_of(v, DIMENSION_DTYPES, 'dtype')
+
+    @model_validator(mode='after')
+    def _exactly_one_kind(self) -> LookupBlock:
+        if (self.into is None) == (self.dtype is None):
+            msg = (
+                "a lookup declares exactly one of 'into:' (a groupable map onto that "
+                "dimension) or 'dtype:' (its own label space)"
+            )
+            raise ValueError(msg)
+        return self
 
 
 class DimensionBlock(_StrictBlock):
-    """A declared dimension with optional dtype, values and coordinates.
+    """A declared dimension with optional dtype and values.
 
-    ``coords`` names non-index coordinates carried alongside this dimension's
-    labels — a generator's bus, a line's endpoints, a snapshot's period. Two
-    kinds, told apart by the shape of the value:
-
-    - **a string** names the dimension the values are labels of — the
-      *groupable* kind, checked for containment once data is bound rather than
-      joined blind. A list is shorthand for naming the coordinate after its
-      target::
-
-          generator: {coords: [bus]}
-          line:      {coords: {from: bus, to: bus}}
-
-    - **a mapping** declares an inline label space (:class:`CoordinateSpec`) —
-      the *selection-only* kind, owning its values and targeting nothing::
-
-          snapshot: {coords: {period: {dtype: int}}}
+    A dimension is an axis and nothing else. The maps its members carry — a
+    generator's bus, a snapshot's period — are top-level ``lookups:``
+    (:class:`LookupBlock`), keyed by their own name.
     """
 
     _label: ClassVar[str] = 'a dimension declaration'
 
     dtype: str = 'str'
     values: list[Any] | None = None
-    coords: dict[str, str | CoordinateSpec] = Field(default_factory=dict)
     description: str | None = None
-
-    @field_validator('coords', mode='before')
-    @classmethod
-    def _normalise_coords(cls, v: Any) -> Any:
-        """``[bus]`` is shorthand for ``{bus: bus}``."""
-        if isinstance(v, list):
-            bad = [x for x in v if not isinstance(x, str)]
-            if bad:
-                msg = f'coords list entries must be coordinate names, got {bad!r}'
-                raise ValueError(msg)
-            return {name: name for name in v}
-        return v
 
     @field_validator('dtype')
     @classmethod
     def _check_dtype(cls, v: str) -> str:
         return _one_of(v, DIMENSION_DTYPES, 'dtype')
 
-    @property
-    def targeted(self) -> dict[str, str]:
-        """The groupable coordinates: name -> the dimension they map into."""
-        return {c: t for c, t in self.coords.items() if isinstance(t, str)}
-
-    @property
-    def labels(self) -> dict[str, CoordinateSpec]:
-        """The inline label spaces: selection only, never an axis."""
-        return {c: s for c, s in self.coords.items() if isinstance(s, CoordinateSpec)}
+    @classmethod
+    def _unknown_key_error(cls, key: str, known: set[str]) -> str:
+        if key == 'coords':
+            return (
+                "'coords:' under a dimension was removed; a coordinate is a top-level lookup. Rewrite\n"
+                '  dimensions:\n'
+                '    generator: {coords: [bus]}\n'
+                'as\n'
+                '  lookups:\n'
+                '    bus_of: {over: generator, into: bus}\n'
+                'and an inline label space {period: {dtype: int}} as {period: {over: <dim>, dtype: int}}.\n'
+                'A lookup name joins the flat namespace, so one shadowing a dimension — its target '
+                'included — needs a name of its own (bus -> bus_of).'
+            )
+        return super()._unknown_key_error(key, known)
 
 
 class ParameterBlock(_StrictBlock):
@@ -613,9 +614,10 @@ class Model(_StrictBlock):
     *says*, ``plan.Program`` what it lowers to, an engine what a build holds.
     Nothing here has seen data.
 
-    The API is the nine declaration sections plus ``version`` and
+    The API is the ten declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
-    data, :meth:`to_yaml` for the file a reviewer reads. In goes through ``lps.load_model``, which raises
+    data, :meth:`to_yaml` for the file a reviewer reads. In goes through
+    ``lps.load_model``, which raises
     :class:`~lpspec.errors.LanguageError` on a model the language refuses.
 
     Everything else on this class is pydantic's, not a contract this package
@@ -640,6 +642,7 @@ class Model(_StrictBlock):
     #: ``description:`` takes. The typeset document opens with it.
     description: str | None = None
     dimensions: dict[str, DimensionBlock] = {}
+    lookups: dict[str, LookupBlock] = {}
     parameters: dict[str, ParameterBlock] = {}
     variables: dict[str, VariableBlock] = {}
     constraints: dict[str, ConstraintBlock] = {}
@@ -648,6 +651,14 @@ class Model(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
+
+    def targeted_of(self, dimension: str) -> dict[str, str]:
+        """The groupable lookups over *dimension*: name -> the dim they map into."""
+        return {n: lk.into for n, lk in self.lookups.items() if lk.over == dimension and lk.into is not None}
+
+    def labels_of(self, dimension: str) -> dict[str, LookupBlock]:
+        """The label-space lookups over *dimension* — selection only, never an axis."""
+        return {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.into is None}
 
     @model_validator(mode='before')
     @classmethod
@@ -742,13 +753,12 @@ class Model(_StrictBlock):
         """Every cross-declaration rule the schema can decide without data.
 
         Names share one flat namespace, shadowing being how a new declaration
-        would silently change what an existing expression means. Inline label
-        coordinates join it; targeted coordinates do not, their name aliasing
-        the target dimension (``generator: {coords: [bus]}``), with a dedicated
-        check for where the two disagree.
+        would silently change what an existing expression means. Every lookup
+        joins it — a lookup named after a dimension, its own target included,
+        is a collision, so each map carries a name of its own.
 
-        A coordinate's target must be a declared dimension other than the one
-        carrying it — grouping a dim into itself is a no-op that reads as a
+        A lookup's target must be a declared dimension other than the one it
+        is over — grouping a dim into itself is a no-op that reads as a
         reduction. Bounds look like the expression language but are not it, so
         their error says what they actually accept.
         """
@@ -756,11 +766,11 @@ class Model(_StrictBlock):
 
         kinds: list[tuple[str, Iterable[str]]] = [
             ('dimension', self.dimensions),
+            ('lookup', self.lookups),
             ('parameter', self.parameters),
             ('variable', self.variables),
             ('named expression', self.expressions),
             ('macro', self.macros),
-            ('label coordinate', [c for d in self.dimensions.values() for c in d.labels]),
         ]
         seen: dict[str, str] = {}
         for kind, group in kinds:
@@ -793,24 +803,21 @@ class Model(_StrictBlock):
             if d not in self.dimensions
         )
 
-        for dname, ddef in self.dimensions.items():
-            for cname, target in ddef.targeted.items():
-                if target not in self.dimensions:
+        for lname, lk in self.lookups.items():
+            if lk.over not in self.dimensions:
+                errors.append(
+                    f"Lookup '{lname}' is over undeclared dimension '{lk.over}'. Declare it under 'dimensions:'."
+                )
+            if lk.into is not None:
+                if lk.into not in self.dimensions:
                     errors.append(
-                        f"Dimension '{dname}' coordinate '{cname}' targets undeclared "
-                        f"dimension '{target}'. Declare it under 'dimensions:' — the "
-                        f'target is what the coordinate values are checked against.'
+                        f"Lookup '{lname}' targets undeclared dimension '{lk.into}'. "
+                        f"Declare it under 'dimensions:' — the target is what the "
+                        f'lookup values are checked against.'
                     )
-                elif target == dname:
+                elif lk.into == lk.over:
                     errors.append(
-                        f"Dimension '{dname}' coordinate '{cname}' targets '{dname}' "
-                        f'itself. A coordinate must map into a different dimension.'
-                    )
-                if cname in self.dimensions and cname != target:
-                    errors.append(
-                        f"Dimension '{dname}' coordinate '{cname}' shadows the dimension "
-                        f"of the same name while targeting '{target}'. Rename the "
-                        f'coordinate so a reader cannot mistake one for the other.'
+                        f"Lookup '{lname}' maps '{lk.over}' into itself. A lookup maps into a different dimension."
                     )
 
         for vname, vdef in self.variables.items():
