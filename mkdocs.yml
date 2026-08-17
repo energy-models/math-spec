@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+site_name: "math-spec"
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Contributing: contributing.md
+  - Changelog: CHANGELOG.md
+  - Reference: []
+theme:
+  name: material
+  features:
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+repo_url: https://github.com/energy-models/math-spec
+site_dir: .docs
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+      - name: mermaid
+        class: mermaid
+        format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite:
+      style_plain_text: shell
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: "#"
+      toc_depth: 3
+  - attr_list
+  - tables
+  - md_in_html
+hooks:
+  - docs/static/hooks.py
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          inventories:
+          - https://docs.python.org/3/objects.inv
+          options:
+            docstring_section_style: spacy
+            show_bases: true
+            filters:
+              - "!^_"
+            merge_init_into_class: true
+            show_if_no_docstring: true
+            signature_crossrefs: true
+            show_root_toc_entry: false
+            show_signature_annotations: false
+          paths: [src]
+watch:
+  - src/math_spec
+extra_css:
+  - static/extras.css

@@ -1,0 +1,28 @@
+version = 1
+SPDX-PackageName = "math-spec"
+SPDX-PackageSupplier = "energy-models Org <https://github.com/energy-models>"
+SPDX-PackageDownloadLocation = "https://github.com/energy-models/math-spec"
+
+[[annotations]]
+path = [
+    ".github/pull_request_template.md",
+    ".all-contributorsrc",
+    "src/py.typed"
+]
+SPDX-FileCopyrightText = "math-spec contributors"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = [
+    "resources/**/*",
+]
+SPDX-FileCopyrightText = "math-spec contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = [
+    "pixi.lock",
+    
+]
+SPDX-FileCopyrightText = "math-spec contributors"
+SPDX-License-Identifier = "MIT"

@@ -1,0 +1,110 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Contributing guidelines
+
+We're glad you're reading this; we welcome all contributors!
+
+Some of the resources to look at if you're interested in contributing:
+
+- Look at open issues tagged with ["help wanted"](https://github.com/energy-models/math-spec/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) and ["good first issue"](https://github.com/energy-models/math-spec/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- Look at the [contributing guide in our documentation](https://energy-models.github.io/math-spec/contributing)
+
+## Licensing
+
+Copyright (c) 2026 math-spec contributors.
+By contributing to math-spec, i.e. through opening a pull request, you represent that your contributions are your own original work and that you have the right to license them, and you agree that your contributions are licensed under the .
+
+## Reporting bugs and requesting features
+
+You can open an issue on GitHub to report bugs or request new math-spec features.
+Follow these links to submit your issue:
+
+- [Report bugs or other problems while running math-spec](https://github.com/energy-models/math-spec/issues/new?template=BUG-REPORT.yml).
+  If reporting an error, please include a full traceback in your issue.
+
+- [Request features that math-spec does not already include](https://github.com/energy-models/math-spec/issues/new?template=FEATURE-REQUEST.yml).
+
+- [Report missing or inconsistent information in our documentation](https://github.com/energy-models/math-spec/issues/new?template=DOCS.yml).
+
+- [Any other issue](https://github.com/energy-models/math-spec/issues/new).
+
+## Submitting changes
+
+Look at the [development guide in our documentation](https://energy-models.github.io/math-spec/contributing) for information on how to get set up for development.
+
+<!--- the "--8<--" html comments define what part of this file to add to the index page of the documentation -->
+<!--- --8<-- [start:docs] -->
+
+To contribute changes:
+
+1. Fork the project on GitHub.
+1. Create a feature branch to work on in your fork (`git checkout -b new-fix-or-feature`).
+1. Test your changes using `pixi run test`.
+1. Commit your changes to the feature branch (you should have `pre-commit` installed to ensure your code is correctly formatted when you commit changes).
+1. Push the branch to GitHub (`git push origin new-fix-or-feature`).
+1. On GitHub, create a new [pull request](https://github.com/energy-models/math-spec/pull/new/main) from the feature branch.
+
+When you contribute for the first time, ensure your reviewer [adds you as a contributor](https://allcontributors.org/en/bot/)!
+
+### Pull requests
+
+Before submitting a pull request, check whether you have:
+
+- Added your changes to `CHANGELOG.md`.
+- Added or updated documentation for your changes.
+- Added tests if you implemented new functionality.
+
+When opening a pull request, please provide a clear summary of your changes!
+
+### Commit messages
+
+Please try to write clear commit messages.
+One-line messages are fine for small changes, but bigger changes should look like this:
+
+```text
+A brief summary of the commit (max 50 characters)
+
+A paragraph or bullet-point list describing what changed and its impact,
+covering as many lines as needed.
+```
+
+### Code conventions
+
+Start reading our code and you'll get the hang of it.
+
+We mostly follow the official [Style Guide for Python Code (PEP8)](https://www.python.org/dev/peps/pep-0008/).
+
+We have chosen to use the uncompromising code formatter and linter [`ruff`](https://beta.ruff.rs/docs/).
+When run from the root directory of this repo, `pyproject.toml` should ensure that formatting and linting fixes are in line with our custom preferences (e.g., maximum line length).
+To make this a smooth experience, you should run `pixi run pre-commit install` after setting up your development environment.
+If you prefer, you can also set up your IDE to run these two tools whenever you save your files, and to have `ruff` highlight erroneous code directly as you type.
+Take a look at their documentation for more information on configuring this.
+
+We require all new contributions to have docstrings for all modules, classes and methods.
+When adding docstrings, we request you use the [Google docstring style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).
+
+## Release checklist
+
+### Pre-release
+
+- Make sure all unit and integration tests pass (This is best done by creating a pre-release pull request).
+- Make sure documentation builds without errors (`pixi run docs-build`).
+- Make sure the [changelog][changelog] is up-to-date, especially that new features and backward incompatible changes are clearly marked.
+
+### Create release
+
+- Bump the version number in `src/math_spec/__init__.py`
+- Update the [changelog][changelog] with final version number of the form `vX.Y.Z` + release date.
+- Commit with message `Release vX.Y.Z`, then add a `vX.Y.Z` tag.
+- Create a release pull request to verify that all CI and CD checks pass.
+- Once the PR is approved and merged, create a release through the GitHub web interface, using the same tag, titling it `Release vX.Y.Z` and include all the changelog elements that are *not- flagged as **internal**.
+
+### Post-release
+
+- Update the changelog, adding a new `[Unreleased]` heading.
+- Update `src/math_spec/__init__.py` to the next version appended with `.dev0`, in preparation for the next main commit.
+
+<!--- --8<-- [end:docs] -->
