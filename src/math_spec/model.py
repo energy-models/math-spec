@@ -667,15 +667,31 @@ class Model(_StrictBlock):
         """The label-space lookups over *dimension* — selection only, never an axis."""
         return {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.into is None}
 
-    def declared_index(self, dimension: str) -> dict[str, list[Any]] | None:
-        """*dimension*'s index as the file declares it, or ``None`` if it does not.
+    def declared_maps(self, dimension: str) -> dict[str, dict[Any, Any]]:
+        """The lookups over *dimension* whose map the file declares, by name.
 
-        Columns are the label plus one per lookup over the dimension that
-        declares ``values:`` — the same shape a caller passes at bind time, so
-        neither lane learns a second way to receive one. Labels come from the
-        dimension's own ``values:`` where it has them, and otherwise from the
-        maps themselves, first appearance ordered; a label a map omits is null,
-        the partial case (the declaration rules).
+        **A map is not the dimension.** It is a partial relation over one, free
+        to omit labels and written in whatever key order someone typed, so it
+        supplies values and never the label set or its order — those come from
+        ``dimensions.<d>.values`` or from the caller, and a label no map
+        mentions is a label with a null lookup, not a label that does not exist.
+
+        Returns:
+            ``{lookup name: {label: value}}``, empty where the file declares no
+            map over *dimension*.
+        """
+        return {n: lk.values or {} for n, lk in self.lookups.items() if lk.over == dimension and lk.values is not None}
+
+    def declared_index(self, dimension: str) -> dict[str, list[Any]] | None:
+        """*dimension*'s whole index as the file declares it, or ``None``.
+
+        Columns are the label plus one per lookup declaring ``values:`` — the
+        same shape a caller passes at bind time, so neither lane learns a second
+        way to receive one. Only where the dimension declares its own labels: a
+        map cannot stand in for them (:meth:`declared_maps`), so a dimension
+        whose ``values:`` the file omits has no declared index however many maps
+        point at it, and the caller supplies the labels those maps are read
+        against.
 
         **Columns rather than a frame** because ``language/`` may not import a
         dataframe library: a typeset renderer reaches this module and would pay
@@ -683,21 +699,16 @@ class Model(_StrictBlock):
         own frame from this.
 
         Returns:
-            ``{dimension: labels, lookup: values, …}``, or ``None`` where no
-            lookup over *dimension* declares its values — leaving every
-            existing model's index to arrive exactly as it does now.
+            ``{dimension: labels, lookup: values, …}``, or ``None`` where the
+            dimension declares no ``values:`` of its own.
         """
-        declared = {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.values is not None}
-        if not declared:
-            return None
         block = self.dimensions.get(dimension)
-        if block is not None and block.values is not None:
-            labels = list(block.values)
-        else:
-            labels = list(dict.fromkeys(key for lk in declared.values() for key in lk.values or {}))
+        if block is None or block.values is None:
+            return None
+        labels = list(block.values)
         index: dict[str, list[Any]] = {dimension: labels}
-        for name, lk in declared.items():
-            index[name] = [(lk.values or {}).get(label) for label in labels]
+        for name, values in self.declared_maps(dimension).items():
+            index[name] = [values.get(label) for label in labels]
         return index
 
     def _declared_lookup_errors(self, name: str, lookup: LookupBlock) -> list[str]:
