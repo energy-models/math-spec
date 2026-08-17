@@ -181,11 +181,13 @@ constraint reads it.
 
 A cycle basis is the first kind: a graph algorithm over a topology only data
 supplies, so [`pypsa_kvl`](../examples/pypsa_kvl.md) carrying `cycle_incidence`
-as a parameter is right, and would be in any language. A minimum up time is the
-second: `min_up_time` is a column the model already binds, and the window mask
-over it is a mechanical consequence — yet the modeller writes that loop, plus a
-mirror dimension and an `at()` to reach across it
-([#849](https://github.com/fluxopt/lpspec/issues/849) moves it).
+as a parameter is right, and would be in any language. A minimum up time was the
+second — `min_up_time` a column the model already binds, the window mask over it
+a mechanical consequence the modeller had to write as data — until `within=`
+read the width off the column
+([minimum up and down times](../examples/pypsa_min_up_down.md) is the witness).
+[#849](https://github.com/fluxopt/lpspec/issues/849) is what is left of that
+gap.
 
 The first kind is a design, the second a tax, and refusing both under one rule
 reads as principle while billing as friction.
