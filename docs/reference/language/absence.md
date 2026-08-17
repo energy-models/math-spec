@@ -94,6 +94,54 @@ row. So these two spellings ask different questions:
 *The total of the net where the net is defined*, against *the total in minus
 the total out*. Rewriting one into the other reads the absent `y[b]` as a zero.
 
+## What a missing coordinate means
+
+Everything above is the default, and the default is a *reading*: a coordinate
+the mask removed holds a quantity with **no value**, so an expression needing
+that value is undefined and its row is not asserted. For many quantities that is
+right — there is no state of charge for a store that is not there.
+
+For others the missing coordinate is not undefined at all, it is **zero**. A
+reservoir with no inflow spills nothing; a line with no losses loses nothing.
+Those models want the row, with the term contributing nothing. Which one it is
+belongs to the quantity, so it is said at the declaration:
+
+<!-- doctest: wrap=variables -->
+```yaml
+spill:
+  foreach: [snapshot, storage]
+  where: inflow
+  absence: zero      # outside the mask this quantity is zero
+soc:
+  foreach: [snapshot, storage]
+  where: has_storage
+  absence: undefined # the default — outside the mask it has no value
+```
+
+The behaviour follows from the meaning rather than being the thing declared:
+
+| Where the variable appears | `undefined` | `zero` |
+|---|---|---|
+| a bare term — `x + y >= 5` | no row | `x >= 5` |
+| a summand — `sum(x + y, over=f)` | the element goes, and its `x` with it | the element stays, `y` worth `0` |
+| a reduction — `sum(y, over=f)` | the total over the `y` that exist | the same total, plus zeros |
+
+Only the first two differ. A reduction never propagated absence — *the total
+over the set that exists* is defined under either reading — which is why the
+third row is the same in both columns.
+
+**`absence: zero` needs a `where:`.** A variable's only source of absence is its
+own mask, `foreach` being a product of declared dimensions that holds every
+coordinate of it, so the key on an unmasked variable would choose between two
+readings of a case that cannot arise. Refused at load, naming the fix.
+
+**There is no third value, and no number.** Over a variable the only
+representable fill is zero: a nonzero one would stand a constant where a term
+was, which is the rule that already limits `shift`'s numeric `edge=` over a
+variable ([operators](operators.md)). Where a *parameter* wants `1` rather than
+`0` the identity is positional and the model says so at the use site — and a
+missing parameter row is a zero coefficient already, not an absence.
+
 ## A row with no variable terms is not built
 
 Whatever emptied it: a masked variable took the row with it, a reduction over
@@ -115,7 +163,7 @@ Each rule has a spelling for the opposite intent:
 
 | You want | You write |
 |---|---|
-| the row kept, the missing term read as zero | two constraints under complementary `where` clauses |
+| the row kept, the missing term read as zero | `absence: zero` on the variable — or, where only one constraint wants it, two constraints under complementary `where` clauses |
 | a vacated shift position to contribute | `shift(x, over=d, by=n, edge=0)` — the identity of *its* position |
 | to test whether a variable exists here | its bare name in a `where` |
 | a sparse coefficient to remove the row rather than zero the term | mask on it — `where: "rel_max"` |

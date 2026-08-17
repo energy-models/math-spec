@@ -58,6 +58,7 @@ variables:
 | `where` | which coordinates exist ([absence](absence.md)) | default `null` |
 | `bounds.lower` / `bounds.upper` | a number, or the name of a parameter | default `-inf` / `inf` |
 | `domain` | `continuous`, `integer` or `binary` — which carries fixed 0/1 bounds | default `continuous` |
+| `absence` | `undefined` or `zero` — what the masked-out coordinates *mean* ([absence](absence.md#what-a-missing-coordinate-means)) | default `undefined` |
 | `description` | free text | default `null` |
 
 **Omitting a bound means unbounded on that side** — non-negativity is written,

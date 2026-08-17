@@ -79,6 +79,11 @@ DIMENSION_DTYPES = frozenset({'float', 'int', 'str', 'datetime'})
 #: the same fence reason as the dtype table above.
 VARIABLE_DOMAINS = frozenset({'continuous', 'integer', 'binary'})
 
+#: What a masked variable's non-existence *means* (the absence rules). Matches
+#: the plan's ``VariableAbsence`` vocabulary (``relational/plan.py``), pinned by
+#: a test for the same fence reason as the tables above.
+VARIABLE_ABSENCE = frozenset({'undefined', 'zero'})
+
 
 def _one_of(value: str, allowed: frozenset[str] | set[str], field: str) -> str:
     """Check an enumerated string field, in one wording for all of them."""
@@ -220,6 +225,7 @@ class VariableBlock(_StrictBlock):
     where: str | None = None
     bounds: BoundsBlock = BoundsBlock()
     domain: str = 'continuous'
+    absence: str = 'undefined'
     description: str | None = None
 
     @property
@@ -230,6 +236,29 @@ class VariableBlock(_StrictBlock):
     @classmethod
     def _check_domain(cls, v: str) -> str:
         return _one_of(v, VARIABLE_DOMAINS, 'domain')
+
+    @field_validator('absence')
+    @classmethod
+    def _check_absence(cls, v: str) -> str:
+        return _one_of(v, VARIABLE_ABSENCE, 'absence')
+
+    @model_validator(mode='after')
+    def _absence_needs_a_mask(self) -> VariableBlock:
+        """``absence:`` says what a *missing* coordinate means, so one must be missable.
+
+        A variable's only source of absence is its own ``where:`` — ``foreach``
+        is a product of declared dimensions and has every coordinate. Without a
+        mask the key selects between two readings of a case that cannot arise,
+        which is a setting the reader has to interpret and nothing can reach.
+        """
+        if self.absence != 'undefined' and self.where is None:
+            msg = (
+                f'absence: {self.absence} needs a `where:` — a variable with no mask exists at every '
+                f'coordinate of its foreach, so there is no absence for it to describe. Add the mask, '
+                f'or drop the key.'
+            )
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode='before')
     @classmethod
