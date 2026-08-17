@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-
 # This file is managed by Copier; DO NOT EDIT OR REMOVE.
 #
 # If you want to change any of the copier answers, run one of the following:
@@ -13,7 +12,7 @@
 #
 # If you want to run this as a one-off command, prefix with:
 #   `pixi exec --spec copier --spec ruamel.yaml -- {command}`
-_commit: 46e0956
+_commit: 876c0c4
 _src_path: https://github.com/energy-models/copier-template-python-open-source
 add_autobump_workflow: true
 author_email: 17178478+brynpickering@users.noreply.github.com
@@ -22,7 +21,7 @@ github_user: brynpickering
 license: MIT
 minimal_python_version: py312
 project_short_description: YAML math specification and AST parsing for multi-dimensional
-    linear programming problems
+  linear programming problems
 project_slug: math-spec
 repository_owner: energy-models
 use_devcontainer: false

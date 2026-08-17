@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+
 def test_hard():
     import math_spec  # noqa
 

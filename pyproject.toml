@@ -12,7 +12,9 @@ only-include = ["src", "LICENSES", "README.md"]
 [project]
 name = "math-spec"
 description = "YAML math specification and AST parsing for multi-dimensional linear programming problems"
-authors = [{ name = "Bryn Pickering", email = "17178478+brynpickering@users.noreply.github.com" }]
+authors = [
+  { name = "Bryn Pickering", email = "17178478+brynpickering@users.noreply.github.com" },
+]
 # replaced in CI
 version = "0.0.0"
 classifiers = [
@@ -31,7 +33,7 @@ repository = "https://github.com/energy-models/math-spec"
 [project.scripts]
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 
 [tool.ruff.lint]
 ignore = [

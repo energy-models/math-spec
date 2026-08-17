@@ -12,6 +12,9 @@ from mkdocs.structure.files import File
 
 TEMPDIR = tempfile.TemporaryDirectory()
 
+# Add to this list if you want to ignore any source files from the documentation API reference
+API_FILES_TO_IGNORE: list[str] = []
+
 
 @mkdocs.plugins.event_priority(50)
 def on_files(files: list, config: dict, **kwargs) -> list:
@@ -50,7 +53,7 @@ def _new_file(path: Path, config: dict, src_dir: str = ".") -> File:
         File: mkdocs object that links your file to the docs directory, ready to be added to the mkdocs file list.
     """
     return File(
-        path=path,
+        path=str(path),
         src_dir=src_dir,
         dest_dir=config["site_dir"],
         use_directory_urls=config["use_directory_urls"],

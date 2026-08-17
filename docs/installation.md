@@ -8,6 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Installation
 
 ## Installing a user environment
+
 # Installation
 
 !!! hint
@@ -46,7 +47,6 @@ You can install `math-spec` via all common package managers:
 
 `math-spec` is written and tested to be compatible with Python 3.12 and above.
 We recommend to use the latest version with active support (see [endoflife.date](https://endoflife.date/python)).
-
 
 ## Installing a development environment
 
