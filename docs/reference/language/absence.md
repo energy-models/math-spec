@@ -154,15 +154,21 @@ different event: absence travels out of the term and deletes the row while its
 other terms are still live. `x + y >= 5` is no constraint where `y` is masked —
 including where `x` is a variable with a bound of its own.
 
-Rows emptied are **reported**: `diagnostics().omissions` on a built model gives
-`(constraint, rows_not_built)` ([diagnostics](../api.md#diagnostics)). Rows a
-propagated absence deleted are **not**, which is
-[#944](https://github.com/fluxopt/lpspec/issues/944); until that closes,
-`diagnostics().rows` against the product of the `foreach` is what counts them,
-and it counts the whole model at once rather than one constraint. A declared
-constraint that goes unenforced is a thing you have to be able to see — which
-is a reason to `build` a model you mean to inspect rather than to `solve` it,
-an answer being the one thing that cannot report it.
+**Both are reported, by the same line.** `diagnostics().omissions` on a built
+model gives `(constraint, rows_not_built)`
+([diagnostics](../api.md#diagnostics)) — a row emptied of its terms and a row a
+propagated absence deleted both land there, counted against the constraint that
+declared them, and it is empty for a model whose every declared row reached the
+solver. A declared constraint that goes unenforced is a thing you have to be
+able to see, which is a reason to `build` a model you mean to inspect rather
+than to `solve` it, an answer being the one thing that cannot report it.
+
+**A recurrence's first row appears here, and is the boundary rather than a bug.**
+`soc == shift(soc, over=t, by=1) + …` has no row at the first coordinate, so it
+reports one omission per store — the initial condition being the block written
+under the complementary `where`. What the report is *for* is the other case: rows
+lost to a mask the constraint never mentions, where the number is the difference
+between what a declaration asked for and what it was given.
 
 ## Asking for the other reading
 
