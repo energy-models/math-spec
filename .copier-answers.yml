@@ -12,7 +12,7 @@
 #
 # If you want to run this as a one-off command, prefix with:
 #   `pixi exec --spec copier --spec ruamel.yaml -- {command}`
-_commit: 876c0c4
+_commit: v1.0.0
 _src_path: https://github.com/energy-models/copier-template-python-open-source
 add_autobump_workflow: true
 author_email: 17178478+brynpickering@users.noreply.github.com
