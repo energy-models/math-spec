@@ -38,8 +38,8 @@ dimensions:
   line: {dtype: str}
 lookups:
   gen_bus: {over: generator, into: bus}
-  from: {over: line, into: bus}
-  to: {over: line, into: bus}
+  line_from: {over: line, into: bus}
+  line_to: {over: line, into: bus}
 parameters:
   load: {dims: [bus]}
 variables:
@@ -50,8 +50,8 @@ constraints:
     foreach: [bus]
     expression: >-
       sum(p, by=gen_bus)
-      + sum(f, by=to)
-      - sum(f, by=from)
+      + sum(f, by=line_to)
+      - sum(f, by=line_from)
       == load
 ```
 

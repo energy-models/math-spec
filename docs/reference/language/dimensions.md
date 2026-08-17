@@ -48,8 +48,8 @@ dimensions:
   line: {dtype: str}
 lookups:
   gen_bus: {over: generator, into: bus}
-  from: {over: line, into: bus}  # two lookups onto one dimension
-  to: {over: line, into: bus}
+  line_from: {over: line, into: bus}  # two lookups onto one dimension
+  line_to: {over: line, into: bus}
 ```
 
 The target must be a declared dimension other than `over`. Non-null values are
