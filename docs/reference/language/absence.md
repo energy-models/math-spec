@@ -144,15 +144,22 @@ missing parameter row is a zero coefficient already, not an absence.
 
 ## A row with no variable terms is not built
 
-Whatever emptied it: a masked variable took the row with it, a reduction over
-an absent set contributed `0`, or a missing parameter row was a zero
-coefficient. Three ways to reach one shape — *a row asserting something about
-constants only* — and the shape decides, not the provenance. Such a row
+Two ways to reach one shape — *a row asserting something about constants only*:
+a reduction over an absent set contributed `0`, or a missing parameter row was
+a zero coefficient. The shape decides, not the provenance. Such a row
 constrains nothing a solver can act on.
 
-It is **reported**, never silent: `diagnostics().omissions` on a built model
-gives `(constraint, rows_not_built)`, and is empty for a model whose every
-declared row was built ([diagnostics](../api.md#diagnostics)). A declared
+A row that a **masked variable** took with it never reaches that shape and is a
+different event: absence travels out of the term and deletes the row while its
+other terms are still live. `x + y >= 5` is no constraint where `y` is masked —
+including where `x` is a variable with a bound of its own.
+
+Rows emptied are **reported**: `diagnostics().omissions` on a built model gives
+`(constraint, rows_not_built)` ([diagnostics](../api.md#diagnostics)). Rows a
+propagated absence deleted are **not**, which is
+[#944](https://github.com/fluxopt/lpspec/issues/944); until that closes,
+`diagnostics().rows` against the product of the `foreach` is what counts them,
+and it counts the whole model at once rather than one constraint. A declared
 constraint that goes unenforced is a thing you have to be able to see — which
 is a reason to `build` a model you mean to inspect rather than to `solve` it,
 an answer being the one thing that cannot report it.
@@ -203,6 +210,13 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 The mask's dims must not exceed the frame it sits in
 ([dim algebra](expressions.md#dim-algebra)), and an undeclared bare name is a
 load error.
+
+**Defined is not non-zero**, and the difference is a property of the data rather
+than of the model. A bare parameter name is true wherever the table *has a row*,
+`0.0` included — so one `where:` masks nothing against a table padded with zeros
+and deletes rows against a sparse one carrying the same information. Where the
+intent is *non-zero*, compare for it: `where: "inflow != 0"` rather than
+`where: inflow`, which a padded zero satisfies.
 
 **Comparing two parameters is not in the language** — precompute a boolean
 parameter in data prep — and neither is comparing two dimensions. Two
