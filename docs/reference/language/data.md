@@ -9,7 +9,6 @@ import lpspec as lps
 result = lps.solve(
     'dispatch.yaml',
     {'load': 'load.parquet', 'cost': cost_frame, 'p_max': p_max_frame},
-    coords={'snapshot': range(24)},
 )
 ```
 
@@ -54,25 +53,21 @@ from exactly one of:
 
 1. **a key in `sources`** — a table carrying a column of that name, or a
    parquet path. The first occurrence of each value is its position;
-2. **`coords=`** — anything `pd.Index()` accepts, or a table carrying the label
-   column plus one column per [lookup](dimensions.md#lookups) over the
-   dimension, each named after it;
-3. **`dimensions.<d>.values` in the YAML** — the labels written out in the file.
+2. **`dimensions.<d>.values` in the YAML** — the labels written out in the file.
 
-**3 is exclusive of 1 and 2 rather than outranked by them.** A dimension the
-file declares and the caller also supplies is refused at bind, naming the
-declaration and the key that collided with it. The file owns that dimension's
-labels or the caller does, never both — so there is no precedence to remember,
-and no way for the file a reviewer reads to describe a model the caller quietly
-replaced. A model whose label set varies from run to run should not declare
-one. Between 1 and 2, both being the caller's, `sources` wins.
+**The two are exclusive, not ranked.** A dimension the file declares and the
+caller also supplies is refused at bind, naming the declaration and the key that
+collided with it. The file owns that dimension's labels or the caller does,
+never both — so there is no precedence to remember, and no way for the file a
+reviewer reads to describe a model the caller quietly replaced. A model whose
+label set varies from run to run should not declare one.
 
 **A [declared map](dimensions.md#values-puts-a-small-map-in-the-file) is not on
-that list.** `lookups.<x>.values` says how labels map, never which ones exist: a
+that list either.** `lookups.<x>.values` says how labels map, never which ones exist: a
 map is a partial relation over the dimension, free to omit members and written
 in whatever key order someone typed, and neither may decide an extent nor an
 order that [`shift`](operators.md#shift) reads positionally. A map is instead
-*read against* whichever of the three supplied the labels. Each map has one home
+*read against* whichever of the two supplied the labels. Each map has one home
 in the same way the labels do — the file, or a column of the caller's index —
 and claiming both is the same refusal. Which leaves exactly one index with two
 authors, one fact each: **labels from the caller, maps from the file.**
@@ -84,7 +79,7 @@ label is a **typo**, and refused: dropping it would place its terms nowhere
 while the model built and solved. Where the file declares the labels too, that
 same refusal happens at load with no data at all.
 
-There is no fourth step. A dimension none of the three supplies raises, and
+There is no third step. A dimension neither of the two supplies raises, and
 labels are never read out of the parameters: they would *be* the definition,
 so a mistyped label could not be told from a new one, and the index is also
 what fixes label **order**, which [`shift`](operators.md#shift) reads
