@@ -44,6 +44,7 @@ from lpspec.language.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
+    DimensionPositionNode,
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
@@ -55,6 +56,7 @@ from lpspec.language.where_parser import (
     UnresolvedNameNode,
     VariableDefinedNode,
     WhereNode,
+    _UnresolvedPositionNode,
     parse_where,
 )
 
@@ -599,6 +601,34 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
     return None
 
 
+def _resolve_position(node: _UnresolvedPositionNode, ns: Namespace, context: str, errors: list[str]) -> WhereNode:
+    """Type ``lhs <op> index(dim, i)`` — both sides must name the same dimension.
+
+    Comparing one dimension's coordinate against another's would be comparing
+    labels across label spaces, which can only mask everything out; and
+    ``index`` of anything but a dimension has no coordinate order to count
+    along.
+    """
+    for named in (node.name, node.dimension):
+        if named not in ns.dimensions:
+            kind = ns.kind(named)
+            was = f'a {kind}' if kind else 'not declared'
+            errors.append(
+                f"{context}: index() counts along a dimension's coordinates, and "
+                f"'{named}' is {was}.\n  Dimensions: {sorted(ns.dimensions)}"
+            )
+            return node
+    if node.name != node.dimension:
+        errors.append(
+            f"{context}: '{node.name} {node.op} index({node.dimension}, {node.position})' compares "
+            f"a '{node.name}' coordinate against a '{node.dimension}' one. No label of one is a "
+            f'label of the other, so the predicate can only mask everything out — index() names '
+            f'a position in the dimension being tested.'
+        )
+        return node
+    return DimensionPositionNode(node.name, node.op, node.position)
+
+
 def _resolve_where(
     node: WhereNode, ns: Namespace, context: str, errors: list[str], self_variable: str | None = None
 ) -> WhereNode:
@@ -610,6 +640,7 @@ def _resolve_where(
         (
             ParameterComparisonNode,
             DimensionComparisonNode,
+            DimensionPositionNode,
             LookupComparisonNode,
             LookupPairComparisonNode,
             LookupDefinedNode,
@@ -644,6 +675,9 @@ def _resolve_where(
             case _:
                 errors.append(ns._unknown(node.name, context, allow_dims=True))
                 return node
+
+    if isinstance(node, _UnresolvedPositionNode):
+        return _resolve_position(node, ns, context, errors)
 
     if isinstance(node, UnresolvedComparisonNode):
         value = node.value

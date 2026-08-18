@@ -37,6 +37,7 @@ from lpspec.language.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
+    DimensionPositionNode,
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
@@ -48,6 +49,7 @@ from lpspec.language.where_parser import (
     UnresolvedNameNode,
     VariableDefinedNode,
     WhereNode,
+    _UnresolvedPositionNode,
 )
 from lpspec.typeset.format import Entry, Glossary, Line
 
@@ -410,6 +412,10 @@ class Walk:
         if isinstance(node, DimensionComparisonNode):
             return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
 
+        if isinstance(node, DimensionPositionNode):
+            ordinal = self.position(node.name, node.position)
+            return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {ordinal}', 2
+
         if isinstance(node, LookupComparisonNode):
             applied = self.format.apply(self.format.upright(node.name), ctx.subscript(node.over))
             return f'{applied} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
@@ -435,7 +441,7 @@ class Walk:
             sides = [self.where(node.left, ctx, need=1), self.where(node.right, ctx, need=1)]
             return self.format.joined(sides, self.op('or')), 0
 
-        if isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode)):
+        if isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, _UnresolvedPositionNode)):
             msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'
             raise AssertionError(msg)
 
@@ -443,6 +449,16 @@ class Walk:
 
     def literal(self, value: float | str | datetime.date) -> str:
         return self.number(value) if isinstance(value, (int, float)) else self.format.prose(str(value))
+
+    def position(self, dimension: str, at: int) -> str:
+        """``index(dim, i)`` as the coordinate it names.
+
+        An upright application of the operator to the set, the same shape a
+        lookup gets — rather than ``min``/``max``, which would read the two
+        ends and leave every other position without a notation.
+        """
+        argument = f'{self.symbols.set[dimension]}, {self.number(at)}'
+        return self.format.apply(self.format.upright('index'), argument)
 
     def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
         parts = [self.where(n, ctx, need=1) for n in nodes if n is not None]

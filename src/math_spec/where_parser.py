@@ -61,6 +61,21 @@ class UnresolvedComparisonNode:
 
 
 @dataclass
+class _UnresolvedPositionNode:
+    """``lhs <op> index(dim, i)`` before either name is checked.
+
+    Kept apart from :class:`UnresolvedComparisonNode` because its right-hand
+    side names a dimension *and* a position, which no literal can carry.
+    ``resolution.py`` types it into :class:`DimensionPositionNode`.
+    """
+
+    name: str
+    op: PredicateOperator
+    dimension: str
+    position: int
+
+
+@dataclass
 class ParameterDefinedNode:
     """True wherever the named parameter is non-null and finite."""
 
@@ -95,6 +110,25 @@ class DimensionComparisonNode:
     name: str
     op: PredicateOperator
     value: float | str | datetime.date
+
+
+@dataclass
+class DimensionPositionNode:
+    """Compare a dimension's coordinates against one named by *position*.
+
+    ``where: "snapshot == index(snapshot, 0)"`` — the boundary of a recurrence
+    named by where it sits rather than by the label that happens to be there,
+    so the clause survives the index being relabelled. Negative counts from
+    the end, ``-1`` being the last.
+
+    Resolved rather than lowered to a literal: which label sits at a position
+    is a property of the *data*, so the position travels and each lane reads
+    it off the coordinate order it already holds.
+    """
+
+    name: str
+    op: PredicateOperator
+    position: int
 
 
 @dataclass
@@ -163,6 +197,8 @@ WhereNode = (
     BooleanLiteralNode
     | UnresolvedNameNode
     | UnresolvedComparisonNode
+    | _UnresolvedPositionNode
+    | DimensionPositionNode
     | ParameterDefinedNode
     | VariableDefinedNode
     | ParameterComparisonNode
@@ -198,6 +234,36 @@ def _bare(value: float | str) -> float | str:
     return str(value) if isinstance(value, _Quoted) else value
 
 
+def _position(tokens: pp.ParseResults) -> _Position:
+    """``index(dim, i)`` off the two tokens the grammar captured."""
+    return _Position(str(tokens[0]), int(cast('float', tokens[1])))
+
+
+@dataclass(frozen=True)
+class _Position:
+    """``index(dim, i)`` as the grammar saw it, before any name is checked.
+
+    Like :class:`_Quoted` this lives between the grammar and the comparison's
+    parse action: which dimension the left-hand side names is resolution's
+    business, so the pair travels only that far.
+    """
+
+    dimension: str
+    at: int
+
+
+def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode | _UnresolvedPositionNode:
+    """The comparison node one right-hand side asks for.
+
+    A position is its own node from the start because it is the one right-hand
+    side that is neither a literal nor a name — nothing downstream could tell
+    it from a parameter called ``index``.
+    """
+    if isinstance(value, _Position):
+        return _UnresolvedPositionNode(name, op, value.dimension, value.at)
+    return UnresolvedComparisonNode(name, op, _bare(value), quoted=isinstance(value, _Quoted))
+
+
 def _build_where_grammar() -> pp.ParserElement:
     """Build and return the pyparsing grammar for where strings.
 
@@ -226,10 +292,14 @@ def _build_where_grammar() -> pp.ParserElement:
         lambda t: _Quoted(t[0])
     )
 
+    index_call = (
+        pp.Suppress(pp.Keyword('index')) + pp.Suppress('(') + name + pp.Suppress(',') + integer + pp.Suppress(')')
+    ).set_parse_action(_position)
+
     comparator = pp.one_of('<= >= == != < >')
-    comparison = (name + comparator + (number | quoted | name)).set_parse_action(
+    comparison = (name + comparator + (index_call | number | quoted | name)).set_parse_action(
         # pyrefly: ignore[implicit-any-lambda]
-        lambda t: UnresolvedComparisonNode(t[0], t[1], _bare(t[2]), quoted=isinstance(t[2], _Quoted))
+        lambda t: _comparison(t[0], t[1], t[2])
     )
     # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))

@@ -60,6 +60,7 @@ from lpspec.language.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
+    DimensionPositionNode,
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
@@ -71,6 +72,7 @@ from lpspec.language.where_parser import (
     UnresolvedNameNode,
     VariableDefinedNode,
     WhereNode,
+    _UnresolvedPositionNode,
 )
 
 if TYPE_CHECKING:
@@ -294,7 +296,7 @@ def _check_where_dims(
                 f'reducing over an unlisted dim would silently widen it — say which '
                 f'reduction you mean.'
             )
-    elif isinstance(node, DimensionComparisonNode):
+    elif isinstance(node, (DimensionComparisonNode, DimensionPositionNode)):
         if node.name not in frame:
             raise DimensionError(
                 f"{context}: where-comparison on dimension '{node.name}', which is not in the frame {sorted(frame)}."
@@ -312,7 +314,7 @@ def _check_where_dims(
     elif isinstance(node, (AndNode, OrNode)):
         _check_where_dims(node.left, schema, frame, context)
         _check_where_dims(node.right, schema, frame, context)
-    elif isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode)):
+    elif isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, _UnresolvedPositionNode)):
         msg = f'{type(node).__name__} reached the dim checker unresolved.'
         raise AssertionError(msg)
     elif not isinstance(node, BooleanLiteralNode):

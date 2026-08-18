@@ -196,7 +196,8 @@ where_expr ::= atom | "NOT" where_expr | where_expr ("AND"|"OR") where_expr
             |  "(" where_expr ")"
 atom       ::= NAME | NAME COMPARATOR value | "True" | "False"
 COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
-value      ::= NUMBER | QUOTED | NAME_OR_STRING
+value      ::= NUMBER | QUOTED | NAME_OR_STRING | POSITION
+POSITION   ::= "index" "(" NAME "," INTEGER ")"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
 
@@ -210,6 +211,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `name` (bare) | lookup | defined: the label maps somewhere. A lookup may be [partial](dimensions.md#lookups), and this is how a declaration asks for the labels that do map |
 | `name OP value` | lookup | a filter on the lookup's column of its `over` dimension's index — which therefore has to be in the frame. A null value is **false**, whatever the comparator |
 | `name OP name` | two lookups | the one comparison whose both sides are structure. Legal only where both map out of the **same** dimension *and* into the **same** one — `from != to` excludes a self-loop |
+| `name OP index(name, i)` | one dimension, twice | the coordinate at position `i` of that dimension's own order — negative counts from the end. Both names must be the **same** dimension |
 | `AND` `OR` `NOT` | — | case-insensitive; `NOT` binds tighter than `AND`, which binds tighter than `OR` |
 | `True` / `False` | — | literals; `True` is the same as no `where` |
 
@@ -251,6 +253,33 @@ dates: a `datetime` dimension compared to a number is compared against the
 load error naming the fix. A datetime boundary is a quoted ISO date —
 `snapshot > '2030-01-01'`, or `'2030-01-01T06:00'` with a time. Calendar
 arithmetic, resampling and timezone conversion stay data prep.
+
+**`index(dim, i)` names a coordinate by where it sits**, so a boundary clause
+survives the index being relabelled:
+
+```yaml
+dimensions:
+  snapshot: {dtype: int}
+parameters:
+  soc_initial: {dims: []}
+variables:
+  soc: {foreach: [snapshot], bounds: {lower: 0}}
+constraints:
+  soc_start:
+    foreach: [snapshot]
+    where: "snapshot == index(snapshot, 0)"   # not: snapshot == 0
+    expression: soc == soc_initial
+```
+
+A recurrence needs its first position seeded, and the label that happens to be
+there is a property of the data — relabel `[0, 1, 2]` to `[1, 2, 3]` and
+`snapshot == 0` matches nothing, leaving the recurrence unanchored. `-1` is the
+last coordinate, `-2` the one before it. A position no coordinate occupies is
+an **error at bind**, not an empty mask: the clause exists to seed a row, and
+seeding none is the failure it was written to prevent.
+
+The order counted along is the dimension's own — the one `shift` walks, and the
+one the index declares — not the bytewise order a label comparison uses.
 
 **String labels order bytewise**, whatever order the dimension declared them
 in. Declaration order is a different axis — it is what `shift` walks — and a
