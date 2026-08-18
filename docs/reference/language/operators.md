@@ -133,11 +133,6 @@ what a representative period that repeats asks for.
 the dimension's **declared order** ([data binding](data.md)). `edge=` says what
 happens at the boundary, and it is the whole of the operator's subtlety.
 
-Bare, the vacated position is **absent**: it propagates absence and the row it
-would have fed is not built ([absence](absence.md)). `edge='wrap'` is cyclic —
-coordinates stay put and values wrap, so nothing is vacated. `edge=v` puts the
-number `v` there instead, and the row survives.
-
 ```yaml
 dimensions:
   snapshot: {dtype: int}
@@ -157,16 +152,20 @@ constraints:
 `edge='wrap'` is what makes a battery cyclic without writing the boundary
 condition out: the first snapshot reads the last.
 
-Four rules govern `edge=`:
+Three settings, and two rules that hold across them:
 
-- **Bare** — the vacated coordinate is absent, so an acyclic recurrence has no
-  row at its first coordinate rather than a row asserting that the quantity
-  starts at zero. An initial condition is then something the model states,
-  under a complementary `where`
+- **Bare** — the vacated coordinate is **absent**: it propagates and the row it
+  would have fed is not built ([absence](absence.md)), so an acyclic recurrence
+  has no row at its first coordinate rather than a row asserting that the
+  quantity starts at zero. An initial condition is then something the model
+  states, under a complementary `where`
   ([two regimes, two blocks](declarations.md#constraints)).
-- **Numeric** — asks for a value back. It is a number rather than a flag
-  because the identity is positional: `0` for a sum, `1` for a product. The
-  library cannot see which position it is in, and the model can.
+- **`'wrap'`** — cyclic: coordinates stay put and values wrap, so nothing is
+  vacated.
+- **Numeric** — the number stands where the slot was vacated, and the row
+  survives. A number rather than a flag because the identity is positional —
+  `0` for a sum, `1` for a product — and the library cannot see which position
+  it is in where the model can.
 - **Over a variable the only representable numeric edge is `0`** — a vacated
   slot there contributes no term at all, and a nonzero one would be a constant
   standing where a term was.

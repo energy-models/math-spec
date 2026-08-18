@@ -49,7 +49,7 @@ fixed when the file loads:
 | expression (`p * cost`) | variable, parameter |
 | dimension argument (`over=`) | dimension |
 | lookup argument (`by=` on `sum` / `at`) | lookup — never a dimension |
-| `where` string | parameter, variable, dimension, lookup ([where strings](absence.md#where-strings)) |
+| `where` string | parameter, variable, dimension, lookup ([where strings](#where-strings)) |
 | `bounds.lower` / `bounds.upper` | parameter name, or a number |
 | the `edge` key of `shift` | `'wrap'` **quoted**, or a bare number; never a dimension |
 
@@ -96,6 +96,107 @@ so:
   *exceed* the frame they sit in.
 
 Get it wrong and you are told at load time, not at solve time.
+
+## Where strings
+
+A `where:` is a boolean mask, and true means "this coordinate exists".
+
+```text
+where_expr ::= atom | "NOT" where_expr | where_expr ("AND"|"OR") where_expr
+            |  "(" where_expr ")"
+atom       ::= NAME | NAME COMPARATOR value | "True" | "False"
+COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
+value      ::= NUMBER | QUOTED | NAME_OR_STRING | POSITION
+POSITION   ::= "index" "(" NAME "," INTEGER ")"
+QUOTED     ::= "'" chars "'" | '"' chars '"'
+```
+
+| Surface | Names a… | Meaning |
+|---|---|---|
+| `name` (bare) | parameter | defined: the table has a row here, and its value is finite. `0.0` counts; `inf` does not, though it is a value everywhere else |
+| `name` (bare) | variable | the variable exists at this coordinate — the counterpart of the parameter row, and how you say which coordinates the row-dropping rule applies to |
+| `name` (bare) | dimension | load error: it is true everywhere, so it reads as a condition and is not one. Compare it instead |
+| `name OP value` | parameter | element-wise; a null compares false. The right-hand side is a literal number, or a bare name read as a string coordinate |
+| `name OP value` | dimension | a filter on the frame's own coordinate column |
+| `name` (bare) | lookup | defined: the label maps somewhere. A lookup may be [partial](dimensions.md#lookups), and this is how a declaration asks for the labels that do map |
+| `name OP value` | lookup | a filter on the lookup's column of its `over` dimension's index — which therefore has to be in the frame. A null value is **false**, whatever the comparator |
+| `name OP name` | two lookups | the one comparison whose both sides are structure. Legal only where both map out of the **same** dimension *and* into the **same** one — `from != to` excludes a self-loop |
+| `name OP index(name, i)` | one dimension, twice | the coordinate at position `i` of that dimension's own order — negative counts from the end. Both names must be the **same** dimension |
+| `AND` `OR` `NOT` | — | case-insensitive; `NOT` binds tighter than `AND`, which binds tighter than `OR` |
+| `True` / `False` | — | literals; `True` is the same as no `where` |
+
+The mask's dims must not exceed the frame it sits in
+([dim algebra](#dim-algebra)), and an undeclared bare name is a
+load error.
+
+**Defined is not non-zero**, and the difference is a property of the data rather
+than of the model. A bare parameter name is true wherever the table *has a row*,
+`0.0` included — so one `where:` masks nothing against a table padded with zeros
+and deletes rows against a sparse one carrying the same information. Where the
+intent is *non-zero*, compare for it: `where: "inflow != 0"` rather than
+`where: inflow`, which a padded zero satisfies.
+
+**Comparing two parameters is not in the language** — precompute a boolean
+parameter in data prep — and neither is comparing two dimensions. Two
+*lookups* are the exception, and only two that share both ends: over one
+dimension they are two columns of one index, so the comparison is a filter on
+that table rather than a join between two, and into one dimension they draw
+from one label set, so a match is possible at all. Over different dimensions no
+row carries both, and into different label sets no value can ever match —
+either is a load error. A label space owns its values and is therefore never
+the other side of one.
+
+The string reading of a right-hand-side name is for names the model does *not*
+declare, which is how a string coordinate is compared; a **declared** name
+there is a load error naming the near miss, because reading it as text would
+compare a coordinate column against another declaration's name and mask
+everything out.
+
+**Quote a label that is not an identifier, and quote a date.** A bare word has
+to look like a name, so `combined-cycle`, `IT-north` and `CCGT 400MW` are only
+sayable in quotes — and quoting is also what says *label, not name*, so a
+quoted word is never read as a declaration and never a near-miss error.
+
+**A comparison is checked against the declared `dtype`.** This matters most for
+dates: a `datetime` dimension compared to a number is compared against the
+**epoch**, so `snapshot > 0` would silently mean "after 1970-01-01". That is a
+load error naming the fix. A datetime boundary is a quoted ISO date —
+`snapshot > '2030-01-01'`, or `'2030-01-01T06:00'` with a time. Calendar
+arithmetic, resampling and timezone conversion stay data prep.
+
+**`index(dim, i)` names a coordinate by where it sits**, so a boundary clause
+survives the index being relabelled:
+
+```yaml
+dimensions:
+  snapshot: {dtype: int}
+parameters:
+  soc_initial: {dims: []}
+variables:
+  soc: {foreach: [snapshot], bounds: {lower: 0}}
+constraints:
+  soc_start:
+    foreach: [snapshot]
+    where: "snapshot == index(snapshot, 0)"   # not: snapshot == 0
+    expression: soc == soc_initial
+```
+
+A recurrence needs its first position seeded, and the label that happens to be
+there is a property of the data — relabel `[0, 1, 2]` to `[1, 2, 3]` and
+`snapshot == 0` matches nothing, leaving the recurrence unanchored. `-1` is the
+last coordinate, `-2` the one before it. A position no coordinate occupies is
+an **error at bind**, not an empty mask: the clause exists to seed a row, and
+seeding none is the failure it was written to prevent.
+
+The order counted along is the dimension's own — the one `shift` walks, and the
+one the index declares — not the bytewise order a label comparison uses.
+
+**String labels order bytewise**, whatever order the dimension declared them
+in. Declaration order is a different axis — it is what `shift` walks — and a
+`where` never reads it: `node >= 'b'` means the same thing however the nodes
+were listed. A label the dimension does not carry compares equal to nothing, so
+the mask is false there rather than an error: quoting already said *label, not
+name*, and a label is data.
 
 ## Named expressions
 

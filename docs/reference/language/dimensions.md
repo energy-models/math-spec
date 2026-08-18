@@ -63,7 +63,7 @@ nowhere. An unknown *non-null* value is a typo, and an error.
 
 It owns its values, targets nothing, and puts no entry under `dimensions:`,
 because a label space nothing aggregates into is not part of the model's
-dimensionality. *Selecting* on it is a [`where`](absence.md#where-strings),
+dimensionality. *Selecting* on it is a [`where`](expressions.md#where-strings),
 which is the only thing this kind is for:
 
 ```yaml
@@ -105,32 +105,12 @@ where it is a label space.
 load** rather than at bind, which is the reason to prefer declaring a small map
 over supplying it.
 
-**A declaration is exclusive, not a default.** Two facts, one home each. The
-**labels** come from `dimensions.<d>.values` or from the caller's `d` source;
-**this map** comes from `values:` here, or from a `gen_bus` column of that same
-source. Claiming either twice is refused at bind, naming the declaration and
-the key or column that collided with it ([data binding](data.md)) — so there is
-no precedence to remember, and no way for the file a reviewer reads to describe
-a model the caller quietly replaced. A dimension whose label set varies from run
-to run should not declare one: the declaration is precisely the claim that the
-set is fixed.
-
-**A map declares no labels.** It is a partial relation over the dimension — it
-may omit members, and its key order is whatever someone typed. Reading the label
-set out of it would let an added entry create a member, and a reordered map
-re-order the axis that [`shift`](operators.md#shift) reads positionally. So a
-dimension whose own `values:` the file omits takes its labels from the caller
-however many maps point at it; each map is then read against those labels.
-
-That reading is not symmetric. A label no map mentions gets a **null** — the
-partial case, reachable now with a single map. A key matching no label is a
-**typo** and refused, the same law the load-time check applies where the file
-declares both sides, arriving at bind because that is where the two first meet.
-
-Which makes **labels from the caller, maps from the file** an ordinary shape
-rather than a conflict, and the one worth reaching for: a relation small enough
-to read stays beside the equation that traverses it, while the members it is
-about stay in the data.
+**Labels from the caller, maps from the file** is the shape this is for: a
+relation small enough to read stays beside the equation that traverses it,
+while the members it is about stay in the data. A map declares no labels of its
+own, and neither fact may be claimed twice. Which of the two homes each has,
+what a label no map mentions gets, and why a key no label matches is a typo
+rather than a new member, is [data binding](data.md#where-coordinates-come-from).
 
 ### Both kinds
 

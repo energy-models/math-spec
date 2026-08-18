@@ -49,9 +49,9 @@ in a different position, and each links to the page that spells it out.
 | 3 | **One flat namespace, no shadowing** — a collision is a load error naming both declarations. | [Names](expressions.md#name-resolution) |
 | 4 | **Position decides which kinds of name are legal**, and a name's kind is fixed at load time. A dimension is never legal in a value position: it is a coordinate space, not data. | [Names](expressions.md#name-resolution) |
 | 5 | **Dim sets compose by union.** A constraint must *equal* its `foreach`; a `where` or a bound must not *exceed* its frame. | [Dim algebra](expressions.md#dim-algebra) |
-| 6 | **Absence is a property of variables.** Four constructs create it; nothing else does. | [Absence](absence.md) |
+| 6 | **Four constructs create absence**, and nothing else does. It is a state of a *variable*; a constraint's own `where:` deletes its row directly. | [Absence](absence.md) |
 | 7 | Through arithmetic absence **spreads, taking the row with it**. Out of a reduction it does not — so `sum(x + y)` and `sum(x) + sum(y)` are different questions. | [Absence](absence.md#how-absence-travels) |
-| 8 | **Identity of the position.** A missing value reads as whatever makes it contribute nothing — zero as a coefficient, false in a `where`. Where no such reading exists it is refused: a divisor, a bound. | [Absence](absence.md), [Operators](operators.md#shift) |
+| 8 | **A missing value reads as the identity of its position** — zero as a coefficient, false in a `where`. Where the position has no identity it is refused, rather than guessed: a divisor, a bound. | [Absence](absence.md), [Operators](operators.md#shift) |
 | 9 | **Degree 1, always**: `*` needs a variable-free factor, `/` a variable-free divisor, `**` is refused. Bounds are narrower still — a name or a number, never arithmetic. | [Expressions](expressions.md) |
 | 10 | **The operator set is closed.** Compositions go in `macros:`. | [Operators](operators.md) |
 
@@ -62,9 +62,9 @@ in a different position, and each links to the page that spells it out.
 | [File shape](file.md) | the ten keys, `version`, `description`, and how the YAML is read |
 | [Dimensions and lookups](dimensions.md) | the axes, and the maps their members carry |
 | [Parameters, variables, constraints](declarations.md) | the four blocks that make up the math |
-| [Expressions](expressions.md) | the grammar, what a name may mean where, and how dims compose |
+| [Expressions](expressions.md) | the two grammars — arithmetic and `where` — what a name may mean where, and how dims compose |
 | [Operators](operators.md) | `sum`, `at`, `shift` — the closed set |
-| [Absence and `where`](absence.md) | how a model says a variable does not exist there |
+| [Absence and `where`](absence.md) | what a mask *means*: which rows are built, and which are not |
 | [Piecewise curves and SOS](piecewise.md) | `piecewise:` and `sos:` |
 | [Data binding](data.md) | what `sources` accepts, and how coordinates are resolved |
 | [Errors and limits](errors.md) | what fails when, and what the language will not say |
