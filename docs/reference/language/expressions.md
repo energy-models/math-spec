@@ -25,7 +25,8 @@ Every expression is **affine in the variables**:
 
 - `*` needs at least one variable-free factor — `p * cost` is fine, `p * on` is
   not;
-- `/` needs a variable-free divisor, and a single factor rather than a sum;
+- `/` needs a variable-free divisor, and a single factor rather than a sum —
+  both decided at load time, since neither depends on the numbers that arrive;
 - `**` parses but is **not in the language**. It is rejected at load time, so
   the refusal can name the operator and its rewrite. A variable base breaks
   degree 1; over parameters alone it is data prep.
