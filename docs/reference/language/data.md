@@ -132,7 +132,7 @@ Sparsity is the absent row.
 | | |
 |---|---|
 | an undeclared column in a table | ignored |
-| a coordinate with no row | sparse data gives sparse variables; what a missing row means where it is read is [absence](absence.md) |
+| a coordinate with no row | sparse data gives sparse variables; what a missing row means where it is read is [absence](absence.md). `diagnostics().sparse_parameters` says which parameters arrived short of their dims, so a lost row is at least visible ([api](../api.md#diagnostics)) |
 | a value that is readable and wrong | bound as given; no number is second-guessed |
 
 ### The index is what makes a stray label a stray
