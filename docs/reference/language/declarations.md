@@ -33,6 +33,22 @@ parameters:
 | `dtype` | `float`, `int`, `bool`, `str` | default `float` |
 | `description` | free text | default `null` |
 
+**`dtype` is a claim about the values, and the column has to be it.** It
+decides three things — what a `where` comparison is checked against, what a
+bare `where` on the name *means*
+([where strings](expressions.md#where-strings)), and whether the name may stand
+where an operator reads a
+[position](operators.md#an-offset-that-differs-per-entity) — so a column that
+disagrees describes a model the data does not build, and does not bind
+([data binding](data.md#the-data-contract)).
+
+| declared | the column | |
+|---|---|---|
+| `float` | a float column — **or an integer one** | whole numbers are numbers, the one widening |
+| `int` | an integer column | which is why a fractional position cannot arrive |
+| `bool` | a boolean column | `1`/`0` is not one; cast it, or declare `int` |
+| `str` | a string column | |
+
 ## `variables`
 
 What the solver decides — one column per coordinate of `foreach`.

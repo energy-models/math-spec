@@ -113,7 +113,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 
 | Surface | Names a… | Meaning |
 |---|---|---|
-| `name` (bare) | parameter | defined: the table has a row here, and its value is finite. `0.0` counts; `inf` does not, though it is a value everywhere else |
+| `name` (bare) | parameter | what defined means is the **declaration's** to say: a `bool` is its own answer, a `str` is defined wherever the table has a row, and a number has to be finite as well — `0.0` counts, `inf` does not, though it is a value everywhere else |
 | `name` (bare) | variable | the variable exists at this coordinate — the counterpart of the parameter row, and how you say which coordinates the row-dropping rule applies to |
 | `name` (bare) | dimension | load error: it is true everywhere, so it reads as a condition and is not one. Compare it instead |
 | `name OP value` | parameter | element-wise; a null compares false. The right-hand side is a literal number, or a bare name read as a string coordinate |

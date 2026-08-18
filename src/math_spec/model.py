@@ -74,6 +74,13 @@ class _StrictBlock(BaseModel):
 #: from reaching the language.
 DIMENSION_DTYPES = frozenset({'float', 'int', 'str', 'datetime'})
 
+#: The dtypes a parameter may declare (the declaration rules), and what its
+#: bound column must be: the engine's accepted-column table
+#: (``relational/engines/polars/data_validation.py``) is pinned to this set by
+#: ``tests/test_architecture.py``, a test rather than an import because the
+#: fence keeps the engine from reaching the language.
+PARAMETER_DTYPES = frozenset({'float', 'int', 'bool', 'str'})
+
 #: The domains a variable may declare (the declaration rules). Matches the plan's
 #: ``VariableType`` vocabulary (``relational/plan.py``), pinned by a test for
 #: the same fence reason as the dtype table above.
@@ -183,7 +190,7 @@ class ParameterBlock(_StrictBlock):
     @field_validator('dtype')
     @classmethod
     def _check_dtype(cls, v: str) -> str:
-        return _one_of(v, {'float', 'int', 'bool', 'str'}, 'dtype')
+        return _one_of(v, PARAMETER_DTYPES, 'dtype')
 
 
 class BoundsBlock(_StrictBlock):

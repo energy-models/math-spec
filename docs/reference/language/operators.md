@@ -116,8 +116,8 @@ built outside the model and shipped with it.
 Two rules make a named width mean one thing, and both are load errors:
 
 - **It is integral** — a width counts positions rather than measuring a
-  distance. Checked twice: `dtype: int` at load, and the column when it binds,
-  where `2.5` is refused rather than read as `2`.
+  distance. `dtype: int` says so at load, and an `int` declaration binds only
+  an integer column, so a width of `2.5` has nowhere to arrive from.
 - **It does not span the dimension being summed over.** A width that changes
   along that axis is a different window at every position, which is no longer
   "the last *n*".
@@ -248,9 +248,9 @@ Three rules keep that a translation rather than something else, each a load
 error naming its rewrite:
 
 - **the parameter is integral** — an offset lands on a coordinate, so it counts
-  positions rather than measuring a distance. Checked twice: `dtype: int` at
-  load, and the column when it binds, where `1.5` is refused rather than read
-  as `1`;
+  positions rather than measuring a distance. `dtype: int` says so at load, and
+  an `int` declaration binds only an integer column, so a `1.5` has nowhere to
+  arrive from;
 - **it does not span the dimension being translated** — an offset that varied
   along the axis it moves is a permutation, not a lag;
 - **it says what the vacated positions contribute** — `edge='wrap'` or a
