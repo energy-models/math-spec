@@ -216,6 +216,7 @@ is not by itself a reason to add anything.
 | Data prep — resampling, clustering, IO, units | not math | preprocess; pass a parameter |
 | Arbitrary array ops (`merge`, `reindex`) | unbounded; xarray with extra steps | data prep |
 | Domain helpers (`reduce_carrier_dim`) | encodes one domain into the language | component libraries over generic primitives |
+| A tracked-metric vocabulary — `impacts:`, `effects:`, a `costs` dimension | the three fates are already reference-it-or-don't | an `impact` dim and one named expression: cap it with a constraint whose dual is the shadow price, weight it in the objective, read it with `result.expression` ([#124](https://github.com/fluxopt/lpspec/issues/124)) |
 | Normalisation (`x / sum(x)`) | a *variable divisor* is rational, not polynomial — no sink takes it at any degree | state the ratio as a constraint, or fix the denominator |
 | Conditionals, iteration, data-dependent structure **inside one plan** | destroys the closed AST | `where` masks + `foreach` dims. A *process* may loop over plans |
 | A Python API for constructing models | hard rule 5 — the model is the file you review and diff | YAML. Whether Python may *emit* declarations is [#381](https://github.com/fluxopt/lpspec/issues/381) |
