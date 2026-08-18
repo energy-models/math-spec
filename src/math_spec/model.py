@@ -165,22 +165,6 @@ class DimensionBlock(_StrictBlock):
     def _check_dtype(cls, v: str) -> str:
         return _one_of(v, DIMENSION_DTYPES, 'dtype')
 
-    @classmethod
-    def _unknown_key_error(cls, key: str, known: set[str]) -> str:
-        if key == 'coords':
-            return (
-                "'coords:' under a dimension was removed; a coordinate is a top-level lookup. Rewrite\n"
-                '  dimensions:\n'
-                '    generator: {coords: [bus]}\n'
-                'as\n'
-                '  lookups:\n'
-                '    bus_of: {over: generator, into: bus}\n'
-                'and an inline label space {period: {dtype: int}} as {period: {over: <dim>, dtype: int}}.\n'
-                'A lookup name joins the flat namespace, so one shadowing a dimension — its target '
-                'included — needs a name of its own (bus -> bus_of).'
-            )
-        return super()._unknown_key_error(key, known)
-
 
 class ParameterBlock(_StrictBlock):
     """A declared parameter with dims and dtype."""
@@ -260,24 +244,6 @@ class VariableBlock(_StrictBlock):
             raise ValueError(msg)
         return self
 
-    @model_validator(mode='before')
-    @classmethod
-    def _refuse_flags(cls, data: Any) -> Any:
-        """Name the rewrite for a file written against the flag surface.
-
-        Caught here rather than by the closed-schema check, whose near miss
-        against the remaining fields would be noise for a key that used to be
-        real.
-        """
-        if not isinstance(data, dict):
-            return data
-        removed = [k for k in ('binary', 'integer') if k in data]
-        if removed:
-            k = removed[0]
-            msg = f'`{k}:` was removed from variable declarations; write `domain: {k}` instead.'
-            raise ValueError(msg)
-        return data
-
 
 class ConstraintBlock(_StrictBlock):
     """A declared constraint: one rule, over one frame."""
@@ -293,11 +259,6 @@ class ConstraintBlock(_StrictBlock):
     def referenced_dims(self) -> list[str]:
         return self.foreach
 
-    @model_validator(mode='before')
-    @classmethod
-    def _migrate_equations(cls, data: Any) -> Any:
-        return _refuse_equations(data, 'constraint')
-
 
 class ObjectiveBlock(_StrictBlock):
     """A declared objective function."""
@@ -312,35 +273,6 @@ class ObjectiveBlock(_StrictBlock):
     @classmethod
     def _check_sense(cls, v: str) -> str:
         return _one_of(v, {'minimize', 'maximize'}, 'sense')
-
-    @model_validator(mode='before')
-    @classmethod
-    def _migrate_equations(cls, data: Any) -> Any:
-        return _refuse_equations(data, 'objective')
-
-
-def _refuse_equations(data: Any, kind: str) -> Any:
-    """Name the rewrite for a file written against the old surface.
-
-    Caught here rather than by the closed-schema check, which would offer
-    "unknown key 'equations'" and a near miss against ``expression`` — true,
-    and useless for a file with three entries in it (#298).
-    """
-    if not isinstance(data, dict) or 'equations' not in data:
-        return data
-    entries = data.get('equations')
-    n = len(entries) if isinstance(entries, list) else 1
-    if n == 1:
-        fix = f'Move the single entry up: replace `equations:` with `expression:` on the {kind}.'
-    elif kind == 'objective':
-        fix = 'A model optimises one: combine the entries into a single expression (a weighted sum is ordinary arithmetic).'
-    else:
-        fix = (
-            f'Split it into {n} {kind}s, one per rule, each with its own name — the entries were '
-            f'named by position, so the names were never yours to begin with.'
-        )
-    msg = f'`equations:` was removed from {kind} declarations; a {kind} holds exactly one rule. {fix}'
-    raise ValueError(msg)
 
 
 class MacroBlock(_StrictBlock):
@@ -496,26 +428,6 @@ class PiecewiseBlock(_StrictBlock):
             msg = f'unknown piecewise method {v!r}. The formulations are:\n{options}'
             raise ValueError(msg)
         return v
-
-    @model_validator(mode='before')
-    @classmethod
-    def _migrate_convex(cls, data: Any) -> Any:
-        """Name the rewrite for a file written against the boolean.
-
-        ``convex:`` was one formulation wearing a flag, so a second one had
-        nowhere to go that did not interact with it. Caught here rather than
-        by the closed-schema check, which would offer a near miss against
-        ``method`` and leave the value to guess at.
-        """
-        if not isinstance(data, dict) or 'convex' not in data:
-            return data
-        wanted = 'convex' if data.get('convex') else 'adjacency'
-        msg = (
-            f'`convex:` was replaced by `method:`, which names the formulation instead of flagging '
-            f'one of them: write `method: {wanted}`. The other is `method: sos2`, which restricts '
-            f'the same weights with a set the sink branches on.'
-        )
-        raise ValueError(msg)
 
     @model_validator(mode='after')
     def _check_convex_shape(self) -> PiecewiseBlock:
@@ -771,29 +683,6 @@ class Model(_StrictBlock):
                     f"'{lookup.into}' label — otherwise sum(by={name}) drops those terms."
                 )
         return errors
-
-    @model_validator(mode='before')
-    @classmethod
-    def _refuse_objectives(cls, data: Any) -> Any:
-        """Name the rewrite for a file written against the mapping surface.
-
-        Caught here rather than by the closed-schema check: the near miss
-        (`objective`) is the right hint for a one-entry file and useless for
-        one declaring several.
-        """
-        if not isinstance(data, dict) or 'objectives' not in data:
-            return data
-        entries = data.get('objectives')
-        n = len(entries) if isinstance(entries, dict) else 1
-        if n == 1:
-            fix = 'Move the single block up: replace `objectives: {name: {...}}` with `objective: {...}` — the name did nothing.'
-        else:
-            fix = (
-                'A model optimises one. Combine them into a single expression '
-                '(a weighted sum is ordinary arithmetic) and declare it as `objective:`.'
-            )
-        msg = f'`objectives:` was removed; a file declares one `objective:` block. {fix}'
-        raise ValueError(msg)
 
     @classmethod
     # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11

@@ -126,9 +126,6 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     """
     builtin = BUILTINS[name]
     keys = set(kwargs)
-    for key in sorted(keys):
-        if (name, key) in RETIRED_KWARGS:
-            return RETIRED_KWARGS[(name, key)]
     if builtin.exactly_one_of and len(keys & set(builtin.exactly_one_of)) != 1:
         alternatives = ' or '.join(f'{k}=' for k in builtin.exactly_one_of)
         return (
@@ -140,38 +137,8 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     return None if fits else f'{name}() expects {builtin.usage}'
 
 
-#: Spellings that were once operators, and what replaced them. A retired name
-#: fails at load naming its rewrite — there is no alias and no deprecation
-#: cycle, so the error *is* the migration story (CONTRIBUTING, "breaking
-#: changes are free").
-RETIRED: dict[str, str] = {
-    'group_sum': 'sum(<expr>, by=<lookup>)',
-}
-
-#: Kwargs that were once part of an operator's signature, and the rewrite. Same
-#: contract as :data:`RETIRED`: the error is the migration story.
-RETIRED_KWARGS: dict[tuple[str, str], str] = {
-    ('sum', 'group_by'): (
-        'sum(group_by=...) was removed — a lookup carries its own dimensions, '
-        'so the over=/group_by= pair collapsed into one kwarg.\n'
-        'Write: sum(<expr>, by=<lookup>), dropping the over=.'
-    ),
-    ('at', 'onto'): (
-        'at(onto=...) was removed — a lookup carries its own dimensions, '
-        'so the onto=/by= pair collapsed into one kwarg.\n'
-        'Write: at(<expr>, by=<lookup>).'
-    ),
-}
-
-
 def unknown_operator_message(name: str) -> str:
     """The one wording for "that is not an operator", shared by both lanes."""
-    if name in RETIRED:
-        return (
-            f"'{name}' is no longer an operator — the grouping moved into `sum`, "
-            f'so one verb covers reducing a dim away and reducing it into '
-            f'another.\nWrite: {RETIRED[name]}'
-        )
     return (
         f"Unknown operator '{name}'.\n"
         f'Available: {sorted(BUILTIN_NAMES)}\n'
