@@ -89,6 +89,13 @@ positionally.
 
 Both lanes bind by these rules.
 
+**A coordinate has a value, or it has no row.** A row whose value is null or
+NaN says both at once, and is refused at bind naming the parameter and the
+coordinates. The pair is one rule because the spelling is the source's rather
+than the model's: polars and parquet write a hole as a null, pandas has only
+NaN, and `None` in a pandas column *is* NaN by the time either lane sees it.
+Sparsity is the absent row.
+
 ### Refused
 
 | | |
@@ -96,6 +103,7 @@ Both lanes bind by these rules.
 | a declared parameter with no data | names the parameter |
 | a key naming neither a parameter nor a dimension | names the near miss |
 | a table missing a declared dim column, or `value` | names the columns needed |
+| a `value` column carrying a null or a NaN | names the parameter and the coordinates |
 | a label outside the dimension's index | names the parameter and the strays |
 | two rows for one coordinate | |
 | a lookup with two values for one label | |
@@ -113,7 +121,7 @@ Both lanes bind by these rules.
 |---|---|
 | an undeclared column in a table | ignored |
 | a coordinate with no row | sparse data gives sparse variables; what a missing row means where it is read is [absence](absence.md) |
-| values that are wrong but well-formed | not read |
+| a value that is readable and wrong | bound as given; no number is second-guessed |
 
 ### The index is what makes a stray label a stray
 
