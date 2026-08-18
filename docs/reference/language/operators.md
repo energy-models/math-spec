@@ -63,7 +63,9 @@ once as outflow. No adjacency matrix, and no join written by hand.
 `by=` leaves `over=` nothing to add. The lookup's values are the group labels,
 and they are checked against the target dimension when data binds. Groups with
 no members contribute nothing, and a member whose lookup value is null belongs
-to no group.
+to no group. An empty group holds a **value** rather than a gap — on a
+comparison's constant side it reads zero, where a coordinate the data never
+covered is refused ([absence](absence.md)).
 
 ## `at`
 
