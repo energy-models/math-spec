@@ -14,6 +14,7 @@ Dimension arguments are name-checked at load time, so
 | `shift(array, over=dim, offset=n, edge='wrap')` | the value at *t−n*, cyclic: nothing is vacated |
 | `shift(array, over=dim, offset=n, edge=v)` | the value at *t−n*, with the number `v` where the edge was vacated |
 | `shift(array, over=dim, offset=p, edge=…)` | `p` an integer parameter: each entity is reached by **its own** offset |
+| `shift(array, over=dim, offset=n, by=lookup)` | the translation walks **inside each group** the lookup makes: neighbours, edges and a wrap are that group's |
 | `sum_back(array, over=dim, within=n)` | the sum of the last `n` positions along `dim`, ending at *t* |
 | `sum_back(array, over=dim, within=p)` | `p` an integer parameter: each entity gets **its own** window length |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its start |
@@ -179,6 +180,42 @@ Three settings, and two rules that hold across them:
   `where` alone does not lift the refusal, and `edge=0` alone leaves a row at
   that coordinate whose bound is the zero.
 
+### A translation that stops at each group's edge
+
+`by=` partitions the axis the operator walks, so a coordinate's neighbour is the
+one before it **in its own group** — a season, an investment period, a
+representative day:
+
+```yaml
+dimensions:
+  snapshot: {dtype: int}
+  season: {dtype: str}
+lookups:
+  season_of: {over: snapshot, into: season}
+parameters:
+  inflow: {dims: [snapshot]}
+variables:
+  soc: {foreach: [snapshot], bounds: {lower: 0}}
+constraints:
+  season_balance:
+    foreach: [snapshot]
+    expression: soc == shift(soc, over=snapshot, offset=1, edge='wrap', by=season_of) + inflow
+objective: {sense: minimize, expression: soc}
+```
+
+Every `edge=` rule then reads the same, one group at a time: bare, each group's
+first coordinate is vacated and its row drops; `edge='wrap'` closes **each
+group** onto its own last, which is what a store that must return to its
+starting level every period asks for; `edge=v` puts `v` at each group's edge.
+
+It is the same `by=` as [`sum(by=)` and `at(by=)`](#sum), and takes a lookup
+**over the dimension being walked** — groups a row of that dimension is in.
+A coordinate the lookup sends nowhere is in no group, so it reaches nothing.
+
+Without it, `edge='wrap'` wraps the *axis*: the last coordinate of the whole
+dimension feeds the first, which across periods means one period opening on
+what another left.
+
 Because `shift` reads parameters too, `shift(dt, over=t, offset=1, edge=0)` is the
 previous snapshot's duration without shipping a pre-shifted copy of a table the
 model already has.
@@ -253,6 +290,7 @@ position.
 | `shift(array, over=dim, offset=n, edge='wrap')` | $p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `shift(array, over=dim, offset=n, edge=v)` | $p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `shift(array, over=dim, offset=p, edge=…)` | $\mathit{order}_{t,m \boxminus_{0} \mathit{lead}} \ge \mathit{demand}_{t,m} \qquad \forall\thinspace t \in \mathcal{T},\enspace m \in \mathcal{M}$ |
+| `shift(array, over=dim, offset=n, by=lookup)` | $p_{t} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `sum_back(array, over=dim, within=n)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_back(array, over=dim, within=p)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |

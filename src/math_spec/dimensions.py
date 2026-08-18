@@ -207,6 +207,16 @@ def _dims_call(
             raise DimensionError(
                 f'{context}: {node.name}(over={over.name}) but the expression has dims {sorted(inner)}.'
             )
+        partition = node.kwargs.get('by')
+        if partition is not None:
+            assert isinstance(partition, LookupNode)
+            if partition.dimension != over.name:
+                raise DimensionError(
+                    f'{context}: {node.name}(over={over.name}, by={partition.name}) walks '
+                    f"'{over.name}' but groups by a lookup over '{partition.dimension}'. No row of "
+                    f"'{over.name}' carries it, so no coordinate has a neighbour inside a group — "
+                    f"partition by a lookup over '{over.name}'."
+                )
         return inner
 
     msg = f"{context}: operator '{node.name}' has no dim rule"

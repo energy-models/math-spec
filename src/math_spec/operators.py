@@ -50,26 +50,33 @@ class Builtin:
     exactly_one_of: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
+    #: Kwargs the call may omit. Their *kind* still comes from the tuples
+    #: above — this says only that the operator has an answer without them.
+    optional_kwargs: tuple[str, ...] = ()
 
     @property
     def keywords(self) -> frozenset[str]:
         """Every keyword the call must carry, when they are named at all."""
         return (
-            frozenset(self.dimension_kwargs) | frozenset(self.lookup_kwargs) | frozenset(self.required_value_kwargs)
-        ) - frozenset(self.exactly_one_of)
+            (frozenset(self.dimension_kwargs) | frozenset(self.lookup_kwargs) | frozenset(self.required_value_kwargs))
+            - frozenset(self.exactly_one_of)
+            - frozenset(self.optional_kwargs)
+        )
 
     @property
     def optional(self) -> frozenset[str]:
         """Every keyword the call may carry but need not."""
-        return frozenset(self.edge_kwargs) | frozenset(self.exactly_one_of)
+        return frozenset(self.edge_kwargs) | frozenset(self.exactly_one_of) | frozenset(self.optional_kwargs)
 
 
 #: The closed operator set. ``by=`` is the one keyword that addresses a lookup,
 #: and a lookup carries its own dimensions, so the sibling kwargs that used to
 #: restate them (``sum``'s ``over=`` beside ``group_by=``, ``at``'s ``onto=``)
 #: are gone — what the two-keyword spelling once said, the name's *kind* now
-#: says, checked at load. ``shift``'s ``by=`` is a number; kinds are
-#: per-operator, which is law 4 doing the disambiguation.
+#: says, checked at load. ``by=`` on ``shift`` and
+#: ``sum_back`` partitions the axis the operator walks, which is the same
+#: lookup in a different position: it says which rows are neighbours, not which
+#: group a term lands in.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
         1,
@@ -92,10 +99,12 @@ BUILTINS: dict[str, Builtin] = {
     ),
     'shift': Builtin(
         1,
-        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>])",
+        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])",
         dimension_kwargs=('over',),
+        lookup_kwargs=('by',),
         required_value_kwargs=('offset',),
         edge_kwargs=('edge',),
+        optional_kwargs=('by',),
     ),
 }
 

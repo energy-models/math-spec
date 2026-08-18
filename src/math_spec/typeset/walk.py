@@ -12,7 +12,7 @@ operator it forgot is an ``assert_never`` rather than a blank.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, assert_never
 
 from lpspec.language import degree
@@ -124,6 +124,10 @@ class _Step:
     by: int | str
     policy: str
     fill: str = ''
+    #: The lookup a partitioned translation walks inside, if it has one. It
+    #: subscripts the operator rather than the index: what changes is where the
+    #: axis ends, not which coordinate is being written.
+    within: str = ''
 
     def absorbs(self, other: _Step) -> bool:
         """Whether *other* applied under this one is still a single translation.
@@ -135,7 +139,7 @@ class _Step:
         """
         if isinstance(self.by, str) or isinstance(other.by, str):
             return False  # a named offset is not a number, so two do not add
-        return (self.policy, self.fill) == (other.policy, other.fill)
+        return (self.policy, self.fill, self.within) == (other.policy, other.fill, other.within)
 
 
 @dataclass(frozen=True)
@@ -160,7 +164,7 @@ class _Context:
     def translated(self, dim: str, step: _Step) -> _Context:
         steps = self.offsets.get(dim, ())
         merged = (
-            (*steps[:-1], _Step(_added(steps[-1].by, step.by), step.policy, step.fill))
+            (*steps[:-1], _Step(_added(steps[-1].by, step.by), step.policy, step.fill, step.within))
             if steps and steps[-1].absorbs(step)
             else (*steps, step)
         )
@@ -184,7 +188,11 @@ class _Context:
                 continue
             base = self.walk.format.parenthesise(text) if translated else text
             amount = self.walk.symbols.name[step.by] if isinstance(step.by, str) else str(abs(step.by))
-            text = f'{base} {self.walk.translation(step)} {amount}'
+            operator = self.walk.translation(step)
+            if step.within:
+                group = self.walk.format.apply(self.walk.format.upright(step.within), self.walk.symbols.index[dim])
+                operator = self.walk.format.subscript(operator, [group])
+            text = f'{base} {operator} {amount}'
             translated = True
         return text
 
@@ -304,6 +312,10 @@ class Walk:
             assert isinstance(dim, DimensionNode)
             step = self._step(_amount(node.kwargs['offset']), node.kwargs.get('edge'))
             self.policies.add(step.policy)
+            partition = node.kwargs.get('by')
+            if partition is not None:
+                assert isinstance(partition, LookupNode)
+                step = replace(step, within=partition.name)
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 
         if node.name == 'sum_back':
