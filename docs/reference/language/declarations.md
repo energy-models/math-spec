@@ -131,7 +131,7 @@ storage_balance:
 
 storage_balance_initial:
   foreach: [snapshot, storage]
-  where: "snapshot == 0"
+  where: "snapshot == index(snapshot, 0)"
   expression: soc == soc_initial
 ```
 
