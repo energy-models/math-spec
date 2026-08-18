@@ -122,6 +122,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `name OP value` | lookup | a filter on the lookup's column of its `over` dimension's index — which therefore has to be in the frame. A null value is **false**, whatever the comparator |
 | `name OP name` | two lookups | the one comparison whose both sides are structure. Legal only where both map out of the **same** dimension *and* into the **same** one — `from != to` excludes a self-loop |
 | `name OP index(name, i)` | one dimension, twice | the coordinate at position `i` of that dimension's own order — negative counts from the end. Both names must be the **same** dimension |
+| `name OP index(name, i, by=lookup)` | a dimension and a lookup over it | the same, counted **within each group** the lookup makes — every period's first snapshot, whatever each period's length |
 | `AND` `OR` `NOT` | — | case-insensitive; `NOT` binds tighter than `AND`, which binds tighter than `OR` |
 | `True` / `False` | — | literals; `True` is the same as no `where` |
 
@@ -190,6 +191,39 @@ seeding none is the failure it was written to prevent.
 
 The order counted along is the dimension's own — the one `shift` walks, and the
 one the index declares — not the bytewise order a label comparison uses.
+
+**`by=` counts inside each group a lookup makes**, which is the boundary a
+multi-period model wants — one seeded row per period rather than one per
+horizon:
+
+```yaml
+dimensions:
+  snapshot: {dtype: int}
+  period: {dtype: int}
+lookups:
+  period_of: {over: snapshot, into: period}
+parameters:
+  soc_initial: {dims: [period]}
+variables:
+  soc: {foreach: [snapshot], bounds: {lower: 0}}
+constraints:
+  soc_start:
+    foreach: [snapshot]
+    where: "snapshot == index(snapshot, 0, by=period_of)"
+    expression: soc == at(soc_initial, by=period_of)
+```
+
+It is the same `by=` as [`sum(by=)` and `at(by=)`](operators.md), and takes a
+lookup **over the dimension being counted** — groups a row of that dimension is
+actually in. A row reads its own group's boundary, the broadcast `at(by=)`
+already defines, and `-1` is each group's last however long that group is.
+Periods of different lengths therefore need nothing special, which is the case
+no single position along the whole axis can express.
+
+A coordinate the lookup sends nowhere is in no group, so it is no group's
+boundary — the same reading a null value gets everywhere else. A group *shorter*
+than the position is an error at bind, for the reason the ungrouped form has
+one: a boundary naming no coordinate leaves those rows unseeded.
 
 **String labels order bytewise**, whatever order the dimension declared them
 in. Declaration order is a different axis — it is what `shift` walks — and a

@@ -73,6 +73,7 @@ class _UnresolvedPositionNode:
     op: PredicateOperator
     dimension: str
     position: int
+    by: str | None = None
 
 
 @dataclass
@@ -121,6 +122,10 @@ class DimensionPositionNode:
     so the clause survives the index being relabelled. Negative counts from
     the end, ``-1`` being the last.
 
+    With ``by`` it is the boundary of *each group* the lookup makes —
+    ``index(snapshot, 0, by=period_of)`` is every period's first snapshot, and
+    a row reads its own group's, the broadcast ``at(by=)`` already defines.
+
     Resolved rather than lowered to a literal: which label sits at a position
     is a property of the *data*, so the position travels and each lane reads
     it off the coordinate order it already holds.
@@ -129,6 +134,7 @@ class DimensionPositionNode:
     name: str
     op: PredicateOperator
     position: int
+    by: str | None = None
 
 
 @dataclass
@@ -235,8 +241,9 @@ def _bare(value: float | str) -> float | str:
 
 
 def _position(tokens: pp.ParseResults) -> _Position:
-    """``index(dim, i)`` off the two tokens the grammar captured."""
-    return _Position(str(tokens[0]), int(cast('float', tokens[1])))
+    """``index(dim, i)`` off the tokens the grammar captured, ``by=`` included."""
+    by = str(tokens[2]) if len(tokens) > 2 else None
+    return _Position(str(tokens[0]), int(cast('float', tokens[1])), by)
 
 
 @dataclass(frozen=True)
@@ -245,11 +252,12 @@ class _Position:
 
     Like :class:`_Quoted` this lives between the grammar and the comparison's
     parse action: which dimension the left-hand side names is resolution's
-    business, so the pair travels only that far.
+    business, so the triple travels only that far.
     """
 
     dimension: str
     at: int
+    by: str | None = None
 
 
 def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode | _UnresolvedPositionNode:
@@ -260,7 +268,7 @@ def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode | _U
     it from a parameter called ``index``.
     """
     if isinstance(value, _Position):
-        return _UnresolvedPositionNode(name, op, value.dimension, value.at)
+        return _UnresolvedPositionNode(name, op, value.dimension, value.at, value.by)
     return UnresolvedComparisonNode(name, op, _bare(value), quoted=isinstance(value, _Quoted))
 
 
@@ -292,8 +300,15 @@ def _build_where_grammar() -> pp.ParserElement:
         lambda t: _Quoted(t[0])
     )
 
+    grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name
     index_call = (
-        pp.Suppress(pp.Keyword('index')) + pp.Suppress('(') + name + pp.Suppress(',') + integer + pp.Suppress(')')
+        pp.Suppress(pp.Keyword('index'))
+        + pp.Suppress('(')
+        + name
+        + pp.Suppress(',')
+        + integer
+        + pp.Optional(grouped_by)
+        + pp.Suppress(')')
     ).set_parse_action(_position)
 
     comparator = pp.one_of('<= >= == != < >')

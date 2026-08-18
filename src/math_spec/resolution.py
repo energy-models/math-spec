@@ -608,6 +608,10 @@ def _resolve_position(node: _UnresolvedPositionNode, ns: Namespace, context: str
     labels across label spaces, which can only mask everything out; and
     ``index`` of anything but a dimension has no coordinate order to count
     along.
+
+    ``by=`` groups that order, so it takes a lookup *over the dimension being
+    counted*: the groups are its target's labels, and a lookup over anything
+    else has no position within a group to name.
     """
     for named in (node.name, node.dimension):
         if named not in ns.dimensions:
@@ -626,7 +630,36 @@ def _resolve_position(node: _UnresolvedPositionNode, ns: Namespace, context: str
             f'a position in the dimension being tested.'
         )
         return node
-    return DimensionPositionNode(node.name, node.op, node.position)
+    if node.by is not None and _refuse_grouping(node, node.by, ns, context, errors):
+        return node
+    return DimensionPositionNode(node.name, node.op, node.position, node.by)
+
+
+def _refuse_grouping(node: _UnresolvedPositionNode, by: str, ns: Namespace, context: str, errors: list[str]) -> bool:
+    """Whether ``by=`` names something other than a lookup over the counted dim.
+
+    The groups are the lookup's target labels and the positions are counted
+    inside each, so a lookup over another dimension carries no row of the one
+    being indexed — there is nothing for a position to be a position *in*.
+    """
+    shown = f'index({node.dimension}, {node.position}, by={by})'
+    if (kind := ns.kind(by)) != 'lookup':
+        was = f'a {kind}' if kind else 'not declared'
+        errors.append(
+            f"{context}: '{shown}' groups by '{by}', which is {was}. "
+            f'``by=`` takes a lookup, the same as sum(by=) and at(by=).\n'
+            f'  Lookups: {sorted(ns.lookups)}'
+        )
+        return True
+    over = ns.over_of(by)
+    if over != node.dimension:
+        errors.append(
+            f"{context}: '{shown}' counts positions along '{node.dimension}' but groups by a "
+            f"lookup over '{over}'. No row of '{node.dimension}' carries it, so there is no "
+            f"position within a group to name — group by a lookup over '{node.dimension}'."
+        )
+        return True
+    return False
 
 
 def _resolve_where(

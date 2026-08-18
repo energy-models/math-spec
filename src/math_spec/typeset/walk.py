@@ -413,7 +413,10 @@ class Walk:
             return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
 
         if isinstance(node, DimensionPositionNode):
-            ordinal = self.position(node.name, node.position)
+            grouping = (
+                None if node.by is None else self.format.apply(self.format.upright(node.by), ctx.subscript(node.name))
+            )
+            ordinal = self.position(node.name, node.position, grouping)
             return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {ordinal}', 2
 
         if isinstance(node, LookupComparisonNode):
@@ -450,15 +453,19 @@ class Walk:
     def literal(self, value: float | str | datetime.date) -> str:
         return self.number(value) if isinstance(value, (int, float)) else self.format.prose(str(value))
 
-    def position(self, dimension: str, at: int) -> str:
+    def position(self, dimension: str, at: int, grouping: str | None = None) -> str:
         """``index(dim, i)`` as the coordinate it names.
 
         An upright application of the operator to the set, the same shape a
         lookup gets — rather than ``min``/``max``, which would read the two
-        ends and leave every other position without a notation.
+        ends and leave every other position without a notation. *grouping* is
+        the lookup already applied to the row, and prints as a third argument
+        so the row a position is counted for is visible where the position is.
         """
-        argument = f'{self.symbols.set[dimension]}, {self.number(at)}'
-        return self.format.apply(self.format.upright('index'), argument)
+        parts = [self.symbols.set[dimension], self.number(at)]
+        if grouping is not None:
+            parts.append(grouping)
+        return self.format.apply(self.format.upright('index'), ', '.join(parts))
 
     def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
         parts = [self.where(n, ctx, need=1) for n in nodes if n is not None]
