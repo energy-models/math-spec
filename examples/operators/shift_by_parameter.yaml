@@ -19,6 +19,6 @@ variables:
 constraints:
   arrives_after_its_lead:
     foreach: [technology, month]
-    expression: shift(order, over=month, by=lead, edge=0) >= demand
+    expression: shift(order, over=month, offset=lead, edge=0) >= demand
 
 objective: {sense: minimize, expression: order}

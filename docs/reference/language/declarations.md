@@ -127,7 +127,7 @@ rather than a position in a list:
 ```yaml
 storage_balance:
   foreach: [snapshot, storage]
-  expression: soc == shift(soc, over=snapshot, by=1) * (1 - loss) + charge - discharge
+  expression: soc == shift(soc, over=snapshot, offset=1) * (1 - loss) + charge - discharge
 
 storage_balance_initial:
   foreach: [snapshot, storage]

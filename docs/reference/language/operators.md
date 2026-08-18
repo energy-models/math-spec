@@ -10,10 +10,10 @@ Dimension arguments are name-checked at load time, so
 | `sum(array, over=dim)` | `dim` collapses; `array` must carry it |
 | `sum(array, by=lookup)` | the dim the lookup is over collapses onto the dim it maps into |
 | `at(array, by=lookup)` | the dim the lookup maps into is replaced by the dim it is over |
-| `shift(array, over=dim, by=n)` | the value at *t−n* along `dim`; the vacated edge is **absent** |
-| `shift(array, over=dim, by=n, edge='wrap')` | the value at *t−n*, cyclic: nothing is vacated |
-| `shift(array, over=dim, by=n, edge=v)` | the value at *t−n*, with the number `v` where the edge was vacated |
-| `shift(array, over=dim, by=p, edge=…)` | `p` an integer parameter: each entity is reached by **its own** offset |
+| `shift(array, over=dim, offset=n)` | the value at *t−n* along `dim`; the vacated edge is **absent** |
+| `shift(array, over=dim, offset=n, edge='wrap')` | the value at *t−n*, cyclic: nothing is vacated |
+| `shift(array, over=dim, offset=n, edge=v)` | the value at *t−n*, with the number `v` where the edge was vacated |
+| `shift(array, over=dim, offset=p, edge=…)` | `p` an integer parameter: each entity is reached by **its own** offset |
 | `sum_back(array, over=dim, within=n)` | the sum of the last `n` positions along `dim`, ending at *t* |
 | `sum_back(array, over=dim, within=p)` | `p` an integer parameter: each entity gets **its own** window length |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its start |
@@ -130,7 +130,7 @@ what a representative period that repeats asks for.
 
 ## `shift`
 
-`shift(x, over=d, by=n)` reaches along an axis: it is the value at *t−n*, in
+`shift(x, over=d, offset=n)` reaches along an axis: it is the value at *t−n*, in
 the dimension's **declared order** ([data binding](data.md)). `edge=` says what
 happens at the boundary, and it is the whole of the operator's subtlety.
 
@@ -147,7 +147,7 @@ variables:
 constraints:
   storage_balance:
     foreach: [snapshot, storage]
-    expression: soc == shift(soc, over=snapshot, by=1, edge='wrap') + charge * eta - discharge
+    expression: soc == shift(soc, over=snapshot, offset=1, edge='wrap') + charge * eta - discharge
 ```
 
 `edge='wrap'` is what makes a battery cyclic without writing the boundary
@@ -173,19 +173,19 @@ Three settings, and two rules that hold across them:
 - **A bare `shift` over a variable-free expression is a load error.** A
   parameter's missing row is a zero coefficient, so there is no absence for the
   vacated slot to carry, and inventing one would silently turn
-  `x <= shift(dt, over=t, by=1)` into `x <= 0`. The error names what it could
+  `x <= shift(dt, over=t, offset=1)` into `x <= 0`. The error names what it could
   have meant: `edge='wrap'`, `edge=0`, or `edge=0` **together with** a `where`
   excluding the vacated coordinate. Those last two are a pair, not a choice: a
   `where` alone does not lift the refusal, and `edge=0` alone leaves a row at
   that coordinate whose bound is the zero.
 
-Because `shift` reads parameters too, `shift(dt, over=t, by=1, edge=0)` is the
+Because `shift` reads parameters too, `shift(dt, over=t, offset=1, edge=0)` is the
 previous snapshot's duration without shipping a pre-shifted copy of a table the
 model already has.
 
 ### An offset that differs per entity
 
-`by=` may name an **integer parameter** instead of a number, and then each
+`offset=` may name an **integer parameter** instead of a number, and then each
 entity is reached by its own offset — a construction lead time, a transit time,
 a delay that the source data already carries as a column:
 
@@ -203,7 +203,7 @@ variables:
 constraints:
   arrives_after_its_lead:
     foreach: [technology, month]
-    expression: shift(order, over=month, by=lead, edge=0) >= demand
+    expression: shift(order, over=month, offset=lead, edge=0) >= demand
 objective: {sense: minimize, expression: order}
 ```
 
@@ -221,7 +221,7 @@ error naming its rewrite:
   translated dimension alone, and a per-entity offset vacates a different slot
   for each entity, which that frame cannot yet say.
 
-A named offset also carries its **sign in the values**: `by=-lead` is refused,
+A named offset also carries its **sign in the values**: `lag=-lead` is refused,
 so one row that points backwards says so where the data is read.
 
 This is the one construct whose cost is not obviously linear in model size.
@@ -249,10 +249,10 @@ position.
 | `sum(array, over=dim)` | $\sum_{g \in \mathcal{G}} p_{t,g} \le \mathit{limit}_{t} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `sum(array, by=lookup)` | $\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathit{limit}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$ |
 | `at(array, by=lookup)` | $p_{t} \le \mathit{cap}_{\mathrm{period\_of}(t)} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `shift(array, over=dim, by=n)` | $p_{t} \le p_{t - 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `shift(array, over=dim, by=n, edge='wrap')` | $p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `shift(array, over=dim, by=n, edge=v)` | $p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `shift(array, over=dim, by=p, edge=…)` | $\mathit{order}_{t,m \boxminus_{0} \mathit{lead}} \ge \mathit{demand}_{t,m} \qquad \forall\thinspace t \in \mathcal{T},\enspace m \in \mathcal{M}$ |
+| `shift(array, over=dim, offset=n)` | $p_{t} \le p_{t - 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
+| `shift(array, over=dim, offset=n, edge='wrap')` | $p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
+| `shift(array, over=dim, offset=n, edge=v)` | $p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
+| `shift(array, over=dim, offset=p, edge=…)` | $\mathit{order}_{t,m \boxminus_{0} \mathit{lead}} \ge \mathit{demand}_{t,m} \qquad \forall\thinspace t \in \mathcal{T},\enspace m \in \mathcal{M}$ |
 | `sum_back(array, over=dim, within=n)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_back(array, over=dim, within=p)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |

@@ -43,7 +43,7 @@ how the weights are restricted, once they exist.
 
 | `method` | What it adds | |
 |---|---|---|
-| `adjacency` *(default)* | a binary per segment, and `lam <= seg + shift(seg, over=bp, by=1, edge=0)` | the curve, built |
+| `adjacency` *(default)* | a binary per segment, and `lam <= seg + shift(seg, over=bp, offset=1, edge=0)` | the curve, built |
 | `sos2` | an [`sos:`](#sos) block over the same weights | the curve, *said* — for a solver that branches on the set itself |
 | `convex` | nothing | the hull, which is a pure LP |
 

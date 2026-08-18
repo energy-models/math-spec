@@ -104,7 +104,7 @@ class KeywordNode:
 
 @dataclass
 class EdgeNode:
-    """A resolved edge policy for ``shift(x, over=d, by=n, edge='wrap')``.
+    """A resolved edge policy for ``shift(x, over=d, offset=n, edge='wrap')``.
 
     Only legal as the value of ``shift``'s ``edge=`` kwarg. Like
     :class:`DimensionNode` and :class:`LookupNode` this names neither data

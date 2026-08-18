@@ -32,7 +32,7 @@ class Builtin:
     carries its own dimensions, so it needs no sibling kwarg;
     ``edge_kwargs`` take a closed keyword or a number;
     ``required_value_kwargs`` are ordinary values that must be present — a
-    number, never a name to resolve (``shift(..., by=1)``).
+    number, never a name to resolve (``shift(..., offset=1)``).
 
     Every dimension or lookup an operator names arrives in a kwarg *value*,
     which is what lets a macro pass one as a formal. ``usage`` is the wording
@@ -92,9 +92,9 @@ BUILTINS: dict[str, Builtin] = {
     ),
     'shift': Builtin(
         1,
-        "shift(<expr>, over=<dim>, by=<n>[, edge='wrap'|<number>])",
+        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>])",
         dimension_kwargs=('over',),
-        required_value_kwargs=('by',),
+        required_value_kwargs=('offset',),
         edge_kwargs=('edge',),
     ),
 }

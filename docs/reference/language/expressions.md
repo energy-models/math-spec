@@ -82,7 +82,7 @@ binds**:
 | `sum(x, over=d)` | `dims(x) − {d}` | if `d ∉ dims(x)` |
 | `sum(x, by=l)` | `(dims(x) − {over(l)}) ∪ {into(l)}` | if `over(l) ∉ dims(x)`, or `into(l) ∈ dims(x)` already |
 | `at(x, by=l)` | `(dims(x) − {into(l)}) ∪ {over(l)}` | if `into(l) ∉ dims(x)`, or `over(l) ∈ dims(x)` already |
-| `shift(x, over=d, by=n)` | `dims(x)` | if `d ∉ dims(x)` |
+| `shift(x, over=d, offset=n)` | `dims(x)` | if `d ∉ dims(x)` |
 
 Binary operators **union**: an outer product is legitimate when the frame
 declares the result. What must not be silent is a *declaration* that disagrees,

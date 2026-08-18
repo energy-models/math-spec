@@ -18,7 +18,7 @@ The rules::
                                dim l maps into; error if x has no such dim
     at(x, by=l)             -> the reverse: x's dims without l's target,
                                plus the dim l is over
-    shift(x, over=d, by=n)  -> same dims as x;      error if x has no d
+    shift(x, over=d, offset=n)  -> same dims as x;      error if x has no d
     sum_back(x, over=d, within=n) -> same dims as x; error if x has no d
 
 and at the declaration level::

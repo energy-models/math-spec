@@ -24,7 +24,7 @@ with F = the union of the links' dims, it emits:
     constraints:
       curve_convexity(F):     sum(curve_lam, over=bp) == 1
       curve_pick(F):          sum(curve_seg, over=bp) == 1        (method: adjacency)
-      curve_adjacency(F, bp): curve_lam <= curve_seg + shift(curve_seg, over=bp, by=1, edge=0)
+      curve_adjacency(F, bp): curve_lam <= curve_seg + shift(curve_seg, over=bp, offset=1, edge=0)
       curve_link0(F):         (power) == sum(curve_lam * power_bp, over=bp)
       curve_link1(F):         (fuel * eff) <= sum(curve_lam * fuel_bp, over=bp)
 
@@ -122,7 +122,7 @@ def expand_piecewise(schema: Model) -> Model:
             }
             raw['constraints'][f'{name}_adjacency'] = {
                 'foreach': [*frame, pw.over],
-                'expression': f'{lam} <= {seg} + shift({seg}, over={pw.over}, by=1, edge=0)',
+                'expression': f'{lam} <= {seg} + shift({seg}, over={pw.over}, offset=1, edge=0)',
             }
 
     raw['piecewise'].clear()

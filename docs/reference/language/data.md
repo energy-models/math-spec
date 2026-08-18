@@ -122,7 +122,7 @@ Sparsity is the absent row.
 | a lookup whose map the file declares and the caller also supplies | names the map and the colliding column |
 | a declared map whose labels nothing supplies | names the map, and asks only for the labels |
 | a declared map keyed by something the labels do not carry | names the lookup and the strays |
-| a fractional value in a parameter read as a position — `shift(by=)`, `sum_back(within=)` | names the call and the values |
+| a fractional value in a parameter read as a position — `shift(offset=)`, `sum_back(within=)` | names the call and the values |
 | a divisor with no value where the model divides by it | names the parameter and how many rows ([absence](absence.md)) |
 | a comparison's whole constant side with no value where the row is built | the same, naming the constraint |
 | a bound parameter with no value where the variable exists | names both models the two repairs build |

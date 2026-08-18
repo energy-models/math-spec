@@ -28,7 +28,7 @@ coordinate product. What a `where:` may *say* is the
 |---|---|
 | `where:` on a variable | the variable, at the masked coordinates |
 | `where:` on a constraint | the row |
-| `shift(x, over=d, by=n)` with no `edge=` | the vacated edge coordinate ([shift](operators.md#shift)) |
+| `shift(x, over=d, offset=n)` with no `edge=` | the vacated edge coordinate ([shift](operators.md#shift)) |
 | a null value in a lookup | that label's group membership ([lookups](dimensions.md#lookups)) |
 
 Four constructs, and nothing else. Absence is a property of **variables**: it
@@ -154,7 +154,7 @@ to inspect rather than to `solve` it, an answer being the one thing that cannot
 report an unenforced constraint.
 
 A recurrence's first row is in there and is the boundary rather than a bug:
-`soc == shift(soc, over=t, by=1) + …` has no row at the first coordinate, the
+`soc == shift(soc, over=t, offset=1) + …` has no row at the first coordinate, the
 initial condition being the block written under the complementary `where`. What
 the report is *for* is the other case — rows lost to a mask the constraint never
 mentions.
@@ -166,7 +166,7 @@ Each rule has a spelling for the opposite intent:
 | You want | You write |
 |---|---|
 | the row kept, the missing term read as zero | `absence: zero` on the variable — or, where only one constraint wants it, two constraints under complementary `where` clauses |
-| a vacated shift position to contribute | `shift(x, over=d, by=n, edge=0)` — the identity of *its* position |
+| a vacated shift position to contribute | `shift(x, over=d, offset=n, edge=0)` — the identity of *its* position |
 | to test whether a variable exists here | its bare name in a `where` |
 | a sparse coefficient to remove the row rather than zero the term | mask on it — `where: "rel_max"` |
 | to divide by a parameter you only have some of | mask the row or the variable — `where: "d"`. The divisor is required where the division survives, not everywhere it is indexed |

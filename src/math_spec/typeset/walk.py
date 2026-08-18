@@ -145,7 +145,7 @@ class _Context:
     ``offsets`` is how ``shift`` renders: it emits no operator of its own but
     re-indexes its operand, so the translation shows at the *leaves*. Its steps
     are outermost first, the order they apply to the index — the outer shift of
-    ``shift(shift(x, by=a), by=b)`` moves ``t`` to ``t - b``, and the inner one
+    ``shift(shift(x, offset=a), offset=b)`` moves ``t`` to ``t - b``, and the inner one
     reads ``x`` from there.
     """
 
@@ -302,7 +302,7 @@ class Walk:
         if node.name == 'shift':
             dim = node.kwargs['over']
             assert isinstance(dim, DimensionNode)
-            step = self._step(_amount(node.kwargs['by']), node.kwargs.get('edge'))
+            step = self._step(_amount(node.kwargs['offset']), node.kwargs.get('edge'))
             self.policies.add(step.policy)
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 

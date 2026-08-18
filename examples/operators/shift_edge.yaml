@@ -13,6 +13,6 @@ variables:
 constraints:
   no_faster_than_before:
     foreach: [snapshot]
-    expression: p <= shift(p, over=snapshot, by=1, edge=0)
+    expression: p <= shift(p, over=snapshot, offset=1, edge=0)
 
 objective: {sense: minimize, expression: p}
