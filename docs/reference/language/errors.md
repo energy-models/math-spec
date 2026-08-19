@@ -63,11 +63,14 @@ variable with no constraint row, still reaches you from the solver
 | `SchemaError` | the file: an unknown key, a malformed declaration, a bad symbol table |
 | `DimensionError` | dims that disagree — a constraint whose expression does not equal its `foreach` |
 | `PiecewiseExpansionError` | a `piecewise:` block that cannot be expanded |
+| `LaneError` | the lane: a model both accept, that this one cannot build — the other route can ([lanes](../../about/linopy.md)) |
 | `DataError` | what was bound: a missing source, an unreadable one, a coordinate outside the master index |
+| `NoSolutionError` | the answer: reading values off a solve that returned none — infeasible, unbounded, errored |
 
 The split is the useful one for a caller: `LanguageError` and its subclasses
 are the *file* being wrong, and are reproducible from the YAML alone;
-`DataError` is the numbers being wrong for a file that is fine.
+`DataError` is the numbers being wrong for a file that is fine; `LaneError` is
+neither wrong, and names the route that builds it.
 
 `check` also issues an `LpspecWarning` for advice short of an error — a
 declared dimension nothing uses as an axis, say. It is the only place warnings
