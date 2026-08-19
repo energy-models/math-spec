@@ -46,6 +46,7 @@ or a refusal, where no such reading exists:
 | `where` operand | false | a coordinate whose data is missing is not one the model can claim exists |
 | divisor — `x / d` | **refused**, where the model divides by it | nothing contributes nothing: `0` divides by zero, `1` rescales, dropping rewrites the constraint |
 | a comparison's whole constant side — `x <= cap` | **refused**, where the row is built | the fill would *be* the bound, so `x <= 0` would bind where the model said nothing |
+| a [`piecewise:`](piecewise.md) curve's values | **refused**, where the block builds a weight for it | the fill would be a breakpoint at the origin, and the weights would mix onto it |
 | `bounds:` | an error | unbounded is not bounded-at-zero |
 
 The row a zeroed coefficient sits in normally survives; where the missing rows

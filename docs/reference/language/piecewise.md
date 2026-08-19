@@ -38,6 +38,17 @@ three of the four methods via a λ convex combination — weights in `[0,1]` wit
 a convexity row, and one link row per tuple. That expansion is what the rest of
 the model, and the [typeset output](../typeset.md), sees.
 
+**A curve is supplied everywhere it is built.** The expansion emits one weight
+per breakpoint over the whole product of its dims and masks none of them, so a
+values parameter short of a row does not build a shorter curve: the
+[absence rules](absence.md#what-creates-absence) read the missing row as a zero
+coefficient, which is a breakpoint at the origin the file never declared. Such a
+table is refused when data binds. A curve with fewer breakpoints than the
+dimension holds **repeats its last point** — a zero-length segment costs a
+weight and says nothing. Where the *arity* is data, and one component ties three
+expressions where another ties two, the λ formulation is written out directly
+rather than through this block ([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
+
 **`method` is the one thing that varies**, and for those three it varies in
 exactly one place: how the weights are restricted, once they exist.
 
