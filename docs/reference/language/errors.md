@@ -87,7 +87,7 @@ feature list: each is a boundary the design keeps on purpose, and
 | variable × variable, or `**` | nothing — degree 1 is the ceiling ([expressions](expressions.md#degree-1-always)) |
 | arithmetic in `bounds:` | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31)) |
 | time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter |
-| solver breadth | two solvers — HiGHS, which ships, and Gurobi via the `[gurobi]` extra — chosen at the call and never in the file; LP files for everything else ([#106](https://github.com/fluxopt/lpspec/issues/106)) |
+| solver breadth | three solvers — HiGHS, which ships, plus Gurobi and Xpress via their own extras — chosen at the call and never in the file; LP and MPS files for everything else ([#106](https://github.com/fluxopt/lpspec/issues/106)) |
 | indicator constraints | planned as a *solver capability* rather than a language question, the same axis `sos:` landed on ([#220](https://github.com/fluxopt/lpspec/issues/220)) |
 | multi-objective | one `objective:` block — a second is unsayable; weight them into one expression |
 | arbitrary array ops (`merge`, `reindex`, `apply_ufunc`) | data prep — the closed operator set is what makes streaming possible |
