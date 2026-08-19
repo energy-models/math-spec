@@ -1,0 +1,672 @@
+{
+  "$defs": {
+    "BoundsBlock": {
+      "additionalProperties": false,
+      "description": "Variable bounds \u2014 each side is a number or parameter name.\n\nlinopy's defaults (``add_variables(lower=-inf, upper=inf)``): omitting a\nbound leaves the variable unbounded on that side, not implicitly\nnon-negative. Non-negativity is a real constraint, so the file says it.",
+      "properties": {
+        "lower": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Lower"
+        },
+        "upper": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Upper"
+        }
+      },
+      "title": "BoundsBlock",
+      "type": "object"
+    },
+    "ConstraintBlock": {
+      "additionalProperties": false,
+      "description": "A declared constraint: one rule, over one frame.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        },
+        "foreach": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Foreach",
+          "type": "array"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
+        }
+      },
+      "required": [
+        "foreach",
+        "expression"
+      ],
+      "title": "ConstraintBlock",
+      "type": "object"
+    },
+    "DimensionBlock": {
+      "additionalProperties": false,
+      "description": "A declared dimension with optional dtype and values.\n\nA dimension is an axis and nothing else. The maps its members carry \u2014 a\ngenerator's bus, a snapshot's period \u2014 are top-level ``lookups:``\n(:class:`LookupBlock`), keyed by their own name.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dtype": {
+          "default": "str",
+          "enum": [
+            "datetime",
+            "float",
+            "int",
+            "str"
+          ],
+          "title": "Dtype",
+          "type": "string"
+        },
+        "values": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Values"
+        }
+      },
+      "title": "DimensionBlock",
+      "type": "object"
+    },
+    "ExpressionBlock": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Model.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nThe description matters more here than anywhere else: a named expression is\nexpanded away before the typeset walk, so its whole surface is\n``result.expression(name)`` after a solve \u2014 a name arriving in a summary\nwith nothing else to say what it counts.",
+          "properties": {
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "expression": {
+              "title": "Expression",
+              "type": "string"
+            }
+          },
+          "required": [
+            "expression"
+          ],
+          "title": "ExpressionBlock",
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "LookupBlock": {
+      "additionalProperties": false,
+      "description": "A named single-valued map out of a dimension (the declaration rules).\n\nTwo kinds, told apart by which field is set:\n\n- ``into:`` names the dimension the values are labels of \u2014 the *groupable*\n  kind, what ``sum(by=)`` lands terms on and ``at(by=)`` reads through,\n  checked for containment once data is bound rather than joined blind::\n\n      lookups:\n        bus_of: {over: generator, into: bus}\n        send:   {over: line, into: bus}\n\n- ``dtype:`` declares an inline label space \u2014 the *selection-only* kind,\n  owning its values and targeting nothing, so no axis exists for terms to\n  land on. Grouping into one is refused with the promotion rewrite\n  (:func:`lpspec.language.resolution.resolve`)::\n\n      lookups:\n        period: {over: snapshot, dtype: int}\n\n``values:`` gives the map in the file \u2014 ``{label of over: value}`` \u2014 for a\nrelation small enough to read, the way a dimension's own ``values:`` does.\nA label it omits maps to null, which is the partial case a lookup already\nallows. Without it the map arrives as a column of the ``over`` dimension's\nindex at bind time (the data-binding rules), and that stays the way to\nsupply a large one.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dtype": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "enum": [
+            "datetime",
+            "float",
+            "int",
+            "str"
+          ],
+          "title": "Dtype"
+        },
+        "into": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Into"
+        },
+        "over": {
+          "title": "Over",
+          "type": "string"
+        },
+        "values": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Values"
+        }
+      },
+      "required": [
+        "over"
+      ],
+      "title": "LookupBlock",
+      "type": "object"
+    },
+    "MacroBlock": {
+      "additionalProperties": false,
+      "description": "A parameterised expression template, defined in the YAML itself.\n\nLanguage, not code: formals (``args`` positional, ``kwargs`` keyword)\nshadow model names inside the template, and every call site expands into\ncore AST before either backend sees the expression.",
+      "properties": {
+        "args": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Args",
+          "type": "array"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "kwargs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Kwargs",
+          "type": "array"
+        },
+        "template": {
+          "title": "Template",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template"
+      ],
+      "title": "MacroBlock",
+      "type": "object"
+    },
+    "ObjectiveBlock": {
+      "additionalProperties": false,
+      "description": "A declared objective function.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        },
+        "sense": {
+          "default": "minimize",
+          "enum": [
+            "maximize",
+            "minimize"
+          ],
+          "title": "Sense",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expression"
+      ],
+      "title": "ObjectiveBlock",
+      "type": "object"
+    },
+    "ParameterBlock": {
+      "additionalProperties": false,
+      "description": "A declared parameter with dims and dtype.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
+        },
+        "dtype": {
+          "default": "float",
+          "enum": [
+            "bool",
+            "float",
+            "int",
+            "str"
+          ],
+          "title": "Dtype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dims"
+      ],
+      "title": "ParameterBlock",
+      "type": "object"
+    },
+    "PiecewiseBlock": {
+      "additionalProperties": false,
+      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Model.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``over`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\n``over`` names the breakpoint dimension; ``method`` is which of\n:data:`PIECEWISE_METHODS` restricts the weights; ``active`` names a gating\nexpression that pins the formulation to 0 when it is 0. Expanded before\nbuilding into plain variables and constraints \u2014 see\n``lpspec.language.piecewise``.",
+      "properties": {
+        "active": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/PiecewiseLink"
+          },
+          "title": "Links",
+          "type": "array"
+        },
+        "method": {
+          "default": "adjacency",
+          "enum": [
+            "adjacency",
+            "convex",
+            "sos2"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "over": {
+          "title": "Over",
+          "type": "string"
+        }
+      },
+      "required": [
+        "over",
+        "links"
+      ],
+      "title": "PiecewiseBlock",
+      "type": "object"
+    },
+    "PiecewiseLink": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "description": "One link of a piecewise block: an expression pinned to a values curve.\n\nWritten in YAML as ``[expression, values]`` or ``[expression, values,\nsign]`` and serialised back to exactly that form, so a round trip through\n:meth:`Model.to_yaml` reproduces the file.",
+          "properties": {
+            "expression": {
+              "title": "Expression",
+              "type": "string"
+            },
+            "sign": {
+              "default": "==",
+              "enum": [
+                "<=",
+                "==",
+                ">="
+              ],
+              "title": "Sign",
+              "type": "string"
+            },
+            "values": {
+              "title": "Values",
+              "type": "string"
+            }
+          },
+          "required": [
+            "expression",
+            "values"
+          ],
+          "title": "PiecewiseLink",
+          "type": "object"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "type": "array"
+        }
+      ]
+    },
+    "SosBlock": {
+      "additionalProperties": false,
+      "description": "A special-ordered set over one dimension of one variable.\n\nMirrors ``linopy.Model.add_sos_constraints``, whose decomposition this\ncopies: a variable, the dimension the set runs along, the type, and the\noptional big-M a reformulating sink caps its linking rows with. One set\nper coordinate of the variable's ``foreach`` minus ``over``; the members\nare the variable's *existing* coordinates along ``over``, and their order\nis that dimension's declared one \u2014 what ``shift`` walks.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath a sink can read off ``A``: it is a *set*, carried to the sink that\nhas the concept and reformulated for the sink that does not.",
+      "properties": {
+        "big_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Big M"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "over": {
+          "title": "Over",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            1,
+            2
+          ],
+          "title": "Type",
+          "type": "integer"
+        },
+        "variable": {
+          "title": "Variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "variable",
+        "over",
+        "type"
+      ],
+      "title": "SosBlock",
+      "type": "object"
+    },
+    "VariableBlock": {
+      "additionalProperties": false,
+      "description": "A declared decision variable.",
+      "properties": {
+        "absence": {
+          "default": "undefined",
+          "enum": [
+            "undefined",
+            "zero"
+          ],
+          "title": "Absence",
+          "type": "string"
+        },
+        "bounds": {
+          "$ref": "#/$defs/BoundsBlock",
+          "default": {}
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "domain": {
+          "default": "continuous",
+          "enum": [
+            "binary",
+            "continuous",
+            "integer"
+          ],
+          "title": "Domain",
+          "type": "string"
+        },
+        "foreach": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Foreach",
+          "type": "array"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
+        }
+      },
+      "required": [
+        "foreach"
+      ],
+      "title": "VariableBlock",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The declared math \u2014 one YAML file, or one dict, validated.\n\nFirst of the three stages the pipeline names: ``Model`` is what a file\n*says*, ``plan.Program`` what it lowers to, an engine what a build holds.\nNothing here has seen data.\n\nThe API is the ten declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. In goes through\n``lps.load_model``, which raises\n:class:`~lpspec.errors.LanguageError` on a model the language refuses.\n\nEverything else on this class is pydantic's, not a contract this package\nkeeps \u2014 ``model_json_schema()`` describes the shape pydantic validates\nrather than the language (checked in for editors as\n``schema/lpspec.schema.json``), and ``model_construct()`` skips validation\nentirely, so a ``Model`` is valid when it was built the normal way.",
+  "properties": {
+    "constraints": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ConstraintBlock"
+      },
+      "default": {},
+      "title": "Constraints",
+      "type": "object"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "dimensions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DimensionBlock"
+      },
+      "default": {},
+      "title": "Dimensions",
+      "type": "object"
+    },
+    "expressions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ExpressionBlock"
+      },
+      "default": {},
+      "title": "Expressions",
+      "type": "object"
+    },
+    "lookups": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LookupBlock"
+      },
+      "default": {},
+      "title": "Lookups",
+      "type": "object"
+    },
+    "macros": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MacroBlock"
+      },
+      "default": {},
+      "title": "Macros",
+      "type": "object"
+    },
+    "objective": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ObjectiveBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "parameters": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ParameterBlock"
+      },
+      "default": {},
+      "title": "Parameters",
+      "type": "object"
+    },
+    "piecewise": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PiecewiseBlock"
+      },
+      "default": {},
+      "title": "Piecewise",
+      "type": "object"
+    },
+    "sos": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SosBlock"
+      },
+      "default": {},
+      "title": "Sos",
+      "type": "object"
+    },
+    "variables": {
+      "additionalProperties": {
+        "$ref": "#/$defs/VariableBlock"
+      },
+      "default": {},
+      "title": "Variables",
+      "type": "object"
+    },
+    "version": {
+      "default": 0,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "title": "Model",
+  "type": "object"
+}

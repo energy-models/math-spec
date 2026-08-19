@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     PrivateAttr,
     ValidationError,
     field_validator,
@@ -30,6 +31,10 @@ from lpspec.language.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+
+    from pydantic import GetJsonSchemaHandler
+    from pydantic.json_schema import JsonSchemaValue
+    from pydantic_core import CoreSchema
 
 
 class _StrictBlock(BaseModel):
@@ -92,6 +97,30 @@ VARIABLE_DOMAINS = frozenset({'continuous', 'integer', 'binary'})
 VARIABLE_ABSENCE = frozenset({'undefined', 'zero'})
 
 
+def _enum(values: Iterable[Any]) -> dict[str, Any]:
+    """A ``Field(json_schema_extra=...)`` publishing a closed vocabulary, sorted so the artefact is byte-stable."""
+    return {'enum': sorted(values)}
+
+
+def _also_written_as(
+    core_schema: CoreSchema, handler: GetJsonSchemaHandler, shorthand: JsonSchemaValue
+) -> JsonSchemaValue:
+    """The block's own schema, widened to a *shorthand* its before-validator takes.
+
+    A ``mode='before'`` rewrite is invisible to pydantic, which generates the
+    schema from the post-rewrite fields alone, so the shorthand has to be added
+    back by hand or an editor red-squiggles the form the file is written in.
+
+    ``handler`` returns the definition itself on most versions and a ``$ref``
+    to it on pydantic 2.10; the ref is followed, because an ``anyOf`` branch
+    pointing at its own entry is a loop with the mapping form unreachable.
+    """
+    generated = handler(core_schema)
+    if set(generated) == {'$ref'}:
+        generated = handler.resolve_ref_schema(generated)
+    return {'anyOf': [dict(generated), shorthand]}
+
+
 def _one_of(value: str, allowed: frozenset[str] | set[str], field: str) -> str:
     """Check an enumerated string field, in one wording for all of them."""
     if value not in allowed:
@@ -133,7 +162,7 @@ class LookupBlock(_StrictBlock):
 
     over: str
     into: str | None = None
-    dtype: str | None = None
+    dtype: str | None = Field(default=None, json_schema_extra=_enum(DIMENSION_DTYPES))
     values: dict[Any, Any] | None = None
     description: str | None = None
 
@@ -163,7 +192,7 @@ class DimensionBlock(_StrictBlock):
 
     _label: ClassVar[str] = 'a dimension declaration'
 
-    dtype: str = 'str'
+    dtype: str = Field(default='str', json_schema_extra=_enum(DIMENSION_DTYPES))
     values: list[Any] | None = None
     description: str | None = None
 
@@ -179,7 +208,7 @@ class ParameterBlock(_StrictBlock):
     _label: ClassVar[str] = 'a parameter declaration'
 
     dims: list[str]
-    dtype: str = 'float'
+    dtype: str = Field(default='float', json_schema_extra=_enum(PARAMETER_DTYPES))
     description: str | None = None
 
     @property
@@ -215,8 +244,8 @@ class VariableBlock(_StrictBlock):
     foreach: list[str]
     where: str | None = None
     bounds: BoundsBlock = BoundsBlock()
-    domain: str = 'continuous'
-    absence: str = 'undefined'
+    domain: str = Field(default='continuous', json_schema_extra=_enum(VARIABLE_DOMAINS))
+    absence: str = Field(default='undefined', json_schema_extra=_enum(VARIABLE_ABSENCE))
     description: str | None = None
 
     @property
@@ -267,19 +296,23 @@ class ConstraintBlock(_StrictBlock):
         return self.foreach
 
 
+#: Which way an objective is optimised (the declaration rules).
+OBJECTIVE_SENSES = frozenset({'minimize', 'maximize'})
+
+
 class ObjectiveBlock(_StrictBlock):
     """A declared objective function."""
 
     _label: ClassVar[str] = 'an objective declaration'
 
-    sense: str = 'minimize'
+    sense: str = Field(default='minimize', json_schema_extra=_enum(OBJECTIVE_SENSES))
     expression: str
     description: str | None = None
 
     @field_validator('sense')
     @classmethod
     def _check_sense(cls, v: str) -> str:
-        return _one_of(v, {'minimize', 'maximize'}, 'sense')
+        return _one_of(v, OBJECTIVE_SENSES, 'sense')
 
 
 class MacroBlock(_StrictBlock):
@@ -335,11 +368,20 @@ class ExpressionBlock(_StrictBlock):
     def _from_string(cls, data: Any) -> Any:
         return {'expression': data} if isinstance(data, str) else data
 
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """The published schema admits the bare string the one-line form is written as."""
+        return _also_written_as(core_schema, handler, {'type': 'string'})
+
     @model_serializer
     def _as_written(self) -> str | dict[str, str]:
         if self.description is None:
             return self.expression
         return {'expression': self.expression, 'description': self.description}
+
+
+#: The relations a link may pin its expression to the curve with.
+LINK_SIGNS = frozenset({'==', '<=', '>='})
 
 
 class PiecewiseLink(_StrictBlock):
@@ -354,7 +396,7 @@ class PiecewiseLink(_StrictBlock):
 
     expression: str
     values: str
-    sign: str = '=='
+    sign: str = Field(default='==', json_schema_extra=_enum(LINK_SIGNS))
 
     @model_validator(mode='before')
     @classmethod
@@ -366,10 +408,16 @@ class PiecewiseLink(_StrictBlock):
             return dict(zip(('expression', 'values', 'sign'), data, strict=False))
         return data
 
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """The published schema admits the ``[expression, values, sign?]`` form every link is written as."""
+        list_form = {'type': 'array', 'items': {'type': 'string'}, 'minItems': 2, 'maxItems': 3}
+        return _also_written_as(core_schema, handler, list_form)
+
     @field_validator('sign')
     @classmethod
     def _check_sign(cls, v: str) -> str:
-        if v not in ('==', '<=', '>='):
+        if v not in LINK_SIGNS:
             msg = f"link sign must be '==', '<=' or '>=', got {v!r}"
             raise ValueError(msg)
         return v
@@ -413,7 +461,7 @@ class PiecewiseBlock(_StrictBlock):
 
     over: str
     links: list[PiecewiseLink]
-    method: str = 'adjacency'
+    method: str = Field(default='adjacency', json_schema_extra=_enum(PIECEWISE_METHODS))
     active: str | None = None
     description: str | None = None
 
@@ -465,6 +513,11 @@ class PiecewiseBlock(_StrictBlock):
         return v
 
 
+#: The orders of special ordered set a sink carries — nothing else is a
+#: construct solvers have.
+SOS_TYPES = frozenset({1, 2})
+
+
 class SosBlock(_StrictBlock):
     """A special-ordered set over one dimension of one variable.
 
@@ -485,14 +538,14 @@ class SosBlock(_StrictBlock):
 
     variable: str
     over: str
-    type: int
+    type: int = Field(json_schema_extra=_enum(SOS_TYPES))
     big_m: float | None = None
     description: str | None = None
 
     @field_validator('type')
     @classmethod
     def _check_type(cls, v: int) -> int:
-        if v not in (1, 2):
+        if v not in SOS_TYPES:
             msg = f'sos type must be 1 or 2, got {v!r}. A set of any other order is not a construct solvers carry.'
             raise ValueError(msg)
         return v
@@ -577,7 +630,8 @@ class Model(_StrictBlock):
 
     Everything else on this class is pydantic's, not a contract this package
     keeps — ``model_json_schema()`` describes the shape pydantic validates
-    rather than the language, and ``model_construct()`` skips validation
+    rather than the language (checked in for editors as
+    ``schema/lpspec.schema.json``), and ``model_construct()`` skips validation
     entirely, so a ``Model`` is valid when it was built the normal way.
     """
 
