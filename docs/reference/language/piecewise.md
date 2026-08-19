@@ -43,11 +43,18 @@ per breakpoint over the whole product of its dims and masks none of them, so a
 values parameter short of a row does not build a shorter curve: the
 [absence rules](absence.md#what-creates-absence) read the missing row as a zero
 coefficient, which is a breakpoint at the origin the file never declared. Such a
-table is refused when data binds. A curve with fewer breakpoints than the
-dimension holds **repeats its last point** — a zero-length segment costs a
-weight and says nothing. Where the *arity* is data, and one component ties three
-expressions where another ties two, the λ formulation is written out directly
-rather than through this block ([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
+table is refused when data binds.
+
+A curve with fewer breakpoints than the dimension holds **repeats its last
+point**, under `adjacency` and `sos2` — a zero-length segment, costing a weight
+and a binary that say nothing. `convex` and `lp` refuse a repeat, since both
+require strictly increasing breakpoints, so a short curve has no spelling under
+those two yet: masking the tail is
+[#1110](https://github.com/fluxopt/lpspec/issues/1110).
+
+Where the *arity* is data, and one component ties three expressions where
+another ties two, the λ formulation is written out directly rather than through
+this block ([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
 
 **`method` is the one thing that varies**, and for those three it varies in
 exactly one place: how the weights are restricted, once they exist.
