@@ -384,7 +384,8 @@
           "enum": [
             "adjacency",
             "sos2",
-            "convex"
+            "convex",
+            "lp"
           ],
           "title": "Method",
           "type": "string"

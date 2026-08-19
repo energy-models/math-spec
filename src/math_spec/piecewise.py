@@ -55,6 +55,8 @@ consuming lane's business, and curvature is a property of the breakpoint
 
 from __future__ import annotations
 
+from typing import Any
+
 from lpspec.errors import LanguageError, PiecewiseExpansionError
 from lpspec.language.degree import check_expression
 from lpspec.language.dimensions import dims_of
@@ -91,6 +93,9 @@ def expand_piecewise(schema: Model) -> Model:
     raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
         frame = _validate_block(schema, name, pw)
+        if pw.method == 'lp':
+            _expand_lp(raw, name, pw, frame)
+            continue
         lam, seg = f'{name}_lam', f'{name}_seg'
 
         raw['variables'][lam] = {
@@ -129,6 +134,45 @@ def expand_piecewise(schema: Model) -> Model:
     expanded = Model.model_validate(raw)
     schema._expansion = expanded
     return expanded
+
+
+def _expand_lp(raw: dict[str, Any], name: str, pw: PiecewiseBlock, frame: tuple[str, ...]) -> None:
+    """Emit the segment-line form: a row per segment, and the two domain rows.
+
+    Three things a change here could break unknowingly:
+
+    The chord is written at the *later* of the two breakpoints it joins, so the
+    first has no predecessor and its row must not exist. The ``where:`` and
+    ``edge=0`` travel together — without the exclusion the vacated position
+    reads as a zero, which is a spurious line through the origin.
+
+    The row is multiplied through by the run rather than written as
+    ``rise / run``: the sense survives only because the run is positive, which
+    is the strict monotonicity the method already requires of its breakpoints,
+    and a difference is outside the plan's divisor rule anyway.
+
+    A segment line does not stop where its segment does, so the two domain rows
+    are what keeps the formulation inside the curve's own range. They are
+    ``linopy``'s ``_add_lp`` rows under its own names.
+    """
+    x_link, y_link = pw.curve
+    d = pw.over
+    run = f'({x_link.values} - shift({x_link.values}, over={d}, offset=1, edge=0))'
+    rise = f'({y_link.values} - shift({y_link.values}, over={d}, offset=1, edge=0))'
+    raw['constraints'][f'{name}_chord'] = {
+        'foreach': [*frame, d],
+        'where': f'{d} != index({d}, 0)',
+        'expression': (
+            f'({y_link.expression}) * {run} {y_link.sign} '
+            f'{rise} * (({x_link.expression}) - {x_link.values}) + {y_link.values} * {run}'
+        ),
+    }
+    for suffix, sense, position in (('domain_lo', '>=', 0), ('domain_hi', '<=', -1)):
+        raw['constraints'][f'{name}_{suffix}'] = {
+            'foreach': [*frame, d],
+            'where': f'{d} == index({d}, {position})',
+            'expression': f'({x_link.expression}) {sense} {x_link.values}',
+        }
 
 
 def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
@@ -174,6 +218,9 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
         f'{name}_convexity',
         f'{name}_pick',
         f'{name}_adjacency',
+        f'{name}_chord',
+        f'{name}_domain_lo',
+        f'{name}_domain_hi',
         *(f'{name}_link{i}' for i in range(len(pw.links))),
     )
     for kind, emitted, declared in (

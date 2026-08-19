@@ -33,19 +33,20 @@ fuel_cap:
 | *values* | a parameter carrying the `over` dim, so curves may vary along other dims (per generator, say) |
 | *sign* | `<=` or `>=`, at most one per block and only with exactly two links: bounds the link instead of pinning it |
 
-A block **expands before building** into plain variables and constraints via a
-λ convex combination — weights in `[0,1]` with a convexity row, and one link
-row per tuple. That expansion is what the rest of the model, and the
-[typeset output](../typeset.md), sees.
+A block **expands before building** into plain variables and constraints, for
+three of the four methods via a λ convex combination — weights in `[0,1]` with
+a convexity row, and one link row per tuple. That expansion is what the rest of
+the model, and the [typeset output](../typeset.md), sees.
 
-**`method` is the one thing that varies**, and it varies in exactly one place:
-how the weights are restricted, once they exist.
+**`method` is the one thing that varies**, and for those three it varies in
+exactly one place: how the weights are restricted, once they exist.
 
 | `method` | What it adds | |
 |---|---|---|
 | `adjacency` *(default)* | a binary per segment, and `lam <= seg + shift(seg, over=bp, offset=1, edge=0)` | the curve, built |
 | `sos2` | an [`sos:`](#sos) block over the same weights | the curve, *said* — for a solver that branches on the set itself |
 | `convex` | nothing | the hull, which is a pure LP |
+| `lp` | no weights at all — a row per segment line, and two holding the domain | the curve as its own lines |
 
 `adjacency` and `sos2` state the same restriction and reach the same optimum;
 they differ in what the solver is handed, so which is faster is a property of
@@ -55,8 +56,40 @@ the solver and not of the model.
 curvature under optimisation pressure, which is checked against the breakpoint
 *values* when data binds. It takes exactly two links and no `active`.
 
-linopy's tangent-line formulation, `method: lp`, is
-[#695](https://github.com/fluxopt/lpspec/issues/695) and not here.
+### `lp`, the one that declares nothing
+
+`lp` states the curve as its **segment lines** instead of interpolating between
+its breakpoints, so it declares no auxiliary variable at all — where the others
+carry one weight per breakpoint per frame row. It needs exactly two links, one
+of them bounded (`<=` or `>=`), and no `active:` — there are no weights for a
+gate to pin down.
+
+<!-- doctest: wrap=piecewise -->
+```yaml
+cost_curve:
+  over: bp
+  method: lp
+  links:
+    - [p, bp_x]
+    - [op_cost, bp_y, ">="]   # cost bounded below by the curve
+```
+
+The trade is **columns for rows**: one row per segment plus the two domain
+rows, against K weight columns. On a 20-generator, 48-snapshot, 6-breakpoint
+dispatch it is 7680 → 1920 columns and 2928 → 6768 rows, at the same optimum
+([#926](https://github.com/fluxopt/lpspec/pull/926)).
+
+Two things follow from stating lines rather than weights:
+
+- **The curvature has to match the sign**, and getting it wrong is silent —
+  lines that envelope a convex curve *cut* a concave one, and the solve comes
+  back optimal with a wrong answer. `>=` requires a convex curve and `<=` a
+  concave one, checked against the values when data binds. This is stricter
+  than `convex`'s check, which only refuses a *mixed* curve.
+- **A line does not stop where its segment does**, so the block emits the two
+  domain rows that hold the pinned link inside the breakpoint range. Without
+  them the formulation would extrapolate along the end segments, where the
+  weight forms cannot go. They are the rows `linopy`'s own `lp` method emits.
 
 ## `sos`
 

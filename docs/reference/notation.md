@@ -608,6 +608,25 @@ $$\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \mathit{cost\_curve\_lam}_{
 
 $$0 \le \mathit{cost\_curve\_lam}_{t,g,b} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B}$$
 
+#### `cost_curve`
+
+**`method: lp`** --- no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
+
+```yaml
+cost_curve:
+  over: bp
+  links:
+    - [p, bp_x]
+    - [op_cost, bp_y, ">="]
+  method: lp
+```
+
+$$\mathit{op\_cost}_{t,g} \cdot \left( \mathit{bp}^{\mathrm{x}}_{g,b} - \mathit{bp}^{\mathrm{x}}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathit{bp}^{\mathrm{y}}_{g,b} - \mathit{bp}^{\mathrm{y}}_{g,b \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathit{bp}^{\mathrm{x}}_{g,b} \right) + \mathit{bp}^{\mathrm{y}}_{g,b} \cdot \left( \mathit{bp}^{\mathrm{x}}_{g,b} - \mathit{bp}^{\mathrm{x}}_{g,b \boxminus_{0} 1} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b \neq \mathrm{index}(\mathcal{B}, 0)$$
+
+$$p_{t,g} \ge \mathit{bp}^{\mathrm{x}}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b = \mathrm{index}(\mathcal{B}, 0)$$
+
+$$p_{t,g} \le \mathit{bp}^{\mathrm{x}}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b = \mathrm{index}(\mathcal{B}, -1)$$
+
 ### Sets carried to the solver
 
 #### `adjacent`
