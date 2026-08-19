@@ -13,12 +13,11 @@ from __future__ import annotations
 
 import math
 from importlib import metadata
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, get_args
 
 from pydantic import (
     BaseModel,
     ConfigDict,
-    Field,
     PrivateAttr,
     ValidationError,
     field_validator,
@@ -72,34 +71,48 @@ class _StrictBlock(BaseModel):
         return f"unknown key '{key}' in {label}. {did_you_mean(key, known, label='Valid keys')}"
 
 
-#: The dtypes a dimension index may declare (the declaration rules). The one home of the
-#: vocabulary: both dtype validators read it, and ``tests/test_architecture.py``
-#: pins the engine's empty-index dtype table (``frames.py``) to the
-#: same set — a test rather than an import, because the fence keeps the engine
-#: from reaching the language.
-DIMENSION_DTYPES = frozenset({'float', 'int', 'str', 'datetime'})
+#: The dtype a dimension index may declare (the declaration rules).
+DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 
-#: The dtypes a parameter may declare (the declaration rules), and what its
-#: bound column must be: the engine's accepted-column table
-#: (``relational/engines/polars/data_validation.py``) is pinned to this set by
-#: ``tests/test_architecture.py``, a test rather than an import because the
-#: fence keeps the engine from reaching the language.
-PARAMETER_DTYPES = frozenset({'float', 'int', 'bool', 'str'})
+#: The dtype a parameter may declare (the declaration rules), and what its bound
+#: column must be.
+ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
-#: The domains a variable may declare (the declaration rules). Matches the plan's
-#: ``VariableType`` vocabulary (``relational/plan.py``), pinned by a test for
-#: the same fence reason as the dtype table above.
-VARIABLE_DOMAINS = frozenset({'continuous', 'integer', 'binary'})
+#: The domain a variable may declare (the declaration rules). Matches the plan's
+#: ``VariableType`` (``relational/plan.py``).
+VariableDomain = Literal['continuous', 'integer', 'binary']
 
-#: What a masked variable's non-existence *means* (the absence rules). Matches
-#: the plan's ``VariableAbsence`` vocabulary (``relational/plan.py``), pinned by
-#: a test for the same fence reason as the tables above.
-VARIABLE_ABSENCE = frozenset({'undefined', 'zero'})
+#: What a masked variable's non-existence *means* (the absence rules). Same
+#: vocabulary as the plan's ``VariableAbsence`` (``relational/plan.py``).
+VariableAbsence = Literal['undefined', 'zero']
 
+#: Which way an objective is optimised (the declaration rules).
+ObjectiveSense = Literal['minimize', 'maximize']
 
-def _enum(values: Iterable[Any]) -> dict[str, Any]:
-    """A ``Field(json_schema_extra=...)`` publishing a closed vocabulary, sorted so the artefact is byte-stable."""
-    return {'enum': sorted(values)}
+#: The relation a link may pin its expression to the curve with.
+LinkSign = Literal['==', '<=', '>=']
+
+#: The order of special ordered set a sink carries.
+SosType = Literal[1, 2]
+
+#: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
+#: with :data:`PIECEWISE_METHODS`, which says what each one emits, by
+#: ``tests/test_schema.py``.
+PiecewiseMethod = Literal['adjacency', 'sos2', 'convex']
+
+# --------------------------------------------------------------------------
+# The set form of each vocabulary above, for the callers that want membership
+# rather than a type. tests/test_architecture.py pins the engine's tables — the
+# empty-index dtypes (frames.py), the accepted columns
+# (relational/engines/polars/data_validation.py), the plan's variable
+# vocabularies — to these, a test rather than an import because the fence keeps
+# the engine from reaching the language.
+# --------------------------------------------------------------------------
+
+DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
+PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
+VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
+VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
 
 
 def _also_written_as(
@@ -119,14 +132,6 @@ def _also_written_as(
     if set(generated) == {'$ref'}:
         generated = handler.resolve_ref_schema(generated)
     return {'anyOf': [dict(generated), shorthand]}
-
-
-def _one_of(value: str, allowed: frozenset[str] | set[str], field: str) -> str:
-    """Check an enumerated string field, in one wording for all of them."""
-    if value not in allowed:
-        msg = f"{field} must be one of {allowed}, got '{value}'"
-        raise ValueError(msg)
-    return value
 
 
 class LookupBlock(_StrictBlock):
@@ -162,14 +167,9 @@ class LookupBlock(_StrictBlock):
 
     over: str
     into: str | None = None
-    dtype: str | None = Field(default=None, json_schema_extra=_enum(DIMENSION_DTYPES))
+    dtype: DimensionDtype | None = None
     values: dict[Any, Any] | None = None
     description: str | None = None
-
-    @field_validator('dtype')
-    @classmethod
-    def _check_dtype(cls, v: str | None) -> str | None:
-        return v if v is None else _one_of(v, DIMENSION_DTYPES, 'dtype')
 
     @model_validator(mode='after')
     def _exactly_one_kind(self) -> LookupBlock:
@@ -192,14 +192,9 @@ class DimensionBlock(_StrictBlock):
 
     _label: ClassVar[str] = 'a dimension declaration'
 
-    dtype: str = Field(default='str', json_schema_extra=_enum(DIMENSION_DTYPES))
+    dtype: DimensionDtype = 'str'
     values: list[Any] | None = None
     description: str | None = None
-
-    @field_validator('dtype')
-    @classmethod
-    def _check_dtype(cls, v: str) -> str:
-        return _one_of(v, DIMENSION_DTYPES, 'dtype')
 
 
 class ParameterBlock(_StrictBlock):
@@ -208,18 +203,13 @@ class ParameterBlock(_StrictBlock):
     _label: ClassVar[str] = 'a parameter declaration'
 
     dims: list[str]
-    dtype: str = Field(default='float', json_schema_extra=_enum(PARAMETER_DTYPES))
+    dtype: ParameterDtype = 'float'
     description: str | None = None
 
     @property
     def referenced_dims(self) -> list[str]:
         """The dimensions this block names — `dims` here, `foreach` on the rest."""
         return self.dims
-
-    @field_validator('dtype')
-    @classmethod
-    def _check_dtype(cls, v: str) -> str:
-        return _one_of(v, PARAMETER_DTYPES, 'dtype')
 
 
 class BoundsBlock(_StrictBlock):
@@ -244,23 +234,13 @@ class VariableBlock(_StrictBlock):
     foreach: list[str]
     where: str | None = None
     bounds: BoundsBlock = BoundsBlock()
-    domain: str = Field(default='continuous', json_schema_extra=_enum(VARIABLE_DOMAINS))
-    absence: str = Field(default='undefined', json_schema_extra=_enum(VARIABLE_ABSENCE))
+    domain: VariableDomain = 'continuous'
+    absence: VariableAbsence = 'undefined'
     description: str | None = None
 
     @property
     def referenced_dims(self) -> list[str]:
         return self.foreach
-
-    @field_validator('domain')
-    @classmethod
-    def _check_domain(cls, v: str) -> str:
-        return _one_of(v, VARIABLE_DOMAINS, 'domain')
-
-    @field_validator('absence')
-    @classmethod
-    def _check_absence(cls, v: str) -> str:
-        return _one_of(v, VARIABLE_ABSENCE, 'absence')
 
     @model_validator(mode='after')
     def _absence_needs_a_mask(self) -> VariableBlock:
@@ -296,23 +276,14 @@ class ConstraintBlock(_StrictBlock):
         return self.foreach
 
 
-#: Which way an objective is optimised (the declaration rules).
-OBJECTIVE_SENSES = frozenset({'minimize', 'maximize'})
-
-
 class ObjectiveBlock(_StrictBlock):
     """A declared objective function."""
 
     _label: ClassVar[str] = 'an objective declaration'
 
-    sense: str = Field(default='minimize', json_schema_extra=_enum(OBJECTIVE_SENSES))
+    sense: ObjectiveSense = 'minimize'
     expression: str
     description: str | None = None
-
-    @field_validator('sense')
-    @classmethod
-    def _check_sense(cls, v: str) -> str:
-        return _one_of(v, OBJECTIVE_SENSES, 'sense')
 
 
 class MacroBlock(_StrictBlock):
@@ -380,10 +351,6 @@ class ExpressionBlock(_StrictBlock):
         return {'expression': self.expression, 'description': self.description}
 
 
-#: The relations a link may pin its expression to the curve with.
-LINK_SIGNS = frozenset({'==', '<=', '>='})
-
-
 class PiecewiseLink(_StrictBlock):
     """One link of a piecewise block: an expression pinned to a values curve.
 
@@ -396,7 +363,7 @@ class PiecewiseLink(_StrictBlock):
 
     expression: str
     values: str
-    sign: str = Field(default='==', json_schema_extra=_enum(LINK_SIGNS))
+    sign: LinkSign = '=='
 
     @model_validator(mode='before')
     @classmethod
@@ -413,14 +380,6 @@ class PiecewiseLink(_StrictBlock):
         """The published schema admits the ``[expression, values, sign?]`` form every link is written as."""
         list_form = {'type': 'array', 'items': {'type': 'string'}, 'minItems': 2, 'maxItems': 3}
         return _also_written_as(core_schema, handler, list_form)
-
-    @field_validator('sign')
-    @classmethod
-    def _check_sign(cls, v: str) -> str:
-        if v not in LINK_SIGNS:
-            msg = f"link sign must be '==', '<=' or '>=', got {v!r}"
-            raise ValueError(msg)
-        return v
 
     @model_serializer
     def _as_list(self) -> list[str]:
@@ -461,7 +420,7 @@ class PiecewiseBlock(_StrictBlock):
 
     over: str
     links: list[PiecewiseLink]
-    method: str = Field(default='adjacency', json_schema_extra=_enum(PIECEWISE_METHODS))
+    method: PiecewiseMethod = 'adjacency'
     active: str | None = None
     description: str | None = None
 
@@ -475,9 +434,9 @@ class PiecewiseBlock(_StrictBlock):
         """
         return self.method == 'convex'
 
-    @field_validator('method')
+    @field_validator('method', mode='before')
     @classmethod
-    def _check_method(cls, v: str) -> str:
+    def _check_method(cls, v: Any) -> Any:
         if v not in PIECEWISE_METHODS:
             options = '\n'.join(f'  {name}: {what}' for name, what in PIECEWISE_METHODS.items())
             msg = f'unknown piecewise method {v!r}. The formulations are:\n{options}'
@@ -515,7 +474,7 @@ class PiecewiseBlock(_StrictBlock):
 
 #: The orders of special ordered set a sink carries — nothing else is a
 #: construct solvers have.
-SOS_TYPES = frozenset({1, 2})
+SOS_TYPES = frozenset(get_args(SosType))
 
 
 class SosBlock(_StrictBlock):
@@ -538,15 +497,16 @@ class SosBlock(_StrictBlock):
 
     variable: str
     over: str
-    type: int = Field(json_schema_extra=_enum(SOS_TYPES))
+    type: SosType
     big_m: float | None = None
     description: str | None = None
 
-    @field_validator('type')
+    @field_validator('type', mode='before')
     @classmethod
-    def _check_type(cls, v: int) -> int:
+    def _check_type(cls, v: Any) -> Any:
         if v not in SOS_TYPES:
-            msg = f'sos type must be 1 or 2, got {v!r}. A set of any other order is not a construct solvers carry.'
+            orders = ' or '.join(str(t) for t in sorted(SOS_TYPES))
+            msg = f'sos type must be {orders}, got {v!r}. A set of any other order is not a construct solvers carry.'
             raise ValueError(msg)
         return v
 
