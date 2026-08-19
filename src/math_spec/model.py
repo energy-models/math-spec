@@ -682,35 +682,6 @@ class Model(_StrictBlock):
         """
         return {n: lk.values or {} for n, lk in self.lookups.items() if lk.over == dimension and lk.values is not None}
 
-    def declared_index(self, dimension: str) -> dict[str, list[Any]] | None:
-        """*dimension*'s whole index as the file declares it, or ``None``.
-
-        Columns are the label plus one per lookup declaring ``values:`` — the
-        same shape a caller passes at bind time, so neither lane learns a second
-        way to receive one. Only where the dimension declares its own labels: a
-        map cannot stand in for them (:meth:`declared_maps`), so a dimension
-        whose ``values:`` the file omits has no declared index however many maps
-        point at it, and the caller supplies the labels those maps are read
-        against.
-
-        **Columns rather than a frame** because ``language/`` may not import a
-        dataframe library: a typeset renderer reaches this module and would pay
-        for polars, which ``test_architecture`` forbids. Each lane builds its
-        own frame from this.
-
-        Returns:
-            ``{dimension: labels, lookup: values, …}``, or ``None`` where the
-            dimension declares no ``values:`` of its own.
-        """
-        block = self.dimensions.get(dimension)
-        if block is None or block.values is None:
-            return None
-        labels = list(block.values)
-        index: dict[str, list[Any]] = {dimension: labels}
-        for name, values in self.declared_maps(dimension).items():
-            index[name] = [values.get(label) for label in labels]
-        return index
-
     def _declared_lookup_errors(self, name: str, lookup: LookupBlock) -> list[str]:
         """What a lookup's inline ``values:`` can be wrong about, without data.
 
