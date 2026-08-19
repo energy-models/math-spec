@@ -24,4 +24,4 @@ constraints:
     foreach: [snapshot, bus]
     expression: sum(p, by=gen_bus) <= limit
 
-objective: {sense: minimize, expression: p}
+objective: {sense: minimize, expression: sum(p)}

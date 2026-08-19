@@ -19,4 +19,4 @@ constraints:
     foreach: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
 
-objective: {sense: minimize, expression: p}
+objective: {sense: minimize, expression: sum(p)}

@@ -110,25 +110,6 @@ def _added(left: int | str, right: int | str) -> int:
     return left + right
 
 
-#: Signed terms of one additive expression, in the order the file wrote them.
-_Terms = list[tuple[int, 'ArithmeticNode']]
-
-
-def _additive_terms(node: ArithmeticNode, sign: int = 1) -> _Terms:
-    """The terms *node* adds up, each with the sign it carries.
-
-    Flattened through brackets and unary minus, so ``a - (b + c)`` is three
-    terms rather than two: what a term is summed over is decided per term, and
-    a bracket the file wrote does not make its contents share dims.
-    """
-    if isinstance(node, UnaryOperatorNode):
-        return _additive_terms(node.operand, -sign if node.op == '-' else sign)
-    if isinstance(node, BinaryOperatorNode) and node.op in ('+', '-'):
-        left = _additive_terms(node.left, sign)
-        return left + _additive_terms(node.right, sign if node.op == '+' else -sign)
-    return [(sign, node)]
-
-
 @dataclass(frozen=True)
 class _Step:
     """One translation of an index, and what stands where it vacated.
@@ -521,69 +502,19 @@ class Walk:
     # -- declarations ------------------------------------------------------
 
     def objective(self) -> list[Line]:
-        """The objective's line, with its implied reduction made explicit.
+        """The objective's line.
 
-        An objective sums each term over every dim *that term* carries, which
-        is what the engines build: an addition stacks its sides, so a term
-        reaches the objective keyed by its own dims and nothing widens it to
-        its neighbours'. One summation over the union would show a shorter
-        term multiplied by the dims it does not carry. Adjacent terms carrying
-        the same dims share one summation, so an objective whose terms agree
-        reads as it always did.
-
-        The line carries no label: the block has no name, and the section
-        heading already says what it is.
+        The expression is scalar — every reduction in it is one the file wrote
+        — so it renders like any other, and the line carries no label: the
+        block has no name, and the section heading already says what it is.
         """
         block = self.schema.objective
         if block is None:
             return []
         sense = self.op('minimize' if block.sense == 'minimize' else 'maximize')
-        context = 'the objective'
-        node = expression_of(block.expression, self.schema, self.namespace, context)
+        node = expression_of(block.expression, self.schema, self.namespace, 'the objective')
         assert not isinstance(node, ComparisonNode)
-        ctx = self.context()
-        right = ''
-        for position, (dims, group) in enumerate(self._objective_groups(node, context)):
-            summed = self._summed(dims, group, ctx)
-            if position == 0:
-                right = f'{self.op("minus")}{summed}' if group[0][0] < 0 else summed
-            else:
-                right = self.format.joined([right, summed], self.op('minus' if group[0][0] < 0 else 'plus'))
-        return [Line(label='', left=sense, right=right)]
-
-    def _objective_groups(self, node: ArithmeticNode, context: str) -> list[tuple[list[str], _Terms]]:
-        """The objective's terms in file order, split where their dims change.
-
-        A run of terms carrying the same dims is one group and gets one
-        summation; the next dims start the next group. Grouping only what is
-        adjacent keeps the file's order, which is the order the reader is
-        checking against.
-        """
-        groups: list[tuple[list[str], _Terms]] = []
-        for sign, term in _additive_terms(node):
-            dims = self._sorted(dims_of(term, self.schema, context))
-            if groups and groups[-1][0] == dims:
-                groups[-1][1].append((sign, term))
-            else:
-                groups.append((dims, [(sign, term)]))
-        return groups
-
-    def _summed(self, dims: list[str], group: _Terms, ctx: _Context) -> str:
-        """One group of terms under one summation over *dims*.
-
-        The leading term's sign belongs to the group and is spelled by whoever
-        joins the groups, so the body opens unsigned. A group of several is
-        bracketed for the reason :meth:`reduction_body` brackets an additive
-        body: a sum binds up to the next ``+`` at its own level.
-        """
-        body = self.arithmetic(group[0][1], ctx, need=1)
-        for sign, term in group[1:]:
-            operator = self.op('minus' if sign < 0 else 'plus')
-            body = self.format.joined([body, self.arithmetic(term, ctx, need=1 + (1 if sign < 0 else 0))], operator)
-        if not dims:
-            return body
-        domain = self.format.joined([self.membership(d) for d in dims], '')
-        return self.format.summation(domain, self.format.parenthesise(body) if len(group) > 1 else body)
+        return [Line(label='', left=sense, right=self.arithmetic(node, self.context()))]
 
     def constraints(self) -> list[Line]:
         lines = []

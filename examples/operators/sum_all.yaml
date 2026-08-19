@@ -17,4 +17,4 @@ constraints:
     foreach: []
     expression: sum(p) <= budget
 
-objective: {sense: minimize, expression: p}
+objective: {sense: minimize, expression: sum(p)}

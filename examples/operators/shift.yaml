@@ -15,4 +15,4 @@ constraints:
     foreach: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1)
 
-objective: {sense: minimize, expression: p}
+objective: {sense: minimize, expression: sum(p)}

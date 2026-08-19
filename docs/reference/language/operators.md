@@ -114,7 +114,7 @@ constraints:
     foreach: [unit, hour]
     expression: sum_back(started, over=hour, within=min_up) <= on
 
-objective: {sense: minimize, expression: on}
+objective: {sense: minimize, expression: sum(on)}
 ```
 
 `within=` may name an **integer parameter** instead of a number, and then each
@@ -210,7 +210,7 @@ constraints:
   season_balance:
     foreach: [snapshot]
     expression: soc == shift(soc, over=snapshot, offset=1, edge='wrap', by=season_of) + inflow
-objective: {sense: minimize, expression: soc}
+objective: {sense: minimize, expression: sum(soc)}
 ```
 
 Every `edge=` rule then reads the same, one group at a time: bare, each group's
@@ -254,7 +254,7 @@ constraints:
   arrives_after_its_lead:
     foreach: [technology, month]
     expression: shift(order, over=month, offset=lead, edge=0) >= demand
-objective: {sense: minimize, expression: order}
+objective: {sense: minimize, expression: sum(order)}
 ```
 
 Three rules keep that a translation rather than something else, each a load

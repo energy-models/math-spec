@@ -94,6 +94,8 @@ so:
   A stray dim multiplies rows and an unused `foreach` dim repeats one row
   across them — either way you would build a different model than the file
   reads as;
+- an **objective** must carry **no dims at all** — it is one number, and the
+  sums that make it one are written in the expression;
 - a **`where` predicate**'s dims and a **bound parameter**'s dims must not
   *exceed* the frame they sit in.
 

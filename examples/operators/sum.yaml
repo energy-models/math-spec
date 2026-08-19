@@ -17,4 +17,4 @@ constraints:
     foreach: [snapshot]
     expression: sum(p, over=generator) <= limit
 
-objective: {sense: minimize, expression: p}
+objective: {sense: minimize, expression: sum(p)}

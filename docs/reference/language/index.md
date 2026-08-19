@@ -30,7 +30,7 @@ constraints:
 
 objective:
   sense: minimize
-  expression: p * cost  # an objective sums every dim it carries
+  expression: sum(p * cost)  # an objective is one number, so the sum is written
 ```
 
 That file is a complete model. [Write a model](../../guide.md) walks through
@@ -48,7 +48,7 @@ in a different position, and each links to the page that spells it out.
 | 2 | Everything decidable without data is **decided without data**. | [Errors](errors.md) |
 | 3 | **One flat namespace, no shadowing** — a collision is a load error naming both declarations. | [Names](expressions.md#name-resolution) |
 | 4 | **Position decides which kinds of name are legal**, and a name's kind is fixed at load time. A dimension is never legal in a value position: it is a coordinate space, not data. | [Names](expressions.md#name-resolution) |
-| 5 | **Dim sets compose by union.** A constraint must *equal* its `foreach`; a `where` or a bound must not *exceed* its frame. | [Dim algebra](expressions.md#dim-algebra) |
+| 5 | **Dim sets compose by union.** A constraint must *equal* its `foreach`; an objective must carry **none**; a `where` or a bound must not *exceed* its frame. | [Dim algebra](expressions.md#dim-algebra) |
 | 6 | **Four constructs create absence**, and nothing else does. It is a state of a *variable*; a constraint's own `where:` deletes its row directly. | [Absence](absence.md) |
 | 7 | Through arithmetic absence **spreads, taking the row with it**. Out of a reduction it does not — so `sum(x + y)` and `sum(x) + sum(y)` are different questions. | [Absence](absence.md#how-absence-travels) |
 | 8 | **A missing value reads as the identity of its position** — zero as a coefficient, false in a `where`. Where the position has no identity it is refused, rather than guessed: a divisor, a bound. | [Absence](absence.md), [Operators](operators.md#shift) |

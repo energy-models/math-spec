@@ -22,4 +22,4 @@ constraints:
     foreach: [unit, hour]
     expression: sum_back(started, over=hour, within=min_up) <= on
 
-objective: {sense: minimize, expression: on}
+objective: {sense: minimize, expression: sum(on)}

@@ -281,7 +281,15 @@ def check_schema(schema: Model) -> None:
 
     if schema.objective is not None:
         context = 'The objective'
-        dims_of(expression_of(schema.objective.expression, schema, ns, context), schema, context)
+        got = dims_of(expression_of(schema.objective.expression, schema, ns, context), schema, context)
+        if got:
+            raise DimensionError(
+                f'{context}: the expression carries dims {sorted(got)}, and an objective is one '
+                f'number. Wrap each additive term in its own sum(): '
+                f'`sum(p * cost) + sum(p_nom * capex)`. One sum around the whole expression says '
+                f'something else — over terms carrying different dims it counts each of them '
+                f'once per coordinate of the others.'
+            )
 
 
 def _check_where_dims(

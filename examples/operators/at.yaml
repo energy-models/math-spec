@@ -22,4 +22,4 @@ constraints:
     foreach: [snapshot]
     expression: p <= at(cap, by=period_of)
 
-objective: {sense: minimize, expression: p}
+objective: {sense: minimize, expression: sum(p)}

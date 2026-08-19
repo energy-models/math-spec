@@ -171,7 +171,7 @@ variables:
   p: {foreach: [generator]}
 objective:
   sense: minimize
-  expression: p * cost
+  expression: sum(p * cost)
 ```
 
 | Field | | |
@@ -180,11 +180,12 @@ objective:
 | `sense` | `minimize` or `maximize` | default `minimize` |
 | `description` | free text | default `null` |
 
-There is no `foreach`: an objective is scalar by definition, and **every dim
-the expression carries is summed**. Each *term* is summed over the dims **that
-term** carries, and is not repeated because another term carries a dim it does
-not: in `x * a + y * b` with `x, a` on `i` and `y, b` on `j` there are
-`|i| + |j|` summands, never `|i| · |j|`.
+There is no `foreach`, and **the expression must be scalar**: a load error
+otherwise, naming the wrapper it wants. Nothing is summed for you, so where the
+sum closes is a thing the file says rather than a rule to remember —
+`sum(x * a) + sum(y * b)` with `x, a` on `i` and `y, b` on `j` is `|i| + |j|`
+summands, and `sum(x * a + y * b)` is `|i| · |j|`. Both are sayable, they are
+different models, and the bracket is the difference.
 
 A second objective is unsayable rather than checked — the schema holds one
 block. Weight several goals into one expression.
