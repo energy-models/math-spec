@@ -31,15 +31,22 @@ sequence is positional, so the dimension's labels have to come from somewhere
 other than this parameter — one of the three sources below, which is what fixes
 the order it is positional against.
 
-`pd.Series` keeps its dims in an *index* rather than in columns, so it is
+`pd.Series` keeps its one dim in an *index* rather than in a column, so it is
 unwrapped first — but only if pandas is already imported, never by importing
-it. An unnamed index binds positionally to the declared `dims`; a named one
-binds by name in any order, and a name outside the declared dims raises rather
-than being overwritten.
+it. An unnamed index binds to the declared dim; a named one binds by that name,
+and a name outside the declared dims raises rather than being overwritten.
+
+**One dimension only.** A `MultiIndex` is refused: an index is a pandas idea
+with no counterpart in the frames both lanes build, and its *depth* is a second
+claim about what the parameter is over, free to disagree with the declaration
+with nothing able to say which was meant. A parameter over two dims arrives as
+a frame carrying both as columns — `series.reset_index()` is the whole change,
+and columns are what the other five shapes on this list already use.
 
 **Tables in, arrays out.** An `xr.DataArray` is a dense n-dimensional array
-rather than a table, and neither lane reads one: pass `array.to_series()`,
-whose index binds by name on both. `Result.to_dataarray()` is the way back out.
+rather than a table, and neither lane reads one: pass
+`array.to_series().reset_index()`. `Result.to_dataarray()` is the way back
+out.
 
 Everything on this list is read by the [linopy lane](../../about/linopy.md#3-it-is-a-lane)
 too, so one `sources` mapping goes to either.
@@ -104,7 +111,8 @@ Sparsity is the absent row.
 |---|---|
 | a declared parameter with no data | names the parameter |
 | a source nothing can be read as a table from | names the shapes that are read |
-| an `xr.DataArray` | names `to_series()`, this being a lane's output rather than an input |
+| an `xr.DataArray` | names `to_series().reset_index()`, this being a lane's output rather than an input |
+| a `pd.Series` with a `MultiIndex` | names the tidy frame, and the `reset_index()` that gets there |
 | a `dims: []` parameter whose source has more than one row | one value broadcast everywhere has one row |
 | a dict or a sequence for a parameter over more than one dim | each runs along one dimension |
 | a sequence whose length is not the dimension's | positional, so one entry per label |
