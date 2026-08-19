@@ -47,6 +47,7 @@ from lpspec.language.expression_parser import (
     FunctionCallNode,
     KeywordNode,
     LookupNode,
+    NameListNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -167,7 +168,9 @@ def _walk(node: ArithmeticNode, sign: Sign, signs: dict[str, Sign]) -> None:
     if isinstance(node, VariableNode):
         signs[node.name] = sign if signs.setdefault(node.name, sign) == sign else None
         return
-    if isinstance(node, (NumberNode, ParameterNode, DimensionNode, LookupNode, EdgeNode, KeywordNode, NameNode)):
+    if isinstance(
+        node, (NumberNode, ParameterNode, DimensionNode, LookupNode, EdgeNode, KeywordNode, NameNode, NameListNode)
+    ):
         return
     if isinstance(node, UnaryOperatorNode):
         _walk(node.operand, _flip(sign) if node.op == '-' else sign, signs)

@@ -52,6 +52,7 @@ from lpspec.language.expression_parser import (
     FunctionCallNode,
     KeywordNode,
     LookupNode,
+    NameListNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -120,7 +121,15 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
     """
     if isinstance(
         node,
-        NumberNode | NameNode | VariableNode | ParameterNode | DimensionNode | LookupNode | EdgeNode | KeywordNode,
+        NumberNode
+        | NameNode
+        | NameListNode
+        | VariableNode
+        | ParameterNode
+        | DimensionNode
+        | LookupNode
+        | EdgeNode
+        | KeywordNode,
     ):
         return node
     if isinstance(node, UnaryOperatorNode):

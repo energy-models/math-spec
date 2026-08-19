@@ -10,6 +10,7 @@ Dimension arguments are name-checked at load time, so
 | `sum(array)` | every dim `array` carries collapses; the result is scalar |
 | `sum(array, over=dim)` | `dim` collapses; `array` must carry it |
 | `sum(array, by=lookup)` | the dim the lookup is over collapses onto the dim it maps into |
+| `sum(array, by=[lookup, …])` | the same, onto every dim the lookups map into; they must share the dim they are over |
 | `at(array, by=lookup)` | the dim the lookup maps into is replaced by the dim it is over |
 | `shift(array, over=dim, offset=n)` | the value at *t−n* along `dim`; the vacated edge is **absent** |
 | `shift(array, over=dim, offset=n, edge='wrap')` | the value at *t−n*, cyclic: nothing is vacated |
@@ -301,6 +302,7 @@ The rest of the language is rendered the same way, on one page: [Every construct
 | `sum(array)` | $\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathit{budget}$ |
 | `sum(array, over=dim)` | $\sum_{g \in \mathcal{G}} p_{t,g} \le \mathit{limit}_{t} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `sum(array, by=lookup)` | $\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathit{limit}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$ |
+| `sum(array, by=[lookup, …])` | $\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathit{limit}_{t,b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$ |
 | `at(array, by=lookup)` | $p_{t} \le \mathit{cap}_{\mathrm{period\_of}(t)} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `shift(array, over=dim, offset=n)` | $p_{t} \le p_{t - 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `shift(array, over=dim, offset=n, edge='wrap')` | $p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$ |

@@ -36,6 +36,7 @@ from lpspec.language.expression_parser import (
     FunctionCallNode,
     KeywordNode,
     LookupNode,
+    NameListNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -320,7 +321,7 @@ def _check_template_names(
     if isinstance(node, (NumberNode, VariableNode, ParameterNode, DimensionNode, LookupNode, EdgeNode)):
         return
 
-    if isinstance(node, KeywordNode):
+    if isinstance(node, (KeywordNode, NameListNode)):
         return
 
     if isinstance(node, NameNode):

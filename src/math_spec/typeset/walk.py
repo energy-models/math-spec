@@ -26,6 +26,7 @@ from lpspec.language.expression_parser import (
     FunctionCallNode,
     KeywordNode,
     LookupNode,
+    NameListNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -268,7 +269,7 @@ class Walk:
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
 
-        if isinstance(node, (NameNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
+        if isinstance(node, (NameNode, NameListNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
@@ -319,7 +320,7 @@ class Walk:
             partition = node.kwargs.get('by')
             if partition is not None:
                 assert isinstance(partition, LookupNode)
-                step = replace(step, within=partition.name)
+                step = replace(step, within=partition.names[0])
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 
         if node.name == 'sum_back':
@@ -339,14 +340,20 @@ class Walk:
         if node.name == 'at':
             by = node.kwargs['by']
             assert isinstance(by, LookupNode)
-            mapping = self.format.apply(self.format.upright(by.name), ctx.subscript(by.dimension))
-            return self._arithmetic(node.args[0], ctx.pulled_back(by.into, mapping))
+            for name, into in zip(by.names, by.into, strict=True):
+                mapping = self.format.apply(self.format.upright(name), ctx.subscript(by.dimension))
+                ctx = ctx.pulled_back(into, mapping)
+            return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, LookupNode)
             domain = self.membership(by.dimension)
-            mapping = self.format.apply(self.format.upright(by.name), self.symbols.index[by.dimension])
-            domain = f'{domain} {self.op("such_that")} {mapping} {self.op("equal")} {ctx.subscript(by.into)}'
+            conditions = [
+                f'{self.format.apply(self.format.upright(name), self.symbols.index[by.dimension])} '
+                f'{self.op("equal")} {ctx.subscript(into)}'
+                for name, into in zip(by.names, by.into, strict=True)
+            ]
+            domain = f'{domain} {self.op("such_that")} {self.format.joined(conditions, self.op("and"))}'
         elif (over := node.kwargs.get('over')) is not None:
             assert isinstance(over, DimensionNode)
             domain = self.membership(over.name)

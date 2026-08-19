@@ -45,6 +45,7 @@ from lpspec.language.expression_parser import (
     FunctionCallNode,
     KeywordNode,
     LookupNode,
+    NameListNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -69,6 +70,12 @@ def carries_variable(node: ExpressionNode) -> bool:
         return True
     if isinstance(node, (NumberNode, ParameterNode, DimensionNode, LookupNode, EdgeNode)):
         return False
+    if isinstance(node, NameListNode):
+        msg = (
+            f'NameListNode({list(node.names)!r}) reached the degree check. A bracketed list is '
+            f'consumed by its kwarg during resolution (docs/about/architecture.md hard rule 1).'
+        )
+        raise AssertionError(msg)
     if isinstance(node, KeywordNode):
         msg = (
             f'KeywordNode({node.value!r}) reached the degree check. A quoted keyword is '

@@ -83,6 +83,7 @@ binds**:
 | `sum(x)` | `{}` | if `dims(x)` is empty already |
 | `sum(x, over=d)` | `dims(x) − {d}` | if `d ∉ dims(x)` |
 | `sum(x, by=l)` | `(dims(x) − {over(l)}) ∪ {into(l)}` | if `over(l) ∉ dims(x)`, or `into(l) ∈ dims(x)` already |
+| `sum(x, by=[l, m])` | `(dims(x) − {over(l)}) ∪ {into(l), into(m)}` | the same, plus: if `l` and `m` are over different dims, or target the same one |
 | `at(x, by=l)` | `(dims(x) − {into(l)}) ∪ {over(l)}` | if `into(l) ∉ dims(x)`, or `over(l) ∈ dims(x)` already |
 | `shift(x, over=d, offset=n)` | `dims(x)` | if `d ∉ dims(x)` |
 

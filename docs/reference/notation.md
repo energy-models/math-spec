@@ -39,9 +39,11 @@ dimensions:
   bus: {dtype: str}
   zone: {dtype: str}
   season: {dtype: str}
+  technology: {dtype: str}
 
 lookups:
   gen_bus: {over: generator, into: bus}
+  gen_tech: {over: generator, into: technology}   # a second map out of `generator`, to group through both at once
   zone_of: {over: bus, into: zone}
   area_of: {over: bus, into: zone}   # a second map into the same set, to compare against
   season_of: {over: snapshot, into: season}
@@ -54,6 +56,7 @@ parameters:
   load: {dims: [snapshot, bus]}
   is_flexible: {dims: [generator], dtype: bool}
   zone_cap: {dims: [zone]}
+  tech_cap: {dims: [bus, technology]}
   min_up: {dims: [generator], dtype: int}
   lead: {dims: [generator], dtype: int}
   budget: {dims: []}                 # scalar: the legend says so rather than printing an empty product
@@ -64,10 +67,11 @@ parameters:
 | Symbol | Meaning |
 |---|---|
 | $\mathcal{T}$ | index $t$ --- `snapshot` with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$ |
-| $\mathcal{G}$ | index $g$ --- `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B}$ carrying label $\mathrm{tech}$ |
+| $\mathcal{G}$ | index $g$ --- `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$ |
 | $\mathcal{B}$ | index $b$ --- `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$ |
 | $\mathcal{Z}$ | index $z$ --- `zone` |
 | $\mathcal{S}$ | index $s$ --- `season` |
+| $\mathcal{E}$ | index $e$ --- `technology` |
 
 #### Parameters
 
@@ -79,6 +83,7 @@ parameters:
 | $\mathit{load}$ | `load` over $\mathcal{T} \times \mathcal{B}$ |
 | $\mathit{is\_flexible}$ | `is_flexible` over $\mathcal{G}$ |
 | $\mathit{zone}^{\mathrm{cap}}$ | `zone_cap` over $\mathcal{Z}$ |
+| $\mathit{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
 | $\mathit{min\_up}$ | `min_up` over $\mathcal{G}$ |
 | $\mathit{lead}$ | `lead` over $\mathcal{G}$ |
 | $\mathit{budget}$ | `budget` (scalar) |
@@ -263,6 +268,30 @@ pullback:
 ```
 
 $$\mathit{spill}_{t} \le \mathit{zone}^{\mathrm{cap}}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+
+#### `grouped_twice`
+
+one grouping through two maps: the domain carries both conditions
+
+```yaml
+grouped_twice:
+  foreach: [snapshot, bus, technology]
+  expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap
+```
+
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathit{tech\_cap}_{b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$$
+
+#### `pulled_back_twice`
+
+its adjoint, reading one slot through a pair of labels
+
+```yaml
+pulled_back_twice:
+  foreach: [generator]
+  expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
+```
+
+$$\mathit{units}_{g} \le \mathit{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
 
 #### `arithmetic`
 

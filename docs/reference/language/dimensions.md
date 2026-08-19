@@ -59,6 +59,12 @@ checked against it once data is bound — the check that makes `sum(by=)` safe.
 generator on no bus, a line with one open end — and `sum(by=)` places its terms
 nowhere. An unknown *non-null* value is a typo, and an error.
 
+**Several at once**: `sum(x, by=[gen_bus, gen_tech])` groups through both maps
+in one reduction, landing on `bus` *and* `technology`. Every lookup in the list
+must be `over:` the same dimension — one grouping consumes one dimension — and
+must target a different one. A member missing any of them belongs to no group
+at all, the same reading a single null gets.
+
 ### `dtype:` declares an inline label space — the selection-only kind
 
 It owns its values, targets nothing, and puts no entry under `dimensions:`,

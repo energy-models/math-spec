@@ -73,20 +73,48 @@ class DimensionNode:
 
 
 @dataclass
-class LookupNode:
-    """A resolved reference to a declared lookup.
+class NameListNode:
+    """A bracketed list of names in a kwarg value — ``sum(x, by=[a, b])``.
 
-    Only legal in operator kwarg *values* (``sum(x, by=to)``). Like
-    :class:`DimensionNode` this names structure, not data. The lookup carries
-    its own dimensions: ``dimension`` is the one it is over — what ``sum``
-    consumes and ``at`` produces — and ``into`` the one its values are labels
-    of, both copied off the declaration once here so no backend has to
-    re-derive them.
+    Unresolved on purpose, and unresolvable here: which kind of name a kwarg
+    admits is the operator's business. Like :class:`NameNode` this never
+    reaches a backend — ``resolution.py`` rewrites it into the one typed node
+    its kwarg wants, so a pass that meets one ran before resolution.
     """
 
-    name: str
+    names: tuple[str, ...]
+
+    @property
+    def shown(self) -> str:
+        """The kwarg value as the author wrote it, for an error message."""
+        return f'[{", ".join(self.names)}]'
+
+
+@dataclass
+class LookupNode:
+    """A resolved reference to one or more declared lookups.
+
+    Only legal in operator kwarg *values* (``sum(x, by=to)``). Like
+    :class:`DimensionNode` this names structure, not data. The lookups carry
+    their own dimensions: ``dimension`` is the one they are all over — what
+    ``sum`` consumes and ``at`` produces — and ``into`` the ones their values
+    are labels of, one per name and in the order written, all copied off the
+    declarations once here so no backend has to re-derive them.
+
+    Plural because grouping through several lookups at once is one grouping,
+    not a composition of two: ``sum(x, by=[gen_bus, gen_tech])`` consumes
+    ``generator`` once and produces both targets. The one-name case is the
+    same node with one-element tuples, so no consumer branches on arity.
+    """
+
+    names: tuple[str, ...]
     dimension: str
-    into: str
+    into: tuple[str, ...]
+
+    @property
+    def shown(self) -> str:
+        """The kwarg value as the author wrote it, for an error message."""
+        return self.names[0] if len(self.names) == 1 else f'[{", ".join(self.names)}]'
 
 
 @dataclass
@@ -141,6 +169,7 @@ class FunctionCallNode:
 ArithmeticNode = (
     NumberNode
     | NameNode
+    | NameListNode
     | VariableNode
     | ParameterNode
     | DimensionNode
@@ -201,7 +230,9 @@ def _build_grammar() -> pp.ParserElement:
     rule a ``where`` uses, where quoting says "literal, not something to
     resolve" — and the grammar admits it only in a kwarg value: a string has
     no meaning in arithmetic, so allowing it there would only create an error
-    to report later. A comparison appears at most once, and only at the top.
+    to report later. A bracketed list of names is admitted in the same
+    position and for the same reason. A comparison appears at most once, and
+    only at the top.
     """
     arith = pp.Forward()
 
@@ -215,7 +246,10 @@ def _build_grammar() -> pp.ParserElement:
     name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
 
     quoted = (pp.QuotedString("'") | pp.QuotedString('"')).set_parse_action(lambda t: KeywordNode(str(t[0])))
-    kwarg = (name + pp.Suppress('=') + (quoted | arith | name)).set_parse_action(lambda t: (t[0], t[1]))
+    name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
+        lambda t: NameListNode(tuple(str(x) for x in t))
+    )
+    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith | name)).set_parse_action(lambda t: (t[0], t[1]))
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)

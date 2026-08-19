@@ -16,7 +16,9 @@ The rules::
     sum(x, over=d)          -> x's dims without d;  error if x has no d
     sum(x, by=l)            -> x's dims without the dim l is over, plus the
                                dim l maps into; error if x has no such dim
-    at(x, by=l)             -> the reverse: x's dims without l's target,
+    sum(x, by=[l, m])       -> the same, with every target at once; l and m
+                               must be over one dim and target different ones
+    at(x, by=l)             -> the reverse: x's dims without l's target(s),
                                plus the dim l is over
     shift(x, over=d, offset=n)  -> same dims as x;      error if x has no d
     sum_back(x, over=d, within=n) -> same dims as x; error if x has no d
@@ -49,6 +51,7 @@ from lpspec.language.expression_parser import (
     FunctionCallNode,
     KeywordNode,
     LookupNode,
+    NameListNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -117,7 +120,7 @@ def _dims(
     if isinstance(node, VariableNode):
         return frozenset(schema.variables[node.name].foreach)
 
-    if isinstance(node, (NameNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
+    if isinstance(node, (NameNode, NameListNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
@@ -173,41 +176,43 @@ def _dims_call(
         assert isinstance(by, LookupNode)
         if by.dimension not in inner:
             raise DimensionError(
-                f"{context}: sum(by={by.name}) consumes '{by.dimension}', the dim the "
-                f'lookup is over, but the expression has dims {sorted(inner)}. Summing '
+                f"{context}: sum(by={by.shown}) consumes '{by.dimension}', the dim it maps "
+                f'out of, but the expression has dims {sorted(inner)}. Summing '
                 f'over a dim the operand does not carry is a no-op that builds and '
                 f'solves wrong — drop the sum, or fix the dim.'
             )
-        if by.into in inner - {by.dimension}:
+        collides = sorted(set(by.into) & (inner - {by.dimension}))
+        if collides:
             raise DimensionError(
-                f"{context}: sum(by={by.name}) targets '{by.into}', "
+                f'{context}: sum(by={by.shown}) targets {collides}, '
                 f'which the expression already carries ({sorted(inner)}). The result would '
-                f"need '{by.into}' twice — once as the operand's own dim and once as the "
+                f"need {collides} twice — once as the operand's own dim and once as the "
                 f'group it is placed into — and neither lane can represent that: the union '
                 f'below would silently absorb one of them. Sum over one of the two first, '
                 f'or group into a dimension the operand does not have.'
             )
-        return (inner - {by.dimension}) | {by.into}
+        return (inner - {by.dimension}) | set(by.into)
 
     if node.name == 'at':
         inner = _dims(node.args[0], schema, context)
         by = node.kwargs['by']
         assert isinstance(by, LookupNode)
-        if by.into not in inner:
+        absent = sorted(set(by.into) - inner)
+        if absent:
             raise DimensionError(
-                f'{context}: at(by={by.name}) reads through '
-                f"'{by.into}', which the expression does not carry (dims "
-                f'{sorted(inner)}). A pullback needs the coarse dim to read *from* — '
-                f'sum is the direction that produces it.'
+                f'{context}: at(by={by.shown}) reads through '
+                f'{absent}, which the expression does not carry (dims '
+                f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
+                f'sum is the direction that produces them.'
             )
-        if by.dimension in inner - {by.into}:
+        if by.dimension in inner - set(by.into):
             raise DimensionError(
-                f'{context}: at(by={by.name}) places terms onto '
+                f'{context}: at(by={by.shown}) places terms onto '
                 f"'{by.dimension}', which the expression already carries ({sorted(inner)}). "
                 f"The result would need '{by.dimension}' twice — once as the operand's own "
                 f'dim and once as the dim it is spread onto. Sum over one of the two first.'
             )
-        return (inner - {by.into}) | {by.dimension}
+        return (inner - set(by.into)) | {by.dimension}
 
     if node.name in ('shift', 'sum_back'):
         inner = _dims(node.args[0], schema, context)
@@ -220,9 +225,16 @@ def _dims_call(
         partition = node.kwargs.get('by')
         if partition is not None:
             assert isinstance(partition, LookupNode)
+            if len(partition.names) > 1:
+                raise DimensionError(
+                    f'{context}: {node.name}(over={over.name}, by={partition.shown}) partitions by '
+                    f'several lookups at once. A partition says which rows are neighbours rather than '
+                    f'which group a term lands in, so it names one lookup — partition by a lookup whose '
+                    f'values already distinguish them.'
+                )
             if partition.dimension != over.name:
                 raise DimensionError(
-                    f'{context}: {node.name}(over={over.name}, by={partition.name}) walks '
+                    f'{context}: {node.name}(over={over.name}, by={partition.shown}) walks '
                     f"'{over.name}' but groups by a lookup over '{partition.dimension}'. No row of "
                     f"'{over.name}' carries it, so no coordinate has a neighbour inside a group — "
                     f"partition by a lookup over '{over.name}'."

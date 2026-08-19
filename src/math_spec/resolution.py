@@ -33,6 +33,7 @@ from lpspec.language.expression_parser import (
     FunctionCallNode,
     KeywordNode,
     LookupNode,
+    NameListNode,
     NameNode,
     NumberNode,
     ParameterNode,
@@ -319,6 +320,14 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
         )
         return node
 
+    if isinstance(node, NameListNode):
+        errors.append(
+            f'{context}: {node.shown} is a list of names, which is only legal as an operator '
+            f'kwarg value such as sum(x, by=[gen_bus, gen_tech]). In an expression, write the '
+            f'terms out and add them.'
+        )
+        return node
+
     assert_never(node)
 
 
@@ -394,22 +403,67 @@ def _resolve_lookup_ref(
     key: str,
     errors: list[str],
 ) -> ArithmeticNode:
-    """Resolve an operator kwarg whose *value* must name a groupable lookup.
+    """Resolve an operator kwarg whose *value* must name groupable lookups.
 
-    The lookup carries its own dimensions, so nothing else in the call is
-    consulted: the name alone decides both the dim the operator consumes and
-    the one it produces.
+    A lookup carries its own dimensions, so nothing else in the call is
+    consulted: the names alone decide both the dim the operator consumes and
+    the ones it produces. A bracketed list is one grouping through several
+    maps at once rather than a composition of groupings, so its members must
+    share the dim they are over and must not target the same dim twice —
+    both checked here, where the declarations are still in hand.
     """
     if isinstance(value, LookupNode):
         return value
-    if not isinstance(value, (NameNode, DimensionNode)):
+    if isinstance(value, NameListNode):
+        names = value.names
+    elif isinstance(value, (NameNode, DimensionNode)):
+        names = (value.name,)
+    else:
         errors.append(f'{context}: {operator}({key}=...) must name a lookup.')
         return value
-    name = value.name
+
+    shown = names[0] if len(names) == 1 else f'[{", ".join(names)}]'
     groupable = ns.groupable()
+    named = [_ungroupable(name, ns, groupable, context, operator, key) for name in names]
+    if any(problem is not None for problem in named):
+        errors.extend(problem for problem in named if problem is not None)
+        return value
+
+    over = {ns.lookups[name][0] for name in names}
+    if len(over) > 1:
+        errors.append(
+            f'{context}: {operator}({key}={shown}) groups through lookups over '
+            f'different dimensions ({", ".join(f"{n} over {ns.lookups[n][0]}" for n in names)}). '
+            f'One grouping consumes one dimension, so every lookup in the list must be '
+            f'over the same one — group through them in turn instead, one call each.'
+        )
+        return value
+
+    targets = tuple(groupable[name] for name in names)
+    repeated = sorted({t for t in targets if targets.count(t) > 1})
+    if repeated:
+        errors.append(
+            f'{context}: {operator}({key}={shown}) targets {repeated} more than once. '
+            f'Each lookup in the list produces its own dimension, so two that land on the '
+            f'same one would need it twice — drop one, or group into a dimension of its own.'
+        )
+        return value
+
+    return LookupNode(names, dimension=next(iter(over)), into=targets)
+
+
+def _ungroupable(
+    name: str,
+    ns: Namespace,
+    groupable: Mapping[str, str],
+    context: str,
+    operator: str,
+    key: str,
+) -> str | None:
+    """Why *name* is not a groupable lookup; ``None`` where it is one."""
     if name in ns.lookups and name not in groupable:
         over, _ = ns.lookups[name]
-        errors.append(
+        return (
             f'{context}: {operator}({key}={name}): '
             f"'{name}' is a label space over '{over}', not a groupable lookup — "
             f'it targets no dimension for the terms to land on. To group into it, '
@@ -419,24 +473,21 @@ def _resolve_lookup_ref(
             f'  lookups:\n'
             f'    {name}_of: {{over: {over}, into: {name}}}'
         )
-        return value
-    if name not in groupable:
-        if name in ns.dimensions:
-            into_here = sorted(n for n, into in groupable.items() if into == name)
-            hint = f"  Lookups into '{name}': {into_here}" if into_here else f"  No lookup maps into '{name}'."
-            errors.append(
-                f"{context}: {operator}({key}={name}): '{name}' is a dimension, and "
-                f'{key}= takes a lookup — the named map out of a dimension.\n{hint}'
-            )
-        else:
-            listing = f'  Lookups: {sorted(groupable)}' if groupable else '  No lookups are declared.'
-            errors.append(
-                f'{context}: {operator}({key}={name}) does not name a lookup.\n{listing}\n'
-                f"Declare it under 'lookups:' — {name}: {{over: <the dimension it maps "
-                f'out of>, into: <the dimension its values are labels of>}}.'
-            )
-        return value
-    return LookupNode(name, dimension=ns.lookups[name][0], into=groupable[name])
+    if name in groupable:
+        return None
+    if name in ns.dimensions:
+        into_here = sorted(n for n, into in groupable.items() if into == name)
+        hint = f"  Lookups into '{name}': {into_here}" if into_here else f"  No lookup maps into '{name}'."
+        return (
+            f"{context}: {operator}({key}={name}): '{name}' is a dimension, and "
+            f'{key}= takes a lookup — the named map out of a dimension.\n{hint}'
+        )
+    listing = f'  Lookups: {sorted(groupable)}' if groupable else '  No lookups are declared.'
+    return (
+        f'{context}: {operator}({key}={name}) does not name a lookup.\n{listing}\n'
+        f"Declare it under 'lookups:' — {name}: {{over: <the dimension it maps "
+        f'out of>, into: <the dimension its values are labels of>}}.'
+    )
 
 
 # ---------------------------------------------------------------------------
