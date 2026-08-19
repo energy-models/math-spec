@@ -212,7 +212,10 @@ starting level every period asks for; `edge=v` puts `v` at each group's edge.
 
 It is the same `by=` as [`sum(by=)` and `at(by=)`](#sum), and takes a lookup
 **over the dimension being walked** — groups a row of that dimension is in.
-A coordinate the lookup sends nowhere is in no group, so it reaches nothing.
+A coordinate the lookup sends nowhere is in no group, so it reaches nothing —
+and no `edge=` speaks for it. Reaching off a group's start is what a policy
+answers; belonging to no group is the null a partial lookup gives everywhere
+else, so the row drops under `edge=0` exactly as it does bare.
 
 Without it, `edge='wrap'` wraps the *axis*: the last coordinate of the whole
 dimension feeds the first, which across periods means one period opening on
