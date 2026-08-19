@@ -7,6 +7,7 @@ Dimension arguments are name-checked at load time, so
 
 | Operator | Result |
 |---|---|
+| `sum(array)` | every dim `array` carries collapses; the result is scalar |
 | `sum(array, over=dim)` | `dim` collapses; `array` must carry it |
 | `sum(array, by=lookup)` | the dim the lookup is over collapses onto the dim it maps into |
 | `at(array, by=lookup)` | the dim the lookup maps into is replaced by the dim it is over |
@@ -27,6 +28,12 @@ as readily as a variable. Each row as the typesetter prints it is
 
 `sum(x, over=d)` is the ordinary reduction: it adds up `x` along `d` and `d` is
 gone from the result.
+
+`sum(x)` names no dim and takes every dim `x` carries, so its result is a
+scalar. It is the nest — `sum(sum(x, over=a), over=b)` — written once, and it
+is how a file says a reduction that a declaration would otherwise imply. An
+operand that is already scalar is an error rather than a no-op, as
+`over=` naming a dim the operand does not carry is.
 
 `sum(x, by=l)` sums **along a lookup** and lands the result on the dimension
 that lookup maps into ([lookups](dimensions.md#lookups)). This is the
@@ -59,9 +66,10 @@ constraints:
 The same `f` is summed twice through two different lookups — once as inflow,
 once as outflow. No adjacency matrix, and no join written by hand.
 
-**Exactly one of `over=` and `by=`**: a lookup carries its own dimensions, so
-`by=` leaves `over=` nothing to add. The lookup's values are the group labels,
-and they are checked against the target dimension when data binds. Groups with
+**At most one of `over=` and `by=`**: a lookup carries its own dimensions, so
+`by=` leaves `over=` nothing to add, and neither is the bare form above. The
+lookup's values are the group labels, and they are checked against the target
+dimension when data binds. Groups with
 no members contribute nothing, and a member whose lookup value is null belongs
 to no group. An empty group holds a **value** rather than a gap — on a
 comparison's constant side it reads zero, where a coordinate the data never
@@ -290,6 +298,7 @@ The rest of the language is rendered the same way, on one page: [Every construct
 <!-- operator-math:begin -->
 | Operator | Renders as |
 |---|---|
+| `sum(array)` | $\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathit{budget}$ |
 | `sum(array, over=dim)` | $\sum_{g \in \mathcal{G}} p_{t,g} \le \mathit{limit}_{t} \qquad \forall\thinspace t \in \mathcal{T}$ |
 | `sum(array, by=lookup)` | $\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathit{limit}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$ |
 | `at(array, by=lookup)` | $p_{t} \le \mathit{cap}_{\mathrm{period\_of}(t)} \qquad \forall\thinspace t \in \mathcal{T}$ |

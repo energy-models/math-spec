@@ -140,7 +140,9 @@ def _dims_call(
 ) -> frozenset[str]:
     """The dim rule of one operator call.
 
-    ``by=`` reduces the lookup's own dim *into* its target rather than away.
+    ``sum`` with neither ``over=`` nor ``by=`` takes every dim the operand
+    carries, so its result is scalar. ``by=`` reduces the lookup's own dim
+    *into* its target rather than away.
     ``at`` is the adjoint of ``sum``, one mapping table walked either way:
     ``sum`` consumes the dim the lookup is *over*, ``at`` the dim it maps
     *into*, and each produces the other.
@@ -148,6 +150,14 @@ def _dims_call(
     if node.name == 'sum':
         inner = _dims(node.args[0], schema, context)
         by = node.kwargs.get('by')
+        if by is None and 'over' not in node.kwargs:
+            if not inner:
+                raise DimensionError(
+                    f'{context}: sum() with no over= or by= sums every dim the operand '
+                    f'carries, and this one carries none — the expression is already a '
+                    f'scalar. Drop the sum.'
+                )
+            return frozenset()
         if by is None:
             over = node.kwargs['over']
             assert isinstance(over, DimensionNode)

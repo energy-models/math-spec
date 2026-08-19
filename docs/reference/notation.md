@@ -279,6 +279,18 @@ arithmetic:
 
 $$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} + -\mathit{cost}_{g} \right) \ge \left( -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
 
+#### `total`
+
+a sum naming no dim, whose domain is the one place the dims it took are said
+
+```yaml
+total:
+  foreach: []
+  expression: sum(p) <= budget
+```
+
+$$\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathit{budget}$$
+
 #### `scalar`
 
 a parameter over nothing, and a mask that is a bare parameter

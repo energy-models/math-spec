@@ -319,6 +319,10 @@ class Walk:
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
         """Render an operator: a translation at the leaves, or a summation.
 
+        A ``sum`` naming no dim binds every dim its operand carries, and the
+        domain says which those are — the reader cannot derive them from the
+        call.
+
         ``shift`` is one node carrying all three edge policies, and each gets
         its own translation operator. ``at`` is not a reduction — it re-indexes
         its operand, so like ``shift`` it emits no operator and the
@@ -362,10 +366,12 @@ class Walk:
             domain = self.membership(by.dimension)
             mapping = self.format.apply(self.format.upright(by.name), self.symbols.index[by.dimension])
             domain = f'{domain} {self.op("such_that")} {mapping} {self.op("equal")} {ctx.subscript(by.into)}'
-        else:
-            over = node.kwargs['over']
+        elif (over := node.kwargs.get('over')) is not None:
             assert isinstance(over, DimensionNode)
             domain = self.membership(over.name)
+        else:
+            dims = self._sorted(dims_of(node.args[0], self.schema, 'a sum'))
+            domain = self.format.joined([self.membership(d) for d in dims], '')
         return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
 
     def _width(self, node: ArithmeticNode) -> str:

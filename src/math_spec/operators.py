@@ -43,11 +43,12 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     lookup_kwargs: tuple[str, ...] = ()
-    #: Kwargs of which the call carries exactly one — ``sum`` takes ``over=``
+    #: Kwargs of which the call carries at most one — ``sum`` takes ``over=``
     #: (reduce the dim away) or ``by=`` (reduce it into the lookup's target),
-    #: never both and never neither. Members are excluded from the required
-    #: set; their kind still comes from the tuples above.
-    exactly_one_of: tuple[str, ...] = ()
+    #: never both, and neither means every dim the operand carries. Members are
+    #: excluded from the required set; their kind still comes from the tuples
+    #: above.
+    at_most_one_of: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
     #: Kwargs the call may omit. Their *kind* still comes from the tuples
@@ -59,14 +60,14 @@ class Builtin:
         """Every keyword the call must carry, when they are named at all."""
         return (
             (frozenset(self.dimension_kwargs) | frozenset(self.lookup_kwargs) | frozenset(self.required_value_kwargs))
-            - frozenset(self.exactly_one_of)
+            - frozenset(self.at_most_one_of)
             - frozenset(self.optional_kwargs)
         )
 
     @property
     def optional(self) -> frozenset[str]:
         """Every keyword the call may carry but need not."""
-        return frozenset(self.edge_kwargs) | frozenset(self.exactly_one_of) | frozenset(self.optional_kwargs)
+        return frozenset(self.edge_kwargs) | frozenset(self.at_most_one_of) | frozenset(self.optional_kwargs)
 
 
 #: The closed operator set. ``by=`` is the one keyword that addresses a lookup,
@@ -80,10 +81,10 @@ class Builtin:
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
         1,
-        'sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>)',
+        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>)',
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
-        exactly_one_of=('over', 'by'),
+        at_most_one_of=('over', 'by'),
     ),
     'at': Builtin(
         1,
@@ -135,10 +136,10 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     """
     builtin = BUILTINS[name]
     keys = set(kwargs)
-    if builtin.exactly_one_of and len(keys & set(builtin.exactly_one_of)) != 1:
-        alternatives = ' or '.join(f'{k}=' for k in builtin.exactly_one_of)
+    if len(keys & set(builtin.at_most_one_of)) > 1:
+        alternatives = ' or '.join(f'{k}=' for k in builtin.at_most_one_of)
         return (
-            f'{name}() takes exactly one of {alternatives} — a lookup carries '
+            f'{name}() takes at most one of {alternatives} — a lookup carries '
             f'its own dimensions, so by= leaves over= nothing to add.\n'
             f'Write: {builtin.usage}'
         )
