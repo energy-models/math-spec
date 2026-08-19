@@ -25,6 +25,35 @@ Check for typos, or ensure 'p_charge' is declared.
 A construct outside the language names the construct and its rewrite, never a
 silent fallback.
 
+## One answer is decidable without data too
+
+A variable that no constraint names, and whose bounds leave open the side its
+objective term improves toward, runs to infinity for every dataset there is. A
+solver says that with a bare `unbounded` naming nothing; `check` says it with
+the variable and the side, as advice:
+
+```text
+Variable 'slack' makes this model unbounded: no constraint names it, and
+bounds.lower is -inf, which is the direction a +slack term improves a minimize
+objective in. No data can change that, so the solve would answer `unbounded`
+and name nothing.
+Give it a finite bounds.lower, or the constraint that was meant to define it.
+```
+
+Advice and not a refusal, because the same shape is what a half-written model
+looks like — a variable declared before the constraint that will hold it — and
+`build` and `solve` stay open to one. The price is that only `check` says it:
+go straight to `solve` and the solver's bare answer is still the first word.
+
+Both halves of the conjunction are needed, and neither alone is wrong: a
+variable held by nothing but its own `bounds:` is ordinary, and so is an
+unbounded one that a constraint names. Where the sign a variable enters the
+objective with is *data* — a parameter coefficient, which may be zero or either
+sign — nothing is said, because a note against a model that solves is the worse
+error. The per-coordinate case, where a `where:` mask leaves one slice of a
+variable with no constraint row, still reaches you from the solver
+([#229](https://github.com/fluxopt/lpspec/issues/229)).
+
 ## Which error you get
 
 | | |
