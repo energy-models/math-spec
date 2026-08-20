@@ -12,7 +12,7 @@ import pytest
 
 from lpspec.language.dimensions import DimensionError, check_schema, dims_of
 from lpspec.language.resolution import Namespace, expression_of
-from tests.conftest import MODEL_PATHS, schema_of
+from tests.language.fixtures import OPERATOR_PROBES, schema_of
 
 if TYPE_CHECKING:
     from lpspec.language.model import Model
@@ -187,6 +187,13 @@ def test_an_ill_dimensioned_declaration_is_rejected(patch, match):
         _schema(**patch)
 
 
-@pytest.mark.parametrize('path', MODEL_PATHS, ids=lambda p: p.name)
-def test_shipped_examples_typecheck(path):
+@pytest.mark.parametrize('path', OPERATOR_PROBES, ids=lambda p: p.name)
+def test_every_operator_probe_typechecks(path):
+    """The corpus that travels with the language, swept by the rules above.
+
+    It used to be `MODEL_PATHS` — the gallery and the ports — which is lpspec's
+    corpus and stays there (#1149), so the sweep could not have travelled with
+    the rules it applies. `test_language_boundary.py` keeps that claim over the
+    models it is about.
+    """
     check_schema(schema_of(path))

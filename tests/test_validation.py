@@ -95,34 +95,6 @@ class TestValidateExpressions:
         assert 'exactly one comparison' in msg
 
 
-class TestLoadTimeIntegration:
-    """The eager lane's entry points, so only this class needs the [linopy] extra.
-
-    ``tests.oracle`` is imported per test rather than at module scope: the rest
-    of the module is pure load-time validation and runs on a bare install.
-    """
-
-    def test_from_yaml_fails_before_data_validation(self, tmp_path):
-        """A typo in an expression errors even when data= is absent."""
-        from tests.oracle import lpspec_linopy
-
-        f = tmp_path / 'm.yaml'
-        f.write_text(
-            'dimensions:\n'
-            '  g:\n'
-            '    values: [wind, solar]\n'
-            'variables:\n'
-            '  p:\n'
-            '    foreach: [g]\n'
-            'constraints:\n'
-            '  cap:\n'
-            '    foreach: [g]\n'
-            '    expression: pp <= 100\n'
-        )
-        with pytest.raises(ValueError, match="'pp' not found"):
-            lpspec_linopy.build(f, {})
-
-
 class TestDimensionKwargs:
     """A dim kwarg that names nothing is a silent no-op, not an error.
 

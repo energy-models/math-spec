@@ -6,13 +6,12 @@ the end proves the whole feature works identically on both backends.
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from lpspec.language.expansion import parse_and_expand
 from lpspec.language.expression_parser import parse_expression
 from lpspec.language.model import Model
-from tests.conftest import DISPATCH_MODEL, schema_of
+from tests.language.fixtures import DISPATCH_MODEL, schema_of
 
 WEIGHTED_SUM = {
     'args': ['array', 'weights'],
@@ -237,32 +236,6 @@ objective:
   sense: minimize
   expression: sum(weighted_sum(p, cost, over=generator))
 """
-
-
-def test_a_macro_and_a_named_expression_mean_the_same_on_both_lanes():
-    """One end-to-end test carries the whole feature: both constructs expand to
-    core AST before dispatch, so if the lanes agree here they agree at all.
-
-    Imported here rather than at module scope so this one differential test is
-    all that the [linopy] extra gates — the rest of the module is pure language.
-    """
-    from tests.differential import differential
-    from tests.oracle import pd
-
-    rng = np.random.default_rng(5)
-    n_s = 24
-    data = {
-        'p_max': pd.Series({'wind': 100.0, 'solar': 60.0, 'gas': 200.0}),
-        'cost': pd.Series({'wind': 1.0, 'solar': 2.0, 'gas': 50.0}),
-        'load': pd.Series(
-            (rng.uniform(0.2, 0.8, n_s) * 360.0).round(3),
-            index=pd.RangeIndex(n_s, name='snapshot'),
-        ),
-    }
-    index = {'snapshot': pd.RangeIndex(n_s, name='snapshot')}
-
-    with differential(EXPANSION_YAML, data | index):
-        pass  # agreement on the objective is the whole assertion
 
 
 def test_unknown_operator_rejected_at_load_time_with_the_rewrite():

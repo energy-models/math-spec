@@ -6,7 +6,7 @@ import pytest
 
 from lpspec.language._yaml import read_yaml
 from lpspec.language.validation import load_model
-from tests.conftest import raw_of
+from tests.language.fixtures import raw_of
 
 MODEL = """dimensions:
   snapshot: {dtype: int, values: [0, 1]}
