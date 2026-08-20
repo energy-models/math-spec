@@ -52,18 +52,20 @@ lookups:
   line_to: {over: line, into: bus}
 ```
 
-The target must be a declared dimension other than `over`. Non-null values are
-checked against it once data is bound — the check that makes `sum(by=)` safe.
+The target must be a declared dimension other than `over`. Values are checked
+against it once data is bound — the check that makes `sum(by=)` safe.
 
-**A partial lookup is legal**: `null` says the label belongs to no group — a
-generator on no bus, a line with one open end — and `sum(by=)` places its terms
-nowhere. An unknown *non-null* value is a typo, and an error.
+**A partial lookup is legal**: a label the map leaves out belongs to no group —
+a generator on no bus, a line with one open end — and `sum(by=)` places its
+terms nowhere. A value naming no label of the target is a typo, and an error.
+How "left out" is spelled is the map's transport, and the three differ
+([data binding](data.md#where-coordinates-come-from)).
 
 **Several at once**: `sum(x, by=[gen_bus, gen_tech])` groups through both maps
 in one reduction, landing on `bus` *and* `technology`. Every lookup in the list
 must be `over:` the same dimension — one grouping consumes one dimension — and
-must target a different one. A member missing any of them belongs to no group
-at all, the same reading a single null gets.
+must target a different one. A member either map leaves out belongs to no group
+at all, the same reading one unmapped member gets.
 
 ### `dtype:` declares an inline label space — the selection-only kind
 
@@ -102,7 +104,7 @@ lookups:
   gen_bus: {over: generator, into: bus, values: {g1: north, g2: south}}
 ```
 
-A label it omits maps to null, which is the partial case above. Both sides are
+A label it omits is unmapped, which is the partial case above. Both sides are
 labels, so both carry the dtype rule a dimension's own `values:` carries: a key
 is of `over`'s dtype, and a value of the target's — or of the lookup's own,
 where it is a label space.
@@ -114,9 +116,35 @@ over supplying it.
 **Labels from the caller, maps from the file** is the shape this is for: a
 relation small enough to read stays beside the equation that traverses it,
 while the members it is about stay in the data. A map declares no labels of its
-own, and neither fact may be claimed twice. Which of the two homes each has,
-what a label no map mentions gets, and why a key no label matches is a typo
-rather than a new member, is [data binding](data.md#where-coordinates-come-from).
+own, and neither fact may be claimed twice. Which homes each has, what a label
+no map mentions gets, and why a key no label matches is a typo rather than a
+new member, is [data binding](data.md#where-coordinates-come-from).
+
+### A big map is supplied under the lookup's own name
+
+`gen_bus` is a source key like any other, carrying two columns — the dimension
+it runs `over`, and the space its values are labels of:
+
+```python
+sources = {
+    'generator': ['g1', 'g2', 'g3'],
+    'gen_bus': pl.DataFrame({'generator': ['g1', 'g2'], 'bus': ['north', 'south']}),
+}
+```
+
+The value column is named after the **target dimension** for the groupable
+kind, because that is what its values are labels of, and after the **lookup
+itself** for a label space, which owns its values and targets nothing.
+
+**A partial map is the rows it has.** `g3` is in no row, so `g3` sits on no
+bus — absence is the absent row, exactly as it is for a parameter, and a null
+in the value column is refused for saying both at once. The relation is
+single-valued per label of `over`, and a key that matches no label is the same
+typo a declared map's key is.
+
+Supplying it this way touches no table but its own, which is what a caller who
+did not generate the index needs: a model can be extended with a lookup the
+same way it can be extended with a parameter.
 
 ### Both kinds
 
@@ -124,9 +152,9 @@ rather than a new member, is [data binding](data.md#where-coordinates-come-from)
 dimension — its own target included. `generator`'s map onto `bus` is `gen_bus`,
 never a second `bus`.
 
-Either kind is single-valued per label, and a dimension carrying lookups whose
-maps the file does not declare needs an index source with one column per
-lookup, named after it ([data binding](data.md)). Values are never inferred
+Either kind is single-valued per label, and a map the file does not declare is
+supplied under the lookup's own name or as a column of the `over` index named
+after it ([data binding](data.md)). Values are never inferred
 from the parameters that use the dimension: inferring would let a mistyped
 label extend the label space instead of being rejected.
 

@@ -29,7 +29,7 @@ coordinate product. What a `where:` may *say* is the
 | `where:` on a variable | the variable, at the masked coordinates |
 | `where:` on a constraint | the row |
 | `shift(x, over=d, offset=n)` with no `edge=` | the vacated edge coordinate ([shift](operators.md#shift)) |
-| a null value in a lookup | that label's group membership ([lookups](dimensions.md#lookups)) |
+| a label a lookup does not map | that label's group membership ([lookups](dimensions.md#lookups)) |
 
 Four constructs, and nothing else. Absence is a property of **variables**: it
 is a variable that is missing, and a term carrying one takes its row with it.

@@ -157,10 +157,11 @@ class LookupBlock(_StrictBlock):
 
     ``values:`` gives the map in the file — ``{label of over: value}`` — for a
     relation small enough to read, the way a dimension's own ``values:`` does.
-    A label it omits maps to null, which is the partial case a lookup already
-    allows. Without it the map arrives as a column of the ``over`` dimension's
-    index at bind time (the data-binding rules), and that stays the way to
-    supply a large one.
+    A label it omits is unmapped, which is the partial case a lookup already
+    allows. Without it the map is supplied at bind time (the data-binding
+    rules): under the lookup's own source key, as a ``(over, label space)``
+    relation of the rows it has, or as a column of the ``over`` dimension's
+    index. Whichever of the three, exactly one of them.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
@@ -669,6 +670,16 @@ class Model(_StrictBlock):
     def labels_of(self, dimension: str) -> dict[str, LookupBlock]:
         """The label-space lookups over *dimension* — selection only, never an axis."""
         return {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.into is None}
+
+    def label_space(self, lookup: str) -> str:
+        """What *lookup*'s values are labels of, named as a supplied relation names it.
+
+        The groupable kind lands its values in the dimension it targets, so
+        that dimension names them; the label-space kind owns its values and no
+        dimension holds them, so the lookup does. One rule — *the space the
+        values live in* — and the two kinds need no branch at the caller.
+        """
+        return self.lookups[lookup].into or lookup
 
     def declared_maps(self, dimension: str) -> dict[str, dict[Any, Any]]:
         """The lookups over *dimension* whose map the file declares, by name.

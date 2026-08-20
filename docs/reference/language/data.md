@@ -69,22 +69,30 @@ never both — so there is no precedence to remember, and no way for the file a
 reviewer reads to describe a model the caller quietly replaced. A model whose
 label set varies from run to run should not declare one.
 
-**A [declared map](dimensions.md#values-puts-a-small-map-in-the-file) is not on
-that list either.** `lookups.<x>.values` says how labels map, never which ones exist: a
-map is a partial relation over the dimension, free to omit members and written
-in whatever key order someone typed, and neither may decide an extent nor an
-order that [`shift`](operators.md#shift) reads positionally. A map is instead
-*read against* whichever of the two supplied the labels. Each map has one home
-in the same way the labels do — the file, or a column of the caller's index —
-and claiming both is the same refusal. Which leaves exactly one index with two
-authors, one fact each: **labels from the caller, maps from the file.**
+**A [map](dimensions.md#lookups) is not on that list either.** It says how
+labels map, never which ones exist: a map is a partial relation over the
+dimension, free to omit members and written in whatever order someone typed,
+and neither may decide an extent nor an order that
+[`shift`](operators.md#shift) reads positionally. A map is instead *read
+against* whichever of the two supplied the labels. Each has **one author out of
+three** — `lookups.<x>.values` in the file, its own source key, or a column of
+the caller's index named after it — and any two of them is the same refusal.
+Which leaves one index with two authors, one fact each: **labels from the
+caller, maps from wherever each map lives.**
 
 Reading a map against labels is **not symmetric**, because the two directions
-mean different things. A label no map mentions gets a **null** — the partial
+mean different things. A label no map mentions is **unmapped** — the partial
 case, and what a relation over a dimension is entitled to be. A key matching no
 label is a **typo**, and refused: dropping it would place its terms nowhere
 while the model built and solved. Where the file declares the labels too, that
 same refusal happens at load with no data at all.
+
+**How "unmapped" is spelled is the transport's**, and the two differ. A map
+[under its own key](dimensions.md#a-big-map-is-supplied-under-the-lookups-own-name)
+is a `(over, <label space>)` table of the rows it has, so an unmapped label is
+one with no row — the absence rule everything else obeys, and a null in the
+value column is refused. A map arriving as a column of the index has a cell per
+label whether or not it maps, so there the null *is* the spelling.
 
 There is no third step. A dimension neither of the two supplies raises, and
 labels are never read out of the parameters: they would *be* the definition,
@@ -117,7 +125,11 @@ Sparsity is the absent row.
 | a dict or a sequence for a parameter over more than one dim | each runs along one dimension |
 | a sequence whose length is not the dimension's | positional, so one entry per label |
 | a sequence for a dimension nothing else supplies labels for | names the three ways to supply them |
-| a key naming neither a parameter nor a dimension | names the near miss |
+| a key naming neither a parameter, a dimension nor a lookup | names the near miss |
+| a supplied lookup relation short of either column | names the pair, and what each is |
+| a supplied lookup relation with a null in its value column | a map is partial by omitting a row |
+| a supplied lookup relation mapping one label twice | a lookup is single-valued |
+| a map with two of its three authors | names both, and says either may go |
 | a table missing a declared dim column, or `value` | names the columns needed |
 | a `value` column carrying a null or a NaN | names the parameter and the coordinates |
 | a label outside the dimension's index | names the parameter and the strays |
