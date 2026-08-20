@@ -30,7 +30,7 @@ fuel_cap:
 | Part of a link | |
 |---|---|
 | *expression* | any affine expression — a bare variable name being the simplest |
-| *values* | a parameter carrying the `over` dim, so curves may vary along other dims (per generator, say) |
+| *values* | a parameter carrying the `over` dim, and any dims the link *expressions* carry — so curves may vary per generator where the links do, and a dim they do not carry is refused |
 | *sign* | `<=` or `>=`, at most one per block and only with exactly two links: bounds the link instead of pinning it |
 
 `points:` says how far each curve runs where they are not all the same length —

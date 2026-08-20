@@ -240,6 +240,13 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
     already declares — one list per kind rather than one loop per name family,
     so a new emitted declaration is a name here, not a fourth loop to
     remember.
+
+    A values parameter is checked against the frame in a **second pass**, since
+    any link's expression may be the one that carries the dim, and the last of
+    them widens the frame as readily as the first. Left to the emitted
+    declarations the same file is still refused, but by a dimension error
+    naming ``<block>_chord`` or ``<block>_link0`` — a constraint the author
+    never wrote, and a different one per method.
     """
     ctx = f"piecewise '{name}'"
     if pw.over not in schema.dimensions:
@@ -271,6 +278,15 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
                 raise PiecewiseExpansionError(f"{ctx}: active expression must not carry the breakpoint dim '{pw.over}'")
             if d not in frame:
                 frame.append(d)
+
+    for i, link in enumerate(pw.links):
+        if stray := [d for d in schema.parameters[link.values].dims if d != pw.over and d not in frame]:
+            raise PiecewiseExpansionError(
+                f"{ctx}: link {i} values parameter '{link.values}' carries {stray}, which no link "
+                f'expression does — the block builds one curve per coordinate of {frame}, so a curve '
+                f'varying along {stray} has nothing to vary against. Declare a link expression over '
+                f"it, or drop it from '{link.values}'."
+            )
 
     if pw.points is not None and mask_of(name, pw) != pw.points:
         if f'{name}_points' in schema.parameters:
