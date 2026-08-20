@@ -45,9 +45,10 @@ rather than [the ceiling](../../about/ceiling.md).
 
 **It costs things an affine objective gives.** Duals exist for a convex QP and
 not a nonconvex one; HiGHS refuses a nonconvex Hessian outright, and refuses
-any Hessian beside `binary:` or `integer:`. `lps.check(model, sink='highs')`
-says what a sink will do before you build, and a `piecewise:` block with
-`method: convex` remains the way to spend a curve and keep the LP.
+any Hessian beside `binary:` or `integer:`, where Gurobi takes both. So this is
+where the *sink* starts to matter: `lps.check(model, sink='highs')` says what
+one will do before you build, and a `piecewise:` block with `method: convex`
+remains the way to spend a curve and keep the LP, its duals and its warm start.
 
 ## Name resolution
 

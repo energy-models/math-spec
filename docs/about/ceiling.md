@@ -54,7 +54,8 @@ Read this page as the *streamability* closure and nothing more.
 Two things bound the quadratic case, and neither is streamability:
 
 - **Position.** A quadratic *objective* has sinks — LP text as a section, HiGHS
-  as a Hessian when it is convex. A quadratic *constraint* has none that ship,
+  as a Hessian when it is convex, Gurobi with no exclusion at all. A quadratic
+  *constraint* has none that ship,
   and linopy refuses one outright, so the language would accept something one
   lane could not build. It stays out until that changes, which is a capability
   question and not this page's.
