@@ -83,6 +83,28 @@ def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
     return f'{block}_points' if pw.points in {link.values for link in pw.links} else pw.points
 
 
+def _gate_rows(schema: Model, pw: PiecewiseBlock) -> tuple[tuple[str, str | None, str], ...]:
+    """What the weights sum to, as ``(name suffix, where, right-hand side)``.
+
+    One row where the gate exists at every coordinate the block builds a curve
+    for, and **two** where it does not. A gate is a variable, so a masked one
+    has coordinates where it does not exist — and there the block is ungated,
+    which is the ``1`` a block with no ``activity:`` gets. Written as a single
+    row it would instead be *no row*: absence does not spread out of a
+    reduction, so the right-hand side would take the row with it and leave the
+    weights without the convexity that makes them a curve at all (#1158).
+
+    ``absence: zero`` is the other reading and stays one row — the gate is 0
+    where it does not exist, so the curve is pinned off there.
+    """
+    if pw.activity is None:
+        return (('', None, '1'),)
+    gate = schema.variables[pw.activity]
+    if gate.where is None or gate.absence == 'zero':
+        return (('', None, f'({pw.activity})'),)
+    return (('', pw.activity, f'({pw.activity})'), ('_ungated', f'NOT {pw.activity}', '1'))
+
+
 def expand_piecewise(schema: Model) -> Model:
     """Return *schema* with every ``piecewise:`` block expanded away.
 
@@ -135,11 +157,13 @@ def expand_piecewise(schema: Model) -> Model:
             'bounds': {'lower': 0.0, 'upper': 1.0},
             'description': 'convex-combination weight on a breakpoint',
         }
-        rhs = f'({pw.activity})' if pw.activity else '1'
-        raw['constraints'][f'{name}_convexity'] = {
-            'foreach': list(frame),
-            'expression': f'sum({lam}, over={pw.over}) == {rhs}',
-        }
+        gated = _gate_rows(schema, pw)
+        for suffix, where, rhs in gated:
+            raw['constraints'][f'{name}_convexity{suffix}'] = {
+                'foreach': list(frame),
+                **({'where': where} if where else {}),
+                'expression': f'sum({lam}, over={pw.over}) == {rhs}',
+            }
         for i, link in enumerate(pw.links):
             raw['constraints'][f'{name}_link{i}'] = {
                 'foreach': list(frame),
@@ -154,10 +178,12 @@ def expand_piecewise(schema: Model) -> Model:
                 'domain': 'binary',
                 'bounds': {},
             }
-            raw['constraints'][f'{name}_pick'] = {
-                'foreach': list(frame),
-                'expression': f'sum({seg}, over={pw.over}) == {rhs}',
-            }
+            for suffix, where, rhs in gated:
+                raw['constraints'][f'{name}_pick{suffix}'] = {
+                    'foreach': list(frame),
+                    **({'where': where} if where else {}),
+                    'expression': f'sum({seg}, over={pw.over}) == {rhs}',
+                }
             raw['constraints'][f'{name}_adjacency'] = {
                 'foreach': [*frame, pw.over],
                 'expression': f'{lam} <= {seg} + shift({seg}, over={pw.over}, offset=1, edge=0)',
@@ -271,7 +297,13 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
                 frame.append(d)
 
     if pw.activity is not None:
-        if pw.activity in schema.variables and schema.variables[pw.activity].domain != 'binary':
+        if pw.activity not in schema.variables:
+            raise PiecewiseExpansionError(
+                f"{ctx}: activity '{pw.activity}' is not a declared variable. A gate is a variable or it is "
+                f'nothing — with no `activity:` at all the weights sum to 1, so what a gate adds is a column '
+                f'the solver decides, and only a declaration says what its absence means.'
+            )
+        if schema.variables[pw.activity].domain != 'binary':
             raise PiecewiseExpansionError(f"{ctx}: activity variable '{pw.activity}' must be binary")
         for d in _declared_order(schema, _expr_dims(schema, pw.activity, f'{ctx} activity')):
             if d == pw.over:
@@ -310,7 +342,9 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
 
     emitted_constraints = (
         f'{name}_convexity',
+        f'{name}_convexity_ungated',
         f'{name}_pick',
+        f'{name}_pick_ungated',
         f'{name}_adjacency',
         f'{name}_chord',
         f'{name}_domain_lo',

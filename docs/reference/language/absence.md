@@ -169,6 +169,7 @@ Each rule has a spelling for the opposite intent:
 | the row kept, the missing term read as zero | `absence: zero` on the variable — or, where only one constraint wants it, two constraints under complementary `where` clauses |
 | a vacated shift position to contribute | `shift(x, over=d, offset=n, edge=0)` — the identity of *its* position |
 | to test whether a variable exists here | its bare name in a `where` |
+| a [`piecewise:`](piecewise.md#piecewise) curve pinned off where its gate does not exist | `absence: zero` on the gate variable — the default leaves the curve *ungated* there, the block emitting its convexity row under complementary masks so absence never deletes it |
 | a sparse coefficient to remove the row rather than zero the term | mask on it — `where: "rel_max"` |
 | to divide by a parameter you only have some of | mask the row or the variable — `where: "d"`. The divisor is required where the division survives, not everywhere it is indexed |
 | a bound only where the data has one | supply the missing value (`inf` is a value), or mask the variable — the two build **different models**, so neither is inferred |

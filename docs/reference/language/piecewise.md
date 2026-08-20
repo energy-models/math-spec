@@ -49,6 +49,33 @@ values parameter short of a row does not build a shorter curve: the
 coefficient, which is a breakpoint at the origin the file never declared. Such a
 table is refused when data binds.
 
+**A gate is a variable, or there is none.** `activity:` names a binary
+variable, and the weights sum to it instead of to 1 — so `0` pins the curve
+off, columns and all. It has to be a *declaration* rather than an expression,
+because a masked gate has coordinates where it does not exist and only a
+declaration says what that means:
+
+<!-- doctest: wrap=variables -->
+```yaml
+running:
+  foreach: [snapshot, generator]
+  domain: binary
+  where: committable      # only some units have a commitment decision
+```
+
+**Where the gate does not exist, the curve is ungated** — the block emits the
+convexity row twice under complementary masks, `== running` where the gate is
+and `== 1` where it is not, which is what a block with no `activity:` at all
+gets. Say the opposite with `absence: zero` on the gate, and the single row
+reads `== 0` there: no curve rather than an unconditional one. Both readings
+are the file's; neither is inferred.
+
+The row cannot simply be left to drop, and that is the reason for the pair: it
+is `sum(lam, over=bp) == (activity)`, and
+[absence](absence.md#how-absence-travels) does not spread out of a reduction,
+so an absent right-hand side would take the whole row with it and leave the
+weights with nothing making them a curve.
+
 **The breakpoint order is `over`'s index order**, the one every dimension has:
 the order its labels are first written in, which `shift` walks and
 `index(bp, 0)` names. So the `bp` index is the curve's x-axis, and a values
