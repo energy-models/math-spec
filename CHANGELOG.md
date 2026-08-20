@@ -2,33 +2,14 @@
 SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
-<!---
-Changelog headings can be any of:
+<!--
+This file is maintained by release-please. Do not add entries by hand — they
+come from the conventional-commit subjects that land on main, and the section
+each type maps to is `changelog-sections` in .release-please-config.json.
+See RELEASING.md.
 
-Added: for new features.
-Changed: for changes in existing functionality.
-Deprecated: for soon-to-be removed features.
-Removed: for now removed features.
-Fixed: for any bug fixes.
-Security: in case of vulnerabilities.
-
-Release headings should be of the form:
-## [X.Y.Z] - YEAR-MONTH-DAY
+The licence header above is duplicated as a REUSE.toml annotation, because
+release-please rewrites this file and is not obliged to keep it.
 -->
 
 # Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## Unreleased
-
-### Fixed
-
-### Added
-
-### Changed
-
-### Removed

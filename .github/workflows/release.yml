@@ -1,0 +1,123 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+name: Release
+
+# Opens and maintains a release PR from the conventional commits on main.
+# Merging it tags the release, and that tag is what build.yml already reacts to
+# — release-please never edits pyproject.toml, so the two halves compose without
+# either knowing about the other. See RELEASING.md.
+#
+# TEMPORARY, WHILE ON THE ALPHA STREAM: the last step merges the release PR for
+# you, so every merge to main cuts a 0.0.0-alpha.N. It expires by itself at the
+# first official version — see the step's own comment.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target-branch:
+        description: "Release line to run against (e.g. a 0.1.x maintenance branch). Defaults to main."
+        required: false
+        default: main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ inputs.target-branch || github.ref_name }}
+  cancel-in-progress: false
+
+# secrets are not readable from a step-level `if`, so hoist the check here
+env:
+  HAS_RELEASE_APP: ${{ secrets.APP_CLIENT_ID != '' }}
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Two things a GITHUB_TOKEN cannot do, both of which this workflow needs:
+      # a PR it authors does not trigger CI, and a tag it pushes does not trigger
+      # build.yml. Without the app the release is opened but never built.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        if: env.HAS_RELEASE_APP == 'true'
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # Narrow the token to what release-please and the auto-merge step
+          # actually do, rather than inheriting whatever the installation was
+          # granted: commits, the tag and the GitHub release (contents), and
+          # the release PR itself (pull-requests).
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Warn when falling back to GITHUB_TOKEN
+        if: env.HAS_RELEASE_APP != 'true'
+        run: |
+          echo "::warning::APP_CLIENT_ID is unset — using GITHUB_TOKEN. The release PR will not run CI and its tag will not trigger build.yml. See RELEASING.md."
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: ${{ inputs.target-branch || 'main' }}
+
+      # ----------------------------------------------------------------------
+      # TEMPORARY — alpha stream only. Delete this step and the project is back
+      # to release PRs merged by hand, which is what RELEASING.md documents.
+      # ----------------------------------------------------------------------
+      # It exists so an early user always has a version number to quote in a bug
+      # report: every merge to main cuts a 0.0.0-alpha.N rather than being
+      # reachable only as a commit sha.
+      #
+      # Expiry is enforced here, not remembered: the version comes off the PR
+      # title and anything that is not a prerelease is left for a human. So the
+      # first official release ends this by itself.
+      #
+      # Auto-merge rather than a direct merge: the required checks have not
+      # reported on the just-updated PR yet, so a direct merge would be refused.
+      # GitHub merges it when they go green; if they fail, it sits there. This
+      # needs "Allow auto-merge" enabled on the repository.
+      #
+      # Set the repo variable AUTO_RELEASE to "false" to pause it early and go
+      # back to merging by hand.
+      - name: Merge the release PR when CI passes (temporary, alpha only)
+        if: vars.AUTO_RELEASE != 'false'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          # this job never checks out, so gh has no remote to infer the repo from
+          GH_REPO: ${{ github.repository }}
+          BASE: ${{ inputs.target-branch || 'main' }}
+        run: |
+          set -euo pipefail
+          # resolve the PR from the API rather than the action's outputs: those
+          # distinguish created from updated, and we want it merged either way
+          read -r pr version < <(
+            gh pr list --state open --base "$BASE" --json number,title,headRefName \
+              --jq '[.[] | select(.headRefName | startswith("release-please--"))]
+                    | first
+                    | select(. != null)
+                    | "\(.number) \(.title | split(" ") | last)"'
+          ) || true
+
+          if [[ -z "${pr:-}" ]]; then
+            echo "no open release PR against $BASE — nothing to release"
+            exit 0
+          fi
+
+          # 0.0.0-alpha.15 auto-merges; 0.1.0 does not. Dashed semver is the same
+          # signal RELEASING.md uses to describe what is and is not a prerelease.
+          if [[ "$version" != *-* ]]; then
+            echo "::notice::#$pr releases $version — the first official version is not automatic. Merge it yourself (RELEASING.md)."
+            exit 0
+          fi
+
+          echo "enabling auto-merge on #$pr ($version) — temporary alpha-stream policy, see RELEASING.md"
+          gh pr merge "$pr" --squash --auto

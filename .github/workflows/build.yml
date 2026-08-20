@@ -37,6 +37,38 @@ jobs:
         run: pixi run build-wheel
       - name: Check package
         run: pixi run check-wheel
+      # LOCAL DEVIATION from the copier template — see RELEASING.md.
+      # "Replace version" above rewrites the literal 0.0.0 in pyproject.toml, and
+      # every way that can go wrong is silent: an unfetched tag (shallow clone),
+      # a `git describe` that resolved to an older tag, a literal that stopped
+      # matching. The failure mode is a wheel shipped under the wrong version,
+      # which cannot be recalled from PyPI. Compare after the build, once.
+      #
+      # `packaging`, not a string compare: the tag v0.0.0-alpha.1 normalises to
+      # 0.0.0a1 in the wheel filename, so the two are never equal as text.
+      # It comes into the default environment with hatchling and twine.
+      - name: Verify the built version matches the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          pixi run python - <<'PY'
+          import os, pathlib, sys
+          from packaging.utils import parse_wheel_filename
+          from packaging.version import Version
+
+          tag = Version(os.environ["TAG"].removeprefix("v"))
+          wheels = sorted(pathlib.Path("dist").glob("*.whl"))
+          if len(wheels) != 1:
+              sys.exit(f"expected exactly one wheel in dist/, found {[w.name for w in wheels]}")
+          built = parse_wheel_filename(wheels[0].name)[1]
+          if built != tag:
+              sys.exit(
+                  f'tag {os.environ["TAG"]} normalises to {tag}, but the wheel is {built}. '
+                  "Usually means the tag was not fetched (shallow clone) or the version literal moved."
+              )
+          print(f"ok: {wheels[0].name} == {tag}")
+          PY
       - name: Upload package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -45,7 +77,13 @@ jobs:
 
   release:
     name: Publish package
-    if: startsWith(github.ref, 'refs/tags/')
+    # LOCAL DEVIATION from the copier template — see RELEASING.md.
+    # The alpha stream cuts a release on *every* merge to main, so without this
+    # gate turning release.yml on would start pushing an alpha to PyPI several
+    # times a day, and would fail red on each one until a trusted publisher
+    # exists for math-spec. Set the repo variable PUBLISH_TO_PYPI to "true" to
+    # go live; the tag, the GitHub release and the artifact happen regardless.
+    if: startsWith(github.ref, 'refs/tags/') && vars.PUBLISH_TO_PYPI == 'true'
     needs: [build]
     runs-on: ubuntu-latest
     permissions:

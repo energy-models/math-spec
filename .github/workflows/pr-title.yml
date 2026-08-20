@@ -1,0 +1,150 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+name: PR title
+
+# The squash subject becomes a commit on main, and release-please parses it to
+# decide the changelog section (and, once we leave the alpha stream, the version).
+# A subject it cannot parse is silently dropped from the changelog — nothing fails,
+# the entry just never appears. This check is the only thing standing between a
+# sloppy title and a hole in CHANGELOG.md. See RELEASING.md.
+#
+# Both the PR title and, when a PR has exactly one commit, that commit's own
+# title are validated: GitHub's default `squash_merge_commit_title` is
+# COMMIT_OR_PR_TITLE, so which of the two lands on main depends on the commit
+# count. Checking both means whichever GitHub picks has been checked. (Setting
+# the repo to PR_TITLE makes it unconditionally the PR title; this check stays
+# correct either way.)
+
+on:
+  pull_request:
+    # `synchronize` is here because this check is meant to be **required**, and a
+    # required check is evaluated against the head commit. Skipping the push
+    # event does not mean "reuse the previous result" — it means the new head has
+    # *no* result, and GitHub waits for one that will never arrive. The PR is
+    # then blocked with nothing to click on: not a failing check, an absent one,
+    # which is indistinguishable from CI hanging.
+    #
+    # Dropping it saves a job per push, and that is sound while the check is
+    # advisory. Once it gates merges, an unreported run cannot be waited out.
+    # Cost: one ~5s job per push, billed as a minute.
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  conventional:
+    name: Conventional commit subject
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Only the manifest, because only the manifest is read: the base-version
+      # guard below needs it, and a full checkout would fetch the tree to run a
+      # regex over one line of JSON.
+      - name: Fetch the version manifest
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .release-please-manifest.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Validate the subject that will land on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          COMMIT_COUNT: ${{ github.event.pull_request.commits }}
+        run: |
+          set -euo pipefail
+
+          # keep in sync with changelog-sections in .release-please-config.json
+          TYPES='feat|fix|perf|refactor|docs|chore|test|ci|build|style|revert'
+          # type, optional (scope), optional ! for breaking, ": ", then a subject
+          PATTERN="^(${TYPES})(\([a-z0-9._/-]+\))?!?: .+"
+
+          fail=0
+
+          check() {
+            local what="$1" subject="$2"
+            if [[ ! "$subject" =~ $PATTERN ]]; then
+              echo "::error::${what} is not a conventional commit subject: ${subject}"
+              fail=1
+              return
+            fi
+            if (( ${#subject} > 72 )); then
+              echo "::warning::${what} is ${#subject} chars; git and the GitHub UI truncate around 72."
+            fi
+            echo "ok: ${what} — ${subject}"
+          }
+
+          check "PR title" "$PR_TITLE"
+
+          # A breaking marker moves the *base* version, not the alpha counter.
+          # While the base is 0.0.0 that is harmless — under `versioning:
+          # prerelease` a zero patch is an absorbing state, so every bump only
+          # increments the counter — but the immunity goes away the moment the
+          # stream leaves 0.0.0, and then `feat!:` on 0.0.1-alpha.12 yields
+          # 0.1.0-alpha.12 and the project has jumped a minor by accident. The
+          # marker is refused here rather than discovered in a release PR.
+          #
+          # Both ways this can go wrong are named, because either one leaves the
+          # guard below not running: a missing file aborts the step under `set
+          # -e` with only sed's own message, and a manifest whose shape changed
+          # yields an empty $base, which fails *open* — every '!' would sail
+          # through and the version would move off the stream unannounced.
+          manifest=.release-please-manifest.json
+          if [[ ! -f "$manifest" ]]; then
+            echo "::error::${manifest} not found — the base-version guard cannot run."
+            exit 1
+          fi
+          base=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' "$manifest")
+          if [[ -z "$base" ]]; then
+            echo "::error::no \".\" version in ${manifest} — the base-version guard cannot run."
+            exit 1
+          fi
+
+          if [[ "$base" == 0.* ]]; then
+            if [[ "$PR_TITLE" =~ ^[a-z]+(\([a-z0-9._/-]+\))?!: ]]; then
+              echo "::error::'!' in the title bumps the base version off the pinned alpha stream (currently ${base})."
+              fail=1
+            fi
+            if grep -qE '^BREAKING[ -]CHANGE:' <<<"${PR_BODY:-}"; then
+              echo "::error::a 'BREAKING CHANGE:' footer bumps the base version off the pinned alpha stream (currently ${base})."
+              fail=1
+            fi
+          fi
+
+          # exactly one commit: GitHub squashes using that commit's title, not the PR title
+          if [[ "$COMMIT_COUNT" == "1" ]]; then
+            only=$(gh api "repos/${REPO}/pulls/${NUMBER}/commits" --jq '.[0].commit.message' | head -1)
+            check "the single commit's title" "$only"
+          fi
+
+          if (( fail )); then
+            cat <<'MSG'
+
+          Expected: <type>[(scope)][!]: <subject>
+
+            types    feat, fix, perf, refactor, docs, chore, test, ci, build, style, revert
+            examples feat: AST parsing for indexed constraints
+                     fix(parser): where clauses with a trailing comma
+                     docs: describe the two expression tiers
+
+          A '!' (or a 'BREAKING CHANGE:' footer) is refused while the version is
+          pinned to an alpha stream: it moves the *base* version, not the counter.
+          Describe the break in the PR body instead — the alpha stream carries no
+          compatibility promise, so there is nothing for the version to announce.
+
+          Fix the PR title — no need to rewrite the branch. Edits re-run this check.
+          MSG
+            exit 1
+          fi

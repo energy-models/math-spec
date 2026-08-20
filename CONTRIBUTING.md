@@ -53,7 +53,7 @@ When you contribute for the first time, ensure your reviewer [adds you as a cont
 
 Before submitting a pull request, check whether you have:
 
-- Added your changes to `CHANGELOG.md`.
+- Written the PR title as a conventional commit subject (see below) — this, not a hand-written entry, is what appears in `CHANGELOG.md`.
 - Added or updated documentation for your changes.
 - Added tests if you implemented new functionality.
 
@@ -61,15 +61,32 @@ When opening a pull request, please provide a clear summary of your changes!
 
 ### Commit messages
 
-Please try to write clear commit messages.
-One-line messages are fine for small changes, but bigger changes should look like this:
+Merges are squashed, and the resulting subject on `main` is what
+[release-please](https://github.com/googleapis/release-please) reads to build
+the changelog. So the **PR title** must be a
+[conventional commit](https://www.conventionalcommits.org) subject:
 
 ```text
-A brief summary of the commit (max 50 characters)
+<type>[(scope)]: <subject>
 
-A paragraph or bullet-point list describing what changed and its impact,
-covering as many lines as needed.
+feat: AST parsing for indexed constraints
+fix(parser): where clauses with a trailing comma
+docs: describe the two expression tiers
 ```
+
+Types are `feat`, `fix`, `perf`, `refactor`, `docs`, `chore`, `test`, `ci`,
+`build`, `style` and `revert`; the first five appear in the changelog and the
+rest are hidden. A subject the parser cannot read is not an error — the entry
+simply never appears — so the `Conventional commit subject` check enforces the
+format on every pull request.
+
+While the version is pinned to the alpha stream, a breaking marker (`!`, or a
+`BREAKING CHANGE:` footer) is refused, because it moves the base version rather
+than the alpha counter. Describe the break in the PR body instead. See
+[RELEASING.md](RELEASING.md).
+
+Beyond the subject line, write whatever body the change deserves — a paragraph
+or bullet list covering what changed and its impact.
 
 ### Code conventions
 
@@ -86,25 +103,19 @@ Take a look at their documentation for more information on configuring this.
 We require all new contributions to have docstrings for all modules, classes and methods.
 When adding docstrings, we request you use the [Google docstring style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).
 
-## Release checklist
+## Releases
 
-### Pre-release
+Nothing here is done by hand. release-please opens a release PR from the
+conventional-commit subjects on `main`; merging it tags the release, and the tag
+is what builds and publishes the package. While the project is on the alpha
+stream that release PR is merged automatically, so every merge to `main` cuts a
+version.
 
-- Make sure all unit and integration tests pass (This is best done by creating a pre-release pull request).
-- Make sure documentation builds without errors (`pixi run docs-build`).
-- Make sure the [changelog][changelog] is up-to-date, especially that new features and backward incompatible changes are clearly marked.
+The version is never written down in the source tree — it comes from the git
+tag at build time, and `math_spec.__version__` reads it back from the installed
+package metadata.
 
-### Create release
-
-- Bump the version number in `src/math_spec/__init__.py`
-- Update the [changelog][changelog] with final version number of the form `vX.Y.Z` + release date.
-- Commit with message `Release vX.Y.Z`, then add a `vX.Y.Z` tag.
-- Create a release pull request to verify that all CI and CD checks pass.
-- Once the PR is approved and merged, create a release through the GitHub web interface, using the same tag, titling it `Release vX.Y.Z` and include all the changelog elements that are *not- flagged as **internal**.
-
-### Post-release
-
-- Update the changelog, adding a new `[Unreleased]` heading.
-- Update `src/math_spec/__init__.py` to the next version appended with `.dev0`, in preparation for the next main commit.
+See [RELEASING.md](RELEASING.md) for the full pipeline, the alpha-stream rules,
+and the one-time repository setup it still needs.
 
 <!--- --8<-- [end:docs] -->
