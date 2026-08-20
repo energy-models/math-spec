@@ -1,0 +1,14 @@
+"""Where the golden output lives, and what the two halves agree to call it."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+DIRECTORY = Path(__file__).resolve().parent
+MODEL = DIRECTORY / 'model.yaml'
+
+
+def path_for(format_name: str) -> Path:
+    """The committed output for one format. Named for the format, not its
+    suffix, so two formats sharing a suffix could not collide silently."""
+    return DIRECTORY / f'{format_name}.out'

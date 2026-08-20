@@ -11,7 +11,7 @@ model, or of an operator table showing one row each. So the page shows every
 construct at once, and each row carries the YAML that produced it, because
 notation is judged against what it is standing for.
 
-The source is ``tests/golden/model.yaml``, the one model that carries every
+The source is ``tests/typeset/golden/model.yaml``, the one model that carries every
 construct. Not a corpus written for this page: a second exhaustive model is a
 second thing to keep exhaustive, and the fixture's completeness is already
 enforced — ``tests/test_typeset.py`` holds it to the language's operator set,
@@ -35,7 +35,7 @@ from lpspec.typeset import to_markdown
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 PAGE = ROOT / 'docs' / 'reference' / 'notation.md'
-MODEL = ROOT / 'tests' / 'golden' / 'model.yaml'
+MODEL = ROOT / 'tests' / 'typeset' / 'golden' / 'model.yaml'
 
 #: One model per ``method:``, because the three expand to three different
 #: formulations and a section showing one of them would be showing a third of
