@@ -15,50 +15,48 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, assert_never
 
-from lpspec.language import degree
-from lpspec.language.dimensions import dims_of
-from lpspec.language.expression_parser import (
+from lpspec.language import (
+    AndNode,
     ArithmeticNode,
     BinaryOperatorNode,
+    BooleanLiteralNode,
     ComparisonNode,
+    DimensionComparisonNode,
     DimensionNode,
+    DimensionPositionNode,
     EdgeNode,
     FunctionCallNode,
     KeywordNode,
-    LookupNode,
-    NameListNode,
-    NameNode,
-    NumberNode,
-    ParameterNode,
-    UnaryOperatorNode,
-    VariableNode,
-)
-from lpspec.language.resolution import expression_of, where_of
-from lpspec.language.where_parser import (
-    AndNode,
-    BooleanLiteralNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
     LookupComparisonNode,
     LookupDefinedNode,
+    LookupNode,
     LookupPairComparisonNode,
+    NameListNode,
+    NameNode,
     NotNode,
+    NumberNode,
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterNode,
+    UnaryOperatorNode,
     UnresolvedComparisonNode,
     UnresolvedNameNode,
+    UnresolvedPositionNode,
     VariableDefinedNode,
+    VariableNode,
     WhereNode,
-    _UnresolvedPositionNode,
+    check_binary,
+    dims_of,
+    expression_of,
+    where_of,
 )
 from lpspec.typeset.format import Entry, Glossary, Line
 
 if TYPE_CHECKING:
     import datetime
 
-    from lpspec.language.model import Model, SosBlock
-    from lpspec.language.resolution import Namespace
+    from lpspec.language import Model, Namespace, SosBlock
     from lpspec.typeset.format import Format
     from lpspec.typeset.symbols import Symbols
 
@@ -282,12 +280,12 @@ class Walk:
         ``a - (b - c)`` and ``a - (b + c)`` need the bracket; ``a - b*c``
         does not.
 
-        ``degree.check_binary`` first, so the typesetter renders exactly what
+        ``check_binary`` first, so the typesetter renders exactly what
         the language accepts and says so in the language's own sentence: ``**``
         and a quadratic product parse but are refused, and printing them would
         typeset math no lane can build.
         """
-        degree.check_binary(node)
+        check_binary(node)
         if node.op == '/':
             top = self.arithmetic(node.left, ctx)
             bottom = self.arithmetic(node.right, ctx)
@@ -469,7 +467,7 @@ class Walk:
             sides = [self.where(node.left, ctx, need=1), self.where(node.right, ctx, need=1)]
             return self.format.joined(sides, self.op('or')), 0
 
-        if isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, _UnresolvedPositionNode)):
+        if isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, UnresolvedPositionNode)):
             msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'
             raise AssertionError(msg)
 

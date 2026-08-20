@@ -61,7 +61,7 @@ class UnresolvedComparisonNode:
 
 
 @dataclass
-class _UnresolvedPositionNode:
+class UnresolvedPositionNode:
     """``lhs <op> index(dim, i)`` before either name is checked.
 
     Kept apart from :class:`UnresolvedComparisonNode` because its right-hand
@@ -203,7 +203,7 @@ WhereNode = (
     BooleanLiteralNode
     | UnresolvedNameNode
     | UnresolvedComparisonNode
-    | _UnresolvedPositionNode
+    | UnresolvedPositionNode
     | DimensionPositionNode
     | ParameterDefinedNode
     | VariableDefinedNode
@@ -260,7 +260,7 @@ class _Position:
     by: str | None = None
 
 
-def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode | _UnresolvedPositionNode:
+def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode | UnresolvedPositionNode:
     """The comparison node one right-hand side asks for.
 
     A position is its own node from the start because it is the one right-hand
@@ -268,7 +268,7 @@ def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode | _U
     it from a parameter called ``index``.
     """
     if isinstance(value, _Position):
-        return _UnresolvedPositionNode(name, op, value.dimension, value.at, value.by)
+        return UnresolvedPositionNode(name, op, value.dimension, value.at, value.by)
     return UnresolvedComparisonNode(name, op, _bare(value), quoted=isinstance(value, _Quoted))
 
 

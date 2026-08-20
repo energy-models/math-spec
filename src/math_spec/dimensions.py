@@ -73,9 +73,9 @@ from lpspec.language.where_parser import (
     ParameterDefinedNode,
     UnresolvedComparisonNode,
     UnresolvedNameNode,
+    UnresolvedPositionNode,
     VariableDefinedNode,
     WhereNode,
-    _UnresolvedPositionNode,
 )
 
 if TYPE_CHECKING:
@@ -354,7 +354,7 @@ def _check_where_dims(
     elif isinstance(node, (AndNode, OrNode)):
         _check_where_dims(node.left, schema, frame, context)
         _check_where_dims(node.right, schema, frame, context)
-    elif isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, _UnresolvedPositionNode)):
+    elif isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, UnresolvedPositionNode)):
         msg = f'{type(node).__name__} reached the dim checker unresolved.'
         raise AssertionError(msg)
     elif not isinstance(node, BooleanLiteralNode):

@@ -55,9 +55,9 @@ from lpspec.language.where_parser import (
     ParameterDefinedNode,
     UnresolvedComparisonNode,
     UnresolvedNameNode,
+    UnresolvedPositionNode,
     VariableDefinedNode,
     WhereNode,
-    _UnresolvedPositionNode,
     parse_where,
 )
 
@@ -652,7 +652,7 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
     return None
 
 
-def _resolve_position(node: _UnresolvedPositionNode, ns: Namespace, context: str, errors: list[str]) -> WhereNode:
+def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str, errors: list[str]) -> WhereNode:
     """Type ``lhs <op> index(dim, i)`` — both sides must name the same dimension.
 
     Comparing one dimension's coordinate against another's would be comparing
@@ -686,7 +686,7 @@ def _resolve_position(node: _UnresolvedPositionNode, ns: Namespace, context: str
     return DimensionPositionNode(node.name, node.op, node.position, node.by)
 
 
-def _refuse_grouping(node: _UnresolvedPositionNode, by: str, ns: Namespace, context: str, errors: list[str]) -> bool:
+def _refuse_grouping(node: UnresolvedPositionNode, by: str, ns: Namespace, context: str, errors: list[str]) -> bool:
     """Whether ``by=`` names something other than a lookup over the counted dim.
 
     The groups are the lookup's target labels and the positions are counted
@@ -760,7 +760,7 @@ def _resolve_where(
                 errors.append(ns._unknown(node.name, context, allow_dims=True))
                 return node
 
-    if isinstance(node, _UnresolvedPositionNode):
+    if isinstance(node, UnresolvedPositionNode):
         return _resolve_position(node, ns, context, errors)
 
     if isinstance(node, UnresolvedComparisonNode):

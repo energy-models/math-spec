@@ -20,10 +20,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from lpspec.errors import SchemaError, did_you_mean
-from lpspec.language._yaml import read_yaml
+from lpspec.language import read_yaml
 
 if TYPE_CHECKING:
-    from lpspec.language.model import Model
+    from lpspec.language import Model
     from lpspec.typeset.format import Format
 
 __all__ = ['SymbolTable', 'Symbols']
