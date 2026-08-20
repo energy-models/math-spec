@@ -5,11 +5,15 @@ Decidable on the resolved core AST with no data bound, which is what makes
 admissibility rule that is a **scope choice** rather than a consequence of
 streaming (docs/about/ceiling.md).
 
-**Degree 2 in the objective, degree 1 everywhere else.** A quadratic
-*objective* is ingestible by sinks that ship; a quadratic *constraint* by none,
-and linopy — the oracle both lanes are checked against — refuses one outright.
-So a position's ceiling is named by its caller here rather than by each
-consumer inventing a refusal.
+**Degree 2 in the math, degree 1 in what stands beside it.** An objective and a
+constraint both take ``variable * variable``; a *bound*, a named expression and
+a ``piecewise:`` link do not — each of those is read affinely by something
+downstream.
+
+**Where a quadratic model can *land* is a different axis**, declared by each
+consumer and answered by ``check(model, sink=...)``. This module says what is
+*sayable* and stops there; refusing degree 2 outright was letting one library's
+limits read as a rule about math.
 
 A degree-2 product has a second rule: **at most one factor may be a sum of
 terms**. ``sum(x, over=i) * sum(y, over=j)`` is every term of one against every
@@ -116,6 +120,29 @@ def _adds(node: ExpressionNode) -> bool:
     return False
 
 
+def is_quadratic(node: ExpressionNode) -> bool:
+    """Whether *node* multiplies two variable-carrying operands.
+
+    What :func:`check_binary` refuses at ``ceiling=1``, asked of a whole
+    expression rather than of one node — by a consumer that has to *build* the
+    thing rather than judge it, and cannot build this one. Whether an
+    expression is quadratic is a fact about the expression; what that costs a
+    consumer is the consumer's own to declare.
+
+    A second home reads the same question off the *plan* rather than the AST.
+    Two, because the two representations are different types and the lanes
+    share neither.
+    """
+    if (
+        isinstance(node, BinaryOperatorNode)
+        and node.op == '*'
+        and carries_variable(node.left)
+        and carries_variable(node.right)
+    ):
+        return True
+    return any(is_quadratic(child) for child in children(node))
+
+
 def check_binary(node: BinaryOperatorNode, context: str | None = None, *, ceiling: int = 1) -> None:
     """Check that *node* stays inside the degree its position allows.
 
@@ -200,17 +227,19 @@ def _above_the_ceiling_message(where: str, degree: int) -> str:
 def _degree_two_here_message(where: str) -> str:
     """Why a product of variables is refused *in this position*.
 
-    Naming the position rather than the math: "degree 2 is not in the language"
-    would now be false as well as unhelpful.
+    Naming the position rather than the math, which is sayable one line away.
+    Blaming a solver instead would be the confusion between the ceiling and the
+    capability axis that this module exists on the right side of.
     """
     return (
         f'{where}both factors of a product contain variables, which is degree 2. '
-        f'The language takes that in the **objective** and nowhere else: no sink '
-        f'that ships takes a quadratic constraint, and the linopy lane cannot '
-        f'build one at all.\n'
-        f'Multiply the variable by a parameter instead, model the curve with a '
-        f'piecewise: block, or state the product as an objective term — see '
-        f'docs/about/ceiling.md.'
+        f'The **objective and constraints** take that; a bound, a named expression '
+        f'and a piecewise: link do not — each of those is read affinely by '
+        f'something downstream.\n'
+        f'Multiply the variable by a parameter instead, or state the product where '
+        f'it can stand: as a constraint of its own, with a variable holding the '
+        f'result. Where a quadratic model can be *solved* is a separate question — '
+        f'ask check(model, sink=...) (see docs/about/ceiling.md).'
     )
 
 

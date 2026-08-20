@@ -84,9 +84,11 @@ feature list: each is a boundary the design keeps on purpose, and
 
 | Not here | Instead |
 |---|---|
-| variable × variable **outside the objective** | the objective takes it; elsewhere, a `piecewise:` curve or a parameter coefficient ([expressions](expressions.md#degree-1-except-in-the-objective)) |
+| variable × variable in a **bound, a named expression or a `piecewise:` link** | the objective and constraints take it; elsewhere, a parameter coefficient ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it)) |
 | `sum(x, over=d) * sum(y, over=d)` | multiply before reducing, or name the reduction with a variable — a product of two sums is a cross join |
-| `**` | `x * x` in an objective; nothing elsewhere ([expressions](expressions.md#degree-1-except-in-the-objective)) |
+| degree 3 (`x * y * z`) | a variable constrained to equal one product, then multiplied by the third |
+| `**` | `x * x` ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it)) |
+| a quadratic constraint on the **linopy lane**, or on `highs` | neither builds one; `lps.solve(..., solver_name='gurobi')`, or write an `.lp` file. `check(model, sink=…)` says so before you build |
 | arithmetic in `bounds:` | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31)) |
 | time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter |
 | solver breadth | three solvers — HiGHS, which ships, plus Gurobi and Xpress via their own extras — chosen at the call and never in the file; LP and MPS files for everything else ([#106](https://github.com/fluxopt/lpspec/issues/106)) |

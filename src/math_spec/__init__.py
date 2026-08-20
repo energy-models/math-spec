@@ -42,7 +42,7 @@ and checks every consumer's imports against ``__all__`` below.
 
 from lpspec.language._yaml import read_yaml
 from lpspec.language.boundedness import unbounded_notes
-from lpspec.language.degree import carries_variable, check_binary
+from lpspec.language.degree import carries_variable, check_binary, is_quadratic
 from lpspec.language.dimensions import dims_of
 from lpspec.language.errors import (
     DimensionError,
@@ -150,6 +150,7 @@ __all__ = [
     'edge_error',
     'expand_piecewise',
     'expression_of',
+    'is_quadratic',
     'load_model',
     'mask_of',
     'read_yaml',

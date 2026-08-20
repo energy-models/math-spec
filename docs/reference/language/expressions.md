@@ -19,36 +19,60 @@ NUMBER      ::= integer | float | "inf" | ".inf"
 Precedence, highest first: `**`, then `*` `/`, then binary `+` `-`, then unary
 `+` `-`. Parentheses override.
 
-## Degree 1, except in the objective
+## Degree 2 in the math, degree 1 beside it
 
-Every expression is **affine in the variables**, with one positional
-exception:
+**The objective and constraints take `variable * variable`.** So a quadratic
+cost, `sum(p * p * wear, over=g)`, and a quadratic row, `p * q >= floor`, are
+both sayable and both say what they mean.
 
-- `*` needs a variable-free factor **in a constraint, a bound or a named
-  expression** — `p * cost` is fine there, `p * on` is not;
-- **the objective takes `variable * variable`**, so `sum(p * p * wear, over=g)`
-  is a quadratic cost and says so. Two rules bound it: degree stops at 2, and
-  at most one factor may be a *sum* of terms — `sum(p, over=g) * sum(q,
-  over=g)` is every term of one against every term of the other, and the file
-  says nowhere how many that is;
-- `/` needs a variable-free divisor everywhere, and a single factor rather than
-  a sum — both decided at load time, since neither depends on the numbers that
-  arrive. A variable divisor is rational rather than polynomial, which no sink
-  takes at any degree;
-- `**` parses and is **not in the language** anywhere. It is rejected at load
-  time, so the refusal can name the operator and its rewrite: `x * x` is how
-  the one exponent that is in gets written.
+Three rules bound it:
 
-Why the objective and nothing else: a quadratic objective is something a sink
-can *ingest* and a quadratic constraint is not. That is the capability axis
-rather than [the ceiling](../../about/ceiling.md).
+- **At most one factor may be a sum of terms.** `sum(p, over=g) * sum(q,
+  over=g)` is refused: that is every term of one against every term of the
+  other, and nothing in the file says how many that is. Multiply *before*
+  reducing, or give the reduction a name — a variable constrained to equal it
+  is one term. Factors carrying different dims are fine: `x * y * link`
+  broadcasts and joins through the table that couples them.
+- **Degree stops at 2.** `p * p * p` is refused where `p * p` is not.
+- **Everything beside the math stays affine** — a bound, a named expression and
+  a `piecewise:` link. Each is read affinely by something downstream: a bound
+  is a number per column, a named expression is evaluated after a solve, and a
+  link expands into declarations that must themselves be affine.
 
-**It costs things an affine objective gives.** Duals exist for a convex QP and
-not a nonconvex one; HiGHS refuses a nonconvex Hessian outright, and refuses
-any Hessian beside `binary:` or `integer:`, where Gurobi takes both. So this is
-where the *sink* starts to matter: `lps.check(model, sink='highs')` says what
-one will do before you build, and a `piecewise:` block with `method: convex`
-remains the way to spend a curve and keep the LP, its duals and its warm start.
+`/` needs a variable-free divisor everywhere, and a single factor rather than a
+sum — both decided at load time, since neither depends on the numbers that
+arrive, and a variable divisor is rational rather than polynomial, which no
+sink takes at any degree. `**` parses and is **not in the language** anywhere.
+It too is rejected at load, so the refusal can name the operator and its
+rewrite: `x * x` is how the one exponent that is in gets written.
+
+### What it costs, and where it can land
+
+Saying it is one question; solving it is another
+([the ceiling](../../about/ceiling.md#capability-is-not-the-ceiling)), and this
+is the construct where the difference starts to matter:
+
+| | quadratic objective | quadratic constraint |
+|---|---|---|
+| `highs` | convex only, and not beside `binary:`/`integer:` | **no concept at all** |
+| `gurobi` | any, integrality included | any |
+| `xpress` | **no path in this sink** | **no path in this sink** |
+| `.lp` file | written as a section | written as a section, which HiGHS will not read back |
+| `.mps` file | **not written** | **not written** |
+| the `linopy` lane | builds it | **cannot build it** |
+
+`lps.check(model, sink='highs')` answers all of that before you build, and
+`sink='linopy'` answers for the lane; a `piecewise:` block with
+`method: convex` remains the way to spend a curve and keep the LP, its duals
+and its warm start. Two things it cannot answer, because both
+are properties of your *data* rather than of the model: whether a quadratic
+form is **convex**, and therefore whether HiGHS will take it at all — and
+whether a quadratic row can be priced, since duals for one need `QCPDual` and
+that needs convexity. A quadratic constraint comes back without duals unless
+you ask.
+
+`piecewise: {convex: true}` remains the way to spend a curve and keep the LP,
+its duals and its warm start.
 
 ## Name resolution
 

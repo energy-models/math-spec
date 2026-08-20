@@ -544,7 +544,7 @@ class Walk:
             if not isinstance(node, ComparisonNode):
                 msg = f'{context}: expected a comparison, got {type(node).__name__}'
                 raise AssertionError(msg)
-            ctx = self.context()
+            ctx = self.context(ceiling=2)
             condition = self.conjoined(ctx, where_of(block.where, self.namespace, context))
             lines.append(
                 Line(

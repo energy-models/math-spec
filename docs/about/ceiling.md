@@ -53,12 +53,15 @@ Read this page as the *streamability* closure and nothing more.
 
 Two things bound the quadratic case, and neither is streamability:
 
-- **Position.** A quadratic *objective* has sinks — LP text as a section, HiGHS
-  as a Hessian when it is convex, Gurobi with no exclusion at all. A quadratic
-  *constraint* has none that ship,
-  and linopy refuses one outright, so the language would accept something one
-  lane could not build. It stays out until that changes, which is a capability
-  question and not this page's.
+- **Position — and it has since moved.** A quadratic *objective* has sinks: LP
+  text as a section, HiGHS as a Hessian when it is convex, Gurobi with no
+  exclusion at all. A quadratic *constraint* has fewer — Gurobi and the LP
+  file — and the linopy lane cannot build one at all. That kept it out until
+  the capability axis grew to cover **lanes** as well as sinks
+  ([hard rule 3](architecture.md#hard-rules)): both lanes still accept the same
+  language, what each can *build* is declared, and the construct ships with the
+  gap named rather than hidden. The price is the differential oracle for that
+  one construct, which is why the gap is one entry long.
 - **One shape, genuinely out.** `sum(x, over=i) * sum(y, over=j)` is every term
   of one against every term of the other — the cross join the old blanket ban
   was really describing, and the one row of the table below that stays
