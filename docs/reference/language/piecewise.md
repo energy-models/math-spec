@@ -111,8 +111,10 @@ data binds — the chord row joins a breakpoint to the one before it, and the tw
 domain rows sit on the curve's own first and last.
 
 Where the *arity* is data, and one component ties three expressions where
-another ties two, the λ formulation is written out directly rather than through
-this block ([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
+another ties two, the λ formulation is
+[written out directly](#when-the-arity-is-data-the-formulation-is-four-declarations)
+rather than through this block
+([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
 
 **`method` is the one thing that varies**, and for those three it varies in
 exactly one place: how the weights are restricted, once they exist.
@@ -166,6 +168,43 @@ Two things follow from stating lines rather than weights:
   domain rows that hold the pinned link inside the breakpoint range. Without
   them the formulation would extrapolate along the end segments, where the
   weight forms cannot go. They are the rows `linopy`'s own `lp` method emits.
+
+### When the arity is data, the formulation is four declarations
+
+`links:` is a list, so how many expressions a block ties is written in the file.
+Where that number is a property of the system — a boiler tying two flows, a CHP
+unit tying three — the formulation is written out instead, and it is not much:
+
+<!-- doctest: skip -->
+```yaml
+variables:
+  weight:                      # the convex combination, one per converter and period
+    foreach: [converter, time, bp]
+    where: bp_present          # how far each curve runs
+    bounds: {lower: 0, upper: 1}
+
+sos:
+  on_one_segment: {variable: weight, over: bp, type: 2, big_m: 1}
+
+constraints:
+  one_operating_point:
+    foreach: [converter, time]
+    expression: sum(weight, over=bp) == 1
+  on_the_curve:                # one row per flow — this is where the arity goes
+    foreach: [flow, time]
+    expression: rate == sum(at(weight, by=converter_of) * bp_rate, over=bp)
+```
+
+The tie being a *row* is what makes the arity data: a converter with a fourth
+flow is a row in a table rather than an edit to the model. `sos: type: 2` is the
+same restriction `method: sos2` emits, and a solver without SOS is handed
+binaries and big-M rows for it either way.
+
+What the block would have saved is the weights and the convexity row — two
+declarations — so it is not offered:
+[the model](../../examples/piecewise_conversion.md) shows the whole formulation,
+and [#1101](https://github.com/fluxopt/lpspec/issues/1101) records what was
+weighed.
 
 ## `sos`
 
