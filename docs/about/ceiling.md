@@ -88,7 +88,7 @@ request can ever be met:
 
 | Tier | Bounded by | Members | Can it move? |
 |---|---|---|---|
-| **Capability-bounded** | what a given sink can ingest | indicator (#220); quadratic. `sos:` **shipped** on this tier, and is what the row predicted: native where a sink has the concept, reformulated where it does not | per sink — see below |
+| **Capability-bounded** | what a given sink can ingest | indicator (#220); quadratic, whose verdict moves with its convexity and with what it stands beside. `sos:` **shipped** on this tier, and is what the row predicted: native where a sink has the concept, reformulated where it does not | per sink — see below |
 | **Budget-bounded** | the escape *label* budget — a cap on the rows and columns an island may emit | global operators, arbitrary Python, non-relational manipulation | already movable — that is what an island is |
 | **Design-bounded** | our choice of where work belongs | data prep, domain helpers, Python declaring structure | movable any time; we don't want to |
 
@@ -143,9 +143,10 @@ limits read as architectural law — "no sink carries the stream" described
 HiGHS, not the architecture. Two findings, measured in
 [the benchmarks](benchmarks.md#sink-capabilities): SOS is
 **solver-bounded** (HiGHS has no SOS concept at all, while `lp_file` carries it
-as a text section and Gurobi natively), and what blocks quadratic is a
-**conjunction** — HiGHS has integrality *and* a Hessian and refuses the pair —
-so capability is not a flat set. The whole-Hessian handoff is an implementation
+as a text section and Gurobi natively), and quadratic is bounded **twice over
+on one sink** — HiGHS refuses a nonconvex Hessian outright, and refuses a
+convex one standing beside integrality — so a capability is neither a flat set
+nor one verdict per construct. The whole-Hessian handoff is an implementation
 difference, not a rule-4 violation.
 
 **`sos:` is that finding cashed**, and it says what the axis is worth. The
