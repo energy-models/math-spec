@@ -33,6 +33,10 @@ fuel_cap:
 | *values* | a parameter carrying the `over` dim, so curves may vary along other dims (per generator, say) |
 | *sign* | `<=` or `>=`, at most one per block and only with exactly two links: bounds the link instead of pinning it |
 
+`points:` says how far each curve runs where they are not all the same length —
+below. `active:` is a different question: whether a curve *applies*, gated by a
+variable, rather than how long it is.
+
 A block **expands before building** into plain variables and constraints, for
 three of the four methods via a λ convex combination — weights in `[0,1]` with
 a convexity row, and one link row per tuple. That expansion is what the rest of
@@ -45,12 +49,27 @@ values parameter short of a row does not build a shorter curve: the
 coefficient, which is a breakpoint at the origin the file never declared. Such a
 table is refused when data binds.
 
-A curve with fewer breakpoints than the dimension holds **repeats its last
-point**, under `adjacency` and `sos2` — a zero-length segment, costing a weight
-and a binary that say nothing. `convex` and `lp` refuse a repeat, since both
-require strictly increasing breakpoints, so a short curve has no spelling under
-those two yet: masking the tail is
-[#1110](https://github.com/fluxopt/lpspec/issues/1110).
+**A curve with fewer breakpoints than the dimension holds masks its tail**, with
+`points:` — a boolean parameter over the curve's own coordinates and `over`,
+true up to each curve's last breakpoint:
+
+<!-- doctest: wrap=piecewise -->
+```yaml
+cost_curve:
+  over: bp
+  points: bp_present  # true where this curve still runs
+  links:
+    - [p, bp_x]
+    - [op_cost, bp_y]
+```
+
+The masked breakpoint declares no weight and no segment binary, and its values
+are not asked for. The mask is ordinary data — a model that keeps a
+length per curve crosses it with the breakpoints and compares, wherever the rest
+of its tables are prepared. **The mask is a prefix**: a curve runs from the first
+breakpoint to its own last one, and a gap — or a curve marked nowhere — is
+refused when data binds, because the chord row joins a breakpoint to the one
+before it and the domain row is written where the mask stops.
 
 Where the *arity* is data, and one component ties three expressions where
 another ties two, the λ formulation is written out directly rather than through

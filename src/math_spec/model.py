@@ -417,9 +417,10 @@ class PiecewiseBlock(_StrictBlock):
 
     ``over`` names the breakpoint dimension; ``method`` is which of
     :data:`PIECEWISE_METHODS` restricts the weights; ``active`` names a gating
-    expression that pins the formulation to 0 when it is 0. Expanded before
-    building into plain variables and constraints — see
-    ``lpspec.language.piecewise``.
+    expression that pins the formulation to 0 when it is 0; ``points`` names a
+    boolean parameter saying how far each curve runs, for a model whose curves
+    are not all the same length. Expanded before building into plain variables
+    and constraints — see ``lpspec.language.piecewise``.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'
@@ -428,6 +429,7 @@ class PiecewiseBlock(_StrictBlock):
     links: list[PiecewiseLink]
     method: PiecewiseMethod = 'adjacency'
     active: str | None = None
+    points: str | None = None
     description: str | None = None
 
     @property
