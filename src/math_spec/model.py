@@ -158,10 +158,9 @@ class LookupBlock(_StrictBlock):
     ``values:`` gives the map in the file — ``{label of over: value}`` — for a
     relation small enough to read, the way a dimension's own ``values:`` does.
     A label it omits is unmapped, which is the partial case a lookup already
-    allows. Without it the map is supplied at bind time (the data-binding
-    rules): under the lookup's own source key, as a ``(over, label space)``
-    relation of the rows it has, or as a column of the ``over`` dimension's
-    index. Whichever of the three, exactly one of them.
+    allows. Without it the map is supplied at bind time under the lookup's own
+    source key, as a ``(over, label space)`` relation of the rows it has (the
+    data-binding rules). One of the two, and never neither.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'

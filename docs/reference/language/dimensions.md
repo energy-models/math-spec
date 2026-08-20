@@ -120,7 +120,7 @@ own, and neither fact may be claimed twice. Which homes each has, what a label
 no map mentions gets, and why a key no label matches is a typo rather than a
 new member, is [data binding](data.md#where-coordinates-come-from).
 
-### A big map is supplied under the lookup's own name
+### Otherwise it is supplied under the lookup's own name
 
 `gen_bus` is a source key like any other, carrying two columns — the dimension
 it runs `over`, and the space its values are labels of:
@@ -144,7 +144,9 @@ typo a declared map's key is.
 
 Supplying it this way touches no table but its own, which is what a caller who
 did not generate the index needs: a model can be extended with a lookup the
-same way it can be extended with a parameter.
+same way it can be extended with a parameter. **A column of the `over` index
+named after the lookup is refused** rather than read — an index may carry any
+other extra, and this one would be a map read by accident.
 
 ### Both kinds
 
@@ -153,8 +155,8 @@ dimension — its own target included. `generator`'s map onto `bus` is `gen_bus`
 never a second `bus`.
 
 Either kind is single-valued per label, and a map the file does not declare is
-supplied under the lookup's own name or as a column of the `over` index named
-after it ([data binding](data.md)). Values are never inferred
+supplied under the lookup's own name ([data binding](data.md)). Values are never
+inferred
 from the parameters that use the dimension: inferring would let a mistyped
 label extend the label space instead of being rejected.
 
