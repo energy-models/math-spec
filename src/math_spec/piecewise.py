@@ -135,7 +135,7 @@ def expand_piecewise(schema: Model) -> Model:
             'bounds': {'lower': 0.0, 'upper': 1.0},
             'description': 'convex-combination weight on a breakpoint',
         }
-        rhs = f'({pw.active})' if pw.active else '1'
+        rhs = f'({pw.activity})' if pw.activity else '1'
         raw['constraints'][f'{name}_convexity'] = {
             'foreach': list(frame),
             'expression': f'sum({lam}, over={pw.over}) == {rhs}',
@@ -270,12 +270,12 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
             if d not in frame:
                 frame.append(d)
 
-    if pw.active is not None:
-        if pw.active in schema.variables and schema.variables[pw.active].domain != 'binary':
-            raise PiecewiseExpansionError(f"{ctx}: active variable '{pw.active}' must be binary")
-        for d in _declared_order(schema, _expr_dims(schema, pw.active, f'{ctx} active')):
+    if pw.activity is not None:
+        if pw.activity in schema.variables and schema.variables[pw.activity].domain != 'binary':
+            raise PiecewiseExpansionError(f"{ctx}: activity variable '{pw.activity}' must be binary")
+        for d in _declared_order(schema, _expr_dims(schema, pw.activity, f'{ctx} activity')):
             if d == pw.over:
-                raise PiecewiseExpansionError(f"{ctx}: active expression must not carry the breakpoint dim '{pw.over}'")
+                raise PiecewiseExpansionError(f"{ctx}: activity must not carry the breakpoint dim '{pw.over}'")
             if d not in frame:
                 frame.append(d)
 

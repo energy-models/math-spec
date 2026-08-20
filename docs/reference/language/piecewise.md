@@ -17,7 +17,7 @@ chp:
     - [fuel, fuel_bp]
     - [heat, heat_bp]
   method: adjacency  # how the weights are restricted — below
-  active: null  # optional gating expression: formulation pinned to 0
+  activity: null  # optional: what the weights sum to, so 0 pins the formulation off
 
 # a two-link block may bound one side instead of pinning it
 fuel_cap:
@@ -34,7 +34,7 @@ fuel_cap:
 | *sign* | `<=` or `>=`, at most one per block and only with exactly two links: bounds the link instead of pinning it |
 
 `points:` says how far each curve runs where they are not all the same length —
-below. `active:` is a different question again: whether a curve *applies*, gated
+below. `activity:` is a different question again: whether a curve *applies*, gated
 by a variable, rather than how long it is.
 
 A block **expands before building** into plain variables and constraints, for
@@ -110,7 +110,7 @@ curvature under optimisation pressure, which is checked against the breakpoint
 `lp` states the curve as its **segment lines** instead of interpolating between
 its breakpoints, so it declares no auxiliary variable at all — where the others
 carry one weight per breakpoint per frame row. It needs exactly two links, one
-of them bounded (`<=` or `>=`), and no `active:` — there are no weights for a
+of them bounded (`<=` or `>=`), and no `activity:` — there are no weights for a
 gate to pin down.
 
 <!-- doctest: wrap=piecewise -->

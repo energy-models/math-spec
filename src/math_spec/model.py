@@ -416,8 +416,9 @@ class PiecewiseBlock(_StrictBlock):
     exactly two links).
 
     ``over`` names the breakpoint dimension; ``method`` is which of
-    :data:`PIECEWISE_METHODS` restricts the weights; ``active`` names a gating
-    expression that pins the formulation to 0 when it is 0; ``points`` names a
+    :data:`PIECEWISE_METHODS` restricts the weights; ``activity`` names what the weights sum
+    to — 1 where the block is unconditional, and a binary where a curve applies
+    only when something runs, which pins the formulation to 0 when it is 0; ``points`` names a
     boolean parameter saying how far each curve runs, for a model whose curves
     are not all the same length. Expanded before building into plain variables
     and constraints — see ``lpspec.language.piecewise``.
@@ -428,7 +429,7 @@ class PiecewiseBlock(_StrictBlock):
     over: str
     links: list[PiecewiseLink]
     method: PiecewiseMethod = 'adjacency'
-    active: str | None = None
+    activity: str | None = None
     points: str | None = None
     description: str | None = None
 
@@ -491,8 +492,8 @@ class PiecewiseBlock(_StrictBlock):
                 'element on it. With every link pinned the segment lines have nothing to bound.'
             )
             raise ValueError(msg)
-        if self.active is not None and self.method in ('convex', 'lp'):
-            msg = f'active gating is not supported with method: {self.method}.'
+        if self.activity is not None and self.method in ('convex', 'lp'):
+            msg = f'activity is not supported with method: {self.method}.'
             raise ValueError(msg)
         return self
 

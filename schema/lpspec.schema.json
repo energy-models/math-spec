@@ -346,9 +346,9 @@
     },
     "PiecewiseBlock": {
       "additionalProperties": false,
-      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Model.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``over`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\n``over`` names the breakpoint dimension; ``method`` is which of\n:data:`PIECEWISE_METHODS` restricts the weights; ``active`` names a gating\nexpression that pins the formulation to 0 when it is 0; ``points`` names a\nboolean parameter saying how far each curve runs, for a model whose curves\nare not all the same length. Expanded before building into plain variables\nand constraints \u2014 see ``lpspec.language.piecewise``.",
+      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Model.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``over`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\n``over`` names the breakpoint dimension; ``method`` is which of\n:data:`PIECEWISE_METHODS` restricts the weights; ``activity`` names what the weights sum\nto \u2014 1 where the block is unconditional, and a binary where a curve applies\nonly when something runs, which pins the formulation to 0 when it is 0; ``points`` names a\nboolean parameter saying how far each curve runs, for a model whose curves\nare not all the same length. Expanded before building into plain variables\nand constraints \u2014 see ``lpspec.language.piecewise``.",
       "properties": {
-        "active": {
+        "activity": {
           "anyOf": [
             {
               "type": "string"
@@ -358,7 +358,7 @@
             }
           ],
           "default": null,
-          "title": "Active"
+          "title": "Activity"
         },
         "description": {
           "anyOf": [
