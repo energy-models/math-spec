@@ -135,7 +135,7 @@ Sparsity is the absent row.
 | a label outside the dimension's index | names the parameter and the strays |
 | two rows for one coordinate | |
 | a lookup with two values for one label | |
-| a lookup value that is not a label of its target | |
+| a lookup value that is not a label of its target | one wording, checked once for both lanes |
 | a dimension carrying lookups with no index | |
 | a dimension nothing can supply labels for | names both ways to fix it |
 | a dimension the file declares and the caller also supplies | names the declaration and the colliding key |
