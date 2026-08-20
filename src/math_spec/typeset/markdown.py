@@ -12,7 +12,7 @@ decides which side it belongs on.
 
 It exists because `docs/examples/` would otherwise write its math by hand with
 nothing checking it against the model beside it — see
-`test_the_gallery_notation_is_reproducible_from_the_model`.
+`test_the_gallery_math_is_current`.
 """
 
 from __future__ import annotations

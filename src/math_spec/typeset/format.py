@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 #: Every operator a walk can emit, by the name the walk uses for it. A format
-#: supplies one spelling each, and ``tests/test_typeset.py`` asserts every
+#: supplies one spelling each, and ``tests/typeset/test_typeset.py`` asserts every
 #: format covers exactly this set, so a missing key is a test failure rather
 #: than a stray ``None`` in the output. The less obvious names: ``such_that``
 #: is the colon in "∀ t ∈ T : condition", ``times`` sits between sets in the

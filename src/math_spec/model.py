@@ -150,7 +150,7 @@ class LookupBlock(_StrictBlock):
     - ``dtype:`` declares an inline label space — the *selection-only* kind,
       owning its values and targeting nothing, so no axis exists for terms to
       land on. Grouping into one is refused with the promotion rewrite
-      (:func:`lpspec.language.resolution.resolve`)::
+      (:func:`lpspec.language.resolution._ungroupable`)::
 
           lookups:
             period: {over: snapshot, dtype: int}

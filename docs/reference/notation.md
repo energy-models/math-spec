@@ -11,7 +11,7 @@ model:
 [`tests/typeset/golden/model.yaml`](https://github.com/fluxopt/lpspec/blob/main/tests/typeset/golden/model.yaml),
 which is not a sensible optimisation problem and is not trying to be: it is the
 one file that carries every construct at once, and three checks in
-`tests/test_typeset.py` hold it to the language — every operator a format
+`tests/typeset/test_typeset.py` hold it to the language — every operator a format
 spells, every node kind the parsers produce, every line of the walk. So *every*
 here is asserted rather than promised, and a construct added to the language
 arrives on this page or CI goes red. The curves are the exception, one real

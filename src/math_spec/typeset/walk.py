@@ -210,7 +210,7 @@ class Walk:
     """Walks a validated schema, emitting :class:`Line`s in one format.
 
     Stateful only in what it has *noticed* — which edge policies appeared,
-    which the legend needs in order to explain the symbols they print.
+    which the legend needs to explain the symbols they print.
     """
 
     def __init__(self, schema: Model, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
