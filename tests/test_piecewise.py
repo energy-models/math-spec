@@ -143,7 +143,7 @@ def test_a_malformed_block_is_refused(model, patch, match):
 @pytest.mark.parametrize(
     ('link_expression', 'message'),
     [
-        ('p ** 2', r"operator '\*\*'"),
+        ('p ** 2', 'over variables'),
         ('p * p', 'both factors of a product contain variables'),
     ],
 )

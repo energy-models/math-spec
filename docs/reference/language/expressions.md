@@ -42,9 +42,22 @@ Three rules bound it:
 `/` needs a variable-free divisor everywhere, and a single factor rather than a
 sum — both decided at load time, since neither depends on the numbers that
 arrive, and a variable divisor is rational rather than polynomial, which no
-sink takes at any degree. `**` parses and is **not in the language** anywhere.
-It too is rejected at load, so the refusal can name the operator and its
-rewrite: `x * x` is how the one exponent that is in gets written.
+sink takes at any degree.
+
+`**` takes a base and an exponent that **carry no variable**, and nothing else.
+`growth ** period` is a discount factor — one number per coordinate, folded
+from a rate the model binds and a period it declares — so it is the arithmetic
+`*` already does, spelled the way the maths is written. Two refusals bound it,
+both at load:
+
+- **A variable anywhere under it.** `x * x` is how a square gets written; above
+  degree 2 there is no rewrite at all. A variable *exponent* is out for a
+  sharper reason — `p ** n` is affine at `n = 1` and quadratic at `n = 2`, so
+  the *degree* would be a property of the data and `check` could not answer
+  with nothing bound.
+- **An operand that adds.** Addition does not distribute over `**`, so
+  `(1 + rate) ** period` is two factors wearing one and is refused where
+  `growth ** period` is not. Bind the factor itself.
 
 ### What it costs, and where it can land
 

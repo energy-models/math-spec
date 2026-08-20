@@ -52,7 +52,7 @@ in a different position, and each links to the page that spells it out.
 | 6 | **Four constructs create absence**, and nothing else does. It is a state of a *variable*; a constraint's own `where:` deletes its row directly. | [Absence](absence.md) |
 | 7 | Through arithmetic absence **spreads, taking the row with it**. Out of a reduction it does not — so `sum(x + y)` and `sum(x) + sum(y)` are different questions. | [Absence](absence.md#how-absence-travels) |
 | 8 | **Identity of the position.** A missing value reads as whatever makes it contribute nothing — zero as a coefficient, false in a `where`. Where no such reading exists it is refused: a divisor, a bound. | [Absence](absence.md), [Operators](operators.md#shift) |
-| 9 | **Degree 2 in the math, degree 1 beside it**: the objective and constraints take `variable * variable`; a bound, a named expression and a `piecewise:` link do not. `/` always needs a variable-free divisor and `**` is always refused. Where a quadratic model can *land* is a separate axis — ask `check(model, sink=…)`. | [Expressions](expressions.md) |
+| 9 | **Degree 2 in the math, degree 1 beside it**: the objective and constraints take `variable * variable`; a bound, a named expression and a `piecewise:` link do not. `/` always needs a variable-free divisor, and `**` a base and an exponent that carry no variable. Where a quadratic model can *land* is a separate axis — ask `check(model, sink=…)`. | [Expressions](expressions.md) |
 | 10 | **The operator set is closed.** Compositions go in `macros:`. | [Operators](operators.md) |
 
 ## The pages

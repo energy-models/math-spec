@@ -60,6 +60,7 @@ parameters:
   min_up: {dims: [generator], dtype: int}
   lead: {dims: [generator], dtype: int}
   budget: {dims: []}                 # scalar: the legend says so rather than printing an empty product
+  growth: {dims: []}                 # the base of a power; the exponent is `lead`, a column
 ```
 
 #### Sets
@@ -87,6 +88,7 @@ parameters:
 | $\mathit{min\_up}$ | `min_up` over $\mathcal{G}$ |
 | $\mathit{lead}$ | `lead` over $\mathcal{G}$ |
 | $\mathit{budget}$ | `budget` (scalar) |
+| $\mathit{growth}$ | `growth` (scalar) |
 
 #### Variables
 
@@ -112,14 +114,14 @@ $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leav
 
 #### `objective`
 
-a sense, the one position that takes a product of two variables, and the summations a scalar objective spells out beside two scalar terms
+a sense, a product of two variables, a power over two parameters, and the summations a scalar objective spells out beside two scalar terms
 
 ```yaml
 sense: maximize
-expression: sum(p * cost) + sum(p * p * cost) + sum(p * p_max) - reserve + -headroom
+expression: sum(p * cost) + sum(p * p * cost) + sum(p * cost * growth ** lead) + sum(p * p_max) - reserve + -headroom
 ```
 
-$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
+$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} \cdot \mathit{growth}^{\mathit{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
 
 ### Constraints
 

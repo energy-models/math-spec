@@ -27,6 +27,7 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 | $\mathit{min\_up}$ | `min_up` over $\mathcal{G}$ |
 | $\mathit{lead}$ | `lead` over $\mathcal{G}$ |
 | $\mathit{budget}$ | `budget` (scalar) |
+| $\mathit{growth}$ | `growth` (scalar) |
 
 #### Variables
 
@@ -50,7 +51,7 @@ $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leav
 
 #### Objective
 
-$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
+$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} \cdot \mathit{growth}^{\mathit{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
 
 #### Subject to
 

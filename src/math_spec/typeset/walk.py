@@ -63,7 +63,7 @@ if TYPE_CHECKING:
 #: Operator precedence, for deciding brackets. A reduction sits at the bottom
 #: with ``+``: an unbracketed sum reads as capturing whatever follows it, so as
 #: a factor it has to be bracketed.
-_PRECEDENCE = {'+': 1, '-': 1, '*': 2, '/': 2}
+_PRECEDENCE = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 3}
 _ATOM = 5
 
 _RELATIONS = {'==': 'equal', '<=': 'le', '>=': 'ge'}
@@ -295,9 +295,9 @@ class Walk:
 
         ``check_binary`` first, so the typesetter renders exactly what
         the language accepts and says so in the language's own sentence: ``**``
-        parses and is refused everywhere, and a quadratic product is refused
-        wherever the objective is not — printing either would typeset math no
-        lane can build. The ceiling rides on the context because it is a
+        over a variable is refused wherever it stands, and a quadratic product
+        is refused wherever the objective is not — printing either would typeset
+        math no lane can build. The ceiling rides on the context because it is a
         property of *where* the expression stands.
         """
         check_binary(node, ceiling=ctx.ceiling)
@@ -305,6 +305,12 @@ class Walk:
             top = self.arithmetic(node.left, ctx)
             bottom = self.arithmetic(node.right, ctx)
             return self.format.fraction(top, bottom), _ATOM
+        if node.op == '**':
+            # A superscript is atomic to what surrounds it and *not* to another
+            # superscript: `x^{a}^{b}` is a LaTeX error, and the exponent needs
+            # no brackets of its own because the format's tail already groups.
+            base = self.arithmetic(node.left, ctx, need=_PRECEDENCE['**'] + 1)
+            return self.format.superscript(base, self.arithmetic(node.right, ctx)), _PRECEDENCE['**']
         precedence = _PRECEDENCE[node.op]
         left = self.arithmetic(node.left, ctx, need=precedence)
         right = self.arithmetic(node.right, ctx, need=precedence + (1 if node.op == '-' else 0))

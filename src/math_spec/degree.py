@@ -64,11 +64,13 @@ from lpspec.language.expression_parser import (
     children,
 )
 
-#: The operators the language has. Anything else is refused by name, with the
-#: rewrite — ``**`` parses (the grammar is not the ceiling) and dies here, even
-#: where ``x * x`` is allowed: a power is a general exponent wearing a special
-#: case.
-ARITHMETIC_OPERATORS = frozenset({'+', '-', '*', '/'})
+#: The operators the language has. ``**`` is here **only over variable-free
+#: operands** — :func:`check_binary` refuses the rest — because there it is the
+#: arithmetic ``*`` already does, and a discount factor is derivable from a rate
+#: the model binds and a period it declares (#1175). The grammar emits nothing
+#: outside this set, so the by-name refusal below is a backstop for a hand-built
+#: AST rather than a path a file can reach.
+ARITHMETIC_OPERATORS = frozenset({'+', '-', '*', '/', '**'})
 
 
 def carries_variable(node: ExpressionNode) -> bool:
@@ -158,8 +160,8 @@ def check_binary(node: BinaryOperatorNode, context: str | None = None, *, ceilin
     Raises:
         LanguageError: A product of two variable-carrying factors where the
             position allows only degree 1 or where both factors are sums of
-            terms, a divisor carrying a variable or adding, or an operator the
-            language does not have.
+            terms, a power over anything carrying a variable, a divisor carrying
+            a variable or adding, or an operator the language does not have.
     """
     where = f'{context}: ' if context else ''
     if node.op not in ARITHMETIC_OPERATORS:
@@ -170,6 +172,15 @@ def check_binary(node: BinaryOperatorNode, context: str | None = None, *, ceilin
             f'exponent is data has no degree until the data arrives '
             f'(see docs/about/ceiling.md).'
         )
+    if node.op == '**':
+        if carries_variable(node):
+            raise LanguageError(_a_variable_under_a_power_message(where))
+        if _adds(node.left) or _adds(node.right):
+            raise LanguageError(
+                f'{where}a base and an exponent must each be a single Constant/Parameter factor, '
+                f'not a sum — addition does not distribute over `**`, so `(1 + rate) ** period` is '
+                f'refused where `growth ** period` is not. Bind the factor itself.'
+            )
     if node.op == '/' and carries_variable(node.right):
         raise LanguageError(
             f'{where}the divisor contains variables, which is not affine. '
@@ -221,6 +232,23 @@ def _above_the_ceiling_message(where: str, degree: int) -> str:
         f'cubic one.\n'
         f'Multiply by a parameter instead, or give the inner product a name — a variable '
         f'constrained to equal it is degree 1 wherever it is used.'
+    )
+
+
+def _a_variable_under_a_power_message(where: str) -> str:
+    """Why ``**`` is refused once a variable is anywhere under it.
+
+    Two different reasons, and the message carries both because which one
+    applies depends on where the variable is. A variable *base* is a degree
+    question; a variable *exponent* is worse than that — it makes degree itself
+    a property of the numbers, so no data-free check could answer it (rule 2).
+    """
+    return (
+        f'{where}`**` is not in the language over variables: it takes a base and an exponent that '
+        f'carry none.\n'
+        f'Write the product out — `x * x` for a square — or precompute the factor as a parameter. '
+        f'A variable base above degree 2 has no rewrite at all, and one whose exponent is data has '
+        f'no degree until the data arrives — see docs/about/ceiling.md.'
     )
 
 
