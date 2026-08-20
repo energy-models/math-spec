@@ -318,4 +318,4 @@ $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of t
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
 <!-- operator-math:end -->
 
-Regenerate with `uv run python -m tools.spec_math`.
+Regenerate with `uv run python -m tools.language.spec_math`.
