@@ -187,11 +187,12 @@ class _Context:
                 continue
             base = self.walk.format.parenthesise(text) if translated else text
             amount = self.walk.symbols.name[step.by] if isinstance(step.by, str) else str(abs(step.by))
-            operator = self.walk.translation(step)
-            if step.within:
-                group = self.walk.format.apply(self.walk.format.upright(step.within), self.walk.symbols.index[dim])
-                operator = self.walk.format.subscript(operator, [group])
-            text = f'{base} {operator} {amount}'
+            group = (
+                self.walk.format.apply(self.walk.format.upright(step.within), self.walk.symbols.index[dim])
+                if step.within
+                else ''
+            )
+            text = f'{base} {self.walk.translation(step, group)} {amount}'
             translated = True
         return text
 
@@ -216,13 +217,19 @@ class Walk:
     def op(self, name: str) -> str:
         return self.format.operators[name]
 
-    def translation(self, step: _Step) -> str:
-        """The operator for one translation, carrying its fill where it has one."""
+    def translation(self, step: _Step, group: str = '') -> str:
+        """The operator for one translation, carrying its fill and its group.
+
+        Both ride the operator, so a call with both writes *one* subscript
+        group: two subscripts on one symbol is a TeX error rather than a
+        rendering, and the equation carrying it stopped compiling (#1165).
+        """
         backward, forward = _TRANSLATIONS[step.policy]
         # a named offset is always backward: `by=-p` is refused, so the sign is
         # in the data and the operator cannot read it off the call
         operator = self.op(backward if isinstance(step.by, str) or step.by > 0 else forward)
-        return self.format.subscript(operator, [step.fill]) if step.fill else operator
+        indices = [index for index in (step.fill, group) if index]
+        return self.format.subscript(operator, indices) if indices else operator
 
     def context(self) -> _Context:
         return _Context(self)

@@ -230,6 +230,36 @@ def test_a_numeric_edge_is_a_third_translation_and_shows_its_fill(fmt: Format):
 
 
 @EVERY_FORMAT
+def test_a_fill_and_a_group_share_the_operators_one_subscript(fmt: Format):
+    """Both policies subscript the operator, so a call carrying both writes one
+    subscript group rather than two.
+
+    Not a matter of taste: `\\boxminus_{0}_{season_of(t)}` is a *Double
+    subscript* error, so the page stopped compiling at the equation — and the
+    two policies are independent, so nothing else in the model has to be
+    wrong for a model to reach it.
+    """
+    model = {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
+        'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
+        'variables': {'p': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
+        'constraints': {
+            'held': {
+                'foreach': ['snapshot'],
+                'expression': 'p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)',
+            }
+        },
+        'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
+    }
+    text = typeset(model, fmt, legend=False)
+    opened = fmt.subscript(fmt.operators['edge_minus'], ['0', 'GROUP']).split('GROUP')[0]
+    assert opened in text, 'the fill and the group do not share the one subscript the operator has'
+    assert fmt.subscript(fmt.operators['edge_minus'], ['0']) not in text, (
+        'the fill closed its own subscript and the group opened a second one'
+    )
+
+
+@EVERY_FORMAT
 def test_a_translation_under_a_pullback_survives_it(fmt: Format):
     """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.
 

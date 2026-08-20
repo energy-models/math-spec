@@ -233,6 +233,18 @@ in_season:
 
 $$p_{t,g} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
+#### `held_in_season`
+
+the same group, with a fill: each season's opening row is kept and given a zero
+
+```yaml
+held_in_season:
+  foreach: [snapshot, generator]
+  expression: p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)
+```
+
+$$p_{t,g} \le p_{t \boxminus_{0,\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 #### `window`
 
 a trailing window of fixed width

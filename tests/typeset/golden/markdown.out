@@ -90,6 +90,10 @@ $$p_{t \boxminus_{0} \mathit{lead},g} \le p^{\mathrm{max}}_{g} \qquad \forall\th
 
 $$p_{t,g} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
+**`held_in_season`**
+
+$$p_{t,g} \le p_{t \boxminus_{0,\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 **`window`**
 
 $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < 3} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$

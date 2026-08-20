@@ -109,6 +109,9 @@ constraints:
   in_season:    # a translation partitioned by a lookup: the group rides on the operator
     foreach: [snapshot, generator]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
+  held_in_season:  # the same group, with a fill: each season's opening row is kept and given a zero
+    foreach: [snapshot, generator]
+    expression: p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)
   window:       # a trailing window of fixed width
     foreach: [snapshot, generator]
     expression: sum_back(on, over=snapshot, within=3) <= units
