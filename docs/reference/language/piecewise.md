@@ -49,6 +49,14 @@ values parameter short of a row does not build a shorter curve: the
 coefficient, which is a breakpoint at the origin the file never declared. Such a
 table is refused when data binds.
 
+**The breakpoint order is `over`'s index order**, the one every dimension has:
+the order its labels are first written in, which `shift` walks and
+`index(bp, 0)` names. So the `bp` index is the curve's x-axis, and a values
+parameter is a lookup against it — a table is a function of its coordinates and
+the order its rows arrive in means nothing, on either lane. "Strictly
+increasing breakpoints" below is increasing *in that order*: write the index
+backwards and the curve really does run backwards, which is refused.
+
 **A curve with fewer breakpoints than the dimension holds says how far it
 runs**, with `points:`. Name one of the block's own values parameters and the
 curve is as long as its rows:
