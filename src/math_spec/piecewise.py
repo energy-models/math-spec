@@ -68,6 +68,21 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
+def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
+    """The parameter a block masks its weights with, or ``None`` for a whole curve.
+
+    ``points:`` may name the mask itself, or one of the block's own values
+    parameters — "the curve runs as far as this does". The second is a mask
+    nobody wrote, derived from that parameter's rows when data binds
+    (:func:`lpspec.sources.derive_curve_masks`), so this is what says where it
+    lands. Both the expansion and the data guards ask here rather than reading
+    ``points:`` twice and disagreeing.
+    """
+    if pw.points is None:
+        return None
+    return f'{block}_points' if pw.points in {link.values for link in pw.links} else pw.points
+
+
 def expand_piecewise(schema: Model) -> Model:
     """Return *schema* with every ``piecewise:`` block expanded away.
 
@@ -102,14 +117,21 @@ def expand_piecewise(schema: Model) -> Model:
     raw.setdefault('constraints', {})
     for name, pw in schema.piecewise.items():
         frame = _validate_block(schema, name, pw)
+        mask, nominated = mask_of(name, pw), pw.points
+        if mask is not None and nominated is not None and mask != nominated:
+            raw.setdefault('parameters', {})[mask] = {
+                'dims': list(schema.parameters[nominated].dims),
+                'dtype': 'bool',
+                'description': f"where '{nominated}' has a row, and so where the curve runs",
+            }
         if pw.method == 'lp':
-            _expand_lp(raw, name, pw, frame, schema.parameters[pw.points].dims if pw.points else ())
+            _expand_lp(raw, name, pw, frame, mask, schema.parameters[pw.points].dims if pw.points else ())
             continue
         lam, seg = f'{name}_lam', f'{name}_seg'
 
         raw['variables'][lam] = {
             'foreach': [*frame, pw.over],
-            **({'where': pw.points} if pw.points else {}),
+            **({'where': mask} if mask else {}),
             'bounds': {'lower': 0.0, 'upper': 1.0},
             'description': 'convex-combination weight on a breakpoint',
         }
@@ -128,7 +150,7 @@ def expand_piecewise(schema: Model) -> Model:
         elif pw.method == 'adjacency':
             raw['variables'][seg] = {
                 'foreach': [*frame, pw.over],
-                **({'where': pw.points} if pw.points else {}),
+                **({'where': mask} if mask else {}),
                 'domain': 'binary',
                 'bounds': {},
             }
@@ -148,7 +170,12 @@ def expand_piecewise(schema: Model) -> Model:
 
 
 def _expand_lp(
-    raw: dict[str, Any], name: str, pw: PiecewiseBlock, frame: tuple[str, ...], schema_dims: Sequence[str]
+    raw: dict[str, Any],
+    name: str,
+    pw: PiecewiseBlock,
+    frame: tuple[str, ...],
+    mask: str | None,
+    schema_dims: Sequence[str],
 ) -> None:
     """Emit the segment-line form: a row per segment, and the two domain rows.
 
@@ -157,7 +184,10 @@ def _expand_lp(
     The chord is written at the *later* of the two breakpoints it joins, so the
     first has no predecessor and its row must not exist. The ``where:`` and
     ``edge=0`` travel together — without the exclusion the vacated position
-    reads as a zero, which is a spurious line through the origin.
+    reads as a zero, which is a spurious line through the origin. Under a mask
+    the first is the *curve's*, not the axis', which is what the derived
+    ``_starts`` flag names: a curve may sit anywhere along the breakpoints as
+    long as it sits on consecutive ones.
 
     The row is multiplied through by the run rather than written as
     ``rise / run``: the sense survives only because the run is positive, which
@@ -178,10 +208,10 @@ def _expand_lp(
     d = pw.over
     run = f'({x_link.values} - shift({x_link.values}, over={d}, offset=1, edge=0))'
     rise = f'({y_link.values} - shift({y_link.values}, over={d}, offset=1, edge=0))'
-    interior = f'{d} != index({d}, 0)'
+    interior = f'{mask} AND NOT {name}_starts' if mask else f'{d} != index({d}, 0)'
     raw['constraints'][f'{name}_chord'] = {
         'foreach': [*frame, d],
-        'where': f'{pw.points} AND {interior}' if pw.points else interior,
+        'where': interior,
         'expression': (
             f'({y_link.expression}) * {run} {y_link.sign} '
             f'{rise} * (({x_link.expression}) - {x_link.values}) + {y_link.values} * {run}'
@@ -189,8 +219,8 @@ def _expand_lp(
     }
     edges = (('domain_lo', '>=', f'{name}_starts'), ('domain_hi', '<=', f'{name}_ends'))
     axis = (('domain_lo', '>=', f'{d} == index({d}, 0)'), ('domain_hi', '<=', f'{d} == index({d}, -1)'))
-    for suffix, sense, at in edges if pw.points else axis:
-        if pw.points:
+    for suffix, sense, at in edges if mask else axis:
+        if mask:
             raw.setdefault('parameters', {})[at] = {
                 'dims': list(schema_dims),
                 'dtype': 'bool',
@@ -242,7 +272,12 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
             if d not in frame:
                 frame.append(d)
 
-    if pw.points is not None:
+    if pw.points is not None and mask_of(name, pw) != pw.points:
+        if f'{name}_points' in schema.parameters:
+            raise PiecewiseExpansionError(
+                f"{ctx}: emitted parameter '{name}_points' collides with a declared parameter"
+            )
+    elif pw.points is not None:
         if pw.points not in schema.parameters:
             raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
         mask = schema.parameters[pw.points].dims

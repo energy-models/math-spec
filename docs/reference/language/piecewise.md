@@ -34,8 +34,8 @@ fuel_cap:
 | *sign* | `<=` or `>=`, at most one per block and only with exactly two links: bounds the link instead of pinning it |
 
 `points:` says how far each curve runs where they are not all the same length —
-below. `active:` is a different question: whether a curve *applies*, gated by a
-variable, rather than how long it is.
+below. `active:` is a different question again: whether a curve *applies*, gated
+by a variable, rather than how long it is.
 
 A block **expands before building** into plain variables and constraints, for
 three of the four methods via a λ convex combination — weights in `[0,1]` with
@@ -49,27 +49,31 @@ values parameter short of a row does not build a shorter curve: the
 coefficient, which is a breakpoint at the origin the file never declared. Such a
 table is refused when data binds.
 
-**A curve with fewer breakpoints than the dimension holds masks its tail**, with
-`points:` — a boolean parameter over the curve's own coordinates and `over`,
-true up to each curve's last breakpoint:
+**A curve with fewer breakpoints than the dimension holds says how far it
+runs**, with `points:`. Name one of the block's own values parameters and the
+curve is as long as its rows:
 
 <!-- doctest: wrap=piecewise -->
 ```yaml
 cost_curve:
   over: bp
-  points: bp_present  # true where this curve still runs
+  points: bp_x  # this curve runs as far as its own breakpoints do
   links:
     - [p, bp_x]
     - [op_cost, bp_y]
 ```
 
-The masked breakpoint declares no weight and no segment binary, and its values
-are not asked for. The mask is ordinary data — a model that keeps a
-length per curve crosses it with the breakpoints and compares, wherever the rest
-of its tables are prepared. **The mask is a prefix**: a curve runs from the first
-breakpoint to its own last one, and a gap — or a curve marked nowhere — is
-refused when data binds, because the chord row joins a breakpoint to the one
-before it and the domain row is written where the mask stops.
+A length is a fact of the curve, so this keeps it there — and the other links
+are still read against the one named, so a row missing from `bp_y` is refused.
+Name a **boolean parameter** instead where the length is its own data, which is
+a different question: not *how long the curve is* but *how much of it to use*.
+
+The breakpoint left out declares no weight and no segment binary, and its values
+are not asked for. **The marked breakpoints must be consecutive**, though they
+need not start at the head of the axis: a curve numbered from 1 is the same
+curve one label along. A gap, or a curve with no points at all, is refused when
+data binds — the chord row joins a breakpoint to the one before it, and the two
+domain rows sit on the curve's own first and last.
 
 Where the *arity* is data, and one component ties three expressions where
 another ties two, the λ formulation is written out directly rather than through
