@@ -68,7 +68,7 @@ The same `f` is summed twice through two different lookups — once as inflow,
 once as outflow. No adjacency matrix, and no join written by hand.
 
 **At most one of `over=` and `by=`**: a lookup carries its own dimensions, so
-`by=` leaves `over=` nothing to add, and neither is the bare form above. The
+`by=` leaves `over=` nothing to add. Giving neither is the bare form above. The
 lookup's values are the group labels, and they are checked against the target
 dimension when data binds. Groups with
 no members contribute nothing, and a member whose lookup value is null belongs

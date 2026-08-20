@@ -33,7 +33,7 @@ coordinate product. What a `where:` may *say* is the
 
 Four constructs, and nothing else. Absence is a property of **variables**: it
 is a variable that is missing, and a term carrying one takes its row with it.
-The second row is the exception that proves it — a constraint's own `where:`
+The second row of the table is the one exception — a constraint's own `where:`
 deletes a row directly, with nothing absent in it.
 
 **A sparse parameter table creates none.** Missing rows are compressed
@@ -67,7 +67,7 @@ c:
 ```
 
 Three answers — supply the rows, mask them out, drop the declaration — and the
-language picks between them for you in none of the cases.
+language picks none of them for you.
 
 **The asymmetry is the one that bites.** `x - rel_max * size <= 0` **loses the
 row** where the *variable* `size` is masked, and **keeps** it as `x <= 0` where

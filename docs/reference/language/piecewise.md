@@ -70,7 +70,7 @@ gets. Say the opposite with `absence: zero` on the gate, and the single row
 reads `== 0` there: no curve rather than an unconditional one. Both readings
 are the file's; neither is inferred.
 
-The row cannot simply be left to drop, and that is the reason for the pair: it
+The row cannot be left to drop, and that is the reason for the pair: it
 is `sum(lam, over=bp) == (activity)`, and
 [absence](absence.md#how-absence-travels) does not spread out of a reduction,
 so an absent right-hand side would take the whole row with it and leave the
@@ -116,8 +116,9 @@ another ties two, the λ formulation is
 rather than through this block
 ([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
 
-**`method` is the one thing that varies**, and for those three it varies in
-exactly one place: how the weights are restricted, once they exist.
+**`method` is the one thing that varies**, and for the three that share the λ
+expansion it varies in exactly one place: how the weights are restricted, once
+they exist.
 
 | `method` | What it adds | |
 |---|---|---|
@@ -132,7 +133,7 @@ the solver and not of the model.
 
 `convex` is a **different model** — exact only for a curve of matching
 curvature under optimisation pressure, which is checked against the breakpoint
-*values* when data binds. It takes exactly two links and no `active`.
+*values* when data binds. It takes exactly two links and no `activity:`.
 
 ### `lp`, the one that declares nothing
 

@@ -58,7 +58,8 @@ against it once data is bound — the check that makes `sum(by=)` safe.
 **A partial lookup is legal**: a label the map leaves out belongs to no group —
 a generator on no bus, a line with one open end — and `sum(by=)` places its
 terms nowhere. A value naming no label of the target is a typo, and an error.
-How "left out" is spelled is the map's transport, and the three differ
+Either transport spells "left out" the same way, by omission — an entry the
+declared map does not carry, a label with no row in the supplied one
 ([data binding](data.md#where-coordinates-come-from)).
 
 **Several at once**: `sum(x, by=[gen_bus, gen_tech])` groups through both maps

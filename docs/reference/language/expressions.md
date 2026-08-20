@@ -75,17 +75,15 @@ is the construct where the difference starts to matter:
 | the `linopy` lane | builds it | **cannot build it** |
 
 `lps.check(model, sink='highs')` answers all of that before you build, and
-`sink='linopy'` answers for the lane; a `piecewise:` block with
-`method: convex` remains the way to spend a curve and keep the LP, its duals
-and its warm start. Two things it cannot answer, because both
+`sink='linopy'` answers for the lane. Two things it cannot answer, because both
 are properties of your *data* rather than of the model: whether a quadratic
 form is **convex**, and therefore whether HiGHS will take it at all — and
 whether a quadratic row can be priced, since duals for one need `QCPDual` and
 that needs convexity. A quadratic constraint comes back without duals unless
 you ask.
 
-`piecewise: {convex: true}` remains the way to spend a curve and keep the LP,
-its duals and its warm start.
+A `piecewise:` block with `method: convex` remains the way to spend a curve and
+keep the LP, its duals and its warm start.
 
 ## Name resolution
 
