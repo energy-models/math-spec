@@ -20,7 +20,7 @@ from typing import Any, Literal, cast
 
 import pyparsing as pp
 
-from lpspec.errors import SchemaError
+from lpspec.language.errors import SchemaError
 
 ComparisonOperator = Literal['<=', '>=', '==']
 

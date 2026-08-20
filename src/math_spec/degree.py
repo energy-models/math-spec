@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from lpspec.errors import LanguageError
+from lpspec.language.errors import LanguageError
 from lpspec.language.expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,

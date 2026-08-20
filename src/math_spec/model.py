@@ -25,7 +25,7 @@ from pydantic import (
     model_validator,
 )
 
-from lpspec.errors import did_you_mean, schema_error
+from lpspec.language.errors import did_you_mean, schema_error
 from lpspec.language.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:

@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import pyparsing as pp
 
-from lpspec.errors import SchemaError
+from lpspec.language.errors import SchemaError
 
 if TYPE_CHECKING:
     import datetime

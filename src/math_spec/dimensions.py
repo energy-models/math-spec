@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, assert_never
 
-from lpspec.errors import DimensionError
+from lpspec.language.errors import DimensionError
 from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,

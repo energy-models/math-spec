@@ -21,7 +21,7 @@ import datetime
 import re
 from typing import TYPE_CHECKING, assert_never
 
-from lpspec.errors import LanguageError
+from lpspec.language.errors import LanguageError
 from lpspec.language.expansion import parse_and_expand
 from lpspec.language.expression_parser import (
     ArithmeticNode,

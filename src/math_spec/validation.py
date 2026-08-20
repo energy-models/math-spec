@@ -23,9 +23,9 @@ from typing import TYPE_CHECKING, Any, assert_never
 
 from pydantic import ValidationError
 
-from lpspec.errors import SchemaError, schema_error
 from lpspec.language._yaml import read_yaml
 from lpspec.language.dimensions import check_schema
+from lpspec.language.errors import SchemaError, schema_error
 from lpspec.language.expansion import expand, parse_and_expand, parse_template
 from lpspec.language.expression_parser import (
     ArithmeticNode,

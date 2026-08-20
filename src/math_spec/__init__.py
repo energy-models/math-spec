@@ -27,9 +27,13 @@ importing anything it should not. And **the error text for a language rule
 belongs to the language**: ``call_shape_error`` and friends are exported so
 that two consumers cannot word the same refusal differently.
 
-``errors.py`` stays outside deliberately: it is the dependency-free leaf both
-this package and the engine may import (``ENGINE_MAY_IMPORT``), and moving it
-in would put the language's path on the engine's import list.
+**This package imports nothing outside itself**, and ``LANGUAGE_MAY_IMPORT``
+is the empty set that says so. The errors it raises are its own
+(``errors.py`` beside this file, re-exported from ``lpspec.errors`` so a caller
+keeps saying ``lps.LanguageError``); the root of the hierarchy lives here too,
+because a base class cannot sit downstream of the classes that extend it. What
+that buys is not neatness: the directory can be lifted into a package of its
+own without an edit, and a test says so rather than a plan.
 
 ``tests/test_architecture.py`` reads membership off the path, so a new
 front-end module cannot land outside the fence by being spelled differently,
@@ -40,6 +44,15 @@ from lpspec.language._yaml import read_yaml
 from lpspec.language.boundedness import unbounded_notes
 from lpspec.language.degree import carries_variable, check_binary
 from lpspec.language.dimensions import dims_of
+from lpspec.language.errors import (
+    DimensionError,
+    LanguageError,
+    LpspecError,
+    PiecewiseExpansionError,
+    SchemaError,
+    did_you_mean,
+    schema_error,
+)
 from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
@@ -95,16 +108,19 @@ __all__ = [
     'BooleanLiteralNode',
     'ComparisonNode',
     'DimensionComparisonNode',
+    'DimensionError',
     'DimensionNode',
     'DimensionPositionNode',
     'EdgeNode',
     'ExpressionNode',
     'FunctionCallNode',
     'KeywordNode',
+    'LanguageError',
     'LookupComparisonNode',
     'LookupDefinedNode',
     'LookupNode',
     'LookupPairComparisonNode',
+    'LpspecError',
     'Model',
     'NameListNode',
     'NameNode',
@@ -115,6 +131,8 @@ __all__ = [
     'ParameterComparisonNode',
     'ParameterDefinedNode',
     'ParameterNode',
+    'PiecewiseExpansionError',
+    'SchemaError',
     'SosBlock',
     'UnaryOperatorNode',
     'UnresolvedComparisonNode',
@@ -127,6 +145,7 @@ __all__ = [
     'carries_variable',
     'check_binary',
     'children',
+    'did_you_mean',
     'dims_of',
     'edge_error',
     'expand_piecewise',
@@ -134,6 +153,7 @@ __all__ = [
     'load_model',
     'mask_of',
     'read_yaml',
+    'schema_error',
     'unbounded_notes',
     'unknown_operator_message',
     'where_of',

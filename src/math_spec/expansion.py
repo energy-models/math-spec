@@ -41,7 +41,7 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING, assert_never, overload
 
-from lpspec.errors import SchemaError
+from lpspec.language.errors import SchemaError
 from lpspec.language.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,

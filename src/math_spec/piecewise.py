@@ -57,9 +57,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from lpspec.errors import LanguageError, PiecewiseExpansionError
 from lpspec.language.degree import check_expression
 from lpspec.language.dimensions import dims_of
+from lpspec.language.errors import LanguageError, PiecewiseExpansionError
 from lpspec.language.expression_parser import ComparisonNode, parse_expression
 from lpspec.language.model import Model, PiecewiseBlock
 from lpspec.language.resolution import Namespace, resolve_expression
