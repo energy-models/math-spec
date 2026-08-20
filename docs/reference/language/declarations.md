@@ -123,8 +123,11 @@ constraints:
 
 The expression's dims must **equal** `foreach`
 ([dim algebra](expressions.md#dim-algebra)). Either side may carry the
-variables; a row that ends up with none on either side is not a constraint and
-is not built ([absence](absence.md#a-row-with-no-variable-terms-is-not-built)).
+variables, and one of them must: a comparison of numbers and parameters is
+settled before the solve, so it is refused when the file is read. A *row* that
+ends up with none, because the data left its terms nowhere to sit, is not a
+constraint and is not built
+([absence](absence.md#a-row-with-no-variable-terms-is-not-built)).
 
 **`foreach: []` is one scalar row** — a single system-wide budget, where the
 expression reduces every dim away. Nothing special: `sum(x, over=f) <= 120` has

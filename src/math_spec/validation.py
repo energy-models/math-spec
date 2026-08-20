@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, assert_never
 from pydantic import ValidationError
 
 from lpspec.language._yaml import read_yaml
+from lpspec.language.degree import carries_variable
 from lpspec.language.dimensions import check_schema
 from lpspec.language.errors import SchemaError, schema_error
 from lpspec.language.expansion import expand, parse_and_expand, parse_template
@@ -271,6 +272,11 @@ def _check_expression(
     the shape verdict and the resolve are one path. Nothing resolves once the
     shape is wrong: an expression of the wrong kind would report its names
     against the wrong question.
+
+    A comparison is held to one more rule, and only after it resolves, because
+    which names are variables is what resolution decides: it has to carry one.
+    Only a constraint reaches that branch — the shape verdict above returned for
+    everything else that could hold a comparison.
     """
     ast = _parse_expand(expression, schema, context, errors)
     if ast is None:
@@ -283,7 +289,27 @@ def _check_expression(
     if not comparison and isinstance(ast, ComparisonNode):
         errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {expression!r}')
         return
-    resolve_expression(ast, ns, context, errors)
+    resolved = resolve_expression(ast, ns, context, errors)
+    if isinstance(resolved, ComparisonNode) and not carries_variable(resolved):
+        errors.append(f'{context}: {_no_decision_message(expression)}')
+
+
+def _no_decision_message(expression: str) -> str:
+    """Why a comparison carrying no variable is refused rather than dropped.
+
+    Both lanes reach the shape and neither builds a row for it — the relational
+    one quietly, linopy with an error of its own — so the file is told at load,
+    where the whole question is decidable and the sentence can name the file's
+    own text (#1171). Not the same as a row the *data* left with no terms: that
+    one the file wrote correctly, and it is answered where the data is.
+    """
+    return (
+        f'neither side of the comparison carries a variable, so the row decides nothing.\n'
+        f'Got: {expression!r}\n'
+        f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
+        f'is settled before the solve — no lane builds a row for it. Name the variable it should '
+        f'bound, or drop the declaration and check the fact where the data is prepared.'
+    )
 
 
 def _check_where(

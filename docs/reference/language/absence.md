@@ -142,6 +142,12 @@ members**, which is the one a topology model meets first — a bus no generator
 sits on gets `0 == load`, not a row a solver can act on. The shape decides, not
 the provenance.
 
+All three are the **data** leaving a row with nothing to decide. An expression
+that names no variable at all is a different matter and is refused when the file
+is read, where the whole question is answerable and the message can quote the
+line: `p_max <= 1` is true or false before any solve, and no data could make it
+otherwise.
+
 A row that a **masked variable** took with it never reaches that shape and is a
 different event: absence travels out of the term and deletes the row while its
 other terms are still live. `x + y >= 5` is no constraint where `y` is masked —

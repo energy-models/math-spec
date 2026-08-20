@@ -50,6 +50,11 @@ class TestValidateExpressions:
                 id='an-objective-with-a-comparison',
             ),
             pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p_max <= 1'}}},
+                ('decides nothing', "Constraint 'cap'", "'p_max <= 1'"),
+                id='a-comparison-with-no-variable-in-it',
+            ),
+            pytest.param(
                 {'objective': {'expression': 'frobnicate(p, over=g)'}},
                 ("Unknown operator 'frobnicate'",),
                 id='an-unknown-operator',
