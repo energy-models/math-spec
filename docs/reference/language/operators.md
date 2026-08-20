@@ -15,7 +15,7 @@ Dimension arguments are name-checked at load time, so
 | `shift(array, over=dim, offset=n)` | the value at *t−n* along `dim`; the vacated edge is **absent** |
 | `shift(array, over=dim, offset=n, edge='wrap')` | the value at *t−n*, cyclic: nothing is vacated |
 | `shift(array, over=dim, offset=n, edge=v)` | the value at *t−n*, with the number `v` where the edge was vacated |
-| `shift(array, over=dim, offset=p, edge=…)` | `p` an integer parameter: each entity is reached by **its own** offset |
+| `shift(array, over=dim, offset=p, edge=…)` | `p` an integer parameter: each entity is reached by **its own** offset — declared over what a `by=` groups into, one lag per group |
 | `shift(array, over=dim, offset=n, by=lookup)` | the translation walks **inside each group** the lookup makes: neighbours, edges and a wrap are that group's |
 | `sum_back(array, over=dim, within=n)` | the sum of the last `n` positions along `dim`, ending at *t* |
 | `sum_back(array, over=dim, within=p)` | `p` an integer parameter: each entity gets **its own** window length |
@@ -258,7 +258,7 @@ constraints:
 objective: {sense: minimize, expression: sum(order)}
 ```
 
-Three rules keep that a translation rather than something else, each a load
+Four rules keep that a translation rather than something else, each a load
 error naming its rewrite:
 
 - **the parameter is integral** — an offset lands on a coordinate, so it counts
@@ -267,6 +267,10 @@ error naming its rewrite:
   arrive from;
 - **it does not span the dimension being translated** — an offset that varied
   along the axis it moves is a permutation, not a lag;
+- **it varies only over dims the shift can read it at** — the shifted
+  expression's own, or the one a `by=` lookup groups into (below). An offset is
+  read at the coordinate it moves, and a dimension that coordinate does not
+  have is no coordinate at all;
 - **it says what the vacated positions contribute** — `edge='wrap'` or a
   number. The bare form's *absence* is carried by a frame keyed by the
   translated dimension alone, and a per-entity offset vacates a different slot
@@ -276,6 +280,42 @@ A named offset also carries its **sign in the values**: `lag=-lead` is refused,
 so one row that points backwards says so where the data is read.
 
 This is the one construct whose cost is not obviously linear in model size.
+
+### A lag that differs per group
+
+The third rule's second half is a formulation of its own: `offset=` may name a
+parameter declared over the dimension a
+[`by=`](#a-translation-that-stops-at-each-groups-edge) lookup groups into, and
+then the lag is **the group's**. Every snapshot of an investment period moves by
+that period's own lead time, each period's opening rows vacate by its own
+distance, and no coordinate reaches out of its group:
+
+```yaml
+dimensions:
+  snapshot: {dtype: int}
+  period: {dtype: int}
+lookups:
+  period_of: {over: snapshot, into: period}
+parameters:
+  lead: {dims: [period], dtype: int}
+  demand: {dims: [snapshot]}
+variables:
+  order:
+    foreach: [snapshot]
+    bounds: {lower: 0}
+constraints:
+  arrives_after_its_periods_lead:
+    foreach: [snapshot]
+    expression: shift(order, over=snapshot, offset=lead, by=period_of, edge=0) >= demand
+objective: {sense: minimize, expression: sum(order)}
+```
+
+This is the one thing a `(period, timestep)` grid can say that a flat `snapshot`
+axis plus lookups could not: there the offset is declared over `period` and is
+legal because `period` is not the axis being walked, and here it is legal
+because the partition puts each snapshot's period within reach. The two keys
+compose — `lead: {dims: [technology, period]}` is one lag per technology per
+period.
 
 ## Composing
 
