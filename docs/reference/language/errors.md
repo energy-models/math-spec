@@ -84,7 +84,9 @@ feature list: each is a boundary the design keeps on purpose, and
 
 | Not here | Instead |
 |---|---|
-| variable × variable, or `**` | nothing — degree 1 is the ceiling ([expressions](expressions.md#degree-1-always)) |
+| variable × variable **outside the objective** | the objective takes it; elsewhere, a `piecewise:` curve or a parameter coefficient ([expressions](expressions.md#degree-1-except-in-the-objective)) |
+| `sum(x, over=d) * sum(y, over=d)` | multiply before reducing, or name the reduction with a variable — a product of two sums is a cross join |
+| `**` | `x * x` in an objective; nothing elsewhere ([expressions](expressions.md#degree-1-except-in-the-objective)) |
 | arithmetic in `bounds:` | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31)) |
 | time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter |
 | solver breadth | three solvers — HiGHS, which ships, plus Gurobi and Xpress via their own extras — chosen at the call and never in the file; LP and MPS files for everything else ([#106](https://github.com/fluxopt/lpspec/issues/106)) |

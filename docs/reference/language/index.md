@@ -51,8 +51,8 @@ in a different position, and each links to the page that spells it out.
 | 5 | **Dim sets compose by union.** A constraint must *equal* its `foreach`; an objective must carry **none**; a `where` or a bound must not *exceed* its frame. | [Dim algebra](expressions.md#dim-algebra) |
 | 6 | **Four constructs create absence**, and nothing else does. It is a state of a *variable*; a constraint's own `where:` deletes its row directly. | [Absence](absence.md) |
 | 7 | Through arithmetic absence **spreads, taking the row with it**. Out of a reduction it does not — so `sum(x + y)` and `sum(x) + sum(y)` are different questions. | [Absence](absence.md#how-absence-travels) |
-| 8 | **A missing value reads as the identity of its position** — zero as a coefficient, false in a `where`. Where the position has no identity it is refused, rather than guessed: a divisor, a bound. | [Absence](absence.md), [Operators](operators.md#shift) |
-| 9 | **Degree 1, always**: `*` needs a variable-free factor, `/` a variable-free divisor, `**` is refused. Bounds are narrower still — a name or a number, never arithmetic. | [Expressions](expressions.md) |
+| 8 | **Identity of the position.** A missing value reads as whatever makes it contribute nothing — zero as a coefficient, false in a `where`. Where no such reading exists it is refused: a divisor, a bound. | [Absence](absence.md), [Operators](operators.md#shift) |
+| 9 | **Degree 1, except in the objective**, which takes 2: elsewhere `*` needs a variable-free factor. `/` always needs a variable-free divisor, `**` is always refused, and bounds are narrower still — a name or a number, never arithmetic. | [Expressions](expressions.md) |
 | 10 | **The operator set is closed.** Compositions go in `macros:`. | [Operators](operators.md) |
 
 ## The pages

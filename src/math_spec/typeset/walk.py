@@ -159,6 +159,12 @@ class _Context:
     #: but through a coordinate rather than an offset, so it renders as an
     #: application, ``period(t)``, and not as arithmetic on the index.
     pullbacks: dict[str, str] = field(default_factory=dict)
+    #: The degree this position may hold — 2 under the objective, 1 elsewhere,
+    #: which is the language's own split (:mod:`lpspec.language.degree`). The
+    #: typesetter carries it so that it renders what the language accepts and
+    #: refuses the rest in the language's own sentence, rather than typesetting
+    #: math no lane could build.
+    ceiling: int = 1
 
     def translated(self, dim: str, step: _Step) -> _Context:
         steps = self.offsets.get(dim, ())
@@ -167,10 +173,10 @@ class _Context:
             if steps and steps[-1].absorbs(step)
             else (*steps, step)
         )
-        return _Context(self.walk, {**self.offsets, dim: merged}, self.pullbacks)
+        return _Context(self.walk, {**self.offsets, dim: merged}, self.pullbacks, self.ceiling)
 
     def pulled_back(self, dim: str, rendered: str) -> _Context:
-        return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered})
+        return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered}, self.ceiling)
 
     def subscript(self, dim: str) -> str:
         """The index for *dim* here: its pullback if it has one, then every translation.
@@ -231,8 +237,8 @@ class Walk:
         indices = [index for index in (step.fill, group) if index]
         return self.format.subscript(operator, indices) if indices else operator
 
-    def context(self) -> _Context:
-        return _Context(self)
+    def context(self, ceiling: int = 1) -> _Context:
+        return _Context(self, ceiling=ceiling)
 
     def number(self, value: float) -> str:
         if value == float('inf'):
@@ -289,10 +295,12 @@ class Walk:
 
         ``check_binary`` first, so the typesetter renders exactly what
         the language accepts and says so in the language's own sentence: ``**``
-        and a quadratic product parse but are refused, and printing them would
-        typeset math no lane can build.
+        parses and is refused everywhere, and a quadratic product is refused
+        wherever the objective is not — printing either would typeset math no
+        lane can build. The ceiling rides on the context because it is a
+        property of *where* the expression stands.
         """
-        check_binary(node)
+        check_binary(node, ceiling=ctx.ceiling)
         if node.op == '/':
             top = self.arithmetic(node.left, ctx)
             bottom = self.arithmetic(node.right, ctx)
@@ -526,7 +534,7 @@ class Walk:
         sense = self.op('minimize' if block.sense == 'minimize' else 'maximize')
         node = expression_of(block.expression, self.schema, self.namespace, 'the objective')
         assert not isinstance(node, ComparisonNode)
-        return [Line(label='', left=sense, right=self.arithmetic(node, self.context()))]
+        return [Line(label='', left=sense, right=self.arithmetic(node, self.context(ceiling=2)))]
 
     def constraints(self) -> list[Line]:
         lines = []

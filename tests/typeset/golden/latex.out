@@ -52,7 +52,7 @@
 
 \paragraph{Objective}
 \begin{align}
- && \max & \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}
+ && \max & \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}
 \end{align}
 
 \paragraph{Subject to}

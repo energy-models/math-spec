@@ -112,14 +112,14 @@ $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leav
 
 #### `objective`
 
-a sense, and the two summations a scalar objective spells out beside two scalar terms
+a sense, the one position that takes a product of two variables, and the summations a scalar objective spells out beside two scalar terms
 
 ```yaml
 sense: maximize
-expression: sum(p * cost) + sum(p * p_max) - reserve + -headroom
+expression: sum(p * cost) + sum(p * p * cost) + sum(p * p_max) - reserve + -headroom
 ```
 
-$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
+$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
 
 ### Constraints
 

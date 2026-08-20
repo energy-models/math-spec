@@ -42,7 +42,7 @@ $t minus.square_(v) k$ denotes translation with $v$ standing where index $t-k$ l
 
 == Objective
 #set math.equation(numbering: "(1)")
-$  & max & sum_(t in cal(T), g in cal(G)) p_(t,g) dot italic("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot p^(upright("max"))_(g) - italic("reserve") + -italic("headroom") $
+$  & max & sum_(t in cal(T), g in cal(G)) p_(t,g) dot italic("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot p_(t,g) dot italic("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot p^(upright("max"))_(g) - italic("reserve") + -italic("headroom") $
 
 == Subject to
 #set math.equation(numbering: "(1)")

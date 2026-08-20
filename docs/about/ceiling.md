@@ -45,12 +45,25 @@ materialised dim tables and stay admissible even though they look global.
 
 **Degree is not the third rule**, and stating it as one was a mistake this page
 made for a while. Nothing about `variable × variable` is non-relational or
-non-local — a coordinate-aligned product is a pointwise self-join. Degree 1 is
-where the language *is*, not where it must stay: what actually gates quadratic is
-**what a sink can ingest**, which is the second axis below, and the sequence is
-[Track 3](https://github.com/fluxopt/lpspec/issues/472). The
-same is true of SOS, indicator and semi-continuous. Read this page as the
-*streamability* closure and nothing more.
+non-local — a coordinate-aligned product is a pointwise self-join. That
+prediction has since been cashed: **the objective takes degree 2**, and what
+decided where it could land was not the closure but **what a sink can ingest**,
+the second axis below. The same is true of SOS, indicator and semi-continuous.
+Read this page as the *streamability* closure and nothing more.
+
+Two things bound the quadratic case, and neither is streamability:
+
+- **Position.** A quadratic *objective* has sinks — LP text as a section, HiGHS
+  as a Hessian when it is convex. A quadratic *constraint* has none that ship,
+  and linopy refuses one outright, so the language would accept something one
+  lane could not build. It stays out until that changes, which is a capability
+  question and not this page's.
+- **One shape, genuinely out.** `sum(x, over=i) * sum(y, over=j)` is every term
+  of one against every term of the other — the cross join the old blanket ban
+  was really describing, and the one row of the table below that stays
+  rejected. A product whose factors are each *one* term is a join, whatever
+  dims they carry: `x[i] * y[j] * a[i, j]` is the honest general bilinear form
+  and is admissible, coupled through a declared table.
 
 **Read the verdict off the plan.** Relational and local are one question asked
 twice, and the compiler already answers it — write the candidate's query over
@@ -218,6 +231,7 @@ is not by itself a reason to add anything.
 | Arbitrary array ops (`merge`, `reindex`) | unbounded; xarray with extra steps | data prep |
 | Domain helpers (`reduce_carrier_dim`) | encodes one domain into the language | component libraries over generic primitives |
 | A tracked-metric vocabulary — `impacts:`, `effects:`, a `costs` dimension | the three fates are already reference-it-or-don't | an `impact` dim and one named expression: cap it with a constraint whose dual is the shadow price, weight it in the objective, read it with `result.expression` ([#124](https://github.com/fluxopt/lpspec/issues/124)) |
+| `**` with a **variable** base | the exponent would decide the degree, and no data is read at load — `p ** n` is affine at 1, quadratic at 2 and over the ceiling at 3, and the file says which only once the numbers arrive | `x * x` for a square; above degree 2 there is no rewrite. Over a *variable-free* base it is undecided, not refused — [#1175](https://github.com/fluxopt/lpspec/issues/1175) |
 | Normalisation (`x / sum(x)`) | a *variable divisor* is rational, not polynomial — no sink takes it at any degree | state the ratio as a constraint, or fix the denominator |
 | Conditionals, iteration, data-dependent structure **inside one plan** | destroys the closed AST | `where` masks + `foreach` dims. A *process* may loop over plans |
 | A Python API for constructing models | hard rule 5 — the model is the file you review and diff | YAML. Whether Python may *emit* declarations is [#381](https://github.com/fluxopt/lpspec/issues/381) |

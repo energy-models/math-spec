@@ -161,6 +161,6 @@ constraints:
     where: "false"
     expression: slack >= 0
 
-objective:    # a sense, and the two summations a scalar objective spells out beside two scalar terms
+objective:    # a sense, the one position that takes a product of two variables, and the summations a scalar objective spells out beside two scalar terms
   sense: maximize
-  expression: sum(p * cost) + sum(p * p_max) - reserve + -headroom
+  expression: sum(p * cost) + sum(p * p * cost) + sum(p * p_max) - reserve + -headroom
