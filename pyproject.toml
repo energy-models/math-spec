@@ -5,6 +5,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
+# The base for a clone with no reachable tag, which is every clone until
+# release-please cuts the first one — the remote carries no tags today. Without
+# it hatch-vcs starts from 0.1 and builds `0.1.devN`; with it, `0.0.1.devN`.
+# Neither is a release and neither is published, but the second does not claim
+# a minor version the project has not reached. Shallow clones keep needing it.
+fallback-version = "0.0.0"
 
 [tool.hatch.build.targets.sdist]
 only-include = ["src", "README.md", "LICENSE"]

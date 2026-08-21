@@ -34,21 +34,29 @@ consumes the output.
 ## Why the two halves fit without a bridge
 
 `release-type` is `simple`, which never touches `pyproject.toml` — release-please
-maintains `CHANGELOG.md`, the manifest, and the tag, and nothing else. `build.yml`
-already triggers on a tag push, derives the version with
-`git describe --tags --abbrev=0`, and substitutes it for the `0.0.0` literal in
-`pyproject.toml`. So the tag is the whole interface between them, and neither
-workflow needs to know the other exists.
+maintains `CHANGELOG.md`, the manifest, and the tag, and nothing else. It does
+not have to: `pyproject.toml` declares `dynamic = ["version"]` and
+`[tool.hatch.version] source = "vcs"`, so hatch-vcs reads the tag at build time.
+The tag is the whole interface between them, and neither workflow needs to know
+the other exists.
 
 (`simple` also declares a `version.txt` updater, but with `createIfMissing:
 false`. There is no `version.txt` in this repo and none will be created.)
 
 ## The alpha stream
 
-The manifest is pinned at `0.0.0` and the config is in sticky `prerelease` mode,
-so every release is `0.0.0-alpha.N` — dist version `0.0.0aN`. There is no
-semantic promise attached to any of them; the point is that an early user always
-has a number to quote in a bug report instead of a commit sha.
+The manifest is seeded at `0.0.0-alpha.0` and the config is in sticky
+`prerelease` mode, so every release is `0.0.0-alpha.N` — dist version `0.0.0aN`.
+The seed is what pins the `0.0.0`: release-please only increments the counter
+when the version it starts from already carries a prerelease. From a plain
+`0.0.0` it would bump the patch first and the stream would be `0.0.1-alpha.N`.
+
+There is no semantic promise attached to any of them; the point is that an early
+user always has a number to quote in a bug report instead of a commit sha.
+
+**Nothing is published.** `PUBLISH_TO_PYPI` is unset, so `build.yml`'s publish
+job cannot run — see the PyPI note below. The alpha stream produces tags,
+changelog entries and GitHub releases only.
 
 Two consequences worth knowing:
 
@@ -99,10 +107,14 @@ wait for them.
 
 **PyPI.** The publish job is gated on the repository variable
 `PUBLISH_TO_PYPI`. Configure a trusted publisher for `math-spec` pointing at
-`build.yml` and the `pypi` environment, then set the variable to `true`. Until
-then the rest of the pipeline still runs: release-please cuts the tag, the
-changelog and the GitHub release, and `build.yml` produces a
-wheel as a build artifact. Only the upload is skipped.
+`build.yml` and the `pypi` environment, then set the variable to `true`.
+
+Until then nothing reaches PyPI, and the gate fails closed: the variable is
+unset, so the job's `if` cannot be true. The rest of the pipeline still runs —
+release-please cuts the tag, the changelog and the GitHub release. `build.yml`
+produces the wheel as an artifact too, but only once the release-please app
+above exists; a `GITHUB_TOKEN`-pushed tag starts no workflow, so until then a
+release has no artifact attached to it.
 
 ## What CI proves, and what it does not
 
