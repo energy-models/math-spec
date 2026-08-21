@@ -207,6 +207,16 @@ if [[ "$(gh api "orgs/$ORG/memberships/$(gh api user --jq .login)" --jq .role 2>
   printf 'The secrets go on the %s organisation, which needs owner rights there.\n' "$ORG"
   exit 1
 fi
+# Owning the org is not enough: the *token* needs admin:org to write org
+# secrets, and the default `gh auth login` scopes stop at read:org. Probe the
+# endpoint rather than parse `gh auth status`, so this tests the capability
+# actually used rather than a string that may be reworded.
+if ! gh api "orgs/$ORG/actions/secrets" >/dev/null 2>&1; then
+  printf 'Your gh token cannot write %s organisation secrets. Grant the scope:\n\n' "$ORG"
+  printf '  gh auth refresh -h github.com -s admin:org\n\n'
+  printf 'then re-run this wizard.\n'
+  exit 1
+fi
 # The wizard has to run from inside the clone: the repository checks below
 # resolve it from the working directory.
 if [[ "$(git rev-parse --show-toplevel 2>/dev/null)" == "" ]]; then

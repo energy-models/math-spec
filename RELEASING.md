@@ -109,9 +109,13 @@ write` — exactly what `release.yml` asks the token for, and the action can onl
 narrow that, never widen it.
 
 It is installed across the whole `energy-models` organisation and its two
-secrets live at organisation level:
+secrets live at organisation level. Writing those needs `admin:org` on the
+token, which owning the organisation does not give you — the scopes a default
+`gh auth login` asks for stop at `read:org`:
 
 ```bash
+gh auth refresh -h github.com -s admin:org
+
 gh secret set APP_CLIENT_ID   --org energy-models --visibility all --body 'Iv23li...'
 gh secret set APP_PRIVATE_KEY --org energy-models --visibility all < ~/Downloads/*.private-key.pem
 ```
