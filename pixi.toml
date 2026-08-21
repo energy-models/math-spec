@@ -5,7 +5,13 @@
 [workspace]
 name = "math-spec"
 channels = ["conda-forge"]
-exclude-newer = "7d"
+# No `exclude-newer`. A rolling supply-chain delay and `preview =
+# ["pixi-build"]` cannot both hold: the build backend this workspace needs is
+# resolved from conda-forge like any other package, and the only
+# `pixi-build-python` matching a current pixi's backend API is days old. A 7-day
+# cutoff excludes it, and CI goes red with no commit behind it — which is what
+# happened here between 2026-08-17 (green) and 2026-08-21 (red) on this very
+# commit. Windows of 3d, 5d, 6d and 7d were all tried; only "now" resolves.
 platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
 preview = ["pixi-build"]
 
