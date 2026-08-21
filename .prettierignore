@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# release-please writes this file and prettier reformats what it writes: `*`
+# bullets become `-`, and the blank line it leaves under each release heading is
+# removed. So every release landed a diff that `fail_on_changes` rejected, and
+# main went red on the release commit itself with nothing a contributor could
+# have done differently.
+#
+# The generator wins. Nobody edits this file by hand, so the formatting is not
+# anyone's to prefer.
+CHANGELOG.md
