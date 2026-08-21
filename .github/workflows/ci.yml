@@ -4,13 +4,17 @@
 
 name: CI
 
-# Billing is per job, rounded up to the minute, and the suite takes a couple of
-# seconds. So the cost of CI is the number of jobs, not their duration: five
-# jobs doing ninety seconds of work cost five minutes. Hence one job. Do not
-# split a step out into a job of its own to parallelise it — that trades a few
-# seconds of wall clock for a whole billed minute. This is where the template's
-# generated CI is deliberately not followed: it runs lint plus a 3-interpreter
-# by 3-OS pytest matrix, which is ten billed minutes a push.
+# Billing is per job, rounded up to the minute, and the whole gate takes about
+# fifteen seconds. So the cost of CI is the number of jobs, not their duration:
+# five jobs doing ninety seconds of work cost five minutes. Hence one job. Do
+# not split a step out into a job of its own to parallelise it — that trades a
+# few seconds of wall clock for a whole billed minute. This is where the
+# template's generated CI is deliberately not followed: it runs lint plus a
+# 3-interpreter by 3-OS pytest matrix, which is ten billed minutes a push.
+#
+# Every gate below is a pixi task, and `pixi run ci` runs the four of them in
+# this order. They are separate steps here only so a red run names the gate
+# that broke; steps, unlike jobs, are free.
 
 on:
   push:
@@ -50,36 +54,17 @@ jobs:
           cache: true
           environments: default
 
-      # The TeX the render gate compiles with. It installs across the steps
-      # below rather than in front of them: `apt-get update` plus the
-      # `tex-common` triggers that build the formats cost most of a minute, and
-      # no package cache avoids that — only overlap does. Its output goes to a
-      # file, not the step's stdout, because a child holding that pipe open
-      # keeps the step running. Collected below, where a failed install
-      # surfaces with its log.
-      #
-      # The package list is deliberately minimal, and each entry earns its place:
-      #   texlive-latex-base        geometry.sty and amsmath.sty (and pulls in
-      #                             texlive-base, which carries amssymb.sty)
-      #   texlive-fonts-recommended the msam/msbm fonts amssymb *draws* with —
-      #                             \mathbb and \ominus are unset without them
-      # If the preamble grows a \usepackage, this list grows with it. That is
-      # the point: it keeps the preamble installable from a small TeX.
-      - name: Start installing a minimal TeX
-        run: |
-          cat > "$RUNNER_TEMP/install-tex.sh" <<'SH'
-          set -x
-          for attempt in 1 2 3; do
-            timeout 120 apt-get update -qq && break
-            echo "apt-get update did not finish in 120s (attempt $attempt of 3)"
-          done
-          apt-get install -y --no-install-recommends -o Acquire::Retries=3 \
-            texlive-latex-base texlive-fonts-recommended
-          echo $? > "$RUNNER_TEMP/tex-status.part"
-          mv "$RUNNER_TEMP/tex-status.part" "$RUNNER_TEMP/tex-status"
-          SH
-          nohup sudo -n bash "$RUNNER_TEMP/install-tex.sh" \
-            > "$RUNNER_TEMP/tex-install.log" 2>&1 &
+      # tectonic ships as one binary and fetches the TeX packages a document
+      # asks for on first use. That fetch is most of a minute, and it is the
+      # same bytes every run — pixi's own cache does not cover it, because it
+      # is not a conda package. Keyed on the lockfile so a tectonic upgrade
+      # gets a fresh bundle rather than a stale one.
+      - name: Cache the tectonic bundle
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/Tectonic
+          key: tectonic-${{ runner.os }}-${{ hashFiles('pixi.lock') }}
+          restore-keys: tectonic-${{ runner.os }}-
 
       # One step for every check that formats, lints or licence-checks a file:
       # `lint` is `lefthook run pre-commit --all-files`, the same jobs a commit
@@ -94,51 +79,16 @@ jobs:
       - name: Run pytest
         run: pixi run test --color=yes
 
-      # The site, built strictly: `--strict` turns every mkdocs warning into a
-      # failure, so this gate catches a dead cross-link, a page added without a
-      # nav entry, and an anchor that stopped resolving. It is also the closest
-      # thing to a rehearsal of the Read the Docs build, which runs the same
-      # task.
+      # `--strict` turns every mkdocs warning into a failure, so this gate
+      # catches a dead cross-link, a page added without a nav entry, and an
+      # anchor that stopped resolving. It is also the closest thing to a
+      # rehearsal of the Read the Docs build, which runs the same task.
       - name: Build the docs
         run: pixi run docs-build "$RUNNER_TEMP/site"
 
-      # The install started before the suite; this is where it is waited on, so
-      # a failure reports apt's exit status and log rather than a missing
-      # `pdflatex` further down. The budget is generous because it is not a
-      # performance number: the install overlaps the steps above, so every
-      # second here is one apt was going to take anyway, and the only thing a
-      # tight budget buys is a red run that has to be re-run.
-      - name: Collect the TeX install
-        run: |
-          for _ in $(seq 900); do
-            if [ -f "$RUNNER_TEMP/tex-status" ]; then
-              status=$(cat "$RUNNER_TEMP/tex-status")
-              [ "$status" = 0 ] && exit 0
-              echo "the TeX install exited $status; its log:"
-              cat "$RUNNER_TEMP/tex-install.log"
-              exit 1
-            fi
-            sleep 1
-          done
-          echo 'the TeX install had not finished 900s after the suite; its log:'
-          cat "$RUNNER_TEMP/tex-install.log"
-          exit 1
-
-      # The LaTeX half of "every model renders to something that compiles". The
-      # Typst half is proven by the suite, which compiles it through the typst
-      # PyPI bindings; LaTeX needs a toolchain, which is why this half lives
-      # here.
-      #
-      # One interpreter for every model rather than one each: upstream measured
-      # the process starts at three quarters of the step's wall clock, against
-      # every `pdflatex` invocation put together.
+      # Every model to standalone LaTeX, then through a real engine. The task
+      # renders first — `compile-tex` depends on `render-tex` — so this one
+      # line is the whole gate. The Typst half is proven by the suite, which
+      # compiles it in-process through the typst bindings.
       - name: Every model renders to LaTeX that compiles
-        run: pixi run render-tex build/tex
-
-      # One pdflatex per model, in parallel. `-halt-on-error` so a failure is
-      # the first error rather than a log to read backwards.
-      - name: Compile them
-        run: |
-          printf '%s\0' build/tex/*.tex |
-            xargs -0 -P "$(nproc)" -n1 pdflatex -halt-on-error \
-              -interaction=nonstopmode -output-directory build/tex
+        run: pixi run compile-tex

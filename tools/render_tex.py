@@ -6,16 +6,13 @@
 
     pixi run python -m tools.render_tex build/tex
 
-The suite's structural checks — brace balance, environment nesting,
-``\\left``/``\\right`` pairing — are what a *generator* gets wrong, and they
-need no toolchain. They are not a compile: a malformed ``\\mathcal`` or a
-command from a package the preamble never ``\\usepackage``s passes every one of
-them and still fails ``pdflatex``. So CI runs the real thing over the output of
-this script.
+This is half the gate. ``tools/compile_tex.py`` is the other half, and
+``pixi run compile-tex`` runs both — it depends on ``render-tex``, so the
+output of this script is what it compiles.
 
 One interpreter for every model rather than one each: upstream measured the
 process starts at three quarters of the step's wall clock, against every
-``pdflatex`` invocation put together.
+engine invocation put together.
 """
 
 from __future__ import annotations
