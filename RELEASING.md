@@ -91,6 +91,16 @@ When the project is ready for a real version:
 
 Not yet done — the workflows are inert or degraded until these are.
 
+**Do them in this order.** The app has to exist before `main` requires any
+status check, and the two are not independent: release-please opens its release
+PR with whatever token it was given, and a `GITHUB_TOKEN`-authored PR triggers
+no workflows at all. Require `CI` first and the release PR waits on a check that
+never starts, auto-merge waits with it, and the alpha stream stops dead. With
+the app, the PR is authored by the app and runs CI like any other.
+
+`scripts/setup-release-app.sh` walks the app half and stops deliberately short
+of the branch rules.
+
 **A GitHub App for release-please.** A `GITHUB_TOKEN`-authored PR does not
 trigger CI, and a `GITHUB_TOKEN`-pushed tag does not trigger `build.yml`. With
 no app the release PR is opened but never built, and `release.yml` emits a
@@ -104,6 +114,29 @@ without it that step fails.
 **Branch protection on `main`.** Squash-only merges, and require the `CI` and
 `Conventional commit subject` checks. Auto-merge is what makes the release PR
 wait for them.
+
+Last, and only once a release PR has been seen running CI under the app — see
+the ordering note above. The `main` ruleset already exists with everything but
+the checks, so this adds them to it:
+
+```bash
+ID=$(gh api repos/energy-models/math-spec/rulesets --jq '.[]|select(.name=="main")|.id')
+gh api "repos/energy-models/math-spec/rulesets/$ID" --jq '.rules' | python3 -c '
+import json, sys
+rules = json.load(sys.stdin)
+rules.append({"type": "required_status_checks", "parameters": {
+    "required_status_checks": [
+        {"context": "CI", "integration_id": 15368},
+        {"context": "Conventional commit subject", "integration_id": 15368},
+    ],
+    "strict_required_status_checks_policy": False,
+    "do_not_enforce_on_create": False}})
+json.dump({"rules": rules}, sys.stdout)' > /tmp/ruleset.json
+gh api -X PATCH "repos/energy-models/math-spec/rulesets/$ID" --input /tmp/ruleset.json
+```
+
+(`15368` is the GitHub Actions app id, so each context resolves to a workflow in
+this repository rather than any check that happens to share the name.)
 
 **PyPI.** The publish job is gated on the repository variable
 `PUBLISH_TO_PYPI`. Configure a trusted publisher for `math-spec` pointing at
