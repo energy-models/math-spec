@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """The language: what a YAML file may say, and what it means.
 
 Everything from the bytes on disk to a fully typed, dim-checked core AST —

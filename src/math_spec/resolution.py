@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """Name resolution — the pass that makes the core AST fully typed.
 
 Parsers emit ``NameNode``: a token, not yet a meaning. This module rewrites

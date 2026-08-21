@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """The walk: resolved AST → typeset lines. Written once, for every format.
 
 Everything here is a decision about the *math* — where a bracket changes the

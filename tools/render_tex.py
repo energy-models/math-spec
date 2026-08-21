@@ -1,10 +1,6 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """Render every model in the tree to standalone LaTeX, for the compile gate.
 
-    pixi run render-tex build/tex
+    uv run python -m tools.render_tex build/tex
 
 The suite's structural checks — brace balance, environment nesting,
 ``\\left``/``\\right`` pairing — are what a *generator* gets wrong, and they

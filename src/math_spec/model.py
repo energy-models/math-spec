@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """The YAML surface's types — every block a file may contain, rooted at :class:`Model`.
 
 A block per declaration kind, and one strict base: an unrecognised key is an

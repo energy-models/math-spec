@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: math-spec contributors
-SPDX-License-Identifier: CC-BY-4.0
--->
-
 # What counts as language
 
 A fence says what may not happen; it does not say what belongs. The test is:

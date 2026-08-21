@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """Static dim-set checking — a type system whose type is a set of dim names.
 
 Parameter ``dims`` are declared, variable ``foreach`` is declared, and operator

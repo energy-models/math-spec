@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """Which symbol each declared name prints as — and the sidecar that overrides it.
 
 Derivation aims at *unambiguous*, not beautiful: it runs with no setup, so it

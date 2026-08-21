@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """What the loader must refuse to do to a file before anyone else sees it."""
 
 from __future__ import annotations

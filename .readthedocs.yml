@@ -1,23 +1,19 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: CC0-1.0
-
 version: 2
-
-mkdocs:
-  configuration: mkdocs.yml
 
 build:
   os: ubuntu-24.04
   tools:
     python: "3.12"
-  jobs:
-    create_environment:
-      - asdf plugin add pixi
-      - asdf install pixi latest
-      - asdf global pixi latest
-    install:
-      - pixi install -e default -e doc --frozen
-    build:
-      html:
-        - pixi run docs-build $READTHEDOCS_OUTPUT
+
+mkdocs:
+  configuration: mkdocs.yml
+
+# Read the Docs' native uv support: this lowers to `uv sync --group docs`,
+# the same command CI runs. `uv.lock` is not committed, so both resolve
+# fresh — the site is built against current dependencies, not pinned ones.
+python:
+  install:
+    - method: uv
+      command: sync
+      groups:
+        - docs

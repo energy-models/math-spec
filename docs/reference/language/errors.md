@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: math-spec contributors
-SPDX-License-Identifier: CC-BY-4.0
--->
-
 # Errors and limits
 
 ## Everything decidable without data is decided without data

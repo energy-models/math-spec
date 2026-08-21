@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """The typeset shell front — `python -m math_spec <format> model.yaml`.
 
 Forty-eight lines that nothing exercised until now, which is the wrong ratio in

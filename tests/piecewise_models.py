@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """The curves the piecewise tests are written against, on both sides of the cut.
 
 `piecewise:` expansion is the language's — a formulation emits declarations, and

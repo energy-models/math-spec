@@ -1,0 +1,54 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # mkdocs.yml carries `!!python/name:` tags — that is how mkdocs is
+        # handed a callable (the emoji generators, the slugifier). `safe_load`
+        # refuses to construct them, so the hook reports a valid config as
+        # broken. CI builds the site strictly, so it is not unchecked.
+        exclude: ^mkdocs\.yml$
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  # Held to the same version as `ruff` in the dev group: the hook and CI have to
+  # agree on what formatted means, and a floating rev here is how they stop.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.1
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.49.0
+    hooks:
+      # The words this project spells on purpose live in
+      # `[tool.typos.default.extend-words]`, which the hook reads from
+      # pyproject.toml — nothing to configure here.
+      - id: typos
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.29.0
+    hooks:
+      - id: zizmor
+        args: [--min-severity, high]
+
+  # Deliberately a local hook rather than facebook/pyrefly-pre-commit: that hook
+  # is `language: python`, so it type-checks against pre-commit's own isolated
+  # venv, where pydantic and pyparsing do not exist. With missing-import
+  # promoted to error (pyproject.toml) every third-party import would fail.
+  # Running through uv points pyrefly at the project venv, which is the whole
+  # point of checking imports.
+  - repo: local
+    hooks:
+      - id: pyrefly
+        name: pyrefly check
+        entry: uv run pyrefly check
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false # pyrefly reads project-includes from pyproject.toml
+        require_serial: true

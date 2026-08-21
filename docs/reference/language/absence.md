@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: math-spec contributors
-SPDX-License-Identifier: CC-BY-4.0
--->
-
 # Absence and `where`
 
 A coordinate where a **variable does not exist**. Not a value, not a zero, but

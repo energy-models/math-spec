@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """Named sub-expressions and expression macros — YAML-defined, schema-local.
 
 Both are expanded into core AST *before* any backend sees the expression, so

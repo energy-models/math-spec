@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 name: Build
 on:
   pull_request:
@@ -19,56 +15,24 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # hatch-vcs derives the version from `git describe`, so the tags have
+          # to be here. A shallow clone builds a 0.1.dev-something wheel.
           fetch-depth: 0
-      - name: Set up pixi
-        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
-      - name: Derive version
-        id: version
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        run: echo "version=$(git describe --tags --abbrev=0 | sed 's/^v//')" >> $GITHUB_OUTPUT
-      - name: Replace version
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          sed -i -e "s/0.0.0/${STEPS_VERSION_OUTPUTS_VERSION}/g" pyproject.toml
-        env:
-          STEPS_VERSION_OUTPUTS_VERSION: ${{ steps.version.outputs.version }}
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          # Off, deliberately: this job publishes the artifact a tag ships, and
+          # a restored cache is writable by any job that can populate it. One
+          # `uv build` has nothing to gain from it anyway.
+          enable-cache: false
+      # No version to substitute: `[tool.hatch.version] source = "vcs"` reads
+      # the tag directly, so the tag and the wheel cannot disagree and there is
+      # nothing to verify afterwards.
       - name: Build project
-        run: pixi run build-wheel
+        run: uv build
       - name: Check package
-        run: pixi run check-wheel
-      # LOCAL DEVIATION from the copier template — see RELEASING.md.
-      # "Replace version" above rewrites the literal 0.0.0 in pyproject.toml, and
-      # every way that can go wrong is silent: an unfetched tag (shallow clone),
-      # a `git describe` that resolved to an older tag, a literal that stopped
-      # matching. The failure mode is a wheel shipped under the wrong version,
-      # which cannot be recalled from PyPI. Compare after the build, once.
-      #
-      # `packaging`, not a string compare: the tag v0.0.0-alpha.1 normalises to
-      # 0.0.0a1 in the wheel filename, so the two are never equal as text.
-      # It comes into the default environment with hatchling and twine.
-      - name: Verify the built version matches the tag
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          pixi run python - <<'PY'
-          import os, pathlib, sys
-          from packaging.utils import parse_wheel_filename
-          from packaging.version import Version
-
-          tag = Version(os.environ["TAG"].removeprefix("v"))
-          wheels = sorted(pathlib.Path("dist").glob("*.whl"))
-          if len(wheels) != 1:
-              sys.exit(f"expected exactly one wheel in dist/, found {[w.name for w in wheels]}")
-          built = parse_wheel_filename(wheels[0].name)[1]
-          if built != tag:
-              sys.exit(
-                  f'tag {os.environ["TAG"]} normalises to {tag}, but the wheel is {built}. '
-                  "Usually means the tag was not fetched (shallow clone) or the version literal moved."
-              )
-          print(f"ok: {wheels[0].name} == {tag}")
-          PY
+        run: uvx twine check dist/*
       - name: Upload package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -77,7 +41,6 @@ jobs:
 
   release:
     name: Publish package
-    # LOCAL DEVIATION from the copier template — see RELEASING.md.
     # The alpha stream cuts a release on *every* merge to main, so without this
     # gate turning release.yml on would start pushing an alpha to PyPI several
     # times a day, and would fail red on each one until a trusted publisher

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """The published JSON Schema is the pydantic models, verbatim.
 
 `schema/math-spec.schema.json` is a generated artefact that ships in the
@@ -22,7 +18,7 @@ from tools import schema
 
 def test_the_checked_in_json_schema_has_not_drifted():
     assert schema.PATH.read_text() == schema.rendered(), (
-        'schema/math-spec.schema.json no longer matches the models — run `pixi run python -m tools.schema`'
+        'schema/math-spec.schema.json no longer matches the models — run `uv run python -m tools.schema`'
     )
 
 

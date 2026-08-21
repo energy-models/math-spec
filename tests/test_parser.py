@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """The two grammars: expression strings and where strings.
 
 Dependency-free by design — these must keep running on a bare install, which

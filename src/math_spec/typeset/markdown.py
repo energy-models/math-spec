@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 r"""GitHub-flavoured Markdown. The format that renders where the docs already live.
 
 Markdown has no math of its own — GitHub delegates to MathJax, which eats

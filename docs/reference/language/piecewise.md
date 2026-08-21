@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: math-spec contributors
-SPDX-License-Identifier: CC-BY-4.0
--->
-
 # Piecewise curves and SOS
 
 Two blocks for the shapes a purely affine language cannot state directly: a

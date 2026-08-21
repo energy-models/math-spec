@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """pyparsing-based expression parser for math expressions.
 
 Parses strings like ``sum(p * cost, over=generator) == load`` into an AST

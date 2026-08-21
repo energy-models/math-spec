@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: math-spec contributors
-SPDX-License-Identifier: CC-BY-4.0
--->
-
 # Reading a loaded model
 
 Every other page here says what a _file_ may declare. This one says what a

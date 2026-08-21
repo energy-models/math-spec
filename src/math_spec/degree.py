@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """Degree — the clause of the expressive ceiling that is a scope choice.
 
 Decidable on the resolved core AST with no data bound, which is what makes

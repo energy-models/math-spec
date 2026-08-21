@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """Named sub-expressions and macros — YAML-defined, schema-local.
 
 Both expand to core AST before backend dispatch, so one differential test at

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """The operator reference's operators, each shown as the math it prints.
 
     uv run python -m tools.spec_math           # rewrite the block

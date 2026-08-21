@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: math-spec contributors
-SPDX-License-Identifier: CC-BY-4.0
--->
-
 # Every construct, as math
 
 [Typesetting](typeset.md) prints a model the way a paper prints it. This page

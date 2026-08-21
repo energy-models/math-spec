@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """``python -m math_spec <format> model.yaml`` — the typeset shell front.
 
 **A document build step, not a command line under construction.** Rendering a

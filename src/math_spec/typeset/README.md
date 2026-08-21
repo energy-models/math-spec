@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: math-spec contributors
-SPDX-License-Identifier: CC-BY-4.0
--->
-
 # `typeset/` — the model, printed
 
 A third consumer of the resolved core AST. It builds no model, binds no data

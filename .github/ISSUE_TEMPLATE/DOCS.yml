@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 name: Report a documentation issue
 description: Missing, incorrect, or confusing information in our docs? Report a documentation issue
 labels:

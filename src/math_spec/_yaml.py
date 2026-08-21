@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """How this project reads a YAML file.
 
 `yaml.safe_load` implements YAML 1.1, and two of its rules are actively wrong

@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: math-spec contributors
-SPDX-License-Identifier: CC-BY-4.0
--->
-
 # Contributing
 
 math-spec is an actively maintained and utilised project.
@@ -26,24 +21,26 @@ To find beginner-friendly existing bugs and feature requests you may like to sta
 
 ### Setting up a development environment
 
-To create a development environment for `math-spec`, use [pixi](https://pixi.prefix.dev/).
+To create a development environment for `math-spec`, use [uv](https://docs.astral.sh/uv/).
 
-1. Install pixi following the [official instructions](https://pixi.prefix.dev/latest/installation/).
+1. Install uv following the [official instructions](https://docs.astral.sh/uv/getting-started/installation/).
 1. Install the development environment in your local clone of the `math-spec` repository:
 
 ```sh
-pixi install
+uv sync --group dev
 ```
 
 If you plan to make changes to the code then please make regular use of the following tools to verify the codebase while you work:
 
-- `pre-commit`: run `pixi run pre-commit-install` in your command line to load inbuilt checks that will run every time you commit your changes.
+- `pre-commit`: run `uv run pre-commit install` in your command line to load inbuilt checks that will run every time you commit your changes.
   The checks include:
   1. check no large files have been staged
   2. lint python files for major errors
-  3. format python files to conform with the [PEP8 standard](https://peps.python.org/pep-0008/).
-     You can also run these checks yourself at any time to ensure staged changes are clean by calling `pixi run lint`.
-- `pixi run test` - run the unit test suite and check test coverage.
+  3. format python files to conform with the [PEP8 standard](https://peps.python.org/pep-0008/)
+  4. type-check the package with [pyrefly](https://pyrefly.org/).
+     You can also run these checks yourself at any time to ensure the tree is clean by calling `uv run pre-commit run --all-files`.
+- `uv run pytest` - run the unit test suite.
+- `uv run pytest --cov=math_spec --cov-report=term-missing` - the same, with test coverage.
 
 ## Documentation
 
@@ -120,20 +117,13 @@ Here are some use-cases that you may come across in which you are considering up
 
 ??? question "I want to view my documentation changes locally"
 
-    You can serve your documentation locally by calling `pixi run docs-serve` from the command line.
+    You can serve your documentation locally by calling `uv run --group docs mkdocs serve` from the command line.
     Once the documentation has been built you will see a link to navigate to in your browser, most likely <http://127.0.0.1:8000>.
     When you make changes to your documentation, `mkdocs` will automatically rebuild everything so that you can check the effects of your changes without needing to rerun manually.
 
 ??? question "I want to do something else"
 
     We recommend exploring the [MkDocs](https://www.mkdocs.org/) and the [Material](https://squidfunk.github.io/mkdocs-material/) documentation if we haven't answered your question.
-
-## Updating the project when the template updates
-
-This project has been built with [copier](https://copier.readthedocs.io/).
-When changes are made to the base template, they can be merged into this project by running `pixi exec --with copier copier update --skip-answered`.
-
-You may be prompted to do this when you open a Pull Request, if our automated checks identify that the template is newer than that used in the project.
 
 ## Submitting changes
 

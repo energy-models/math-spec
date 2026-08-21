@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """LaTeX (amsmath). The format that lands in a journal.
 
 Verbose source and a toolchain to compile it, in exchange for being the one

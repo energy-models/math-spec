@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 name: PR title
 
 # The squash subject becomes a commit on main, and release-please parses it to

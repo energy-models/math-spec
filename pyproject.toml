@@ -1,13 +1,13 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 [build-system]
-requires = ["hatchling"]
+# 1.27 is the first hatchling with the PEP 639 license fields below.
+requires = ["hatchling>=1.27", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[tool.hatch.version]
+source = "vcs"
+
 [tool.hatch.build.targets.sdist]
-only-include = ["src", "LICENSES", "README.md"]
+only-include = ["src", "README.md", "LICENSE"]
 
 [project]
 name = "math-spec"
@@ -15,8 +15,10 @@ description = "YAML math specification and AST parsing for multi-dimensional lin
 authors = [
   { name = "Bryn Pickering", email = "17178478+brynpickering@users.noreply.github.com" },
 ]
-# replaced in CI
-version = "0.0.0"
+# The git tag is the version — see RELEASING.md. Never hardcode it here.
+dynamic = ["version"]
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
@@ -42,6 +44,35 @@ dependencies = [
 repository = "https://github.com/energy-models/math-spec"
 
 [project.scripts]
+
+[dependency-groups]
+docs = [
+  "mkdocs>=1.6,<2",
+  "mkdocs-material>=9.5",
+  "mkdocstrings>=0.29",
+  "mkdocstrings-python>=1.16",
+  "mkdocs-bibtex>=2.16",
+  "pymdown-extensions>=10.0",
+  "mkdocs-macros-plugin>=1.0",
+  "mkdocs-table-reader-plugin>=3.1",
+]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=6",
+  # `-n auto` for the suite — what CI passes. Deliberately not in `addopts`:
+  # `-x`, `--pdb` and readable single-test output all want one process, and a
+  # run of one test file pays the worker startup for nothing.
+  "pytest-xdist>=3.8",
+  # Pinned exactly: both are gates whose *output* is the contract, so a new
+  # release changing what it reports turns a green branch red without a commit.
+  "ruff==0.16.1",
+  "pyrefly==1.2.0",
+  "pre-commit>=4",
+  # The PyPI bindings, which compile in-process — not conda-forge's `typst`,
+  # which is the CLI binary and cannot be imported. Three compile tests in
+  # tests/typeset/test_typeset.py skip without it.
+  "typst>=0.15.0",
+]
 
 [tool.ruff]
 # Carried from lpspec, which is where every file under src/ was written and
@@ -97,9 +128,6 @@ extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
 "src/math_spec/where_parser.py" = [
   "N806",
 ] # grammar tokens (NOT/AND/OR) are named after keywords
-# Template-owned: `pixi run template-update` rewrites this file, so a fix here
-# is reverted on the next update. Formatting it is mechanical and survives;
-# rewriting its logic does not.
 "docs/static/hooks.py" = ["PERF401", "RUF015", "D"]
 
 [tool.ruff.format]

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """`docs/reference/language/reading.md`, run rather than read.
 
 The page states the consumer contract in three answers — what `constraints:`

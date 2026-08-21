@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
 This is schema-level expansion (the piecewise rules): a ``piecewise:`` block becomes

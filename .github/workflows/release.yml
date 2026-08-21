@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: math-spec Contributors
-#
-# SPDX-License-Identifier: MIT
-
 name: Release
 
 # Opens and maintains a release PR from the conventional commits on main.
