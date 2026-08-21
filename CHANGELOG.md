@@ -2,15 +2,33 @@
 SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
-
-<!--
-This file is maintained by release-please. Do not add entries by hand — they
-come from the conventional-commit subjects that land on main, and the section
-each type maps to is `changelog-sections` in .release-please-config.json.
-See RELEASING.md.
-
-The licence header above is duplicated as a REUSE.toml annotation, because
-release-please rewrites this file and is not obliged to keep it.
--->
-
 # Changelog
+
+Written by [release-please](https://github.com/googleapis/release-please) from
+the conventional-commit subjects that land on `main` — see RELEASING.md. Do not
+edit it by hand; the next release overwrites what you wrote.
+
+New releases are inserted directly below this paragraph, so nothing may sit
+between it and the first `##` heading. The Keep a Changelog skeleton that used
+to live here — a hand-maintained `## Unreleased` block, and a comment
+documenting the heading format — is what broke 0.0.0-alpha.1: that comment
+contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
+`##` it finds, and so the entire release landed inside the comment and rendered
+nowhere.
+
+The licence header at the top is duplicated as a `REUSE.toml` annotation.
+release-please rewrites this file and is not obliged to keep the comment; the
+annotation is what `reuse lint` still finds if a rewrite ever drops it.
+
+## [0.0.0-alpha.2](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.1...v0.0.0-alpha.2) (2026-08-21)
+
+
+### Bug Fixes
+
+* the release notes landed inside an HTML comment ([#25](https://github.com/energy-models/math-spec/issues/25)) ([c33dc24](https://github.com/energy-models/math-spec/commit/c33dc241e12446f2433d600c7afc109063cd3656))
+
+## [0.0.0-alpha.1](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.0...v0.0.0-alpha.1) (2026-08-21)
+
+### Bug Fixes
+
+- stop the release build silently shipping a 0.0.0 wheel ([#23](https://github.com/energy-models/math-spec/issues/23)) ([a801b00](https://github.com/energy-models/math-spec/commit/a801b00061d306661d31b455ed2980fd0dfbeda9))
