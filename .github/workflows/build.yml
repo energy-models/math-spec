@@ -30,10 +30,18 @@ jobs:
           # Off, deliberately: this job publishes the artifact a tag ships, and
           # a restored cache is writable by any job that can populate it.
           cache: false
-      # No version to substitute, so the template's `sed` over pyproject.toml is
-      # gone: `[tool.hatch.version] source = "vcs"` reads the tag directly, the
-      # tag and the wheel cannot disagree, and there is nothing to verify
+      # There is no version to substitute, so the template's `Derive version`
+      # and `Replace version` steps are gone rather than fixed.
+      # `[tool.hatch.version] source = "vcs"` reads the tag directly: the tag
+      # and the wheel cannot disagree, and there is nothing to verify
       # afterwards.
+      #
+      # #23 hardened that `sed` on main — anchored, escaped, and failing loudly
+      # when it matches nothing. Both bugs it fixes are unreachable here,
+      # because pyproject.toml is `dynamic = ["version"]` and carries no
+      # version literal at all. Merging its version back in would do the
+      # opposite of what it intends: the pattern would match nothing, and its
+      # new guard would fail every tagged build.
       - name: Build project
         run: pixi run build-wheel
       - name: Check package
