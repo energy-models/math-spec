@@ -17,9 +17,10 @@ build:
       - asdf install pixi latest
       - asdf global pixi latest
     install:
-      # `--frozen` so the site is built from pixi.lock, exactly as CI is. The
-      # docs feature is part of the default environment; the template's
-      # generated `-e doc` names an environment that does not exist.
+      # `default` already carries the docs feature; there has never been a
+      # `doc` environment for the template's generated `-e doc` to select, so
+      # the install failed outright. `--frozen` builds the site from pixi.lock,
+      # exactly as CI does.
       - pixi install -e default --frozen
     build:
       html:

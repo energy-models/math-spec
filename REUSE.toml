@@ -11,9 +11,11 @@ SPDX-PackageDownloadLocation = "https://github.com/energy-models/math-spec"
 path = [
   ".github/pull_request_template.md",
   ".all-contributorsrc",
-  "src/math_spec/py.typed",
   ".release-please-config.json",
   ".release-please-manifest.json",
+  # `src/py.typed` on main, which is a path that does not exist — the marker
+  # is inside the package.
+  "src/math_spec/py.typed",
 ]
 SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "CC0-1.0"
