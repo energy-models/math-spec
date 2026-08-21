@@ -28,9 +28,9 @@ def on_files(files: list, config: dict, **kwargs) -> list:
     Returns:
         list: Updated mkdocs file list.
     """
-    for file in Path("./resources").glob("**/*.*"):
+    for file in Path('./resources').glob('**/*.*'):
         files.append(_new_file(file, config))
-    files.append(_new_file(Path("./CHANGELOG.md"), config))
+    files.append(_new_file(Path('./CHANGELOG.md'), config))
 
     api_nav = _api_gen(files, config)
     _update_nav(api_nav, config)
@@ -38,7 +38,7 @@ def on_files(files: list, config: dict, **kwargs) -> list:
     return files
 
 
-def _new_file(path: Path, config: dict, src_dir: str = ".") -> File:
+def _new_file(path: Path, config: dict, src_dir: str = '.') -> File:
     """Link a file out in the wilderness to a filename in the documentation directory hierarchy.
 
     Args:
@@ -55,8 +55,8 @@ def _new_file(path: Path, config: dict, src_dir: str = ".") -> File:
     return File(
         path=str(path),
         src_dir=src_dir,
-        dest_dir=config["site_dir"],
-        use_directory_urls=config["use_directory_urls"],
+        dest_dir=config['site_dir'],
+        use_directory_urls=config['use_directory_urls'],
     )
 
 
@@ -70,10 +70,10 @@ def _api_gen(files: list, config: dict) -> dict:
     Returns:
         dict: Python API navigation tree, to add into the mkdocs `nav` tree.
     """
-    source_dir = Path(config["watch"][0])
+    source_dir = Path(config['watch'][0])
     source_file = source_dir.parts[-1]
-    api_nav: dict = {"top_level": []}
-    for filepath in sorted(source_dir.rglob("[!_]*.py")):
+    api_nav: dict = {'top_level': []}
+    for filepath in sorted(source_dir.rglob('[!_]*.py')):
         rel_filepath = filepath.relative_to(source_dir)
         if rel_filepath.as_posix() in API_FILES_TO_IGNORE:
             continue
@@ -95,24 +95,24 @@ def _py_to_md(filepath: Path, api_nav: dict, config: dict) -> File:
     Returns:
         File: mkdocs object that links the temp file to the docs directory, ready to be added to the mkdocs file list.
     """
-    module_parts = filepath.with_suffix("").parts
+    module_parts = filepath.with_suffix('').parts
 
-    module_name = ".".join(module_parts)
+    module_name = '.'.join(module_parts)
 
-    api_file = "reference" / filepath.with_suffix(".md")
+    api_file = 'reference' / filepath.with_suffix('.md')
     api_full_filepath = Path(TEMPDIR.name) / api_file
     api_full_filepath.parent.mkdir(exist_ok=True, parents=True)
-    api_full_filepath.write_text(f"::: {module_name}")
+    api_full_filepath.write_text(f'::: {module_name}')
 
     nav_component = {module_name: api_file.as_posix()}
     if len(module_parts) > 2:  # i.e., in a nested directory
-        parent_module = ".".join(module_parts[:2])
+        parent_module = '.'.join(module_parts[:2])
         if parent_module not in api_nav:
             api_nav[parent_module] = [nav_component]
         else:
             api_nav[parent_module].append(nav_component)
     else:
-        api_nav["top_level"].append(nav_component)
+        api_nav['top_level'].append(nav_component)
     return _new_file(api_file, config, TEMPDIR.name)
 
 
@@ -126,10 +126,8 @@ def _update_nav(api_nav: dict, config: dict) -> None:
         api_nav (dict): Python API navigation tree.
         config (dict): mkdocs config dictionary (in which `nav` can be found).
     """
-    api_reference_nav = {
-        "Python API": [*api_nav.pop("top_level"), *[{k: v} for k, v in api_nav.items()]]
-    }
-    _get_nav_list(config["nav"], "Reference").append(api_reference_nav)
+    api_reference_nav = {'Python API': [*api_nav.pop('top_level'), *[{k: v} for k, v in api_nav.items()]]}
+    _get_nav_list(config['nav'], 'Reference').append(api_reference_nav)
 
 
 def _get_nav_list(nav: list[dict | str], ref: str) -> list:

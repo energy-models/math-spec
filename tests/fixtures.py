@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 #: The operator probes: one construct per file, and the corpus that travels with
 #: the language. `tools/spec_math.py` generates the operator reference
 #: from the same directory, so a probe added for the page is swept here too.
-OPERATOR_PROBES = sorted((Path(__file__).resolve().parent.parent.parent / 'examples' / 'operators').glob('*.yaml'))
+OPERATOR_PROBES = sorted((Path(__file__).resolve().parent.parent / 'examples' / 'operators').glob('*.yaml'))
 
 #: The dispatch model as a dict, for tests that need to mutate a declaration
 #: rather than read a file. Deliberately the same math as

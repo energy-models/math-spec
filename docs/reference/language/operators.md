@@ -148,7 +148,7 @@ what a representative period that repeats asks for.
 ## `shift`
 
 `shift(x, over=d, offset=n)` reaches along an axis: it is the value at _t−n_, in
-the dimension's **declared order** ([data binding](data.md)). `edge=` says what
+the dimension's **declared order**. `edge=` says what
 happens at the boundary, and it is the whole of the operator's subtlety.
 
 ```yaml

@@ -18,11 +18,11 @@ dimensions:
 
 Every dimension named anywhere in the file must be declared here.
 
-| Field         |                                   |                                                                            |
-| ------------- | --------------------------------- | -------------------------------------------------------------------------- |
-| `dtype`       | `float`, `int`, `str`, `datetime` | default `str`                                                              |
-| `values`      | the coordinates, as a list        | default `null` — they must then arrive from data ([data binding](data.md)) |
-| `description` | free text, never parsed           | default `null`                                                             |
+| Field         |                                   |                                                  |
+| ------------- | --------------------------------- | ------------------------------------------------ |
+| `dtype`       | `float`, `int`, `str`, `datetime` | default `str`                                    |
+| `values`      | the coordinates, as a list        | default `null` — they must then arrive from data |
+| `description` | free text, never parsed           | default `null`                                   |
 
 Every declared value must be of the declared `dtype`. `values: [2024-01-01]`
 under the default `dtype: str` is a load error: YAML resolved it to a date, and
@@ -31,8 +31,8 @@ a date does not join `'2024-01-01'` in the data.
 **One master coordinate set per dimension, resolved before any data binds.**
 Every parameter is reindexed onto it, so two tables that disagree about which
 snapshots exist is an error at load time rather than a silently truncated
-model. Where the coordinates come from, and in what order, is
-[data binding](data.md).
+model. Where the coordinates come from, and in what order, is settled when
+data is bound — which this package declares the shape of and does not do.
 
 ## `lookups`
 
@@ -64,8 +64,7 @@ against it once data is bound — the check that makes `sum(by=)` safe.
 a generator on no bus, a line with one open end — and `sum(by=)` places its
 terms nowhere. A value naming no label of the target is a typo, and an error.
 Either transport spells "left out" the same way, by omission — an entry the
-declared map does not carry, a label with no row in the supplied one
-([data binding](data.md#where-coordinates-come-from)).
+declared map does not carry, a label with no row in the supplied one.
 
 **Several at once**: `sum(x, by=[gen_bus, gen_tech])` groups through both maps
 in one reduction, landing on `bus` _and_ `technology`. Every lookup in the list
@@ -124,7 +123,7 @@ relation small enough to read stays beside the equation that traverses it,
 while the members it is about stay in the data. A map declares no labels of its
 own, and neither fact may be claimed twice. Which homes each has, what a label
 no map mentions gets, and why a key no label matches is a typo rather than a
-new member, is [data binding](data.md#where-coordinates-come-from).
+new member, is settled at bind time by whatever supplies the data.
 
 ### Otherwise it is supplied under the lookup's own name
 
@@ -161,7 +160,7 @@ dimension — its own target included. `generator`'s map onto `bus` is `gen_bus`
 never a second `bus`.
 
 Either kind is single-valued per label, and a map the file does not declare is
-supplied under the lookup's own name ([data binding](data.md)). Values are never
+supplied under the lookup's own name. Values are never
 inferred
 from the parameters that use the dimension: inferring would let a mistyped
 label extend the label space instead of being rejected.

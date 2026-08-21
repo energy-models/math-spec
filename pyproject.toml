@@ -44,31 +44,79 @@ repository = "https://github.com/energy-models/math-spec"
 [project.scripts]
 
 [tool.ruff]
-line-length = 100
+# Carried from lpspec, which is where every file under src/ was written and
+# formatted. Adopting it wholesale means the extraction reformats nothing; the
+# alternative was a 43-file diff over quote style, on a tree nobody has reviewed
+# in this repo yet. `target-version` is the one change: math-spec's floor.
+target-version = "py312"
+line-length = 120
 
 [tool.ruff.lint]
-ignore = [
-  "N803", # https://docs.astral.sh/ruff/rules/invalid-argument-name
-  "N806", # https://docs.astral.sh/ruff/rules/non-lowercase-variable-in-function
-  "E501", # https://docs.astral.sh/ruff/faq/#is-the-ruff-linter-compatible-with-black
-]
 select = [
-  # pyflakes
-  "F",
-  # pycodestyle
-  "E",
-  "W",
-  # isort
-  "I",
-  # pep8-naming
-  "N",
-  # pyupgrade
-  "UP",
+  "E",    # pycodestyle errors
+  "F",    # Pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # isort
+  "B",    # flake8-bugbear
+  "N",    # pep8-naming
+  "UP",   # pyupgrade
+  "FA",   # flake8-future-annotations
+  "TC",   # flake8-type-checking
+  "SIM",  # flake8-simplify
+  "RUF",  # Ruff-specific rules
+  "PERF", # perflint
+  "C4",   # flake8-comprehensions
+  "PIE",  # flake8-pie
+  "RET",  # flake8-return
+  "FLY",  # flynt (f-string)
+  "FURB", # refurb
+  "T20",  # flake8-print
+  "T10",  # flake8-debugger
+  "PLC",  # pylint conventions
+  "PLE",  # pylint errors
+  "D",    # pydocstyle
 ]
+ignore = [
+  "E501",    # line too long (handled by formatter)
+  "RET504",  # unnecessary assignment before return
+  "PLC0415", # import not at top level (lazy imports are load-bearing here)
+  "D1",      # missing docstring — AGENTS.md decides where one earns its place
+]
+extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# `D` is off outside the package: the Google convention is for what a *caller*
+# reads, and elsewhere a docstring argues for one assertion or narrates a
+# script, where a summary line it has to fit in is the worse sentence.
+"tools/**/*.py" = ["T20", "D"] # a generator says what it wrote
+"tests/**/*.py" = ["D"]
+"tests/typeset/golden/__main__.py" = [
+  "T20",
+  "D",
+] # likewise a generator, and only reachable as a command
+"src/math_spec/where_parser.py" = [
+  "N806",
+] # grammar tokens (NOT/AND/OR) are named after keywords
+# Template-owned: `pixi run template-update` rewrites this file, so a fix here
+# is reverted on the next update. Formatting it is mechanical and survives;
+# rewriting its logic does not.
+"docs/static/hooks.py" = ["PERF401", "RUF015", "D"]
 
 [tool.ruff.format]
-quote-style = "double"
+quote-style = "single"
 indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = false
+
+[tool.ruff.lint.flake8-type-checking]
+# pydantic models evaluate annotations at runtime to build validators, so imports
+# used only in annotations must stay at runtime (not moved to TYPE_CHECKING).
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.pyrefly]
 # Check against the *lowest* supported interpreter, so syntax and stdlib
@@ -112,3 +160,15 @@ testpaths = ["tests"]
 [tool.coverage.run]
 branch = true
 source = ["src/"]
+
+[tool.typos.default.extend-words]
+# Each of these is deliberate, and none is reachable by fixing a spelling.
+#
+# `wher` and `generatr` are misspellings *on purpose*: they are the input to the
+# did-you-mean suggester, so correcting them deletes the case. `missable` is the
+# word the sentence wants — a coordinate that can go missing — and is not
+# "miscible". `unparseable` is the accepted variant and is the name of a test.
+wher = "wher"
+generatr = "generatr"
+missable = "missable"
+unparseable = "unparseable"

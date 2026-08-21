@@ -37,7 +37,7 @@ from pathlib import Path
 from math_spec.model import PIECEWISE_METHODS
 from math_spec.typeset import to_markdown
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / 'docs' / 'reference' / 'notation.md'
 MODEL = ROOT / 'tests' / 'typeset' / 'golden' / 'model.yaml'
 
@@ -288,9 +288,7 @@ def main(argv: list[str] | None = None) -> int:
     updated = rendered_page(page)
     if opts.check:
         if updated != page:
-            print(
-                f'{PAGE.relative_to(ROOT)} is stale — run `uv run python -m tools.notation`', file=sys.stderr
-            )
+            print(f'{PAGE.relative_to(ROOT)} is stale — run `uv run python -m tools.notation`', file=sys.stderr)
             return 1
         print(f'{PAGE.relative_to(ROOT)} matches the model')
         return 0

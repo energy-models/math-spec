@@ -16,7 +16,6 @@ nav:
           - Operators: reference/language/operators.md
           - Piecewise curves and SOS: reference/language/piecewise.md
           - Absence and where: reference/language/absence.md
-          - Data binding: reference/language/data.md
           - Reading a loaded model: reference/language/reading.md
           - Errors and limits: reference/language/errors.md
       - Every construct, as math: reference/notation.md

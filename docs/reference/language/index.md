@@ -38,8 +38,7 @@ objective:
   expression: sum(p * cost) # an objective is one number, so the sum is written
 ```
 
-That file is a complete model. [Write a model](../../guide.md) walks through
-the ideas behind it; the pages here are the exact rules.
+That file is a complete model; the pages here are the exact rules.
 
 ## Ten rules the language reduces to
 
@@ -71,8 +70,8 @@ in a different position, and each links to the page that spells it out.
 | [Operators](operators.md)                             | `sum`, `at`, `shift` — the closed set                                                        |
 | [Absence and `where`](absence.md)                     | what a mask _means_: which rows are built, and which are not                                 |
 | [Piecewise curves and SOS](piecewise.md)              | `piecewise:` and `sos:`                                                                      |
-| [Data binding](data.md)                               | what `sources` accepts, and how coordinates are resolved                                     |
 | [Errors and limits](errors.md)                        | what fails when, and what the language will not say                                          |
 
-Running a model — building, solving, reading an answer back — is the
-[Python API](../api.md). Nothing there changes what a file means.
+Running a model — building, solving, reading an answer back — belongs to a
+consumer of the AST, not to this package. Nothing a consumer does changes what
+a file means.

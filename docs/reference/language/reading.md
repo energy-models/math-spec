@@ -9,9 +9,8 @@ Every other page here says what a _file_ may declare. This one says what a
 _program_ gets when it loads one: the contract between the language and
 anything that reads the AST — a solver backend, a renderer, a second front end.
 
-None of it is needed to write a model. [The Python API](../api.md) is what a
-modeller calls; these are the names a **consumer** reads a model through, and
-they are the whole of the seam:
+None of it is needed to write a model: these are the names a **consumer**
+reads a model through, and they are the whole of the seam:
 
 ```text
 load_model  →  Model  →  expand_piecewise  →  Buildable

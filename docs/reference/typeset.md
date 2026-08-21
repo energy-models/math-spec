@@ -7,8 +7,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 A model is a declaration, so it can be printed the way a paper prints it — from
 the file itself, with no data and no solver. It is the cheapest review tool
-available for _"does this YAML say what I meant"_, and it is how every
-[model page](../examples/index.md) in these docs states its math.
+available for _"does this YAML say what I meant"_, and it is how a model
+states its math with nothing but the file.
 
 Every construct the language has, beside the math it prints, is one page:
 [Every construct, as math](notation.md) — which is where to look when the

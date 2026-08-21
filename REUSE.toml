@@ -39,11 +39,7 @@ SPDX-License-Identifier = "CC-BY-4.0"
 # The schema is generated — `pixi run python -m tools.schema` rewrites it from
 # `Model.model_json_schema()` — and JSON has no comment syntax to survive that.
 [[annotations]]
-path = [
-  "examples/**/*.yaml",
-  "schema/*.schema.json",
-  "tests/typeset/golden/*",
-]
+path = ["examples/**/*.yaml", "schema/*.schema.json", "tests/typeset/golden/*"]
 SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "MIT"
 

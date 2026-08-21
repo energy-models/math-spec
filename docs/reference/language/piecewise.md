@@ -213,8 +213,7 @@ binaries and big-M rows for it either way.
 
 What the block would have saved is the weights and the convexity row — two
 declarations — so it is not offered:
-[the model](../../examples/piecewise_conversion.md) shows the whole formulation,
-and [#1101](https://github.com/fluxopt/lpspec/issues/1101) records what was
+[#1101](https://github.com/fluxopt/lpspec/issues/1101) records what was
 weighed.
 
 ## `sos`
@@ -245,7 +244,7 @@ consecutive means consecutive _among the members present_, leaving no hole
 where a coordinate was masked away.
 
 **Order is the `over` dimension's declared order** — the same order `shift`
-walks ([data binding](data.md)) — so reordering the set means reordering that
+walks — so reordering the set means reordering that
 index. There is no per-set weight to supply.
 
 ### What a solver without SOS does with it
@@ -254,7 +253,7 @@ Where the chosen solver has no SOS concept, the set is handed over as binaries
 and big-M rows instead. Two consequences reach the model, so neither is silent:
 
 - that rewrite is **mixed-integer**, so a set on an otherwise continuous model
-  gives up its [duals](../api.md#reading-a-result) there;
+  gives up its duals there;
 - **M has to be finite**, so every member needs `bounds.upper` or a `big_m:`,
   and a negative `bounds.lower` is refused. `big_m` caps a loose bound — the
   _tighter_ of the two is used, tighter being a better relaxation.

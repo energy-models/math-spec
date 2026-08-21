@@ -64,8 +64,25 @@ mkdocs-table-reader-plugin = ">=3.1"
 [feature.docs.tasks.docs-serve]
 cmd = "mkdocs serve"
 [feature.docs.tasks.docs-build]
-cmd = "mkdocs build -d /html"
+# `{{ dir }}` is pixi's own arg template and must reach pixi intact. The
+# upstream copier template writes it in a .jinja file without a `raw` block, so
+# copier interpolates it at generation and every repo built from the template
+# gets `-d /html` — an absolute path, and `$READTHEDOCS_OUTPUT` silently
+# ignored. LOCAL DEVIATION until that is fixed upstream; see RELEASING.md.
+#
+# `--strict` turns every mkdocs warning into a failure, so a dead cross-link, a
+# page missing from the nav, or an anchor that stopped resolving fails the gate
+# rather than scrolling past in the build log.
+cmd = "mkdocs build --strict -d {{ dir }}/html"
 args = ["dir"]
+
+[tasks.render-tex]
+# The LaTeX half of "every model renders to something that compiles". The Typst
+# half is proven by the suite, which compiles it through a pip wheel; LaTeX
+# needs a toolchain, so CI installs a minimal TeX and runs `pdflatex` over what
+# this writes.
+cmd = "python -m tools.render_tex {{ dir }}"
+args = [{ arg = "dir", default = "build/tex" }]
 
 [feature.template.dependencies]
 copier = ">=9.16"

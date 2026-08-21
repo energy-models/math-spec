@@ -161,7 +161,7 @@ other terms are still live. `x + y >= 5` is no constraint where `y` is masked â€
 including where `x` is a variable with a bound of its own.
 
 **All of them are reported, by the same line.** `diagnostics().omissions` gives
-`(constraint, rows_not_built)` ([diagnostics](../api.md#diagnostics)), counted
+`(constraint, rows_not_built)` as a consumer reports them, counted
 against the constraint that declared them, and empty for a model whose every
 declared row reached the solver â€” which is a reason to `build` a model you mean
 to inspect rather than to `solve` it, an answer being the one thing that cannot

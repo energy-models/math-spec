@@ -316,8 +316,8 @@ gains the mapping form.
 
 A named expression has **fixed dims** — they fall out of its body, so there is
 no `foreach` — and an **observable identity**: after a solve,
-`result.expression('emissions')` gives its value over its own dims
-([reading a result](../api.md#reading-a-result)). That is the point of naming a
+a consumer can read its value back over its own dims.
+That is the point of naming a
 quantity: the CO₂ a constraint bounds and the CO₂ a summary reports are one
 definition, validated once.
 

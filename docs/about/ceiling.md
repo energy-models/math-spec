@@ -5,17 +5,17 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # The ceiling
 
-**What may enter the language, and what may never.** The structure that holds
-it is [the architecture notes](architecture.md); the rules a model must obey are
-[the ten rules](../reference/language/index.md#ten-rules-the-language-reduces-to); why the project exists and where it is going
-is [the roadmap](roadmap.md). This page is the argument in between: the test a
+**What may enter the language, and what may never.** The rules a model must
+obey are
+[the ten rules](../reference/language/index.md#ten-rules-the-language-reduces-to).
+This page is the argument in between: the test a
 candidate primitive has to pass, why capability is a second axis rather than
 part of the ceiling, [what has been refused and why](#deliberate-non-primitives),
 and what composition would force.
 
 It is a claim, so it carries evidence — math a ported model needed and this
 language could not state becomes a ledger row in
-[the gallery](../examples/index.md#ledger--what-a-port-could-not-say).
+a ledger row against the port that needed it.
 
 ## Two tiers, and the ceiling
 
@@ -61,10 +61,10 @@ Two things bound the quadratic case, and neither is streamability:
 - **Position — and it has since moved.** A quadratic _objective_ had somewhere
   to land before a quadratic _constraint_ did, and fewer things refuse it —
   which sink takes which being
-  [measured rather than argued](benchmarks.md#sink-capabilities). What kept the
+  measured rather than argued. What kept the
   constraint out is that one _lane_ cannot build one at all, until
   the capability axis grew to cover **lanes** as well as sinks
-  ([hard rule 3](architecture.md#hard-rules)): both lanes still accept the same
+  (hard rule 3): both lanes still accept the same
   language, what each can _build_ is declared, and the construct ships with the
   gap named rather than hidden. The price is the differential oracle for that
   one construct, which is why the gap is one entry long.
@@ -98,10 +98,9 @@ reading it off a query would be reading the wrong artefact. A primitive is
 finished when `lowering.py` accepts it and the differential test against the
 linopy oracle passes.
 
-**The ceiling is a claim, so it needs evidence.** In
-[docs/examples/index.md](../examples/index.md), math a ported model needed and this language
-could not state becomes a ledger row with its triage verdict — what
-[the roadmap](roadmap.md) should be argued from. Those ports also cover a class
+**The ceiling is a claim, so it needs evidence.** In the ports ledger, math a
+ported model needed and this language could not state becomes a ledger row with
+its triage verdict — what the roadmap should be argued from. Those ports also cover a class
 no other test reaches: both lanes consume the same resolved AST by rule 1, so a
 _shared misreading_ passes the differential suite green, and only an outside
 optimum catches it.
@@ -109,11 +108,11 @@ optimum catches it.
 What is _outside_ the closure splits three ways, and the split decides whether a
 request can ever be met:
 
-| Tier                   | Bounded by                                                                   | Members                                                                                                                                                                                                                                 | Can it move?                                            |
-| ---------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| **Capability-bounded** | what a given sink can ingest                                                 | indicator (#220); quadratic, whose verdict moves with its convexity and with what it stands beside. `sos:` **shipped** on this tier, and is what the row predicted: native where a sink has the concept, reformulated where it does not | per sink — [the table](benchmarks.md#sink-capabilities) |
-| **Budget-bounded**     | the escape _label_ budget — a cap on the rows and columns an island may emit | global operators, arbitrary Python, non-relational manipulation                                                                                                                                                                         | already movable — that is what an island is             |
-| **Design-bounded**     | our choice of where work belongs                                             | data prep, domain helpers, Python declaring structure                                                                                                                                                                                   | movable any time; we don't want to                      |
+| Tier                   | Bounded by                                                                   | Members                                                                                                                                                                                                                                 | Can it move?                                |
+| ---------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **Capability-bounded** | what a given sink can ingest                                                 | indicator (#220); quadratic, whose verdict moves with its convexity and with what it stands beside. `sos:` **shipped** on this tier, and is what the row predicted: native where a sink has the concept, reformulated where it does not | per sink — the capability table             |
+| **Budget-bounded**     | the escape _label_ budget — a cap on the rows and columns an island may emit | global operators, arbitrary Python, non-relational manipulation                                                                                                                                                                         | already movable — that is what an island is |
+| **Design-bounded**     | our choice of where work belongs                                             | data prep, domain helpers, Python declaring structure                                                                                                                                                                                   | movable any time; we don't want to          |
 
 Impossible **in the symbolic plan**: conditionals, iteration, any data-dependent
 structure inside expressions. What is protected is that the plan's **shape** is
@@ -123,7 +122,7 @@ know how many snapshots there are either.
 
 That distinction decides more than it looks. A dimension whose members are
 _computed_ in data prep is completely ordinary — a cycle basis for
-[KVL](../examples/pypsa_kvl.md), the subsets of a subtour-elimination
+KVL, the subsets of a subtour-elimination
 family — because a graph algorithm run before the build is design-bounded, the
 row above. The line is **temporal, not computational**: it does not matter how
 clever the Python is or whether its output size depends on the data, only
@@ -164,7 +163,7 @@ The ceiling above is about **streamability** and is solver-independent. What a
 _sink_ can ingest is a separate axis, and conflating the two let one solver's
 limits read as architectural law — "no sink carries the stream" described a
 solver, not the architecture. Two findings say why the axis has to be its own,
-and [the table](benchmarks.md#sink-capabilities) says which sink is which: SOS
+and the capability table says which sink is which: SOS
 is **solver-bounded**, one sink having no concept of a set at all where others
 take one natively; and quadratic is bounded **twice over on a single sink**, by
 convexity and again by what it stands beside. So a capability is neither a flat
@@ -205,19 +204,19 @@ constraint reads it.
 > what it can derive from data the model already has.**
 
 A cycle basis is the first kind: a graph algorithm over a topology only data
-supplies, so [`pypsa_kvl`](../examples/pypsa_kvl.md) carrying `cycle_incidence`
+supplies, so `pypsa_kvl` carrying `cycle_incidence`
 as a parameter is right, and would be in any language. A minimum up time was the
 second — `min_up_time` a column the model already binds, the window mask over it
 a mechanical consequence the modeller had to write as data — until `within=`
 read the width off the column
-([minimum up and down times](../examples/pypsa_min_up_down.md) is the witness).
+(minimum up and down times is the witness).
 [#849](https://github.com/fluxopt/lpspec/issues/849) is what is left of that
 gap.
 
 The first kind is a design, the second a tax, and refusing both under one rule
 reads as principle while billing as friction.
 
-**The trade is deliberate, and [Calliope](prior-art.md) made it differently.**
+**The trade is deliberate, and Calliope made it differently.**
 Its components take a list of `where`-guarded equations, so alternatives that
 differ by a regime live in the file rather than being flattened into data — one
 block for cyclic and non-cyclic storage, where this language wants the

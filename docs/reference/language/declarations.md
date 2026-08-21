@@ -19,8 +19,8 @@ characters rather than as a symbol. Write the thing rather than its symbol —
 
 ## `parameters`
 
-Declared shape only; the numbers bind by name at run time
-([data binding](data.md)).
+Declared shape only; the numbers bind by name at run time, in whatever
+consumes the AST.
 
 ```yaml
 dimensions:
@@ -44,8 +44,7 @@ bare `where` on the name _means_
 ([where strings](expressions.md#where-strings)), and whether the name may stand
 where an operator reads a
 [position](operators.md#an-offset-that-differs-per-entity) — so a column that
-disagrees describes a model the data does not build, and does not bind
-([data binding](data.md#the-data-contract)).
+disagrees describes a model the data does not build, and does not bind.
 
 | declared | the column                             |                                                  |
 | -------- | -------------------------------------- | ------------------------------------------------ |

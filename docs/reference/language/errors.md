@@ -61,25 +61,18 @@ variable with no constraint row, still reaches you from the solver
 
 ## Which error you get
 
-|                           |                                                                                                                  |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `MathSpecError`           | the root of the tree; everything below is an instance of it                                                      |
-| `LanguageError`           | the model: a construct outside the language, a dim set that does not compose, a name nothing declares            |
-| `SchemaError`             | the file: an unknown key, a malformed declaration, a bad symbol table                                            |
-| `DimensionError`          | dims that disagree — a constraint whose expression does not equal its `foreach`                                  |
-| `PiecewiseExpansionError` | a `piecewise:` block that cannot be expanded                                                                     |
-| `LaneError`               | the lane: a model both accept, that this one cannot build — the other route can ([lanes](../../about/linopy.md)) |
-| `DataError`               | what was bound: a missing source, an unreadable one, a coordinate outside the master index                       |
-| `NoSolutionError`         | the answer: reading values off a solve that returned none — infeasible, unbounded, errored                       |
+|                           |                                                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `MathSpecError`           | the root of the tree; everything below is an instance of it                                           |
+| `LanguageError`           | the model: a construct outside the language, a dim set that does not compose, a name nothing declares |
+| `SchemaError`             | the file: an unknown key, a malformed declaration, a bad symbol table                                 |
+| `DimensionError`          | dims that disagree — a constraint whose expression does not equal its `foreach`                       |
+| `PiecewiseExpansionError` | a `piecewise:` block that cannot be expanded                                                          |
 
-The split is the useful one for a caller: `LanguageError` and its subclasses
-are the _file_ being wrong, and are reproducible from the YAML alone;
-`DataError` is the numbers being wrong for a file that is fine; `LaneError` is
-neither wrong, and names the route that builds it.
-
-`check` also issues an `LpspecWarning` for advice short of an error — a
-declared dimension nothing uses as an axis, say. It is the only place warnings
-come from.
+Every one of them is the _file_ being wrong, and every one is reproducible from
+the YAML alone — no data, no solver. That is the whole tree this package
+raises: a consumer that binds numbers or calls a solver adds its own errors
+below `MathSpecError`, and says so in its own documentation.
 
 ## What the language will not say
 
@@ -107,8 +100,7 @@ A model built partly in Python has no readable `.yaml` representation and will
 not get one: the _math_ side is feasible, but expression and `where` strings
 come back as anonymous arrays, so the round trip would be functional and not
 reviewable — which is the whole point of the file. A framework that wants to
-_emit_ declarations passes a dict, and gets `to_yaml()` back
-([Python API](../api.md#a-model-four-ways)).
+_emit_ declarations passes a dict, and gets `to_yaml()` back.
 
 Where the language genuinely cannot say the math, the escape hatch is a
 declared `escape:` island — named in the file, bounded by the preceding `where`

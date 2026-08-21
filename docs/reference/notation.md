@@ -24,8 +24,8 @@ model per `method:`, for the reason the section gives.
 
 Two things this page is not. It is not the operator reference — what each
 operator _does_ is [Operators](language/operators.md), which renders the same
-math one row per call shape. And it is not a tutorial: the models on the
-[gallery](../examples/index.md) pages are the ones written to be read.
+math one row per call shape. And it is not a tutorial: the models under
+`examples/` are the ones written to be read.
 
 The symbols are the **derived** ones, taken with no symbol table, because that
 is what a model prints with no setup — $\mathit{load}_{t}$ rather than

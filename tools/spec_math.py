@@ -35,7 +35,7 @@ from pathlib import Path
 
 from math_spec.typeset import to_markdown
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / 'docs' / 'reference' / 'language' / 'operators.md'
 PROBES = ROOT / 'examples' / 'operators'
 BEGIN, END = '<!-- operator-math:begin -->', '<!-- operator-math:end -->'
