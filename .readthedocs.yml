@@ -17,7 +17,9 @@ build:
       - asdf install pixi latest
       - asdf global pixi latest
     install:
-      - pixi install -e default -e doc --frozen
+      # `default` already carries the docs feature; there has never been a
+      # `doc` environment for this to select, so the install failed outright.
+      - pixi install -e default --frozen
     build:
       html:
         - pixi run docs-build $READTHEDOCS_OUTPUT

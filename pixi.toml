@@ -70,7 +70,12 @@ mkdocs-table-reader-plugin = ">=3.1"
 [feature.docs.tasks.docs-serve]
 cmd = "mkdocs serve"
 [feature.docs.tasks.docs-build]
-cmd = "mkdocs build -d /html"
+# `{{ dir }}` is pixi's own arg template and must reach pixi intact. The
+# upstream copier template writes it in a .jinja file without a `raw` block, so
+# copier interpolates it at generation and every repo built from the template
+# gets `-d /html` — an absolute path at the filesystem root, with the declared
+# `dir` argument silently discarded. That is why Read the Docs finds no output.
+cmd = "mkdocs build -d {{ dir }}/html"
 args = ["dir"]
 
 [feature.template.dependencies]
