@@ -4,7 +4,9 @@ name: CI
 # seconds. So the cost of CI is the number of jobs, not their duration: five
 # jobs doing ninety seconds of work cost five minutes. Hence one job. Do not
 # split a step out into a job of its own to parallelise it — that trades a few
-# seconds of wall clock for a whole billed minute.
+# seconds of wall clock for a whole billed minute. This is where the template's
+# generated CI is deliberately not followed: it runs lint plus a 3-interpreter
+# by 3-OS pytest matrix, which is ten billed minutes a push.
 
 on:
   push:
@@ -30,19 +32,19 @@ jobs:
       - name: Check out branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # hatch-vcs derives the version from `git describe`, and pixi builds
+          # the package into the environment before anything runs.
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
         with:
-          # The floor, and the only version we test. If it works on the oldest
-          # supported interpreter it almost certainly works on the newer ones;
-          # the common real breakage is reaching for a newer stdlib feature,
-          # which is exactly what this catches. This does leave the 3.13 and
-          # 3.14 classifiers in pyproject.toml as untested claims — see the
-          # early-development section of RELEASING.md.
-          python-version: "3.12"
-          enable-cache: true
+          # `--locked`: pixi.lock is the environment, and a run that quietly
+          # re-solved would not be testing what a contributor has.
+          locked: true
+          cache: true
+          environments: default
 
       # The TeX the render gate compiles with. It installs across the steps
       # below rather than in front of them: `apt-get update` plus the
@@ -75,19 +77,26 @@ jobs:
           nohup sudo -n bash "$RUNNER_TEMP/install-tex.sh" \
             > "$RUNNER_TEMP/tex-install.log" 2>&1 &
 
-      # Current dependencies, dev group: lint, format, types, suite.
-      - run: uv sync --group dev
-      - run: uv run --no-sync ruff check .
-      - run: uv run --no-sync ruff format --check .
-      - run: uv run --no-sync pyrefly check --output-format=github
-      - run: uv run --no-sync pytest -q -n auto
+      # One step for every check that formats, lints or licence-checks a file:
+      # `lint` is `lefthook run pre-commit --all-files`, the same jobs a commit
+      # runs, and `fail_on_changes: always` means an unformatted tree fails here
+      # rather than being fixed in place. ruff, pyrefly, typos, zizmor, reuse,
+      # prettier and taplo all report from inside it.
+      - name: Run linting
+        run: pixi run lint
+        env:
+          CLICOLOR_FORCE: 1
+
+      - name: Run pytest
+        run: pixi run test --color=yes
 
       # The site, built strictly: `--strict` turns every mkdocs warning into a
       # failure, so this gate catches a dead cross-link, a page added without a
       # nav entry, and an anchor that stopped resolving. It is also the closest
-      # thing to a rehearsal of the Read the Docs build.
-      - run: uv sync --group docs
-      - run: uv run --no-sync mkdocs build --strict -d "$RUNNER_TEMP/site"
+      # thing to a rehearsal of the Read the Docs build, which runs the same
+      # task.
+      - name: Build the docs
+        run: pixi run docs-build "$RUNNER_TEMP/site"
 
       # The install started before the suite; this is where it is waited on, so
       # a failure reports apt's exit status and log rather than a missing
@@ -112,14 +121,15 @@ jobs:
           exit 1
 
       # The LaTeX half of "every model renders to something that compiles". The
-      # Typst half is proven by the suite, which compiles it through a pip
-      # wheel; LaTeX needs a toolchain, which is why this half lives here.
+      # Typst half is proven by the suite, which compiles it through the typst
+      # PyPI bindings; LaTeX needs a toolchain, which is why this half lives
+      # here.
       #
       # One interpreter for every model rather than one each: upstream measured
       # the process starts at three quarters of the step's wall clock, against
       # every `pdflatex` invocation put together.
       - name: Every model renders to LaTeX that compiles
-        run: uv run --no-sync python -m tools.render_tex build/tex
+        run: pixi run render-tex build/tex
 
       # One pdflatex per model, in parallel. `-halt-on-error` so a failure is
       # the first error rather than a log to read backwards.

@@ -72,11 +72,17 @@ test-coverage = "pytest --cov=math_spec --cov-report=xml --cov-report=term-missi
 typecheck = "pyrefly check"
 # Every model renders to LaTeX; whether that LaTeX *compiles* needs a TeX
 # toolchain, which CI installs and a contributor may not have.
-render-tex = { cmd = "python -m tools.render_tex {{ dir }}", args = [{ arg = "dir", default = "build/tex" }] }
+render-tex = { cmd = "python -m tools.render_tex {{ dir }}", args = [
+  { arg = "dir", default = "build/tex" },
+] }
 
 [feature.build.dependencies]
 python = "*"
-hatchling = "*"
+hatchling = ">=1.27"
+# `--no-isolation` below means the backend is this environment, not one pip
+# builds on the fly — so the plugin that reads the version off the tag has to
+# be installed here or `source = "vcs"` has nothing to call.
+hatch-vcs = "*"
 python-build = "*"
 twine = ">=6"
 [feature.build.tasks]

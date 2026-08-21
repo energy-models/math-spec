@@ -16,23 +16,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # hatch-vcs derives the version from `git describe`, so the tags have
-          # to be here. A shallow clone builds a 0.1.dev-something wheel.
+          # to be here. A shallow clone builds a 0.0.1.dev-something wheel.
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
         with:
+          locked: true
           # Off, deliberately: this job publishes the artifact a tag ships, and
-          # a restored cache is writable by any job that can populate it. One
-          # `uv build` has nothing to gain from it anyway.
-          enable-cache: false
-      # No version to substitute: `[tool.hatch.version] source = "vcs"` reads
-      # the tag directly, so the tag and the wheel cannot disagree and there is
-      # nothing to verify afterwards.
+          # a restored cache is writable by any job that can populate it.
+          cache: false
+      # No version to substitute, so the template's `sed` over pyproject.toml is
+      # gone: `[tool.hatch.version] source = "vcs"` reads the tag directly, the
+      # tag and the wheel cannot disagree, and there is nothing to verify
+      # afterwards.
       - name: Build project
-        run: uv build
+        run: pixi run build-wheel
       - name: Check package
-        run: uvx twine check dist/*
+        run: pixi run check-wheel
       - name: Upload package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
