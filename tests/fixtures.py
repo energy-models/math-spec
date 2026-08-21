@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """What the language's own tests build a schema from, owned by this directory.
 
 These used to live in `tests/conftest.py`, which imports `tools.constructs` and

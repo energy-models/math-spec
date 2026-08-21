@@ -1,20 +1,20 @@
 description: Every dimension at once — `sum(array)` names none of them and takes them all.
 
 dimensions:
-  snapshot: {dtype: int}
-  generator: {dtype: str}
+  snapshot: { dtype: int }
+  generator: { dtype: str }
 
 parameters:
-  budget: {dims: []}
+  budget: { dims: [] }
 
 variables:
   p:
     foreach: [snapshot, generator]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
 
 constraints:
   fleet_budget:
     foreach: []
     expression: sum(p) <= budget
 
-objective: {sense: minimize, expression: sum(p)}
+objective: { sense: minimize, expression: sum(p) }

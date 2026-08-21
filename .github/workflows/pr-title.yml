@@ -86,7 +86,26 @@ jobs:
             echo "ok: ${what} — ${subject}"
           }
 
-          check "PR title" "$PR_TITLE"
+          # Every subject GitHub could squash with, and every message a footer
+          # can hide in. A one-commit PR is squashed with that commit's own
+          # title, so both must reach both checks below — and the commit's whole
+          # message is kept, not just its first line, because a 'BREAKING
+          # CHANGE:' footer lives in the body.
+          #
+          # Checking only $PR_TITLE and $PR_BODY is how lpspec shipped
+          # 0.1.0-alpha.226 and .227 and had to withdraw them: the '!' was in
+          # the single commit's title, which the guard never read.
+          titles=("PR title|${PR_TITLE}")
+          messages=("the PR body|${PR_BODY:-}")
+          if [[ "$COMMIT_COUNT" == "1" ]]; then
+            only=$(gh api "repos/${REPO}/pulls/${NUMBER}/commits" --jq '.[0].commit.message')
+            titles+=("the single commit's title|$(head -1 <<<"$only")")
+            messages+=("the single commit's message|${only}")
+          fi
+
+          for entry in "${titles[@]}"; do
+            check "${entry%%|*}" "${entry#*|}"
+          done
 
           # A breaking marker moves the *base* version, not the alpha counter.
           # While the base is 0.0.0 that is harmless — under `versioning:
@@ -113,20 +132,18 @@ jobs:
           fi
 
           if [[ "$base" == 0.* ]]; then
-            if [[ "$PR_TITLE" =~ ^[a-z]+(\([a-z0-9._/-]+\))?!: ]]; then
-              echo "::error::'!' in the title bumps the base version off the pinned alpha stream (currently ${base})."
-              fail=1
-            fi
-            if grep -qE '^BREAKING[ -]CHANGE:' <<<"${PR_BODY:-}"; then
-              echo "::error::a 'BREAKING CHANGE:' footer bumps the base version off the pinned alpha stream (currently ${base})."
-              fail=1
-            fi
-          fi
-
-          # exactly one commit: GitHub squashes using that commit's title, not the PR title
-          if [[ "$COMMIT_COUNT" == "1" ]]; then
-            only=$(gh api "repos/${REPO}/pulls/${NUMBER}/commits" --jq '.[0].commit.message' | head -1)
-            check "the single commit's title" "$only"
+            for entry in "${titles[@]}"; do
+              if [[ "${entry#*|}" =~ ^[a-z]+(\([a-z0-9._/-]+\))?!: ]]; then
+                echo "::error::'!' in ${entry%%|*} bumps the base version off the pinned alpha stream (currently ${base})."
+                fail=1
+              fi
+            done
+            for entry in "${messages[@]}"; do
+              if grep -qE '^BREAKING[ -]CHANGE:' <<<"${entry#*|}"; then
+                echo "::error::a 'BREAKING CHANGE:' footer in ${entry%%|*} bumps the base version off the pinned alpha stream (currently ${base})."
+                fail=1
+              fi
+            done
           fi
 
           if (( fail )); then

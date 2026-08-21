@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The errors the language raises, and the root every other error derives from.
 
 The split that matters is **the model versus the run**, and this is the model
@@ -6,7 +10,7 @@ accept — decidable at load time, with no data bound, which is what
 ``lps.check()`` raises. The run half (a fine file with the wrong thing bound to
 it) lives in ``math_spec/errors.py`` beside the consumers that raise it.
 
-:class:`LpspecError` is here rather than there because **the root is not
+:class:`MathSpecError` is here rather than there because **the root is not
 divisible**: a consumer's own errors derive from it so that one ``except``
 clause covers the package, and a base class cannot live downstream of the
 classes that extend it. The consequence is stated in
@@ -27,11 +31,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 
-class LpspecError(ValueError):
+class MathSpecError(ValueError):
     """Base class for every error this package raises on purpose."""
 
 
-class LanguageError(LpspecError):
+class LanguageError(MathSpecError):
     """The model is not sayable in the language, or does not obey its rules."""
 
 

@@ -4,21 +4,21 @@ description: >-
   one the file had to fix.
 
 dimensions:
-  technology: {dtype: str}
-  month: {dtype: int}
+  technology: { dtype: str }
+  month: { dtype: int }
 
 parameters:
-  lead: {dims: [technology], dtype: int}
-  demand: {dims: [technology, month]}
+  lead: { dims: [technology], dtype: int }
+  demand: { dims: [technology, month] }
 
 variables:
   order:
     foreach: [technology, month]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
 
 constraints:
   arrives_after_its_lead:
     foreach: [technology, month]
     expression: shift(order, over=month, offset=lead, edge=0) >= demand
 
-objective: {sense: minimize, expression: sum(order)}
+objective: { sense: minimize, expression: sum(order) }

@@ -25,7 +25,6 @@ math-spec = { path = "." }
 [feature.test.dependencies]
 pytest = "*"
 pytest-cov = "*"
-mypy = "*"
 [feature.test.tasks]
 test = "pytest"
 test-coverage = "pytest --cov=math_spec --cov-report=xml --cov-report=term-missing"
@@ -42,6 +41,7 @@ check-wheel = "twine check dist/*"
 [feature.lint.dependencies]
 lefthook = "*"
 ruff = "*"
+pyrefly = "*"
 prettier = "*"
 taplo = "*"
 pre-commit-hooks = "*"

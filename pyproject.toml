@@ -25,7 +25,18 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 readme = "README.md"
-dependencies = []
+dependencies = [
+  # The schema: `Model` is a pydantic model and `schema/math-spec.schema.json`
+  # is its `model_json_schema()`. 2.1 is where a validator's own exception
+  # reaches `ctx['error']` as the object rather than its str, which
+  # `errors.schema_error` unwraps to keep the documented class; 2.0 flattens
+  # every model error to SchemaError.
+  "pydantic>=2.1",
+  # The two grammars — `expression:` and `where:` are strings to the schema and
+  # are parsed here (expression_parser.py, where_parser.py).
+  "pyparsing>=3.1",
+  "pyyaml>=6.0",
+]
 
 [project.urls]
 repository = "https://github.com/energy-models/math-spec"
@@ -59,18 +70,41 @@ select = [
 quote-style = "double"
 indent-style = "space"
 
-[tool.mypy]
-python_version = '3.12'
-no_implicit_optional = true
-check_untyped_defs = true
-files = "src/"
+[tool.pyrefly]
+# Check against the *lowest* supported interpreter, so syntax and stdlib
+# additions newer than the floor are caught here rather than by a CI leg.
+python-version = "3.12"
+project-includes = ["src/math_spec"]
+preset = "strict"
 
-# If you run into `missing library stubs or py.typed marker` errors
-# and no stubs are available for this library, you can add an override
-# to ignore the missing imports.
-# [[tool.mypy.overrides]]
-# module = ["my_module"]
-# ignore_missing_imports = true
+# Warn-by-default rules promoted to error, so a regression fails the gate
+# instead of scrolling past. All of these are already clean; each one is a
+# gate, not a TODO.
+#
+# Where a rule is genuinely wrong about one line, suppress that line with
+# `# pyrefly: ignore[rule-name]` and a reason -- do not turn the rule off here.
+#
+# `implicit-any-lambda` is left on and suppressed per line in the two grammars.
+# A lambda takes no annotation, and giving the parse action a typed callback
+# only moves the error: pyparsing returns `ParseResults`, whose `__getitem__`
+# is a union, so the body fails where the parameter used to. Kept on rather
+# than switched off so a lambda outside those grammars still has to say what
+# it takes.
+[tool.pyrefly.errors]
+implicit-import = true
+missing-import = true
+non-exhaustive-match = true
+not-required-key-access = true
+redundant-cast = true
+redundant-condition = true
+unknown-name = true
+unnecessary-comparison = true
+unnecessary-type-conversion = true
+unreachable = true
+unresolvable-dunder-all = true
+untyped-import = true
+unused-ignore = true
+variance-mismatch = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The notation reference: every construct beside the math it prints.
 
     uv run python -m tools.notation           # rewrite the page's block

@@ -51,7 +51,7 @@ from math_spec.dimensions import dims_of
 from math_spec.errors import (
     DimensionError,
     LanguageError,
-    LpspecError,
+    MathSpecError,
     PiecewiseExpansionError,
     SchemaError,
     did_you_mean,
@@ -104,6 +104,16 @@ from math_spec.where_parser import (
     WhereNode,
 )
 
+# Last, and deliberately out of alphabetical order. `math_spec.typeset` imports
+# `Namespace`, `expand_piecewise` and `load_model` back from this module, so
+# those names have to be bound before it runs. Sorted into place with the rest
+# it would sit above `validation`, and the import would fail on a partially
+# initialised module. Upstream had no cycle to avoid: the root package and the
+# language subpackage were two modules there, and flattening them into this one
+# is what put both ends of the import in the same file.
+# isort: split
+from math_spec.typeset import SymbolTable, to_latex, to_markdown, to_typst
+
 __all__ = [
     'EDGE_WRAP',
     'AndNode',
@@ -125,7 +135,7 @@ __all__ = [
     'LookupDefinedNode',
     'LookupNode',
     'LookupPairComparisonNode',
-    'LpspecError',
+    'MathSpecError',
     'Model',
     'NameListNode',
     'NameNode',
@@ -139,6 +149,7 @@ __all__ = [
     'PiecewiseExpansionError',
     'SchemaError',
     'SosBlock',
+    'SymbolTable',
     'UnaryOperatorNode',
     'UnresolvedComparisonNode',
     'UnresolvedNameNode',
@@ -160,6 +171,9 @@ __all__ = [
     'mask_of',
     'read_yaml',
     'schema_error',
+    'to_latex',
+    'to_markdown',
+    'to_typst',
     'unbounded_notes',
     'unknown_operator_message',
     'where_of',

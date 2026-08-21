@@ -3,11 +3,11 @@ description: >-
   so a unit stays up for its *own* minimum time rather than one the file fixed.
 
 dimensions:
-  unit: {dtype: str}
-  hour: {dtype: int}
+  unit: { dtype: str }
+  hour: { dtype: int }
 
 parameters:
-  min_up: {dims: [unit], dtype: int}
+  min_up: { dims: [unit], dtype: int }
 
 variables:
   started:
@@ -22,4 +22,4 @@ constraints:
     foreach: [unit, hour]
     expression: sum_back(started, over=hour, within=min_up) <= on
 
-objective: {sense: minimize, expression: sum(on)}
+objective: { sense: minimize, expression: sum(on) }

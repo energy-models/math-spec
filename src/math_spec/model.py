@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The YAML surface's types — every block a file may contain, rooted at :class:`Model`.
 
 A block per declaration kind, and one strict base: an unrecognised key is an
@@ -13,7 +17,7 @@ from __future__ import annotations
 
 import math
 from importlib import metadata
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, override
 
 from pydantic import (
     BaseModel,
@@ -340,6 +344,7 @@ class ExpressionBlock(_StrictBlock):
         return {'expression': data} if isinstance(data, str) else data
 
     @classmethod
+    @override
     def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
         """The published schema admits the bare string the one-line form is written as."""
         return _also_written_as(core_schema, handler, {'type': 'string'})
@@ -376,6 +381,7 @@ class PiecewiseLink(_StrictBlock):
         return data
 
     @classmethod
+    @override
     def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
         """The published schema admits the ``[expression, values, sign?]`` form every link is written as."""
         list_form = {'type': 'array', 'items': {'type': 'string'}, 'minItems': 2, 'maxItems': 3}
@@ -728,13 +734,13 @@ class Model(_StrictBlock):
         return errors
 
     @classmethod
-    # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11
+    @override
     def model_validate(cls, *args: Any, **kwargs: Any) -> Self:
         """Validate a mapping — see :func:`_in_our_tree` for what it raises."""
         return _in_our_tree(super().model_validate, *args, **kwargs)
 
     @classmethod
-    # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11
+    @override
     def model_validate_json(cls, *args: Any, **kwargs: Any) -> Self:
         """The same door, for JSON."""
         return _in_our_tree(super().model_validate_json, *args, **kwargs)

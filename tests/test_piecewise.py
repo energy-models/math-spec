@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """`piecewise:` expansion, judged at the door that decides it.
 
 Every claim here is one `load_model` or `expand_piecewise` reaches with no data
@@ -11,8 +15,8 @@ from __future__ import annotations
 import pytest
 import yaml as pyyaml
 
-from math_spec.errors import PiecewiseExpansionError, SchemaError
 from math_spec import Buildable, expand_piecewise
+from math_spec.errors import PiecewiseExpansionError, SchemaError
 from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
 from tests.piecewise_models import (
     CHP_YAML,

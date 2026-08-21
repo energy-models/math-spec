@@ -4,24 +4,24 @@ description: >-
   structure.
 
 dimensions:
-  snapshot: {dtype: int}
-  generator: {dtype: str}
-  bus: {dtype: str}
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+  bus: { dtype: str }
 
 lookups:
-  gen_bus: {over: generator, into: bus}
+  gen_bus: { over: generator, into: bus }
 
 parameters:
-  limit: {dims: [snapshot, bus]}
+  limit: { dims: [snapshot, bus] }
 
 variables:
   p:
     foreach: [snapshot, generator]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
 
 constraints:
   bus_total:
     foreach: [snapshot, bus]
     expression: sum(p, by=gen_bus) <= limit
 
-objective: {sense: minimize, expression: sum(p)}
+objective: { sense: minimize, expression: sum(p) }

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Data binding
 
 The YAML declares shapes; `sources` supplies the numbers, keyed by the names
@@ -31,13 +36,13 @@ sequence is positional, so the dimension's labels have to come from somewhere
 other than this parameter — one of the three sources below, which is what fixes
 the order it is positional against.
 
-`pd.Series` keeps its one dim in an *index* rather than in a column, so it is
+`pd.Series` keeps its one dim in an _index_ rather than in a column, so it is
 unwrapped first — but only if pandas is already imported, never by importing
 it. An unnamed index binds to the declared dim; a named one binds by that name,
 and a name outside the declared dims raises rather than being overwritten.
 
 **One dimension only.** A `MultiIndex` is refused: an index is a pandas idea
-with no counterpart in the frames both lanes build, and its *depth* is a second
+with no counterpart in the frames both lanes build, and its _depth_ is a second
 claim about what the parameter is over, free to disagree with the declaration
 with nothing able to say which was meant. A parameter over two dims arrives as
 a frame carrying both as columns — `series.reset_index()` is the whole change,
@@ -73,8 +78,8 @@ label set varies from run to run should not declare one.
 labels map, never which ones exist: a map is a partial relation over the
 dimension, free to omit members and written in whatever order someone typed,
 and neither may decide an extent nor an order that
-[`shift`](operators.md#shift) reads positionally. A map is instead *read
-against* whichever of the two supplied the labels. Each has **one author out of
+[`shift`](operators.md#shift) reads positionally. A map is instead _read
+against_ whichever of the two supplied the labels. Each has **one author out of
 two** — `lookups.<x>.values` in the file, or its own source key — and both of
 them, or neither, is a refusal. Which leaves one index with two authors, one
 fact each: **labels from the caller, maps from wherever each map lives.**
@@ -94,7 +99,7 @@ both at once. A column of the index named after a lookup over it is refused
 too: every other stray column is a dump's extra, and that one is a map.
 
 There is no third step. A dimension neither of the two supplies raises, and
-labels are never read out of the parameters: they would *be* the definition,
+labels are never read out of the parameters: they would _be_ the definition,
 so a mistyped label could not be told from a new one, and the index is also
 what fixes label **order**, which [`shift`](operators.md#shift) reads
 positionally.
@@ -109,51 +114,51 @@ one defect has one repair — the same sentence.
 NaN says both at once, and is refused at bind naming the parameter and the
 coordinates. The pair is one rule because the spelling is the source's rather
 than the model's: polars and parquet write a hole as a null, pandas has only
-NaN, and `None` in a pandas column *is* NaN by the time either lane sees it.
+NaN, and `None` in a pandas column _is_ NaN by the time either lane sees it.
 Sparsity is the absent row.
 
 ### Refused
 
-| | |
-|---|---|
-| a declared parameter with no data | names the parameter |
-| a source nothing can be read as a table from | names the shapes that are read |
-| an `xr.DataArray` | names `to_series().reset_index()`, this being a lane's output rather than an input |
-| a `pd.Series` with a `MultiIndex` | names the tidy frame, and the `reset_index()` that gets there |
-| a `dims: []` parameter whose source has more than one row | one value broadcast everywhere has one row |
-| a dict or a sequence for a parameter over more than one dim | each runs along one dimension |
-| a sequence whose length is not the dimension's | positional, so one entry per label |
-| a sequence for a dimension nothing else supplies labels for | names the three ways to supply them |
-| a key naming neither a parameter, a dimension nor a lookup | names the near miss |
-| a lookup relation short of either column | names the pair, and what each is |
-| a lookup relation with a null in its value column | a map is partial by omitting a row |
-| a lookup relation mapping one label twice | a lookup is single-valued |
-| a map with both authors, or neither | names them, and says which way out |
-| an index carrying a column named after a lookup over it | names the key it belongs under |
-| a table missing a declared dim column, or `value` | names the columns needed |
-| a `value` column carrying a null or a NaN | names the parameter and the coordinates |
-| a label outside the dimension's index | names the parameter and the strays |
-| two rows for one coordinate | |
-| a lookup with two values for one label | |
-| a lookup value that is not a label of its target | one wording, checked once for both lanes |
-| a dimension carrying lookups with no index | |
-| a dimension nothing can supply labels for | names both ways to fix it |
-| a dimension the file declares and the caller also supplies | names the declaration and the colliding key |
-| a lookup whose map the file declares and the caller also supplies | names the map and the colliding column |
-| a declared map whose labels nothing supplies | names the map, and asks only for the labels |
-| a declared map keyed by something the labels do not carry | names the lookup and the strays |
-| a column that is not the declared `dtype` | names both, and the declaration the data would satisfy |
-| a divisor with no value where the model divides by it | names the parameter and how many rows ([absence](absence.md)) |
-| a comparison's whole constant side with no value where the row is built | the same, naming the constraint |
-| a bound parameter with no value where the variable exists | names both models the two repairs build |
+|                                                                         |                                                                                    |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| a declared parameter with no data                                       | names the parameter                                                                |
+| a source nothing can be read as a table from                            | names the shapes that are read                                                     |
+| an `xr.DataArray`                                                       | names `to_series().reset_index()`, this being a lane's output rather than an input |
+| a `pd.Series` with a `MultiIndex`                                       | names the tidy frame, and the `reset_index()` that gets there                      |
+| a `dims: []` parameter whose source has more than one row               | one value broadcast everywhere has one row                                         |
+| a dict or a sequence for a parameter over more than one dim             | each runs along one dimension                                                      |
+| a sequence whose length is not the dimension's                          | positional, so one entry per label                                                 |
+| a sequence for a dimension nothing else supplies labels for             | names the three ways to supply them                                                |
+| a key naming neither a parameter, a dimension nor a lookup              | names the near miss                                                                |
+| a lookup relation short of either column                                | names the pair, and what each is                                                   |
+| a lookup relation with a null in its value column                       | a map is partial by omitting a row                                                 |
+| a lookup relation mapping one label twice                               | a lookup is single-valued                                                          |
+| a map with both authors, or neither                                     | names them, and says which way out                                                 |
+| an index carrying a column named after a lookup over it                 | names the key it belongs under                                                     |
+| a table missing a declared dim column, or `value`                       | names the columns needed                                                           |
+| a `value` column carrying a null or a NaN                               | names the parameter and the coordinates                                            |
+| a label outside the dimension's index                                   | names the parameter and the strays                                                 |
+| two rows for one coordinate                                             |                                                                                    |
+| a lookup with two values for one label                                  |                                                                                    |
+| a lookup value that is not a label of its target                        | one wording, checked once for both lanes                                           |
+| a dimension carrying lookups with no index                              |                                                                                    |
+| a dimension nothing can supply labels for                               | names both ways to fix it                                                          |
+| a dimension the file declares and the caller also supplies              | names the declaration and the colliding key                                        |
+| a lookup whose map the file declares and the caller also supplies       | names the map and the colliding column                                             |
+| a declared map whose labels nothing supplies                            | names the map, and asks only for the labels                                        |
+| a declared map keyed by something the labels do not carry               | names the lookup and the strays                                                    |
+| a column that is not the declared `dtype`                               | names both, and the declaration the data would satisfy                             |
+| a divisor with no value where the model divides by it                   | names the parameter and how many rows ([absence](absence.md))                      |
+| a comparison's whole constant side with no value where the row is built | the same, naming the constraint                                                    |
+| a bound parameter with no value where the variable exists               | names both models the two repairs build                                            |
 
 ### Accepted
 
-| | |
-|---|---|
-| an undeclared column in a table | ignored |
-| a coordinate with no row | sparse data gives sparse variables; what a missing row means where it is read is [absence](absence.md). `diagnostics().sparse_parameters` says which parameters arrived short of their dims, so a lost row is at least visible ([api](../api.md#diagnostics)) |
-| a value that is readable and wrong | bound as given; no number is second-guessed |
+|                                    |                                                                                                                                                                                                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| an undeclared column in a table    | ignored                                                                                                                                                                                                                                                       |
+| a coordinate with no row           | sparse data gives sparse variables; what a missing row means where it is read is [absence](absence.md). `diagnostics().sparse_parameters` says which parameters arrived short of their dims, so a lost row is at least visible ([api](../api.md#diagnostics)) |
+| a value that is readable and wrong | bound as given; no number is second-guessed                                                                                                                                                                                                                   |
 
 ### The index is what makes a stray label a stray
 

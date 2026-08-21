@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Which symbol each declared name prints as — and the sidecar that overrides it.
 
 Derivation aims at *unambiguous*, not beautiful: it runs with no setup, so it
@@ -19,8 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from math_spec.errors import SchemaError, did_you_mean
 from math_spec import read_yaml
+from math_spec.errors import SchemaError, did_you_mean
 
 if TYPE_CHECKING:
     from math_spec import Buildable

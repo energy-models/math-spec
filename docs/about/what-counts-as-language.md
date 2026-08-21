@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # What counts as language
 
 A fence says what may not happen; it does not say what belongs. The test is:
@@ -5,8 +10,8 @@ A fence says what may not happen; it does not say what belongs. The test is:
 > **A rule is language iff two consumers answering it separately would be a
 > bug.**
 
-Not "is it about syntax", not "does it run early" — *would a second opinion be
-wrong?* A model file is read by more than one thing: an engine that builds it, a
+Not "is it about syntax", not "does it run early" — _would a second opinion be
+wrong?_ A model file is read by more than one thing: an engine that builds it, a
 renderer that prints it, a checker that judges it without data. Wherever two of
 them could reach different answers and both be defensible, the question is
 theirs. Wherever two different answers would mean the file meant two things, the
@@ -33,8 +38,8 @@ So the rule has a sharp edge on both sides:
 - The language may not state a rule about what a **consumer** can represent.
 
 A refusal that fails the first test is a language error. One that fails the
-second is the consumer saying so in its own words — which is why *accepting is
-not building*, and why a model every reader accepts may still meet a wall inside
+second is the consumer saying so in its own words — which is why _accepting is
+not building_, and why a model every reader accepts may still meet a wall inside
 one of them.
 
 ## Beside the ceiling

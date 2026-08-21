@@ -3,16 +3,16 @@ description: >-
   number instead of being absent, so the row survives.
 
 dimensions:
-  snapshot: {dtype: int}
+  snapshot: { dtype: int }
 
 variables:
   p:
     foreach: [snapshot]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
     foreach: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge=0)
 
-objective: {sense: minimize, expression: sum(p)}
+objective: { sense: minimize, expression: sum(p) }

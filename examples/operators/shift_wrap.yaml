@@ -3,16 +3,16 @@ description: >-
   reads the last and nothing is vacated.
 
 dimensions:
-  snapshot: {dtype: int}
+  snapshot: { dtype: int }
 
 variables:
   p:
     foreach: [snapshot]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
     foreach: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap')
 
-objective: {sense: minimize, expression: sum(p)}
+objective: { sense: minimize, expression: sum(p) }

@@ -1,20 +1,25 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # File shape
 
 A model file is a YAML mapping with **ten declaration keys**, plus `version`
 and `description`:
 
-| Key | |
-|---|---|
-| `dimensions` | the axes ([dimensions](dimensions.md)) |
-| `lookups` | named maps out of a dimension ([lookups](dimensions.md#lookups)) |
-| `parameters` | the data the model expects ([declarations](declarations.md)) |
-| `variables` | what the solver decides |
-| `constraints` | the rules those decisions obey |
-| `objective` | what is minimised or maximised |
+| Key           |                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| `dimensions`  | the axes ([dimensions](dimensions.md))                                                                       |
+| `lookups`     | named maps out of a dimension ([lookups](dimensions.md#lookups))                                             |
+| `parameters`  | the data the model expects ([declarations](declarations.md))                                                 |
+| `variables`   | what the solver decides                                                                                      |
+| `constraints` | the rules those decisions obey                                                                               |
+| `objective`   | what is minimised or maximised                                                                               |
 | `expressions` | named quantities, reusable and readable back after a solve ([expressions](expressions.md#named-expressions)) |
-| `macros` | parameterised templates ([macros](expressions.md#macros)) |
-| `piecewise` | piecewise-linear curves ([piecewise](piecewise.md)) |
-| `sos` | special-ordered sets ([sos](piecewise.md#sos)) |
+| `macros`      | parameterised templates ([macros](expressions.md#macros))                                                    |
+| `piecewise`   | piecewise-linear curves ([piecewise](piecewise.md))                                                          |
+| `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                               |
 
 Any subset is accepted, `objective` included: a file with none is a
 **feasibility problem**, and the answer is whether the constraints can be met
@@ -29,6 +34,7 @@ What the file as a whole is: the same plain prose a declaration's
 `null`.
 
 <!-- doctest: skip -->
+
 ```yaml
 description: Least-cost dispatch of a generator fleet against an hourly load.
 dimensions: ...
@@ -42,6 +48,7 @@ A `#` comment above the file says this too, and the parser throws it away. A
 Which language surface the file is written against. Optional; absent means `0`:
 
 <!-- doctest: skip -->
+
 ```yaml
 version: 0
 dimensions: ...

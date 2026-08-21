@@ -9,159 +9,159 @@ description: >-
   $5 {net} ~ ^ \ *star* @ref <label>
 
 dimensions:
-  snapshot: {dtype: int}
-  generator: {dtype: str}
-  bus: {dtype: str}
-  zone: {dtype: str}
-  season: {dtype: str}
-  technology: {dtype: str}
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+  bus: { dtype: str }
+  zone: { dtype: str }
+  season: { dtype: str }
+  technology: { dtype: str }
 
 lookups:
-  gen_bus: {over: generator, into: bus}
-  gen_tech: {over: generator, into: technology}   # a second map out of `generator`, to group through both at once
-  zone_of: {over: bus, into: zone}
-  area_of: {over: bus, into: zone}   # a second map into the same set, to compare against
-  season_of: {over: snapshot, into: season}
-  tech: {over: generator, dtype: str}            # no `into`: a label space, which the legend words differently
+  gen_bus: { over: generator, into: bus }
+  gen_tech: { over: generator, into: technology } # a second map out of `generator`, to group through both at once
+  zone_of: { over: bus, into: zone }
+  area_of: { over: bus, into: zone } # a second map into the same set, to compare against
+  season_of: { over: snapshot, into: season }
+  tech: { over: generator, dtype: str } # no `into`: a label space, which the legend words differently
 
 parameters:
-  p_max: {dims: [generator]}
-  p_min: {dims: [generator]}
-  cost: {dims: [generator]}
-  load: {dims: [snapshot, bus]}
-  is_flexible: {dims: [generator], dtype: bool}
-  zone_cap: {dims: [zone]}
-  tech_cap: {dims: [bus, technology]}
-  min_up: {dims: [generator], dtype: int}
-  lead: {dims: [generator], dtype: int}
-  budget: {dims: []}                 # scalar: the legend says so rather than printing an empty product
-  growth: {dims: []}                 # the base of a power; the exponent is `lead`, a column
+  p_max: { dims: [generator] }
+  p_min: { dims: [generator] }
+  cost: { dims: [generator] }
+  load: { dims: [snapshot, bus] }
+  is_flexible: { dims: [generator], dtype: bool }
+  zone_cap: { dims: [zone] }
+  tech_cap: { dims: [bus, technology] }
+  min_up: { dims: [generator], dtype: int }
+  lead: { dims: [generator], dtype: int }
+  budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
+  growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
 
 variables:
-  p:            # both bounds, and a where with all three connectives
+  p: # both bounds, and a where with all three connectives
     foreach: [snapshot, generator]
     where: "p_max > 0 AND NOT is_flexible OR p_min > 0"
-    bounds: {lower: p_min, upper: p_max}
-  spill:        # lower only
+    bounds: { lower: p_min, upper: p_max }
+  spill: # lower only
     foreach: [snapshot]
-    bounds: {lower: 0}
-  slack:        # upper only
+    bounds: { lower: 0 }
+  slack: # upper only
     foreach: [snapshot]
-    bounds: {upper: 100}
-  theta:        # unbounded
+    bounds: { upper: 100 }
+  theta: # unbounded
     foreach: [bus]
-  on:          # a binary domain, which is a set rather than a pair of bounds
+  on: # a binary domain, which is a set rather than a pair of bounds
     foreach: [snapshot, generator]
     domain: binary
-  units:       # an integer domain, which is both: bounds, and where the values live
+  units: # an integer domain, which is both: bounds, and where the values live
     foreach: [generator]
     domain: integer
-    bounds: {lower: 0, upper: 10}
-  spare:        # integer with neither bound: the domain is the whole line
+    bounds: { lower: 0, upper: 10 }
+  spare: # integer with neither bound: the domain is the whole line
     foreach: [generator]
     domain: integer
-  reserve:      # an empty foreach: a scalar declaration, whose line carries no quantifier
+  reserve: # an empty foreach: a scalar declaration, whose line carries no quantifier
     foreach: []
-    bounds: {lower: 0}
-  headroom:     # scalar too, but masked, so the condition stands with no set beside it
+    bounds: { lower: 0 }
+  headroom: # scalar too, but masked, so the condition stands with no set beside it
     foreach: []
     where: "budget"
-    bounds: {lower: 0}
-  void:         # a bound on the wrong side of the line: the one way infinity prints
+    bounds: { lower: 0 }
+  void: # a bound on the wrong side of the line: the one way infinity prints
     foreach: [bus]
-    bounds: {lower: .inf, upper: -.inf}
-  weight:       # the family a sos runs along
+    bounds: { lower: .inf, upper: -.inf }
+  weight: # the family a sos runs along
     foreach: [snapshot, generator]
-    bounds: {lower: 0, upper: 1}
+    bounds: { lower: 0, upper: 1 }
 
 sos:
-  adjacent:   # at most two adjacent members nonzero, one set per snapshot
+  adjacent: # at most two adjacent members nonzero, one set per snapshot
     variable: weight
     over: generator
     type: 2
 
 constraints:
-  balance:      # sum over a lookup
+  balance: # sum over a lookup
     foreach: [snapshot, bus]
     expression: sum(p, by=gen_bus) + spill - slack == load
-  ramp:         # roll (cyclic) and shift (acyclic) in one equation
+  ramp: # roll (cyclic) and shift (acyclic) in one equation
     foreach: [snapshot, generator]
     expression: p - shift(p, over=snapshot, offset=1, edge='wrap') <= shift(p, over=snapshot, offset=1) + p_max
-  edges:        # the two translations `ramp` leaves out: a fill, and forwards
+  edges: # the two translations `ramp` leaves out: a fill, and forwards
     foreach: [snapshot, generator]
     expression: >-
       shift(p, over=snapshot, offset=1, edge=0)
       <= shift(p, over=snapshot, offset=-1, edge=0) + p_max
-  ahead:        # the cyclic translation forwards, which is a fourth symbol again
+  ahead: # the cyclic translation forwards, which is a fourth symbol again
     foreach: [snapshot, generator]
     expression: p <= shift(p, over=snapshot, offset=-1, edge='wrap')
-  composed:     # two steps of one policy are one step; a zero step is none at all
+  composed: # two steps of one policy are one step; a zero step is none at all
     foreach: [snapshot, generator]
     expression: shift(shift(p, over=snapshot, offset=1), over=snapshot, offset=1) <= shift(p_max, over=generator, offset=0)
-  uncomposed:   # a named offset under a numbered one stays two steps, not their sum
+  uncomposed: # a named offset under a numbered one stays two steps, not their sum
     foreach: [snapshot, generator]
     expression: shift(shift(p, over=snapshot, offset=lead), over=snapshot, offset=1) <= p_max
-  crossed:      # two dimensions translated at one leaf, each with its own policy
+  crossed: # two dimensions translated at one leaf, each with its own policy
     foreach: [snapshot, generator]
     expression: shift(shift(p, over=snapshot, offset=1, edge='wrap'), over=generator, offset=-1) <= p_max
-  lead_time:    # an offset the data carries, so it prints as a symbol rather than a number
+  lead_time: # an offset the data carries, so it prints as a symbol rather than a number
     foreach: [snapshot, generator]
     expression: shift(p, over=snapshot, offset=lead, edge=0) <= p_max
-  in_season:    # a translation partitioned by a lookup: the group rides on the operator
+  in_season: # a translation partitioned by a lookup: the group rides on the operator
     foreach: [snapshot, generator]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
-  held_in_season:  # the same group, with a fill: each season's opening row is kept and given a zero
+  held_in_season: # the same group, with a fill: each season's opening row is kept and given a zero
     foreach: [snapshot, generator]
     expression: p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)
-  window:       # a trailing window of fixed width
+  window: # a trailing window of fixed width
     foreach: [snapshot, generator]
     expression: sum_back(on, over=snapshot, within=3) <= units
-  history:      # the same window, its width in the data and its edge wrapped
+  history: # the same window, its width in the data and its edge wrapped
     foreach: [snapshot, generator]
     expression: sum_back(on, over=snapshot, within=min_up, edge='wrap') <= units
-  pullback:     # at(), which re-indexes through a lookup instead of an offset
+  pullback: # at(), which re-indexes through a lookup instead of an offset
     foreach: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of)
-  grouped_twice:  # one grouping through two maps: the domain carries both conditions
+  grouped_twice: # one grouping through two maps: the domain carries both conditions
     foreach: [snapshot, bus, technology]
     expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap
-  pulled_back_twice:  # its adjoint, reading one slot through a pair of labels
+  pulled_back_twice: # its adjoint, reading one slot through a pair of labels
     foreach: [generator]
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
-  arithmetic:   # division, unary minus, nested reduction, bracketing
+  arithmetic: # division, unary minus, nested reduction, bracketing
     # No `**`: the walk renders it, but `lower_program` rejects it, so a model
     # using it would not be a model. Format.power stays exercised by unit
     # tests rather than from here.
     foreach: [snapshot]
     expression: sum(p / 2 + -cost, over=generator) >= -sum(p, over=generator) * 3
-  total:        # a sum naming no dim, whose domain is the one place the dims it took are said
+  total: # a sum naming no dim, whose domain is the one place the dims it took are said
     foreach: []
     expression: sum(p) <= budget
-  scalar:       # a parameter over nothing, and a mask that is a bare parameter
+  scalar: # a parameter over nothing, and a mask that is a bare parameter
     foreach: [generator]
     where: "cost"
     expression: units <= budget
-  running:      # a mask on a variable's existence, and one on a dimension's label
+  running: # a mask on a variable's existence, and one on a dimension's label
     foreach: [snapshot, bus]
     where: "theta AND snapshot >= 3"
     expression: theta <= load
-  first:        # a position in a dimension, and the same position within a group
+  first: # a position in a dimension, and the same position within a group
     foreach: [snapshot, generator]
     where: "snapshot == index(snapshot, 0) OR snapshot == index(snapshot, 0, by=season_of)"
     expression: on == 1
-  northern:     # a lookup compared to a label, to another lookup, and to nothing
+  northern: # a lookup compared to a label, to another lookup, and to nothing
     foreach: [snapshot, bus]
     where: "zone_of == 'north' AND zone_of != area_of AND zone_of"
     expression: slack <= load
-  always:       # the two constant masks, which are a quantifier and no equation
+  always: # the two constant masks, which are a quantifier and no equation
     foreach: [snapshot]
     where: "true"
     expression: spill >= 0
-  never:      # the other constant mask
+  never: # the other constant mask
     foreach: [snapshot]
     where: "false"
     expression: slack >= 0
 
-objective:    # a sense, a product of two variables, a power over two parameters, and the summations a scalar objective spells out beside two scalar terms
+objective: # a sense, a product of two variables, a power over two parameters, and the summations a scalar objective spells out beside two scalar terms
   sense: maximize
   expression: sum(p * cost) + sum(p * p * cost) + sum(p * cost * growth ** lead) + sum(p * p_max) - reserve + -headroom

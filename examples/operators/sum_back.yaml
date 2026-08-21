@@ -3,11 +3,11 @@ description: >-
   hours is still on.
 
 dimensions:
-  unit: {dtype: str}
-  hour: {dtype: int}
+  unit: { dtype: str }
+  hour: { dtype: int }
 
 parameters:
-  min_up: {dims: [unit], dtype: int}
+  min_up: { dims: [unit], dtype: int }
 
 variables:
   started:
@@ -22,4 +22,4 @@ constraints:
     foreach: [unit, hour]
     expression: sum_back(started, over=hour, within=3) <= on
 
-objective: {sense: minimize, expression: sum(on)}
+objective: { sense: minimize, expression: sum(on) }

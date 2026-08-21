@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Dimensions and lookups
 
 A **dimension** is an axis of the model — something is indexed by it, or an
@@ -7,17 +12,17 @@ things and the file keeps them apart.
 
 ```yaml
 dimensions:
-  snapshot: {dtype: int}  # coordinates come from the data
-  generator: {values: [wind, solar, gas]}  # coordinates are given here
+  snapshot: { dtype: int } # coordinates come from the data
+  generator: { values: [wind, solar, gas] } # coordinates are given here
 ```
 
 Every dimension named anywhere in the file must be declared here.
 
-| Field | | |
-|---|---|---|
-| `dtype` | `float`, `int`, `str`, `datetime` | default `str` |
-| `values` | the coordinates, as a list | default `null` — they must then arrive from data ([data binding](data.md)) |
-| `description` | free text, never parsed | default `null` |
+| Field         |                                   |                                                                            |
+| ------------- | --------------------------------- | -------------------------------------------------------------------------- |
+| `dtype`       | `float`, `int`, `str`, `datetime` | default `str`                                                              |
+| `values`      | the coordinates, as a list        | default `null` — they must then arrive from data ([data binding](data.md)) |
+| `description` | free text, never parsed           | default `null`                                                             |
 
 Every declared value must be of the declared `dtype`. `values: [2024-01-01]`
 under the default `dtype: str` is a load error: YAML resolved it to a date, and
@@ -31,7 +36,7 @@ model. Where the coordinates come from, and in what order, is
 
 ## `lookups`
 
-A lookup is what makes topology *data*: a generator sits on a bus, a line has
+A lookup is what makes topology _data_: a generator sits on a bus, a line has
 two endpoints, and no adjacency matrix or hand-written join appears anywhere.
 Each is declared under its own name, `over:` the dimension whose members carry
 it, and the second field says which of two kinds it is.
@@ -43,13 +48,13 @@ The lookup's values are labels of another dimension, which is what
 
 ```yaml
 dimensions:
-  bus: {dtype: str}
-  generator: {dtype: str}
-  line: {dtype: str}
+  bus: { dtype: str }
+  generator: { dtype: str }
+  line: { dtype: str }
 lookups:
-  gen_bus: {over: generator, into: bus}
-  line_from: {over: line, into: bus}  # two lookups onto one dimension
-  line_to: {over: line, into: bus}
+  gen_bus: { over: generator, into: bus }
+  line_from: { over: line, into: bus } # two lookups onto one dimension
+  line_to: { over: line, into: bus }
 ```
 
 The target must be a declared dimension other than `over`. Values are checked
@@ -63,7 +68,7 @@ declared map does not carry, a label with no row in the supplied one
 ([data binding](data.md#where-coordinates-come-from)).
 
 **Several at once**: `sum(x, by=[gen_bus, gen_tech])` groups through both maps
-in one reduction, landing on `bus` *and* `technology`. Every lookup in the list
+in one reduction, landing on `bus` _and_ `technology`. Every lookup in the list
 must be `over:` the same dimension — one grouping consumes one dimension — and
 must target a different one. A member either map leaves out belongs to no group
 at all, the same reading one unmapped member gets.
@@ -72,18 +77,18 @@ at all, the same reading one unmapped member gets.
 
 It owns its values, targets nothing, and puts no entry under `dimensions:`,
 because a label space nothing aggregates into is not part of the model's
-dimensionality. *Selecting* on it is a [`where`](expressions.md#where-strings),
+dimensionality. _Selecting_ on it is a [`where`](expressions.md#where-strings),
 which is the only thing this kind is for:
 
 ```yaml
 dimensions:
-  snapshot: {dtype: int}
+  snapshot: { dtype: int }
 lookups:
-  period: {over: snapshot, dtype: int}  # a label on snapshot — nothing else
+  period: { over: snapshot, dtype: int } # a label on snapshot — nothing else
 variables:
   build:
     foreach: [snapshot]
-    where: "period == 1"  # …and this is what selects on it
+    where: "period == 1" # …and this is what selects on it
 ```
 
 A lookup declares **exactly one** of `into:` and `dtype:`. Grouping into a
@@ -99,10 +104,10 @@ labels, for a relation small enough to read:
 
 ```yaml
 dimensions:
-  generator: {values: [g1, g2]}
-  bus: {values: [north, south]}
+  generator: { values: [g1, g2] }
+  bus: { values: [north, south] }
 lookups:
-  gen_bus: {over: generator, into: bus, values: {g1: north, g2: south}}
+  gen_bus: { over: generator, into: bus, values: { g1: north, g2: south } }
 ```
 
 A label it omits is unmapped, which is the partial case above. Both sides are
@@ -170,4 +175,4 @@ a mask, is exactly the shape `lookups` exists to replace.
 The block invariant follows: everything under `dimensions:` is an axis. A
 dimension is never legal in a value position — it is a coordinate space, not
 data — and `check` warns about a declared dimension that is never used as an
-axis. To use a dimension's coordinates *as data*, declare a parameter over it.
+axis. To use a dimension's coordinates _as data_, declare a parameter over it.

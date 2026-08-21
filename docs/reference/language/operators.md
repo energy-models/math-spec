@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Operators
 
 The built-in set is **closed**: these are all of them, there is no registry to
@@ -5,21 +10,21 @@ add to, and a model therefore cannot depend on what a caller registered.
 Dimension arguments are name-checked at load time, so
 `sum(p, over=snapshto)` is an error rather than a no-op.
 
-| Operator | Result |
-|---|---|
-| `sum(array)` | every dim `array` carries collapses; the result is scalar |
-| `sum(array, over=dim)` | `dim` collapses; `array` must carry it |
-| `sum(array, by=lookup)` | the dim the lookup is over collapses onto the dim it maps into |
-| `sum(array, by=[lookup, …])` | the same, onto every dim the lookups map into; they must share the dim they are over |
-| `at(array, by=lookup)` | the dim the lookup maps into is replaced by the dim it is over |
-| `shift(array, over=dim, offset=n)` | the value at *t−n* along `dim`; the vacated edge is **absent** |
-| `shift(array, over=dim, offset=n, edge='wrap')` | the value at *t−n*, cyclic: nothing is vacated |
-| `shift(array, over=dim, offset=n, edge=v)` | the value at *t−n*, with the number `v` where the edge was vacated |
-| `shift(array, over=dim, offset=p, edge=…)` | `p` an integer parameter: each entity is reached by **its own** offset — declared over what a `by=` groups into, one lag per group |
-| `shift(array, over=dim, offset=n, by=lookup)` | the translation walks **inside each group** the lookup makes: neighbours, edges and a wrap are that group's |
-| `sum_back(array, over=dim, within=n)` | the sum of the last `n` positions along `dim`, ending at *t* |
-| `sum_back(array, over=dim, within=p)` | `p` an integer parameter: each entity gets **its own** window length |
-| `sum_back(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its start |
+| Operator                                           | Result                                                                                                                             |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `sum(array)`                                       | every dim `array` carries collapses; the result is scalar                                                                          |
+| `sum(array, over=dim)`                             | `dim` collapses; `array` must carry it                                                                                             |
+| `sum(array, by=lookup)`                            | the dim the lookup is over collapses onto the dim it maps into                                                                     |
+| `sum(array, by=[lookup, …])`                       | the same, onto every dim the lookups map into; they must share the dim they are over                                               |
+| `at(array, by=lookup)`                             | the dim the lookup maps into is replaced by the dim it is over                                                                     |
+| `shift(array, over=dim, offset=n)`                 | the value at _t−n_ along `dim`; the vacated edge is **absent**                                                                     |
+| `shift(array, over=dim, offset=n, edge='wrap')`    | the value at _t−n_, cyclic: nothing is vacated                                                                                     |
+| `shift(array, over=dim, offset=n, edge=v)`         | the value at _t−n_, with the number `v` where the edge was vacated                                                                 |
+| `shift(array, over=dim, offset=p, edge=…)`         | `p` an integer parameter: each entity is reached by **its own** offset — declared over what a `by=` groups into, one lag per group |
+| `shift(array, over=dim, offset=n, by=lookup)`      | the translation walks **inside each group** the lookup makes: neighbours, edges and a wrap are that group's                        |
+| `sum_back(array, over=dim, within=n)`              | the sum of the last `n` positions along `dim`, ending at _t_                                                                       |
+| `sum_back(array, over=dim, within=p)`              | `p` an integer parameter: each entity gets **its own** window length                                                               |
+| `sum_back(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its start                                                         |
 
 `array` is any expression of the right dim set, so these read a **parameter**
 as readily as a variable. Each row as the typesetter prints it is
@@ -42,18 +47,18 @@ membership sum that makes topology data rather than structure:
 
 ```yaml
 dimensions:
-  bus: {dtype: str}
-  generator: {dtype: str}
-  line: {dtype: str}
+  bus: { dtype: str }
+  generator: { dtype: str }
+  line: { dtype: str }
 lookups:
-  gen_bus: {over: generator, into: bus}
-  line_from: {over: line, into: bus}
-  line_to: {over: line, into: bus}
+  gen_bus: { over: generator, into: bus }
+  line_from: { over: line, into: bus }
+  line_to: { over: line, into: bus }
 parameters:
-  load: {dims: [bus]}
+  load: { dims: [bus] }
 variables:
-  p: {foreach: [generator]}
-  f: {foreach: [line]}
+  p: { foreach: [generator] }
+  f: { foreach: [line] }
 constraints:
   nodal_balance:
     foreach: [bus]
@@ -84,7 +89,7 @@ which way it is walked. `sum(by=)` consumes the dimension the lookup is over
 and produces its target; `at` consumes the target and produces that dimension,
 reading one coarse value once per fine label that points at it.
 
-It reads a *variable* as readily as a parameter, which is what a per-component
+It reads a _variable_ as readily as a parameter, which is what a per-component
 decision gating its own flows needs — one decision taken per bus, read once by
 every line that touches it. A fine label whose lookup value is null reads
 nothing and its row is absent, matching `sum(by=)`'s null group.
@@ -100,22 +105,22 @@ value per position, each reading a window of its own.
 
 ```yaml
 dimensions:
-  unit: {dtype: str}
-  hour: {dtype: int}
+  unit: { dtype: str }
+  hour: { dtype: int }
 
 parameters:
-  min_up: {dims: [unit], dtype: int}
+  min_up: { dims: [unit], dtype: int }
 
 variables:
-  started: {foreach: [unit, hour], domain: binary}
-  on: {foreach: [unit, hour], domain: binary}
+  started: { foreach: [unit, hour], domain: binary }
+  on: { foreach: [unit, hour], domain: binary }
 
 constraints:
   stays_up_its_own_time:
     foreach: [unit, hour]
     expression: sum_back(started, over=hour, within=min_up) <= on
 
-objective: {sense: minimize, expression: sum(on)}
+objective: { sense: minimize, expression: sum(on) }
 ```
 
 `within=` may name an **integer parameter** instead of a number, and then each
@@ -131,7 +136,7 @@ Two rules make a named width mean one thing, and both are load errors:
   an integer column, so a width of `2.5` has nowhere to arrive from.
 - **It does not span the dimension being summed over.** A width that changes
   along that axis is a different window at every position, which is no longer
-  "the last *n*".
+  "the last _n_".
 
 `edge=` takes `'wrap'` or nothing. A window that reaches past the start of the
 axis is **short**, not empty — the position being written is always inside its
@@ -142,20 +147,20 @@ what a representative period that repeats asks for.
 
 ## `shift`
 
-`shift(x, over=d, offset=n)` reaches along an axis: it is the value at *t−n*, in
+`shift(x, over=d, offset=n)` reaches along an axis: it is the value at _t−n_, in
 the dimension's **declared order** ([data binding](data.md)). `edge=` says what
 happens at the boundary, and it is the whole of the operator's subtlety.
 
 ```yaml
 dimensions:
-  snapshot: {dtype: int}
-  storage: {dtype: str}
+  snapshot: { dtype: int }
+  storage: { dtype: str }
 parameters:
-  eta: {dims: [storage]}
+  eta: { dims: [storage] }
 variables:
-  soc: {foreach: [snapshot, storage]}
-  charge: {foreach: [snapshot, storage]}
-  discharge: {foreach: [snapshot, storage]}
+  soc: { foreach: [snapshot, storage] }
+  charge: { foreach: [snapshot, storage] }
+  discharge: { foreach: [snapshot, storage] }
 constraints:
   storage_balance:
     foreach: [snapshot, storage]
@@ -199,19 +204,19 @@ representative day:
 
 ```yaml
 dimensions:
-  snapshot: {dtype: int}
-  season: {dtype: str}
+  snapshot: { dtype: int }
+  season: { dtype: str }
 lookups:
-  season_of: {over: snapshot, into: season}
+  season_of: { over: snapshot, into: season }
 parameters:
-  inflow: {dims: [snapshot]}
+  inflow: { dims: [snapshot] }
 variables:
-  soc: {foreach: [snapshot], bounds: {lower: 0}}
+  soc: { foreach: [snapshot], bounds: { lower: 0 } }
 constraints:
   season_balance:
     foreach: [snapshot]
     expression: soc == shift(soc, over=snapshot, offset=1, edge='wrap', by=season_of) + inflow
-objective: {sense: minimize, expression: sum(soc)}
+objective: { sense: minimize, expression: sum(soc) }
 ```
 
 Every `edge=` rule then reads the same, one group at a time: bare, each group's
@@ -226,7 +231,7 @@ and no `edge=` speaks for it. Reaching off a group's start is what a policy
 answers; belonging to no group is the null a partial lookup gives everywhere
 else, so the row drops under `edge=0` exactly as it does bare.
 
-Without it, `edge='wrap'` wraps the *axis*: the last coordinate of the whole
+Without it, `edge='wrap'` wraps the _axis_: the last coordinate of the whole
 dimension feeds the first, which across periods means one period opening on
 what another left.
 
@@ -242,20 +247,20 @@ a delay that the source data already carries as a column:
 
 ```yaml
 dimensions:
-  technology: {dtype: str}
-  month: {dtype: int}
+  technology: { dtype: str }
+  month: { dtype: int }
 parameters:
-  lead: {dims: [technology], dtype: int}
-  demand: {dims: [technology, month]}
+  lead: { dims: [technology], dtype: int }
+  demand: { dims: [technology, month] }
 variables:
   order:
     foreach: [technology, month]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
 constraints:
   arrives_after_its_lead:
     foreach: [technology, month]
     expression: shift(order, over=month, offset=lead, edge=0) >= demand
-objective: {sense: minimize, expression: sum(order)}
+objective: { sense: minimize, expression: sum(order) }
 ```
 
 Four rules keep that a translation rather than something else, each a load
@@ -272,7 +277,7 @@ error naming its rewrite:
   read at the coordinate it moves, and a dimension that coordinate does not
   have is no coordinate at all;
 - **it says what the vacated positions contribute** — `edge='wrap'` or a
-  number. The bare form's *absence* is carried by a frame keyed by the
+  number. The bare form's _absence_ is carried by a frame keyed by the
   translated dimension alone, and a per-entity offset vacates a different slot
   for each entity, which that frame cannot yet say.
 
@@ -292,22 +297,22 @@ distance, and no coordinate reaches out of its group:
 
 ```yaml
 dimensions:
-  snapshot: {dtype: int}
-  period: {dtype: int}
+  snapshot: { dtype: int }
+  period: { dtype: int }
 lookups:
-  period_of: {over: snapshot, into: period}
+  period_of: { over: snapshot, into: period }
 parameters:
-  lead: {dims: [period], dtype: int}
-  demand: {dims: [snapshot]}
+  lead: { dims: [period], dtype: int }
+  demand: { dims: [snapshot] }
 variables:
   order:
     foreach: [snapshot]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
 constraints:
   arrives_after_its_periods_lead:
     foreach: [snapshot]
     expression: shift(order, over=snapshot, offset=lead, by=period_of, edge=0) >= demand
-objective: {sense: minimize, expression: sum(order)}
+objective: { sense: minimize, expression: sum(order) }
 ```
 
 This is the one thing a `(period, timestep)` grid can say that a flat `snapshot`
@@ -326,7 +331,7 @@ Anything you can build out of these belongs in
 
 Each operator above as the [typesetter](../typeset.md) prints it, **generated**
 from one model per row in
-[`examples/operators/`](https://github.com/fluxopt/math_spec/blob/main/examples/operators)
+[`examples/operators/`](https://github.com/fluxopt/lpspec/blob/main/examples/operators)
 — so a row cannot outlive the operator it documents, and two operators that
 render the same are visible here rather than in somebody's paper.
 
@@ -337,21 +342,22 @@ position.
 The rest of the language is rendered the same way, on one page: [Every construct, as math](../notation.md).
 
 <!-- operator-math:begin -->
-| Operator | Renders as |
-|---|---|
-| `sum(array)` | $\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathit{budget}$ |
-| `sum(array, over=dim)` | $\sum_{g \in \mathcal{G}} p_{t,g} \le \mathit{limit}_{t} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `sum(array, by=lookup)` | $\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathit{limit}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$ |
-| `sum(array, by=[lookup, …])` | $\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathit{limit}_{t,b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$ |
-| `at(array, by=lookup)` | $p_{t} \le \mathit{cap}_{\mathrm{period\_of}(t)} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `shift(array, over=dim, offset=n)` | $p_{t} \le p_{t - 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `shift(array, over=dim, offset=n, edge='wrap')` | $p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `shift(array, over=dim, offset=n, edge=v)` | $p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `shift(array, over=dim, offset=p, edge=…)` | $\mathit{order}_{t,m \boxminus_{0} \mathit{lead}} \ge \mathit{demand}_{t,m} \qquad \forall\thinspace t \in \mathcal{T},\enspace m \in \mathcal{M}$ |
-| `shift(array, over=dim, offset=n, by=lookup)` | $p_{t} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1} \qquad \forall\thinspace t \in \mathcal{T}$ |
-| `sum_back(array, over=dim, within=n)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
-| `sum_back(array, over=dim, within=p)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
-| `sum_back(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+
+| Operator                                           | Renders as                                                                                                                                                                                                                                     |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sum(array)`                                       | $\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathit{budget}$                                                                                                                                                              |
+| `sum(array, over=dim)`                             | $\sum_{g \in \mathcal{G}} p_{t,g} \le \mathit{limit}_{t} \qquad \forall\thinspace t \in \mathcal{T}$                                                                                                                                           |
+| `sum(array, by=lookup)`                            | $\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathit{limit}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$                                                               |
+| `sum(array, by=[lookup, …])`                       | $\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathit{limit}_{t,b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$ |
+| `at(array, by=lookup)`                             | $p_{t} \le \mathit{cap}_{\mathrm{period\_of}(t)} \qquad \forall\thinspace t \in \mathcal{T}$                                                                                                                                                   |
+| `shift(array, over=dim, offset=n)`                 | $p_{t} \le p_{t - 1} \qquad \forall\thinspace t \in \mathcal{T}$                                                                                                                                                                               |
+| `shift(array, over=dim, offset=n, edge='wrap')`    | $p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$                                                                                                                                                                         |
+| `shift(array, over=dim, offset=n, edge=v)`         | $p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\thinspace t \in \mathcal{T}$                                                                                                                                                                   |
+| `shift(array, over=dim, offset=p, edge=…)`         | $\mathit{order}_{t,m \boxminus_{0} \mathit{lead}} \ge \mathit{demand}_{t,m} \qquad \forall\thinspace t \in \mathcal{T},\enspace m \in \mathcal{M}$                                                                                             |
+| `shift(array, over=dim, offset=n, by=lookup)`      | $p_{t} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1} \qquad \forall\thinspace t \in \mathcal{T}$                                                                                                                                                |
+| `sum_back(array, over=dim, within=n)`              | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$                                                         |
+| `sum_back(array, over=dim, within=p)`              | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$                                          |
+| `sum_back(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$                                    |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound --- terms translated past the edge are simply absent.
 

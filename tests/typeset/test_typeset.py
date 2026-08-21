@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The typesetter (spike).
 
 Three kinds of test, and the split is the point:
@@ -22,15 +26,15 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from math_spec.errors import LpspecError, SchemaError
+from math_spec.errors import MathSpecError, SchemaError
 from math_spec.expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.validation import load_model
-from math_spec.where_parser import WhereNode
 from math_spec.typeset import FORMATS, SymbolTable, to_latex, to_markdown, to_typst, typeset, walk
 from math_spec.typeset.format import OPERATOR_NAMES
 from math_spec.typeset.symbols import _derive_name_symbol
+from math_spec.validation import load_model
+from math_spec.where_parser import WhereNode
 from tests.fixtures import OPERATOR_PROBES, override
 from tests.typeset import golden
 
@@ -364,7 +368,7 @@ def test_macros_and_named_expressions_are_expanded_away(fmt: Format):
 @EVERY_FORMAT
 def test_an_invalid_model_fails_the_same_way_check_does(fmt: Format):
     broken = override(DISPATCH, **{'objective.expression': 'p * nonexistent'})
-    with pytest.raises(LpspecError):
+    with pytest.raises(MathSpecError):
         typeset(broken, fmt)
 
 

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Errors and limits
 
 ## Everything decidable without data is decided without data
@@ -5,7 +10,7 @@
 Anything detectable before building is detected before building. The worst
 error this language could hand you is an opaque solver or array exception with
 no pointer back to a YAML declaration, so a model is parsed, expanded, resolved
-and dim-checked — including *uncalled* macro templates and every `where` string
+and dim-checked — including _uncalled_ macro templates and every `where` string
 — before a single source is read.
 
 `lps.check('model.yaml')` runs exactly that and binds nothing, which is why it
@@ -48,27 +53,27 @@ go straight to `solve` and the solver's bare answer is still the first word.
 Both halves of the conjunction are needed, and neither alone is wrong: a
 variable held by nothing but its own `bounds:` is ordinary, and so is an
 unbounded one that a constraint names. Where the sign a variable enters the
-objective with is *data* — a parameter coefficient, which may be zero or either
+objective with is _data_ — a parameter coefficient, which may be zero or either
 sign — nothing is said, because a note against a model that solves is the worse
 error. The per-coordinate case, where a `where:` mask leaves one slice of a
 variable with no constraint row, still reaches you from the solver
-([#229](https://github.com/fluxopt/math_spec/issues/229)).
+([#229](https://github.com/fluxopt/lpspec/issues/229)).
 
 ## Which error you get
 
-| | |
-|---|---|
-| `LpspecError` | the root of the tree; everything below is an instance of it |
-| `LanguageError` | the model: a construct outside the language, a dim set that does not compose, a name nothing declares |
-| `SchemaError` | the file: an unknown key, a malformed declaration, a bad symbol table |
-| `DimensionError` | dims that disagree — a constraint whose expression does not equal its `foreach` |
-| `PiecewiseExpansionError` | a `piecewise:` block that cannot be expanded |
-| `LaneError` | the lane: a model both accept, that this one cannot build — the other route can ([lanes](../../about/linopy.md)) |
-| `DataError` | what was bound: a missing source, an unreadable one, a coordinate outside the master index |
-| `NoSolutionError` | the answer: reading values off a solve that returned none — infeasible, unbounded, errored |
+|                           |                                                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `MathSpecError`           | the root of the tree; everything below is an instance of it                                                      |
+| `LanguageError`           | the model: a construct outside the language, a dim set that does not compose, a name nothing declares            |
+| `SchemaError`             | the file: an unknown key, a malformed declaration, a bad symbol table                                            |
+| `DimensionError`          | dims that disagree — a constraint whose expression does not equal its `foreach`                                  |
+| `PiecewiseExpansionError` | a `piecewise:` block that cannot be expanded                                                                     |
+| `LaneError`               | the lane: a model both accept, that this one cannot build — the other route can ([lanes](../../about/linopy.md)) |
+| `DataError`               | what was bound: a missing source, an unreadable one, a coordinate outside the master index                       |
+| `NoSolutionError`         | the answer: reading values off a solve that returned none — infeasible, unbounded, errored                       |
 
 The split is the useful one for a caller: `LanguageError` and its subclasses
-are the *file* being wrong, and are reproducible from the YAML alone;
+are the _file_ being wrong, and are reproducible from the YAML alone;
 `DataError` is the numbers being wrong for a file that is fine; `LaneError` is
 neither wrong, and names the route that builds it.
 
@@ -82,30 +87,30 @@ Refusals, and what to reach for instead. None of them is an unimplemented
 feature list: each is a boundary the design keeps on purpose, and
 [the ceiling](../../about/ceiling.md) is the argument for where it sits.
 
-| Not here | Instead |
-|---|---|
-| variable × variable in a **bound, a named expression or a `piecewise:` link** | the objective and constraints take it; elsewhere, a parameter coefficient ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it)) |
-| `sum(x, over=d) * sum(y, over=d)` | multiply before reducing, or name the reduction with a variable — a product of two sums is a cross join |
-| degree 3 (`x * y * z`) | a variable constrained to equal one product, then multiplied by the third |
-| `**` | `x * x` ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it)) |
-| a quadratic constraint on the **linopy lane**, or on `highs` | neither builds one; `lps.solve(..., solver_name='gurobi')`, or write an `.lp` file. `check(model, sink=…)` says so before you build |
-| arithmetic in `bounds:` | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/math_spec/issues/31)) |
-| time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter |
-| solver breadth | three solvers — HiGHS, which ships, plus Gurobi and Xpress via their own extras — chosen at the call and never in the file; LP and MPS files for everything else ([#106](https://github.com/fluxopt/math_spec/issues/106)) |
-| indicator constraints | planned as a *solver capability* rather than a language question, the same axis `sos:` landed on ([#220](https://github.com/fluxopt/math_spec/issues/220)) |
-| multi-objective | one `objective:` block — a second is unsayable; weight them into one expression |
-| arbitrary array ops (`merge`, `reindex`, `apply_ufunc`) | data prep — the closed operator set is what makes streaming possible |
-| filling a missing value (`.fillna`) | data prep, or a `where` if you meant the coordinate not to exist. In the language only where the data cannot reach: `shift(..., edge=)` ([absence](absence.md)) |
-| schema migrations | — |
+| Not here                                                                       | Instead                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| variable × variable in a **bound, a named expression or a `piecewise:` link**  | the objective and constraints take it; elsewhere, a parameter coefficient ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it))                                                                       |
+| `sum(x, over=d) * sum(y, over=d)`                                              | multiply before reducing, or name the reduction with a variable — a product of two sums is a cross join                                                                                                                 |
+| degree 3 (`x * y * z`)                                                         | a variable constrained to equal one product, then multiplied by the third                                                                                                                                               |
+| `**`                                                                           | `x * x` ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it))                                                                                                                                         |
+| a quadratic constraint on the **linopy lane**, or on `highs`                   | neither builds one; `lps.solve(..., solver_name='gurobi')`, or write an `.lp` file. `check(model, sink=…)` says so before you build                                                                                     |
+| arithmetic in `bounds:`                                                        | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31))                                                                                                                |
+| time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter                                                                                                                                                                                             |
+| solver breadth                                                                 | three solvers — HiGHS, which ships, plus Gurobi and Xpress via their own extras — chosen at the call and never in the file; LP and MPS files for everything else ([#106](https://github.com/fluxopt/lpspec/issues/106)) |
+| indicator constraints                                                          | planned as a _solver capability_ rather than a language question, the same axis `sos:` landed on ([#220](https://github.com/fluxopt/lpspec/issues/220))                                                                 |
+| multi-objective                                                                | one `objective:` block — a second is unsayable; weight them into one expression                                                                                                                                         |
+| arbitrary array ops (`merge`, `reindex`, `apply_ufunc`)                        | data prep — the closed operator set is what makes streaming possible                                                                                                                                                    |
+| filling a missing value (`.fillna`)                                            | data prep, or a `where` if you meant the coordinate not to exist. In the language only where the data cannot reach: `shift(..., edge=)` ([absence](absence.md))                                                         |
+| schema migrations                                                              | —                                                                                                                                                                                                                       |
 
 A model built partly in Python has no readable `.yaml` representation and will
-not get one: the *math* side is feasible, but expression and `where` strings
+not get one: the _math_ side is feasible, but expression and `where` strings
 come back as anonymous arrays, so the round trip would be functional and not
 reviewable — which is the whole point of the file. A framework that wants to
-*emit* declarations passes a dict, and gets `to_yaml()` back
+_emit_ declarations passes a dict, and gets `to_yaml()` back
 ([Python API](../api.md#a-model-four-ways)).
 
 Where the language genuinely cannot say the math, the escape hatch is a
 declared `escape:` island — named in the file, bounded by the preceding `where`
 mask, terminal, and billed against a label budget before any Python runs. It is
-[#38](https://github.com/fluxopt/math_spec/issues/38) and not shipped.
+[#38](https://github.com/fluxopt/lpspec/issues/38) and not shipped.

@@ -83,7 +83,7 @@ format on every pull request.
 While the version is pinned to the alpha stream, a breaking marker (`!`, or a
 `BREAKING CHANGE:` footer) is refused, because it moves the base version rather
 than the alpha counter. Describe the break in the PR body instead. See
-[RELEASING.md](RELEASING.md).
+[RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
 
 Beyond the subject line, write whatever body the change deserves — a paragraph
 or bullet list covering what changed and its impact.
@@ -115,7 +115,7 @@ The version is never written down in the source tree — it comes from the git
 tag at build time, and `math_spec.__version__` reads it back from the installed
 package metadata.
 
-See [RELEASING.md](RELEASING.md) for the full pipeline, the alpha-stream rules,
+See [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md) for the full pipeline, the alpha-stream rules,
 and the one-time repository setup it still needs.
 
 <!--- --8<-- [end:docs] -->

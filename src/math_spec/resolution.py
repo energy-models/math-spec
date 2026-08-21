@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Name resolution — the pass that makes the core AST fully typed.
 
 Parsers emit ``NameNode``: a token, not yet a meaning. This module rewrites
@@ -40,7 +44,13 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from math_spec.operators import BUILTINS, EDGE_WRAP, call_shape_error, edge_error, unknown_operator_message
+from math_spec.operators import (
+    BUILTINS,
+    EDGE_WRAP,
+    call_shape_error,
+    edge_error,
+    unknown_operator_message,
+)
 from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,

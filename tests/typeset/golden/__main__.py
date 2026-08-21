@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Regenerate the committed golden output.
 
     uv run python -m tests.typeset.golden

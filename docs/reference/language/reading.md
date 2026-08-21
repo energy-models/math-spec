@@ -1,7 +1,12 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Reading a loaded model
 
-Every other page here says what a *file* may declare. This one says what a
-*program* gets when it loads one: the contract between the language and
+Every other page here says what a _file_ may declare. This one says what a
+_program_ gets when it loads one: the contract between the language and
 anything that reads the AST — a solver backend, a renderer, a second front end.
 
 None of it is needed to write a model. [The Python API](../api.md) is what a
@@ -22,18 +27,18 @@ typed.
 
 ```yaml title="curve.yaml"
 dimensions:
-  generator: {dtype: str}
-  bp: {dtype: int}
+  generator: { dtype: str }
+  bp: { dtype: int }
 parameters:
-  bp_x: {dims: [generator, bp]}
-  bp_y: {dims: [generator, bp]}
+  bp_x: { dims: [generator, bp] }
+  bp_y: { dims: [generator, bp] }
 variables:
   p:
     foreach: [generator]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
   cost:
     foreach: [generator]
-    bounds: {lower: 0}
+    bounds: { lower: 0 }
 piecewise:
   curve:
     over: bp
@@ -75,10 +80,10 @@ expansion.
 
 ## Which one to take
 
-| you are | take | because |
-|---|---|---|
-| building rows — a lowering pass, a solver backend, a renderer | `Buildable` | the declarations are all there |
-| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Model` | the expansion has cleared `piecewise:` |
+| you are                                                                      | take        | because                                |
+| ---------------------------------------------------------------------------- | ----------- | -------------------------------------- |
+| building rows — a lowering pass, a solver backend, a renderer                | `Buildable` | the declarations are all there         |
+| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Model`     | the expansion has cleared `piecewise:` |
 
 **Take a `Buildable` to build.** A consumer that reads `constraints:` off a
 `Model` still carrying a curve builds a model missing declarations — and a
@@ -87,7 +92,7 @@ with nothing to see. Saying `Buildable` in the signature is what makes that a
 type error rather than a number.
 
 **Reading the file off an expansion finds no curves, and says nothing.** A
-`Buildable` *is* a `Model`, so it is accepted wherever the file is wanted and
+`Buildable` _is_ a `Model`, so it is accepted wherever the file is wanted and
 the types cannot catch this one. Anything that asks a model what curves it
 declares — where they run, which method states them, which parameter a mask is
 derived from — has to be handed what `load_model` returned. An expansion
@@ -97,4 +102,4 @@ answers "none", which is indistinguishable from a model that has none.
 `expressions:` are still text inside the declarations a `Buildable` holds, and
 are substituted where they are read, not up front. That asymmetry is the reason
 the type exists: an expression is needed only when someone reads it, where the
-*set of declarations* is needed before anything can be read at all.
+_set of declarations_ is needed before anything can be read at all.
