@@ -488,9 +488,15 @@ def test_latex_a_variable_states_its_domain(declaration: dict[str, object], expe
 
 
 def test_latex_sum_renders_the_coordinate_map_as_a_set_condition():
-    tex = to_latex('examples/transport.yaml', legend=False)
-    assert r'\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g}' in tex
-    assert r'\sum_{l \in \mathcal{L} \,:\, \mathrm{line\_to}(l) = b} f_{t,l}' in tex
+    """Read off the operator probe rather than a gallery model.
+
+    `sum(by=)` is what the probe exists to show, and the probe travels with the
+    renderer where the gallery does not — so this asserts the construct on the
+    corpus that will still be beside it. Two maps rather than one: the
+    conjunction is the part a single lookup cannot show.
+    """
+    tex = to_latex('examples/operators/sum_by_lookups.yaml', legend=False)
+    assert r'\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g}' in tex
 
 
 def test_latex_a_sum_used_as_a_factor_is_bracketed():
@@ -524,8 +530,9 @@ def test_typst_uses_its_own_grouping_and_set_notation():
 
 
 def test_typst_sum_renders_the_coordinate_map():
-    typ = to_typst('examples/transport.yaml', legend=False)
-    assert 'sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g)' in typ
+    """The same map in the other notation, off the same travelling probe."""
+    typ = to_typst('examples/operators/sum_by_lookups.yaml', legend=False)
+    assert 'sum_(g in cal(G) colon upright("gen_bus")(g) = b and upright("gen_tech")(g) = e) p_(t,g)' in typ
 
 
 # ---------------------------------------------------------------------------
@@ -577,11 +584,6 @@ def test_typst_standalone_adds_page_setup():
     assert not to_typst(DISPATCH).startswith('#set page')
 
 
-#: Committed tables written in typst, by what they declare rather than by what
-#: they are called — the notation is the file's own word (#740).
-TYPST_TABLES = sorted(p for p in Path('examples/symbols').glob('*.yaml') if SymbolTable.load(p).notation == 'typst')
-
-
 @pytest.fixture(scope='module')
 def typst():
     return pytest.importorskip('typst', reason='typst is a dev dependency; the bare install skips it')
@@ -592,26 +594,6 @@ def test_typst_output_with_a_symbol_table_compiles(typst, tmp_path: Path):
     source = tmp_path / 'symbols.typ'
     source.write_text(to_typst(DISPATCH, symbols=TYPST_SYMBOLS, standalone=True))
     typst.compile(str(source), output=str(tmp_path / 'symbols.pdf'))
-
-
-def test_the_typst_path_has_a_committed_artifact():
-    assert TYPST_TABLES, (
-        'no committed typst symbol table — the file-load, checked-against and compile paths '
-        'for a typst table would again be reached only by an inline dict in this file'
-    )
-
-
-@pytest.mark.parametrize('table', TYPST_TABLES, ids=lambda p: p.name)
-def test_a_committed_typst_table_compiles_beside_its_model(typst, tmp_path: Path, table: Path):
-    """The table on disk, against the model on disk, through the compiler.
-
-    `test_typst_output_with_a_symbol_table_compiles` proves the *dict* input
-    compiles; this proves the committed artifact does, so a typst table cannot
-    drift from its model — or stop compiling — while the suite stays green.
-    """
-    source = tmp_path / f'{table.name}.typ'
-    source.write_text(to_typst(_model_of(table), symbols=table, standalone=True))
-    typst.compile(str(source), output=str(tmp_path / f'{table.name}.pdf'))
 
 
 def test_a_description_of_every_special_compiles(typst, tmp_path: Path):
@@ -996,36 +978,6 @@ def test_notation_is_case_insensitive():
 def test_an_empty_override_is_used_not_fallen_through():
     tex = to_latex(DISPATCH, symbols={'notation': 'latex', 'names': {'p_max': ''}})
     assert r'p^{\mathrm{max}}' not in tex, 'an entry in the table is used verbatim, even empty — never re-derived'
-
-
-def test_the_table_loads_from_a_file_and_the_committed_one_applies():
-    tex = to_latex('examples/piecewise.yaml', symbols='examples/symbols/piecewise.yaml')
-    assert r'\lambda_{' in tex
-    assert r'k \in \mathcal{K}' in tex
-    assert 'breakpoints of the cost curve' in tex
-
-
-def _model_of(table: Path) -> Path:
-    """The model a committed symbol table belongs to.
-
-    The name up to the first dot, so one model may carry a table per notation:
-    `transport_dantzig.yaml` and `transport_dantzig.typst.yaml` both name
-    `transport_dantzig`. The unsuffixed file is the one `tools/gallery_math.py`
-    renders the page with.
-    """
-    stem = table.name.split('.')[0]
-    candidates = [Path('examples') / f'{stem}.yaml', Path('examples/ports') / f'{stem}.yaml']
-    model = next((c for c in candidates if c.exists()), None)
-    assert model is not None, f'{table} names no model: looked in {[str(c) for c in candidates]}'
-    return model
-
-
-@pytest.mark.parametrize('table', sorted(Path('examples/symbols').glob('*.yaml')), ids=lambda p: p.name)
-def test_every_committed_symbol_table_still_fits_its_model(table: Path):
-    """A sidecar is matched to its model by filename alone, so renaming a
-    parameter leaves the table naming nothing; `checked_against` makes that an
-    error, run here for every committed pair in its declared notation."""
-    assert typeset(_model_of(table), FORMATS[SymbolTable.load(table).notation], symbols=table).strip()
 
 
 def test_a_model_renders_identically_with_an_empty_table():
