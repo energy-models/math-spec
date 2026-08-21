@@ -13,6 +13,13 @@ Fixed: for any bug fixes.
 Security: in case of vulnerabilities.
 
 Release headings should be of the form:
+## [0.0.0-alpha.1](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.0...v0.0.0-alpha.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* stop the release build silently shipping a 0.0.0 wheel ([#23](https://github.com/energy-models/math-spec/issues/23)) ([a801b00](https://github.com/energy-models/math-spec/commit/a801b00061d306661d31b455ed2980fd0dfbeda9))
+
 ## [X.Y.Z] - YEAR-MONTH-DAY
 -->
 
