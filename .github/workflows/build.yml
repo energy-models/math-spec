@@ -30,7 +30,21 @@ jobs:
       - name: Replace version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          sed -i -e "s/0.0.0/${STEPS_VERSION_OUTPUTS_VERSION}/g" pyproject.toml
+          set -euo pipefail
+          # Anchored to the version line, dots escaped, not global. The previous
+          # pattern was an unescaped regex applied everywhere in the file, so a
+          # dependency floor like `some-lib>=0.0.0` or a URL with 0.0.0 in it was
+          # rewritten alongside the version.
+          before=$(sha1sum pyproject.toml)
+          sed -i -E "s|^version = \"0\\.0\\.0\"$|version = \"${STEPS_VERSION_OUTPUTS_VERSION}\"|" pyproject.toml
+          # And fail loudly when it matches nothing. Silently, this workflow
+          # builds and uploads a wheel still versioned 0.0.0 under whatever tag
+          # triggered it, and nothing downstream checks.
+          if [ "$before" = "$(sha1sum pyproject.toml)" ]; then
+            echo "::error::version literal not found; the wheel would ship as 0.0.0 under tag ${STEPS_VERSION_OUTPUTS_VERSION}"
+            exit 1
+          fi
+          grep -n '^version = ' pyproject.toml
         env:
           STEPS_VERSION_OUTPUTS_VERSION: ${{ steps.version.outputs.version }}
       - name: Build project
