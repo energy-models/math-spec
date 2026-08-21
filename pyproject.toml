@@ -13,6 +13,7 @@ only-include = ["src", "README.md", "LICENSE"]
 name = "math-spec"
 description = "YAML math specification and AST parsing for multi-dimensional linear programming problems"
 authors = [
+  { name = "Felix Bumann", email = "117816358+FBumann@users.noreply.github.com" },
   { name = "Bryn Pickering", email = "17178478+brynpickering@users.noreply.github.com" },
 ]
 # The git tag is the version — see RELEASING.md. Never hardcode it here.
