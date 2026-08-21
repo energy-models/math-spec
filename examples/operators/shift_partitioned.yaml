@@ -1,0 +1,22 @@
+description: >-
+  Translation inside a group — each season closed on itself, so a season's first
+  snapshot reads that season's last and no level crosses the boundary.
+
+dimensions:
+  snapshot: {dtype: int}
+  season: {dtype: str}
+
+lookups:
+  season_of: {over: snapshot, into: season}
+
+variables:
+  p:
+    foreach: [snapshot]
+    bounds: {lower: 0}
+
+constraints:
+  no_faster_than_before_in_season:
+    foreach: [snapshot]
+    expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
+
+objective: {sense: minimize, expression: sum(p)}

@@ -1,0 +1,18 @@
+description: >-
+  Translation with no edge policy — the vacated position is absent, so the row
+  it would have fed is not built.
+
+dimensions:
+  snapshot: {dtype: int}
+
+variables:
+  p:
+    foreach: [snapshot]
+    bounds: {lower: 0}
+
+constraints:
+  no_faster_than_before:
+    foreach: [snapshot]
+    expression: p <= shift(p, over=snapshot, offset=1)
+
+objective: {sense: minimize, expression: sum(p)}

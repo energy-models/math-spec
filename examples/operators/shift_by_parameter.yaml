@@ -1,0 +1,24 @@
+description: >-
+  Translation by an offset that differs per entity — `by:` names an integer
+  parameter, so each technology is reached by its own lead time rather than by
+  one the file had to fix.
+
+dimensions:
+  technology: {dtype: str}
+  month: {dtype: int}
+
+parameters:
+  lead: {dims: [technology], dtype: int}
+  demand: {dims: [technology, month]}
+
+variables:
+  order:
+    foreach: [technology, month]
+    bounds: {lower: 0}
+
+constraints:
+  arrives_after_its_lead:
+    foreach: [technology, month]
+    expression: shift(order, over=month, offset=lead, edge=0) >= demand
+
+objective: {sense: minimize, expression: sum(order)}

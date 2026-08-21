@@ -1,0 +1,87 @@
+#set page(margin: 2.5cm)
+#set text(size: 11pt)
+
+every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 {net} \~ ^ \\ \*star\* \@ref \<label\>
+
+== Sets
+/ $cal(T)$: index $t$ --- `snapshot` with $upright("season_of"): cal(T) arrow.r cal(S)$
+/ $cal(G)$: index $g$ --- `generator` with $upright("gen_bus"): cal(G) arrow.r cal(B), upright("gen_tech"): cal(G) arrow.r cal(E)$ carrying label $upright("tech")$
+/ $cal(B)$: index $b$ --- `bus` with $upright("zone_of"): cal(B) arrow.r cal(Z), upright("area_of"): cal(B) arrow.r cal(Z)$
+/ $cal(Z)$: index $z$ --- `zone`
+/ $cal(S)$: index $s$ --- `season`
+/ $cal(E)$: index $e$ --- `technology`
+
+== Parameters
+/ $p^(upright("max"))$: `p_max` over $cal(G)$
+/ $p^(upright("min"))$: `p_min` over $cal(G)$
+/ $italic("cost")$: `cost` over $cal(G)$
+/ $italic("load")$: `load` over $cal(T) times cal(B)$
+/ $italic("is_flexible")$: `is_flexible` over $cal(G)$
+/ $italic("zone")^(upright("cap"))$: `zone_cap` over $cal(Z)$
+/ $italic("tech_cap")$: `tech_cap` over $cal(B) times cal(E)$
+/ $italic("min_up")$: `min_up` over $cal(G)$
+/ $italic("lead")$: `lead` over $cal(G)$
+/ $italic("budget")$: `budget` (scalar)
+/ $italic("growth")$: `growth` (scalar)
+
+== Variables
+/ $p$: `p` over $cal(T) times cal(G)$
+/ $italic("spill")$: `spill` over $cal(T)$
+/ $italic("slack")$: `slack` over $cal(T)$
+/ $italic("theta")$: `theta` over $cal(B)$
+/ $italic("on")$: `on` over $cal(T) times cal(G)$
+/ $italic("units")$: `units` over $cal(G)$
+/ $italic("spare")$: `spare` over $cal(G)$
+/ $italic("reserve")$: `reserve` (scalar)
+/ $italic("headroom")$: `headroom` (scalar)
+/ $italic("void")$: `void` over $cal(B)$
+/ $italic("weight")$: `weight` over $cal(T) times cal(G)$
+
+$t minus.o k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound --- terms translated past the edge are simply absent.
+
+$t minus.square_(v) k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
+
+== Objective
+#set math.equation(numbering: "(1)")
+$  & max & sum_(t in cal(T), g in cal(G)) p_(t,g) dot italic("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot p_(t,g) dot italic("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot italic("cost")_(g) dot italic("growth")^(italic("lead")_(g)) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot p^(upright("max"))_(g) - italic("reserve") + -italic("headroom") $
+
+== Subject to
+#set math.equation(numbering: "(1)")
+$ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g) + italic("spill")_(t) - italic("slack")_(t) & = italic("load")_(t,b) & forall t in cal(T), b in cal(B) \
+  upright("ramp") & p_(t,g) - p_(t minus.o 1,g) & <= p_(t - 1,g) + p^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
+  upright("edges") & p_(t minus.square_(0) 1,g) & <= p_(t plus.square_(0) 1,g) + p^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
+  upright("ahead") & p_(t,g) & <= p_(t plus.o 1,g) & forall t in cal(T), g in cal(G) \
+  upright("composed") & p_(t - 2,g) & <= p^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
+  upright("uncomposed") & p_((t - 1) - italic("lead"),g) & <= p^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
+  upright("crossed") & p_(t minus.o 1,g + 1) & <= p^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
+  upright("lead_time") & p_(t minus.square_(0) italic("lead"),g) & <= p^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
+  upright("in_season") & p_(t,g) & <= p_(t minus.o_(upright("season_of")(t)) 1,g) & forall t in cal(T), g in cal(G) \
+  upright("held_in_season") & p_(t,g) & <= p_(t minus.square_(0,upright("season_of")(t)) 1,g) & forall t in cal(T), g in cal(G) \
+  upright("window") & sum_(t' in cal(T) colon 0 <= t - t' < 3) italic("on")_(t',g) & <= italic("units")_(g) & forall t in cal(T), g in cal(G) \
+  upright("history") & sum_(t' in cal(T) colon 0 <= t minus.o t' < italic("min_up")) italic("on")_(t',g) & <= italic("units")_(g) & forall t in cal(T), g in cal(G) \
+  upright("pullback") & italic("spill")_(t) & <= italic("zone")^(upright("cap"))_(upright("zone_of")(b)) & forall t in cal(T), b in cal(B) \
+  upright("grouped_twice") & sum_(g in cal(G) colon upright("gen_bus")(g) = b and upright("gen_tech")(g) = e) p_(t,g) & <= italic("tech_cap")_(b,e) & forall t in cal(T), b in cal(B), e in cal(E) \
+  upright("pulled_back_twice") & italic("units")_(g) & <= italic("tech_cap")_(upright("gen_bus")(g),upright("gen_tech")(g)) & forall g in cal(G) \
+  upright("arithmetic") & sum_(g in cal(G)) (frac(p_(t,g), 2) + -italic("cost")_(g)) & >= (-(sum_(g in cal(G)) p_(t,g))) dot 3 & forall t in cal(T) \
+  upright("total") & sum_(t in cal(T), g in cal(G)) p_(t,g) & <= italic("budget") \
+  upright("scalar") & italic("units")_(g) & <= italic("budget") & forall g in cal(G) colon italic("cost")_(g) upright(" is defined") \
+  upright("running") & italic("theta")_(b) & <= italic("load")_(t,b) & forall t in cal(T), b in cal(B) colon italic("theta")_(b) upright(" exists") and t >= 3 \
+  upright("first") & italic("on")_(t,g) & = 1 & forall t in cal(T), g in cal(G) colon (t = upright("index")(cal(T), 0) or t = upright("index")(cal(T), 0, upright("season_of")(t))) \
+  upright("northern") & italic("slack")_(t) & <= italic("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("zone_of")(b) = upright("north") and upright("zone_of")(b) != upright("area_of")(b) and upright("zone_of")(b) upright(" is defined") \
+  upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) colon top \
+  upright("never") & italic("slack")_(t) & >= 0 & forall t in cal(T) colon bot $
+
+== Variable domains
+#set math.equation(numbering: "(1)")
+$ upright("p") & p^(upright("min"))_(g) <= p_(t,g) & <= p^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon (p^(upright("max"))_(g) > 0 and not italic("is_flexible")_(g) or p^(upright("min"))_(g) > 0) \
+  upright("spill") & italic("spill")_(t) & >= 0 & forall t in cal(T) \
+  upright("slack") & italic("slack")_(t) & <= 100 & forall t in cal(T) \
+  upright("theta") & italic("theta")_(b) & in RR & forall b in cal(B) \
+  upright("on") & italic("on")_(t,g) & in {0, 1} & forall t in cal(T), g in cal(G) \
+  upright("units") & 0 <= italic("units")_(g) & <= 10, italic("units")_(g) in ZZ & forall g in cal(G) \
+  upright("spare") & italic("spare")_(g) & in ZZ & forall g in cal(G) \
+  upright("reserve") & italic("reserve") & >= 0 \
+  upright("headroom") & italic("headroom") & >= 0 & upright("where ") italic("budget") upright(" is defined") \
+  upright("void") & infinity <= italic("void")_(b) & <= -infinity & forall b in cal(B) \
+  upright("weight") & 0 <= italic("weight")_(t,g) & <= 1 & forall t in cal(T), g in cal(G) \
+  upright("weight sos") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) $

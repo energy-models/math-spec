@@ -1,0 +1,25 @@
+description: >-
+  A trailing window whose width is data — `within:` names an integer parameter,
+  so a unit stays up for its *own* minimum time rather than one the file fixed.
+
+dimensions:
+  unit: {dtype: str}
+  hour: {dtype: int}
+
+parameters:
+  min_up: {dims: [unit], dtype: int}
+
+variables:
+  started:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  stays_up_its_own_time:
+    foreach: [unit, hour]
+    expression: sum_back(started, over=hour, within=min_up) <= on
+
+objective: {sense: minimize, expression: sum(on)}
