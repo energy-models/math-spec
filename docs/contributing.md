@@ -46,6 +46,8 @@ If you plan to make changes to the code then please make regular use of the foll
      You can also run these checks yourself at any time to ensure the tree is clean by calling `pixi run lint`.
 - `pixi run test` - run the unit test suite.
 - `pixi run test-coverage` - the same, with test coverage.
+- `pixi run compile-tex` - render every model in the tree to standalone LaTeX and compile it, which is how the typeset output is proven to be a real document.
+- `pixi run ci` - all four gates CI runs — lint, tests, a strict docs build and the LaTeX compile — in the order a failure is cheapest to read. About fifteen seconds; worth a run before you push.
 
 ## Documentation
 

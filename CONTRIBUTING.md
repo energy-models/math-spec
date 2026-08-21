@@ -42,7 +42,7 @@ To contribute changes:
 
 1. Fork the project on GitHub.
 1. Create a feature branch to work on in your fork (`git checkout -b new-fix-or-feature`).
-1. Test your changes using `pixi run test`.
+1. Test your changes using `pixi run test`, or `pixi run ci` for everything CI will check.
 1. Commit your changes to the feature branch (you should have `pre-commit` installed to ensure your code is correctly formatted when you commit changes).
 1. Push the branch to GitHub (`git push origin new-fix-or-feature`).
 1. On GitHub, create a new [pull request](https://github.com/energy-models/math-spec/pull/new/main) from the feature branch.
