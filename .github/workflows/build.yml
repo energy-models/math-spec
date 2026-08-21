@@ -46,12 +46,21 @@ jobs:
 
   release:
     name: Publish package
-    # The alpha stream cuts a release on *every* merge to main, so without this
-    # gate turning release.yml on would start pushing an alpha to PyPI several
-    # times a day, and would fail red on each one until a trusted publisher
-    # exists for math-spec. Set the repo variable PUBLISH_TO_PYPI to "true" to
-    # go live; the tag, the GitHub release and the artifact happen regardless.
-    if: startsWith(github.ref, 'refs/tags/') && vars.PUBLISH_TO_PYPI == 'true'
+    # Off, and not by a variable. `math-spec` is not registered on PyPI and
+    # nothing here should reach it yet; the previous condition was the tag alone,
+    # so any tag would have attempted an upload and failed on a missing trusted
+    # publisher. A repository variable would have been the wrong switch — anyone
+    # can set one, with no review. Turning this back on takes a pull request.
+    #
+    # To publish: register the project, configure a trusted publisher pointing at
+    # this workflow and the `pypi` environment, then restore the tag condition.
+    #
+    # Kept rather than deleted so the pinned action SHAs stay under dependabot;
+    # a job restored from git history comes back with whatever was current then.
+    #
+    # GitHub releases do not pass through here — release-please cuts those from
+    # the tag in release.yml, and they are unaffected either way.
+    if: false
     needs: [build]
     runs-on: ubuntu-latest
     permissions:
