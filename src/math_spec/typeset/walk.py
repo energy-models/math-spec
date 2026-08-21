@@ -56,7 +56,7 @@ from lpspec.typeset.format import Entry, Glossary, Line
 if TYPE_CHECKING:
     import datetime
 
-    from lpspec.language import Model, Namespace, SosBlock
+    from lpspec.language import Buildable, Namespace, SosBlock
     from lpspec.typeset.format import Format
     from lpspec.typeset.symbols import Symbols
 
@@ -213,7 +213,7 @@ class Walk:
     which the legend needs to explain the symbols they print.
     """
 
-    def __init__(self, schema: Model, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
+    def __init__(self, schema: Buildable, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
         self.schema = schema
         self.namespace = namespace
         self.symbols = symbols

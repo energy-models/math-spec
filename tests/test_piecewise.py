@@ -12,8 +12,8 @@ import pytest
 import yaml as pyyaml
 
 from lpspec.errors import PiecewiseExpansionError, SchemaError
-from lpspec.language import expand_piecewise
-from tests.language.fixtures import override, raw_of, schema_of
+from lpspec.language import Buildable, expand_piecewise
+from tests.language.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
 from tests.language.piecewise_models import (
     CHP_YAML,
     GATED_YAML,
@@ -56,6 +56,61 @@ def test_a_method_this_project_does_not_have_is_refused():
     raw['piecewise']['cost_curve']['method'] = 'incremental'
     with pytest.raises(SchemaError, match='unknown piecewise method'):
         schema_of(raw)
+
+
+def test_the_file_is_not_a_buildable_and_the_expansion_is():
+    """The type is the difference between what was written and what is built.
+
+    A `Model` may still owe declarations to a `piecewise:` block; a `Buildable`
+    owes none, which is the whole of what it promises and the reason a builder
+    asks for one. Without the distinction a consumer that never expanded reads
+    a model missing declarations and gets an answer rather than an error.
+    """
+    schema = schema_of(NONCONVEX_YAML)
+
+    assert not isinstance(schema, Buildable), 'load_model answers the file, and the file still carries its curves'
+    assert isinstance(expand_piecewise(schema), Buildable), 'the expansion is what a builder may read'
+
+
+@pytest.mark.parametrize(
+    'raw',
+    [pytest.param(NONCONVEX_YAML, id='with-curves'), pytest.param(MODEL, id='with-curves-as-lines')],
+)
+def test_every_expansion_answers_a_buildable(raw: str):
+    assert isinstance(expand_piecewise(schema_of(raw)), Buildable)
+
+
+def test_a_model_with_no_curve_is_still_answered_as_a_buildable():
+    """Nothing to expand is not nothing to say: the caller asked what it may build.
+
+    The shortcut returns the same object every time so the memo still holds,
+    and it is retyped rather than revalidated — the promise is about
+    `piecewise:` alone, and that is already empty here.
+    """
+    schema = schema_of(DISPATCH_MODEL)
+
+    buildable = expand_piecewise(schema)
+    assert isinstance(buildable, Buildable), 'a curve-free file is buildable, and says so in its type'
+    assert expand_piecewise(schema) is buildable, 'the shortcut memoises like the expansion does'
+    assert buildable.constraints.keys() == schema.constraints.keys(), 'retyping declares nothing new'
+
+
+def test_expanding_a_buildable_is_that_buildable():
+    """Idempotent, so a consumer unsure whether it expanded yet can just ask."""
+    expanded = expand_piecewise(schema_of(NONCONVEX_YAML))
+
+    assert expand_piecewise(expanded) is expanded
+
+
+def test_a_buildable_will_not_be_built_around_a_curve():
+    """The promise is checked where it is made, not trusted from the caller.
+
+    `expand_piecewise` is the only thing that should produce one; a `Buildable`
+    validated straight out of a file that declares `piecewise:` would be the
+    type saying a model is complete while its declarations are still owed.
+    """
+    with pytest.raises(SchemaError, match='expand_piecewise is what produces one'):
+        Buildable.model_validate(raw_of(NONCONVEX_YAML))
 
 
 def test_a_validated_model_expands_once():

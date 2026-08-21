@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 from importlib import metadata
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, get_args
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args
 
 from pydantic import (
     BaseModel,
@@ -638,9 +638,9 @@ class Model(_StrictBlock):
 
     _label: ClassVar[str] = 'the top level of the file'
 
-    #: The expansion built from this model. Owned entirely — written and read
-    #: — by :func:`~lpspec.language.piecewise.expand_piecewise`; only the slot
-    #: lives here.
+    #: The :class:`Buildable` built from this model. Owned entirely — written
+    #: and read — by :func:`~lpspec.language.piecewise.expand_piecewise`; only
+    #: the slot lives here.
     _expansion: Any = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
@@ -729,13 +729,13 @@ class Model(_StrictBlock):
 
     @classmethod
     # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11
-    def model_validate(cls, *args: Any, **kwargs: Any) -> Model:
+    def model_validate(cls, *args: Any, **kwargs: Any) -> Self:
         """Validate a mapping — see :func:`_in_our_tree` for what it raises."""
         return _in_our_tree(super().model_validate, *args, **kwargs)
 
     @classmethod
     # pyrefly: ignore[missing-override-decorator]  — `typing.override` is 3.12+, and this package supports 3.11
-    def model_validate_json(cls, *args: Any, **kwargs: Any) -> Model:
+    def model_validate_json(cls, *args: Any, **kwargs: Any) -> Self:
         """The same door, for JSON."""
         return _in_our_tree(super().model_validate_json, *args, **kwargs)
 
@@ -889,17 +889,46 @@ class Model(_StrictBlock):
 
         The checkers are a layer above this one, so the imports are local and
         declared in ``DELIBERATE_LAZY_IMPORTS``. Expansion runs first — a
-        formulation emits declarations that are language too — and terminates,
-        an expanded model carrying no ``piecewise:``.
-
-        An expansion *builds* a ``Model``, which validates itself on the way
-        out, so the check below runs only when there was nothing to expand;
-        and ``expand_piecewise`` memoises on :attr:`_expansion` for the same
-        reason, every consumer asking for the expansion next.
+        formulation emits declarations that are language too — and the
+        :class:`Buildable` it builds validates itself on the way out, so a file
+        with curves is checked there rather than checked twice here.
         """
         from lpspec.language.piecewise import expand_piecewise
         from lpspec.language.validation import validate_expressions
 
-        if expand_piecewise(self) is self:
+        if self.piecewise:
+            expand_piecewise(self)
+        else:
             validate_expressions(self)
+        return self
+
+
+class Buildable(Model):
+    """A model with nothing left to expand — what rows are built from.
+
+    A :class:`Model` is the file as written, and a file may carry a
+    ``piecewise:`` block whose variables and constraints do not exist until
+    :func:`~lpspec.language.piecewise.expand_piecewise` emits them. This is the
+    model after that pass, and it guarantees the one thing a builder needs:
+    ``variables:`` and ``constraints:`` hold the whole model, so the rows built
+    from it are the rows the file asked for.
+
+    Taking one is how a consumer says it *builds* rather than *reads*, and
+    passing a :class:`Model` where one is wanted is a type error rather than a
+    model quietly missing declarations. The subtyping runs the other way for
+    the same reason: whatever reads the file as written — the curve masks
+    :mod:`lpspec.sources` derives from ``piecewise:`` — takes a :class:`Model`
+    and accepts either.
+
+    The guarantee is about *declarations*, and deliberately says nothing about
+    the expression strings inside them: ``macros:`` and ``expressions:`` are
+    substituted per read, because an expression is needed only when someone
+    reads it where the set of declarations is needed before anything can be.
+    """
+
+    @model_validator(mode='after')
+    def _nothing_left_to_expand(self) -> Buildable:
+        if self.piecewise:
+            msg = 'a Buildable carries no piecewise: — expand_piecewise is what produces one'
+            raise ValueError(msg)
         return self

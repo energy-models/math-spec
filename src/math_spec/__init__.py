@@ -71,7 +71,7 @@ from lpspec.language.expression_parser import (
     VariableNode,
     children,
 )
-from lpspec.language.model import Model, SosBlock
+from lpspec.language.model import Buildable, Model, SosBlock
 from lpspec.language.operators import (
     EDGE_WRAP,
     call_shape_error,
@@ -106,6 +106,7 @@ __all__ = [
     'ArithmeticNode',
     'BinaryOperatorNode',
     'BooleanLiteralNode',
+    'Buildable',
     'ComparisonNode',
     'DimensionComparisonNode',
     'DimensionError',

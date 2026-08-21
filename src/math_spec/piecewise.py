@@ -61,7 +61,7 @@ from lpspec.language.degree import check_expression
 from lpspec.language.dimensions import dims_of
 from lpspec.language.errors import LanguageError, PiecewiseExpansionError
 from lpspec.language.expression_parser import ComparisonNode, parse_expression
-from lpspec.language.model import Model, PiecewiseBlock
+from lpspec.language.model import Buildable, Model, PiecewiseBlock
 from lpspec.language.resolution import Namespace, resolve_expression
 
 if TYPE_CHECKING:
@@ -105,8 +105,8 @@ def _gate_rows(schema: Model, pw: PiecewiseBlock) -> tuple[tuple[str, str | None
     return (('', pw.activity, f'({pw.activity})'), ('_ungated', f'NOT {pw.activity}', '1'))
 
 
-def expand_piecewise(schema: Model) -> Model:
-    """Return *schema* with every ``piecewise:`` block expanded away.
+def expand_piecewise(schema: Model) -> Buildable:
+    """Return *schema* as a :class:`Buildable` — every ``piecewise:`` block expanded away.
 
     The adjacency constraint shifts with ``edge=0`` rather than a bare
     ``shift``: at the first breakpoint the vacated term must contribute zero,
@@ -120,18 +120,23 @@ def expand_piecewise(schema: Model) -> Model:
     takes the row with it: a second ``where:`` on the adjacency row builds the
     same model down to the column.
 
-    Building the expanded ``Model`` validates it, so the result is memoised
-    on *schema* — a validated schema already carries the expansion its own
+    Building the expanded model validates it, so the result is memoised on
+    *schema* — a validated schema already carries the expansion its own
     validation built (:class:`Model` expands as a check on the way in), and
-    asking again returns it rather than validating a second copy.
+    asking again returns it rather than validating a second copy. Idempotent:
+    a :class:`Buildable` is its own expansion and comes straight back, so a
+    consumer unsure whether it has expanded yet can simply ask.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
             or emitting a name the file already declares.
     """
-    if not schema.piecewise:
+    if isinstance(schema, Buildable):
         return schema
     if schema._expansion is not None:
+        return schema._expansion
+    if not schema.piecewise:
+        schema._expansion = _retyped(schema)
         return schema._expansion
 
     raw = schema.model_dump()
@@ -190,9 +195,20 @@ def expand_piecewise(schema: Model) -> Model:
             }
 
     raw['piecewise'].clear()
-    expanded = Model.model_validate(raw)
+    expanded = Buildable.model_validate(raw)
     schema._expansion = expanded
     return expanded
+
+
+def _retyped(schema: Model) -> Buildable:
+    """*schema* as the type of a model with nothing to expand, unvalidated.
+
+    Reached only where ``piecewise:`` is already empty, which is the whole of
+    what :class:`Buildable` promises — the fields are the ones a validating
+    construction would arrive at, so a second pass over them would buy the
+    caller nothing and cost every curve-free model a copy of its own checks.
+    """
+    return Buildable.model_construct(**dict(schema))
 
 
 def _expand_lp(
