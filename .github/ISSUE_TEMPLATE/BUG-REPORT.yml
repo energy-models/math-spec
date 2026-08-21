@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: math-spec Contributors
 #
 # SPDX-License-Identifier: MIT
+
 name: Bug Report
 description: Report a bug that leads to math-spec not working as expected.
 labels: [bug]

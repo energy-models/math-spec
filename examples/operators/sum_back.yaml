@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A trailing window of a fixed width: a unit that started in the last three
+  hours is still on.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+
+parameters:
+  min_up: { dims: [unit], dtype: int }
+
+variables:
+  started:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  stays_up_its_own_time:
+    foreach: [unit, hour]
+    expression: sum_back(started, over=hour, within=3) <= on
+
+objective: { sense: minimize, expression: sum(on) }

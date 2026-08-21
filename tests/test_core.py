@@ -8,4 +8,4 @@ def test_hard():
 
     # this is just a demo that pytest can produce good error messages just by
     # parsing assert statements
-    assert {"a": 1, "b": 2} == {"a": 1, "b": 2}
+    assert {'a': 1, 'b': 2} == {'a': 1, 'b': 2}

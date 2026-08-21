@@ -1,0 +1,198 @@
+## The math
+
+every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {net} ~ ^ \ *star* @ref <label>
+
+#### Sets
+
+| Symbol | Meaning |
+|---|---|
+| $\mathcal{T}$ | index $t$ --- `snapshot` with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$ |
+| $\mathcal{G}$ | index $g$ --- `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$ |
+| $\mathcal{B}$ | index $b$ --- `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$ |
+| $\mathcal{Z}$ | index $z$ --- `zone` |
+| $\mathcal{S}$ | index $s$ --- `season` |
+| $\mathcal{E}$ | index $e$ --- `technology` |
+
+#### Parameters
+
+| Symbol | Meaning |
+|---|---|
+| $p^{\mathrm{max}}$ | `p_max` over $\mathcal{G}$ |
+| $p^{\mathrm{min}}$ | `p_min` over $\mathcal{G}$ |
+| $\mathit{cost}$ | `cost` over $\mathcal{G}$ |
+| $\mathit{load}$ | `load` over $\mathcal{T} \times \mathcal{B}$ |
+| $\mathit{is\_flexible}$ | `is_flexible` over $\mathcal{G}$ |
+| $\mathit{zone}^{\mathrm{cap}}$ | `zone_cap` over $\mathcal{Z}$ |
+| $\mathit{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
+| $\mathit{min\_up}$ | `min_up` over $\mathcal{G}$ |
+| $\mathit{lead}$ | `lead` over $\mathcal{G}$ |
+| $\mathit{budget}$ | `budget` (scalar) |
+| $\mathit{growth}$ | `growth` (scalar) |
+
+#### Variables
+
+| Symbol | Meaning |
+|---|---|
+| $p$ | `p` over $\mathcal{T} \times \mathcal{G}$ |
+| $\mathit{spill}$ | `spill` over $\mathcal{T}$ |
+| $\mathit{slack}$ | `slack` over $\mathcal{T}$ |
+| $\mathit{theta}$ | `theta` over $\mathcal{B}$ |
+| $\mathit{on}$ | `on` over $\mathcal{T} \times \mathcal{G}$ |
+| $\mathit{units}$ | `units` over $\mathcal{G}$ |
+| $\mathit{spare}$ | `spare` over $\mathcal{G}$ |
+| $\mathit{reserve}$ | `reserve` (scalar) |
+| $\mathit{headroom}$ | `headroom` (scalar) |
+| $\mathit{void}$ | `void` over $\mathcal{B}$ |
+| $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
+
+$t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound --- terms translated past the edge are simply absent.
+
+$t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
+
+#### Objective
+
+$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} \cdot \mathit{growth}^{\mathit{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
+
+#### Subject to
+
+**`balance`**
+
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} = \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+
+**`ramp`**
+
+$$p_{t,g} - p_{t \ominus 1,g} \le p_{t - 1,g} + p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`edges`**
+
+$$p_{t \boxminus_{0} 1,g} \le p_{t \boxplus_{0} 1,g} + p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`ahead`**
+
+$$p_{t,g} \le p_{t \oplus 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`composed`**
+
+$$p_{t - 2,g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`uncomposed`**
+
+$$p_{\left( t - 1 \right) - \mathit{lead},g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`crossed`**
+
+$$p_{t \ominus 1,g + 1} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`lead_time`**
+
+$$p_{t \boxminus_{0} \mathit{lead},g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`in_season`**
+
+$$p_{t,g} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`held_in_season`**
+
+$$p_{t,g} \le p_{t \boxminus_{0,\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`window`**
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < 3} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`history`**
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t \ominus t' < \mathit{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`pullback`**
+
+$$\mathit{spill}_{t} \le \mathit{zone}^{\mathrm{cap}}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+
+**`grouped_twice`**
+
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathit{tech\_cap}_{b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$$
+
+**`pulled_back_twice`**
+
+$$\mathit{units}_{g} \le \mathit{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
+
+**`arithmetic`**
+
+$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} + -\mathit{cost}_{g} \right) \ge \left( -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
+
+**`total`**
+
+$$\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathit{budget}$$
+
+**`scalar`**
+
+$$\mathit{units}_{g} \le \mathit{budget} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathit{cost}_{g} \text{ is defined}$$
+
+**`running`**
+
+$$\mathit{theta}_{b} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathit{theta}_{b} \text{ exists} \wedge t \ge 3$$
+
+**`first`**
+
+$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( t = \mathrm{index}(\mathcal{T}, 0) \vee t = \mathrm{index}(\mathcal{T}, 0, \mathrm{season\_of}(t)) \right)$$
+
+**`northern`**
+
+$$\mathit{slack}_{t} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
+
+**`always`**
+
+$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \top$$
+
+**`never`**
+
+$$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \bot$$
+
+#### Variable domains
+
+**`p`**
+
+$$p^{\mathrm{min}}_{g} \le p_{t,g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( p^{\mathrm{max}}_{g} > 0 \wedge \neg \mathit{is\_flexible}_{g} \vee p^{\mathrm{min}}_{g} > 0 \right)$$
+
+**`spill`**
+
+$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T}$$
+
+**`slack`**
+
+$$\mathit{slack}_{t} \le 100 \qquad \forall\thinspace t \in \mathcal{T}$$
+
+**`theta`**
+
+$$\mathit{theta}_{b} \in \mathbb{R} \qquad \forall\thinspace b \in \mathcal{B}$$
+
+**`on`**
+
+$$\mathit{on}_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`units`**
+
+$$0 \le \mathit{units}_{g} \le 10, \mathit{units}_{g} \in \mathbb{Z} \qquad \forall\thinspace g \in \mathcal{G}$$
+
+**`spare`**
+
+$$\mathit{spare}_{g} \in \mathbb{Z} \qquad \forall\thinspace g \in \mathcal{G}$$
+
+**`reserve`**
+
+$$\mathit{reserve} \ge 0$$
+
+**`headroom`**
+
+$$\mathit{headroom} \ge 0 \qquad \text{where } \mathit{budget} \text{ is defined}$$
+
+**`void`**
+
+$$\infty \le \mathit{void}_{b} \le -\infty \qquad \forall\thinspace b \in \mathcal{B}$$
+
+**`weight`**
+
+$$0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`weight sos`**
+
+$$\left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\thinspace t \in \mathcal{T}$$

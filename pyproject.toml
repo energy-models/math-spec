@@ -3,20 +3,33 @@
 # SPDX-License-Identifier: MIT
 
 [build-system]
-requires = ["hatchling"]
+# 1.27 is the first hatchling with the PEP 639 license fields below.
+requires = ["hatchling>=1.27", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[tool.hatch.version]
+source = "vcs"
+# The base for a clone with no reachable tag, which is every clone until
+# release-please cuts the first one — the remote carries no tags today. Without
+# it hatch-vcs starts from 0.1 and builds `0.1.devN`; with it, `0.0.1.devN`.
+# Neither is a release and neither is published, but the second does not claim
+# a minor version the project has not reached. Shallow clones keep needing it.
+fallback-version = "0.0.0"
+
 [tool.hatch.build.targets.sdist]
-only-include = ["src", "LICENSES", "README.md"]
+only-include = ["src", "README.md", "LICENSE", "LICENSES"]
 
 [project]
 name = "math-spec"
 description = "YAML math specification and AST parsing for multi-dimensional linear programming problems"
 authors = [
+  { name = "Felix Bumann", email = "117816358+FBumann@users.noreply.github.com" },
   { name = "Bryn Pickering", email = "17178478+brynpickering@users.noreply.github.com" },
 ]
-# replaced in CI
-version = "0.0.0"
+# The git tag is the version — see RELEASING.md. Never hardcode it here.
+dynamic = ["version"]
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
@@ -25,52 +38,135 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 readme = "README.md"
-dependencies = []
+dependencies = [
+  # The schema: `Model` is a pydantic model and `schema/math-spec.schema.json`
+  # is its `model_json_schema()`. 2.1 is where a validator's own exception
+  # reaches `ctx['error']` as the object rather than its str, which
+  # `errors.schema_error` unwraps to keep the documented class; 2.0 flattens
+  # every model error to SchemaError.
+  "pydantic>=2.1",
+  # The two grammars — `expression:` and `where:` are strings to the schema and
+  # are parsed here (expression_parser.py, where_parser.py).
+  "pyparsing>=3.1",
+  "pyyaml>=6.0",
+]
 
 [project.urls]
 repository = "https://github.com/energy-models/math-spec"
 
 [project.scripts]
 
+# No `[dependency-groups]`: the environments are pixi's, and every tool this
+# project builds, tests, lints and documents itself with is a feature in
+# pixi.toml. Keeping a second list here is how the two drift apart.
+
 [tool.ruff]
-line-length = 100
+# Carried from lpspec, which is where every file under src/ was written and
+# formatted. Adopting it wholesale means the extraction reformats nothing; the
+# alternative was a 43-file diff over quote style, on a tree nobody has reviewed
+# in this repo yet. `target-version` is the one change: math-spec's floor.
+target-version = "py312"
+line-length = 120
 
 [tool.ruff.lint]
-ignore = [
-  "N803", # https://docs.astral.sh/ruff/rules/invalid-argument-name
-  "N806", # https://docs.astral.sh/ruff/rules/non-lowercase-variable-in-function
-  "E501", # https://docs.astral.sh/ruff/faq/#is-the-ruff-linter-compatible-with-black
-]
 select = [
-  # pyflakes
-  "F",
-  # pycodestyle
-  "E",
-  "W",
-  # isort
-  "I",
-  # pep8-naming
-  "N",
-  # pyupgrade
-  "UP",
+  "E",    # pycodestyle errors
+  "F",    # Pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # isort
+  "B",    # flake8-bugbear
+  "N",    # pep8-naming
+  "UP",   # pyupgrade
+  "FA",   # flake8-future-annotations
+  "TC",   # flake8-type-checking
+  "SIM",  # flake8-simplify
+  "RUF",  # Ruff-specific rules
+  "PERF", # perflint
+  "C4",   # flake8-comprehensions
+  "PIE",  # flake8-pie
+  "RET",  # flake8-return
+  "FLY",  # flynt (f-string)
+  "FURB", # refurb
+  "T20",  # flake8-print
+  "T10",  # flake8-debugger
+  "PLC",  # pylint conventions
+  "PLE",  # pylint errors
+  "D",    # pydocstyle
 ]
+ignore = [
+  "E501",    # line too long (handled by formatter)
+  "RET504",  # unnecessary assignment before return
+  "PLC0415", # import not at top level (lazy imports are load-bearing here)
+  "D1",      # missing docstring — AGENTS.md decides where one earns its place
+]
+extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# `D` is off outside the package: the Google convention is for what a *caller*
+# reads, and elsewhere a docstring argues for one assertion or narrates a
+# script, where a summary line it has to fit in is the worse sentence.
+"tools/**/*.py" = ["T20", "D"] # a generator says what it wrote
+"tests/**/*.py" = ["D"]
+"tests/typeset/golden/__main__.py" = [
+  "T20",
+  "D",
+] # likewise a generator, and only reachable as a command
+"src/math_spec/where_parser.py" = [
+  "N806",
+] # grammar tokens (NOT/AND/OR) are named after keywords
+"docs/static/hooks.py" = ["PERF401", "RUF015", "D"]
 
 [tool.ruff.format]
-quote-style = "double"
+quote-style = "single"
 indent-style = "space"
+docstring-code-format = true
 
-[tool.mypy]
-python_version = '3.12'
-no_implicit_optional = true
-check_untyped_defs = true
-files = "src/"
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
-# If you run into `missing library stubs or py.typed marker` errors
-# and no stubs are available for this library, you can add an override
-# to ignore the missing imports.
-# [[tool.mypy.overrides]]
-# module = ["my_module"]
-# ignore_missing_imports = true
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = false
+
+[tool.ruff.lint.flake8-type-checking]
+# pydantic models evaluate annotations at runtime to build validators, so imports
+# used only in annotations must stay at runtime (not moved to TYPE_CHECKING).
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
+[tool.pyrefly]
+# Check against the *lowest* supported interpreter, so syntax and stdlib
+# additions newer than the floor are caught here rather than by a CI leg.
+python-version = "3.12"
+project-includes = ["src/math_spec"]
+preset = "strict"
+
+# Warn-by-default rules promoted to error, so a regression fails the gate
+# instead of scrolling past. All of these are already clean; each one is a
+# gate, not a TODO.
+#
+# Where a rule is genuinely wrong about one line, suppress that line with
+# `# pyrefly: ignore[rule-name]` and a reason -- do not turn the rule off here.
+#
+# `implicit-any-lambda` is left on and suppressed per line in the two grammars.
+# A lambda takes no annotation, and giving the parse action a typed callback
+# only moves the error: pyparsing returns `ParseResults`, whose `__getitem__`
+# is a union, so the body fails where the parameter used to. Kept on rather
+# than switched off so a lambda outside those grammars still has to say what
+# it takes.
+[tool.pyrefly.errors]
+implicit-import = true
+missing-import = true
+non-exhaustive-match = true
+not-required-key-access = true
+redundant-cast = true
+redundant-condition = true
+unknown-name = true
+unnecessary-comparison = true
+unnecessary-type-conversion = true
+unreachable = true
+unresolvable-dunder-all = true
+untyped-import = true
+unused-ignore = true
+variance-mismatch = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -78,3 +174,21 @@ testpaths = ["tests"]
 [tool.coverage.run]
 branch = true
 source = ["src/"]
+
+[tool.typos.default.extend-words]
+# Each of these is deliberate, and none is reachable by fixing a spelling.
+#
+# `wher` and `generatr` are misspellings *on purpose*: they are the input to the
+# did-you-mean suggester, so correcting them deletes the case. `missable` is the
+# word the sentence wants — a coordinate that can go missing — and is not
+# "miscible". `unparseable` is the accepted variant and is the name of a test.
+wher = "wher"
+generatr = "generatr"
+missable = "missable"
+unparseable = "unparseable"
+# `NAMEs` in scripts/setup-release-app.sh is a placeholder plus a plural, in a
+# comment from the wizard template that is not ours to reword. typos splits it
+# into `NAM` + `Es`, calls `NAM` a misspelling of `NAME`, and rewrites the line
+# to `NAMEEs` — which is not a word either. The key is the token it objects to,
+# not the text on the page.
+NAM = "NAM"

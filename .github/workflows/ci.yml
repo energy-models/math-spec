@@ -3,13 +3,25 @@
 # SPDX-License-Identifier: MIT
 
 name: CI
+
+# Billing is per job, rounded up to the minute, and the whole gate takes about
+# fifteen seconds. So the cost of CI is the number of jobs, not their duration:
+# five jobs doing ninety seconds of work cost five minutes. Hence one job. Do
+# not split a step out into a job of its own to parallelise it — that trades a
+# few seconds of wall clock for a whole billed minute. This is where the
+# template's generated CI is deliberately not followed: it runs lint plus a
+# 3-interpreter by 3-OS pytest matrix, which is ten billed minutes a push.
+#
+# Every gate below is a pixi task, and `pixi run ci` runs the four of them in
+# this order. They are separate steps here only so a red run names the gate
+# that broke; steps, unlike jobs, are free.
+
 on:
-  pull_request:
   push:
     branches:
       - main
+  pull_request:
 
-# Automatically stop old builds on the same branch/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -18,42 +30,65 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint
-    timeout-minutes: 30
-    runs-on: ubuntu-latest
+  ci:
+    # The single required check. Fixed name, no matrix, so the branch ruleset
+    # can name it directly and never needs updating.
+    name: CI
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # hatch-vcs derives the version from `git describe`, and pixi builds
+          # the package into the environment before anything runs.
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Set up pixi
         uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
+        with:
+          # `--locked`: pixi.lock is the environment, and a run that quietly
+          # re-solved would not be testing what a contributor has.
+          locked: true
+          cache: true
+          environments: default
+
+      # tectonic ships as one binary and fetches the TeX packages a document
+      # asks for on first use. That fetch is most of a minute, and it is the
+      # same bytes every run — pixi's own cache does not cover it, because it
+      # is not a conda package. Keyed on the lockfile so a tectonic upgrade
+      # gets a fresh bundle rather than a stale one.
+      - name: Cache the tectonic bundle
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/Tectonic
+          key: tectonic-${{ runner.os }}-${{ hashFiles('pixi.lock') }}
+          restore-keys: tectonic-${{ runner.os }}-
+
+      # One step for every check that formats, lints or licence-checks a file:
+      # `lint` is `lefthook run pre-commit --all-files`, the same jobs a commit
+      # runs, and `fail_on_changes: always` means an unformatted tree fails here
+      # rather than being fixed in place. ruff, pyrefly, typos, zizmor, reuse,
+      # prettier and taplo all report from inside it.
       - name: Run linting
         run: pixi run lint
         env:
           CLICOLOR_FORCE: 1
 
-  pytest:
-    timeout-minutes: 30
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        environment:
-          - py312
-          - py313
-          - py314
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    steps:
-      - name: Check out branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - name: Set up pixi
-        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
-        with:
-          environments: ${{ matrix.environment }}
       - name: Run pytest
-        run: pixi run -e ${{ matrix.environment }} test-coverage --color=yes
+        run: pixi run test --color=yes
+
+      # `--strict` turns every mkdocs warning into a failure, so this gate
+      # catches a dead cross-link, a page added without a nav entry, and an
+      # anchor that stopped resolving. It is also the closest thing to a
+      # rehearsal of the Read the Docs build, which runs the same task.
+      - name: Build the docs
+        run: pixi run docs-build "$RUNNER_TEMP/site"
+
+      # Every model to standalone LaTeX, then through a real engine. The task
+      # renders first — `compile-tex` depends on `render-tex` — so this one
+      # line is the whole gate. The Typst half is proven by the suite, which
+      # compiles it in-process through the typst bindings.
+      - name: Every model renders to LaTeX that compiles
+        run: pixi run compile-tex

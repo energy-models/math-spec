@@ -41,9 +41,13 @@ If you plan to make changes to the code then please make regular use of the foll
   The checks include:
   1. check no large files have been staged
   2. lint python files for major errors
-  3. format python files to conform with the [PEP8 standard](https://peps.python.org/pep-0008/).
-     You can also run these checks yourself at any time to ensure staged changes are clean by calling `pixi run lint`.
-- `pixi run test` - run the unit test suite and check test coverage.
+  3. format python files to conform with the [PEP8 standard](https://peps.python.org/pep-0008/)
+  4. type-check the package with [pyrefly](https://pyrefly.org/).
+     You can also run these checks yourself at any time to ensure the tree is clean by calling `pixi run lint`.
+- `pixi run test` - run the unit test suite.
+- `pixi run test-coverage` - the same, with test coverage.
+- `pixi run compile-tex` - render every model in the tree to standalone LaTeX and compile it, which is how the typeset output is proven to be a real document.
+- `pixi run ci` - all four gates CI runs — lint, tests, a strict docs build and the LaTeX compile — in the order a failure is cheapest to read. About fifteen seconds; worth a run before you push.
 
 ## Documentation
 
@@ -127,13 +131,6 @@ Here are some use-cases that you may come across in which you are considering up
 ??? question "I want to do something else"
 
     We recommend exploring the [MkDocs](https://www.mkdocs.org/) and the [Material](https://squidfunk.github.io/mkdocs-material/) documentation if we haven't answered your question.
-
-## Updating the project when the template updates
-
-This project has been built with [copier](https://copier.readthedocs.io/).
-When changes are made to the base template, they can be merged into this project by running `pixi exec --with copier copier update --skip-answered`.
-
-You may be prompted to do this when you open a Pull Request, if our automated checks identify that the template is newer than that used in the project.
 
 ## Submitting changes
 

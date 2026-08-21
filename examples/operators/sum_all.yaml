@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: Every dimension at once — `sum(array)` names none of them and takes them all.
+
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+
+parameters:
+  budget: { dims: [] }
+
+variables:
+  p:
+    foreach: [snapshot, generator]
+    bounds: { lower: 0 }
+
+constraints:
+  fleet_budget:
+    foreach: []
+    expression: sum(p) <= budget
+
+objective: { sense: minimize, expression: sum(p) }

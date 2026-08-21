@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: The plain reduction — `sum(array, over=dim)` collapses one dimension.
+
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+
+parameters:
+  limit: { dims: [snapshot] }
+
+variables:
+  p:
+    foreach: [snapshot, generator]
+    bounds: { lower: 0 }
+
+constraints:
+  fleet_total:
+    foreach: [snapshot]
+    expression: sum(p, over=generator) <= limit
+
+objective: { sense: minimize, expression: sum(p) }

@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  Grouping through several maps at once — `sum(array, by=[lookup, …])` lands
+  the result on every dimension the lookups map into, which is one grouping
+  rather than a composition of two: the generator dimension is consumed once.
+
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+  bus: { dtype: str }
+  technology: { dtype: str }
+
+lookups:
+  gen_bus: { over: generator, into: bus }
+  gen_tech: { over: generator, into: technology }
+
+parameters:
+  limit: { dims: [snapshot, bus, technology] }
+
+variables:
+  p:
+    foreach: [snapshot, generator]
+    bounds: { lower: 0 }
+
+constraints:
+  bus_technology_total:
+    foreach: [snapshot, bus, technology]
+    expression: sum(p, by=[gen_bus, gen_tech]) <= limit
+
+objective: { sense: minimize, expression: sum(p) }

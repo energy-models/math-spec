@@ -6,9 +6,25 @@ site_name: "math-spec"
 nav:
   - Home: index.md
   - Installation: installation.md
+  - Reference:
+      - Language:
+          - reference/language/index.md
+          - File shape: reference/language/file.md
+          - Parameters, variables, constraints: reference/language/declarations.md
+          - Dimensions and lookups: reference/language/dimensions.md
+          - Expressions: reference/language/expressions.md
+          - Operators: reference/language/operators.md
+          - Piecewise curves and SOS: reference/language/piecewise.md
+          - Absence and where: reference/language/absence.md
+          - Reading a loaded model: reference/language/reading.md
+          - Errors and limits: reference/language/errors.md
+      - Every construct, as math: reference/notation.md
+      - Typeset the math: reference/typeset.md
+  - About:
+      - The ceiling: about/ceiling.md
+      - What counts as language: about/what-counts-as-language.md
   - Contributing: contributing.md
   - Changelog: CHANGELOG.md
-  - Reference: []
 theme:
   name: material
   features:
@@ -16,6 +32,13 @@ theme:
     - navigation.top
     - content.code.copy
 repo_url: https://github.com/energy-models/math-spec
+# The prose licence, on every page — CC-BY asks for attribution, so it has to be
+# visible to a reader of the site, not only to a reader of the repository.
+copyright: >
+  The documentation is licensed
+  <a href="https://github.com/energy-models/math-spec/blob/main/LICENSES/CC-BY-4.0.txt">CC-BY-4.0</a>;
+  the code is
+  <a href="https://github.com/energy-models/math-spec/blob/main/LICENSE">MIT</a>.
 site_dir: .docs
 markdown_extensions:
   - admonition

@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  The membership reduction — `sum(array, by=lookup)` lands the result on the
+  dimension the lookup maps into, which is what makes topology data rather than
+  structure.
+
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+  bus: { dtype: str }
+
+lookups:
+  gen_bus: { over: generator, into: bus }
+
+parameters:
+  limit: { dims: [snapshot, bus] }
+
+variables:
+  p:
+    foreach: [snapshot, generator]
+    bounds: { lower: 0 }
+
+constraints:
+  bus_total:
+    foreach: [snapshot, bus]
+    expression: sum(p, by=gen_bus) <= limit
+
+objective: { sense: minimize, expression: sum(p) }

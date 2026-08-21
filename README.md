@@ -37,3 +37,12 @@ pixi run test
 ## Documentation
 
 For more detailed instructions, see our [documentation](https://math-spec.readthedocs.io/latest).
+
+## Licence
+
+The code is [MIT](LICENSE) — everything under `src/`, `tests/`, `tools/`, the
+examples, and the generated schema.
+
+The prose is [CC-BY-4.0](LICENSES/CC-BY-4.0.txt) — everything under `docs/`, this
+README, `CHANGELOG.md`, and the logos in `resources/`. Reuse it freely, with
+attribution.

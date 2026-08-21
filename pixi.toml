@@ -10,35 +10,78 @@ channels = ["conda-forge"]
 # resolved from conda-forge like any other package, and the only
 # `pixi-build-python` matching a current pixi's backend API is days old. A 7-day
 # cutoff excludes it, and CI goes red with no commit behind it — which is what
-# happened here between 2026-08-17 (green) and 2026-08-21 (red) on this very
-# commit. Windows of 3d, 5d, 6d and 7d were all tried; only "now" resolves.
+# happened between 2026-08-17 (green) and 2026-08-21 (red) on one commit.
+# Windows of 3d, 5d, 6d and 7d were all tried; only "now" resolves. pixi.lock is
+# what makes a build reproducible here.
 platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
 preview = ["pixi-build"]
 
 [package]
 name = "math-spec"
+# The version of the *local development install* only. pyproject.toml has
+# `dynamic = ["version"]`, and pixi needs a literal here to name the package it
+# is about to build. Nothing ships from this: the wheel a tag publishes comes
+# from `pixi run build-wheel`, where hatch-vcs reads the version off the tag.
+version = "0.0.0"
 [package.build.backend]
 name = "pixi-build-python"
 version = "*"
 [package.host-dependencies]
 python = ">=3.12"
-hatchling = "*"
+# The floors are pyproject.toml's `build-system.requires`: 1.27 is the first
+# hatchling with the PEP 639 licence fields, and hatch-vcs is what reads the
+# version off the tag.
+hatchling = ">=1.27"
+hatch-vcs = "*"
 uv = "*"
+
+# The runtime dependencies, mirrored from `[project.dependencies]` in
+# pyproject.toml, which stays the source of truth for what a PyPI install
+# gets. pixi-build-python does not read them out of a standalone pixi.toml
+# workspace, so a wheel built here would import against an environment that
+# has none of them. Keep the two lists in step; the floors are argued for in
+# pyproject.toml.
+[package.run-dependencies]
+pydantic = ">=2.1"
+pyparsing = ">=3.1"
+pyyaml = ">=6.0"
 
 [dependencies]
 math-spec = { path = "." }
 
 [feature.test.dependencies]
-pytest = "*"
-pytest-cov = "*"
-mypy = "*"
+pytest = ">=8"
+pytest-cov = ">=6"
+# `-n auto` for the suite — what the `test` task passes. Deliberately not in
+# `addopts`: `-x`, `--pdb` and readable single-test output all want one
+# process, and a run of one test file pays the worker startup for nothing.
+pytest-xdist = ">=3.8"
+# Pinned exactly, because the gate's *output* is the contract: a new release
+# that reports one more thing turns a green branch red without a commit. Held
+# to the same version the lint feature pins ruff to.
+pyrefly = "==1.2.0"
+[feature.test.pypi-dependencies]
+# The PyPI bindings, which compile in-process — not conda-forge's `typst`,
+# which is the CLI binary and cannot be imported. Three compile tests in
+# tests/typeset/test_typeset.py skip without it.
+typst = ">=0.15.0"
 [feature.test.tasks]
-test = "pytest"
+test = "pytest -q -n auto"
 test-coverage = "pytest --cov=math_spec --cov-report=xml --cov-report=term-missing"
+typecheck = "pyrefly check"
+# Half the render gate: every model to standalone LaTeX. `compile-tex` in the
+# tex feature is the half that proves the LaTeX is real.
+render-tex = { cmd = "python -m tools.render_tex {{ dir }}", args = [
+  { arg = "dir", default = "build/tex" },
+] }
 
 [feature.build.dependencies]
 python = "*"
-hatchling = "*"
+hatchling = ">=1.27"
+# `--no-isolation` below means the backend is this environment, not one pip
+# builds on the fly — so the plugin that reads the version off the tag has to
+# be installed here or `source = "vcs"` has nothing to call.
+hatch-vcs = "*"
 python-build = "*"
 twine = ">=6"
 [feature.build.tasks]
@@ -47,7 +90,10 @@ check-wheel = "twine check dist/*"
 
 [feature.lint.dependencies]
 lefthook = "*"
-ruff = "*"
+# Pinned exactly for the same reason as pyrefly above: `ruff format` decides
+# what formatted means, and a floating version means CI and the hook can
+# disagree about it.
+ruff = "==0.16.1"
 prettier = "*"
 taplo = "*"
 pre-commit-hooks = "*"
@@ -70,13 +116,43 @@ mkdocs-table-reader-plugin = ">=3.1"
 [feature.docs.tasks.docs-serve]
 cmd = "mkdocs serve"
 [feature.docs.tasks.docs-build]
+# `--strict` turns every mkdocs warning into a failure, so this catches a dead
+# cross-link, a page added without a nav entry, and an anchor that stopped
+# resolving.
+#
 # `{{ dir }}` is pixi's own arg template and must reach pixi intact. The
 # upstream copier template writes it in a .jinja file without a `raw` block, so
 # copier interpolates it at generation and every repo built from the template
 # gets `-d /html` — an absolute path at the filesystem root, with the declared
-# `dir` argument silently discarded. That is why Read the Docs finds no output.
-cmd = "mkdocs build -d {{ dir }}/html"
-args = ["dir"]
+# `dir` argument silently discarded. That is why Read the Docs found no output.
+cmd = "mkdocs build --strict -d {{ dir }}/html"
+# The default matches `site_dir` in mkdocs.yml, so a bare `pixi run docs-build`
+# lands where .gitignore already expects it. Read the Docs passes
+# $READTHEDOCS_OUTPUT instead.
+args = [{ arg = "dir", default = ".docs" }]
+
+# The compile half of the render gate. tectonic rather than a system TeX: it is
+# one self-contained binary that pulls the packages a document asks for, so the
+# gate installs with `pixi install` and runs on a contributor's laptop. What CI
+# did before was `apt-get install texlive-*` in the background of the other
+# steps, plus a polling step to collect it — sixty lines of shell in a workflow
+# file that nobody could run locally.
+#
+# It is XeTeX, not pdflatex. The gate asks whether the LaTeX this project emits
+# is a real document — balanced, every command defined by a package the
+# preamble names — and that is engine-independent.
+[feature.tex.dependencies]
+tectonic = "*"
+[feature.tex.tasks.compile-tex]
+cmd = "python -m tools.compile_tex {{ dir }}"
+args = [{ arg = "dir", default = "build/tex" }]
+depends-on = [{ task = "render-tex", args = ["{{ dir }}"] }]
+
+# The whole gate, in the order a failure is cheapest to read. CI runs these as
+# separate steps so a red run names the one that broke; this is the same list
+# for anyone who wants to know before pushing.
+[tasks.ci]
+depends-on = ["lint", "test", "docs-build", "compile-tex"]
 
 [feature.template.dependencies]
 copier = ">=9.16"
@@ -91,7 +167,7 @@ python = "3.13.*"
 python = "3.14.*"
 
 [environments]
-default = ["test", "build", "lint", "docs"]
+default = ["test", "build", "lint", "docs", "tex"]
 template = ["template"]
 py312 = ["py312", "test"]
 py313 = ["py313", "test"]
