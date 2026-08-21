@@ -207,3 +207,9 @@ wher = "wher"
 generatr = "generatr"
 missable = "missable"
 unparseable = "unparseable"
+# `NAMEs` in scripts/setup-release-app.sh is a placeholder plus a plural, in a
+# comment from the wizard template that is not ours to reword. typos splits it
+# into `NAM` + `Es`, calls `NAM` a misspelling of `NAME`, and rewrites the line
+# to `NAMEEs` — which is not a word either. The key is the token it objects to,
+# not the text on the page.
+NAM = "NAM"

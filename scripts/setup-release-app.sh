@@ -203,8 +203,12 @@ if [[ "$(gh api "repos/$REPO" --jq .permissions.admin 2>/dev/null)" != "true" ]]
   printf 'You need admin on %s to do any of this.\n' "$REPO"
   exit 1
 fi
-# `set_secret` in the library above resolves the repository from the working
-# directory, so the wizard has to run from inside the clone.
+if [[ "$(gh api "orgs/$ORG/memberships/$(gh api user --jq .login)" --jq .role 2>/dev/null)" != "admin" ]]; then
+  printf 'The secrets go on the %s organisation, which needs owner rights there.\n' "$ORG"
+  exit 1
+fi
+# The wizard has to run from inside the clone: the repository checks below
+# resolve it from the working directory.
 if [[ "$(git rev-parse --show-toplevel 2>/dev/null)" == "" ]]; then
   printf 'Run this from inside the math-spec clone.\n'
   exit 1
@@ -237,7 +241,13 @@ if [[ -z "$APP_CLIENT_ID" ]]; then
   exit 1
 fi
 write_env APP_CLIENT_ID "$APP_CLIENT_ID"
-set_secret APP_CLIENT_ID "$APP_CLIENT_ID"
+if gh secret set APP_CLIENT_ID --org "$ORG" --visibility all --body "$APP_CLIENT_ID"; then
+  WRITTEN_SECRET+=("APP_CLIENT_ID")
+  printf '  %s✓ set%s org secret APP_CLIENT_ID\n' "$GREEN" "$RESET"
+else
+  warn "gh could not set APP_CLIENT_ID"
+  SKIPPED+=("Org secret APP_CLIENT_ID")
+fi
 pause "Press Enter for the private key."
 
 # ── 2 ─────────────────────────────────────────────────────────────────────
@@ -262,11 +272,11 @@ read -r PEM_PATH || true
 PEM_PATH="${PEM_PATH/#\~/$HOME}"
 if [[ ! -f "$PEM_PATH" ]]; then
   warn "no file at '$PEM_PATH'"
-  SKIPPED+=("GitHub secret APP_PRIVATE_KEY (gh secret set APP_PRIVATE_KEY < your-key.pem)")
+  SKIPPED+=("Org secret APP_PRIVATE_KEY — see RELEASING.md for the command")
 elif ! grep -q "BEGIN RSA PRIVATE KEY\|BEGIN PRIVATE KEY" "$PEM_PATH"; then
   warn "'$PEM_PATH' does not look like a PEM private key"
-  SKIPPED+=("GitHub secret APP_PRIVATE_KEY (gh secret set APP_PRIVATE_KEY < your-key.pem)")
-elif gh secret set APP_PRIVATE_KEY --repo "$REPO" < "$PEM_PATH"; then
+  SKIPPED+=("Org secret APP_PRIVATE_KEY — see RELEASING.md for the command")
+elif gh secret set APP_PRIVATE_KEY --org "$ORG" --visibility all < "$PEM_PATH"; then
   WRITTEN_SECRET+=("APP_PRIVATE_KEY")
   printf '  %s✓ set%s GitHub secret APP_PRIVATE_KEY\n' "$GREEN" "$RESET"
   printf '\n'
@@ -277,18 +287,22 @@ elif gh secret set APP_PRIVATE_KEY --repo "$REPO" < "$PEM_PATH"; then
   fi
 else
   warn "gh could not set APP_PRIVATE_KEY"
-  SKIPPED+=("GitHub secret APP_PRIVATE_KEY (gh secret set APP_PRIVATE_KEY < your-key.pem)")
+  SKIPPED+=("Org secret APP_PRIVATE_KEY — see RELEASING.md for the command")
 fi
 pause "Press Enter to install the app."
 
 # ── 3 ─────────────────────────────────────────────────────────────────────
-stage "Install the app on $REPO"
+stage "Install the app across $ORG"
 say "An app with permissions but no installation grants nothing."
 printf '\n'
 open_url "https://github.com/organizations/$ORG/settings/apps"
 step "Open your new app, then 'Install App' in the left sidebar."
 step "Click Install next to $ORG."
-step "Choose 'Only select repositories' → select math-spec → Install."
+step "Choose 'All repositories' → Install."
+printf '\n'
+note "All repositories, so a second repo adopting release-please needs no new"
+note "app and no new key. The cost is blast radius: one key that can write"
+note "contents and pull requests anywhere in $ORG."
 printf '\n'
 pause "Press Enter once it is installed."
 
@@ -312,12 +326,19 @@ pause "Press Enter to verify."
 stage "Verify"
 say "Reading back what GitHub actually has, rather than what we just sent."
 printf '\n'
-SECRETS=$(gh api "repos/$REPO/actions/secrets" --jq '[.secrets[].name] | join(" ")' 2>/dev/null || echo "")
+ORG_SECRETS=$(gh api "orgs/$ORG/actions/secrets" --jq '[.secrets[].name] | join(" ")' 2>/dev/null || echo "")
+REPO_SECRETS=$(gh api "repos/$REPO/actions/secrets" --jq '[.secrets[].name] | join(" ")' 2>/dev/null || echo "")
 for want in APP_CLIENT_ID APP_PRIVATE_KEY; do
-  if printf '%s' "$SECRETS" | grep -qw "$want"; then
-    printf '  %s✓%s secret %s\n' "$GREEN" "$RESET" "$want"
+  if printf '%s' "$ORG_SECRETS" | grep -qw "$want"; then
+    printf '  %s✓%s org secret %s\n' "$GREEN" "$RESET" "$want"
   else
-    printf '  %s✗%s secret %s is missing\n' "$RED" "$RESET" "$want"
+    printf '  %s✗%s org secret %s is missing\n' "$RED" "$RESET" "$want"
+  fi
+  # A repository secret of the same name wins over the organisation one, so a
+  # leftover copy here is a second thing to rotate and a silent override.
+  if printf '%s' "$REPO_SECRETS" | grep -qw "$want"; then
+    warn "$REPO also has its own $want, which shadows the org secret — delete it:"
+    note "  gh secret delete $want --repo $REPO"
   fi
 done
 if [[ "$(gh api "repos/$REPO" --jq .allow_auto_merge 2>/dev/null)" == "true" ]]; then

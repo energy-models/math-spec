@@ -105,8 +105,23 @@ of the branch rules.
 trigger CI, and a `GITHUB_TOKEN`-pushed tag does not trigger `build.yml`. With
 no app the release PR is opened but never built, and `release.yml` emits a
 warning saying so. Create an app with `contents: write` and `pull_requests:
-write`, install it on the repository, and set the secrets `APP_CLIENT_ID` and
-`APP_PRIVATE_KEY`.
+write` — exactly what `release.yml` asks the token for, and the action can only
+narrow that, never widen it.
+
+It is installed across the whole `energy-models` organisation and its two
+secrets live at organisation level:
+
+```bash
+gh secret set APP_CLIENT_ID   --org energy-models --visibility all --body 'Iv23li...'
+gh secret set APP_PRIVATE_KEY --org energy-models --visibility all < ~/Downloads/*.private-key.pem
+```
+
+So the second repository to adopt release-please needs no new app and no new
+key. The cost is blast radius — one key that can write contents and pull
+requests anywhere in the organisation — and the rule that a *repository* secret
+of the same name silently wins over the organisation one. Do not set these on
+`math-spec` as well; there would be two copies to rotate and only one of them
+would be in use.
 
 **"Allow auto-merge" on the repository.** Required by the temporary alpha step;
 without it that step fails.
