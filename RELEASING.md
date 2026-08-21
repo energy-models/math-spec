@@ -59,9 +59,9 @@ when the version it starts from already carries a prerelease. From a plain
 There is no semantic promise attached to any of them; the point is that an early
 user always has a number to quote in a bug report instead of a commit sha.
 
-**Nothing is published.** `PUBLISH_TO_PYPI` is unset, so `build.yml`'s publish
-job cannot run — see the PyPI note below. The alpha stream produces tags,
-changelog entries and GitHub releases only.
+**Nothing is published.** `build.yml`'s publish job is `if: false` — see the
+PyPI note below. The alpha stream produces tags, changelog entries and GitHub
+releases only.
 
 Two consequences worth knowing:
 
@@ -162,12 +162,16 @@ gh api -X PATCH "repos/energy-models/math-spec/rulesets/$ID" --input /tmp/rulese
 (`15368` is the GitHub Actions app id, so each context resolves to a workflow in
 this repository rather than any check that happens to share the name.)
 
-**PyPI.** The publish job is gated on the repository variable
-`PUBLISH_TO_PYPI`. Configure a trusted publisher for `math-spec` pointing at
-`build.yml` and the `pypi` environment, then set the variable to `true`.
+**PyPI.** The publish job in `build.yml` is `if: false`. Register `math-spec`
+on PyPI, configure a trusted publisher pointing at `build.yml` and the `pypi`
+environment, then restore the tag condition — `startsWith(github.ref,
+'refs/tags/')` — in the same pull request that says why.
 
-Until then nothing reaches PyPI, and the gate fails closed: the variable is
-unset, so the job's `if` cannot be true. The rest of the pipeline still runs —
+Deliberately not a repository variable: anyone with write access can set one,
+with no review, and this is a switch that publishes under the project's name.
+Turning it on should cost a pull request.
+
+Until then nothing reaches PyPI. The rest of the pipeline still runs —
 release-please cuts the tag, the changelog and the GitHub release. `build.yml`
 produces the wheel as an artifact too, but only once the release-please app
 above exists; a `GITHUB_TOKEN`-pushed tag starts no workflow, so until then a
