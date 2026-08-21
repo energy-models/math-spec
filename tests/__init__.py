@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Tests whose claim is a claim about the language.
 
 **The criterion is the door the claim is decided at**, not the subject it is

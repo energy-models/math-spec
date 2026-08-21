@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The closed set of built-in operators and their call shapes.
 
 Closed: there is no Python registry, so both lanes accept exactly the same

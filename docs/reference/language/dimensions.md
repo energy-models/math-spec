@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Dimensions and lookups
 
 A **dimension** is an axis of the model — something is indexed by it, or an

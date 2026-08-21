@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Render every model in the tree to standalone LaTeX, for the compile gate.
 
     pixi run python -m tools.render_tex build/tex

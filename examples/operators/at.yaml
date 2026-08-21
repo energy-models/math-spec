@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   The adjoint of the membership reduction — `at(array, by=lookup)` reads one
   coarse value once per fine label pointing at it.

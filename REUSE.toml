@@ -3,11 +3,17 @@ SPDX-PackageName = "math-spec"
 SPDX-PackageSupplier = "energy-models Org <https://github.com/energy-models>"
 SPDX-PackageDownloadLocation = "https://github.com/energy-models/math-spec"
 
+# Everything here is a file that cannot carry a header of its own: JSON has no
+# comments, a lockfile and the generated outputs are rewritten by the thing
+# that produces them, and `.gitkeep` and `py.typed` are empty on purpose.
+
 [[annotations]]
 path = [
   ".github/pull_request_template.md",
   ".all-contributorsrc",
-  "src/py.typed",
+  "src/math_spec/py.typed",
+  ".release-please-config.json",
+  ".release-please-manifest.json",
 ]
 SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "CC0-1.0"
@@ -21,3 +27,21 @@ SPDX-License-Identifier = "CC-BY-4.0"
 path = ["pixi.lock"]
 SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "MIT"
+
+# `schema/math-spec.schema.json` is `Model.model_json_schema()` written out by
+# `tools/schema.py`, and the three `.out` files are what
+# `python -m tests.typeset.golden` prints. A header in any of them would last
+# until the next regeneration, and tests/test_schema.py compares the file to
+# the models byte for byte.
+[[annotations]]
+path = ["schema/*.json", "tests/typeset/golden/*.out"]
+SPDX-FileCopyrightText = "math-spec Contributors"
+SPDX-License-Identifier = "MIT"
+
+# release-please rewrites CHANGELOG.md on every release and is not obliged to
+# keep the comment at the top of it. The header is in the file as well; this is
+# what survives if the rewrite drops it.
+[[annotations]]
+path = ["CHANGELOG.md"]
+SPDX-FileCopyrightText = "math-spec contributors"
+SPDX-License-Identifier = "CC-BY-4.0"

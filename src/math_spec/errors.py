@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The errors the language raises, and the root every other error derives from.
 
 The split that matters is **the model versus the run**, and this is the model

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """pyparsing-based parser for where strings — grammar and AST only.
 
 Parses strings like ``"p_max > 0 AND NOT is_must_run"`` into an AST. What a

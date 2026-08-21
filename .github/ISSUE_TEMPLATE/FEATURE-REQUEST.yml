@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 name: Feature Request
 description: Suggest an idea for math-spec.
 labels: [enhancement]

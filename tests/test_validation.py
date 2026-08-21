@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Tests for load-time validation of expression and where strings."""
 
 from __future__ import annotations

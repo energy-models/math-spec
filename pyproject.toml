@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 [build-system]
 # 1.27 is the first hatchling with the PEP 639 license fields below.
 requires = ["hatchling>=1.27", "hatch-vcs"]

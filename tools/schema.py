@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The checked-in JSON Schema for the YAML surface.
 
     pixi run python -m tools.schema   # rewrite schema/math-spec.schema.json

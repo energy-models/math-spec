@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Typeset a validated model — a *reading* of the math, not a lane.
 
 SPIKE. A third consumer of the resolved core AST, deliberately not a backend:

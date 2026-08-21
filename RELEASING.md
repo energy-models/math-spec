@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Releasing
 
 Releases are cut by [release-please](https://github.com/googleapis/release-please)
@@ -122,7 +127,7 @@ gh secret set APP_PRIVATE_KEY --org energy-models --visibility all < ~/Downloads
 
 So the second repository to adopt release-please needs no new app and no new
 key. The cost is blast radius — one key that can write contents and pull
-requests anywhere in the organisation — and the rule that a *repository* secret
+requests anywhere in the organisation — and the rule that a _repository_ secret
 of the same name silently wins over the organisation one. Do not set these on
 `math-spec` as well; there would be two copies to rotate and only one of them
 would be in use.
@@ -183,7 +188,7 @@ break, not on principle.
 Push a tag. `build.yml` reacts to any tag, so
 `git tag v0.1.0 && git push origin v0.1.0` builds and (if enabled) publishes it.
 Nothing has to be kept in step by hand: `[tool.hatch.version] source = "vcs"`
-reads the version from `git describe`, so the tag *is* what the wheel is built
+reads the version from `git describe`, so the tag _is_ what the wheel is built
 as, and the two cannot disagree.
 
 Nothing else happens: no changelog entry, no GitHub release, and

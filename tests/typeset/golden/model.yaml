@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # Every rendering path, in one model. See README.md — this is not meant to be
 # a sensible optimisation problem, only an exhaustive one.
 

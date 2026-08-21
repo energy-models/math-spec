@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The published JSON Schema is the pydantic models, verbatim.
 
 `schema/math-spec.schema.json` is a generated artefact that ships in the

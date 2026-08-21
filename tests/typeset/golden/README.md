@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec Contributors
+SPDX-License-Identifier: MIT
+-->
+
 # Golden output
 
 One model, rendered in every format, committed and asserted byte for byte.

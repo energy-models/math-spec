@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 name: CI
 
 # Billing is per job, rounded up to the minute, and the suite takes a couple of
