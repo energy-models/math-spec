@@ -1,6 +1,6 @@
 """Render every model in the tree to standalone LaTeX, for the compile gate.
 
-    uv run python -m tools.render_tex build/tex
+    pixi run python -m tools.render_tex build/tex
 
 The suite's structural checks — brace balance, environment nesting,
 ``\\left``/``\\right`` pairing — are what a *generator* gets wrong, and they

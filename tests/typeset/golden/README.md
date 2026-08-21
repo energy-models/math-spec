@@ -28,4 +28,4 @@ sentence in this README, and the symbols no model printed stayed unprinted.
 Regenerate after an intended change, then **read the diff** — that is the
 review, and it is the whole point:
 
-    uv run python -m tests.golden
+    pixi run python -m tests.typeset.golden

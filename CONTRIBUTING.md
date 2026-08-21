@@ -37,7 +37,7 @@ To contribute changes:
 
 1. Fork the project on GitHub.
 1. Create a feature branch to work on in your fork (`git checkout -b new-fix-or-feature`).
-1. Test your changes using `uv run pytest`.
+1. Test your changes using `pixi run test`.
 1. Commit your changes to the feature branch (you should have `pre-commit` installed to ensure your code is correctly formatted when you commit changes).
 1. Push the branch to GitHub (`git push origin new-fix-or-feature`).
 1. On GitHub, create a new [pull request](https://github.com/energy-models/math-spec/pull/new/main) from the feature branch.
@@ -91,7 +91,7 @@ We mostly follow the official [Style Guide for Python Code (PEP8)](https://www.p
 
 We have chosen to use the uncompromising code formatter and linter [`ruff`](https://beta.ruff.rs/docs/).
 When run from the root directory of this repo, `pyproject.toml` should ensure that formatting and linting fixes are in line with our custom preferences (e.g., maximum line length).
-To make this a smooth experience, you should run `uv run pre-commit install` after setting up your development environment.
+To make this a smooth experience, you should run `pixi run pre-commit-install` after setting up your development environment.
 If you prefer, you can also set up your IDE to run these two tools whenever you save your files, and to have `ruff` highlight erroneous code directly as you type.
 Take a look at their documentation for more information on configuring this.
 

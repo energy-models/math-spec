@@ -32,7 +32,7 @@ repo_url: https://github.com/energy-models/math-spec
 # visible to a reader of the site, not only to a reader of the repository.
 copyright: >
   The documentation is licensed
-  <a href="https://github.com/energy-models/math-spec/blob/main/LICENSE-CC-BY-4.0.txt">CC-BY-4.0</a>;
+  <a href="https://github.com/energy-models/math-spec/blob/main/LICENSES/CC-BY-4.0.txt">CC-BY-4.0</a>;
   the code is
   <a href="https://github.com/energy-models/math-spec/blob/main/LICENSE">MIT</a>.
 site_dir: .docs

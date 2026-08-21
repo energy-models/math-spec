@@ -1,6 +1,6 @@
 """Regenerate the committed golden output.
 
-    uv run python -m tests.typeset.golden
+    pixi run python -m tests.typeset.golden
 
 Then **read the diff**. That is the review: a golden file is only worth having
 if a change to it is looked at, and the reason the output is generated rather

@@ -13,7 +13,7 @@ source = "vcs"
 fallback-version = "0.0.0"
 
 [tool.hatch.build.targets.sdist]
-only-include = ["src", "README.md", "LICENSE"]
+only-include = ["src", "README.md", "LICENSE", "LICENSES"]
 
 [project]
 name = "math-spec"
@@ -52,34 +52,9 @@ repository = "https://github.com/energy-models/math-spec"
 
 [project.scripts]
 
-[dependency-groups]
-docs = [
-  "mkdocs>=1.6,<2",
-  "mkdocs-material>=9.5",
-  "mkdocstrings>=0.29",
-  "mkdocstrings-python>=1.16",
-  "mkdocs-bibtex>=2.16",
-  "pymdown-extensions>=10.0",
-  "mkdocs-macros-plugin>=1.0",
-  "mkdocs-table-reader-plugin>=3.1",
-]
-dev = [
-  "pytest>=8",
-  "pytest-cov>=6",
-  # `-n auto` for the suite — what CI passes. Deliberately not in `addopts`:
-  # `-x`, `--pdb` and readable single-test output all want one process, and a
-  # run of one test file pays the worker startup for nothing.
-  "pytest-xdist>=3.8",
-  # Pinned exactly: both are gates whose *output* is the contract, so a new
-  # release changing what it reports turns a green branch red without a commit.
-  "ruff==0.16.1",
-  "pyrefly==1.2.0",
-  "pre-commit>=4",
-  # The PyPI bindings, which compile in-process — not conda-forge's `typst`,
-  # which is the CLI binary and cannot be imported. Three compile tests in
-  # tests/typeset/test_typeset.py skip without it.
-  "typst>=0.15.0",
-]
+# No `[dependency-groups]`: the environments are pixi's, and every tool this
+# project builds, tests, lints and documents itself with is a feature in
+# pixi.toml. Keeping a second list here is how the two drift apart.
 
 [tool.ruff]
 # Carried from lpspec, which is where every file under src/ was written and
