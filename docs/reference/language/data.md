@@ -4,7 +4,7 @@ The YAML declares shapes; `sources` supplies the numbers, keyed by the names
 the file declared:
 
 ```python
-import lpspec as lps
+import math_spec as lps
 
 result = lps.solve(
     'dispatch.yaml',

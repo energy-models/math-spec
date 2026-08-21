@@ -1,7 +1,7 @@
 """The notation reference: every construct beside the math it prints.
 
-    uv run python -m tools.language.notation           # rewrite the page's block
-    uv run python -m tools.language.notation --check   # fail if it has drifted
+    uv run python -m tools.notation           # rewrite the page's block
+    uv run python -m tools.notation --check   # fail if it has drifted
 
 The page exists to be *read as a whole*. Whether a notation is good is a
 question about the set of it — whether two constructs that mean different
@@ -15,7 +15,7 @@ The source is ``tests/typeset/golden/model.yaml``, the one model that carries ev
 construct. Not a corpus written for this page: a second exhaustive model is a
 second thing to keep exhaustive, and the fixture's completeness is already
 enforced — ``tests/typeset/test_typeset.py`` holds it to the language's operator set,
-its node kinds, and every line of :mod:`lpspec.typeset.walk`. That chain is
+its node kinds, and every line of :mod:`math_spec.typeset.walk`. That chain is
 what lets this page claim *every*: the guards say the fixture omits no
 construct, and this tool emits a row for every declaration in the fixture.
 
@@ -30,8 +30,8 @@ import re
 import sys
 from pathlib import Path
 
-from lpspec.language.model import PIECEWISE_METHODS
-from lpspec.typeset import to_markdown
+from math_spec.model import PIECEWISE_METHODS
+from math_spec.typeset import to_markdown
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 PAGE = ROOT / 'docs' / 'reference' / 'notation.md'
@@ -40,7 +40,7 @@ MODEL = ROOT / 'tests' / 'typeset' / 'golden' / 'model.yaml'
 #: One model per ``method:``, because the three expand to three different
 #: formulations and a section showing one of them would be showing a third of
 #: the construct. ``tests/test_docs_site.py`` holds these keys to
-#: :data:`lpspec.language.model.PIECEWISE_METHODS`, so a method added to the
+#: :data:`math_spec.model.PIECEWISE_METHODS`, so a method added to the
 #: language arrives here or the page stops claiming to be all of them.
 #:
 #: They come from real models rather than from the fixture because expanding a
@@ -285,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
     if opts.check:
         if updated != page:
             print(
-                f'{PAGE.relative_to(ROOT)} is stale — run `uv run python -m tools.language.notation`', file=sys.stderr
+                f'{PAGE.relative_to(ROOT)} is stale — run `uv run python -m tools.notation`', file=sys.stderr
             )
             return 1
         print(f'{PAGE.relative_to(ROOT)} matches the model')

@@ -10,17 +10,17 @@ resolve names, walk. Expansion runs first, so a ``piecewise:`` block prints as
 the λ-formulation it *is* rather than the sugar it was written as.
 
 **One walk, many formats.** ``walk.py`` decides everything about the math and
-nothing about the syntax; a :class:`~lpspec.typeset.format.Format` decides only
+nothing about the syntax; a :class:`~math_spec.typeset.format.Format` decides only
 how to spell it. See the [README](README.md) for what adding one costs.
 
 Symbols are **derived** by default, aiming at unambiguous rather than
 beautiful, so it prints with no setup; a
-:class:`~lpspec.typeset.symbols.SymbolTable` (``--symbols``) makes it
+:class:`~math_spec.typeset.symbols.SymbolTable` (``--symbols``) makes it
 conventional. It does not line-break: a wide equation runs off the page.
 
 Usage::
 
-    import lpspec as lps
+    import math_spec as lps
 
     print(lps.to_latex('model.yaml'))
     print(lps.to_typst('model.yaml', standalone=True))
@@ -29,27 +29,27 @@ Usage::
 
 or from a shell::
 
-    python -m lpspec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
-    python -m lpspec typst model.yaml --standalone -o model.typ
+    python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
+    python -m math_spec typst model.yaml --standalone -o model.typ
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from lpspec.language import Namespace, expand_piecewise, load_model
-from lpspec.typeset.latex import LatexFormat
-from lpspec.typeset.markdown import MarkdownFormat
-from lpspec.typeset.symbols import Symbols, SymbolTable
-from lpspec.typeset.typst import TypstFormat
-from lpspec.typeset.walk import Walk
+from math_spec import Namespace, expand_piecewise, load_model
+from math_spec.typeset.latex import LatexFormat
+from math_spec.typeset.markdown import MarkdownFormat
+from math_spec.typeset.symbols import Symbols, SymbolTable
+from math_spec.typeset.typst import TypstFormat
+from math_spec.typeset.walk import Walk
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lpspec.language import Model
-    from lpspec.typeset.format import Format
+    from math_spec import Model
+    from math_spec.typeset.format import Format
 
 __all__ = ['FORMATS', 'SymbolTable', 'to_latex', 'to_markdown', 'to_typst', 'typeset']
 
@@ -73,7 +73,7 @@ def typeset(
     """Render *model*'s math in *fmt*.
 
     Args:
-        model: Anything :func:`lpspec.load_model` accepts.
+        model: Anything :func:`math_spec.load_model` accepts.
         fmt: What spells the math — one of :data:`FORMATS`.
         symbols: How names print, as a :class:`SymbolTable`, a path or a
             mapping. Names it does not carry are derived, and it must be

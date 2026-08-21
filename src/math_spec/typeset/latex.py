@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
-    from lpspec.typeset.format import Entry, Line
+    from math_spec.typeset.format import Entry, Line
 
 _ESCAPES = {
     '\\': r'\textbackslash{}',
@@ -39,7 +39,7 @@ def _escape(text: str) -> str:
 
 
 class LatexFormat:
-    """See :class:`lpspec.typeset.format.Format`."""
+    """See :class:`math_spec.typeset.format.Format`."""
 
     suffix: ClassVar[str] = '.tex'
     notation: ClassVar[str] = 'latex'

@@ -14,7 +14,7 @@ what any consumer does with it, which is what makes ``lps.check()`` a pass with
 no data and no plan, and a second consumer cheap.
 
 **This module is the seam, and the names below are the whole of it.** A
-consumer imports ``lpspec.language``; reaching a submodule is a lint failure,
+consumer imports ``math_spec``; reaching a submodule is a lint failure,
 because a submodule path is not a contract anyone agreed to and a name reached
 that way cannot be counted. The count is the review surface: an addition here
 widens what every consumer may depend on, and what a future package boundary
@@ -29,7 +29,7 @@ that two consumers cannot word the same refusal differently.
 
 **This package imports nothing outside itself**, and ``LANGUAGE_MAY_IMPORT``
 is the empty set that says so. The errors it raises are its own
-(``errors.py`` beside this file, re-exported from ``lpspec.errors`` so a caller
+(``errors.py`` beside this file, re-exported from ``math_spec.errors`` so a caller
 keeps saying ``lps.LanguageError``); the root of the hierarchy lives here too,
 because a base class cannot sit downstream of the classes that extend it. What
 that buys is not neatness: the directory can be lifted into a package of its
@@ -40,11 +40,11 @@ front-end module cannot land outside the fence by being spelled differently,
 and checks every consumer's imports against ``__all__`` below.
 """
 
-from lpspec.language._yaml import read_yaml
-from lpspec.language.boundedness import unbounded_notes
-from lpspec.language.degree import carries_variable, check_binary, is_quadratic
-from lpspec.language.dimensions import dims_of
-from lpspec.language.errors import (
+from math_spec._yaml import read_yaml
+from math_spec.boundedness import unbounded_notes
+from math_spec.degree import carries_variable, check_binary, is_quadratic
+from math_spec.dimensions import dims_of
+from math_spec.errors import (
     DimensionError,
     LanguageError,
     LpspecError,
@@ -53,7 +53,7 @@ from lpspec.language.errors import (
     did_you_mean,
     schema_error,
 )
-from lpspec.language.expression_parser import (
+from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
@@ -71,17 +71,17 @@ from lpspec.language.expression_parser import (
     VariableNode,
     children,
 )
-from lpspec.language.model import Buildable, Model, SosBlock
-from lpspec.language.operators import (
+from math_spec.model import Buildable, Model, SosBlock
+from math_spec.operators import (
     EDGE_WRAP,
     call_shape_error,
     edge_error,
     unknown_operator_message,
 )
-from lpspec.language.piecewise import expand_piecewise, mask_of
-from lpspec.language.resolution import Namespace, expression_of, where_of
-from lpspec.language.validation import load_model
-from lpspec.language.where_parser import (
+from math_spec.piecewise import expand_piecewise, mask_of
+from math_spec.resolution import Namespace, expression_of, where_of
+from math_spec.validation import load_model
+from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,

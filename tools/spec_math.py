@@ -1,13 +1,13 @@
 """The operator reference's operators, each shown as the math it prints.
 
-    uv run python -m tools.language.spec_math           # rewrite the block
-    uv run python -m tools.language.spec_math --check   # fail if it has drifted
+    uv run python -m tools.spec_math           # rewrite the block
+    uv run python -m tools.spec_math --check   # fail if it has drifted
 
 The operator table above the block says what each operator *does*, in prose.
 This says what each one *looks like*, and it is generated for a reason beyond
 the usual one: the three ``shift`` rows differ only at the boundary, and the
 three renderings that make them distinguishable are a property of
-:mod:`lpspec.typeset.walk` rather than of this page. Printed side by side, two
+:mod:`math_spec.typeset.walk` rather than of this page. Printed side by side, two
 operators that render the same are visible at a glance — which is exactly the
 bug class #830 fixed, three times over.
 
@@ -29,7 +29,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from lpspec.typeset import to_markdown
+from math_spec.typeset import to_markdown
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 PAGE = ROOT / 'docs' / 'reference' / 'language' / 'operators.md'
@@ -120,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     updated = rendered(page)
     if opts.check:
         if updated != page:
-            print(f'{PAGE} is stale — run `uv run python -m tools.language.spec_math`', file=sys.stderr)
+            print(f'{PAGE} is stale — run `uv run python -m tools.spec_math`', file=sys.stderr)
             return 1
         print(f'{PAGE} matches the operator probes')
         return 0

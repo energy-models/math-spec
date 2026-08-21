@@ -114,7 +114,7 @@ Where the *arity* is data, and one component ties three expressions where
 another ties two, the λ formulation is
 [written out directly](#when-the-arity-is-data-the-formulation-is-four-declarations)
 rather than through this block
-([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
+([#1101](https://github.com/fluxopt/math_spec/issues/1101)).
 
 **`method` is the one thing that varies**, and for the three that share the λ
 expansion it varies in exactly one place: how the weights are restricted, once
@@ -156,7 +156,7 @@ cost_curve:
 The trade is **columns for rows**: one row per segment plus the two domain
 rows, against K weight columns. On a 20-generator, 48-snapshot, 6-breakpoint
 dispatch it is 7680 → 1920 columns and 2928 → 6768 rows, at the same optimum
-([#926](https://github.com/fluxopt/lpspec/pull/926)).
+([#926](https://github.com/fluxopt/math_spec/pull/926)).
 
 Two things follow from stating lines rather than weights:
 
@@ -204,7 +204,7 @@ binaries and big-M rows for it either way.
 What the block would have saved is the weights and the convexity row — two
 declarations — so it is not offered:
 [the model](../../examples/piecewise_conversion.md) shows the whole formulation,
-and [#1101](https://github.com/fluxopt/lpspec/issues/1101) records what was
+and [#1101](https://github.com/fluxopt/math_spec/issues/1101) records what was
 weighed.
 
 ## `sos`

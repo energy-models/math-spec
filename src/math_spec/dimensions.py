@@ -40,8 +40,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, assert_never
 
-from lpspec.language.errors import DimensionError
-from lpspec.language.expression_parser import (
+from math_spec.errors import DimensionError
+from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
@@ -58,8 +58,8 @@ from lpspec.language.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from lpspec.language.resolution import Namespace, expression_of, where_of
-from lpspec.language.where_parser import (
+from math_spec.resolution import Namespace, expression_of, where_of
+from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -79,7 +79,7 @@ from lpspec.language.where_parser import (
 )
 
 if TYPE_CHECKING:
-    from lpspec.language.model import Model
+    from math_spec.model import Model
 
 
 def dims_of(

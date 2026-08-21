@@ -33,7 +33,7 @@ from typing import Any
 
 import yaml
 
-from lpspec.language.errors import SchemaError
+from math_spec.errors import SchemaError
 
 #: The YAML 1.2 core-schema boolean set — nothing else resolves to a bool.
 _BOOL_1_2 = re.compile(r'^(?:true|True|TRUE|false|False|FALSE)$')

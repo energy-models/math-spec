@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from lpspec.language.validation import load_model, validate_expressions
+from math_spec.validation import load_model, validate_expressions
 
 if TYPE_CHECKING:
-    from lpspec.language.model import Model
+    from math_spec.model import Model
 
 
 def _schema(**overrides) -> Model:
@@ -280,7 +280,7 @@ class TestVersion:
         message = str(exc.value)
         assert 'declares version 1' in message
         assert 'understands [0]' in message, 'the error has to say what this reader can read'
-        assert 'Upgrade lpspec' in message, 'and what to do about it'
+        assert 'Upgrade math_spec' in message, 'and what to do about it'
 
     def test_the_version_gates_no_behaviour(self):
         """Reject-only. Two files differing only in a *declared* supported

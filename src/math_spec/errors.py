@@ -4,13 +4,13 @@ The split that matters is **the model versus the run**, and this is the model
 half: :class:`LanguageError` is the file saying something the language does not
 accept — decidable at load time, with no data bound, which is what
 ``lps.check()`` raises. The run half (a fine file with the wrong thing bound to
-it) lives in ``lpspec/errors.py`` beside the consumers that raise it.
+it) lives in ``math_spec/errors.py`` beside the consumers that raise it.
 
 :class:`LpspecError` is here rather than there because **the root is not
 divisible**: a consumer's own errors derive from it so that one ``except``
 clause covers the package, and a base class cannot live downstream of the
 classes that extend it. The consequence is stated in
-docs/about/architecture.md, hard rule 2 — ``lpspec/errors.py`` imports this
+docs/about/architecture.md, hard rule 2 — ``math_spec/errors.py`` imports this
 package, so it is no longer a leaf.
 
 ``model.py``'s field validators raise plain ``ValueError``, since pydantic

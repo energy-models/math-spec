@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import pytest
 
-from lpspec.language.expansion import parse_and_expand
-from lpspec.language.expression_parser import parse_expression
-from lpspec.language.model import Model
-from tests.language.fixtures import DISPATCH_MODEL, schema_of
+from math_spec.expansion import parse_and_expand
+from math_spec.expression_parser import parse_expression
+from math_spec.model import Model
+from tests.fixtures import DISPATCH_MODEL, schema_of
 
 WEIGHTED_SUM = {
     'args': ['array', 'weights'],

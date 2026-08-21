@@ -10,7 +10,7 @@ Every construct the language has, beside the math it prints, is one page:
 question is whether the notation is right, rather than how to print it.
 
 ```python
-import lpspec as lps
+import math_spec as lps
 
 print(lps.to_latex('model.yaml'))  # amsmath align
 print(lps.to_typst('model.yaml'))  # compiles without a TeX toolchain
@@ -20,9 +20,9 @@ print(lps.to_markdown('model.yaml'))  # renders as-is on GitHub
 Or from a shell, where this belongs in a Makefile next to `pdflatex`:
 
 ```bash
-python -m lpspec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
-python -m lpspec typst model.yaml --standalone -o model.typ
-python -m lpspec markdown model.yaml
+python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
+python -m math_spec typst model.yaml --standalone -o model.typ
+python -m math_spec markdown model.yaml
 ```
 
 ## Options

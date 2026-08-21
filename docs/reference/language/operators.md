@@ -326,7 +326,7 @@ Anything you can build out of these belongs in
 
 Each operator above as the [typesetter](../typeset.md) prints it, **generated**
 from one model per row in
-[`examples/operators/`](https://github.com/fluxopt/lpspec/blob/main/examples/operators)
+[`examples/operators/`](https://github.com/fluxopt/math_spec/blob/main/examples/operators)
 — so a row cannot outlive the operator it documents, and two operators that
 render the same are visible here rather than in somebody's paper.
 
@@ -358,4 +358,4 @@ $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of t
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
 <!-- operator-math:end -->
 
-Regenerate with `uv run python -m tools.language.spec_math`.
+Regenerate with `uv run python -m tools.spec_math`.

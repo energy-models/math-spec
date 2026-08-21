@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from lpspec.language.dimensions import DimensionError, check_schema, dims_of
-from lpspec.language.resolution import Namespace, expression_of
-from tests.language.fixtures import OPERATOR_PROBES, schema_of
+from math_spec.dimensions import DimensionError, check_schema, dims_of
+from math_spec.resolution import Namespace, expression_of
+from tests.fixtures import OPERATOR_PROBES, schema_of
 
 if TYPE_CHECKING:
-    from lpspec.language.model import Model
+    from math_spec.model import Model
 
 #: A *network* dispatch model: `conftest.DISPATCH_MODEL` plus buses, so
 #: `sum` and per-bus loads are in scope. The dim rules are mostly about
@@ -191,7 +191,7 @@ def test_an_ill_dimensioned_declaration_is_rejected(patch, match):
 def test_every_operator_probe_typechecks(path):
     """The corpus that travels with the language, swept by the rules above.
 
-    It used to be `MODEL_PATHS` — the gallery and the ports — which is lpspec's
+    It used to be `MODEL_PATHS` — the gallery and the ports — which is math_spec's
     corpus and stays there (#1149), so the sweep could not have travelled with
     the rules it applies. `test_language_boundary.py` keeps that claim over the
     models it is about.

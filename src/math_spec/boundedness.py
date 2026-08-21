@@ -37,7 +37,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Literal, assert_never
 
-from lpspec.language.expression_parser import (
+from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
@@ -55,10 +55,10 @@ from lpspec.language.expression_parser import (
     VariableNode,
     children,
 )
-from lpspec.language.resolution import Namespace, expression_of
+from math_spec.resolution import Namespace, expression_of
 
 if TYPE_CHECKING:
-    from lpspec.language.model import Model, VariableBlock
+    from math_spec.model import Model, VariableBlock
 
 #: The sign a term carries into the objective, or ``None`` where the file does
 #: not decide it: a parameter coefficient (which may be zero), a variable

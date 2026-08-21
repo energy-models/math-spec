@@ -8,7 +8,7 @@ holds raw ``NameNode``/``Unresolved*`` nodes; giving them meaning is
 
 import pytest
 
-from lpspec.language.expression_parser import (
+from math_spec.expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,
     FunctionCallNode,
@@ -17,7 +17,7 @@ from lpspec.language.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
-from lpspec.language.where_parser import (
+from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
     NotNode,

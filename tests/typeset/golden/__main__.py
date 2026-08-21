@@ -10,7 +10,7 @@ review time, not at authoring time.
 
 from __future__ import annotations
 
-from lpspec.typeset import FORMATS, typeset
+from math_spec.typeset import FORMATS, typeset
 from tests.typeset.golden import MODEL, path_for
 
 

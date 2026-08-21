@@ -83,7 +83,7 @@ not assumed.
 **Bounds take a name or a number, never arithmetic.** `upper: p_max` is fine;
 `upper: -rating` is not, and the error says so rather than reporting a parse
 failure. Ship the negated column as data. (Expressions there are
-[#31](https://github.com/fluxopt/lpspec/issues/31).) A bound parameter's dims
+[#31](https://github.com/fluxopt/math_spec/issues/31).) A bound parameter's dims
 must not exceed `foreach`.
 
 **Equal bounds pin a variable**, which is how one declaration covers a quantity
@@ -136,7 +136,7 @@ the empty coordinate everywhere it appears — one value for a parameter's
 `dims: []`, one column for a variable's `foreach: []`, one row for a
 constraint's — so a dummy dimension of size 1 is never how a scalar is written.
 One gap: a scalar **variable** may not carry a `where`
-([#340](https://github.com/fluxopt/lpspec/issues/340)); put the condition on
+([#340](https://github.com/fluxopt/math_spec/issues/340)); put the condition on
 the constraints that use it.
 
 **Two regimes of one rule are two blocks**, and each gets a name a reader chose

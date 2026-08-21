@@ -13,7 +13,7 @@ import ast
 import re
 from pathlib import Path
 
-PAGE = Path(__file__).resolve().parents[2] / 'docs' / 'reference' / 'language' / 'reading.md'
+PAGE = Path(__file__).resolve().parents[1] / 'docs' / 'reference' / 'language' / 'reading.md'
 
 _FENCE = re.compile(r'^```(?P<lang>yaml|python)[^\n]*\n(?P<code>.*?)^```$', re.DOTALL | re.MULTILINE)
 

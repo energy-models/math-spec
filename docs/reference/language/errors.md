@@ -52,7 +52,7 @@ objective with is *data* — a parameter coefficient, which may be zero or eithe
 sign — nothing is said, because a note against a model that solves is the worse
 error. The per-coordinate case, where a `where:` mask leaves one slice of a
 variable with no constraint row, still reaches you from the solver
-([#229](https://github.com/fluxopt/lpspec/issues/229)).
+([#229](https://github.com/fluxopt/math_spec/issues/229)).
 
 ## Which error you get
 
@@ -89,10 +89,10 @@ feature list: each is a boundary the design keeps on purpose, and
 | degree 3 (`x * y * z`) | a variable constrained to equal one product, then multiplied by the third |
 | `**` | `x * x` ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it)) |
 | a quadratic constraint on the **linopy lane**, or on `highs` | neither builds one; `lps.solve(..., solver_name='gurobi')`, or write an `.lp` file. `check(model, sink=…)` says so before you build |
-| arithmetic in `bounds:` | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31)) |
+| arithmetic in `bounds:` | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/math_spec/issues/31)) |
 | time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter |
-| solver breadth | three solvers — HiGHS, which ships, plus Gurobi and Xpress via their own extras — chosen at the call and never in the file; LP and MPS files for everything else ([#106](https://github.com/fluxopt/lpspec/issues/106)) |
-| indicator constraints | planned as a *solver capability* rather than a language question, the same axis `sos:` landed on ([#220](https://github.com/fluxopt/lpspec/issues/220)) |
+| solver breadth | three solvers — HiGHS, which ships, plus Gurobi and Xpress via their own extras — chosen at the call and never in the file; LP and MPS files for everything else ([#106](https://github.com/fluxopt/math_spec/issues/106)) |
+| indicator constraints | planned as a *solver capability* rather than a language question, the same axis `sos:` landed on ([#220](https://github.com/fluxopt/math_spec/issues/220)) |
 | multi-objective | one `objective:` block — a second is unsayable; weight them into one expression |
 | arbitrary array ops (`merge`, `reindex`, `apply_ufunc`) | data prep — the closed operator set is what makes streaming possible |
 | filling a missing value (`.fillna`) | data prep, or a `where` if you meant the coordinate not to exist. In the language only where the data cannot reach: `shift(..., edge=)` ([absence](absence.md)) |
@@ -108,4 +108,4 @@ reviewable — which is the whole point of the file. A framework that wants to
 Where the language genuinely cannot say the math, the escape hatch is a
 declared `escape:` island — named in the file, bounded by the preceding `where`
 mask, terminal, and billed against a label budget before any Python runs. It is
-[#38](https://github.com/fluxopt/lpspec/issues/38) and not shipped.
+[#38](https://github.com/fluxopt/math_spec/issues/38) and not shipped.

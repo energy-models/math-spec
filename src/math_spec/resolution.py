@@ -21,9 +21,9 @@ import datetime
 import re
 from typing import TYPE_CHECKING, assert_never
 
-from lpspec.language.errors import LanguageError
-from lpspec.language.expansion import parse_and_expand
-from lpspec.language.expression_parser import (
+from math_spec.errors import LanguageError
+from math_spec.expansion import parse_and_expand
+from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
@@ -40,8 +40,8 @@ from lpspec.language.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from lpspec.language.operators import BUILTINS, EDGE_WRAP, call_shape_error, edge_error, unknown_operator_message
-from lpspec.language.where_parser import (
+from math_spec.operators import BUILTINS, EDGE_WRAP, call_shape_error, edge_error, unknown_operator_message
+from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -64,7 +64,7 @@ from lpspec.language.where_parser import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from lpspec.language.model import Model
+    from math_spec.model import Model
 
 
 class Namespace:
@@ -97,7 +97,7 @@ class Namespace:
         #: lookup name -> ``(over, into)``, both kinds in one store: ``into`` is
         #: ``None`` for a label space, which owns its values and targets
         #: nothing. That is the schema's own discriminator
-        #: (:class:`~lpspec.language.model.LookupBlock` declares exactly one of
+        #: (:class:`~math_spec.model.LookupBlock` declares exactly one of
         #: ``into:`` and ``dtype:``), carried rather than re-encoded as two
         #: dicts — one fact, one home.
         self.lookups: dict[str, tuple[str, str | None]] = dict(lookups or {})

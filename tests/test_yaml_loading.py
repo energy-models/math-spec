@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from lpspec.language._yaml import read_yaml
-from lpspec.language.validation import load_model
-from tests.language.fixtures import raw_of
+from math_spec._yaml import read_yaml
+from math_spec.validation import load_model
+from tests.fixtures import raw_of
 
 MODEL = """dimensions:
   snapshot: {dtype: int, values: [0, 1]}

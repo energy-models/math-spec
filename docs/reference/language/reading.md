@@ -51,7 +51,7 @@ objective:
 ```
 
 ```python
-from lpspec.language import expand_piecewise, load_model
+from math_spec import expand_piecewise, load_model
 
 model = load_model('curve.yaml')
 sorted(model.constraints)  # ['target']

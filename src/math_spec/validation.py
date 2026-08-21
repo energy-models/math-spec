@@ -23,12 +23,12 @@ from typing import TYPE_CHECKING, Any, assert_never
 
 from pydantic import ValidationError
 
-from lpspec.language._yaml import read_yaml
-from lpspec.language.degree import carries_variable
-from lpspec.language.dimensions import check_schema
-from lpspec.language.errors import SchemaError, schema_error
-from lpspec.language.expansion import expand, parse_and_expand, parse_template
-from lpspec.language.expression_parser import (
+from math_spec._yaml import read_yaml
+from math_spec.degree import carries_variable
+from math_spec.dimensions import check_schema
+from math_spec.errors import SchemaError, schema_error
+from math_spec.expansion import expand, parse_and_expand, parse_template
+from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
@@ -44,10 +44,10 @@ from lpspec.language.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from lpspec.language.model import Model
-from lpspec.language.operators import BUILTINS, unknown_operator_message
-from lpspec.language.resolution import Namespace, resolve_expression, resolve_where
-from lpspec.language.where_parser import parse_where
+from math_spec.model import Model
+from math_spec.operators import BUILTINS, unknown_operator_message
+from math_spec.resolution import Namespace, resolve_expression, resolve_where
+from math_spec.where_parser import parse_where
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator

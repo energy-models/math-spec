@@ -1,9 +1,9 @@
-"""``python -m lpspec <format> model.yaml`` — the typeset shell front.
+"""``python -m math_spec <format> model.yaml`` — the typeset shell front.
 
 **A document build step, not a command line under construction.** Rendering a
 model to LaTeX belongs in a Makefile next to ``pdflatex``, where a Python
 script would be awkward. One verb per typeset format, read off
-:data:`lpspec.typeset.FORMATS`, so a new format arrives with its verb written.
+:data:`math_spec.typeset.FORMATS`, so a new format arrives with its verb written.
 
 **No verb becomes a second way to spell the source mapping.** ``lps.solve``
 takes a dict, and ``--source p_max=a.parquet`` is that dict with worse errors;
@@ -22,7 +22,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from lpspec.typeset import FORMATS, typeset
+from math_spec.typeset import FORMATS, typeset
 
 
 def parser() -> argparse.ArgumentParser:
@@ -32,12 +32,12 @@ def parser() -> argparse.ArgumentParser:
     grep the help text, which would pass on a format merely *mentioned* in
     prose.
     """
-    front = argparse.ArgumentParser(prog='python -m lpspec')
+    front = argparse.ArgumentParser(prog='python -m math_spec')
     verbs = front.add_subparsers(dest='verb', required=True)
 
     for name in FORMATS:
         verb = verbs.add_parser(name, help=f'render a model as {name}')
-        verb.add_argument('model', help='path to a lpspec YAML model')
+        verb.add_argument('model', help='path to a math_spec YAML model')
         verb.add_argument('-o', '--out', help='write here instead of stdout')
         verb.add_argument('--symbols', help='sidecar YAML saying how names should print')
         verb.add_argument('--standalone', action='store_true', help='emit a compilable document')

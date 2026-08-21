@@ -8,7 +8,7 @@ way: ``description:`` is a key on the declaration, because it is the model
 talking about itself rather than a reader choosing notation.
 
 This module decides *which* symbol a name gets; a
-:class:`~lpspec.typeset.format.Format` decides how it is written.
+:class:`~math_spec.typeset.format.Format` decides how it is written.
 """
 
 from __future__ import annotations
@@ -19,12 +19,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from lpspec.errors import SchemaError, did_you_mean
-from lpspec.language import read_yaml
+from math_spec.errors import SchemaError, did_you_mean
+from math_spec import read_yaml
 
 if TYPE_CHECKING:
-    from lpspec.language import Buildable
-    from lpspec.typeset.format import Format
+    from math_spec import Buildable
+    from math_spec.typeset.format import Format
 
 __all__ = ['SymbolTable', 'Symbols']
 

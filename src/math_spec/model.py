@@ -25,8 +25,8 @@ from pydantic import (
     model_validator,
 )
 
-from lpspec.language.errors import did_you_mean, schema_error
-from lpspec.language.operators import BUILTIN_NAMES
+from math_spec.errors import did_you_mean, schema_error
+from math_spec.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -150,7 +150,7 @@ class LookupBlock(_StrictBlock):
     - ``dtype:`` declares an inline label space — the *selection-only* kind,
       owning its values and targeting nothing, so no axis exists for terms to
       land on. Grouping into one is refused with the promotion rewrite
-      (:func:`lpspec.language.resolution._ungroupable`)::
+      (:func:`math_spec.resolution._ungroupable`)::
 
           lookups:
             period: {over: snapshot, dtype: int}
@@ -421,7 +421,7 @@ class PiecewiseBlock(_StrictBlock):
     only when something runs, which pins the formulation to 0 when it is 0; ``points`` names a
     boolean parameter saying how far each curve runs, for a model whose curves
     are not all the same length. Expanded before building into plain variables
-    and constraints — see ``lpspec.language.piecewise``.
+    and constraints — see ``math_spec.piecewise``.
     """
 
     _label: ClassVar[str] = 'a piecewise declaration'
@@ -627,19 +627,19 @@ class Model(_StrictBlock):
     ``description``, and two ways back out: :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads. In goes through
     ``lps.load_model``, which raises
-    :class:`~lpspec.errors.LanguageError` on a model the language refuses.
+    :class:`~math_spec.errors.LanguageError` on a model the language refuses.
 
     Everything else on this class is pydantic's, not a contract this package
     keeps — ``model_json_schema()`` describes the shape pydantic validates
     rather than the language (checked in for editors as
-    ``schema/lpspec.schema.json``), and ``model_construct()`` skips validation
+    ``schema/math_spec.schema.json``), and ``model_construct()`` skips validation
     entirely, so a ``Model`` is valid when it was built the normal way.
     """
 
     _label: ClassVar[str] = 'the top level of the file'
 
     #: The :class:`Buildable` built from this model. Owned entirely — written
-    #: and read — by :func:`~lpspec.language.piecewise.expand_piecewise`; only
+    #: and read — by :func:`~math_spec.piecewise.expand_piecewise`; only
     #: the slot lives here.
     _expansion: Any = PrivateAttr(default=None)
 
@@ -749,19 +749,19 @@ class Model(_StrictBlock):
         against a hard error that costs one line.
 
         The installed version comes from the distribution's metadata rather
-        than ``lpspec.__version__``: a language module may not reach forward to
+        than ``math_spec.__version__``: a language module may not reach forward to
         the package that consumes its AST.
         """
         if v in SUPPORTED_VERSIONS:
             return v
         try:
-            installed = metadata.version('lpspec')
+            installed = metadata.version('math_spec')
         except metadata.PackageNotFoundError:  # pragma: no cover — a tree with no dist-info
             installed = 'unknown'
         supported = ', '.join(str(s) for s in SUPPORTED_VERSIONS)
         msg = (
-            f'model declares version {v}, and lpspec {installed} understands [{supported}]. '
-            f'Upgrade lpspec, or write the version this file actually targets.'
+            f'model declares version {v}, and math_spec {installed} understands [{supported}]. '
+            f'Upgrade math_spec, or write the version this file actually targets.'
         )
         raise ValueError(msg)
 
@@ -893,8 +893,8 @@ class Model(_StrictBlock):
         :class:`Buildable` it builds validates itself on the way out, so a file
         with curves is checked there rather than checked twice here.
         """
-        from lpspec.language.piecewise import expand_piecewise
-        from lpspec.language.validation import validate_expressions
+        from math_spec.piecewise import expand_piecewise
+        from math_spec.validation import validate_expressions
 
         if self.piecewise:
             expand_piecewise(self)
@@ -908,7 +908,7 @@ class Buildable(Model):
 
     A :class:`Model` is the file as written, and a file may carry a
     ``piecewise:`` block whose variables and constraints do not exist until
-    :func:`~lpspec.language.piecewise.expand_piecewise` emits them. This is the
+    :func:`~math_spec.piecewise.expand_piecewise` emits them. This is the
     model after that pass, and it guarantees the one thing a builder needs:
     ``variables:`` and ``constraints:`` hold the whole model, so the rows built
     from it are the rows the file asked for.
@@ -917,7 +917,7 @@ class Buildable(Model):
     passing a :class:`Model` where one is wanted is a type error rather than a
     model quietly missing declarations. The subtyping runs the other way for
     the same reason: whatever reads the file as written — the curve masks
-    :mod:`lpspec.sources` derives from ``piecewise:`` — takes a :class:`Model`
+    :mod:`math_spec.sources` derives from ``piecewise:`` — takes a :class:`Model`
     and accepts either.
 
     The guarantee is about *declarations*, and deliberately says nothing about

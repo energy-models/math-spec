@@ -7,7 +7,7 @@ page is every construct beside the math it renders to.
 
 **The rule is the same one the language's tests keep**: nothing here may reach a
 consumer of the AST. A generator that needs `build`, `solve`, a plan or a lane is
-documenting *lpspec*, not the language — `tools/constructs.py` and
+documenting *math_spec*, not the language — `tools/constructs.py` and
 `tools/gallery_math.py` are those, and they stay where they are, cataloguing the
 gallery and its externally-sourced optima.
 

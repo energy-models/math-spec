@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, assert_never
 
-from lpspec.language import (
+from math_spec import (
     AndNode,
     ArithmeticNode,
     BinaryOperatorNode,
@@ -51,14 +51,14 @@ from lpspec.language import (
     expression_of,
     where_of,
 )
-from lpspec.typeset.format import Entry, Glossary, Line
+from math_spec.typeset.format import Entry, Glossary, Line
 
 if TYPE_CHECKING:
     import datetime
 
-    from lpspec.language import Buildable, Namespace, SosBlock
-    from lpspec.typeset.format import Format
-    from lpspec.typeset.symbols import Symbols
+    from math_spec import Buildable, Namespace, SosBlock
+    from math_spec.typeset.format import Format
+    from math_spec.typeset.symbols import Symbols
 
 #: Operator precedence, for deciding brackets. A reduction sits at the bottom
 #: with ``+``: an unbracketed sum reads as capturing whatever follows it, so as
@@ -160,7 +160,7 @@ class _Context:
     #: application, ``period(t)``, and not as arithmetic on the index.
     pullbacks: dict[str, str] = field(default_factory=dict)
     #: The degree this position may hold — 2 under the objective, 1 elsewhere,
-    #: which is the language's own split (:mod:`lpspec.language.degree`). The
+    #: which is the language's own split (:mod:`math_spec.degree`). The
     #: typesetter carries it so that it renders what the language accepts and
     #: refuses the rest in the language's own sentence, rather than typesetting
     #: math no lane could build.

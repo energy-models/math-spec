@@ -29,7 +29,7 @@ with F = the union of the links' dims, it emits:
       curve_link1(F):         (fuel * eff) <= sum(curve_lam * fuel_bp, over=bp)
 
 **Only the restriction on λ varies**, which is why it is one ``method:`` key
-and not three formulations (:data:`~lpspec.language.model.PIECEWISE_METHODS`).
+and not three formulations (:data:`~math_spec.model.PIECEWISE_METHODS`).
 Every method emits the weights, the convexity row and the links. Then
 ``adjacency`` adds the binaries above, so at most two *neighbouring* λ are
 nonzero and the linked expressions lie on the curve exactly; ``sos2`` states
@@ -44,25 +44,25 @@ unconditional where a capability is per sink, so the *formulation* stays the
 file's and the *encoding* stays the sink's (``relational/sinks/sos.py``).
 
 A link expression is judged against the *language* before expansion — resolved,
-degree-checked, dims from :mod:`~lpspec.language.dimensions` — which keeps
+degree-checked, dims from :mod:`~math_spec.dimensions` — which keeps
 ``p * p`` named against the link the user wrote rather than ``curve_link0``, a
 declaration they never saw.
 
 Two verdicts are deliberately elsewhere: what a plan node can represent is the
 consuming lane's business, and curvature is a property of the breakpoint
-*values*, so it needs data and lives in :mod:`lpspec.sources`.
+*values*, so it needs data and lives in :mod:`math_spec.sources`.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from lpspec.language.degree import check_expression
-from lpspec.language.dimensions import dims_of
-from lpspec.language.errors import LanguageError, PiecewiseExpansionError
-from lpspec.language.expression_parser import ComparisonNode, parse_expression
-from lpspec.language.model import Buildable, Model, PiecewiseBlock
-from lpspec.language.resolution import Namespace, resolve_expression
+from math_spec.degree import check_expression
+from math_spec.dimensions import dims_of
+from math_spec.errors import LanguageError, PiecewiseExpansionError
+from math_spec.expression_parser import ComparisonNode, parse_expression
+from math_spec.model import Buildable, Model, PiecewiseBlock
+from math_spec.resolution import Namespace, resolve_expression
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -74,7 +74,7 @@ def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
     ``points:`` may name the mask itself, or one of the block's own values
     parameters — "the curve runs as far as this does". The second is a mask
     nobody wrote, derived from that parameter's rows when data binds
-    (:func:`lpspec.sources.derive_curve_masks`), so this is what says where it
+    (:func:`math_spec.sources.derive_curve_masks`), so this is what says where it
     lands. Both the expansion and the data guards ask here rather than reading
     ``points:`` twice and disagreeing.
     """

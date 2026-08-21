@@ -11,17 +11,17 @@ from __future__ import annotations
 import pytest
 import yaml as pyyaml
 
-from lpspec.errors import PiecewiseExpansionError, SchemaError
-from lpspec.language import Buildable, expand_piecewise
-from tests.language.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
-from tests.language.piecewise_models import (
+from math_spec.errors import PiecewiseExpansionError, SchemaError
+from math_spec import Buildable, expand_piecewise
+from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
+from tests.piecewise_models import (
     CHP_YAML,
     GATED_YAML,
     NONCONVEX_YAML,
     SOS2_MODEL,
     TWO_DIM_YAML,
 )
-from tests.language.piecewise_models import (
+from tests.piecewise_models import (
     LP_MODEL as MODEL,
 )
 

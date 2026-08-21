@@ -19,18 +19,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from lpspec.typeset.latex import LatexFormat
+from math_spec.typeset.latex import LatexFormat
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from lpspec.typeset.format import Entry, Line
+    from math_spec.typeset.format import Entry, Line
 
 _LATEX = LatexFormat()
 
 
 class MarkdownFormat:
-    """See :class:`lpspec.typeset.format.Format`. Math is LaTeX's; prose is not."""
+    """See :class:`math_spec.typeset.format.Format`. Math is LaTeX's; prose is not."""
 
     suffix: ClassVar[str] = '.md'
     notation: ClassVar[str] = 'latex'

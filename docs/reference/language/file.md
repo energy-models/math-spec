@@ -55,8 +55,8 @@ A version this release does not know is a load error, and nothing else — the
 field gates no behaviour and never selects an alternative surface:
 
 ```text
-model declares version 1, and lpspec 0.0.1a75 understands [0].
-Upgrade lpspec, or write the version this file actually targets.
+model declares version 1, and math_spec 0.0.1a75 understands [0].
+Upgrade math_spec, or write the version this file actually targets.
 ```
 
 It is a **language** version, not a package one: it moves when the accepted

@@ -129,7 +129,7 @@ generation — because there is no "before" for it to happen in.
 **Outside the plan is not outside the engine**, and the difference is the whole
 of decomposition. A plan cannot contain a loop; a *process* may loop over plans,
 each with its shape fixed before its own data. Rolling horizon is that shape and
-is in scope ([Track 2](https://github.com/fluxopt/lpspec/issues/471)); so are
+is in scope ([Track 2](https://github.com/fluxopt/math_spec/issues/471)); so are
 Benders and successive substitution. Nor does appending a cut cost the label
 contract the way removal would: `var_label` is a `ROW_NUMBER()` over the rows
 surviving the `where` mask, so adding *rows* moves no column and renumbers no
@@ -186,8 +186,8 @@ set reformulated into binaries returns no duals where the native form does, and
 that asymmetry should be visible and the caller's to choose between rather than
 papered over. The rest — a capability *table*, and `check` taking an optional
 sink — has since shipped
-([#925](https://github.com/fluxopt/lpspec/pull/925),
-[#928](https://github.com/fluxopt/lpspec/pull/928)).
+([#925](https://github.com/fluxopt/math_spec/pull/925),
+[#928](https://github.com/fluxopt/math_spec/pull/928)).
 
 ## Where the data-prep line falls
 
@@ -206,7 +206,7 @@ second — `min_up_time` a column the model already binds, the window mask over 
 a mechanical consequence the modeller had to write as data — until `within=`
 read the width off the column
 ([minimum up and down times](../examples/pypsa_min_up_down.md) is the witness).
-[#849](https://github.com/fluxopt/lpspec/issues/849) is what is left of that
+[#849](https://github.com/fluxopt/math_spec/issues/849) is what is left of that
 gap.
 
 The first kind is a design, the second a tax, and refusing both under one rule
@@ -216,7 +216,7 @@ reads as principle while billing as friction.
 Its components take a list of `where`-guarded equations, so alternatives that
 differ by a regime live in the file rather than being flattened into data — one
 block for cyclic and non-cyclic storage, where this language wants the
-constraint twice ([#711](https://github.com/fluxopt/lpspec/issues/711)). What
+constraint twice ([#711](https://github.com/fluxopt/math_spec/issues/711)). What
 buys the difference here is holding the plan's *shape* fixed before any data is
 read, which is what makes a streaming engine and a second independent lane
 possible at all. So the ceiling stays, and what is worth importing is the
@@ -236,14 +236,14 @@ is not by itself a reason to add anything.
 | Data prep — resampling, clustering, IO, units | not math | preprocess; pass a parameter |
 | Arbitrary array ops (`merge`, `reindex`) | unbounded; xarray with extra steps | data prep |
 | Domain helpers (`reduce_carrier_dim`) | encodes one domain into the language | component libraries over generic primitives |
-| A tracked-metric vocabulary — `impacts:`, `effects:`, a `costs` dimension | the three fates are already reference-it-or-don't | an `impact` dim and one named expression: cap it with a constraint whose dual is the shadow price, weight it in the objective, read it with `result.expression` ([#124](https://github.com/fluxopt/lpspec/issues/124)) |
-| `**` with a **variable** base or exponent | the exponent would decide the degree, and no data is read at load — `p ** n` is affine at 1, quadratic at 2 and over the ceiling at 3, and the file says which only once the numbers arrive | `x * x` for a square; above degree 2 there is no rewrite. Over variable-free operands `**` **is** in the language ([#1175](https://github.com/fluxopt/lpspec/issues/1175)) |
+| A tracked-metric vocabulary — `impacts:`, `effects:`, a `costs` dimension | the three fates are already reference-it-or-don't | an `impact` dim and one named expression: cap it with a constraint whose dual is the shadow price, weight it in the objective, read it with `result.expression` ([#124](https://github.com/fluxopt/math_spec/issues/124)) |
+| `**` with a **variable** base or exponent | the exponent would decide the degree, and no data is read at load — `p ** n` is affine at 1, quadratic at 2 and over the ceiling at 3, and the file says which only once the numbers arrive | `x * x` for a square; above degree 2 there is no rewrite. Over variable-free operands `**` **is** in the language ([#1175](https://github.com/fluxopt/math_spec/issues/1175)) |
 | Normalisation (`x / sum(x)`) | a *variable divisor* is rational, not polynomial — no sink takes it at any degree | state the ratio as a constraint, or fix the denominator |
 | Conditionals, iteration, data-dependent structure **inside one plan** | destroys the closed AST | `where` masks + `foreach` dims. A *process* may loop over plans |
-| A Python API for constructing models | hard rule 5 — the model is the file you review and diff | YAML. Whether Python may *emit* declarations is [#381](https://github.com/fluxopt/lpspec/issues/381) |
+| A Python API for constructing models | hard rule 5 — the model is the file you review and diff | YAML. Whether Python may *emit* declarations is [#381](https://github.com/fluxopt/math_spec/issues/381) |
 
 Genuinely unsayable math goes to a declared `escape:` island
-([#38](https://github.com/fluxopt/lpspec/issues/38)) — named in the file,
+([#38](https://github.com/fluxopt/math_spec/issues/38)) — named in the file,
 bounded by the preceding `where`, terminal, and billed against a label budget
 before any Python runs. It buys back *relational* and *local*; it cannot buy
 back degree, since it returns affine COO rows either way.

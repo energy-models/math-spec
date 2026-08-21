@@ -2,7 +2,7 @@
 
 These used to live in `tests/conftest.py`, which imports `tools.constructs` and
 so reaches `api`, `lowering` and `relational`. The fence in #1146 reads direct
-`lpspec` imports and never saw that, so the directory was prefix-clean and would
+`math_spec` imports and never saw that, so the directory was prefix-clean and would
 not have started in a package of its own (#1150).
 
 Nothing here reaches past the language. `tests/conftest.py` re-exports the four
@@ -18,14 +18,14 @@ import copy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from lpspec.language._yaml import parse_yaml, read_yaml
-from lpspec.language.validation import load_model
+from math_spec._yaml import parse_yaml, read_yaml
+from math_spec.validation import load_model
 
 if TYPE_CHECKING:
-    from lpspec.language import Model
+    from math_spec import Model
 
 #: The operator probes: one construct per file, and the corpus that travels with
-#: the language. `tools/language/spec_math.py` generates the operator reference
+#: the language. `tools/spec_math.py` generates the operator reference
 #: from the same directory, so a probe added for the page is swept here too.
 OPERATOR_PROBES = sorted((Path(__file__).resolve().parent.parent.parent / 'examples' / 'operators').glob('*.yaml'))
 

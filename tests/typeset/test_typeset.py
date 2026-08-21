@@ -22,20 +22,20 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from lpspec.errors import LpspecError, SchemaError
-from lpspec.language.expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
-from lpspec.language.operators import BUILTIN_NAMES
-from lpspec.language.resolution import Namespace, expression_of, where_of
-from lpspec.language.validation import load_model
-from lpspec.language.where_parser import WhereNode
-from lpspec.typeset import FORMATS, SymbolTable, to_latex, to_markdown, to_typst, typeset, walk
-from lpspec.typeset.format import OPERATOR_NAMES
-from lpspec.typeset.symbols import _derive_name_symbol
-from tests.language.fixtures import OPERATOR_PROBES, override
+from math_spec.errors import LpspecError, SchemaError
+from math_spec.expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
+from math_spec.operators import BUILTIN_NAMES
+from math_spec.resolution import Namespace, expression_of, where_of
+from math_spec.validation import load_model
+from math_spec.where_parser import WhereNode
+from math_spec.typeset import FORMATS, SymbolTable, to_latex, to_markdown, to_typst, typeset, walk
+from math_spec.typeset.format import OPERATOR_NAMES
+from math_spec.typeset.symbols import _derive_name_symbol
+from tests.fixtures import OPERATOR_PROBES, override
 from tests.typeset import golden
 
 if TYPE_CHECKING:
-    from lpspec.typeset.format import Format
+    from math_spec.typeset.format import Format
 
 
 LATEX, TYPST = FORMATS['latex'], FORMATS['typst']
@@ -823,7 +823,7 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
     )
     data = tmp_path / 'walk.coverage'
     render = tmp_path / 'render.py'
-    render.write_text(f'from lpspec import to_latex\nto_latex({str(golden.MODEL)!r})\n')
+    render.write_text(f'from math_spec import to_latex\nto_latex({str(golden.MODEL)!r})\n')
     subprocess.run(
         [sys.executable, '-m', 'coverage', 'run', f'--data-file={data}', '--include=*/typeset/walk.py', str(render)],
         check=True,
