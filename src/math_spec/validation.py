@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Load-time validation of expression and where strings.
 
 Every expression and where string is parsed, expanded and **resolved** before

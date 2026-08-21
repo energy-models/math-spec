@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """`piecewise:` expansion, judged at the door that decides it.
 
 Every claim here is one `load_model` or `expand_piecewise` reaches with no data

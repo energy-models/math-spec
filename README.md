@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 <!--- --8<-- [start:docs] -->
 
 # math-spec
@@ -14,7 +19,7 @@ YAML math specification and AST parsing for multi-dimensional linear programming
 
 ## Installation
 
-This project is managed by [uv](https://docs.astral.sh/uv/).
+This project is managed by [pixi](https://pixi.prefix.dev/).
 You can install the package in development mode using:
 
 <!--- --8<-- [start:docs-install-dev] -->
@@ -23,9 +28,8 @@ You can install the package in development mode using:
 git clone https://github.com/energy-models/math-spec
 cd math-spec
 
-uv sync --group dev
-uv run pre-commit install
-uv run pytest
+pixi run pre-commit-install
+pixi run test
 ```
 
 <!--- --8<-- [end:docs-install-dev] -->
@@ -39,6 +43,6 @@ For more detailed instructions, see our [documentation](https://math-spec.readth
 The code is [MIT](LICENSE) — everything under `src/`, `tests/`, `tools/`, the
 examples, and the generated schema.
 
-The prose is [CC-BY-4.0](LICENSE-CC-BY-4.0.txt) — everything under `docs/`, this
+The prose is [CC-BY-4.0](LICENSES/CC-BY-4.0.txt) — everything under `docs/`, this
 README, `CHANGELOG.md`, and the logos in `resources/`. Reuse it freely, with
 attribution.

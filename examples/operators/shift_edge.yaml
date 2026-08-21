@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   Translation with a value at the edge — the vacated position contributes the
   number instead of being absent, so the row survives.

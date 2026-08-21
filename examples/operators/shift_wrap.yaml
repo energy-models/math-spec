@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   Cyclic translation — the horizon closed on itself, so the first position
   reads the last and nothing is vacated.

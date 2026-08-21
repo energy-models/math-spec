@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec Contributors
+SPDX-License-Identifier: MIT
+-->
+
 # Golden output
 
 One model, rendered in every format, committed and asserted byte for byte.
@@ -28,4 +33,4 @@ sentence in this README, and the symbols no model printed stayed unprinted.
 Regenerate after an intended change, then **read the diff** — that is the
 review, and it is the whole point:
 
-    uv run python -m tests.golden
+    pixi run python -m tests.typeset.golden

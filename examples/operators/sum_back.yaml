@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   A trailing window of a fixed width: a unit that started in the last three
   hours is still on.

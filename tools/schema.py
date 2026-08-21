@@ -1,6 +1,10 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The checked-in JSON Schema for the YAML surface.
 
-    uv run python -m tools.schema   # rewrite schema/math-spec.schema.json
+    pixi run python -m tools.schema   # rewrite schema/math-spec.schema.json
 
 The document is ``Model.model_json_schema()`` — the shape pydantic validates,
 nothing more: ``expression:`` and ``where:`` are strings to it, so their

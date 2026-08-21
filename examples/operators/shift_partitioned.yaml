@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   Translation inside a group — each season closed on itself, so a season's first
   snapshot reads that season's last and no level crosses the boundary.

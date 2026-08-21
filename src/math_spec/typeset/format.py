@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 r"""The seam between *what* a model says and *how* a format spells it.
 
 One walk, many formats — the split ``relational/sinks/`` makes at the other end

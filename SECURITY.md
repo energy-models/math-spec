@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Reporting Security Issues
 
 We take security bugs in our projects seriously. We appreciate your efforts to responsibly disclose your findings, and will make every effort to acknowledge your contributions.

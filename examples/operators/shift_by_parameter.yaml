@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   Translation by an offset that differs per entity — `by:` names an integer
   parameter, so each technology is reached by its own lead time rather than by

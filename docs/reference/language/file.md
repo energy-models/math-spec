@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # File shape
 
 A model file is a YAML mapping with **ten declaration keys**, plus `version`

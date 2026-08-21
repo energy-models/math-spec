@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: The plain reduction — `sum(array, over=dim)` collapses one dimension.
 
 dimensions:

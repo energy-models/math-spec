@@ -1,4 +1,9 @@
 <!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+<!--
 
 -->
 
@@ -10,22 +15,22 @@
 
 !!! hint
 
-    If it is your first time using Python, we recommend [uv](https://docs.astral.sh/uv/), [pixi](https://pixi.prefix.dev/), or [conda](https://docs.conda.io/projects/conda) as easy-to-use package managers.
+    If it is your first time using Python, we recommend [pixi](https://pixi.prefix.dev/), [conda](https://docs.conda.io/projects/conda), or [uv](https://docs.astral.sh/uv/) as easy-to-use package managers.
     They are available for Windows, macOS, and GNU/Linux.
     It is always helpful to use dedicated environments.
 
 You can install `math-spec` via all common package managers:
 
-=== "uv"
-
-    ``` bash
-    uv add math_spec
-    ```
-
 === "pixi"
 
     ``` bash
     pixi add --pypi math_spec
+    ```
+
+=== "uv"
+
+    ``` bash
+    uv add math_spec
     ```
 
 === "conda"

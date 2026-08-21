@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Expressions
 
 Every `expression:` in the file — a constraint's, the objective's, a named

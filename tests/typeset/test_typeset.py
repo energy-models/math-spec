@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The typesetter (spike).
 
 Three kinds of test, and the split is the point:
@@ -640,7 +644,7 @@ def test_the_output_matches_the_committed_golden_file(name: str):
     actual = typeset(golden.MODEL, FORMATS[name], standalone=True)
     assert actual == expected.read_text(), (
         f'{expected.relative_to(Path.cwd())} is stale.\n'
-        f'If the change was intended: `uv run python -m tests.typeset.golden`, then read the diff.'
+        f'If the change was intended: `pixi run python -m tests.typeset.golden`, then read the diff.'
     )
 
 

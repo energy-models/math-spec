@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Provably unbounded models, named by ``check`` instead of by the solver.
 
 A variable that is unbounded on the side its objective term improves toward

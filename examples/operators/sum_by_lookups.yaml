@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   Grouping through several maps at once — `sum(array, by=[lookup, …])` lands
   the result on every dimension the lookups map into, which is one grouping

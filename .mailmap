@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: CC0-1.0
+
 # Two commit names, one person and one address. Without this, `git shortlog`
 # and anything built on it report Felix and FBumann as separate contributors.
 Felix Bumann <117816358+FBumann@users.noreply.github.com>

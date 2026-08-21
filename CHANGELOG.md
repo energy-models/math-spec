@@ -1,4 +1,9 @@
 <!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+<!--
 This file is maintained by release-please. Do not add entries by hand — they
 come from the conventional-commit subjects that land on main, and the section
 each type maps to is `changelog-sections` in .release-please-config.json.

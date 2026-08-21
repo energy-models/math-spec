@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   A trailing window on a representative period that repeats, so the window at
   the first hour reaches back into the last.

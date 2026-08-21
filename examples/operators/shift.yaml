@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 description: >-
   Translation with no edge policy — the vacated position is absent, so the row
   it would have fed is not built.

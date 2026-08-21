@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Dim sets are a type system, checked before any data is bound.
 
 Every case here used to build a model and solve it — wrongly, or larger than

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """Typst. The format that compiles without a toolchain.
 
 Here to keep :mod:`math_spec.typeset.format` honest: a seam with one

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Typeset the math
 
 A model is a declaration, so it can be printed the way a paper prints it — from

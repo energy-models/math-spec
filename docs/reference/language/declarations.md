@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: math-spec contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Parameters, variables, constraints
 
 The four blocks that carry the math. Each block takes an optional

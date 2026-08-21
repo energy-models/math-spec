@@ -1,7 +1,11 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The notation reference: every construct beside the math it prints.
 
-    uv run python -m tools.notation           # rewrite the page's block
-    uv run python -m tools.notation --check   # fail if it has drifted
+    pixi run python -m tools.notation           # rewrite the page's block
+    pixi run python -m tools.notation --check   # fail if it has drifted
 
 The page exists to be *read as a whole*. Whether a notation is good is a
 question about the set of it — whether two constructs that mean different
@@ -284,7 +288,7 @@ def main(argv: list[str] | None = None) -> int:
     updated = rendered_page(page)
     if opts.check:
         if updated != page:
-            print(f'{PAGE.relative_to(ROOT)} is stale — run `uv run python -m tools.notation`', file=sys.stderr)
+            print(f'{PAGE.relative_to(ROOT)} is stale — run `pixi run python -m tools.notation`', file=sys.stderr)
             return 1
         print(f'{PAGE.relative_to(ROOT)} matches the model')
         return 0

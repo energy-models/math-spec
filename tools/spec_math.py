@@ -1,7 +1,11 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 """The operator reference's operators, each shown as the math it prints.
 
-    uv run python -m tools.spec_math           # rewrite the block
-    uv run python -m tools.spec_math --check   # fail if it has drifted
+    pixi run python -m tools.spec_math           # rewrite the block
+    pixi run python -m tools.spec_math --check   # fail if it has drifted
 
 The operator table above the block says what each operator *does*, in prose.
 This says what each one *looks like*, and it is generated for a reason beyond
@@ -120,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
     updated = rendered(page)
     if opts.check:
         if updated != page:
-            print(f'{PAGE} is stale — run `uv run python -m tools.spec_math`', file=sys.stderr)
+            print(f'{PAGE} is stale — run `pixi run python -m tools.spec_math`', file=sys.stderr)
             return 1
         print(f'{PAGE} matches the operator probes')
         return 0
