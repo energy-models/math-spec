@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+name: Update lockfiles
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 5 1 * *
+
+jobs:
+  pixi-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
+        with:
+          run-install: false
+      - name: Update lockfiles
+        run: |
+          pixi update --json --no-install | pixi exec pixi-diff-to-markdown >> diff.md
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: Update pixi lockfile
+          title: Update pixi lockfile
+          body-path: diff.md
+          branch: update-pixi
+          base: main
+          labels: pixi
+          delete-branch: true
+          add-paths: pixi.lock
