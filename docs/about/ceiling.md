@@ -53,10 +53,11 @@ Read this page as the *streamability* closure and nothing more.
 
 Two things bound the quadratic case, and neither is streamability:
 
-- **Position — and it has since moved.** A quadratic *objective* has sinks: LP
-  text as a section, HiGHS as a Hessian when it is convex, Gurobi with no
-  exclusion at all. A quadratic *constraint* has fewer — Gurobi and the LP
-  file — and the linopy lane cannot build one at all. That kept it out until
+- **Position — and it has since moved.** A quadratic *objective* had somewhere
+  to land before a quadratic *constraint* did, and fewer things refuse it —
+  which sink takes which being
+  [measured rather than argued](benchmarks.md#sink-capabilities). What kept the
+  constraint out is that one *lane* cannot build one at all, until
   the capability axis grew to cover **lanes** as well as sinks
   ([hard rule 3](architecture.md#hard-rules)): both lanes still accept the same
   language, what each can *build* is declared, and the construct ships with the
@@ -105,7 +106,7 @@ request can ever be met:
 
 | Tier | Bounded by | Members | Can it move? |
 |---|---|---|---|
-| **Capability-bounded** | what a given sink can ingest | indicator (#220); quadratic, whose verdict moves with its convexity and with what it stands beside. `sos:` **shipped** on this tier, and is what the row predicted: native where a sink has the concept, reformulated where it does not | per sink — see below |
+| **Capability-bounded** | what a given sink can ingest | indicator (#220); quadratic, whose verdict moves with its convexity and with what it stands beside. `sos:` **shipped** on this tier, and is what the row predicted: native where a sink has the concept, reformulated where it does not | per sink — [the table](benchmarks.md#sink-capabilities) |
 | **Budget-bounded** | the escape *label* budget — a cap on the rows and columns an island may emit | global operators, arbitrary Python, non-relational manipulation | already movable — that is what an island is |
 | **Design-bounded** | our choice of where work belongs | data prep, domain helpers, Python declaring structure | movable any time; we don't want to |
 
@@ -156,15 +157,14 @@ capability findings below.
 
 The ceiling above is about **streamability** and is solver-independent. What a
 *sink* can ingest is a separate axis, and conflating the two let one solver's
-limits read as architectural law — "no sink carries the stream" described
-HiGHS, not the architecture. Two findings, measured in
-[the benchmarks](benchmarks.md#sink-capabilities): SOS is
-**solver-bounded** (HiGHS has no SOS concept at all, while `lp_file` carries it
-as a text section and Gurobi natively), and quadratic is bounded **twice over
-on one sink** — HiGHS refuses a nonconvex Hessian outright, and refuses a
-convex one standing beside integrality — so a capability is neither a flat set
-nor one verdict per construct. The whole-Hessian handoff is an implementation
-difference, not a rule-4 violation.
+limits read as architectural law — "no sink carries the stream" described a
+solver, not the architecture. Two findings say why the axis has to be its own,
+and [the table](benchmarks.md#sink-capabilities) says which sink is which: SOS
+is **solver-bounded**, one sink having no concept of a set at all where others
+take one natively; and quadratic is bounded **twice over on a single sink**, by
+convexity and again by what it stands beside. So a capability is neither a flat
+set nor one verdict per construct. The whole-Hessian handoff is an
+implementation difference, not a rule-4 violation.
 
 **`sos:` is that finding cashed**, and it says what the axis is worth. The
 construct entered on the streamability argument alone — a set names columns a
@@ -181,11 +181,13 @@ form bounds the support, which is not affine at all. So a set is unsayable as
 math here whatever a sink can ingest, and saying it *about* a variable is the
 only spelling left.
 
-What a rewrite cannot buy back is the argument *for* declaring capability: an
-LP carrying a set comes back from HiGHS without duals and from Gurobi with
-them, and that asymmetry should be visible and the caller's to choose between
-rather than papered over. The rest — a capability *table*, and `check` taking
-an optional sink — is [Track 3](https://github.com/fluxopt/lpspec/issues/472).
+What a rewrite cannot buy back is the argument *for* declaring capability: a
+set reformulated into binaries returns no duals where the native form does, and
+that asymmetry should be visible and the caller's to choose between rather than
+papered over. The rest — a capability *table*, and `check` taking an optional
+sink — has since shipped
+([#925](https://github.com/fluxopt/lpspec/pull/925),
+[#928](https://github.com/fluxopt/lpspec/pull/928)).
 
 ## Where the data-prep line falls
 
