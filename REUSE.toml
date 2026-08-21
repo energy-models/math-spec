@@ -7,6 +7,8 @@ SPDX-PackageDownloadLocation = "https://github.com/energy-models/math-spec"
 path = [
   ".github/pull_request_template.md",
   ".all-contributorsrc",
+  ".release-please-config.json",
+  ".release-please-manifest.json",
   "src/py.typed",
 ]
 SPDX-FileCopyrightText = "math-spec contributors"
