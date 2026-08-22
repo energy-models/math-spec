@@ -37,6 +37,7 @@ STORAGE: dict[str, Any] = {
     'lookups': {'period_of': {'over': 'snapshot', 'into': 'period'}},
     'parameters': {
         'cyclic': {'dims': ['storage'], 'dtype': 'bool'},
+        'committable': {'dims': ['storage'], 'dtype': 'bool'},
         'kind': {'dims': ['storage'], 'dtype': 'str'},
         'soc_initial': {'dims': ['storage']},
         'capacity': {'dims': ['storage']},
@@ -51,14 +52,10 @@ def schema() -> Model:
     return load_model(STORAGE)
 
 
-def check(schema: Model, where: str | None, cases: dict[str, str]):
-    """Resolve the masks against *schema*, then decide."""
+def check(schema: Model, cases: dict[str, str]):
+    """Resolve each case's `when` against *schema*, then decide."""
     namespace = Namespace.of(schema)
-    return check_partition(
-        where_of(where, namespace, 'the group'),
-        [Case(name, _mask(when, namespace, name)) for name, when in cases.items()],
-        schema,
-    )
+    return check_partition([Case(name, _mask(when, namespace, name)) for name, when in cases.items()], schema)
 
 
 def _mask(text: str, namespace: Namespace, name: str):
@@ -76,7 +73,6 @@ class TestProves:
         """
         verdict = check(
             schema,
-            None,
             {
                 'first_ts': 'not cyclic and position(snapshot) == 0',
                 'all_other_ts': '(not cyclic and position(snapshot) != 0) or cyclic',
@@ -87,35 +83,51 @@ class TestProves:
     def test_a_written_complement(self, schema: Model):
         verdict = check(
             schema,
-            None,
             {'first': 'position(snapshot) == 0', 'rest': 'not (position(snapshot) == 0)'},
         )
         assert verdict.status is Status.PARTITION
 
-    def test_a_category_split_closed_by_the_where(self, schema: Model):
-        """Equality against distinct labels is exclusive — the theory step."""
+    def test_a_category_split(self, schema: Model):
+        """Equality against distinct labels is exclusive — the theory step.
+
+        Totality is what forces the third case: with no mask to narrow the
+        frame, a storage that is neither has to be given a value here.
+        """
         verdict = check(
             schema,
-            "kind == 'battery' or kind == 'h2'",
-            {'battery': "kind == 'battery'", 'hydrogen': "kind == 'h2'"},
+            {
+                'battery': "kind == 'battery'",
+                'hydrogen': "kind == 'h2'",
+                'other': "not (kind == 'battery' or kind == 'h2')",
+            },
         )
         assert verdict.status is Status.PARTITION
 
-    def test_overlap_outside_the_where_is_not_an_overlap(self, schema: Model):
-        """The conditioning, in the direction that admits rather than refuses."""
-        cases = {
-            'cyclic': 'cyclic',
-            'from_initial': 'soc_initial',
-            'neither': 'not cyclic and not soc_initial',
-        }
-        assert check(schema, 'not (cyclic and soc_initial)', cases).status is Status.PARTITION
-        assert check(schema, None, cases).status is Status.VIOLATED
+    def test_the_cases_are_written_disjoint(self, schema: Model):
+        """Nothing conditions these, so the `NOT`s are the author's to write.
+
+        There is no mask to exclude the region where both hold, which is the
+        price of an expression being total: the regimes have to be spelled
+        apart rather than narrowed from outside.
+        """
+        assert (
+            check(
+                schema,
+                {
+                    'cyclic': 'cyclic',
+                    'from_initial': 'not cyclic and soc_initial',
+                    'neither': 'not cyclic and not soc_initial',
+                },
+            ).status
+            is Status.PARTITION
+        )
+        overlapping = {'cyclic': 'cyclic', 'from_initial': 'soc_initial', 'neither': 'not cyclic and not soc_initial'}
+        assert check(schema, overlapping).status is Status.VIOLATED
 
     def test_three_ways_where_the_extent_is_declared(self, schema: Model):
         """`storage` declares `values:`, so 0 and -1 are provably different rows."""
         verdict = check(
             schema,
-            None,
             {
                 'first': 'position(storage) == 0',
                 'last': 'position(storage) == -1',
@@ -124,20 +136,38 @@ class TestProves:
         )
         assert verdict.status is Status.PARTITION
 
+    def test_the_ramp_expressions_from_the_issue(self, schema: Model):
+        """The three quantities #2 factors a PyPSA ramp limit into.
+
+        The point of putting cases here rather than on the constraint: three
+        independent axes multiply into eight constraint cases and add into
+        seven expression cases, and the inequality is written once instead of
+        eight times.
+        """
+        for cases in (
+            {'boundary': 'position(snapshot) == 0', 'interior': 'position(snapshot) > 0'},
+            {'modular': 'cyclic', 'whole': 'not cyclic'},
+            {
+                'always_on': 'not committable',
+                'boundary': 'committable and position(snapshot) == 0',
+                'interior': 'committable and position(snapshot) > 0',
+            },
+        ):
+            assert check(schema, cases).status is Status.PARTITION
+
     def test_an_ordering_on_a_position(self, schema: Model):
         """Every rank is either 0 or greater, whatever order the coordinates arrive in (#32)."""
-        verdict = check(schema, None, {'first': 'position(snapshot) == 0', 'rest': 'position(snapshot) > 0'})
+        verdict = check(schema, {'first': 'position(snapshot) == 0', 'rest': 'position(snapshot) > 0'})
         assert verdict.status is Status.PARTITION
 
     def test_an_ordering_counted_from_the_back(self, schema: Model):
         """The mirrored frame: ranks run away from -1, and nothing follows it."""
-        verdict = check(schema, None, {'last': 'position(snapshot) == -1', 'rest': 'position(snapshot) < -1'})
+        verdict = check(schema, {'last': 'position(snapshot) == -1', 'rest': 'position(snapshot) < -1'})
         assert verdict.status is Status.PARTITION
 
     def test_a_band_counted_from_the_back(self, schema: Model):
         verdict = check(
             schema,
-            None,
             {
                 'final_two': 'position(snapshot) >= -2',
                 'earlier': 'position(snapshot) < -2',
@@ -146,35 +176,39 @@ class TestProves:
         assert verdict.status is Status.PARTITION
 
     def test_numeric_bands(self, schema: Model):
+        """And the same for a magnitude: an absent capacity needs a value too."""
         verdict = check(
             schema,
-            'capacity > 0',
-            {'small': 'capacity <= 10', 'large': 'capacity > 10'},
+            {
+                'small': 'capacity and capacity <= 10',
+                'large': 'capacity and capacity > 10',
+                'unknown': 'not capacity',
+            },
         )
         assert verdict.status is Status.PARTITION
 
 
 class TestRefuses:
     def test_an_overlap_names_both_cases_and_a_witness(self, schema: Model):
-        verdict = check(schema, None, {'cyclic': 'cyclic', 'battery': "kind == 'battery'"})
+        verdict = check(schema, {'cyclic': 'cyclic', 'battery': "kind == 'battery'"})
         assert verdict.status is Status.VIOLATED
         assert verdict.overlaps[0].cases == ('cyclic', 'battery')
         assert 'cyclic is true' in verdict.message()
 
-    def test_a_gap_is_a_row_with_no_expression(self, schema: Model):
-        verdict = check(schema, None, {'first': 'position(snapshot) == 0'})
+    def test_a_gap_is_a_coordinate_with_no_value(self, schema: Model):
+        verdict = check(schema, {'first': 'position(snapshot) == 0'})
         assert verdict.status is Status.VIOLATED
         assert verdict.gaps
-        assert 'no case claims the row' in verdict.message()
+        assert 'no case claims the value' in verdict.message()
 
-    def test_a_case_the_where_excludes_is_dead(self, schema: Model):
-        verdict = check(schema, 'not cyclic', {'cyclic': 'cyclic', 'rest': 'not cyclic'})
+    def test_a_case_that_can_never_hold_is_dead(self, schema: Model):
+        verdict = check(schema, {'never': 'cyclic and not cyclic', 'rest': 'True'})
         assert verdict.status is Status.VIOLATED
-        assert verdict.dead == ('cyclic',)
+        assert verdict.dead == ('never',)
 
     def test_defined_is_not_non_zero(self, schema: Model):
         """A bare name and `!= 0` are different questions, so these leave a gap."""
-        verdict = check(schema, None, {'has_initial': 'soc_initial', 'zero': 'soc_initial == 0'})
+        verdict = check(schema, {'has_initial': 'soc_initial', 'zero': 'soc_initial == 0'})
         assert verdict.status is Status.VIOLATED
 
 
@@ -185,7 +219,6 @@ class TestWillNotDecide:
         """
         verdict = check(
             schema,
-            None,
             {
                 'first': 'position(snapshot) == 0',
                 'last': 'position(snapshot) == -1',
@@ -199,7 +232,6 @@ class TestWillNotDecide:
         """`by=` counts within each group, and no declaration sizes those."""
         verdict = check(
             schema,
-            None,
             {
                 'first': 'position(snapshot, by=period_of) == 0',
                 'last': 'position(snapshot, by=period_of) == -1',
@@ -283,16 +315,13 @@ class TestSoundness:
                     Case('b', AndNode(split, NotNode(inner))),
                     Case('c', NotNode(split)),
                 ]
-            where = self._mask(rng, atoms) if rng.random() < 0.4 else None
-            if check_partition(where, cases, schema).status is not Status.PARTITION:
+            if check_partition(cases, schema).status is not Status.PARTITION:
                 continue
             proved += 1
             # The same frame the check built, so ground truth reads each atom
             # the way it did — what differs is the grid, which is finer.
-            frame = _Frame.of([where, *(case.when for case in cases)], schema)
+            frame = _Frame.of([case.when for case in cases], schema)
             for point in grid:
-                if where is not None and not _evaluate(where, point, frame):
-                    continue
                 claims = sum(1 for case in cases if _evaluate(case.when, point, frame))
                 assert claims == 1, f'{claims} cases claim {point} — the cells hid a witness'
         assert proved > 50, f'only {proved} partitions proved; the fuzz is not exercising the check'
