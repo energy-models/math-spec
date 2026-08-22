@@ -3,15 +3,16 @@ SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-<!--
-
--->
-
 # Installation
 
 ## Installing a user environment
 
-# Installation
+!!! warning "Not published yet"
+
+    math-spec is on the alpha stream and the publish job is off until it leaves
+    it — see [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
+    The commands below are what the first release will look like; until then,
+    install from a checkout or a git reference.
 
 !!! hint
 
