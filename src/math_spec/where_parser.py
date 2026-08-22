@@ -251,16 +251,12 @@ def _bare(value: float | str) -> float | str:
 
 
 def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
-    """``position(dim[, by=lookup]) <op> i`` off the tokens the grammar captured.
-
-    The ``by=`` is optional and sits inside the call, so the operator's
-    arguments are the leading tokens and the comparison's are the trailing
-    two — read from the end, which is where the count is unambiguous.
-    """
-    dimension, *rest = tokens
-    by = str(rest[0]) if len(rest) > 2 else None
-    op, at = rest[-2], rest[-1]
-    return UnresolvedPositionNode(str(dimension), cast('PredicateOperator', op), int(cast('float', at)), by)
+    """``position(dim[, by=lookup]) <op> i`` off the tokens the grammar captured."""
+    *call, op, at = tokens
+    dimension, by = call[0], call[1] if len(call) > 1 else None
+    return UnresolvedPositionNode(
+        str(dimension), cast('PredicateOperator', op), int(cast('float', at)), None if by is None else str(by)
+    )
 
 
 def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode:
@@ -299,10 +295,9 @@ def _build_where_grammar() -> pp.ParserElement:
     grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name
     comparator = pp.one_of('<= >= == != < >')
 
-    # `position(dim)` converts a dimension to the row's position along it, so
-    # the comparison that follows is between two integers and reads like any
-    # other. Nothing names the coordinate *at* a position, which is what kept
-    # an ordering here ambiguous (#32).
+    # Leads the `atom` alternation below: `position` would otherwise be taken
+    # for a bare name. See `DimensionPositionNode` for why it converts on the
+    # left rather than naming the coordinate at a position (#32).
     position_call = (
         pp.Suppress(pp.Keyword('position')) + pp.Suppress('(') + name + pp.Optional(grouped_by) + pp.Suppress(')')
     )
@@ -361,6 +356,16 @@ def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResult
 
 _WHERE_GRAMMAR = _build_where_grammar()
 
+#: The spelling this grammar dropped, and its rewrite (#32). A retired syntax
+#: speaks before the generic mismatch, the same way a retired kwarg does in
+#: `operators.call_shape_error`: "Expected end of text, found '('" is what every
+#: model written against the old spelling would otherwise get.
+_INDEX_CALL = re.compile(r'\bindex\s*\(')
+_INDEX_REWRITE = (
+    "\n\n  index() is now position(), and converts on the left: write 'position(dim) == i' "
+    "for 'dim == index(dim, i)', and 'position(dim, by=lookup) == i' for the grouped form."
+)
+
 
 def parse_where(text: str) -> WhereNode:
     """Parse a where string into an AST.
@@ -371,23 +376,8 @@ def parse_where(text: str) -> WhereNode:
     try:
         result = _WHERE_GRAMMAR.parse_string(text, parse_all=True)
     except pp.ParseException as e:
-        msg = f'Failed to parse where string: {text!r}\n{e}{_INDEX_REWRITE if _reads_as_index(text) else ""}'
+        msg = f'Failed to parse where string: {text!r}\n{e}'
+        if _INDEX_CALL.search(text):
+            msg += _INDEX_REWRITE
         raise SchemaError(msg) from e
     return cast('WhereNode', result[0])
-
-
-#: What `index(dim, i)` became. It named the coordinate *at* a position and was
-#: compared against a coordinate, which left an ordering meaning either that or
-#: a comparison of positions (#32); `position()` converts on the left instead,
-#: so the comparison is between integers and reads one way.
-_INDEX_REWRITE = (
-    "\n\n  index() is now position(), and converts on the left: write 'position(dim) == i' "
-    "for 'dim == index(dim, i)', and 'position(dim, by=lookup) == i' for the grouped form."
-)
-
-_INDEX_CALL = re.compile(r'\bindex\s*\(')
-
-
-def _reads_as_index(text: str) -> bool:
-    """Whether the text uses the spelling this grammar dropped."""
-    return _INDEX_CALL.search(text) is not None
