@@ -337,6 +337,70 @@ anything consumes the model, so a reference costs nothing at build time. It is
 lowered only when it is _read_, so a model with fifty named expressions that
 reads none pays for none.
 
+### `cases:` — one quantity, a value per region
+
+Some quantities are one concept with a different value in each regime: the
+level a unit carries into a snapshot, the capacity a limit is measured against.
+Writing that at the constraint multiplies — three independent regimes become
+eight near-identical constraints, and the equation is written eight times.
+Writing it here adds:
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  generator: { dtype: str }
+parameters:
+  committable: { dims: [generator], dtype: bool }
+  status_initial: { dims: [generator] }
+variables:
+  status: { foreach: [snapshot, generator] }
+expressions:
+  previous_status:
+    description: the commitment state a unit carries into a snapshot
+    foreach: [snapshot, generator]
+    cases:
+      always_on: { when: "not committable", expression: 1 }
+      boundary:
+        when: "committable and position(snapshot) == 0"
+        expression: status_initial
+      interior:
+        when: "committable and position(snapshot) > 0"
+        expression: shift(status, over=snapshot, offset=1)
+```
+
+**`when:`, not `where:`.** A case says which value a coordinate takes. It
+creates no absence and deletes no row, which is what `where` means on every
+other block ([absence](absence.md)) — and a cased expression has no `where` of
+its own, so the word would be free to mislead.
+
+**The cases must partition the `foreach`**, and it is a load error when they do
+not — checked before any data binds, with the overlap or the gap named:
+
+> the cases do not partition `['generator', 'snapshot']` — no case claims the
+> value where `committable` is true, the position of `snapshot` is 1
+
+Two obligations sit behind that. **Disjoint**, because two values at one
+coordinate is not a quantity. **Total**, because a gap would leave the
+expression undefined there, and absence
+[spreads](absence.md#how-absence-travels) — every constraint referencing it
+would quietly lose rows it never masked, which is the one thing a mask on a
+constraint is supposed to tell you. Totality is what keeps a constraint's rows
+readable at the constraint.
+
+Being total is not free: with no mask to narrow the frame, the cases have to
+say what an absent parameter or an unnamed label gets. `not capacity` and
+`not (kind == 'battery' or kind == 'h2')` are cases like any other.
+
+**`foreach:` is required here and refused elsewhere.** An uncased expression's
+dims fall out of its body; a cased one's cannot, because no single case gives
+them — `always_on` above is a scalar while its `when` is not. Each case's value
+and each `when` must sit **inside** that frame; neither may widen it.
+
+Not yet referenceable: a reference substitutes one body where the name stood,
+and this quantity has one per region
+([#2](https://github.com/energy-models/math-spec/issues/2)). The declaration is
+checked; the reference is a load error rather than a guess.
+
 ## Macros
 
 A **parameterised** template. It has no dims until it is called, and each call
