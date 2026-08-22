@@ -80,6 +80,9 @@ class MarkdownFormat:
     def parenthesise(self, inner: str) -> str:
         return _LATEX.parenthesise(inner)
 
+    def cardinality(self, inner: str) -> str:
+        return _LATEX.cardinality(inner)
+
     def fraction(self, numerator: str, denominator: str) -> str:
         return _LATEX.fraction(numerator, denominator)
 

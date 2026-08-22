@@ -355,6 +355,75 @@ def test_the_legend_explains_wraparound_only_when_it_is_used(fmt: Format):
     assert 'cyclic translation' not in typeset(DISPATCH, fmt)
 
 
+def _selected(mask: str) -> dict[str, Any]:
+    """One constraint carrying *mask*, over a dimension a lookup groups."""
+    return {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
+        'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
+        'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
+        'constraints': {'seed': {'foreach': ['snapshot'], 'where': mask, 'expression': 'soc == 0'}},
+    }
+
+
+@EVERY_FORMAT
+def test_a_position_from_the_end_prints_against_the_size(fmt: Format):
+    """``-1`` is not a position, and the page has already said so.
+
+    The legend gives the order ``0`` to one end and the size less one to the
+    other, so an equation asserting a position *is* ``-1`` has no solution
+    under the only reading offered for it — Python's index sugar, read as
+    math. The sign is known where it prints, so the page can say what the file
+    means instead.
+    """
+    text = typeset(_selected('position(snapshot) == -1'), fmt)
+    assert f'{fmt.cardinality(fmt.script("T"))} {fmt.operators["minus"]} 1' in text
+    assert f'{fmt.operators["equal"]} -1' not in text
+
+
+@EVERY_FORMAT
+def test_a_grouped_position_rides_a_subscript_rather_than_a_second_argument(fmt: Format):
+    """The group is a modifier — which order is counted — not another position.
+
+    As ``pos(t, season_of(t))`` the second argument sits where a reader of the
+    first one expects an integer, and nothing says it means "within".
+    """
+    text = typeset(_selected('position(snapshot, by=season_of) == 0'), fmt)
+    applied = fmt.apply(fmt.upright('season_of'), 't')
+    assert fmt.apply(fmt.subscript(fmt.operators['position'], [applied]), 't') in text
+
+
+@EVERY_FORMAT
+def test_the_legend_explains_a_position_only_where_one_prints(fmt: Format):
+    """Each positional symbol is introduced where it is used, and nowhere else.
+
+    The first note is the one the page cannot go without: a reader arrives
+    from papers whose index *is* the ordinal, so a page printing both
+    ``pos(t) = 0`` and ``t >= 3`` has to say once which of the two is the
+    coordinate.
+    """
+    plain = typeset(_selected('position(snapshot) == 0'), fmt)
+    assert 'against positions' in plain
+    assert 'against positions' not in typeset(DISPATCH, fmt)
+    assert 'counts within the group' not in plain, 'no grouped position printed'
+    assert 'counted from the end' not in plain, 'no position counted from the end printed'
+    assert 'counts within the group' in typeset(_selected('position(snapshot, by=season_of) == 0'), fmt)
+    assert 'counted from the end' in typeset(_selected('position(snapshot) == -1'), fmt)
+
+
+@EVERY_FORMAT
+def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(fmt: Format):
+    """``t >= 3`` is the line the convention this notation inverts reads wrong.
+
+    A comparison against a label that is a *number* is the one that can be
+    taken for a position, so the legend places it: every other coordinate
+    prints as prose and could not be read as one.
+    """
+    text = typeset(_selected('snapshot >= 3'), fmt)
+    assert f'({fmt.mono("int")} coordinates)' in text
+    assert f'({fmt.mono("str")} coordinates)' not in text, 'season is compared against nothing'
+    assert 'coordinates)' not in typeset(_selected('position(snapshot) == 0'), fmt)
+
+
 @EVERY_FORMAT
 def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(fmt: Format):
     """``---`` is TeX's em-dash ligature and Typst's, and nothing in Markdown.
