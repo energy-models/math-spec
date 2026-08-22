@@ -663,37 +663,28 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
 
 
 def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str, errors: list[str]) -> WhereNode:
-    """Type ``lhs <op> index(dim, i)`` — both sides must name the same dimension.
+    """Type ``position(dim) <op> i`` — the name has to be a dimension.
 
-    Comparing one dimension's coordinate against another's would be comparing
-    labels across label spaces, which can only mask everything out; and
-    ``index`` of anything but a dimension has no coordinate order to count
-    along.
+    ``position()`` converts a dimension to the row's place along it, so it
+    takes the one thing that has an order to count along. Anything else has no
+    coordinate order, and the comparison would have nothing to be a position
+    *in*.
 
     ``by=`` groups that order, so it takes a lookup *over the dimension being
     counted*: the groups are its target's labels, and a lookup over anything
     else has no position within a group to name.
     """
-    for named in (node.name, node.dimension):
-        if named not in ns.dimensions:
-            kind = ns.kind(named)
-            was = f'a {kind}' if kind else 'not declared'
-            errors.append(
-                f"{context}: index() counts along a dimension's coordinates, and "
-                f"'{named}' is {was}.\n  Dimensions: {sorted(ns.dimensions)}"
-            )
-            return node
-    if node.name != node.dimension:
+    if node.dimension not in ns.dimensions:
+        kind = ns.kind(node.dimension)
+        was = f'a {kind}' if kind else 'not declared'
         errors.append(
-            f"{context}: '{node.name} {node.op} index({node.dimension}, {node.position})' compares "
-            f"a '{node.name}' coordinate against a '{node.dimension}' one. No label of one is a "
-            f'label of the other, so the predicate can only mask everything out — index() names '
-            f'a position in the dimension being tested.'
+            f"{context}: position() counts along a dimension's coordinates, and "
+            f"'{node.dimension}' is {was}.\n  Dimensions: {sorted(ns.dimensions)}"
         )
         return node
     if node.by is not None and _refuse_grouping(node, node.by, ns, context, errors):
         return node
-    return DimensionPositionNode(node.name, node.op, node.position, node.by)
+    return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
 
 
 def _refuse_grouping(node: UnresolvedPositionNode, by: str, ns: Namespace, context: str, errors: list[str]) -> bool:
@@ -703,7 +694,7 @@ def _refuse_grouping(node: UnresolvedPositionNode, by: str, ns: Namespace, conte
     inside each, so a lookup over another dimension carries no row of the one
     being indexed — there is nothing for a position to be a position *in*.
     """
-    shown = f'index({node.dimension}, {node.position}, by={by})'
+    shown = f'position({node.dimension}, by={by})'
     if (kind := ns.kind(by)) != 'lookup':
         was = f'a {kind}' if kind else 'not declared'
         errors.append(
