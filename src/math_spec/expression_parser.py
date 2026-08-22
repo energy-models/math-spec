@@ -20,11 +20,14 @@ definitions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import pyparsing as pp
 
 from math_spec.errors import SchemaError
+
+if TYPE_CHECKING:
+    from math_spec.where_parser import WhereNode
 
 ComparisonOperator = Literal['<=', '>=', '==']
 
@@ -170,6 +173,36 @@ class FunctionCallNode:
     kwargs: dict[str, ArithmeticNode] = field(default_factory=dict)
 
 
+@dataclass
+class CaseArm:
+    """One region of a :class:`CasesNode`: where it applies, and the value there."""
+
+    label: str
+    when: WhereNode
+    value: ArithmeticNode
+
+
+@dataclass
+class CasesNode:
+    """A value defined by region — a named expression's ``cases:``, inlined.
+
+    Built by :mod:`math_spec.expansion` where a reference to a cased expression
+    stood; there is no grammar for it, because a file writes the cases on the
+    declaration rather than at the use site.
+
+    The arms **partition** ``foreach`` — checked at load
+    (:mod:`math_spec.partition`) — so exactly one applies at every coordinate
+    and the value is a value rather than a choice. That is what lets this be an
+    ordinary arithmetic node: a consumer selects per coordinate, the way a
+    ``where`` already filters, and nothing about the shape of the plan depends
+    on data.
+    """
+
+    name: str
+    foreach: tuple[str, ...]
+    arms: tuple[CaseArm, ...]
+
+
 ArithmeticNode = (
     NumberNode
     | NameNode
@@ -183,6 +216,7 @@ ArithmeticNode = (
     | UnaryOperatorNode
     | BinaryOperatorNode
     | FunctionCallNode
+    | CasesNode
 )
 
 
@@ -213,6 +247,8 @@ def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
         return (node.left, node.right)
     if isinstance(node, FunctionCallNode):
         return (*node.args, *node.kwargs.values())
+    if isinstance(node, CasesNode):
+        return tuple(arm.value for arm in node.arms)
     return ()
 
 

@@ -24,6 +24,7 @@ from math_spec import (
     ArithmeticNode,
     BinaryOperatorNode,
     BooleanLiteralNode,
+    CasesNode,
     ComparisonNode,
     DimensionComparisonNode,
     DimensionNode,
@@ -301,6 +302,12 @@ class Walk:
 
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
+
+        if isinstance(node, CasesNode):
+            # An atom: a cases block is self-delimiting, so it never needs a
+            # bracket around it however it sits in the surrounding arithmetic.
+            arms = [(self.arithmetic(arm.value, ctx), self.where(arm.when, ctx, need=1)) for arm in node.arms]
+            return self.format.cases(arms), _ATOM
 
         if isinstance(node, (NameNode, NameListNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'

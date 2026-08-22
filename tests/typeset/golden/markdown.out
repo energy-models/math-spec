@@ -158,6 +158,10 @@ $$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mat
 
 $$p_{t,g} \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
+**`started`**
+
+$$\mathit{slack}_{t} \ge \mathit{on}_{t,g} \cdot \begin{cases} \mathrm{cost}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 **`always`**
 
 $$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T}$$
