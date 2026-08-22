@@ -636,7 +636,7 @@ class Walk:
         sets = [
             Entry(
                 symbol=self.symbols.set[d],
-                name=f'index {fmt.math(self.symbols.index[d])} --- {fmt.mono(d)}',
+                name=f'index {fmt.math(self.symbols.index[d])} {fmt.dash} {fmt.mono(d)}',
                 detail=self._coords(d),
                 description=fmt.escape(block.description or ''),
             )
@@ -707,8 +707,8 @@ class Walk:
             notes.append(
                 f'{cyclic} denotes cyclic translation: index {self.format.math("t-k")} taken modulo the size of '
                 f'the dimension ({self.format.mono("roll")}). Plain {self.format.math("t-k")} '
-                f'({self.format.mono("shift")}) has no wraparound --- terms translated past the edge are '
-                f'simply absent.'
+                f'({self.format.mono("shift")}) has no wraparound {self.format.dash} terms translated past '
+                f'the edge are simply absent.'
             )
         if 'edge' in self.policies:
             filled = self.format.math(f't {self.format.subscript(self.op("edge_minus"), ["v"])} k')

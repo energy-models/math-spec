@@ -38,6 +38,10 @@ class MarkdownFormat:
 
     suffix: ClassVar[str] = '.md'
     notation: ClassVar[str] = 'latex'
+    #: The character, not TeX's ligature: no Markdown renderer this output
+    #: is aimed at substitutes one, so `---` reaches the reader as three
+    #: hyphens in the middle of a legend row.
+    dash: ClassVar[str] = '\N{EM DASH}'
 
     #: LaTeX's, except where the spelling uses a backslash before punctuation.
     #: GitHub runs Markdown's escape processing *inside* `$$`, so `\,` arrives
@@ -129,7 +133,7 @@ class MarkdownFormat:
         return '\n\n'.join(blocks)
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
-        rows = '\n'.join(f'| {self.math(e.symbol)} | {e.meaning} |' for e in entries)
+        rows = '\n'.join(f'| {self.math(e.symbol)} | {e.meaning(self.dash)} |' for e in entries)
         return f'#### {title}\n\n| Symbol | Meaning |\n|---|---|\n{rows}'
 
     def section(self, title: str, body: str) -> str:

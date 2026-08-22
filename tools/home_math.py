@@ -67,10 +67,10 @@ ms.to_typst('dispatch.yaml')  # compiles without a TeX toolchain
 ms.to_markdown('dispatch.yaml')  # renders as-is on GitHub
 ```
 
-`symbols` is optional --- drop it and the same model prints as
+`symbols` is optional — drop it and the same model prints as
 $\\mathit{load}_t$, $p^{\\mathrm{max}}_g$. A dict, a YAML path or a
 `SymbolTable`; a key naming nothing in the model is an error, not a symbol that
-silently never applies. Every spelling is printed verbatim --- `notation` says
+silently never applies. Every spelling is printed verbatim — `notation` says
 which language they are, and a render in the other one refuses.
 
 Or from a shell, where the table is that same YAML on disk and `--standalone`

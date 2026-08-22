@@ -370,6 +370,34 @@
   }
 }
 
+/* --- Wide display math --------------------------------------------------
+ * The typesetter does not line-break, and that is deliberate: where a model's
+ * constraint wraps is a formatting decision this project does not make for the
+ * reader. But a wide equation still has to be *reachable*. Material gives
+ * `mjx-container` no overflow handling of its own — only `margin: 0` — so on a
+ * narrow column the right-hand side was clipped with nothing to scroll: on the
+ * notation reference at phone width, 32 of 55 equations ended mid-`∀`.
+ *
+ * So this is the wide-content rule already applied to tables, applied to the
+ * one other thing on this site that is wider than its column. The wrapper is
+ * arithmatex's own, and a block; inline math keeps the `span` and wraps with
+ * the sentence around it.
+ */
+.md-typeset div.arithmatex {
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Room under the equation so the scrollbar does not sit on a subscript. */
+  padding-bottom: 0.4rem;
+}
+
+/* Centred while it fits, left-aligned once it does not. Centring an
+   overflowing box pushes its left edge out of reach — `scrollLeft` stops at 0
+   — so the equation would lose its opening rather than its tail. */
+.md-typeset div.arithmatex > mjx-container {
+  display: inline-block;
+  min-width: 100%;
+}
+
 /* --- Python API --- */
 
 /* API indentation. */

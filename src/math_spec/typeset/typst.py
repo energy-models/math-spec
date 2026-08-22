@@ -57,6 +57,8 @@ class TypstFormat:
 
     suffix: ClassVar[str] = '.typ'
     notation: ClassVar[str] = 'typst'
+    #: Typst applies the same substitution TeX does.
+    dash: ClassVar[str] = '---'
 
     operators: ClassVar[dict[str, str]] = {
         'cdot': 'dot',
@@ -163,7 +165,7 @@ class TypstFormat:
         return f'{numbering}$ {body} $'
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
-        rows = '\n'.join(f'/ {self.math(e.symbol)}: {e.meaning}' for e in entries)
+        rows = '\n'.join(f'/ {self.math(e.symbol)}: {e.meaning(self.dash)}' for e in entries)
         return f'== {title}\n{rows}'
 
     def section(self, title: str, body: str) -> str:

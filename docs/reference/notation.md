@@ -71,14 +71,14 @@ parameters:
 
 #### Sets
 
-| Symbol        | Meaning                                                                                                                                                                 |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| $\mathcal{T}$ | index $t$ --- `snapshot` with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$                                                                                        |
-| $\mathcal{G}$ | index $g$ --- `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$ |
-| $\mathcal{B}$ | index $b$ --- `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$                                       |
-| $\mathcal{Z}$ | index $z$ --- `zone`                                                                                                                                                    |
-| $\mathcal{S}$ | index $s$ --- `season`                                                                                                                                                  |
-| $\mathcal{E}$ | index $e$ --- `technology`                                                                                                                                              |
+| Symbol        | Meaning                                                                                                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| $\mathcal{T}$ | index $t$ — `snapshot` with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$                                                                                        |
+| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$ |
+| $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$                                       |
+| $\mathcal{Z}$ | index $z$ — `zone`                                                                                                                                                    |
+| $\mathcal{S}$ | index $s$ — `season`                                                                                                                                                  |
+| $\mathcal{E}$ | index $e$ — `technology`                                                                                                                                              |
 
 #### Parameters
 
@@ -112,7 +112,7 @@ parameters:
 | $\mathit{void}$     | `void` over $\mathcal{B}$                      |
 | $\mathit{weight}$   | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
-$t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound --- terms translated past the edge are simply absent.
+$t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
 
@@ -560,7 +560,7 @@ A curve is sugar: what prints is the formulation it expands to, which is the mat
 
 #### `economies_of_scale`
 
-**`method: adjacency`** --- a binary per segment, and a row making the two nonzero weights neighbours, in `examples/ports/transport_pwl.yaml`.
+**`method: adjacency`** — a binary per segment, and a row making the two nonzero weights neighbours, in `examples/ports/transport_pwl.yaml`.
 
 ```yaml
 economies_of_scale:
@@ -586,7 +586,7 @@ $$\mathit{economies\_of\_scale\_seg}_{p,m,b} \in \{0, 1\} \qquad \forall\thinspa
 
 #### `cost_curve`
 
-**`method: sos2`** --- the same weights, restricted by a set the sink branches on (the sos rules), in `examples/sos.yaml`.
+**`method: sos2`** — the same weights, restricted by a set the sink branches on (the sos rules), in `examples/sos.yaml`.
 
 ```yaml
 cost_curve:
@@ -609,7 +609,7 @@ $$\left( \mathit{cost\_curve\_lam}_{t,g,b} \right)_{b \in \mathcal{B}} \in \math
 
 #### `cost_curve`
 
-**`method: convex`** --- nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
+**`method: convex`** — nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
 
 ```yaml
 cost_curve:
@@ -630,7 +630,7 @@ $$0 \le \mathit{cost\_curve\_lam}_{t,g,b} \le 1 \qquad \forall\thinspace t \in \
 
 #### `cost_curve`
 
-**`method: lp`** --- no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
+**`method: lp`** — no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
 
 ```yaml
 cost_curve:

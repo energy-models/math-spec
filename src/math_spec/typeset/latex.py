@@ -47,6 +47,8 @@ class LatexFormat:
 
     suffix: ClassVar[str] = '.tex'
     notation: ClassVar[str] = 'latex'
+    #: TeX's own em-dash ligature.
+    dash: ClassVar[str] = '---'
 
     operators: ClassVar[dict[str, str]] = {
         'cdot': r'\cdot',
@@ -142,7 +144,7 @@ class LatexFormat:
         return f'\\begin{{{environment}}}\n{body}\n\\end{{{environment}}}'
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
-        rows = '\n'.join(rf'\item[{self.math(e.symbol)}] {e.meaning}' for e in entries)
+        rows = '\n'.join(rf'\item[{self.math(e.symbol)}] {e.meaning(self.dash)}' for e in entries)
         return f'\\paragraph{{{title}}}\n\\begin{{description}}\n{rows}\n\\end{{description}}'
 
     def section(self, title: str, body: str) -> str:

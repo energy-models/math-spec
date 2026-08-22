@@ -65,7 +65,7 @@ Here are some use-cases that you may come across in which you are considering up
 
 ??? question "I have changed what a model prints"
 
-    The model in the README and the math block under it on the homepage both come out of `examples/dispatch.yaml` and its symbol table, so the page shows what the typesetter prints rather than what somebody typed --- and the model shown cannot drift from the model rendered:
+    The model in the README and the math block under it on the homepage both come out of `examples/dispatch.yaml` and its symbol table, so the page shows what the typesetter prints rather than what somebody typed — and the model shown cannot drift from the model rendered:
 
     ```bash
     pixi run python -m tools.home_math           # rewrite the block

@@ -98,14 +98,15 @@ class Entry:
     detail: str = ''
     description: str = ''
 
-    @property
-    def meaning(self) -> str:
+    def meaning(self, dash: str) -> str:
         """Everything opposite the symbol, as one string.
 
         What the row *says* is the walk's answer, not a spelling, so the three
-        formats differ only in the table cell they put it in.
+        formats differ only in the table cell they put it in — and in how
+        they spell the dash between a name and its description, which is the
+        one piece of punctuation here that is not the same in all three.
         """
-        return f'{self.name}{self.detail}' + (f' --- {self.description}' if self.description else '')
+        return f'{self.name}{self.detail}' + (f' {dash} {self.description}' if self.description else '')
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,13 @@ class Format(Protocol):
     notation: ClassVar[str]
     #: Spelling for each of :data:`OPERATOR_NAMES`.
     operators: ClassVar[Mapping[str, str]]
+    #: The em dash, in prose. TeX and Typst both read ``---`` as one and set
+    #: it as a dash; Markdown has no such rule and renders three hyphens, so
+    #: the character itself is what a Markdown reader has to be given. It is
+    #: an atom rather than something the walk spells because the walk is
+    #: format-agnostic exactly where this appears — a legend row, a
+    #: translation note.
+    dash: ClassVar[str]
 
     # -- atoms -------------------------------------------------------------
 
