@@ -464,8 +464,8 @@ class Walk:
             grouping = (
                 None if node.by is None else self.format.apply(self.format.upright(node.by), ctx.subscript(node.name))
             )
-            ordinal = self.position(node.name, node.position, grouping)
-            return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {ordinal}', 2
+            place = self.position(ctx.subscript(node.name), grouping)
+            return f'{place} {self.op(_PREDICATES[node.op])} {self.number(node.position)}', 2
 
         if isinstance(node, LookupComparisonNode):
             applied = self.format.apply(self.format.upright(node.name), ctx.subscript(node.over))
@@ -501,19 +501,19 @@ class Walk:
     def literal(self, value: float | str | datetime.date) -> str:
         return self.number(value) if isinstance(value, (int, float)) else self.format.prose(str(value))
 
-    def position(self, dimension: str, at: int, grouping: str | None = None) -> str:
-        """``index(dim, i)`` as the coordinate it names.
+    def position(self, index: str, grouping: str | None = None) -> str:
+        """``position(dim)`` as the row's place along the dimension.
 
-        An upright application of the operator to the set, the same shape a
-        lookup gets — rather than ``min``/``max``, which would read the two
-        ends and leave every other position without a notation. *grouping* is
-        the lookup already applied to the row, and prints as a third argument
-        so the row a position is counted for is visible where the position is.
+        An upright application of the operator to the row's index, the same
+        shape a lookup gets — rather than ``min``/``max``, which would read the
+        two ends and leave every other position without a notation. It applies
+        to the *row*, not to the set, because that is what it converts: a
+        coordinate to where that coordinate sits. *grouping* is the lookup
+        already applied to the row, and prints as a second argument so the
+        group a position is counted within is visible where the position is.
         """
-        parts = [self.symbols.set[dimension], self.number(at)]
-        if grouping is not None:
-            parts.append(grouping)
-        return self.format.apply(self.format.upright('index'), ', '.join(parts))
+        parts = [index] if grouping is None else [index, grouping]
+        return self.format.apply(self.format.upright('pos'), ', '.join(parts))
 
     def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
         parts = [self.where(n, ctx, need=1) for n in nodes if n is not None]
