@@ -138,7 +138,7 @@ $$\theta_{b} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},
 
 **`first`**
 
-$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( t = \mathrm{index}(\mathcal{T}, 0) \vee t = \mathrm{index}(\mathcal{T}, 0, \mathrm{season\_of}(t)) \right)$$
+$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}(t, \mathrm{season\_of}(t)) = 0 \right)$$
 
 **`northern`**
 
