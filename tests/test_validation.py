@@ -404,6 +404,23 @@ class TestExpressionCases:
         assert again.expressions['previous_status'].foreach == ['snapshot', 'generator']
         assert again.expressions['previous_status'].cases['always_on'].when == 'not committable'
 
+    def test_a_constant_case_may_be_written_as_a_number(self):
+        """`expression: 1` is the ordinary spelling, and YAML reads it as an int.
+
+        A constant is the most common case body there is, so quoting it to
+        satisfy the annotation would be a papercut on the ordinary file. A
+        boolean still fails: `true` is not arithmetic.
+        """
+        cases = dict(self.PREVIOUS_STATUS)
+        cases['always_on'] = {'when': 'not committable', 'expression': 1}
+        model = load_model(self._schema(**cases))
+        validate_expressions(model)
+        assert model.expressions['previous_status'].cases['always_on'].expression == '1'
+
+        cases['always_on'] = {'when': 'not committable', 'expression': True}
+        with pytest.raises(SchemaError, match='valid string'):
+            load_model(self._schema(**cases))
+
     def test_a_gap_is_a_load_error(self):
         cases = {k: v for k, v in self.PREVIOUS_STATUS.items() if k != 'interior'}
         with pytest.raises(SchemaError, match='do not partition'):

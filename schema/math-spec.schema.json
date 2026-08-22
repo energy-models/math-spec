@@ -153,6 +153,9 @@
                   "type": "string"
                 },
                 {
+                  "type": "number"
+                },
+                {
                   "type": "null"
                 }
               ],
@@ -200,8 +203,15 @@
           "title": "Description"
         },
         "expression": {
-          "title": "Expression",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Expression"
         },
         "when": {
           "title": "When",
