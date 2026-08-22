@@ -75,6 +75,7 @@ $ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g)
   upright("first") & italic("on")_(t,g) & = 1 & forall t in cal(T), g in cal(G) colon (upright("pos")(t) = 0 or upright("pos")_(upright("season_of")(t))(t) = 0) \
   upright("last") & italic("on")_(t,g) & = 0 & forall t in cal(T), g in cal(G) colon (upright("pos")(t) = abs(cal(T)) - 1 or upright("pos")_(upright("season_of")(t))(t) = abs(cal(T)_(upright("season_of")(t))) - 1) \
   upright("northern") & italic("slack")_(t) & <= italic("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("zone_of")(b) = upright("north") and upright("zone_of")(b) != upright("area_of")(b) and upright("zone_of")(b) upright(" is defined") \
+  upright("started") & italic("slack")_(t) & >= italic("on")_(t,g) dot cases(italic("cost")_(g) dot p^(upright("max"))_(g) & upright("if ") upright("pos")(t) = 0, italic("cost")_(g) & upright("if ") upright("pos")(t) != 0) & forall t in cal(T), g in cal(G) \
   upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) colon top \
   upright("never") & italic("slack")_(t) & >= 0 & forall t in cal(T) colon bot $
 

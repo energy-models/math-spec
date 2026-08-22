@@ -48,6 +48,7 @@ from math_spec.errors import DimensionError
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -136,6 +137,12 @@ def _dims(
 
     if isinstance(node, FunctionCallNode):
         return _dims_call(node, schema, context)
+
+    if isinstance(node, CasesNode):
+        # The declared frame, not the union of the arms: the cases partition
+        # `foreach`, so that is the shape of the quantity — an arm narrower
+        # than it broadcasts, exactly as a parameter with fewer dims does.
+        return frozenset(node.foreach)
 
     assert_never(node)
 

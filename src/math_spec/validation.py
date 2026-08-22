@@ -35,6 +35,7 @@ from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -432,6 +433,13 @@ def _check_template_names(
         for value in node.kwargs.values():
             if not isinstance(value, NameNode):
                 _check_template_names(value, template, context, ns, formals, errors)
+        return
+
+    if isinstance(node, CasesNode):
+        # A template may name a cased expression, and expansion puts its arms
+        # here. The `when` masks are the declaration's, checked there.
+        for arm in node.arms:
+            _check_template_names(arm.value, template, context, ns, formals, errors)
         return
 
     assert_never(node)

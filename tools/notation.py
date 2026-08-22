@@ -189,12 +189,22 @@ DECLARED = ('dimensions', 'lookups', 'parameters')
 
 def preamble(text: str) -> str:
     """The fixture's ``dimensions``/``lookups``/``parameters`` blocks, verbatim."""
-    blocks = []
-    for name in DECLARED:
-        body = text[text.index(f'\n{name}:') + 1 :]
-        end = re.search(r'\n(?=\w)', body)
-        blocks.append(body[: end.start()] if end else body)
-    return '\n'.join(blocks).strip()
+    return '\n'.join(_block(text, name) for name in DECLARED).strip()
+
+
+def _block(text: str, name: str) -> str:
+    """One top-level block of the fixture, from its key to the next one."""
+    body = text[text.index(f'\n{name}:') + 1 :]
+    end = re.search(r'\n(?=\w)', body)
+    return body[: end.start()] if end else body
+
+
+#: What the page says about the one block that declares math and prints none.
+NAMED = (
+    'A named expression is substituted where its name is used, so it prints nothing under its own name \N{EM DASH} '
+    'its math is in the row of the constraint that names it. `cases:` is why the page shows the block: a value '
+    'defined by region is a construct, and the regions read beside the declaration rather than at the use site.'
+)
 
 
 #: What each section says about itself, where the section needs saying.
@@ -216,6 +226,9 @@ def block() -> str:
         'print is the legend every model opens with.',
         f'```yaml\n{preamble(MODEL.read_text())}\n```',
         legend(rendered),
+        '### Named expressions',
+        NAMED,
+        f'```yaml\n{_block(MODEL.read_text(), "expressions").strip()}\n```',
     ]
     printed = equations(rendered)
     for section, title in SECTIONS.items():

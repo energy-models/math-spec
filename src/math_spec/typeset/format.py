@@ -193,6 +193,14 @@ class Format(Protocol):
 
     def summation(self, domain: str, body: str) -> str: ...
 
+    def cases(self, arms: list[tuple[str, str]]) -> str:
+        """A value defined by region: ``(value, condition)`` per arm.
+
+        The arms partition the frame, so there is no otherwise-arm and no
+        order-dependence — a format may print them in any order it likes.
+        """
+        ...
+
     def apply(self, function: str, argument: str) -> str:
         """A coordinate map applied to an index: ``bus(g)``."""
         ...

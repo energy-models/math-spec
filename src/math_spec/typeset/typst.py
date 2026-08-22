@@ -135,6 +135,10 @@ class TypstFormat:
     def fraction(self, numerator: str, denominator: str) -> str:
         return f'frac({numerator}, {denominator})'
 
+    def cases(self, arms: list[tuple[str, str]]) -> str:
+        rows = ', '.join(f'{value} & upright("if ") {condition}' for value, condition in arms)
+        return f'cases({rows})'
+
     def summation(self, domain: str, body: str) -> str:
         return f'sum_({domain}) {body}'
 

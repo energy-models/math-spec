@@ -120,6 +120,22 @@ $\mathrm{pos}(t)$ denotes where index $t$ sits along its dimension's own order �
 $\mathrm{pos}_{\mathrm{lookup}(t)}(t)$ counts within the group a lookup puts $t$ in: the subscript names the map, $\mathcal{T}_{\mathrm{lookup}(t)}$ is the group it lands in, and that group has a first position of its own.
 
 $\lvert \mathcal{T} \rvert$ denotes the size of the set being counted along, and a position counted from the end prints against it — $\lvert \mathcal{T} \rvert - 1$ is the last position, one less than the size because the first is $0$.
+### Named expressions
+
+A named expression is substituted where its name is used, so it prints nothing under its own name — its math is in the row of the constraint that names it. `cases:` is why the page shows the block: a value defined by region is a construct, and the regions read beside the declaration rather than at the use site.
+
+```yaml
+expressions:
+  startup_cost: # a value defined by region: the cases partition the frame, so exactly one arm applies at every coordinate
+    foreach: [snapshot, generator]
+    cases:
+      opening:
+        when: "position(snapshot) == 0"
+        expression: cost * p_max
+      later:
+        when: "position(snapshot) != 0"
+        expression: cost
+```
 
 ### The objective
 
@@ -409,6 +425,18 @@ northern:
 ```
 
 $$\mathit{slack}_{t} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
+
+#### `started`
+
+a named expression with cases, substituted where its name stands
+
+```yaml
+started:
+  foreach: [snapshot, generator]
+  expression: slack >= on * startup_cost
+```
+
+$$\mathit{slack}_{t} \ge \mathit{on}_{t,g} \cdot \begin{cases} \mathit{cost}_{g} \cdot p^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathit{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `always`
 

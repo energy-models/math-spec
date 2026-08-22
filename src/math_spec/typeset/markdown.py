@@ -89,6 +89,15 @@ class MarkdownFormat:
     def summation(self, domain: str, body: str) -> str:
         return _LATEX.summation(domain, body)
 
+    def cases(self, arms: list[tuple[str, str]]) -> str:
+        r"""LaTeX's, with TeX's own row primitive in place of ``\\``.
+
+        Markdown's escape pass eats one of the two backslashes, so MathJax
+        would receive a single one and never break the row. ``\\cr`` is what
+        ``\\`` expands to anyway, and carries no punctuation to escape.
+        """
+        return _LATEX.cases(arms).replace(r' \\ ', r' \cr ')
+
     def apply(self, function: str, argument: str) -> str:
         return _LATEX.apply(function, argument)
 
