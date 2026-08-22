@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import math
 from importlib import metadata
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, override
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, get_args, override
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     PrivateAttr,
     ValidationError,
@@ -314,6 +315,22 @@ class MacroBlock(_StrictBlock):
         return self
 
 
+def _number_is_an_expression(value: Any) -> Any:
+    """``expression: 0`` is how a case says zero.
+
+    YAML reads an unquoted number as a number, and a constant is the most
+    common case body there is — quoting it to satisfy the annotation is a
+    papercut on the ordinary spelling. Booleans are left to fail: ``true`` is
+    not arithmetic, and an error naming the type reads better than one naming
+    ``'True'``.
+    """
+    return str(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else value
+
+
+#: An expression string, or a number written as one.
+Expression = Annotated[str, BeforeValidator(_number_is_an_expression, json_schema_input_type=str | float)]
+
+
 class ExpressionCase(_StrictBlock):
     """One case of a named expression: the value, and where it is the value.
 
@@ -325,7 +342,7 @@ class ExpressionCase(_StrictBlock):
     _label: ClassVar[str] = 'an expression case'
 
     when: str
-    expression: str
+    expression: Expression
     description: str | None = None
 
 
@@ -350,7 +367,7 @@ class ExpressionBlock(_StrictBlock):
 
     _label: ClassVar[str] = 'a named expression'
 
-    expression: str | None = None
+    expression: Expression | None = None
     #: The frame the cases partition. Required with ``cases:`` and refused
     #: without: an uncased expression's dims fall out of its body, but no one
     #: case's body gives a cased one its shape — a case may be a scalar where
