@@ -373,7 +373,7 @@ a position in a dimension, and the same position within a group
 ```yaml
 first:
   foreach: [snapshot, generator]
-  where: "snapshot == index(snapshot, 0) OR snapshot == index(snapshot, 0, by=season_of)"
+  where: "position(snapshot) == 0 OR position(snapshot, by=season_of) == 0"
   expression: on == 1
 ```
 

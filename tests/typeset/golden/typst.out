@@ -66,7 +66,7 @@ $ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g)
   upright("total") & sum_(t in cal(T), g in cal(G)) p_(t,g) & <= italic("budget") \
   upright("scalar") & italic("units")_(g) & <= italic("budget") & forall g in cal(G) colon italic("cost")_(g) upright(" is defined") \
   upright("running") & italic("theta")_(b) & <= italic("load")_(t,b) & forall t in cal(T), b in cal(B) colon italic("theta")_(b) upright(" exists") and t >= 3 \
-  upright("first") & italic("on")_(t,g) & = 1 & forall t in cal(T), g in cal(G) colon (t = upright("index")(cal(T), 0) or t = upright("index")(cal(T), 0, upright("season_of")(t))) \
+  upright("first") & italic("on")_(t,g) & = 1 & forall t in cal(T), g in cal(G) colon (upright("pos")(t) = 0 or upright("pos")(t, upright("season_of")(t)) = 0) \
   upright("northern") & italic("slack")_(t) & <= italic("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("zone_of")(b) = upright("north") and upright("zone_of")(b) != upright("area_of")(b) and upright("zone_of")(b) upright(" is defined") \
   upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) colon top \
   upright("never") & italic("slack")_(t) & >= 0 & forall t in cal(T) colon bot $
