@@ -228,6 +228,9 @@ class Walk:
         self.policies: set[str] = set()
         self.positions: set[str] = set()
         self.numeric_coordinates: set[str] = set()
+        #: Cased expressions met while rendering, in first-use order. Each one
+        #: prints once, as a definition of its own; see :meth:`definitions`.
+        self.defined: dict[str, CasesNode] = {}
 
     def op(self, name: str) -> str:
         return self.format.operators[name]
@@ -290,10 +293,11 @@ class Walk:
             return self._call(node, ctx)
 
         if isinstance(node, CasesNode):
-            # An atom: a cases block is self-delimiting, so it never needs a
-            # bracket around it however it sits in the surrounding arithmetic.
-            arms = [(self.arithmetic(arm.value, ctx), self.where(arm.when, ctx, need=1)) for arm in node.arms]
-            return self.format.cases(arms), _ATOM
+            # The symbol, not the cases: the block prints once as a definition
+            # of its own, and a use of it reads like any other quantity. See
+            # :meth:`definitions` for why.
+            self.defined.setdefault(node.name, node)
+            return ctx.indexed(self.symbols.name[node.name], list(node.foreach)), _ATOM
 
         if isinstance(node, (NameNode, NameListNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
@@ -603,6 +607,40 @@ class Walk:
                     condition=self.quantifier(list(block.foreach), condition),
                 )
             )
+        return lines
+
+    def definitions(self) -> list[Line]:
+        """One line per cased expression the equations used, defining it.
+
+        Inlining a cases block where its name stood is what the AST does, and
+        it is the wrong thing to print: a three-arm block is three rows tall,
+        so whatever follows it in the equation sits beside its middle arm and
+        reads as part of that arm's condition. Worse, a quantity written once
+        in the file would be written once per use on the page — the opposite of
+        what naming it was for.
+
+        So a use prints the symbol and the block prints here, which is how a
+        paper states a quantity defined by region. Run this **after** the
+        sections that use it: what lands here is what they reached, and an arm
+        may itself name another cased expression, so the loop runs to a
+        fixpoint rather than over one pass.
+        """
+        lines: list[Line] = []
+        done: set[str] = set()
+        while pending := [name for name in self.defined if name not in done]:
+            for name in pending:
+                done.add(name)
+                node = self.defined[name]
+                ctx = self.context(ceiling=2)
+                arms = [(self.arithmetic(arm.value, ctx), self.where(arm.when, ctx, need=1)) for arm in node.arms]
+                lines.append(
+                    Line(
+                        label=name,
+                        left=ctx.indexed(self.symbols.name[name], list(node.foreach)),
+                        right=f'{self.op("equal")} {self.format.cases(arms)}',
+                        condition=self.quantifier(list(node.foreach), ''),
+                    )
+                )
         return lines
 
     def variables(self) -> list[Line]:

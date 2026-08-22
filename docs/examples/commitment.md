@@ -15,6 +15,9 @@ a quantity: exactly one arm applies at every coordinate, so `ramp_up` can use
 it the way it uses a parameter. A gap or an overlap is a load error naming a
 witness for it.
 
+It prints the way a paper writes it: `ramp_up` names the quantity, and the
+block itself prints once below, under **Definitions**.
+
 <!-- gallery:begin -->
 ```yaml
 description: >-
@@ -142,7 +145,13 @@ $$p_{t,g} \ge \mathit{status}_{t,g} \cdot p^{\mathrm{min}}_{g} \qquad \forall\th
 
 **`ramp_up`**
 
-$$p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathit{ramp\_limit}_{g} \cdot \begin{cases} 1 & \text{if } \neg \mathit{committable}_{g} \cr \mathit{status}^{\mathrm{initial}}_{g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) > 0 \end{cases} + \mathit{start\_up\_limit}_{g} \cdot \left( 1 - \begin{cases} 1 & \text{if } \neg \mathit{committable}_{g} \cr \mathit{status}^{\mathrm{initial}}_{g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) > 0 \end{cases} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathit{ramp\_limit}_{g} \cdot \mathit{previous\_status}_{t,g} + \mathit{start\_up\_limit}_{g} \cdot \left( 1 - \mathit{previous\_status}_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+#### Definitions
+
+**`previous_status`**
+
+$$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathit{committable}_{g} \cr \mathit{status}^{\mathrm{initial}}_{g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) > 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### Variable domains
 

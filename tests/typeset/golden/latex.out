@@ -86,9 +86,14 @@
 \text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = 0 \right) \\
 \text{last} && \mathit{on}_{t,g} & = 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{pos}(t) = \lvert \mathcal{T} \rvert - 1 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = \lvert \mathcal{T}_{\mathrm{season\_of}(t)} \rvert - 1 \right) \\
 \text{northern} && \mathit{slack}_{t} & \le \mathit{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined} \\
-\text{started} && \mathit{slack}_{t} & \ge \mathit{on}_{t,g} \cdot \begin{cases} \mathit{cost}_{g} \cdot p^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ \mathit{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{started} && \mathit{slack}_{t} & \ge \mathit{on}_{t,g} \cdot \mathit{startup\_cost}_{t,g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \top \\
 \text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot
+\end{align}
+
+\paragraph{Definitions}
+\begin{align}
+\text{startup\_cost} && \mathit{startup\_cost}_{t,g} & = \begin{cases} \mathit{cost}_{g} \cdot p^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ \mathit{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 \end{align}
 
 \paragraph{Variable domains}
