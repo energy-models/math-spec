@@ -116,23 +116,6 @@ $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of t
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
 
-### Named expressions
-
-A named expression is substituted where its name is used, so it prints nothing under its own name — its math is in the row of the constraint that names it. `cases:` is why the page shows the block: a value defined by region is a construct, and the regions read beside the declaration rather than at the use site.
-
-```yaml
-expressions:
-  startup_cost: # a value defined by region: the cases partition the frame, so exactly one arm applies at every coordinate
-    foreach: [snapshot, generator]
-    cases:
-      opening:
-        when: "position(snapshot) == 0"
-        expression: cost * p_max
-      later:
-        when: "position(snapshot) != 0"
-        expression: cost
-```
-
 ### The objective
 
 #### `objective`
@@ -419,7 +402,7 @@ started:
   expression: slack >= on * startup_cost
 ```
 
-$$\mathit{slack}_{t} \ge \mathit{on}_{t,g} \cdot \begin{cases} \mathit{cost}_{g} \cdot p^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathit{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathit{slack}_{t} \ge \mathit{on}_{t,g} \cdot \mathit{startup\_cost}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `always`
 
@@ -446,6 +429,28 @@ never:
 ```
 
 $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \bot$$
+
+### Definitions
+
+A named expression is substituted where its name is used, so it normally prints nothing under its own name. A cased one is the exception: its value is defined by region, which is a definition of its own, and the equations using it name it rather than repeating the block.
+
+#### `startup_cost`
+
+a value defined by region: the cases partition the frame, so exactly one arm applies at every coordinate
+
+```yaml
+startup_cost:
+  foreach: [snapshot, generator]
+  cases:
+    opening:
+      when: "position(snapshot) == 0"
+      expression: cost * p_max
+    later:
+      when: "position(snapshot) != 0"
+      expression: cost
+```
+
+$$\mathit{startup\_cost}_{t,g} = \begin{cases} \mathit{cost}_{g} \cdot p^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathit{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 ### Variable domains
 
