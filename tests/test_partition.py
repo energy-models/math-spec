@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
-from math_spec.partition import Case, Special, Status, Subject, _evaluate, check_partition
+from math_spec.partition import Case, Special, Status, Subject, _evaluate, _Frame, check_partition
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import load_model
 from math_spec.where_parser import AndNode, NotNode, OrNode
@@ -85,7 +85,6 @@ class TestProves:
         assert verdict.status is Status.PARTITION
 
     def test_a_written_complement(self, schema: Model):
-        """The shape an `otherwise:` case would have saved restating."""
         verdict = check(
             schema,
             None,
@@ -94,12 +93,7 @@ class TestProves:
         assert verdict.status is Status.PARTITION
 
     def test_a_category_split_closed_by_the_where(self, schema: Model):
-        """Equality against distinct labels is exclusive — the theory step.
-
-        Read propositionally these two atoms are independent, which invents a
-        region where a storage is both a battery and hydrogen and reports an
-        overlap no data can produce.
-        """
+        """Equality against distinct labels is exclusive — the theory step."""
         verdict = check(
             schema,
             "kind == 'battery' or kind == 'h2'",
@@ -131,12 +125,7 @@ class TestProves:
         assert verdict.status is Status.PARTITION
 
     def test_an_ordering_on_a_position(self, schema: Model):
-        """`position()` makes the comparison one between integers (#32).
-
-        Every rank is either 0 or greater than 0, whatever order the
-        coordinates arrive in — which is the whole point of putting the
-        conversion on the left rather than naming the coordinate at a position.
-        """
+        """Every rank is either 0 or greater, whatever order the coordinates arrive in (#32)."""
         verdict = check(schema, None, {'first': 'position(snapshot) == 0', 'rest': 'position(snapshot) > 0'})
         assert verdict.status is Status.PARTITION
 
@@ -277,7 +266,6 @@ class TestSoundness:
             'kind': Subject('param', 'kind'),
             'storage': Subject('rank', 'storage'),
         }
-        extents = {subjects['storage']: 3}
         grid = [
             {subjects[name]: value for name, value in zip(self.GRID, combination, strict=True)}
             for combination in itertools.product(*self.GRID.values())
@@ -299,9 +287,12 @@ class TestSoundness:
             if check_partition(where, cases, schema).status is not Status.PARTITION:
                 continue
             proved += 1
+            # The same frame the check built, so ground truth reads each atom
+            # the way it did — what differs is the grid, which is finer.
+            frame = _Frame.of([where, *(case.when for case in cases)], schema)
             for point in grid:
-                if where is not None and not _evaluate(where, point, extents):
+                if where is not None and not _evaluate(where, point, frame):
                     continue
-                claims = sum(1 for case in cases if _evaluate(case.when, point, extents))
+                claims = sum(1 for case in cases if _evaluate(case.when, point, frame))
                 assert claims == 1, f'{claims} cases claim {point} — the cells hid a witness'
         assert proved > 50, f'only {proved} partitions proved; the fuzz is not exercising the check'
