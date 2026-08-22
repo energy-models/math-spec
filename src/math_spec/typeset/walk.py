@@ -214,7 +214,9 @@ class Walk:
     """Walks a validated schema, emitting :class:`Line`s in one format.
 
     Stateful only in what it has *noticed* — which edge policies appeared,
-    which the legend needs to explain the symbols they print.
+    which positional forms printed, and which dimensions were compared against
+    a coordinate that is a number; all three are things the legend has to
+    explain once the equations print them.
     """
 
     def __init__(self, schema: Buildable, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
@@ -223,6 +225,8 @@ class Walk:
         self.symbols = symbols
         self.format = fmt
         self.policies: set[str] = set()
+        self.positions: set[str] = set()
+        self.numeric_coordinates: set[str] = set()
 
     def op(self, name: str) -> str:
         return self.format.operators[name]
@@ -458,6 +462,11 @@ class Walk:
             return f'{left} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
 
         if isinstance(node, DimensionComparisonNode):
+            if isinstance(node.value, (int, float)):
+                # a label that is a number is the one the legend has to place:
+                # every other coordinate prints as prose and cannot be read as
+                # a position in the first place
+                self.numeric_coordinates.add(node.name)
             return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
 
         if isinstance(node, DimensionPositionNode):
@@ -465,7 +474,8 @@ class Walk:
                 None if node.by is None else self.format.apply(self.format.upright(node.by), ctx.subscript(node.name))
             )
             place = self.position(ctx.subscript(node.name), grouping)
-            return f'{place} {self.op(_PREDICATES[node.op])} {self.number(node.position)}', 2
+            ordinal = self.ordinal(node.name, node.position, grouping)
+            return f'{place} {self.op(_PREDICATES[node.op])} {ordinal}', 2
 
         if isinstance(node, LookupComparisonNode):
             applied = self.format.apply(self.format.upright(node.name), ctx.subscript(node.over))
@@ -506,12 +516,36 @@ class Walk:
 
         Applied to the *row* rather than to the set, because that is what it
         converts: a coordinate to where that coordinate sits. *grouping* is the
-        lookup already applied to the row, and prints as a second argument so
-        the group a position is counted within is visible where the position
-        is.
+        lookup already applied to the row, and rides as a **subscript** rather
+        than as a second argument — a modifier saying which order is being
+        counted, the way an edge fill rides its translation. As an argument it
+        sat where the first one's integer sits, and read as a second position.
         """
-        inner = index if grouping is None else f'{index}, {grouping}'
-        return self.format.apply(self.op('position'), inner)
+        self.positions.add('grouped' if grouping is not None else 'plain')
+        symbol = self.op('position')
+        if grouping is not None:
+            symbol = self.format.subscript(symbol, [grouping])
+        return self.format.apply(symbol, index)
+
+    def ordinal(self, dimension: str, at: int, grouping: str | None = None) -> str:
+        """The position compared against, counted from the end where it is negative.
+
+        A position is a place in the order, and the legend runs that order
+        from ``0`` to the size less one — so ``-1`` printed as itself asserts a
+        position the page has just said cannot exist. What it counts back from
+        is that size, and the *group's* size where the count is grouped, which
+        is the set those positions are positions in.
+
+        ``0`` prints as ``0``: the file is 0-based and so is the page, so a
+        clause can be read off one and written into the other.
+        """
+        if at >= 0:
+            return self.number(at)
+        self.positions.add('from_end')
+        size = self.symbols.set[dimension]
+        if grouping is not None:
+            size = self.format.subscript(size, [grouping])
+        return f'{self.format.cardinality(size)} {self.op("minus")} {self.number(-at)}'
 
     def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
         parts = [self.where(n, ctx, need=1) for n in nodes if n is not None]
@@ -677,6 +711,11 @@ class Walk:
         targeted = self.schema.targeted_of(dim)
         labels = self.schema.labels_of(dim)
         clauses = []
+        if dim in self.numeric_coordinates:
+            # only where an equation compared this index against a number,
+            # which is the one place "position 3" and "the coordinate 3" are
+            # both readings of the same line
+            clauses.append(f' ({self.format.mono(self.schema.dimensions[dim].dtype)} coordinates)')
         if targeted:
             maps = self.format.joined(
                 [
@@ -714,5 +753,46 @@ class Walk:
                 f'{filled} denotes translation with {self.format.math("v")} standing where index '
                 f'{self.format.math("t-k")} leaves the dimension ({self.format.mono("shift(edge=v)")}), so the row '
                 f'at that boundary is built and carries {self.format.math("v")} rather than being dropped.'
+            )
+        return notes
+
+    def position_notes(self) -> list[str]:
+        """A sentence for each positional symbol the model actually printed.
+
+        Gated the way the translation notes are, and the first of them is what
+        the page cannot go without. A reader arrives from papers where the
+        index *is* the ordinal — sets are written as ``{1, …, T}`` there, so
+        nothing is marked because nothing needs to be — and this language
+        indexes by coordinates instead. A page printing both
+        ``pos(t) = 0`` and ``t >= 3`` therefore has to say once which of the
+        two is the position, or the reader recovers a different model from the
+        one the file holds.
+        """
+        notes = []
+        if self.positions:
+            index = self.format.math('t')
+            place = self.format.math(self.format.apply(self.op('position'), 't'))
+            dash = self.format.dash
+            notes.append(
+                f"{place} denotes where index {index} sits along its dimension's own order {dash} the order "
+                f'{self.format.mono("shift")} walks, not the order labels sort in {dash} counted from '
+                f'{self.format.math("0")}. The index itself stays the coordinate, so {index} compares against '
+                f'labels and {place} against positions.'
+            )
+        if 'grouped' in self.positions:
+            applied = self.format.apply(self.format.upright('lookup'), 't')
+            grouped = self.format.math(self.format.apply(self.format.subscript(self.op('position'), [applied]), 't'))
+            group = self.format.math(self.format.subscript(self.format.script('T'), [applied]))
+            notes.append(
+                f'{grouped} counts within the group a lookup puts {self.format.math("t")} in: the subscript names '
+                f'the map, {group} is the group it lands in, and that group has a first position of its own.'
+            )
+        if 'from_end' in self.positions:
+            size = self.format.cardinality(self.format.script('T'))
+            last = self.format.math(f'{size} {self.op("minus")} {self.number(1)}')
+            notes.append(
+                f'{self.format.math(size)} denotes the size of the set being counted along, and a position '
+                f'counted from the end prints against it {self.format.dash} {last} is the last position, one '
+                f'less than the size because the first is {self.format.math("0")}.'
             )
         return notes
