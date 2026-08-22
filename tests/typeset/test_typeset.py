@@ -374,12 +374,82 @@ def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(fmt: F
 
 @EVERY_FORMAT
 def test_macros_and_named_expressions_are_expanded_away(fmt: Format):
-    """What prints is the math a backend builds, not the sugar it was spelled with."""
+    """What prints is the math a backend builds, not the sugar it was spelled with.
+
+    A cased expression is the one exception, and the test below it says why.
+    """
     model = override(
         DISPATCH,
         **{'expressions.supply': 'sum(p, over=generator)', 'constraints.power_balance.expression': 'supply == load'},
     )
     assert 'supply' not in typeset(model, fmt, legend=False)
+
+
+#: The dispatch model, with a quantity defined by region and a constraint using
+#: it. `first` is a column and `later` a scalar, so the arms alone would not
+#: give the quantity its shape — the declared `foreach` does.
+CASED = override(
+    DISPATCH,
+    **{
+        'expressions.headroom': {
+            'foreach': ['snapshot', 'generator'],
+            'cases': {
+                'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'},
+                'later': {'when': 'position(snapshot) != 0', 'expression': 0},
+            },
+        },
+        'constraints.spare': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
+    },
+)
+
+
+@EVERY_FORMAT
+def test_a_cased_expression_is_the_exception_that_keeps_its_name(fmt: Format):
+    """It prints once, as a definition, and its uses name it.
+
+    The other way round — the block inlined at each use — is what the AST does
+    and the wrong thing to print twice over: a quantity written once in the
+    file would be written once per use on the page, and a block three arms tall
+    puts whatever follows it beside its middle arm.
+    """
+    rendered = typeset(CASED, fmt, legend=False)
+    assert rendered.count(fmt.italic('headroom')) == 2, 'one use and one definition, no more'
+    assert _section(rendered, fmt) == ['Objective', 'Subject to', 'Definitions', 'Variable domains']
+
+
+@EVERY_FORMAT
+def test_a_definition_is_printed_only_where_something_reached_it(fmt: Format):
+    """An expression nobody names is sugar nobody unwrapped — it prints nothing."""
+    unused = override(CASED, **{'constraints.spare.expression': 'p <= p_max'})
+    rendered = typeset(unused, fmt, legend=False)
+    assert 'headroom' not in rendered
+    assert 'Definitions' not in rendered
+
+
+@EVERY_FORMAT
+def test_a_definition_naming_another_one_prints_both(fmt: Format):
+    """The arms are walked too, so the collection runs to a fixpoint."""
+    nested = override(
+        CASED,
+        **{
+            'expressions.opening_cost': {
+                'foreach': ['snapshot', 'generator'],
+                'cases': {
+                    'opening': {'when': 'position(snapshot) == 0', 'expression': 'headroom * cost'},
+                    'later': {'when': 'position(snapshot) != 0', 'expression': 0},
+                },
+            },
+            'constraints.spare.expression': 'p <= opening_cost',
+        },
+    )
+    rendered = typeset(nested, fmt, legend=False)
+    assert fmt.italic('headroom') in rendered, 'the inner definition was reached through an arm'
+    assert rendered.count(fmt.italic('opening_cost')) == 2
+
+
+def _section(rendered: str, fmt: Format) -> list[str]:
+    """The section titles *fmt* printed, in order."""
+    return [title for title in ('Objective', 'Subject to', 'Definitions', 'Variable domains') if title in rendered]
 
 
 @EVERY_FORMAT
@@ -907,6 +977,21 @@ def test_the_table_overrides_and_the_rest_is_still_derived():
     assert r'c^{\mathrm{marg}}_{u}' in tex
     assert r'\mathit{load}_{t}' in tex, 'untouched, so still derived'
     assert r'u \in \mathcal{U}' in tex
+
+
+def test_the_table_may_rename_a_cased_expression_but_not_a_plain_one():
+    """It names what prints, and a cased expression is the only expression that does.
+
+    An entry that never applies is the failure mode the table is strict about:
+    a reader writes a spelling, sees the old symbol, and has nothing to tell
+    them why.
+    """
+    tex = to_latex(CASED, symbols={'notation': 'latex', 'names': {'headroom': r'\bar h'}}, legend=False)
+    assert r'\bar h_{t,g}' in tex
+
+    plain = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
+    with pytest.raises(SchemaError, match='is not declared by the model'):
+        to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
 
 
 DESCRIBED = override(

@@ -400,11 +400,17 @@ dims fall out of its body; a cased one's cannot, because no single case gives
 them — `always_on` above is a scalar while its `when` is not. Each case's value
 and each `when` must sit **inside** that frame; neither may widen it.
 
-**A reference carries the regions with it.** `no_restart` above names the
-quantity once, so the inequality is written once and the case conditions ride
-along into what it prints:
+**A reference names the quantity; the block prints once.** A cased expression
+is the one kind that does not read well inlined — three arms are three rows
+tall, so whatever follows in the equation sits beside the middle one. So a use
+prints the symbol,
 
-$$\mathit{status}_{t,g} - \begin{cases} 1 & \text{if } \neg \mathit{committable}_{g} \cr \mathit{status}^{\mathrm{initial}}_{g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) > 0 \end{cases} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathit{status}_{t,g} - \mathit{previous\_status}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+and the block prints under **Definitions**, which is where a paper states a
+quantity defined by region:
+
+$$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathit{committable}_{g} \cr \mathit{status}^{\mathrm{initial}}_{g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) > 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 ## Macros
 

@@ -61,6 +61,17 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format) -> str
     return _word(name, fmt)
 
 
+def printed_expressions(schema: Buildable) -> frozenset[str]:
+    """The named expressions that reach the page under their own name.
+
+    A named expression is substituted where it is used, so it normally prints
+    nothing a symbol could stand for. A **cased** one is the exception: its
+    value is defined by region, which reads as a definition of its own and is
+    referred to by name from the equations that use it.
+    """
+    return frozenset(name for name, block in schema.expressions.items() if block.cases)
+
+
 class Symbols:
     r"""How every declared name prints: overrides first, derivation for the rest.
 
@@ -82,11 +93,12 @@ class Symbols:
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        declared = frozenset({*schema.dimensions, *schema.parameters, *schema.variables})
+        printed = printed_expressions(schema)
+        declared = frozenset({*schema.dimensions, *schema.parameters, *schema.variables, *printed})
 
         self.name: dict[str, str] = {
             name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt)
-            for name in (*schema.parameters, *schema.variables)
+            for name in (*schema.parameters, *schema.variables, *printed)
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}
 
@@ -204,7 +216,7 @@ class SymbolTable:
     def checked_against(self, schema: Buildable) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
-        everything = dims | set(schema.parameters) | set(schema.variables)
+        everything = dims | set(schema.parameters) | set(schema.variables) | printed_expressions(schema)
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),

@@ -187,8 +187,10 @@ class Format(Protocol):
     def cases(self, arms: list[tuple[str, str]]) -> str:
         """A value defined by region: ``(value, condition)`` per arm.
 
-        The arms partition the frame, so there is no otherwise-arm and no
-        order-dependence — a format may print them in any order it likes.
+        The arms partition the frame, so every one carries a condition and
+        there is no otherwise-arm to print last. They arrive in the order the
+        file declares them and print in it — nothing depends on the order, but
+        a reader comparing the page to the file does.
         """
         ...
 
