@@ -80,6 +80,7 @@ class LatexFormat:
         'integers': r'\mathbb{Z}',
         'binary_set': r'\{0, 1\}',
         'sos_set': r'\mathrm{SOS}',
+        'position': r'\mathrm{pos}',
         'minimize': r'\min',
         'maximize': r'\max',
     }
