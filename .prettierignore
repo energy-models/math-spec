@@ -11,3 +11,14 @@
 # The generator wins. Nobody edits this file by hand, so the formatting is not
 # anyone's to prefer.
 CHANGELOG.md
+
+# `tools/gallery.py` writes the body of these pages: the model, verbatim, and
+# the document the typesetter prints from it. Prettier pads the legend tables
+# it emits, the generator writes them unpadded, and each undoes the other — so
+# the committed file could never satisfy both, and `tests/test_docs.py` compares
+# it to the generator byte for byte.
+#
+# Same rule as CHANGELOG.md above: the generator wins where nobody edits by
+# hand. `index.md` is not listed — it carries no generated block.
+docs/examples/dispatch.md
+docs/examples/operators.md
