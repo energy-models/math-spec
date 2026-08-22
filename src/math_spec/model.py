@@ -314,6 +314,21 @@ class MacroBlock(_StrictBlock):
         return self
 
 
+class ExpressionCase(_StrictBlock):
+    """One case of a named expression: the value, and where it is the value.
+
+    ``when`` rather than ``where``: a case selects which value a coordinate
+    takes, and creates no absence and deletes no row — which is what ``where``
+    means on every other block (:doc:`absence </reference/language/absence>`).
+    """
+
+    _label: ClassVar[str] = 'an expression case'
+
+    when: str
+    expression: str
+    description: str | None = None
+
+
 class ExpressionBlock(_StrictBlock):
     """A named quantity: one arithmetic expression, readable after a solve.
 
@@ -335,13 +350,45 @@ class ExpressionBlock(_StrictBlock):
 
     _label: ClassVar[str] = 'a named expression'
 
-    expression: str
+    expression: str | None = None
+    #: The frame the cases partition. Required with ``cases:`` and refused
+    #: without: an uncased expression's dims fall out of its body, but no one
+    #: case's body gives a cased one its shape — a case may be a scalar where
+    #: its ``when`` is not.
+    foreach: list[str] | None = None
+    #: The regions this quantity is defined by, keyed by the name the LaTeX
+    #: prints. They must **partition** ``foreach``: one value per coordinate,
+    #: and a value at every one.
+    cases: dict[str, ExpressionCase] = {}
     description: str | None = None
 
     @model_validator(mode='before')
     @classmethod
     def _from_string(cls, data: Any) -> Any:
         return {'expression': data} if isinstance(data, str) else data
+
+    @model_validator(mode='after')
+    def _one_form_or_the_other(self) -> Self:
+        if bool(self.cases) == (self.expression is not None):
+            got = 'both' if self.cases else 'neither'
+            msg = (
+                f'a named expression is one `expression:` or a set of `cases:`, and this has {got}. '
+                f'Cases are for a quantity whose value varies by region; one expression is everything else.'
+            )
+            raise ValueError(msg)
+        if self.cases and self.foreach is None:
+            msg = (
+                '`cases:` needs a `foreach:` — it is the frame the cases partition, and no one '
+                "case's body gives it, since a case may be a scalar where its `when` is not."
+            )
+            raise ValueError(msg)
+        if self.foreach is not None and not self.cases:
+            msg = (
+                '`foreach:` is only for a named expression with `cases:`. Without them the dims fall '
+                'out of the body, and declaring a second answer is a second thing to keep true.'
+            )
+            raise ValueError(msg)
+        return self
 
     @classmethod
     @override
@@ -350,8 +397,15 @@ class ExpressionBlock(_StrictBlock):
         return _also_written_as(core_schema, handler, {'type': 'string'})
 
     @model_serializer
-    def _as_written(self) -> str | dict[str, str]:
+    def _as_written(self) -> str | dict[str, Any]:
+        if self.cases:
+            written: dict[str, Any] = {'foreach': list(self.foreach or [])}
+            if self.description is not None:
+                written['description'] = self.description
+            written['cases'] = {name: case.model_dump() for name, case in self.cases.items()}
+            return written
         if self.description is None:
+            assert self.expression is not None
             return self.expression
         return {'expression': self.expression, 'description': self.description}
 

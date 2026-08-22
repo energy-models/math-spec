@@ -277,6 +277,26 @@ def check_schema(schema: Model) -> None:
                         f'{sorted(frame)}.'
                     )
 
+    for ename, block in schema.expressions.items():
+        if not block.cases:
+            continue
+        frame = frozenset(block.foreach or [])
+        stray = sorted(frame - set(schema.dimensions))
+        if stray:
+            raise DimensionError(
+                f"Named expression '{ename}': foreach names {stray}, which are not dimensions.\n"
+                f'  Dimensions: {sorted(schema.dimensions)}'
+            )
+        for case_name, case in block.cases.items():
+            context = f"Named expression '{ename}', case '{case_name}'"
+            _check_where_dims(where_of(case.when, ns, context), schema, frame, context)
+            got = dims_of(expression_of(case.expression, schema, ns, context), schema, context)
+            if not got <= frame:
+                raise DimensionError(
+                    f'{context}: the value carries dims {sorted(got - frame)} outside the foreach '
+                    f'{sorted(frame)}. A case is a value within the frame — it cannot widen it.'
+                )
+
     for cname, cdef in schema.constraints.items():
         frame = frozenset(cdef.foreach)
         _check_where_dims(where_of(cdef.where, ns, f"Constraint '{cname}'"), schema, frame, f"Constraint '{cname}'")

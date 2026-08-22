@@ -7,11 +7,14 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
+import re
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
-from math_spec.errors import LanguageError
+from math_spec._yaml import parse_yaml
+from math_spec.dimensions import DimensionError
+from math_spec.errors import LanguageError, SchemaError
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import load_model, validate_expressions
 from math_spec.where_parser import DimensionPositionNode
@@ -355,3 +358,92 @@ class TestPositionResolves:
             where_of(mask, Namespace.of(schema), 'the mask')
         for fragment in fragments:
             assert fragment in str(excinfo.value)
+
+
+class TestExpressionCases:
+    """`cases:` on a named expression — the declaration and what it must prove.
+
+    The partition itself is `tests/test_partition.py`; these are the rules the
+    block carries: which forms load, which dims are legal, and that a case set
+    that is not a partition is a load error rather than a build-time surprise.
+    """
+
+    @staticmethod
+    def _schema(**cases: dict[str, str]) -> dict[str, Any]:
+        return {
+            'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
+            'parameters': {
+                'committable': {'dims': ['generator'], 'dtype': 'bool'},
+                'status_initial': {'dims': ['generator']},
+                'load': {'dims': ['snapshot']},
+            },
+            'variables': {'status': {'foreach': ['snapshot', 'generator']}},
+            'expressions': {'previous_status': {'foreach': ['snapshot', 'generator'], 'cases': cases}},
+        }
+
+    #: The quantity #2 factors a PyPSA ramp limit into: three regimes, one of
+    #: them a scalar, so no single case gives the frame.
+    PREVIOUS_STATUS: ClassVar[dict[str, dict[str, str]]] = {
+        'always_on': {'when': 'not committable', 'expression': '1'},
+        'boundary': {'when': 'committable and position(snapshot) == 0', 'expression': 'status_initial'},
+        'interior': {
+            'when': 'committable and position(snapshot) > 0',
+            'expression': 'shift(status, over=snapshot, offset=1)',
+        },
+    }
+
+    def test_a_partition_loads(self):
+        validate_expressions(load_model(self._schema(**self.PREVIOUS_STATUS)))
+
+    def test_it_round_trips(self):
+        """The written form survives `to_yaml`, cases and all."""
+        schema = load_model(self._schema(**self.PREVIOUS_STATUS))
+        again = load_model(parse_yaml(schema.to_yaml(), 'round trip'))
+        assert again.expressions['previous_status'].cases.keys() == self.PREVIOUS_STATUS.keys()
+        assert again.expressions['previous_status'].foreach == ['snapshot', 'generator']
+        assert again.expressions['previous_status'].cases['always_on'].when == 'not committable'
+
+    def test_a_gap_is_a_load_error(self):
+        cases = {k: v for k, v in self.PREVIOUS_STATUS.items() if k != 'interior'}
+        with pytest.raises(SchemaError, match='do not partition'):
+            validate_expressions(load_model(self._schema(**cases)))
+
+    def test_an_overlap_is_a_load_error(self):
+        cases = dict(self.PREVIOUS_STATUS)
+        cases['boundary'] = {'when': 'position(snapshot) == 0', 'expression': 'status_initial'}
+        with pytest.raises(SchemaError, match='do not partition'):
+            validate_expressions(load_model(self._schema(**cases)))
+
+    @pytest.mark.parametrize(
+        ('block', 'fragment'),
+        [
+            ({'expression': 'load', 'cases': {'a': {'when': 'True', 'expression': 'load'}}}, 'has both'),
+            ({'foreach': ['snapshot'], 'description': 'no value at all'}, 'has neither'),
+            ({'cases': {'a': {'when': 'True', 'expression': 'load'}}}, '`cases:` needs a `foreach:`'),
+            ({'foreach': ['snapshot'], 'expression': 'load'}, '`foreach:` is only for'),
+        ],
+        ids=['both forms', 'neither form', 'cases without foreach', 'foreach without cases'],
+    )
+    def test_the_two_forms_do_not_mix(self, block: dict[str, Any], fragment: str):
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['expressions'] = {'x': block}
+        with pytest.raises(SchemaError, match=re.escape(fragment)):
+            load_model(schema)
+
+    def test_a_case_may_not_widen_the_frame(self):
+        """A case is a value *within* the frame — the `when` cannot reach outside it.
+
+        Reported by the same check, in the same words, that holds a variable's
+        or a constraint's mask to its frame: a `when` is a mask like any other.
+        """
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['expressions']['previous_status']['foreach'] = ['generator']
+        with pytest.raises(DimensionError, match="not in the frame \\['generator'\\]"):
+            validate_expressions(load_model(schema))
+
+    def test_a_cased_expression_cannot_be_referenced_yet(self):
+        """Deferred rather than guessed: substitution puts one body where the name stood."""
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['constraints'] = {'c': {'foreach': ['snapshot', 'generator'], 'expression': 'status <= previous_status'}}
+        with pytest.raises(SchemaError, match='cannot be referenced yet'):
+            validate_expressions(load_model(schema))
