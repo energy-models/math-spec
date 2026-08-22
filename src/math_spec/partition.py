@@ -25,8 +25,6 @@ Conditioning matters in both directions. Two cases that overlap somewhere the
 would refuse them; a ``where`` wider than the cases cover is a real gap that a
 "the rows are whatever the cases claim" reading could not even express.
 
-## How it decides
-
 Every atom in the where-grammar talks about exactly one **subject** — a
 parameter, a dimension's coordinates, a dimension's *rank*, a lookup, a pair of
 lookups. Atoms with different subjects are independent; atoms sharing one are
@@ -36,21 +34,10 @@ that no data can produce.
 
 So each subject is split into **cells** — finitely many regions its value can
 sit in, chosen so that every atom over that subject is constant on each cell.
-The cells of all subjects are multiplied out, and each masks is evaluated on
-each cell. A cell where two cases are true is a witness for overlap; a cell
-inside ``where`` where none is, a witness for a gap. Because the cells cover
-every value the subject can take, "no witness" is a proof and not a sample.
-
-## Three outcomes, and why the third is not optional
-
-:attr:`Status.PARTITION`, :attr:`Status.VIOLATED` and
-:attr:`Status.UNDECIDED`. Undecided is *refused* by the caller, never assumed:
-a checker that guesses in the cases it cannot decide buys nothing over no
-checker at all. What lands there is named in :class:`Verdict.reason` along with
-the rewrite — the common one being two ``position()`` splits counted from
-opposite ends of a dimension whose extent only data knows, where ``0`` and
-``-1`` are the same row on a one-member axis and the split is a partition
-everywhere else.
+The cells of all subjects are multiplied out and each mask is evaluated on each
+cell. A cell where two cases are true is a witness for overlap; a cell inside
+``where`` where none is, a witness for a gap. Because the cells cover every
+value the subject can take, "no witness" is a proof and not a sample.
 
 Independence between subjects is an **over**-approximation: the product of
 cells contains worlds the data may never produce, so a spurious world can only
@@ -68,10 +55,11 @@ from __future__ import annotations
 import datetime
 import itertools
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
+from math_spec.resolution import Namespace
 from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
@@ -88,7 +76,7 @@ from math_spec.where_parser import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable, Iterator, Mapping
 
     from math_spec.model import Model
     from math_spec.where_parser import PredicateOperator, WhereNode
@@ -98,9 +86,17 @@ if TYPE_CHECKING:
 #: a group that blows this is telling you it is several constraints.
 CELL_BUDGET = 8192
 
+#: The dtypes an ordering is decided against. Everything else compares only
+#: with == and !=, which need no order on the values.
+_ORDERED_DTYPES = ('float', 'int', 'datetime')
+
 
 class Status(Enum):
-    """What the check established. :attr:`UNDECIDED` is a refusal, not a pass."""
+    """What the check established.
+
+    :attr:`UNDECIDED` is *refused* by the caller exactly as :attr:`VIOLATED` is:
+    a checker that guesses where it cannot decide buys nothing over no checker.
+    """
 
     PARTITION = 'partition'
     VIOLATED = 'violated'
@@ -174,17 +170,10 @@ class Overlap:
 
 
 @dataclass(frozen=True)
-class Gap:
-    """A row the ``where`` builds that no case gives an expression to."""
-
-    witness: Witness
-
-
-@dataclass(frozen=True)
 class Verdict:
     status: Status
     overlaps: tuple[Overlap, ...] = ()
-    gaps: tuple[Gap, ...] = ()
+    gaps: tuple[Witness, ...] = ()
     dead: tuple[str, ...] = ()
     reason: str | None = None
 
@@ -202,7 +191,7 @@ class Verdict:
         for overlap in self.overlaps:
             first, second = overlap.cases
             parts.append(f"cases '{first}' and '{second}' both claim a row where {_render(overlap.witness)}")
-        parts.extend(f'no case claims the row where {_render(gap.witness)}' for gap in self.gaps)
+        parts.extend(f'no case claims the row where {_render(gap)}' for gap in self.gaps)
         parts.extend(f"case '{name}' builds no rows" for name in self.dead)
         return '; '.join(parts)
 
@@ -215,10 +204,7 @@ def _render(witness: Witness) -> str:
 class Case:
     """One case of a group: a mask, and the name the LaTeX prints beside it.
 
-    Every case carries one. An open "everything the others left" case would
-    save restating a long mask, but nothing else — ``not (x)`` says the same
-    thing, and a mask edited without its restated negation is a gap or an
-    overlap here rather than a silent change of model.
+    Every case carries a mask; ``not (x)`` is how the complement is written.
     """
 
     name: str
@@ -244,48 +230,45 @@ def check_partition(where: WhereNode | None, cases: Iterable[Case], schema: Mode
         The verdict. :attr:`Status.UNDECIDED` is a refusal — see the module
         docstring.
     """
-    cases = list(cases)
-    masks = [node for node in [where, *(case.when for case in cases)] if node is not None]
     try:
-        domains = _domains(masks, schema)
+        return _decide(where, list(cases), schema)
     except Undecidable as exc:
         return Verdict(Status.UNDECIDED, reason=str(exc))
 
-    # The cells of a rank subject are counted from the front wherever the
-    # extent is known, so the positions the atoms carry have to be read in that
-    # same frame — `position(dim) == -1` on a three-member axis is rank 2.
-    extents = {
-        subject: extent
-        for subject in domains
-        if subject.kind == 'rank' and (extent := _extent_of(subject, schema)) is not None
-    }
 
-    size = math.prod(len(cells) for cells in domains.values()) if domains else 1
-    if size > CELL_BUDGET:
+#: How many witnesses a verdict carries. The loop runs to the end whatever
+#: happens — the dead-case check needs every hit — so this bounds the *rendering*
+#: rather than the search, and a mask with a wide `where` and narrow cases would
+#: otherwise render one witness per uncovered cell and throw all but these away.
+_WITNESSES = 4
+
+
+def _decide(where: WhereNode | None, cases: list[Case], schema: Model) -> Verdict:
+    frame = _Frame.of([where, *(case.when for case in cases)], schema)
+    if frame.size > CELL_BUDGET:
         return Verdict(
             Status.UNDECIDED,
-            reason=f'{size} regions to check exceeds the budget of {CELL_BUDGET} — split this into named constraints',
+            reason=f'{frame.size} regions to check exceeds the budget of {CELL_BUDGET} — '
+            f'split this into named constraints',
         )
 
     overlaps: list[Overlap] = []
-    gaps: list[Gap] = []
+    gaps: list[Witness] = []
     live: set[str] = set()
-    try:
-        for cell in _cells(domains):
-            if not _evaluate(where, cell, extents):
-                continue
-            hits = [case.name for case in cases if _evaluate(case.when, cell, extents)]
-            if len(hits) > 1:
-                overlaps.append(Overlap((hits[0], hits[1]), _witness(cell)))
-            elif not hits:
-                gaps.append(Gap(_witness(cell)))
-            live.update(hits)
-    except Undecidable as exc:
-        return Verdict(Status.UNDECIDED, reason=str(exc))
+    for cell in frame.cells():
+        if not _evaluate(where, cell, frame):
+            continue
+        hits = [case.name for case in cases if _evaluate(case.when, cell, frame)]
+        if len(hits) > 1:
+            if len(overlaps) < _WITNESSES:
+                overlaps.append(Overlap((hits[0], hits[1]), frame.witness(cell)))
+        elif not hits and len(gaps) < _WITNESSES:
+            gaps.append(frame.witness(cell))
+        live.update(hits)
 
     dead = tuple(case.name for case in cases if case.name not in live)
     if overlaps or gaps or dead:
-        return Verdict(Status.VIOLATED, tuple(overlaps[:4]), tuple(gaps[:4]), dead)
+        return Verdict(Status.VIOLATED, tuple(overlaps), tuple(gaps), dead)
     return Verdict(Status.PARTITION)
 
 
@@ -294,22 +277,48 @@ def check_partition(where: WhereNode | None, cases: Iterable[Case], schema: Mode
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Observed:
-    """What the masks say about one subject, before it is cut into cells."""
+@dataclass(frozen=True)
+class _Frame:
+    """The cells to check, and what reading an atom on one of them needs.
 
-    literals: set[Any] = field(default_factory=set)
-    positions: set[int] = field(default_factory=set)
-    bare: bool = False
-    ordered: bool = False
+    ``subjects`` is keyed by ``id(node)`` because the where-AST nodes are
+    ``@dataclass`` with ``eq=True`` and so unhashable. It is a memo of a pure
+    function: without it every atom re-derives and re-allocates its subject once
+    per cell, which is the hot path here.
+    """
 
+    domains: dict[Subject, list[Cell]]
+    #: Rank cells are counted from the front wherever the extent is known, so
+    #: the positions the atoms carry have to be read in that same frame —
+    #: `position(dim) == -1` on a three-member axis is rank 2.
+    extents: dict[Subject, int]
+    subjects: dict[int, Subject]
 
-def _domains(masks: Iterable[WhereNode], schema: Model) -> dict[Subject, list[Cell]]:
-    observed: dict[Subject, _Observed] = {}
-    for mask in masks:
-        for node in _walk(mask):
-            _observe(node, observed, schema)
-    return {subject: _cells_for(subject, seen, schema) for subject, seen in observed.items()}
+    @classmethod
+    def of(cls, masks: Iterable[WhereNode | None], schema: Model) -> _Frame:
+        dtypes = Namespace.of(schema).dtypes
+        values: dict[Subject, set[Any]] = {}
+        subjects: dict[int, Subject] = {}
+        for mask in masks:
+            for node in _walk(mask):
+                if (subject := _subject_of(node)) is None:
+                    continue
+                subjects[id(node)] = subject
+                _observe(node, subject, values.setdefault(subject, set()), dtypes)
+        extents = {s: e for s in values if s.kind == 'rank' and (e := _extent_of(s, schema)) is not None}
+        domains = {s: _cells_for(s, seen, dtypes, extents.get(s)) for s, seen in values.items()}
+        return cls(domains, extents, subjects)
+
+    @property
+    def size(self) -> int:
+        return math.prod(len(cells) for cells in self.domains.values())
+
+    def cells(self) -> Iterator[dict[Subject, Cell]]:
+        for combination in itertools.product(*self.domains.values()):
+            yield dict(zip(self.domains, combination, strict=True))
+
+    def witness(self, cell: dict[Subject, Cell]) -> Witness:
+        return {str(subject): _shown(subject, value) for subject, value in cell.items()}
 
 
 def _walk(node: WhereNode | None) -> Iterator[WhereNode]:
@@ -325,30 +334,24 @@ def _walk(node: WhereNode | None) -> Iterator[WhereNode]:
         yield node
 
 
-def _observe(node: WhereNode, observed: dict[Subject, _Observed], schema: Model) -> None:
-    subject = _subject_of(node)
-    if subject is None:
-        return
-    seen = observed.setdefault(subject, _Observed())
-    if isinstance(node, ParameterDefinedNode | VariableDefinedNode | LookupDefinedNode):
-        seen.bare = True
-    elif isinstance(node, DimensionPositionNode):
+def _observe(node: WhereNode, subject: Subject, values: set[Any], dtypes: Mapping[str, str]) -> None:
+    """Record what *node* says about its subject: a position, or a literal."""
+    if isinstance(node, DimensionPositionNode):
         # Every comparator reads here: `position()` converts the dimension to
         # an integer, so an ordering is an ordering of integers (#32).
-        seen.positions.add(node.position)
+        values.add(node.position)
     elif isinstance(node, LookupPairComparisonNode):
         if node.op not in ('==', '!='):
             msg = f'{subject} compared with {node.op!r}; two lookups compare only with == or !='
             raise Undecidable(msg)
     elif isinstance(node, ParameterComparisonNode | DimensionComparisonNode | LookupComparisonNode):
-        if node.op not in ('==', '!='):
-            seen.ordered = True
-        seen.literals.add(node.value)
-    if seen.ordered and isinstance(node, ParameterComparisonNode | DimensionComparisonNode | LookupComparisonNode):
-        dtype = _dtype_of(subject, schema)
-        if dtype not in ('float', 'int', 'datetime', 'date'):
-            msg = f'{subject} has dtype {dtype!r} and is ordered with {node.op!r}; only == and != are decided here'
+        if node.op not in ('==', '!=') and dtypes.get(subject.name) not in _ORDERED_DTYPES:
+            msg = (
+                f'{subject} has dtype {dtypes.get(subject.name)!r} and is ordered with '
+                f'{node.op!r}; only == and != are decided here'
+            )
             raise Undecidable(msg)
+        values.add(node.value)
 
 
 def _subject_of(node: WhereNode) -> Subject | None:
@@ -368,34 +371,24 @@ def _subject_of(node: WhereNode) -> Subject | None:
         case LookupPairComparisonNode(name=name, other=other):
             return Subject('lookup_pair', name, other)
         case _:
-            msg = f'{type(node).__name__} is not an atom this procedure knows'
-            raise Undecidable(msg)
+            # As in `dimensions.py` and the typesetter: an unresolved node here
+            # is a caller that skipped `resolve_where`, not a model to refuse.
+            msg = f'{type(node).__name__} reached the partition check unresolved.'
+            raise AssertionError(msg)
 
 
-def _dtype_of(subject: Subject, schema: Model) -> str | None:
-    if subject.kind == 'param':
-        block = schema.parameters.get(subject.name)
-        return None if block is None else block.dtype
-    if subject.kind == 'dim':
-        block = schema.dimensions.get(subject.name)
-        return None if block is None else block.dtype
-    return None
-
-
-def _cells_for(subject: Subject, seen: _Observed, schema: Model) -> list[Cell]:
+def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, str], extent: int | None) -> list[Cell]:
     if subject.kind == 'rank':
-        return _rank_cells(subject, seen, schema)
-    if subject.kind == 'lookup_pair':
+        return _rank_cells(subject, cast('set[int]', values), extent)
+    if subject.kind in ('lookup_pair', 'variable'):
         return [True, False]
-    if subject.kind == 'variable':
-        return [True, False]
-    dtype = _dtype_of(subject, schema)
+    dtype = dtypes.get(subject.name)
     if dtype == 'bool':
-        if seen.literals:
+        if values:
             msg = f'{subject} has dtype bool and is compared to a literal'
             raise Undecidable(msg)
         return [Special.NULL, True, False]
-    numeric = _numeric(dtype, seen.literals)
+    numeric = _numeric(dtype, values)
     cells: list[Cell] = []
     # A dimension's coordinates are its own index, so there is no null among
     # them; everything else may be absent, and absence is a region of its own
@@ -406,7 +399,7 @@ def _cells_for(subject: Subject, seen: _Observed, schema: Model) -> list[Cell]:
             # `defined` excludes an infinity, so it needs a region where every
             # comparison still reads normally but the bare name is false.
             cells.extend([Special.NEG_INF, Special.POS_INF])
-    cells.extend(_ordered_cells(seen.literals) if numeric or _dated(seen.literals) else _label_cells(seen.literals))
+    cells.extend(_ordered_cells(values) if numeric or _dated(values) else _label_cells(values))
     return cells
 
 
@@ -422,13 +415,7 @@ def _dated(literals: set[Any]) -> bool:
 
 
 def _ordered_cells(literals: set[Any]) -> list[Cell]:
-    """Each literal, and one representative of the gap on either side of it.
-
-    The representatives stand for every value in their gap, which they may
-    because each atom over this subject compares against one of the literals —
-    so two values with no literal between them are indistinguishable to every
-    mask here.
-    """
+    """Each literal, and one representative of the gap on either side of it."""
     if not literals:
         return [0.0]
     values = sorted(literals)
@@ -471,7 +458,7 @@ def _label_cells(literals: set[Any]) -> list[Cell]:
     return [*sorted(literals, key=str), Special.OTHER]
 
 
-def _rank_cells(subject: Subject, seen: _Observed, schema: Model) -> list[Cell]:
+def _rank_cells(subject: Subject, positions_seen: set[int], extent: int | None) -> list[Cell]:
     """Representative ranks, in one frame — counted from the front or the back.
 
     ``position(dim) == 0`` and ``position(dim) == -1`` are the same row when
@@ -480,15 +467,11 @@ def _rank_cells(subject: Subject, seen: _Observed, schema: Model) -> list[Cell]:
     dimension whose coordinates arrive from data does not, and neither does any
     group a ``by=`` lookup makes, whatever the parent dimension declares.
 
-    Within one frame the cells are its own mirror image. Counting from the
-    front, ranks run away from 0 and the open end is *after* the last position
-    named; counting from the back they run away from -1 and the open end is
-    *before* the first. Getting that backwards costs nothing while only ``==``
-    and ``!=`` read — a representative on the wrong side still tells the named
-    positions apart — and gives wrong answers the moment an ordering does.
+    Within one frame the cells are its own mirror image: counting from the
+    front the open end is *after* the last position named, counting from the
+    back it is *before* the first, since nothing follows -1.
     """
-    positions = sorted(seen.positions)
-    extent = _extent_of(subject, schema)
+    positions = sorted(positions_seen)
     if extent is not None:
         positions = sorted({position + extent if position < 0 else position for position in positions})
         positions = [position for position in positions if 0 <= position < extent]
@@ -496,7 +479,7 @@ def _rank_cells(subject: Subject, seen: _Observed, schema: Model) -> list[Cell]:
         within = f' within each {subject.qualifier} group' if subject.qualifier else ''
         msg = (
             f'{subject.name} is split at positions counted from both ends{within} '
-            f'({", ".join(str(position) for position in sorted(seen.positions))}), and its extent is not declared, '
+            f'({", ".join(str(position) for position in positions)}), and its extent is not declared, '
             f'so they are the same row on a short axis — declare `values:` for {subject.name}, or split at one end'
         )
         raise Undecidable(msg)
@@ -504,11 +487,7 @@ def _rank_cells(subject: Subject, seen: _Observed, schema: Model) -> list[Cell]:
         return [0]
     from_back = positions[-1] < 0
     cells: list[Cell] = []
-    if from_back:
-        # The open end is before the earliest position named; there is nothing
-        # after -1, which is the last row by definition.
-        cells.append(positions[0] - 1)
-    elif positions[0] > 0:
+    if positions[0] != 0:
         cells.append(positions[0] - 1)
     for index, position in enumerate(positions):
         cells.append(position)
@@ -535,19 +514,9 @@ def _extent_of(subject: Subject, schema: Model) -> int | None:
     return len(block.values)
 
 
-def _cells(domains: dict[Subject, list[Cell]]) -> Iterator[dict[Subject, Cell]]:
-    subjects = list(domains)
-    for combination in itertools.product(*(domains[subject] for subject in subjects)):
-        yield dict(zip(subjects, combination, strict=True))
-
-
-def _witness(cell: dict[Subject, Cell]) -> Witness:
-    return {str(subject): _shown(subject, value) for subject, value in cell.items()}
-
-
 def _shown(subject: Subject, value: Cell) -> str:
     if subject.kind == 'rank':
-        return f'{value}'
+        return str(value)
     if subject.kind == 'lookup_pair':
         return 'equal' if value else 'different'
     if isinstance(value, Special):
@@ -562,7 +531,7 @@ def _shown(subject: Subject, value: Cell) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _evaluate(node: WhereNode | None, cell: dict[Subject, Cell], extents: dict[Subject, int]) -> bool:
+def _evaluate(node: WhereNode | None, cell: dict[Subject, Cell], frame: _Frame) -> bool:
     """Is *node* true in this cell? An absent mask is true everywhere."""
     if node is None:
         return True
@@ -570,18 +539,17 @@ def _evaluate(node: WhereNode | None, cell: dict[Subject, Cell], extents: dict[S
         case BooleanLiteralNode(value=value):
             return value
         case NotNode(operand=operand):
-            return not _evaluate(operand, cell, extents)
+            return not _evaluate(operand, cell, frame)
         case AndNode(left=left, right=right):
-            return _evaluate(left, cell, extents) and _evaluate(right, cell, extents)
+            return _evaluate(left, cell, frame) and _evaluate(right, cell, frame)
         case OrNode(left=left, right=right):
-            return _evaluate(left, cell, extents) or _evaluate(right, cell, extents)
+            return _evaluate(left, cell, frame) or _evaluate(right, cell, frame)
         case _:
-            return _atom(node, cell, extents)
+            return _atom(node, cell, frame)
 
 
-def _atom(node: WhereNode, cell: dict[Subject, Cell], extents: dict[Subject, int]) -> bool:
-    subject = _subject_of(node)
-    assert subject is not None
+def _atom(node: WhereNode, cell: dict[Subject, Cell], frame: _Frame) -> bool:
+    subject = frame.subjects[id(node)]
     value = cell[subject]
     match node:
         case ParameterDefinedNode() | LookupDefinedNode():
@@ -595,7 +563,7 @@ def _atom(node: WhereNode, cell: dict[Subject, Cell], extents: dict[Subject, int
         case LookupPairComparisonNode(op=op):
             return bool(value) if op == '==' else not value
         case DimensionPositionNode(op=op, position=position):
-            extent = extents.get(subject)
+            extent = frame.extents.get(subject)
             if extent is not None and position < 0:
                 position += extent
             return _compare(value, op, position)
