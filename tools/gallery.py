@@ -40,6 +40,7 @@ BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 #: fragments is what the reference pages already are.
 MODELS = {
     'dispatch.md': ROOT / 'examples' / 'dispatch.yaml',
+    'commitment.md': ROOT / 'examples' / 'commitment.yaml',
 }
 
 #: The probe page shows every model under `examples/operators/`, keyed by the
