@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING, Literal, assert_never
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -199,5 +200,11 @@ def _walk(node: ArithmeticNode, sign: Sign, signs: dict[str, Sign]) -> None:
             left, right = None, None
         _walk(node.left, left, signs)
         _walk(node.right, right, signs)
+        return
+    if isinstance(node, CasesNode):
+        # A selection, not a sum: whichever arm applies stands where the whole
+        # value stands, so each carries the same sign.
+        for arm in node.arms:
+            _walk(arm.value, sign, signs)
         return
     assert_never(node)

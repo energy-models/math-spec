@@ -366,6 +366,10 @@ expressions:
       interior:
         when: "committable and position(snapshot) > 0"
         expression: shift(status, over=snapshot, offset=1)
+constraints:
+  no_restart:
+    foreach: [snapshot, generator]
+    expression: status - previous_status <= 1
 ```
 
 **`when:`, not `where:`.** A case says which value a coordinate takes. It
@@ -396,10 +400,11 @@ dims fall out of its body; a cased one's cannot, because no single case gives
 them — `always_on` above is a scalar while its `when` is not. Each case's value
 and each `when` must sit **inside** that frame; neither may widen it.
 
-Not yet referenceable: a reference substitutes one body where the name stood,
-and this quantity has one per region
-([#2](https://github.com/energy-models/math-spec/issues/2)). The declaration is
-checked; the reference is a load error rather than a guess.
+**A reference carries the regions with it.** `no_restart` above names the
+quantity once, so the inequality is written once and the case conditions ride
+along into what it prints:
+
+$$\mathit{status}_{t,g} - \begin{cases} 1 & \text{if } \neg \mathit{committable}_{g} \cr \mathit{status}^{\mathrm{initial}}_{g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{if } \mathit{committable}_{g} \wedge \mathrm{pos}(t) > 0 \end{cases} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 ## Macros
 

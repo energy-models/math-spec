@@ -15,7 +15,8 @@ import pytest
 from math_spec._yaml import parse_yaml
 from math_spec.dimensions import DimensionError
 from math_spec.errors import LanguageError, SchemaError
-from math_spec.resolution import Namespace, where_of
+from math_spec.expression_parser import BinaryOperatorNode, CasesNode, ComparisonNode, FunctionCallNode
+from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import load_model, validate_expressions
 from math_spec.where_parser import DimensionPositionNode
 
@@ -441,9 +442,61 @@ class TestExpressionCases:
         with pytest.raises(DimensionError, match="not in the frame \\['generator'\\]"):
             validate_expressions(load_model(schema))
 
-    def test_a_cased_expression_cannot_be_referenced_yet(self):
-        """Deferred rather than guessed: substitution puts one body where the name stood."""
+    def test_a_constraint_names_it_and_gets_the_cases(self):
+        """What the feature is for: the inequality is written once, the value by region.
+
+        The name expands to a node carrying every arm rather than to one body,
+        which is what a reference to a quantity with a value per region has to
+        mean. The partition proved on the declaration is what makes that node
+        a value: exactly one arm applies at each coordinate.
+        """
         schema = self._schema(**self.PREVIOUS_STATUS)
         schema['constraints'] = {'c': {'foreach': ['snapshot', 'generator'], 'expression': 'status <= previous_status'}}
-        with pytest.raises(SchemaError, match='cannot be referenced yet'):
+        model = load_model(schema)
+        validate_expressions(model)
+        node = expression_of(model.constraints['c'].expression, model, Namespace.of(model), "Constraint 'c'")
+        assert isinstance(node, ComparisonNode)
+        assert isinstance(node.right, CasesNode)
+        assert [arm.label for arm in node.right.arms] == list(self.PREVIOUS_STATUS)
+
+    def test_it_carries_the_frame_it_declares(self):
+        """The declared `foreach`, not the union of the arms.
+
+        `always_on` is a scalar and `boundary` a column, so a quantity taking
+        its shape from the arms would fit a constraint over `snapshot` alone.
+        It does not: the cases partition the frame, so the frame is the shape.
+        """
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['constraints'] = {'c': {'foreach': ['snapshot'], 'expression': 'load <= previous_status'}}
+        with pytest.raises(DimensionError, match='generator'):
             validate_expressions(load_model(schema))
+
+    def test_a_macro_may_name_one(self):
+        """A template reaching a cased expression carries its arms to the call site."""
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['macros'] = {'step': {'args': ['now'], 'template': 'now - previous_status'}}
+        schema['constraints'] = {'c': {'foreach': ['snapshot', 'generator'], 'expression': 'step(status) <= 1'}}
+        model = load_model(schema)
+        validate_expressions(model)
+        node = expression_of(model.constraints['c'].expression, model, Namespace.of(model), "Constraint 'c'")
+        assert isinstance(node, ComparisonNode)
+        assert isinstance(node.left, BinaryOperatorNode)
+        assert isinstance(node.left.right, CasesNode)
+
+    def test_an_arm_may_name_another_expression(self):
+        """Substitution runs through the arms, so a case body is a body like any other."""
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['expressions']['carried_over'] = {'expression': 'shift(status, over=snapshot, offset=1)'}
+        schema['expressions']['previous_status']['cases']['interior'] = {
+            'when': 'committable and position(snapshot) > 0',
+            'expression': 'carried_over',
+        }
+        schema['constraints'] = {'c': {'foreach': ['snapshot', 'generator'], 'expression': 'status <= previous_status'}}
+        model = load_model(schema)
+        validate_expressions(model)
+        node = expression_of(model.constraints['c'].expression, model, Namespace.of(model), "Constraint 'c'")
+        assert isinstance(node, ComparisonNode)
+        assert isinstance(node.right, CasesNode)
+        interior = next(arm for arm in node.right.arms if arm.label == 'interior')
+        assert isinstance(interior.value, FunctionCallNode)
+        assert interior.value.name == 'shift'

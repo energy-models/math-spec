@@ -84,6 +84,17 @@ sos:
     over: generator
     type: 2
 
+expressions:
+  startup_cost: # a value defined by region: the cases partition the frame, so exactly one arm applies at every coordinate
+    foreach: [snapshot, generator]
+    cases:
+      opening:
+        when: "position(snapshot) == 0"
+        expression: cost * p_max
+      later:
+        when: "position(snapshot) != 0"
+        expression: cost
+
 constraints:
   balance: # sum over a lookup
     foreach: [snapshot, bus]
@@ -157,6 +168,9 @@ constraints:
     foreach: [snapshot, bus]
     where: "zone_of == 'north' AND zone_of != area_of AND zone_of"
     expression: slack <= load
+  started: # a named expression with cases, substituted where its name stands
+    foreach: [snapshot, generator]
+    expression: slack >= on * startup_cost
   always: # the two constant masks, which are a quantifier and no equation
     foreach: [snapshot]
     where: "true"
