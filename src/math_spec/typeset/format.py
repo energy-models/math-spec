@@ -68,6 +68,7 @@ OPERATOR_NAMES = frozenset(
         'integers',
         'binary_set',
         'sos_set',
+        'position',
         'minimize',
         'maximize',
     }

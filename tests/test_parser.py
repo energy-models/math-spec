@@ -151,30 +151,25 @@ def test_a_quoted_right_hand_side_is_a_label(text, value, quoted):
 
 
 @pytest.mark.parametrize(
-    ('text', 'attrs'),
+    ('text', 'op', 'position', 'by'),
     [
-        ('position(snapshot) == 0', {'dimension': 'snapshot', 'op': '==', 'position': 0, 'by': None}),
-        ('position(snapshot) != 0', {'dimension': 'snapshot', 'op': '!=', 'position': 0, 'by': None}),
-        ('position(snapshot) > 0', {'dimension': 'snapshot', 'op': '>', 'position': 0, 'by': None}),
-        ('position(snapshot) <= -2', {'dimension': 'snapshot', 'op': '<=', 'position': -2, 'by': None}),
-        ('position(snapshot) == -1', {'dimension': 'snapshot', 'op': '==', 'position': -1, 'by': None}),
-        ('position(snapshot, by=period_of) == 0', {'dimension': 'snapshot', 'position': 0, 'by': 'period_of'}),
+        ('position(snapshot) == 0', '==', 0, None),
+        ('position(snapshot) != 0', '!=', 0, None),
+        ('position(snapshot) > 0', '>', 0, None),
+        ('position(snapshot) <= -2', '<=', -2, None),
+        ('position(snapshot) == -1', '==', -1, None),
+        ('position(snapshot, by=period_of) == 0', '==', 0, 'period_of'),
     ],
     ids=['first', 'not first', 'after the first', 'band from the back', 'last', 'grouped'],
 )
-def test_position_converts_a_dimension_to_where_a_row_sits(text, attrs):
-    """`position(dim)` is the left-hand side, so the comparison is on integers.
-
-    Naming the coordinate *at* a position and comparing coordinates to it made
-    an ordering mean two things — a value comparison on an axis that may not
-    arrive sorted, or a comparison of positions (#32). Converting on the left
-    leaves nothing for the value reading to attach to, and every comparator
-    reads the one way.
-    """
+def test_position_converts_a_dimension_to_where_a_row_sits(text, op, position, by):
+    """`position(dim)` is the left-hand side, so every comparator reads one way (#32)."""
     node = parse_where(text)
     assert isinstance(node, UnresolvedPositionNode)
-    for attr, expected in attrs.items():
-        assert getattr(node, attr) == expected
+    assert node.dimension == 'snapshot'
+    assert node.op == op
+    assert node.position == position
+    assert node.by == by
 
 
 def test_a_position_is_not_confused_with_a_name():
@@ -190,11 +185,7 @@ def test_a_coordinate_comparison_is_still_a_value_comparison():
 
 
 def test_the_old_index_spelling_names_its_rewrite():
-    """A dropped spelling should not come back as "Expected end of text".
-
-    `index(dim, i)` is what every model wrote before #32, so the parse failure
-    it now hits is the one message most likely to be read.
-    """
+    """`index(dim, i)` is what every model wrote before #32, so this failure is read most."""
     with pytest.raises(SchemaError) as excinfo:
         parse_where('snapshot == index(snapshot, 0)')
     assert 'index() is now position()' in str(excinfo.value)

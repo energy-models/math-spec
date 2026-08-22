@@ -382,7 +382,7 @@ first:
   expression: on == 1
 ```
 
-$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( t = \mathrm{index}(\mathcal{T}, 0) \vee t = \mathrm{index}(\mathcal{T}, 0, \mathrm{season\_of}(t)) \right)$$
+$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}(t, \mathrm{season\_of}(t)) = 0 \right)$$
 
 #### `northern`
 
@@ -715,11 +715,11 @@ cost_curve:
   method: lp
 ```
 
-$$\mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b \neq \mathrm{index}(\mathcal{B}, 0)$$
+$$\mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{pos}(b) \neq 0$$
 
-$$p_{t,g} \ge \mathrm{x}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b = \mathrm{index}(\mathcal{B}, 0)$$
+$$p_{t,g} \ge \mathrm{x}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{pos}(b) = 0$$
 
-$$p_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b = \mathrm{index}(\mathcal{B}, -1)$$
+$$p_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{pos}(b) = -1$$
 
 ### Sets carried to the solver
 

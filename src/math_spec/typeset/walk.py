@@ -524,16 +524,14 @@ class Walk:
     def position(self, index: str, grouping: str | None = None) -> str:
         """``position(dim)`` as the row's place along the dimension.
 
-        An upright application of the operator to the row's index, the same
-        shape a lookup gets — rather than ``min``/``max``, which would read the
-        two ends and leave every other position without a notation. It applies
-        to the *row*, not to the set, because that is what it converts: a
-        coordinate to where that coordinate sits. *grouping* is the lookup
-        already applied to the row, and prints as a second argument so the
-        group a position is counted within is visible where the position is.
+        Applied to the *row* rather than to the set, because that is what it
+        converts: a coordinate to where that coordinate sits. *grouping* is the
+        lookup already applied to the row, and prints as a second argument so
+        the group a position is counted within is visible where the position
+        is.
         """
-        parts = [index] if grouping is None else [index, grouping]
-        return self.format.apply(self.format.upright('pos'), ', '.join(parts))
+        inner = index if grouping is None else f'{index}, {grouping}'
+        return self.format.apply(self.op('position'), inner)
 
     def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
         r"""The mask on a quantifier, as one condition.
