@@ -165,27 +165,28 @@ A `where:` is a boolean mask, and true means "this coordinate exists".
 ```text
 where_expr ::= atom | "NOT" where_expr | where_expr ("AND"|"OR") where_expr
             |  "(" where_expr ")"
-atom       ::= NAME | NAME COMPARATOR value | "True" | "False"
+atom       ::= NAME | NAME COMPARATOR value | POSITION COMPARATOR INTEGER
+            |  "True" | "False"
 COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
-value      ::= NUMBER | QUOTED | NAME_OR_STRING | POSITION
-POSITION   ::= "index" "(" NAME "," INTEGER ")"
+value      ::= NUMBER | QUOTED | NAME_OR_STRING
+POSITION   ::= "position" "(" NAME [ "," "by" "=" NAME ] ")"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
 
-| Surface                             | Names a…                         | Meaning                                                                                                                                                                                                                                     |
-| ----------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name` (bare)                       | parameter                        | what defined means is the **declaration's** to say: a `bool` is its own answer, a `str` is defined wherever the table has a row, and a number has to be finite as well — `0.0` counts, `inf` does not, though it is a value everywhere else |
-| `name` (bare)                       | variable                         | the variable exists at this coordinate — the counterpart of the parameter row, and how you say which coordinates the row-dropping rule applies to                                                                                           |
-| `name` (bare)                       | dimension                        | load error: it is true everywhere, so it reads as a condition and is not one. Compare it instead                                                                                                                                            |
-| `name OP value`                     | parameter                        | element-wise; a null compares false. The right-hand side is a literal number, or a bare name read as a string coordinate                                                                                                                    |
-| `name OP value`                     | dimension                        | a filter on the frame's own coordinate column                                                                                                                                                                                               |
-| `name` (bare)                       | lookup                           | defined: the label maps somewhere. A lookup may be [partial](dimensions.md#lookups), and this is how a declaration asks for the labels that do map                                                                                          |
-| `name OP value`                     | lookup                           | a filter on the lookup's column of its `over` dimension's index — which therefore has to be in the frame. A null value is **false**, whatever the comparator                                                                                |
-| `name OP name`                      | two lookups                      | the one comparison whose both sides are structure. Legal only where both map out of the **same** dimension _and_ into the **same** one — `from != to` excludes a self-loop                                                                  |
-| `name OP index(name, i)`            | one dimension, twice             | the coordinate at position `i` of that dimension's own order — negative counts from the end. Both names must be the **same** dimension                                                                                                      |
-| `name OP index(name, i, by=lookup)` | a dimension and a lookup over it | the same, counted **within each group** the lookup makes — every period's first snapshot, whatever each period's length                                                                                                                     |
-| `AND` `OR` `NOT`                    | —                                | case-insensitive; `NOT` binds tighter than `AND`, which binds tighter than `OR`                                                                                                                                                             |
-| `True` / `False`                    | —                                | literals; `True` is the same as no `where`                                                                                                                                                                                                  |
+| Surface                          | Names a…                         | Meaning                                                                                                                                                                                                                                     |
+| -------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name` (bare)                    | parameter                        | what defined means is the **declaration's** to say: a `bool` is its own answer, a `str` is defined wherever the table has a row, and a number has to be finite as well — `0.0` counts, `inf` does not, though it is a value everywhere else |
+| `name` (bare)                    | variable                         | the variable exists at this coordinate — the counterpart of the parameter row, and how you say which coordinates the row-dropping rule applies to                                                                                           |
+| `name` (bare)                    | dimension                        | load error: it is true everywhere, so it reads as a condition and is not one. Compare it instead                                                                                                                                            |
+| `name OP value`                  | parameter                        | element-wise; a null compares false. The right-hand side is a literal number, or a bare name read as a string coordinate                                                                                                                    |
+| `name OP value`                  | dimension                        | a filter on the frame's own coordinate column                                                                                                                                                                                               |
+| `name` (bare)                    | lookup                           | defined: the label maps somewhere. A lookup may be [partial](dimensions.md#lookups), and this is how a declaration asks for the labels that do map                                                                                          |
+| `name OP value`                  | lookup                           | a filter on the lookup's column of its `over` dimension's index — which therefore has to be in the frame. A null value is **false**, whatever the comparator                                                                                |
+| `name OP name`                   | two lookups                      | the one comparison whose both sides are structure. Legal only where both map out of the **same** dimension _and_ into the **same** one — `from != to` excludes a self-loop                                                                  |
+| `position(name) OP i`            | one dimension                    | where the row sits along that dimension's own order, as an integer — `0` is first, negative counts from the end. Both sides are integers, so every comparator reads the one way                                                             |
+| `position(name, by=lookup) OP i` | a dimension and a lookup over it | the same, counted **within each group** the lookup makes — every period's first snapshot, whatever each period's length                                                                                                                     |
+| `AND` `OR` `NOT`                 | —                                | case-insensitive; `NOT` binds tighter than `AND`, which binds tighter than `OR`                                                                                                                                                             |
+| `True` / `False`                 | —                                | literals; `True` is the same as no `where`                                                                                                                                                                                                  |
 
 The mask's dims must not exceed the frame it sits in
 ([dim algebra](#dim-algebra)), and an undeclared bare name is a
@@ -226,8 +227,8 @@ load error naming the fix. A datetime boundary is a quoted ISO date —
 `snapshot > '2030-01-01'`, or `'2030-01-01T06:00'` with a time. Calendar
 arithmetic, resampling and timezone conversion stay data prep.
 
-**`index(dim, i)` names a coordinate by where it sits**, so a boundary clause
-survives the index being relabelled:
+**`position(dim)` converts a dimension to where the row sits along it**, so a
+boundary clause survives the index being relabelled:
 
 ```yaml
 dimensions:
@@ -239,19 +240,29 @@ variables:
 constraints:
   soc_start:
     foreach: [snapshot]
-    where: "snapshot == index(snapshot, 0)" # not: snapshot == 0
+    where: "position(snapshot) == 0" # not: snapshot == 0
     expression: soc == soc_initial
 ```
 
 A recurrence needs its first position seeded, and the label that happens to be
 there is a property of the data — relabel `[0, 1, 2]` to `[1, 2, 3]` and
 `snapshot == 0` matches nothing, leaving the recurrence unanchored. `-1` is the
-last coordinate, `-2` the one before it. A position no coordinate occupies is
+last position, `-2` the one before it. A position no coordinate occupies is
 an **error at bind**, not an empty mask: the clause exists to seed a row, and
 seeding none is the failure it was written to prevent.
 
 The order counted along is the dimension's own — the one `shift` walks, and the
 one the index declares — not the bytewise order a label comparison uses.
+
+**The conversion is on the left, and that is what makes an ordering readable.**
+`position(snapshot) > 0` is "not the first row", on any axis, because both
+sides are integers. Naming the coordinate _at_ a position and comparing
+coordinates against it would have made the same clause mean either that or "a
+coordinate sorting after the first one" — two different masks wherever the
+coordinates do not arrive sorted, and nothing in a file says they do
+([#32](https://github.com/energy-models/math-spec/issues/32)). A comparison of
+_values_ is still written against the dimension itself, where it always was:
+`snapshot > '2030-01-01'`.
 
 **`by=` counts inside each group a lookup makes**, which is the boundary a
 multi-period model wants — one seeded row per period rather than one per
@@ -270,7 +281,7 @@ variables:
 constraints:
   soc_start:
     foreach: [snapshot]
-    where: "snapshot == index(snapshot, 0, by=period_of)"
+    where: "position(snapshot, by=period_of) == 0"
     expression: soc == at(soc_initial, by=period_of)
 ```
 

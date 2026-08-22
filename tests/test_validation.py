@@ -11,7 +11,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from math_spec.errors import LanguageError
+from math_spec.resolution import Namespace, where_of
 from math_spec.validation import load_model, validate_expressions
+from math_spec.where_parser import DimensionPositionNode
 
 if TYPE_CHECKING:
     from math_spec.model import Model
@@ -293,3 +296,62 @@ class TestVersion:
         bare = load_model(self._model())
         declared = load_model(self._model(version=0))
         assert bare.model_dump(exclude={'version'}) == declared.model_dump(exclude={'version'})
+
+
+class TestPositionResolves:
+    """`position(dim)` — the conversion #32 put on the left-hand side.
+
+    The dimension has to be one, and a `by=` has to be a lookup over *that*
+    dimension: the groups are its target's labels, and a lookup over anything
+    else carries no row for a position to be a position in.
+    """
+
+    @staticmethod
+    def _schema() -> Model:
+        return load_model(
+            {
+                'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int', 'values': [2030, 2040]}},
+                'lookups': {
+                    'period_of': {'over': 'snapshot', 'into': 'period'},
+                    'starts_at': {'over': 'period', 'into': 'snapshot'},
+                },
+                'parameters': {'load': {'dims': ['snapshot']}},
+                'variables': {'p': {'foreach': ['snapshot']}},
+            }
+        )
+
+    @pytest.mark.parametrize(
+        ('mask', 'position', 'by'),
+        [
+            ('position(snapshot) == 0', 0, None),
+            ('position(snapshot) > 0', 0, None),
+            ('position(snapshot) == -1', -1, None),
+            ('position(snapshot) < -2', -2, None),
+            ('position(snapshot, by=period_of) == 0', 0, 'period_of'),
+        ],
+        ids=['first', 'after the first', 'last', 'before the final two', 'first of each period'],
+    )
+    def test_it_resolves(self, mask: str, position: int, by: str | None):
+        schema = self._schema()
+        node = where_of(mask, Namespace.of(schema), 'the mask')
+        assert isinstance(node, DimensionPositionNode)
+        assert node.name == 'snapshot'
+        assert node.position == position
+        assert node.by == by
+
+    @pytest.mark.parametrize(
+        ('mask', 'fragments'),
+        [
+            ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
+            ('position(nope) == 0', ["'nope' is not declared"]),
+            ('position(snapshot, by=load) == 0', ['groups by', '``by=`` takes a lookup']),
+            ('position(snapshot, by=starts_at) == 0', ["along 'snapshot'", "lookup over 'period'"]),
+        ],
+        ids=['a parameter', 'undeclared', 'by= is not a lookup', 'by= is over another dim'],
+    )
+    def test_it_refuses(self, mask: str, fragments: list[str]):
+        schema = self._schema()
+        with pytest.raises(LanguageError) as excinfo:
+            where_of(mask, Namespace.of(schema), 'the mask')
+        for fragment in fragments:
+            assert fragment in str(excinfo.value)

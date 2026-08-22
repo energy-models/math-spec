@@ -77,7 +77,7 @@
 \text{total} && \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} & \le \mathit{budget} \\
 \text{scalar} && \mathit{units}_{g} & \le \mathit{budget} && \forall\, g \in \mathcal{G} \,:\, \mathit{cost}_{g} \text{ is defined} \\
 \text{running} && \mathit{theta}_{b} & \le \mathit{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathit{theta}_{b} \text{ exists} \wedge t \ge 3 \\
-\text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( t = \mathrm{index}(\mathcal{T}, 0) \vee t = \mathrm{index}(\mathcal{T}, 0, \mathrm{season\_of}(t)) \right) \\
+\text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}(t, \mathrm{season\_of}(t)) = 0 \right) \\
 \text{northern} && \mathit{slack}_{t} & \le \mathit{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \top \\
 \text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot
