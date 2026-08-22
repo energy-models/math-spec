@@ -119,6 +119,9 @@ class LatexFormat:
     def parenthesise(self, inner: str) -> str:
         return rf'\left( {inner} \right)'
 
+    def cardinality(self, inner: str) -> str:
+        return rf'\lvert {inner} \rvert'
+
     def fraction(self, numerator: str, denominator: str) -> str:
         return rf'\frac{{{numerator}}}{{{denominator}}}'
 

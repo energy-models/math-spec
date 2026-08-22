@@ -129,6 +129,9 @@ class TypstFormat:
     def parenthesise(self, inner: str) -> str:
         return f'({inner})'
 
+    def cardinality(self, inner: str) -> str:
+        return f'abs({inner})'
+
     def fraction(self, numerator: str, denominator: str) -> str:
         return f'frac({numerator}, {denominator})'
 
