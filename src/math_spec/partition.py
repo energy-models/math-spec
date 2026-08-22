@@ -2,28 +2,28 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Does a set of case masks partition a constraint's rows? Decided without data.
+"""Do a named expression's cases partition its frame? Decided without data.
 
-A constraint with ``cases:`` is one rule whose expression varies by region. It
-is *one* constraint — one name, one row per coordinate, one dual — only if the
-cases claim each row **exactly once**. That claim is decidable here, before any
-data binds, which is rule 2 in a new position.
+A named expression with ``cases:`` is one quantity whose value varies by
+region — the regime a unit is in, which end of the horizon a row sits at. It is
+*one* quantity, with one value per coordinate, only if the cases claim each
+coordinate **exactly once**. That claim is decidable here, before any data
+binds, which is rule 2 in a new position.
 
-Two obligations, both conditioned on the constraint's own ``where`` (the rows
-that exist at all), and both the same unsatisfiability question:
+Three obligations, all the same unsatisfiability question:
 
-* **disjoint** — ``where AND case_i AND case_j`` is unsatisfiable, for every pair
-* **exhaustive** — ``where AND NOT (case_1 OR ... OR case_n)`` is unsatisfiable
+* **disjoint** — ``case_i AND case_j`` is unsatisfiable, for every pair. Two
+  values at one coordinate is not a quantity.
+* **exhaustive** — ``NOT (case_1 OR ... OR case_n)`` is unsatisfiable. An
+  expression is **total** over its ``foreach``: a gap would leave it undefined,
+  and rule 7 would spread that to every constraint referencing it, silently
+  deleting rows the constraint never masked.
+* **no dead case** — ``case_i`` alone is satisfiable. A case that claims
+  nothing is a mistake rather than a no-op.
 
-and one that falls out of the same machinery for free:
-
-* **no dead case** — ``where AND case_i`` unsatisfiable means that block builds
-  no rows, which is a mistake rather than a no-op.
-
-Conditioning matters in both directions. Two cases that overlap somewhere the
-``where`` already excludes are *not* an ambiguity, and an unconditional check
-would refuse them; a ``where`` wider than the cases cover is a real gap that a
-"the rows are whatever the cases claim" reading could not even express.
+Nothing is conditioned on a mask, because an expression carries none: it is
+total or it is refused. That is what keeps a constraint's row set readable at
+the constraint, which is the whole reason the cases sit here rather than there.
 
 Every atom in the where-grammar talks about exactly one **subject** — a
 parameter, a dimension's coordinates, a dimension's *rank*, a lookup, a pair of
@@ -35,19 +35,18 @@ that no data can produce.
 So each subject is split into **cells** — finitely many regions its value can
 sit in, chosen so that every atom over that subject is constant on each cell.
 The cells of all subjects are multiplied out and each mask is evaluated on each
-cell. A cell where two cases are true is a witness for overlap; a cell inside
-``where`` where none is, a witness for a gap. Because the cells cover every
-value the subject can take, "no witness" is a proof and not a sample.
+cell. A cell where two cases are true is a witness for overlap; a cell where
+none is, a witness for a gap. Because the cells cover every value the subject
+can take, "no witness" is a proof and not a sample.
 
 Independence between subjects is an **over**-approximation: the product of
 cells contains worlds the data may never produce, so a spurious world can only
 manufacture a witness, never hide one. Every outcome here is therefore
-conservative — this refuses groups that would have been fine, and admits none
-that would not.
+conservative — this refuses case sets that would have been fine, and admits
+none that would not.
 
-Not wired into the schema: ``cases:`` is not a key the model accepts yet
-(energy-models/math-spec#2), and which spelling it lands on does not change
-anything below.
+Not wired into the schema: ``cases:`` is not a key ``expressions:`` accepts
+yet (energy-models/math-spec#2). This is the decision procedure only.
 """
 
 from __future__ import annotations
@@ -83,7 +82,7 @@ if TYPE_CHECKING:
 
 #: The product of every subject's cells is enumerated, so the bound is on the
 #: product rather than on any one subject. Real masks carry two to four atoms;
-#: a group that blows this is telling you it is several constraints.
+#: an expression that blows this is telling you it is several expressions.
 CELL_BUDGET = 8192
 
 #: The dtypes an ordering is decided against. Everything else compares only
@@ -163,7 +162,7 @@ Witness = dict[str, str]
 
 @dataclass(frozen=True)
 class Overlap:
-    """Two cases that can both claim one row."""
+    """Two cases that can both claim one coordinate."""
 
     cases: tuple[str, str]
     witness: Witness
@@ -190,9 +189,9 @@ class Verdict:
         parts = []
         for overlap in self.overlaps:
             first, second = overlap.cases
-            parts.append(f"cases '{first}' and '{second}' both claim a row where {_render(overlap.witness)}")
-        parts.extend(f'no case claims the row where {_render(gap)}' for gap in self.gaps)
-        parts.extend(f"case '{name}' builds no rows" for name in self.dead)
+            parts.append(f"cases '{first}' and '{second}' both claim the value where {_render(overlap.witness)}")
+        parts.extend(f'no case claims the value where {_render(gap)}' for gap in self.gaps)
+        parts.extend(f"case '{name}' claims nothing" for name in self.dead)
         return '; '.join(parts)
 
 
@@ -202,9 +201,12 @@ def _render(witness: Witness) -> str:
 
 @dataclass(frozen=True)
 class Case:
-    """One case of a group: a mask, and the name the LaTeX prints beside it.
+    """One case of an expression: its ``when``, and the name the LaTeX prints.
 
-    Every case carries a mask; ``not (x)`` is how the complement is written.
+    Every case carries a ``when``; ``NOT (x)`` is how the complement is
+    written. The key is not ``where`` because a case selects which value a
+    coordinate takes — it creates no absence and deletes no row, which is what
+    ``where`` means everywhere else (rule 6).
     """
 
     name: str
@@ -216,13 +218,11 @@ class Case:
 # ---------------------------------------------------------------------------
 
 
-def check_partition(where: WhereNode | None, cases: Iterable[Case], schema: Model) -> Verdict:
-    """Decide whether *cases* partition the rows *where* builds.
+def check_partition(cases: Iterable[Case], schema: Model) -> Verdict:
+    """Decide whether *cases* partition the expression's frame.
 
     Args:
-        where: The constraint's own mask — the rows that exist. ``None`` is
-            everything the ``foreach`` spans.
-        cases: The cases, in declaration order, each with its own mask.
+        cases: The cases, in declaration order, each with its own ``when``.
         schema: Read for dtypes, and for the declared ``values:`` that give a
             dimension a statically known extent.
 
@@ -231,20 +231,20 @@ def check_partition(where: WhereNode | None, cases: Iterable[Case], schema: Mode
         docstring.
     """
     try:
-        return _decide(where, list(cases), schema)
+        return _decide(list(cases), schema)
     except Undecidable as exc:
         return Verdict(Status.UNDECIDED, reason=str(exc))
 
 
 #: How many witnesses a verdict carries. The loop runs to the end whatever
 #: happens — the dead-case check needs every hit — so this bounds the *rendering*
-#: rather than the search, and a mask with a wide `where` and narrow cases would
+#: rather than the search, and cases covering a thin slice of a wide frame would
 #: otherwise render one witness per uncovered cell and throw all but these away.
 _WITNESSES = 4
 
 
-def _decide(where: WhereNode | None, cases: list[Case], schema: Model) -> Verdict:
-    frame = _Frame.of([where, *(case.when for case in cases)], schema)
+def _decide(cases: list[Case], schema: Model) -> Verdict:
+    frame = _Frame.of([case.when for case in cases], schema)
     if frame.size > CELL_BUDGET:
         return Verdict(
             Status.UNDECIDED,
@@ -256,8 +256,6 @@ def _decide(where: WhereNode | None, cases: list[Case], schema: Model) -> Verdic
     gaps: list[Witness] = []
     live: set[str] = set()
     for cell in frame.cells():
-        if not _evaluate(where, cell, frame):
-            continue
         hits = [case.name for case in cases if _evaluate(case.when, cell, frame)]
         if len(hits) > 1:
             if len(overlaps) < _WITNESSES:
