@@ -16,6 +16,8 @@ printing different math — fails CI rather than going stale here.
 
 - [Least-cost dispatch](dispatch.md) — the smallest model that is a model: a
   balance, a bound, and a cost to minimise.
+- [Unit commitment](commitment.md) — a start-up ramp, and the quantity defined
+  by region that lets one inequality cover both regimes.
 - [One construct per model](operators.md) — the operator probes: the smallest
   file that declares each built-in, beside the equation it renders.
 

@@ -126,6 +126,7 @@ $\mathrm{pos}(t)$ denotes where index $t$ sits along its dimension's own order �
 $\mathrm{pos}_{\mathrm{lookup}(t)}(t)$ counts within the group a lookup puts $t$ in: the subscript names the map, $\mathcal{T}_{\mathrm{lookup}(t)}$ is the group it lands in, and that group has a first position of its own.
 
 $\lvert \mathcal{T} \rvert$ denotes the size of the set being counted along, and a position counted from the end prints against it — $\lvert \mathcal{T} \rvert - 1$ is the last position, one less than the size because the first is $0$.
+
 ### Named expressions
 
 A named expression is substituted where its name is used, so it prints nothing under its own name — its math is in the row of the constraint that names it. `cases:` is why the page shows the block: a value defined by region is a construct, and the regions read beside the declaration rather than at the use site.

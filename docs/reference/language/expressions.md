@@ -400,6 +400,9 @@ dims fall out of its body; a cased one's cannot, because no single case gives
 them — `always_on` above is a scalar while its `when` is not. Each case's value
 and each `when` must sit **inside** that frame; neither may widen it.
 
+[`examples/commitment.yaml`](../../examples/commitment.md) is the whole model
+this comes from, beside the math it prints.
+
 **A reference carries the regions with it.** `no_restart` above names the
 quantity once, so the inequality is written once and the case conditions ride
 along into what it prints:

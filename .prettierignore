@@ -21,6 +21,7 @@ CHANGELOG.md
 # Same rule as CHANGELOG.md above: the generator wins where nobody edits by
 # hand. `index.md` is not listed — it carries no generated block.
 docs/examples/dispatch.md
+docs/examples/commitment.md
 docs/examples/operators.md
 
 # `tools/notation.py` writes this page's block, and it is the same trap: the
