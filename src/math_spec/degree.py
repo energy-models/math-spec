@@ -52,6 +52,7 @@ from typing import assert_never
 from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -106,7 +107,7 @@ def carries_variable(node: ExpressionNode) -> bool:
             f'through resolution.expression_of() first (docs/about/architecture.md hard rule 1).'
         )
         raise AssertionError(msg)
-    if isinstance(node, (UnaryOperatorNode, BinaryOperatorNode, ComparisonNode, FunctionCallNode)):
+    if isinstance(node, (UnaryOperatorNode, BinaryOperatorNode, ComparisonNode, FunctionCallNode, CasesNode)):
         return any(carries_variable(c) for c in children(node))
     assert_never(node)
 

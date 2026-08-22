@@ -122,6 +122,10 @@ class LatexFormat:
     def fraction(self, numerator: str, denominator: str) -> str:
         return rf'\frac{{{numerator}}}{{{denominator}}}'
 
+    def cases(self, arms: list[tuple[str, str]]) -> str:
+        rows = r' \\ '.join(rf'{value} & \text{{if }} {condition}' for value, condition in arms)
+        return rf'\begin{{cases}} {rows} \end{{cases}}'
+
     def summation(self, domain: str, body: str) -> str:
         return rf'\sum_{{{domain}}} {body}'
 

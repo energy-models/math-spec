@@ -60,6 +60,8 @@ from math_spec.errors import (
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CaseArm,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -121,6 +123,8 @@ __all__ = [
     'BinaryOperatorNode',
     'BooleanLiteralNode',
     'Buildable',
+    'CaseArm',
+    'CasesNode',
     'ComparisonNode',
     'DimensionComparisonNode',
     'DimensionError',

@@ -139,6 +139,10 @@ $$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \i
 
 $$\mathit{slack}_{t} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
 
+**`started`**
+
+$$\mathit{slack}_{t} \ge \mathit{on}_{t,g} \cdot \begin{cases} \mathit{cost}_{g} \cdot p^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathit{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 **`always`**
 
 $$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \top$$

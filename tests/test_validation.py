@@ -7,12 +7,16 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
+import re
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
-from math_spec.errors import LanguageError
-from math_spec.resolution import Namespace, where_of
+from math_spec._yaml import parse_yaml
+from math_spec.dimensions import DimensionError
+from math_spec.errors import LanguageError, SchemaError
+from math_spec.expression_parser import BinaryOperatorNode, CasesNode, ComparisonNode, FunctionCallNode
+from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import load_model, validate_expressions
 from math_spec.where_parser import DimensionPositionNode
 
@@ -355,3 +359,161 @@ class TestPositionResolves:
             where_of(mask, Namespace.of(schema), 'the mask')
         for fragment in fragments:
             assert fragment in str(excinfo.value)
+
+
+class TestExpressionCases:
+    """`cases:` on a named expression — the declaration and what it must prove.
+
+    The partition itself is `tests/test_partition.py`; these are the rules the
+    block carries: which forms load, which dims are legal, and that a case set
+    that is not a partition is a load error rather than a build-time surprise.
+    """
+
+    @staticmethod
+    def _schema(**cases: dict[str, str]) -> dict[str, Any]:
+        return {
+            'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
+            'parameters': {
+                'committable': {'dims': ['generator'], 'dtype': 'bool'},
+                'status_initial': {'dims': ['generator']},
+                'load': {'dims': ['snapshot']},
+            },
+            'variables': {'status': {'foreach': ['snapshot', 'generator']}},
+            'expressions': {'previous_status': {'foreach': ['snapshot', 'generator'], 'cases': cases}},
+        }
+
+    #: The quantity #2 factors a PyPSA ramp limit into: three regimes, one of
+    #: them a scalar, so no single case gives the frame.
+    PREVIOUS_STATUS: ClassVar[dict[str, dict[str, str]]] = {
+        'always_on': {'when': 'not committable', 'expression': '1'},
+        'boundary': {'when': 'committable and position(snapshot) == 0', 'expression': 'status_initial'},
+        'interior': {
+            'when': 'committable and position(snapshot) > 0',
+            'expression': 'shift(status, over=snapshot, offset=1)',
+        },
+    }
+
+    def test_a_partition_loads(self):
+        validate_expressions(load_model(self._schema(**self.PREVIOUS_STATUS)))
+
+    def test_it_round_trips(self):
+        """The written form survives `to_yaml`, cases and all."""
+        schema = load_model(self._schema(**self.PREVIOUS_STATUS))
+        again = load_model(parse_yaml(schema.to_yaml(), 'round trip'))
+        assert again.expressions['previous_status'].cases.keys() == self.PREVIOUS_STATUS.keys()
+        assert again.expressions['previous_status'].foreach == ['snapshot', 'generator']
+        assert again.expressions['previous_status'].cases['always_on'].when == 'not committable'
+
+    def test_a_constant_case_may_be_written_as_a_number(self):
+        """`expression: 1` is the ordinary spelling, and YAML reads it as an int.
+
+        A constant is the most common case body there is, so quoting it to
+        satisfy the annotation would be a papercut on the ordinary file. A
+        boolean still fails: `true` is not arithmetic.
+        """
+        cases = dict(self.PREVIOUS_STATUS)
+        cases['always_on'] = {'when': 'not committable', 'expression': 1}
+        model = load_model(self._schema(**cases))
+        validate_expressions(model)
+        assert model.expressions['previous_status'].cases['always_on'].expression == '1'
+
+        cases['always_on'] = {'when': 'not committable', 'expression': True}
+        with pytest.raises(SchemaError, match='valid string'):
+            load_model(self._schema(**cases))
+
+    def test_a_gap_is_a_load_error(self):
+        cases = {k: v for k, v in self.PREVIOUS_STATUS.items() if k != 'interior'}
+        with pytest.raises(SchemaError, match='do not partition'):
+            validate_expressions(load_model(self._schema(**cases)))
+
+    def test_an_overlap_is_a_load_error(self):
+        cases = dict(self.PREVIOUS_STATUS)
+        cases['boundary'] = {'when': 'position(snapshot) == 0', 'expression': 'status_initial'}
+        with pytest.raises(SchemaError, match='do not partition'):
+            validate_expressions(load_model(self._schema(**cases)))
+
+    @pytest.mark.parametrize(
+        ('block', 'fragment'),
+        [
+            ({'expression': 'load', 'cases': {'a': {'when': 'True', 'expression': 'load'}}}, 'has both'),
+            ({'foreach': ['snapshot'], 'description': 'no value at all'}, 'has neither'),
+            ({'cases': {'a': {'when': 'True', 'expression': 'load'}}}, '`cases:` needs a `foreach:`'),
+            ({'foreach': ['snapshot'], 'expression': 'load'}, '`foreach:` is only for'),
+        ],
+        ids=['both forms', 'neither form', 'cases without foreach', 'foreach without cases'],
+    )
+    def test_the_two_forms_do_not_mix(self, block: dict[str, Any], fragment: str):
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['expressions'] = {'x': block}
+        with pytest.raises(SchemaError, match=re.escape(fragment)):
+            load_model(schema)
+
+    def test_a_case_may_not_widen_the_frame(self):
+        """A case is a value *within* the frame — the `when` cannot reach outside it.
+
+        Reported by the same check, in the same words, that holds a variable's
+        or a constraint's mask to its frame: a `when` is a mask like any other.
+        """
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['expressions']['previous_status']['foreach'] = ['generator']
+        with pytest.raises(DimensionError, match="not in the frame \\['generator'\\]"):
+            validate_expressions(load_model(schema))
+
+    def test_a_constraint_names_it_and_gets_the_cases(self):
+        """What the feature is for: the inequality is written once, the value by region.
+
+        The name expands to a node carrying every arm rather than to one body,
+        which is what a reference to a quantity with a value per region has to
+        mean. The partition proved on the declaration is what makes that node
+        a value: exactly one arm applies at each coordinate.
+        """
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['constraints'] = {'c': {'foreach': ['snapshot', 'generator'], 'expression': 'status <= previous_status'}}
+        model = load_model(schema)
+        validate_expressions(model)
+        node = expression_of(model.constraints['c'].expression, model, Namespace.of(model), "Constraint 'c'")
+        assert isinstance(node, ComparisonNode)
+        assert isinstance(node.right, CasesNode)
+        assert [arm.label for arm in node.right.arms] == list(self.PREVIOUS_STATUS)
+
+    def test_it_carries_the_frame_it_declares(self):
+        """The declared `foreach`, not the union of the arms.
+
+        `always_on` is a scalar and `boundary` a column, so a quantity taking
+        its shape from the arms would fit a constraint over `snapshot` alone.
+        It does not: the cases partition the frame, so the frame is the shape.
+        """
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['constraints'] = {'c': {'foreach': ['snapshot'], 'expression': 'load <= previous_status'}}
+        with pytest.raises(DimensionError, match='generator'):
+            validate_expressions(load_model(schema))
+
+    def test_a_macro_may_name_one(self):
+        """A template reaching a cased expression carries its arms to the call site."""
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['macros'] = {'step': {'args': ['now'], 'template': 'now - previous_status'}}
+        schema['constraints'] = {'c': {'foreach': ['snapshot', 'generator'], 'expression': 'step(status) <= 1'}}
+        model = load_model(schema)
+        validate_expressions(model)
+        node = expression_of(model.constraints['c'].expression, model, Namespace.of(model), "Constraint 'c'")
+        assert isinstance(node, ComparisonNode)
+        assert isinstance(node.left, BinaryOperatorNode)
+        assert isinstance(node.left.right, CasesNode)
+
+    def test_an_arm_may_name_another_expression(self):
+        """Substitution runs through the arms, so a case body is a body like any other."""
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['expressions']['carried_over'] = {'expression': 'shift(status, over=snapshot, offset=1)'}
+        schema['expressions']['previous_status']['cases']['interior'] = {
+            'when': 'committable and position(snapshot) > 0',
+            'expression': 'carried_over',
+        }
+        schema['constraints'] = {'c': {'foreach': ['snapshot', 'generator'], 'expression': 'status <= previous_status'}}
+        model = load_model(schema)
+        validate_expressions(model)
+        node = expression_of(model.constraints['c'].expression, model, Namespace.of(model), "Constraint 'c'")
+        assert isinstance(node, ComparisonNode)
+        assert isinstance(node.right, CasesNode)
+        interior = next(arm for arm in node.right.arms if arm.label == 'interior')
+        assert isinstance(interior.value, FunctionCallNode)
+        assert interior.value.name == 'shift'

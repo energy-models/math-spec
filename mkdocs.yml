@@ -29,6 +29,7 @@ nav:
   - Examples:
       - examples/index.md
       - Least-cost dispatch: examples/dispatch.md
+      - Unit commitment: examples/commitment.md
       - One construct per model: examples/operators.md
   - Reference:
       - Language:
