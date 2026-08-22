@@ -9,7 +9,7 @@
 
 \paragraph{Sets}
 \begin{description}
-\item[$\mathcal{T}$] index $t$ --- \texttt{snapshot} with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$
+\item[$\mathcal{T}$] index $t$ --- \texttt{snapshot} (\texttt{int} coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$
 \item[$\mathcal{G}$] index $g$ --- \texttt{generator} with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$
 \item[$\mathcal{B}$] index $b$ --- \texttt{bus} with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$
 \item[$\mathcal{Z}$] index $z$ --- \texttt{zone}
@@ -56,6 +56,12 @@
 
 \noindent $t \ominus^{\mathrm{lookup}(t)} k$ denotes a translation counted inside the group a lookup puts $t$ in (\texttt{shift(by=lookup)}), so a term never crosses out of its own group. The two modifiers take different slots --- the group above, the fill below --- so $t \boxminus_{v}^{\mathrm{lookup}(t)} k$ is both at once.
 
+\noindent $\mathrm{pos}(t)$ denotes where index $t$ sits along its dimension's own order --- the order \texttt{shift} walks, not the order labels sort in --- counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $\mathrm{pos}(t)$ against positions.
+
+\noindent $\mathrm{pos}_{\mathrm{lookup}(t)}(t)$ counts within the group a lookup puts $t$ in: the subscript names the map, $\mathcal{T}_{\mathrm{lookup}(t)}$ is the group it lands in, and that group has a first position of its own.
+
+\noindent $\lvert \mathcal{T} \rvert$ denotes the size of the set being counted along, and a position counted from the end prints against it --- $\lvert \mathcal{T} \rvert - 1$ is the last position, one less than the size because the first is $0$.
+
 \paragraph{Objective}
 \begin{align}
  && \max & \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \cdot \mathrm{growth}^{\mathrm{lead}_{g}} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{p}^{\mathrm{max}}_{g} - \mathit{reserve} - \mathit{headroom}
@@ -82,7 +88,8 @@
 \text{total} && \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} & \le \mathrm{budget} \\
 \text{scalar} && \mathit{units}_{g} & \le \mathrm{budget} && \forall\, g \in \mathcal{G} \,:\, \mathrm{cost}_{g} \text{ is defined} \\
 \text{running} && \theta_{b} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \theta_{b} \text{ exists} \wedge t \ge 3 \\
-\text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}(t, \mathrm{season\_of}(t)) = 0 \right) \\
+\text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = 0 \right) \\
+\text{last} && \mathit{on}_{t,g} & = 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{pos}(t) = \lvert \mathcal{T} \rvert - 1 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = \lvert \mathcal{T}_{\mathrm{season\_of}(t)} \rvert - 1 \right) \\
 \text{northern} && \mathit{slack}_{t} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined} \\
 \text{efficiency} && p_{t,g} & \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\

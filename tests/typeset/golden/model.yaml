@@ -154,6 +154,10 @@ constraints:
     foreach: [snapshot, generator]
     where: "position(snapshot) == 0 OR position(snapshot, by=season_of) == 0"
     expression: on == 1
+  last: # the same two counted from the end, which print against a size rather than as themselves
+    foreach: [snapshot, generator]
+    where: "position(snapshot) == -1 OR position(snapshot, by=season_of) == -1"
+    expression: on == 0
   northern: # a lookup compared to a label, to another lookup, and to nothing
     foreach: [snapshot, bus]
     where: "zone_of == 'north' AND zone_of != area_of AND zone_of"
