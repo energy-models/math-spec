@@ -90,6 +90,7 @@ class TypstFormat:
         'integers': 'ZZ',
         'binary_set': '{0, 1}',
         'sos_set': 'upright("SOS")',
+        'position': 'upright("pos")',
         'minimize': 'min',
         'maximize': 'max',
     }

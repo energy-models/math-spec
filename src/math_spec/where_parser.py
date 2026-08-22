@@ -20,6 +20,7 @@ future-import requires reordering the definitions.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -66,16 +67,15 @@ class UnresolvedComparisonNode:
 
 @dataclass
 class UnresolvedPositionNode:
-    """``lhs <op> index(dim, i)`` before either name is checked.
+    """``position(dim) <op> i`` before the name is checked.
 
-    Kept apart from :class:`UnresolvedComparisonNode` because its right-hand
-    side names a dimension *and* a position, which no literal can carry.
-    ``resolution.py`` types it into :class:`DimensionPositionNode`.
+    Kept apart from :class:`UnresolvedComparisonNode` because its left-hand
+    side is not a name but an *application* to one, which no bare name can
+    carry. ``resolution.py`` types it into :class:`DimensionPositionNode`.
     """
 
-    name: str
-    op: PredicateOperator
     dimension: str
+    op: PredicateOperator
     position: int
     by: str | None = None
 
@@ -119,16 +119,22 @@ class DimensionComparisonNode:
 
 @dataclass
 class DimensionPositionNode:
-    """Compare a dimension's coordinates against one named by *position*.
+    """Compare where a row sits along a dimension against a position.
 
-    ``where: "snapshot == index(snapshot, 0)"`` — the boundary of a recurrence
-    named by where it sits rather than by the label that happens to be there,
-    so the clause survives the index being relabelled. Negative counts from
-    the end, ``-1`` being the last.
+    ``where: "position(snapshot) == 0"`` — the boundary of a recurrence named
+    by where it sits rather than by the label that happens to be there, so the
+    clause survives the index being relabelled. Negative counts from the end,
+    ``-1`` being the last.
+
+    **Both sides are integers**, which is what makes every comparator read one
+    way. Naming the coordinate *at* a position and comparing coordinates
+    against it left an ordering meaning either that or a comparison of
+    positions, and the two part company on an axis whose coordinates do not
+    arrive sorted (#32).
 
     With ``by`` it is the boundary of *each group* the lookup makes —
-    ``index(snapshot, 0, by=period_of)`` is every period's first snapshot, and
-    a row reads its own group's, the broadcast ``at(by=)`` already defines.
+    ``position(snapshot, by=period_of) == 0`` is every period's first snapshot,
+    and a row reads its own group's, the broadcast ``at(by=)`` already defines.
 
     Resolved rather than lowered to a literal: which label sits at a position
     is a property of the *data*, so the position travels and each lane reads
@@ -244,35 +250,17 @@ def _bare(value: float | str) -> float | str:
     return str(value) if isinstance(value, _Quoted) else value
 
 
-def _position(tokens: pp.ParseResults) -> _Position:
-    """``index(dim, i)`` off the tokens the grammar captured, ``by=`` included."""
-    by = str(tokens[2]) if len(tokens) > 2 else None
-    return _Position(str(tokens[0]), int(cast('float', tokens[1])), by)
+def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
+    """``position(dim[, by=lookup]) <op> i`` off the tokens the grammar captured."""
+    *call, op, at = tokens
+    dimension, by = call[0], call[1] if len(call) > 1 else None
+    return UnresolvedPositionNode(
+        str(dimension), cast('PredicateOperator', op), int(cast('float', at)), None if by is None else str(by)
+    )
 
 
-@dataclass(frozen=True)
-class _Position:
-    """``index(dim, i)`` as the grammar saw it, before any name is checked.
-
-    Like :class:`_Quoted` this lives between the grammar and the comparison's
-    parse action: which dimension the left-hand side names is resolution's
-    business, so the triple travels only that far.
-    """
-
-    dimension: str
-    at: int
-    by: str | None = None
-
-
-def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode | UnresolvedPositionNode:
-    """The comparison node one right-hand side asks for.
-
-    A position is its own node from the start because it is the one right-hand
-    side that is neither a literal nor a name — nothing downstream could tell
-    it from a parameter called ``index``.
-    """
-    if isinstance(value, _Position):
-        return UnresolvedPositionNode(name, op, value.dimension, value.at, value.by)
+def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode:
+    """The comparison node a name-against-a-literal right-hand side asks for."""
     return UnresolvedComparisonNode(name, op, _bare(value), quoted=isinstance(value, _Quoted))
 
 
@@ -305,25 +293,33 @@ def _build_where_grammar() -> pp.ParserElement:
     )
 
     grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name
-    index_call = (
-        pp.Suppress(pp.Keyword('index'))
-        + pp.Suppress('(')
-        + name
-        + pp.Suppress(',')
-        + integer
-        + pp.Optional(grouped_by)
-        + pp.Suppress(')')
-    ).set_parse_action(_position)
-
     comparator = pp.one_of('<= >= == != < >')
-    comparison = (name + comparator + (index_call | number | quoted | name)).set_parse_action(
+
+    # Leads the `atom` alternation below: `position` would otherwise be taken
+    # for a bare name. See `DimensionPositionNode` for why it converts on the
+    # left rather than naming the coordinate at a position (#32).
+    position_call = (
+        pp.Suppress(pp.Keyword('position')) + pp.Suppress('(') + name + pp.Optional(grouped_by) + pp.Suppress(')')
+    )
+    position_comparison = (position_call + comparator + integer).set_parse_action(_position_comparison)
+
+    comparison = (name + comparator + (number | quoted | name)).set_parse_action(
         # pyrefly: ignore[implicit-any-lambda]
         lambda t: _comparison(t[0], t[1], t[2])
     )
     # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
 
-    atom = true_lit | false_lit | comparison | existence | (pp.Suppress('(') + where_expr + pp.Suppress(')'))
+    # `position_comparison` leads: it starts with a keyword that `existence`
+    # would otherwise take for a bare name, and `comparison` for a parameter.
+    atom = (
+        true_lit
+        | false_lit
+        | position_comparison
+        | comparison
+        | existence
+        | (pp.Suppress('(') + where_expr + pp.Suppress(')'))
+    )
 
     NOT = pp.CaselessKeyword('NOT').suppress()
     # pyrefly: ignore[implicit-any-lambda]
@@ -360,6 +356,16 @@ def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResult
 
 _WHERE_GRAMMAR = _build_where_grammar()
 
+#: The spelling this grammar dropped, and its rewrite (#32). A retired syntax
+#: speaks before the generic mismatch, the same way a retired kwarg does in
+#: `operators.call_shape_error`: "Expected end of text, found '('" is what every
+#: model written against the old spelling would otherwise get.
+_INDEX_CALL = re.compile(r'\bindex\s*\(')
+_INDEX_REWRITE = (
+    "\n\n  index() is now position(), and converts on the left: write 'position(dim) == i' "
+    "for 'dim == index(dim, i)', and 'position(dim, by=lookup) == i' for the grouped form."
+)
+
 
 def parse_where(text: str) -> WhereNode:
     """Parse a where string into an AST.
@@ -371,5 +377,7 @@ def parse_where(text: str) -> WhereNode:
         result = _WHERE_GRAMMAR.parse_string(text, parse_all=True)
     except pp.ParseException as e:
         msg = f'Failed to parse where string: {text!r}\n{e}'
+        if _INDEX_CALL.search(text):
+            msg += _INDEX_REWRITE
         raise SchemaError(msg) from e
     return cast('WhereNode', result[0])
