@@ -179,12 +179,24 @@ def _expand(
 
 
 def _parse_named(name: str, schema: Model, context: str) -> ArithmeticNode:
-    body = parse_expression(schema.expressions[name].expression)
-    if isinstance(body, ComparisonNode):
+    block = schema.expressions[name]
+    if block.cases:
+        # Substitution puts one body where the name stood, and a cased
+        # expression has one per region. What a reference expands to — a core
+        # node carrying the cases, or a constraint whose rows are built per
+        # region — is the open half of energy-models/math-spec#2, so the
+        # declaration is checked and the reference is refused rather than
+        # guessed at.
         msg = (
-            f"{context}: named expression '{name}' must not contain a "
-            f'comparison operator. Got: {schema.expressions[name].expression!r}'
+            f"named expression '{name}' has `cases:`, which cannot be referenced yet — "
+            f'a reference substitutes one value and this quantity has one per region. '
+            f'Declare it without cases, or inline the case you mean.'
         )
+        raise SchemaError(msg)
+    assert block.expression is not None
+    body = parse_expression(block.expression)
+    if isinstance(body, ComparisonNode):
+        msg = f"{context}: named expression '{name}' must not contain a comparison operator. Got: {block.expression!r}"
         raise SchemaError(msg)
     return body
 

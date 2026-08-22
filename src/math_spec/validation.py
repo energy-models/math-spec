@@ -48,10 +48,11 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from math_spec.model import Model
+from math_spec.model import ExpressionBlock, Model
 from math_spec.operators import BUILTINS, unknown_operator_message
+from math_spec.partition import Case, check_partition
 from math_spec.resolution import Namespace, resolve_expression, resolve_where
-from math_spec.where_parser import parse_where
+from math_spec.where_parser import WhereNode, parse_where
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -135,7 +136,12 @@ def validate_expressions(schema: Model) -> None:
         _check_template_names(body_ast, macro.template, context, ns, formals, errors)
 
     for ename, block in schema.expressions.items():
-        _check_expression(block.expression, schema, ns, f"Named expression '{ename}'", errors, comparison=False)
+        context = f"Named expression '{ename}'"
+        if block.cases:
+            _check_cases(ename, block, schema, ns, errors)
+        else:
+            assert block.expression is not None
+            _check_expression(block.expression, schema, ns, context, errors, comparison=False)
 
     for vname, vdef in schema.variables.items():
         _check_where(vdef.where, ns, f"Variable '{vname}'", errors)
@@ -259,6 +265,41 @@ def _parse_expand(
     except ValueError as e:
         errors.append(f'{context}: {e}')
         return None
+
+
+def _check_cases(name: str, block: ExpressionBlock, schema: Model, ns: Namespace, errors: list[str]) -> None:
+    """Every case resolves, sits inside the frame, and together they partition it.
+
+    The partition is the whole claim: one value per coordinate makes this *one*
+    quantity, and a value at every coordinate makes it total — which is what
+    lets a constraint referencing it keep a row set readable at the constraint
+    (:mod:`math_spec.partition`).
+    """
+    masks: list[Case] = []
+    for case_name, case in block.cases.items():
+        context = f"Named expression '{name}', case '{case_name}'"
+        _check_expression(case.expression, schema, ns, context, errors, comparison=False)
+        mask = _resolved_when(case.when, ns, context, errors)
+        if mask is not None:
+            masks.append(Case(case_name, mask))
+
+    if len(masks) != len(block.cases):
+        return  # a `when` did not resolve, so the partition would misreport
+    verdict = check_partition(masks, schema)
+    if not verdict.ok:
+        frame = sorted(block.foreach or [])
+        errors.append(f"Named expression '{name}': the cases do not partition {frame} — {verdict.message()}")
+
+
+def _resolved_when(text: str, ns: Namespace, context: str, errors: list[str]) -> WhereNode | None:
+    before = len(errors)
+    try:
+        node = parse_where(text)
+    except ValueError as e:
+        errors.append(f'{context}: {e}')
+        return None
+    resolved = resolve_where(node, ns, context, errors)
+    return None if len(errors) > before else resolved
 
 
 def _check_expression(

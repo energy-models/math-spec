@@ -127,6 +127,14 @@
           "additionalProperties": false,
           "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Model.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nThe description matters more here than anywhere else: a named expression is\nexpanded away before the typeset walk, so its whole surface is\n``result.expression(name)`` after a solve \u2014 a name arriving in a summary\nwith nothing else to say what it counts.",
           "properties": {
+            "cases": {
+              "additionalProperties": {
+                "$ref": "#/$defs/ExpressionCase"
+              },
+              "default": {},
+              "title": "Cases",
+              "type": "object"
+            },
             "description": {
               "anyOf": [
                 {
@@ -140,13 +148,33 @@
               "title": "Description"
             },
             "expression": {
-              "title": "Expression",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Expression"
+            },
+            "foreach": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Foreach"
             }
           },
-          "required": [
-            "expression"
-          ],
           "title": "ExpressionBlock",
           "type": "object"
         },
@@ -154,6 +182,38 @@
           "type": "string"
         }
       ]
+    },
+    "ExpressionCase": {
+      "additionalProperties": false,
+      "description": "One case of a named expression: the value, and where it is the value.\n\n``when`` rather than ``where``: a case selects which value a coordinate\ntakes, and creates no absence and deletes no row \u2014 which is what ``where``\nmeans on every other block (:doc:`absence </reference/language/absence>`).",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        },
+        "when": {
+          "title": "When",
+          "type": "string"
+        }
+      },
+      "required": [
+        "when",
+        "expression"
+      ],
+      "title": "ExpressionCase",
+      "type": "object"
     },
     "LookupBlock": {
       "additionalProperties": false,
