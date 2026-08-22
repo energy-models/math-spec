@@ -29,11 +29,18 @@ ROOT = Path(__file__).resolve().parent.parent
 # a gate stops testing what it claims to.
 CORPUS = ('examples/**/*.yaml', 'tests/typeset/golden/*.yaml')
 
+# `examples/symbols/` sits inside that recursive glob and holds symbol tables,
+# which are not models and do not validate against the schema. Excluded by
+# directory rather than by trying to sniff the contents: the directory is what
+# `main` already looks a sidecar up by, so the two agree by construction.
+NOT_MODELS = ('examples/symbols',)
+
 
 def models() -> list[Path]:
     """Every model file, deduplicated and in a stable order."""
     found = {path for pattern in CORPUS for path in ROOT.glob(pattern)}
-    return sorted(found)
+    excluded = {ROOT / part for part in NOT_MODELS}
+    return sorted(path for path in found if not excluded.intersection(path.parents))
 
 
 def main(argv: list[str] | None = None) -> int:

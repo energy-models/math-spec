@@ -238,7 +238,9 @@ def _curves() -> list[str]:
         assert found, f'{source.name} declares no piecewise block with method: {method}'
         for block in found:
             row = _row(block, printed)
-            caption = f'**`method: {method}`** --- {PIECEWISE_METHODS[method]}, in `{source.relative_to(ROOT)}`.'
+            caption = (
+                f'**`method: {method}`** \N{EM DASH} {PIECEWISE_METHODS[method]}, in `{source.relative_to(ROOT)}`.'
+            )
             rows.append(row.replace('\n\n', f'\n\n{caption}\n\n', 1))
     return rows
 

@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: Least-cost dispatch of a generator fleet against an hourly load.
+
+dimensions:
+  snapshot: { dtype: int, description: dispatch periods }
+  generator: { values: [wind, solar, gas], description: generating units }
+
+parameters:
+  p_max: { dims: [generator], description: installed capacity }
+  load: { dims: [snapshot], description: demand to be met }
+  cost: { dims: [generator], description: marginal cost }
+
+variables:
+  p:
+    description: output of a generator in a snapshot
+    foreach: [snapshot, generator]
+    where: "p_max > 0"
+    bounds: { lower: 0, upper: p_max }
+
+constraints:
+  power_balance:
+    foreach: [snapshot]
+    expression: sum(p, over=generator) == load
+
+objective:
+  sense: minimize
+  expression: sum(p * cost)

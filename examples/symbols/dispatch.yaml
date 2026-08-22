@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# The sidecar symbol table for `examples/dispatch.yaml` — not a model, so
+# nothing here is checked against the schema. `tools/render_tex.py` picks it up
+# by filename, and the homepage prints the same model with and without it.
+notation: latex
+
+dimensions:
+  snapshot: { index: s, set: "\\mathcal{S}" }
+  generator: { index: g, set: "\\mathcal{G}" }
+
+names:
+  cost: c
+  load: "\\ell"
+  p_max: "\\bar p"

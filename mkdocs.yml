@@ -3,6 +3,26 @@
 # SPDX-License-Identifier: MIT
 
 site_name: "math-spec"
+site_description: The language an optimisation model is written in — YAML math, checked before any data is bound, and printable as the math it means
+site_url: https://math-spec.readthedocs.io/en/latest/
+repo_url: https://github.com/energy-models/math-spec
+repo_name: energy-models/math-spec
+edit_uri: edit/main/docs/
+strict: true
+
+validation:
+  # Under `strict: true` a warning is a failed build, which is the point: a
+  # page added without a nav entry, or a cross-link that stopped resolving,
+  # fails CI rather than shipping.
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
 nav:
   - Home: index.md
   - Installation: installation.md
@@ -25,13 +45,55 @@ nav:
       - What counts as language: about/what-counts-as-language.md
   - Contributing: contributing.md
   - Changelog: CHANGELOG.md
+
 theme:
   name: material
+  language: en
+
+  palette:
+    # Dark first = default for new visitors (no auto/system-pref entry).
+    # Icon represents the CURRENT scheme — moon when active is dark,
+    # sun when active is light. The `name` describes the toggle action.
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+  font:
+    text: Roboto
+    code: JetBrains Mono
+
+  icon:
+    repo: fontawesome/brands/github
+
   features:
+    - header.autohide
+    # navigation.instant left off — MathJax fails to re-typeset on
+    # no-math → math swaps, and no documented reset recipe fixes it.
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.prune
     - navigation.indexes
     - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
     - content.code.copy
-repo_url: https://github.com/energy-models/math-spec
+    - content.code.select
+    - content.tabs.link
+    - content.action.edit
+
 # The prose licence, on every page — CC-BY asks for attribution, so it has to be
 # visible to a reader of the site, not only to a reader of the repository.
 copyright: >
@@ -42,7 +104,18 @@ copyright: >
 site_dir: .docs
 markdown_extensions:
   - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
   - pymdownx.details
+  # The math. `generic: true` rewrites `$…$` into `\(…\)` before MathJax runs;
+  # `docs/static/mathjax.js` is the other half. Without both, every equation
+  # this project's own typesetter prints renders as literal dollar signs — on a
+  # site whose subject is the math a file means.
+  - pymdownx.arithmatex:
+      generic: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -55,17 +128,22 @@ markdown_extensions:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
-  - pymdownx.inlinehilite:
-      style_plain_text: shell
+  # No `style_plain_text`: it makes every plain inline code span render as
+  # shell, and most of the ones here are YAML keys and Python names.
+  - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.tabbed:
       alternate_style: true
   - toc:
       permalink: "#"
       toc_depth: 3
-  - attr_list
-  - tables
-  - md_in_html
+      # GitHub's slug rules, not mkdocs'. Every page here is read in both
+      # places and they cross-link by anchor — `errors.md#the-ceiling--in-one
+      # -table`, whose double hyphen is an em dash GitHub drops. The default
+      # slugifier collapses that to one, so such a link would 404 on the site
+      # while working in the repository. Same file, same anchor, both
+      # renderings.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify { kwds: { case: lower } }
 hooks:
   - docs/static/hooks.py
 plugins:
@@ -90,5 +168,18 @@ plugins:
           paths: [src]
 watch:
   - src/math_spec
+  - README.md
+  - CHANGELOG.md
 extra_css:
   - static/extras.css
+extra_javascript:
+  - static/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/energy-models/math-spec
+      name: math-spec on GitHub
+    - icon: simple/pypi
+      link: https://pypi.org/project/math-spec/
+      name: math-spec on PyPI

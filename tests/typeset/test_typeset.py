@@ -356,6 +356,23 @@ def test_the_legend_explains_wraparound_only_when_it_is_used(fmt: Format):
 
 
 @EVERY_FORMAT
+def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(fmt: Format):
+    """``---`` is TeX's em-dash ligature and Typst's, and nothing in Markdown.
+
+    So the legend row that reads "`cost` over G --- marginal cost" set as a
+    dash in two of the three outputs and as three hyphens in the one whose
+    whole promise is that it renders where it lands. The dash is an atom of the
+    format now; this is what stops it going back to a literal in the walk,
+    where it cannot be spelled two ways.
+    """
+    described = override(DISPATCH, **{'parameters.cost.description': 'marginal cost'})
+    text = typeset(described, fmt)
+    assert f'{fmt.dash} marginal cost' in text
+    if fmt is FORMATS['markdown']:
+        assert '---' not in text.replace('|---|---|', ''), 'markdown renders the ligature literally'
+
+
+@EVERY_FORMAT
 def test_macros_and_named_expressions_are_expanded_away(fmt: Format):
     """What prints is the math a backend builds, not the sugar it was spelled with."""
     model = override(

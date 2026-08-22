@@ -14,8 +14,8 @@ part of the ceiling, [what has been refused and why](#deliberate-non-primitives)
 and what composition would force.
 
 It is a claim, so it carries evidence — math a ported model needed and this
-language could not state becomes a ledger row in
-a ledger row against the port that needed it.
+language could not state becomes a ledger row against the port that needed it,
+with its triage verdict beside it.
 
 ## Two tiers, and the ceiling
 

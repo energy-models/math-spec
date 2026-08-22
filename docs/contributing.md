@@ -58,8 +58,22 @@ Here are some use-cases that you may come across in which you are considering up
 
 ??? question "I have updated the README.md"
 
-    We pipe sections of the README over to the documentation automatically.
-    If you put your changes between the commented lines `:::md <!--- --8<-- [start:docs] -->` and `:::md <!--- --8<-- [end:docs] -->` it will find its way to the documentation homepage.
+    Sections of the README are piped into the site rather than copied wholesale: the homepage includes the badges, the diagram, the model, the load snippet, the development install and the status note, each by name.
+    A section is delimited in the README by `:::md <!--- --8<-- [start:name] -->` and `:::md <!--- --8<-- [end:name] -->`, and `docs/index.md` pulls it in with `:::md --8<-- "README.md:name"`.
+    Edit inside the markers and the site follows.
+    Keep the sections themselves link-free or absolutely linked: a relative link inside one resolves against `docs/index.md` on the site and against the repository root on GitHub, and only one of those can be right.
+
+??? question "I have changed what a model prints"
+
+    The model in the README and the math block under it on the homepage both come out of `examples/dispatch.yaml` and its symbol table, so the page shows what the typesetter prints rather than what somebody typed — and the model shown cannot drift from the model rendered:
+
+    ```bash
+    pixi run python -m tools.home_math           # rewrite the block
+    pixi run python -m tools.home_math --check   # fail if it has drifted
+    ```
+
+    `tools/notation.py` does the same for `docs/reference/notation.md`, out of `tests/typeset/golden/model.yaml`.
+    It also wants the four `piecewise:` models one section of that page is built from, which the extraction from lpspec has not brought over yet — so it raises `FileNotFoundError` until they arrive, and the committed page is the last one lpspec generated.
 
 ??? question annotate "I want to add a new page"
 

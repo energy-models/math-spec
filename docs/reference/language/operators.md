@@ -331,7 +331,7 @@ Anything you can build out of these belongs in
 
 Each operator above as the [typesetter](../typeset.md) prints it, **generated**
 from one model per row in
-[`examples/operators/`](https://github.com/fluxopt/lpspec/blob/main/examples/operators)
+[`examples/operators/`](https://github.com/energy-models/math-spec/tree/main/examples/operators)
 — so a row cannot outlive the operator it documents, and two operators that
 render the same are visible here rather than in somebody's paper.
 
@@ -359,9 +359,10 @@ The rest of the language is rendered the same way, on one page: [Every construct
 | `sum_back(array, over=dim, within=p)`              | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$                                          |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathit{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$                                    |
 
-$t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound --- terms translated past the edge are simply absent.
+$t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
+
 <!-- operator-math:end -->
 
 Regenerate with `pixi run python -m tools.spec_math`.
