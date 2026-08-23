@@ -17,6 +17,7 @@ Three kinds of test, and the split is the point:
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from collections.abc import Iterator, Mapping
@@ -29,10 +30,11 @@ import pytest
 from math_spec.errors import MathSpecError, SchemaError
 from math_spec.expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
+from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typeset import FORMATS, SymbolTable, to_latex, to_markdown, to_typst, typeset, walk
 from math_spec.typeset.format import OPERATOR_NAMES
-from math_spec.typeset.symbols import _derive_name_symbol
+from math_spec.typeset.symbols import Symbols, _derive_name_symbol
 from math_spec.validation import load_model
 from math_spec.where_parser import WhereNode
 from tests.fixtures import OPERATOR_PROBES, override
@@ -493,6 +495,33 @@ def test_the_legend_states_the_convention_only_where_it_draws_it(fmt: Format):
         'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
     }
     assert 'Upright is what the model is given' not in typeset(parameterless, fmt)
+
+
+def test_nothing_the_model_is_given_prints_italic():
+    r"""The convention as a property of the whole document, not of a fragment.
+
+    The per-name tests pin the derivation and the goldens pin the bytes, but
+    neither says *nothing else* prints a given quantity italic: a rendering
+    path added later reaches the page through its own call, and the first to
+    notice would be a reader rather than the suite. So this asks the finished
+    document, over the fixture that carries every construct.
+
+    ``\mathit`` is what a multi-letter name prints as, and a single-letter
+    given quantity is upright too (``\mathrm{p}``), so a leak of either kind
+    lands in one of these two nets.
+    """
+    schema = expand_piecewise(load_model(golden.MODEL))
+    italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
+    assert italic <= set(schema.variables), (
+        f'{sorted(italic - set(schema.variables))} print italic and are not variables — '
+        f'upright is what the model is given'
+    )
+
+    symbols = Symbols(schema, LATEX, SymbolTable('latex'))
+    given = {name: symbols.name[name] for name in schema.parameters}
+    assert all(symbol.startswith(r'\mathrm{') for symbol in given.values()), (
+        f'derived upright for every parameter, but got {sorted(s for s in given.values() if "mathrm" not in s)}'
+    )
 
 
 @EVERY_FORMAT
