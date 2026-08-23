@@ -723,6 +723,28 @@ class Walk:
             clauses.append(f' carrying label{plural} {self.format.math(named)}')
         return ''.join(clauses)
 
+    def convention_notes(self) -> list[str]:
+        """What the two faces mean, said once, with the model's own symbols.
+
+        A nomenclature table already splits the legend into parameters and
+        variables, and that is the convention a paper in this field uses. It is
+        a *lookup* rather than a reading, though: quote one equation on a slide
+        and the distinction is gone. So the symbols carry it, and this is where
+        the page says which face is which.
+
+        Only where the model has both, since a note explaining a contrast the
+        page does not draw is the dead end the translation notes avoid.
+        """
+        if not (self.schema.parameters and self.schema.variables):
+            return []
+        given = self.format.math(self.symbols.name[next(iter(self.schema.parameters))])
+        chosen = self.format.math(self.symbols.name[next(iter(self.schema.variables))])
+        return [
+            f'Upright is what the model is given {self.format.dash} a parameter such as {given}, a coordinate '
+            f'map, a label {self.format.dash} and italic is what the solver chooses, such as {chosen}. '
+            f'An index is italic too, being what a quantifier chooses, and a set is script.'
+        ]
+
     def translation_notes(self) -> list[str]:
         """A sentence for each translation symbol the model actually printed.
 

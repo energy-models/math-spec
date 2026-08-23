@@ -12,5 +12,5 @@ notation: latex
 names:
   economies_of_scale_lam: "\\lambda"
   economies_of_scale_seg: "\\delta"
-  bp_x: x
-  bp_y: y
+  bp_x: "\\mathrm{x}"
+  bp_y: "\\mathrm{y}"

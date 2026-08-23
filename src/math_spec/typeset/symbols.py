@@ -53,19 +53,31 @@ _GREEK = frozenset(
 )  # fmt: skip
 
 
-def _word(name: str, fmt: Format) -> str:
-    """One name as one symbol: a letter stays a letter, a word is set italic.
+def _word(name: str, fmt: Format, *, given: bool) -> str:
+    """One name as one symbol, upright where it is *given*.
 
-    A name that *is* a Greek letter is set as the letter, which is what the
-    author meant by writing it out — the alphabet a model has, not one it is
-    kept out of.
+    **Upright is what the data supplies; italic is what the solver chooses.**
+    Which of the two a symbol is, is the distinction a linear model cannot
+    afford to leave to a legend — quote one equation on a slide and a reader
+    has to know which side of it the solver is on — and it completes a system
+    the page was already three-quarters of the way through: script for index
+    sets, upright for the maps and qualifiers a model is handed, italic for
+    quantities. The cut this adds is *inside* italic.
+
+    A name that *is* a Greek letter is set as the letter either way, which is
+    what the author meant by writing it out. The distinction does not reach
+    those: LaTeX sets lower-case Greek italic and has no upright form in the
+    two-package preamble the render gate holds itself to, so a Greek-named
+    parameter is one the legend has to place.
     """
     if name in _GREEK:
         return fmt.greek(name)
+    if given:
+        return fmt.upright(name)
     return name if len(name) == 1 else fmt.italic(name)
 
 
-def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format) -> str:
+def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, given: bool = False) -> str:
     r"""``p`` → ``p``; ``load`` → ``\mathit{load}``; ``p_max`` → ``p^{\mathrm{max}}``.
 
     An underscore is a **qualifier** only when what precedes it is a symbol in
@@ -85,8 +97,8 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format) -> str
     """
     head, _, tail = name.partition('_')
     if tail and (len(head) == 1 or head in _GREEK or head in declared):
-        return fmt.superscript(_word(head, fmt), fmt.upright(tail.replace('_', ',')))
-    return _word(name, fmt)
+        return fmt.superscript(_word(head, fmt, given=given), fmt.upright(tail.replace('_', ',')))
+    return _word(name, fmt, given=given)
 
 
 class Symbols:
@@ -98,6 +110,11 @@ class Symbols:
     renders ``p_{t,p}`` and no reader can tell which ``p`` is which. Only
     single-letter name symbols are kept off the index letters, a
     ``\mathit{load}`` never colliding with a ``t``.
+
+    Which now means **variables**, since a parameter is upright: a dimension
+    may take ``p`` beside a parameter ``p``, because ``\mathrm{p}`` and ``p``
+    are not the same symbol on the page. The guard shrank to exactly the
+    collisions that are still collisions.
 
     Raises:
         SchemaError: If *table* is written in a notation *fmt* does not read.
@@ -115,7 +132,9 @@ class Symbols:
         declared = frozenset({*schema.parameters, *schema.variables})
 
         self.name: dict[str, str] = {
-            name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt)
+            name: table.names[name]
+            if name in table.names
+            else _derive_name_symbol(name, declared, fmt, given=name in schema.parameters)
             for name in (*schema.parameters, *schema.variables)
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}

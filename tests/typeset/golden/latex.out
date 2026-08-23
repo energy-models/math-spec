@@ -19,17 +19,17 @@
 
 \paragraph{Parameters}
 \begin{description}
-\item[$p^{\mathrm{max}}$] \texttt{p\_max} over $\mathcal{G}$
-\item[$p^{\mathrm{min}}$] \texttt{p\_min} over $\mathcal{G}$
-\item[$\mathit{cost}$] \texttt{cost} over $\mathcal{G}$
-\item[$\mathit{load}$] \texttt{load} over $\mathcal{T} \times \mathcal{B}$
-\item[$\mathit{is\_flexible}$] \texttt{is\_flexible} over $\mathcal{G}$
-\item[$\mathit{zone\_cap}$] \texttt{zone\_cap} over $\mathcal{Z}$
-\item[$\mathit{tech\_cap}$] \texttt{tech\_cap} over $\mathcal{B} \times \mathcal{E}$
-\item[$\mathit{min\_up}$] \texttt{min\_up} over $\mathcal{G}$
-\item[$\mathit{lead}$] \texttt{lead} over $\mathcal{G}$
-\item[$\mathit{budget}$] \texttt{budget} (scalar)
-\item[$\mathit{growth}$] \texttt{growth} (scalar)
+\item[$\mathrm{p}^{\mathrm{max}}$] \texttt{p\_max} over $\mathcal{G}$
+\item[$\mathrm{p}^{\mathrm{min}}$] \texttt{p\_min} over $\mathcal{G}$
+\item[$\mathrm{cost}$] \texttt{cost} over $\mathcal{G}$
+\item[$\mathrm{load}$] \texttt{load} over $\mathcal{T} \times \mathcal{B}$
+\item[$\mathrm{is\_flexible}$] \texttt{is\_flexible} over $\mathcal{G}$
+\item[$\mathrm{zone\_cap}$] \texttt{zone\_cap} over $\mathcal{Z}$
+\item[$\mathrm{tech\_cap}$] \texttt{tech\_cap} over $\mathcal{B} \times \mathcal{E}$
+\item[$\mathrm{min\_up}$] \texttt{min\_up} over $\mathcal{G}$
+\item[$\mathrm{lead}$] \texttt{lead} over $\mathcal{G}$
+\item[$\mathrm{budget}$] \texttt{budget} (scalar)
+\item[$\mathrm{growth}$] \texttt{growth} (scalar)
 \end{description}
 
 \paragraph{Variables}
@@ -47,6 +47,8 @@
 \item[$\mathit{weight}$] \texttt{weight} over $\mathcal{T} \times \mathcal{G}$
 \end{description}
 
+\noindent Upright is what the model is given --- a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label --- and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
+
 \noindent $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (\texttt{roll}). Plain $t-k$ (\texttt{shift}) has no wraparound --- terms translated past the edge are simply absent.
 
 \noindent $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (\texttt{shift(edge=v)}), so the row at that boundary is built and carries $v$ rather than being dropped.
@@ -55,32 +57,32 @@
 
 \paragraph{Objective}
 \begin{align}
- && \max & \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} \cdot \mathit{growth}^{\mathit{lead}_{g}} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} - \mathit{headroom}
+ && \max & \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \cdot \mathrm{growth}^{\mathrm{lead}_{g}} + \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{p}^{\mathrm{max}}_{g} - \mathit{reserve} - \mathit{headroom}
 \end{align}
 
 \paragraph{Subject to}
 \begin{align}
-\text{balance} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} & = \mathit{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
-\text{ramp} && p_{t,g} - p_{t \ominus 1,g} & \le p_{t - 1,g} + p^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{edges} && p_{t \boxminus_{0} 1,g} & \le p_{t \boxplus_{0} 1,g} + p^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{balance} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} & = \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
+\text{ramp} && p_{t,g} - p_{t \ominus 1,g} & \le p_{t - 1,g} + \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{edges} && p_{t \boxminus_{0} 1,g} & \le p_{t \boxplus_{0} 1,g} + \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{ahead} && p_{t,g} & \le p_{t \oplus 1,g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{composed} && p_{t - 2,g} & \le p^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{uncomposed} && p_{\left( t - 1 \right) - \mathit{lead},g} & \le p^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{crossed} && p_{t \ominus 1,g + 1} & \le p^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{lead\_time} && p_{t \boxminus_{0} \mathit{lead},g} & \le p^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{composed} && p_{t - 2,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{uncomposed} && p_{\left( t - 1 \right) - \mathrm{lead},g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{crossed} && p_{t \ominus 1,g + 1} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{lead\_time} && p_{t \boxminus_{0} \mathrm{lead},g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{in\_season} && p_{t,g} & \le p_{t \ominus^{\mathrm{season\_of}(t)} 1,g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{held\_in\_season} && p_{t,g} & \le p_{t \boxminus_{0}^{\mathrm{season\_of}(t)} 1,g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{window} && \sum_{t' \in \mathcal{T} \,:\, 0 \le t - t' < 3} \mathit{on}_{t',g} & \le \mathit{units}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{history} && \sum_{t' \in \mathcal{T} \,:\, 0 \le t \ominus t' < \mathit{min\_up}} \mathit{on}_{t',g} & \le \mathit{units}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{pullback} && \mathit{spill}_{t} & \le \mathit{zone\_cap}_{\mathrm{zone\_of}(b)} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
-\text{grouped\_twice} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} & \le \mathit{tech\_cap}_{b,e} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E} \\
-\text{pulled\_back\_twice} && \mathit{units}_{g} & \le \mathit{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} && \forall\, g \in \mathcal{G} \\
-\text{arithmetic} && \sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathit{cost}_{g} \right) & \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 && \forall\, t \in \mathcal{T} \\
-\text{total} && \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} & \le \mathit{budget} \\
-\text{scalar} && \mathit{units}_{g} & \le \mathit{budget} && \forall\, g \in \mathcal{G} \,:\, \mathit{cost}_{g} \text{ is defined} \\
-\text{running} && \theta_{b} & \le \mathit{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \theta_{b} \text{ exists} \wedge t \ge 3 \\
+\text{history} && \sum_{t' \in \mathcal{T} \,:\, 0 \le t \ominus t' < \mathrm{min\_up}} \mathit{on}_{t',g} & \le \mathit{units}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{pullback} && \mathit{spill}_{t} & \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
+\text{grouped\_twice} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} & \le \mathrm{tech\_cap}_{b,e} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E} \\
+\text{pulled\_back\_twice} && \mathit{units}_{g} & \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} && \forall\, g \in \mathcal{G} \\
+\text{arithmetic} && \sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} \right) & \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 && \forall\, t \in \mathcal{T} \\
+\text{total} && \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} & \le \mathrm{budget} \\
+\text{scalar} && \mathit{units}_{g} & \le \mathrm{budget} && \forall\, g \in \mathcal{G} \,:\, \mathrm{cost}_{g} \text{ is defined} \\
+\text{running} && \theta_{b} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \theta_{b} \text{ exists} \wedge t \ge 3 \\
 \text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( t = \mathrm{index}(\mathcal{T}, 0) \vee t = \mathrm{index}(\mathcal{T}, 0, \mathrm{season\_of}(t)) \right) \\
-\text{northern} && \mathit{slack}_{t} & \le \mathit{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined} \\
+\text{northern} && \mathit{slack}_{t} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \top \wedge \mathit{spill}_{t} \text{ exists} \\
 \text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot
@@ -88,7 +90,7 @@
 
 \paragraph{Variable domains}
 \begin{align}
-\text{p} && p^{\mathrm{min}}_{g} \le p_{t,g} & \le p^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( p^{\mathrm{max}}_{g} > 0 \wedge \neg \mathit{is\_flexible}_{g} \vee p^{\mathrm{min}}_{g} > 0 \right) \\
+\text{p} && \mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0 \right) \\
 \text{spill} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{slack} && \mathit{slack}_{t} & \le 100 && \forall\, t \in \mathcal{T} \\
 \text{theta} && \theta_{b} & \in \mathbb{R} && \forall\, b \in \mathcal{B} \\
@@ -96,7 +98,7 @@
 \text{units} && 0 \le \mathit{units}_{g} & \le 10, \mathit{units}_{g} \in \mathbb{Z} && \forall\, g \in \mathcal{G} \\
 \text{spare} && \mathit{spare}_{g} & \in \mathbb{Z} && \forall\, g \in \mathcal{G} \\
 \text{reserve} && \mathit{reserve} & \ge 0 \\
-\text{headroom} && \mathit{headroom} & \ge 0 && \text{where } \mathit{budget} \text{ is defined} \\
+\text{headroom} && \mathit{headroom} & \ge 0 && \text{where } \mathrm{budget} \text{ is defined} \\
 \text{void} && \infty \le \mathit{void}_{b} & \le -\infty && \forall\, b \in \mathcal{B} \\
 \text{weight} && 0 \le \mathit{weight}_{t,g} & \le 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{weight sos} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T}

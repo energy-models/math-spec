@@ -5,5 +5,5 @@
 notation: latex
 
 names:
-  bp_x: x
-  bp_y: y
+  bp_x: "\\mathrm{x}"
+  bp_y: "\\mathrm{y}"

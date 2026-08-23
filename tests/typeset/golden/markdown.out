@@ -17,17 +17,17 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 
 | Symbol | Meaning |
 |---|---|
-| $p^{\mathrm{max}}$ | `p_max` over $\mathcal{G}$ |
-| $p^{\mathrm{min}}$ | `p_min` over $\mathcal{G}$ |
-| $\mathit{cost}$ | `cost` over $\mathcal{G}$ |
-| $\mathit{load}$ | `load` over $\mathcal{T} \times \mathcal{B}$ |
-| $\mathit{is\_flexible}$ | `is_flexible` over $\mathcal{G}$ |
-| $\mathit{zone\_cap}$ | `zone_cap` over $\mathcal{Z}$ |
-| $\mathit{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
-| $\mathit{min\_up}$ | `min_up` over $\mathcal{G}$ |
-| $\mathit{lead}$ | `lead` over $\mathcal{G}$ |
-| $\mathit{budget}$ | `budget` (scalar) |
-| $\mathit{growth}$ | `growth` (scalar) |
+| $\mathrm{p}^{\mathrm{max}}$ | `p_max` over $\mathcal{G}$ |
+| $\mathrm{p}^{\mathrm{min}}$ | `p_min` over $\mathcal{G}$ |
+| $\mathrm{cost}$ | `cost` over $\mathcal{G}$ |
+| $\mathrm{load}$ | `load` over $\mathcal{T} \times \mathcal{B}$ |
+| $\mathrm{is\_flexible}$ | `is_flexible` over $\mathcal{G}$ |
+| $\mathrm{zone\_cap}$ | `zone_cap` over $\mathcal{Z}$ |
+| $\mathrm{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
+| $\mathrm{min\_up}$ | `min_up` over $\mathcal{G}$ |
+| $\mathrm{lead}$ | `lead` over $\mathcal{G}$ |
+| $\mathrm{budget}$ | `budget` (scalar) |
+| $\mathrm{growth}$ | `growth` (scalar) |
 
 #### Variables
 
@@ -45,6 +45,8 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 | $\mathit{void}$ | `void` over $\mathcal{B}$ |
 | $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
+Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
+
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
@@ -53,21 +55,21 @@ $t \ominus^{\mathrm{lookup}(t)} k$ denotes a translation counted inside the grou
 
 #### Objective
 
-$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} \cdot \mathit{growth}^{\mathit{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} - \mathit{headroom}$$
+$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \cdot \mathrm{growth}^{\mathrm{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{p}^{\mathrm{max}}_{g} - \mathit{reserve} - \mathit{headroom}$$
 
 #### Subject to
 
 **`balance`**
 
-$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} = \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} = \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
 **`ramp`**
 
-$$p_{t,g} - p_{t \ominus 1,g} \le p_{t - 1,g} + p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} - p_{t \ominus 1,g} \le p_{t - 1,g} + \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`edges`**
 
-$$p_{t \boxminus_{0} 1,g} \le p_{t \boxplus_{0} 1,g} + p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t \boxminus_{0} 1,g} \le p_{t \boxplus_{0} 1,g} + \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`ahead`**
 
@@ -75,19 +77,19 @@ $$p_{t,g} \le p_{t \oplus 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspa
 
 **`composed`**
 
-$$p_{t - 2,g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t - 2,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`uncomposed`**
 
-$$p_{\left( t - 1 \right) - \mathit{lead},g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{\left( t - 1 \right) - \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`crossed`**
 
-$$p_{t \ominus 1,g + 1} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t \ominus 1,g + 1} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`lead_time`**
 
-$$p_{t \boxminus_{0} \mathit{lead},g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t \boxminus_{0} \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`in_season`**
 
@@ -103,35 +105,35 @@ $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < 3} \mathit{on}_{
 
 **`history`**
 
-$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t \ominus t' < \mathit{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t \ominus t' < \mathrm{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`pullback`**
 
-$$\mathit{spill}_{t} \le \mathit{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+$$\mathit{spill}_{t} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
 **`grouped_twice`**
 
-$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathit{tech\_cap}_{b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$$
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{tech\_cap}_{b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$$
 
 **`pulled_back_twice`**
 
-$$\mathit{units}_{g} \le \mathit{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
+$$\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
 
 **`arithmetic`**
 
-$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathit{cost}_{g} \right) \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
+$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} \right) \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
 
 **`total`**
 
-$$\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathit{budget}$$
+$$\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}$$
 
 **`scalar`**
 
-$$\mathit{units}_{g} \le \mathit{budget} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathit{cost}_{g} \text{ is defined}$$
+$$\mathit{units}_{g} \le \mathrm{budget} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{cost}_{g} \text{ is defined}$$
 
 **`running`**
 
-$$\theta_{b} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \theta_{b} \text{ exists} \wedge t \ge 3$$
+$$\theta_{b} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \theta_{b} \text{ exists} \wedge t \ge 3$$
 
 **`first`**
 
@@ -139,7 +141,7 @@ $$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \i
 
 **`northern`**
 
-$$\mathit{slack}_{t} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
+$$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
 
 **`always`**
 
@@ -157,7 +159,7 @@ $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace
 
 **`p`**
 
-$$p^{\mathrm{min}}_{g} \le p_{t,g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( p^{\mathrm{max}}_{g} > 0 \wedge \neg \mathit{is\_flexible}_{g} \vee p^{\mathrm{min}}_{g} > 0 \right)$$
+$$\mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0 \right)$$
 
 **`spill`**
 
@@ -189,7 +191,7 @@ $$\mathit{reserve} \ge 0$$
 
 **`headroom`**
 
-$$\mathit{headroom} \ge 0 \qquad \text{where } \mathit{budget} \text{ is defined}$$
+$$\mathit{headroom} \ge 0 \qquad \text{where } \mathrm{budget} \text{ is defined}$$
 
 **`void`**
 
