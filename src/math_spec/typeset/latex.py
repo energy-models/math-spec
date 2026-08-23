@@ -42,6 +42,22 @@ def _escape(text: str) -> str:
     return ''.join(_ESCAPES.get(c, c) for c in text)
 
 
+#: The row separator inside a `cases` block. Markdown passes its own — see
+#: :meth:`~math_spec.typeset.markdown.MarkdownFormat.cases`.
+CASES_ROW = r' \\ '
+
+
+def cases_block(arms: list[tuple[str, str]], separator: str) -> str:
+    r"""A `cases` environment, with *separator* between the rows.
+
+    The separator is a parameter rather than a fixed ``\\`` because Markdown
+    needs a different one and rewriting this string afterwards would go quiet
+    the moment the spelling here changed.
+    """
+    rows = separator.join(rf'{value} & \text{{if }} {condition}' for value, condition in arms)
+    return rf'\begin{{cases}} {rows} \end{{cases}}'
+
+
 class LatexFormat:
     """See :class:`math_spec.typeset.format.Format`."""
 
@@ -129,8 +145,7 @@ class LatexFormat:
         return rf'\frac{{{numerator}}}{{{denominator}}}'
 
     def cases(self, arms: list[tuple[str, str]]) -> str:
-        rows = r' \\ '.join(rf'{value} & \text{{if }} {condition}' for value, condition in arms)
-        return rf'\begin{{cases}} {rows} \end{{cases}}'
+        return cases_block(arms, CASES_ROW)
 
     def summation(self, domain: str, body: str) -> str:
         return rf'\sum_{{{domain}}} {body}'

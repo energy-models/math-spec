@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from math_spec.typeset.latex import LatexFormat
+from math_spec.typeset.latex import LatexFormat, cases_block
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -93,13 +93,13 @@ class MarkdownFormat:
         return _LATEX.summation(domain, body)
 
     def cases(self, arms: list[tuple[str, str]]) -> str:
-        r"""LaTeX's, with TeX's own row primitive in place of ``\\``.
+        r"""LaTeX's block, with TeX's own row primitive in place of ``\\``.
 
         Markdown's escape pass eats one of the two backslashes, so MathJax
         would receive a single one and never break the row. ``\\cr`` is what
         ``\\`` expands to anyway, and carries no punctuation to escape.
         """
-        return _LATEX.cases(arms).replace(r' \\ ', r' \cr ')
+        return cases_block(arms, r' \cr ')
 
     def apply(self, function: str, argument: str) -> str:
         return _LATEX.apply(function, argument)

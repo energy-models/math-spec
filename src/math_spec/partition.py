@@ -45,8 +45,9 @@ manufacture a witness, never hide one. Every outcome here is therefore
 conservative — this refuses case sets that would have been fine, and admits
 none that would not.
 
-Not wired into the schema: ``cases:`` is not a key ``expressions:`` accepts
-yet (energy-models/math-spec#2). This is the decision procedure only.
+Run at load by :func:`math_spec.validation.validate_expressions`, once per
+cased expression, so a case set that is not a partition is a load error rather
+than a build-time surprise.
 """
 
 from __future__ import annotations
