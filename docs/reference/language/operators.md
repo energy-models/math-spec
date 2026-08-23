@@ -339,7 +339,10 @@ The three `shift` rows are the ones to read together: they differ only at the
 boundary, and that difference is the whole of the identity rule in this
 position.
 
-The rest of the language is rendered the same way, on one page: [Every construct, as math](../notation.md).
+Each row comes from a model of its own; they are on
+[One construct per model](../../examples/operators.md). The rest of the
+language is rendered the same way, on one page:
+[Every construct, as math](../notation.md).
 
 <!-- operator-math:begin -->
 

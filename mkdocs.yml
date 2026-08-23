@@ -26,6 +26,10 @@ validation:
 nav:
   - Home: index.md
   - Installation: installation.md
+  - Examples:
+      - examples/index.md
+      - Least-cost dispatch: examples/dispatch.md
+      - One construct per model: examples/operators.md
   - Reference:
       - Language:
           - reference/language/index.md
