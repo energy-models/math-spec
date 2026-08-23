@@ -29,3 +29,16 @@ docs/examples/operators.md
 # by the hook and the generator's output has never been what the file holds —
 # which is why nothing could compare them.
 docs/reference/notation.md
+
+# `tools/spec_math.py` writes the operator table on this page, and it is the
+# third page in the same trap — the committed block has been prettier's shape
+# and never the generator's since the day it was written. The prose and the
+# hand-written tables above the markers give up formatting with it, which is
+# the price of the file being the unit `.prettierignore` works in.
+#
+# `tools/home_math.py` is the other way out of this and needs no entry: it
+# emits the blank lines around its markers that prettier wants, so `--check`
+# and the formatter agree on `docs/index.md` and `README.md`. Padding a table
+# is a harder shape to match than a blank line, which is why these three take
+# the generator-wins route instead.
+docs/reference/language/operators.md
