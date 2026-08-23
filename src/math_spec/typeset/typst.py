@@ -90,6 +90,7 @@ class TypstFormat:
         'integers': 'ZZ',
         'binary_set': '{0, 1}',
         'sos_set': 'upright("SOS")',
+        'position': 'upright("pos")',
         'minimize': 'min',
         'maximize': 'max',
     }
@@ -130,6 +131,9 @@ class TypstFormat:
 
     def parenthesise(self, inner: str) -> str:
         return f'({inner})'
+
+    def cardinality(self, inner: str) -> str:
+        return f'abs({inner})'
 
     def fraction(self, numerator: str, denominator: str) -> str:
         return f'frac({numerator}, {denominator})'

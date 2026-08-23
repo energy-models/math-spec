@@ -85,7 +85,7 @@ weights with nothing making them a curve.
 
 **The breakpoint order is `over`'s index order**, the one every dimension has:
 the order its labels are first written in, which `shift` walks and
-`index(bp, 0)` names. So the `bp` index is the curve's x-axis, and a values
+`position(bp) == 0` names. So the `bp` index is the curve's x-axis, and a values
 parameter is a lookup against it — a table is a function of its coordinates and
 the order its rows arrive in means nothing, on either lane. "Strictly
 increasing breakpoints" below is increasing _in that order_: write the index

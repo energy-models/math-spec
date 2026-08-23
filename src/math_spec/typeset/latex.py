@@ -80,6 +80,7 @@ class LatexFormat:
         'integers': r'\mathbb{Z}',
         'binary_set': r'\{0, 1\}',
         'sos_set': r'\mathrm{SOS}',
+        'position': r'\mathrm{pos}',
         'minimize': r'\min',
         'maximize': r'\max',
     }
@@ -120,6 +121,9 @@ class LatexFormat:
 
     def parenthesise(self, inner: str) -> str:
         return rf'\left( {inner} \right)'
+
+    def cardinality(self, inner: str) -> str:
+        return rf'\lvert {inner} \rvert'
 
     def fraction(self, numerator: str, denominator: str) -> str:
         return rf'\frac{{{numerator}}}{{{denominator}}}'

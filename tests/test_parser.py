@@ -12,6 +12,7 @@ holds raw ``NameNode``/``Unresolved*`` nodes; giving them meaning is
 
 import pytest
 
+from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,
@@ -28,6 +29,7 @@ from math_spec.where_parser import (
     OrNode,
     UnresolvedComparisonNode,
     UnresolvedNameNode,
+    UnresolvedPositionNode,
     parse_where,
 )
 
@@ -146,3 +148,51 @@ def test_a_quoted_right_hand_side_is_a_label(text, value, quoted):
     assert isinstance(node, UnresolvedComparisonNode)
     assert node.value == value
     assert node.quoted is quoted
+
+
+@pytest.mark.parametrize(
+    ('text', 'op', 'position', 'by'),
+    [
+        ('position(snapshot) == 0', '==', 0, None),
+        ('position(snapshot) != 0', '!=', 0, None),
+        ('position(snapshot) > 0', '>', 0, None),
+        ('position(snapshot) <= -2', '<=', -2, None),
+        ('position(snapshot) == -1', '==', -1, None),
+        ('position(snapshot, by=period_of) == 0', '==', 0, 'period_of'),
+    ],
+    ids=['first', 'not first', 'after the first', 'band from the back', 'last', 'grouped'],
+)
+def test_position_converts_a_dimension_to_where_a_row_sits(text, op, position, by):
+    """`position(dim)` is the left-hand side, so every comparator reads one way (#32)."""
+    node = parse_where(text)
+    assert isinstance(node, UnresolvedPositionNode)
+    assert node.dimension == 'snapshot'
+    assert node.op == op
+    assert node.position == position
+    assert node.by == by
+
+
+def test_a_position_is_not_confused_with_a_name():
+    """`position` leads the alternation, so it is not read as a bare name."""
+    assert isinstance(parse_where('position(t) == 0 AND p_max > 0'), AndNode)
+
+
+def test_a_coordinate_comparison_is_still_a_value_comparison():
+    """The other half of #32: comparing the dimension itself is unchanged."""
+    node = parse_where("snapshot > '2030-01-01'")
+    assert isinstance(node, UnresolvedComparisonNode)
+    assert node.value == '2030-01-01'
+
+
+def test_the_old_index_spelling_names_its_rewrite():
+    """`index(dim, i)` is what every model wrote before #32, so this failure is read most."""
+    with pytest.raises(SchemaError) as excinfo:
+        parse_where('snapshot == index(snapshot, 0)')
+    assert 'index() is now position()' in str(excinfo.value)
+    assert "write 'position(dim) == i'" in str(excinfo.value)
+
+
+def test_an_unrelated_parse_failure_says_nothing_about_positions():
+    with pytest.raises(SchemaError) as excinfo:
+        parse_where('p_max >')
+    assert 'position()' not in str(excinfo.value)

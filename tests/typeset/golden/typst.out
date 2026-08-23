@@ -4,7 +4,7 @@
 every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 {net} \~ ^ \\ \*star\* \@ref \<label\>
 
 == Sets
-/ $cal(T)$: index $t$ --- `snapshot` with $upright("season_of"): cal(T) arrow.r cal(S)$
+/ $cal(T)$: index $t$ --- `snapshot` (`int` coordinates) with $upright("season_of"): cal(T) arrow.r cal(S)$
 / $cal(G)$: index $g$ --- `generator` with $upright("gen_bus"): cal(G) arrow.r cal(B), upright("gen_tech"): cal(G) arrow.r cal(E)$ carrying label $upright("tech")$
 / $cal(B)$: index $b$ --- `bus` with $upright("zone_of"): cal(B) arrow.r cal(Z), upright("area_of"): cal(B) arrow.r cal(Z)$
 / $cal(Z)$: index $z$ --- `zone`
@@ -46,6 +46,12 @@ $t minus.square_(v) k$ denotes translation with $v$ standing where index $t-k$ l
 
 $t minus.o^(upright("lookup")(t)) k$ denotes a translation counted inside the group a lookup puts $t$ in (`shift(by=lookup)`), so a term never crosses out of its own group. The two modifiers take different slots --- the group above, the fill below --- so $t minus.square_(v)^(upright("lookup")(t)) k$ is both at once.
 
+$upright("pos")(t)$ denotes where index $t$ sits along its dimension's own order --- the order `shift` walks, not the order labels sort in --- counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $upright("pos")(t)$ against positions.
+
+$upright("pos")_(upright("lookup")(t))(t)$ counts within the group a lookup puts $t$ in: the subscript names the map, $cal(T)_(upright("lookup")(t))$ is the group it lands in, and that group has a first position of its own.
+
+$abs(cal(T))$ denotes the size of the set being counted along, and a position counted from the end prints against it --- $abs(cal(T)) - 1$ is the last position, one less than the size because the first is $0$.
+
 == Objective
 #set math.equation(numbering: "(1)")
 $  & max & sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot p_(t,g) dot upright("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) dot upright("growth")^(upright("lead")_(g)) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("p")^(upright("max"))_(g) - italic("reserve") - italic("headroom") $
@@ -71,7 +77,8 @@ $ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g)
   upright("total") & sum_(t in cal(T), g in cal(G)) p_(t,g) & <= upright("budget") \
   upright("scalar") & italic("units")_(g) & <= upright("budget") & forall g in cal(G) colon upright("cost")_(g) upright(" is defined") \
   upright("running") & theta_(b) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) colon theta_(b) upright(" exists") and t >= 3 \
-  upright("first") & italic("on")_(t,g) & = 1 & forall t in cal(T), g in cal(G) colon (t = upright("index")(cal(T), 0) or t = upright("index")(cal(T), 0, upright("season_of")(t))) \
+  upright("first") & italic("on")_(t,g) & = 1 & forall t in cal(T), g in cal(G) colon (upright("pos")(t) = 0 or upright("pos")_(upright("season_of")(t))(t) = 0) \
+  upright("last") & italic("on")_(t,g) & = 0 & forall t in cal(T), g in cal(G) colon (upright("pos")(t) = abs(cal(T)) - 1 or upright("pos")_(upright("season_of")(t))(t) = abs(cal(T)_(upright("season_of")(t))) - 1) \
   upright("northern") & italic("slack")_(t) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("zone_of")(b) = upright("north") and upright("zone_of")(b) != upright("area_of")(b) and upright("zone_of")(b) upright(" is defined") \
   upright("efficiency") & p_(t,g) & <= upright("eta")_(g) dot upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
   upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) \

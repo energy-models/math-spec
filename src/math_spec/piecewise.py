@@ -254,7 +254,7 @@ def _expand_lp(
     d = pw.over
     run = f'({x_link.values} - shift({x_link.values}, over={d}, offset=1, edge=0))'
     rise = f'({y_link.values} - shift({y_link.values}, over={d}, offset=1, edge=0))'
-    interior = f'{mask} AND NOT {name}_starts' if mask else f'{d} != index({d}, 0)'
+    interior = f'{mask} AND NOT {name}_starts' if mask else f'position({d}) != 0'
     raw['constraints'][f'{name}_chord'] = {
         'foreach': [*frame, d],
         'where': interior,
@@ -264,7 +264,7 @@ def _expand_lp(
         ),
     }
     edges = (('domain_lo', '>=', f'{name}_starts'), ('domain_hi', '<=', f'{name}_ends'))
-    axis = (('domain_lo', '>=', f'{d} == index({d}, 0)'), ('domain_hi', '<=', f'{d} == index({d}, -1)'))
+    axis = (('domain_lo', '>=', f'position({d}) == 0'), ('domain_hi', '<=', f'position({d}) == -1'))
     for suffix, sense, at in edges if mask else axis:
         if mask:
             raw.setdefault('parameters', {})[at] = {

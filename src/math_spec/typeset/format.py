@@ -68,6 +68,7 @@ OPERATOR_NAMES = frozenset(
         'integers',
         'binary_set',
         'sos_set',
+        'position',
         'minimize',
         'maximize',
     }
@@ -187,6 +188,15 @@ class Format(Protocol):
     def superscript(self, base: str, tail: str) -> str: ...
 
     def parenthesise(self, inner: str) -> str: ...
+
+    def cardinality(self, inner: str) -> str:
+        """How many members a set has: ``|T|``.
+
+        A fence rather than an entry in :data:`OPERATOR_NAMES`, which is a
+        vocabulary of *infix* spellings — ``tests/typeset/test_typeset.py``
+        compiles every one of them between two operands.
+        """
+        ...
 
     def fraction(self, numerator: str, denominator: str) -> str: ...
 

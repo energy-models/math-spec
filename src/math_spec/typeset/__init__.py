@@ -114,6 +114,7 @@ def typeset(
         blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries()]
         blocks += [fmt.note(text) for text in walk.convention_notes()]
         blocks += [fmt.note(text) for text in walk.translation_notes()]
+        blocks += [fmt.note(text) for text in walk.position_notes()]
     return fmt.document([*blocks, *rendered], standalone=standalone)
 
 
