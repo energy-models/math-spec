@@ -65,6 +65,9 @@ class MarkdownFormat:
     def script(self, letter: str) -> str:
         return _LATEX.script(letter)
 
+    def greek(self, name: str) -> str:
+        return _LATEX.greek(name)
+
     def prose(self, text: str) -> str:
         return _LATEX.prose(text)
 

@@ -213,8 +213,9 @@ class _Context:
 class Walk:
     """Walks a validated schema, emitting :class:`Line`s in one format.
 
-    Stateful only in what it has *noticed* — which edge policies appeared,
-    which the legend needs to explain the symbols they print.
+    Stateful only in what it has *noticed* — which edge policies appeared and
+    whether a translation was counted inside a group, which the legend needs
+    to explain the symbols they print.
     """
 
     def __init__(self, schema: Buildable, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
@@ -223,6 +224,7 @@ class Walk:
         self.symbols = symbols
         self.format = fmt
         self.policies: set[str] = set()
+        self.grouped = False
 
     def op(self, name: str) -> str:
         return self.format.operators[name]
@@ -230,16 +232,23 @@ class Walk:
     def translation(self, step: _Step, group: str = '') -> str:
         """The operator for one translation, carrying its fill and its group.
 
-        Both ride the operator, so a call with both writes *one* subscript
-        group: two subscripts on one symbol is a TeX error rather than a
-        rendering, and the equation carrying it stopped compiling (#1165).
+        Both ride the operator, and they take **different slots**: the fill
+        below, the partition above. Sharing one subscript is what a single
+        symbol allows — two subscripts is a TeX error rather than a rendering
+        (#1165) — but comma-joined there, ``0,season_of(t)`` said nothing about
+        which of the two was the value standing at the boundary and which was
+        the group the translation stays inside.
         """
         backward, forward = _TRANSLATIONS[step.policy]
         # a named offset is always backward: `by=-p` is refused, so the sign is
         # in the data and the operator cannot read it off the call
         operator = self.op(backward if isinstance(step.by, str) or step.by > 0 else forward)
-        indices = [index for index in (step.fill, group) if index]
-        return self.format.subscript(operator, indices) if indices else operator
+        if step.fill:
+            operator = self.format.subscript(operator, [step.fill])
+        if not group:
+            return operator
+        self.grouped = True
+        return self.format.superscript(operator, group)
 
     def context(self, ceiling: int = 1) -> _Context:
         return _Context(self, ceiling=ceiling)
@@ -275,8 +284,13 @@ class Walk:
             return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].foreach)), _ATOM
 
         if isinstance(node, UnaryOperatorNode):
-            operand = self.arithmetic(node.operand, ctx, need=2)
-            return (f'{self.op("minus")}{operand}' if node.op == '-' else operand), 1
+            text, precedence = self._arithmetic(node.operand, ctx)
+            operand = self.format.parenthesise(text) if precedence < 2 else text
+            if node.op != '-':
+                return operand, precedence
+            # the operand's own brackets delimit the negation, so `-(Σ x) · 3`
+            # needs no second pair around the whole of it
+            return f'{self.op("minus")}{operand}', 2 if precedence < 2 else 1
 
         if isinstance(node, BinaryOperatorNode):
             return self._binary(node, ctx)
@@ -317,9 +331,15 @@ class Walk:
             return self.format.superscript(base, self.arithmetic(node.right, ctx)), _PRECEDENCE['**']
         precedence = _PRECEDENCE[node.op]
         left = self.arithmetic(node.left, ctx, need=precedence)
-        right = self.arithmetic(node.right, ctx, need=precedence + (1 if node.op == '-' else 0))
+        # `a + -b` is a spelling nobody uses: a negation under a `+` is the
+        # subtraction it already means, and folding it also hands the right
+        # operand subtraction's bracket rule, which is the one it needs
+        operand, op = node.right, node.op
+        if op == '+' and isinstance(operand, UnaryOperatorNode) and operand.op == '-':
+            operand, op = operand.operand, '-'
+        right = self.arithmetic(operand, ctx, need=_PRECEDENCE[op] + (1 if op == '-' else 0))
         names = {'*': 'cdot', '+': 'plus', '-': 'minus'}
-        return self.format.joined([left, right], self.op(names[node.op])), precedence
+        return self.format.joined([left, right], self.op(names[op])), precedence
 
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
         """Render an operator: a translation at the leaves, or a summation.
@@ -516,7 +536,16 @@ class Walk:
         return self.format.apply(self.format.upright('index'), ', '.join(parts))
 
     def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
-        parts = [self.where(n, ctx, need=1) for n in nodes if n is not None]
+        r"""The mask on a quantifier, as one condition.
+
+        A mask that is *only* ``True`` prints nothing: the language says it is
+        the same as no ``where`` at all, so a quantifier reading ``: \top``
+        would put a condition on the page that reads as one and is not. Nested
+        it still prints — ``\top \wedge x`` is what the file says, and
+        simplifying a mask is resolution's job rather than the typesetter's.
+        """
+        kept = [n for n in nodes if n is not None and not (isinstance(n, BooleanLiteralNode) and n.value)]
+        parts = [self.where(n, ctx, need=1) for n in kept]
         return self.format.joined(parts, self.op('and')) if parts else ''
 
     def quantifier(self, dims: list[str], condition: str) -> str:
@@ -694,6 +723,32 @@ class Walk:
             clauses.append(f' carrying label{plural} {self.format.math(named)}')
         return ''.join(clauses)
 
+    def convention_notes(self) -> list[str]:
+        """What the two faces mean, said once, with the model's own symbols.
+
+        A nomenclature table already splits the legend into parameters and
+        variables, and that is the convention a paper in this field uses. It is
+        a *lookup* rather than a reading, though: quote one equation on a slide
+        and the distinction is gone. So the symbols carry it, and this is where
+        the page says which face is which.
+
+        Only where the model has both, and only quoting symbols the
+        *derivation* produced: a table is printed verbatim and is the author's
+        to write, so a symbol it supplies is not one this note governs.
+        """
+        derived = [
+            next((n for n in names if n not in self.symbols.overridden), None)
+            for names in (self.schema.parameters, self.schema.variables)
+        ]
+        if not all(derived):
+            return []
+        given, chosen = (self.format.math(self.symbols.name[n]) for n in derived if n is not None)
+        return [
+            f'Upright is what the model is given {self.format.dash} a parameter such as {given}, a coordinate '
+            f'map, a label {self.format.dash} and italic is what the solver chooses, such as {chosen}. '
+            f'An index is italic too, being what a quantifier chooses, and a set is script.'
+        ]
+
     def translation_notes(self) -> list[str]:
         """A sentence for each translation symbol the model actually printed.
 
@@ -717,4 +772,18 @@ class Walk:
                 f'{self.format.math("t-k")} leaves the dimension ({self.format.mono("shift(edge=v)")}), so the row '
                 f'at that boundary is built and carries {self.format.math("v")} rather than being dropped.'
             )
+        if self.grouped:
+            applied = self.format.apply(self.format.upright('lookup'), 't')
+            counted = self.format.math(f't {self.format.superscript(self.op("cyclic_minus"), applied)} k')
+            note = (
+                f'{counted} denotes a translation counted inside the group a lookup puts {self.format.math("t")} '
+                f'in ({self.format.mono("shift(by=lookup)")}), so a term never crosses out of its own group.'
+            )
+            if 'edge' in self.policies:
+                both = self.format.superscript(self.format.subscript(self.op('edge_minus'), ['v']), applied)
+                note += (
+                    f' The two modifiers take different slots {self.format.dash} the group above, the fill '
+                    f'below {self.format.dash} so {self.format.math(f"t {both} k")} is both at once.'
+                )
+            notes.append(note)
         return notes

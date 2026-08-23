@@ -167,7 +167,7 @@ def test_a_negated_boolean_mask_negates_the_predicate_alone(fmt: Format):
     grouping to the one the model builds.
     """
     text = typeset(_masked('bool'), fmt, legend=False)
-    negated = f'{fmt.operators["not"]} {fmt.subscript(fmt.italic("flag"), ["g"])}'
+    negated = f'{fmt.operators["not"]} {fmt.subscript(fmt.upright("flag"), ["g"])}'
     assert negated in text, 'the negation has to land on the predicate itself'
     assert f'{negated} {fmt.prose(" is defined")}' not in text, (
         'the negation must not scope over prose it cannot bracket'
@@ -234,14 +234,15 @@ def test_a_numeric_edge_is_a_third_translation_and_shows_its_fill(fmt: Format):
 
 
 @EVERY_FORMAT
-def test_a_fill_and_a_group_share_the_operators_one_subscript(fmt: Format):
-    """Both policies subscript the operator, so a call carrying both writes one
-    subscript group rather than two.
+def test_a_fill_and_a_group_take_the_operators_two_slots(fmt: Format):
+    """The fill subscripts the operator; the group superscripts it.
 
-    Not a matter of taste: `\\boxminus_{0}_{season_of(t)}` is a *Double
-    subscript* error, so the page stopped compiling at the equation — and the
-    two policies are independent, so nothing else in the model has to be
-    wrong for a model to reach it.
+    One slot each, so neither `\\boxminus_{0}_{season_of(t)}` — a *Double
+    subscript* error that stopped the page compiling — nor
+    `\\boxminus_{0,season_of(t)}`, which compiles and leaves a reader to guess
+    which of the two is the value standing at the boundary and which is the
+    group the translation stays inside. The two policies are independent, so
+    nothing else has to be wrong for a model to reach this.
     """
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
@@ -256,10 +257,11 @@ def test_a_fill_and_a_group_share_the_operators_one_subscript(fmt: Format):
         'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
     }
     text = typeset(model, fmt, legend=False)
-    opened = fmt.subscript(fmt.operators['edge_minus'], ['0', 'GROUP']).split('GROUP')[0]
-    assert opened in text, 'the fill and the group do not share the one subscript the operator has'
-    assert fmt.subscript(fmt.operators['edge_minus'], ['0']) not in text, (
-        'the fill closed its own subscript and the group opened a second one'
+    group = fmt.apply(fmt.upright('season_of'), 't')
+    filled = fmt.subscript(fmt.operators['edge_minus'], ['0'])
+    assert fmt.superscript(filled, group) in text, 'the fill and the group are not in their own slots'
+    assert fmt.subscript(fmt.operators['edge_minus'], ['0', group]) not in text, (
+        'the fill and the group are sharing one subscript again'
     )
 
 
@@ -343,6 +345,29 @@ def test_translations_that_disagree_at_the_edge_do_not_merge(fmt: Format):
 
 
 @EVERY_FORMAT
+def test_a_negation_under_a_plus_is_the_subtraction_it_means(fmt: Format):
+    """`a + -b` is a spelling nobody uses, and the walk was printing it."""
+    model = override(DISPATCH, **{'objective.expression': 'sum(p) + -sum(p)'})
+    text = typeset(model, fmt)
+    assert f'{fmt.operators["plus"]} {fmt.operators["minus"]}' not in text
+    assert fmt.operators['minus'] in text, 'the subtraction it folded into should still print'
+
+
+@EVERY_FORMAT
+def test_a_mask_that_is_only_true_prints_no_condition(fmt: Format):
+    """The language says `True` is the same as no `where`, so a `\\top` on the
+    quantifier would put a condition on the page that reads as one and is not.
+
+    Nested it still prints: `\\top \\wedge x` is what the file says, and simplifying a
+    mask belongs to resolution rather than to the typesetter.
+    """
+    always = override(DISPATCH, **{'constraints.power_balance.where': 'True'})
+    assert fmt.operators['true'] not in typeset(always, fmt)
+    nested = override(DISPATCH, **{'constraints.power_balance.where': 'True AND load > 0'})
+    assert fmt.operators['true'] in typeset(nested, fmt)
+
+
+@EVERY_FORMAT
 def test_the_legend_explains_wraparound_only_when_it_is_used(fmt: Format):
     rolled = {
         'dimensions': {'snapshot': {'dtype': 'int'}},
@@ -401,12 +426,105 @@ def test_an_invalid_model_fails_the_same_way_check_does(fmt: Format):
         pytest.param('soc_max', r'\mathit{soc}^{\mathrm{max}}', id='declared-head-so-the-tail-is-a-qualifier'),
         pytest.param('marginal_cost', r'\mathit{marginal\_cost}', id='neither-so-it-stays-one-word'),
         pytest.param('shut_down', r'\mathit{shut\_down}', id='neither-even-when-the-tail-reads-like-a-qualifier'),
+        pytest.param('theta', r'\theta', id='a-name-that-is-a-greek-letter-is-the-letter'),
+        pytest.param('theta_max', r'\theta^{\mathrm{max}}', id='and-is-a-head-a-qualifier-may-hang-off'),
+        pytest.param('thetas', r'\mathit{thetas}', id='but-only-when-the-whole-name-is-the-letter'),
     ],
 )
 def test_an_underscore_is_only_a_qualifier_when_its_head_is_a_symbol(name: str, expected: str):
     """`marginal_cost` is not *marginal* raised to *cost*. Splitting every
     underscore turned about a third of real names into nonsense."""
     assert _derive_name_symbol(name, frozenset({'p', 'soc'}), LATEX) == expected
+
+
+@pytest.mark.parametrize(
+    ('name', 'expected'),
+    [
+        pytest.param('cost', r'\mathrm{cost}', id='a-word'),
+        pytest.param('p', r'\mathrm{p}', id='and-a-single-letter-too'),
+        pytest.param('p_max', r'\mathrm{p}^{\mathrm{max}}', id='the-head-of-a-qualifier-with-it'),
+        pytest.param('eta', r'\mathrm{eta}', id='and-a-greek-name-the-rule-beating-the-letter'),
+    ],
+)
+def test_a_given_quantity_is_upright(name: str, expected: str):
+    r"""Upright is what the data supplies, and it admits no exception.
+
+    Not for single letters — `p^max` beside a variable `p` is exactly the pair
+    a reader has to be able to tell apart — and not for a Greek name, where
+    LaTeX has no upright lower-case form without `upgreek`, and taking that
+    dependency would cost both a two-package preamble and markdown that
+    renders the same on GitHub as on the docs site. An italic `\eta` that
+    might be either is worse than an upright `\mathrm{eta}` that is one.
+    """
+    assert _derive_name_symbol(name, frozenset({'p', 'soc'}), LATEX, given=True) == expected
+
+
+@EVERY_FORMAT
+def test_a_name_that_is_a_greek_letter_prints_as_the_letter(fmt: Format):
+    """A variable called `theta` set as the italic word *theta* is the one
+    derived symbol no paper would accept."""
+    model = override(DISPATCH, **{'variables.theta': {'foreach': ['snapshot']}})
+    assert fmt.greek('theta') in typeset(model, fmt)
+
+
+@EVERY_FORMAT
+def test_a_parameter_is_upright_and_a_variable_is_italic(fmt: Format):
+    """The one distinction a reader of a linear model cannot afford to guess.
+
+    A nomenclature table already splits the legend, and that is the convention
+    the field uses — but it is a lookup rather than a reading, and an equation
+    quoted on its own takes the legend with it. So the symbols carry it:
+    upright is what the model is given, italic is what the solver chooses.
+    """
+    text = typeset(DISPATCH, fmt, legend=False)
+    assert fmt.subscript(fmt.upright('load'), ['t']) in text, 'a parameter is given, so it is upright'
+    assert fmt.subscript(fmt.italic('load'), ['t']) not in text
+    assert fmt.subscript('p', ['t', 'g']) in text, 'a variable is chosen, so it stays italic'
+
+
+@EVERY_FORMAT
+def test_the_legend_states_the_convention_only_where_it_draws_it(fmt: Format):
+    """A note explaining a contrast the page does not draw is a dead end, the
+    same reason the translation notes are gated on their symbol printing."""
+    assert 'Upright is what the model is given' in typeset(DISPATCH, fmt)
+    parameterless = {
+        'dimensions': {'snapshot': {'dtype': 'int'}},
+        'variables': {'p': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
+        'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
+    }
+    assert 'Upright is what the model is given' not in typeset(parameterless, fmt)
+
+
+@EVERY_FORMAT
+def test_the_convention_note_quotes_only_what_the_derivation_chose(fmt: Format):
+    """A table is printed verbatim and is the author's to write, so a symbol it
+    supplies is not one the note governs.
+
+    `examples/symbols/dispatch.yaml` maps three parameters to italic symbols,
+    and the homepage renders through it — so the note quoting one of those said
+    "a parameter such as $\\bar p$" under a sentence claiming a parameter is
+    upright, contradicting itself on the page a reader arrives at first.
+    """
+    table = {'notation': fmt.notation, 'names': {'load': 'x', 'cost': 'c', 'p_max': 'm'}}
+    assert 'Upright is what the model is given' not in typeset(DISPATCH, fmt, symbols=table)
+    assert 'Upright is what the model is given' in typeset(DISPATCH, fmt), 'derived, so the note applies'
+
+
+@EVERY_FORMAT
+def test_a_dimension_is_not_a_head_a_qualifier_hangs_off(fmt: Format):
+    """`zone_cap` is a capacity *indexed by* zone, not a zone qualified by cap.
+
+    Reading the axis as the head also made a parameter's symbol depend on
+    whether some unrelated dimension happened to share its prefix: declare a
+    dimension named `tech` and `tech_cap` silently re-rendered.
+    """
+    model = override(
+        DISPATCH,
+        **{'dimensions.zone': {'dtype': 'str'}, 'parameters.zone_cap': {'dims': ['zone']}},
+    )
+    text = typeset(model, fmt)
+    assert fmt.upright('zone_cap') in text
+    assert fmt.superscript(fmt.upright('zone'), fmt.upright('cap')) not in text
 
 
 @EVERY_FORMAT
@@ -451,17 +569,17 @@ def test_a_subtracted_summation_keeps_the_sign_outside_it(fmt: Format):
     'fragment',
     [
         pytest.param('p_{t,g}', id='symbols-follow-the-names-variable'),
-        pytest.param(r'\mathit{load}_{t}', id='symbols-follow-the-names-parameter'),
-        pytest.param(r'p^{\mathrm{max}}_{g}', id='symbols-follow-the-names-qualifier'),
+        pytest.param(r'\mathrm{load}_{t}', id='symbols-follow-the-names-parameter'),
+        pytest.param(r'\mathrm{p}^{\mathrm{max}}_{g}', id='symbols-follow-the-names-qualifier'),
         pytest.param(
-            r'\sum_{g \in \mathcal{G}} p_{t,g} & = \mathit{load}_{t}',
+            r'\sum_{g \in \mathcal{G}} p_{t,g} & = \mathrm{load}_{t}',
             id='sum-binds-the-dimension-it-reduces',
         ),
         pytest.param(
-            r'\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g}',
+            r'\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}',
             id='a-sum-naming-no-dim-puts-them-all-in-its-domain',
         ),
-        pytest.param(r'0 \le p_{t,g} & \le p^{\mathrm{max}}_{g}', id='bounds-become-a-domain-line'),
+        pytest.param(r'0 \le p_{t,g} & \le \mathrm{p}^{\mathrm{max}}_{g}', id='bounds-become-a-domain-line'),
         pytest.param(r'\text{power\_balance}', id='names-are-escaped-in-text-mode'),
     ],
 )
@@ -547,7 +665,7 @@ def test_typst_uses_its_own_grouping_and_set_notation():
     typ = to_typst(DISPATCH, legend=False)
     assert 'p_(t,g)' in typ
     assert 'sum_(g in cal(G))' in typ
-    assert 'italic("load")_(t)' in typ
+    assert 'upright("load")_(t)' in typ
 
 
 def test_typst_sum_renders_the_coordinate_map():
@@ -905,7 +1023,7 @@ def test_the_table_overrides_and_the_rest_is_still_derived():
     tex = to_latex(WITH_MARGINAL_COST, symbols=SYMBOLS, legend=False)
     assert r'\pi_{t,u}' in tex, 'both the symbol and its subscripts were overridden'
     assert r'c^{\mathrm{marg}}_{u}' in tex
-    assert r'\mathit{load}_{t}' in tex, 'untouched, so still derived'
+    assert r'\mathrm{load}_{t}' in tex, 'untouched, so still derived'
     assert r'u \in \mathcal{U}' in tex
 
 

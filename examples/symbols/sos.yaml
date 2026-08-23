@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# The sidecar symbol table for `examples/sos.yaml`. The weights a curve
+# expands to are named after the block that declared them, which is right in
+# the file and unreadable in an equation that names one six times: papers write
+# the convex-combination weight as lambda, so this says so out loud rather than
+# the typesetter renaming anything behind the reader's back.
+notation: latex
+
+names:
+  cost_curve_lam: "\\lambda"
+  bp_x: "\\mathrm{x}"
+  bp_y: "\\mathrm{y}"

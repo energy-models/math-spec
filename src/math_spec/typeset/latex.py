@@ -95,6 +95,9 @@ class LatexFormat:
     def script(self, letter: str) -> str:
         return rf'\mathcal{{{letter}}}'
 
+    def greek(self, name: str) -> str:
+        return f'\\{name}'
+
     def prose(self, text: str) -> str:
         return rf'\text{{{_escape(text)}}}'
 

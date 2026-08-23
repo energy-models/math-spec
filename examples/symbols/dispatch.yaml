@@ -5,6 +5,15 @@
 # The sidecar symbol table for `examples/dispatch.yaml` — not a model, so
 # nothing here is checked against the schema. `tools/render_tex.py` picks it up
 # by filename, and the homepage prints the same model with and without it.
+#
+# `c`, `\ell` and `\bar p` name three *parameters* and all three are italic, which
+# is not what the derivation would print: upright is what the model is given.
+# That is the point of a table rather than a hole in the rule. Entries are
+# printed verbatim and a reader's notation is theirs to choose — the same
+# property that lets an author whose preamble loads `upgreek` write `\upeta`
+# for a parameter the derivation has to spell out. The convention note is
+# suppressed wherever a table has taken over the symbols it would quote, so a
+# page never states a rule its own symbols are not keeping.
 notation: latex
 
 dimensions:

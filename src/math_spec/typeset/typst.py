@@ -105,6 +105,9 @@ class TypstFormat:
     def script(self, letter: str) -> str:
         return f'cal({letter})'
 
+    def greek(self, name: str) -> str:
+        return name
+
     def prose(self, text: str) -> str:
         return f'upright({_quote(text)})'
 

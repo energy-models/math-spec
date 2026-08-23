@@ -63,6 +63,7 @@ parameters:
   zone_cap: { dims: [zone] }
   tech_cap: { dims: [bus, technology] }
   min_up: { dims: [generator], dtype: int }
+  eta: { dims: [generator] } # a Greek name that is *given*, so the rule wins and it prints as the word
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
@@ -83,17 +84,18 @@ parameters:
 
 | Symbol | Meaning |
 |---|---|
-| $p^{\mathrm{max}}$ | `p_max` over $\mathcal{G}$ |
-| $p^{\mathrm{min}}$ | `p_min` over $\mathcal{G}$ |
-| $\mathit{cost}$ | `cost` over $\mathcal{G}$ |
-| $\mathit{load}$ | `load` over $\mathcal{T} \times \mathcal{B}$ |
-| $\mathit{is\_flexible}$ | `is_flexible` over $\mathcal{G}$ |
-| $\mathit{zone}^{\mathrm{cap}}$ | `zone_cap` over $\mathcal{Z}$ |
-| $\mathit{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
-| $\mathit{min\_up}$ | `min_up` over $\mathcal{G}$ |
-| $\mathit{lead}$ | `lead` over $\mathcal{G}$ |
-| $\mathit{budget}$ | `budget` (scalar) |
-| $\mathit{growth}$ | `growth` (scalar) |
+| $\mathrm{p}^{\mathrm{max}}$ | `p_max` over $\mathcal{G}$ |
+| $\mathrm{p}^{\mathrm{min}}$ | `p_min` over $\mathcal{G}$ |
+| $\mathrm{cost}$ | `cost` over $\mathcal{G}$ |
+| $\mathrm{load}$ | `load` over $\mathcal{T} \times \mathcal{B}$ |
+| $\mathrm{is\_flexible}$ | `is_flexible` over $\mathcal{G}$ |
+| $\mathrm{zone\_cap}$ | `zone_cap` over $\mathcal{Z}$ |
+| $\mathrm{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
+| $\mathrm{min\_up}$ | `min_up` over $\mathcal{G}$ |
+| $\mathrm{eta}$ | `eta` over $\mathcal{G}$ |
+| $\mathrm{lead}$ | `lead` over $\mathcal{G}$ |
+| $\mathrm{budget}$ | `budget` (scalar) |
+| $\mathrm{growth}$ | `growth` (scalar) |
 
 #### Variables
 
@@ -102,7 +104,7 @@ parameters:
 | $p$ | `p` over $\mathcal{T} \times \mathcal{G}$ |
 | $\mathit{spill}$ | `spill` over $\mathcal{T}$ |
 | $\mathit{slack}$ | `slack` over $\mathcal{T}$ |
-| $\mathit{theta}$ | `theta` over $\mathcal{B}$ |
+| $\theta$ | `theta` over $\mathcal{B}$ |
 | $\mathit{on}$ | `on` over $\mathcal{T} \times \mathcal{G}$ |
 | $\mathit{units}$ | `units` over $\mathcal{G}$ |
 | $\mathit{spare}$ | `spare` over $\mathcal{G}$ |
@@ -111,9 +113,13 @@ parameters:
 | $\mathit{void}$ | `void` over $\mathcal{B}$ |
 | $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
+Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
+
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
+
+$t \ominus^{\mathrm{lookup}(t)} k$ denotes a translation counted inside the group a lookup puts $t$ in (`shift(by=lookup)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $t \boxminus_{v}^{\mathrm{lookup}(t)} k$ is both at once.
 
 ### The objective
 
@@ -126,7 +132,7 @@ sense: maximize
 expression: sum(p * cost) + sum(p * p * cost) + sum(p * cost * growth ** lead) + sum(p * p_max) - reserve + -headroom
 ```
 
-$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} \cdot \mathit{growth}^{\mathit{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
+$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \cdot \mathrm{growth}^{\mathrm{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{p}^{\mathrm{max}}_{g} - \mathit{reserve} - \mathit{headroom}$$
 
 ### Constraints
 
@@ -140,7 +146,7 @@ balance:
   expression: sum(p, by=gen_bus) + spill - slack == load
 ```
 
-$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} = \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} = \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
 #### `ramp`
 
@@ -152,7 +158,7 @@ ramp:
   expression: p - shift(p, over=snapshot, offset=1, edge='wrap') <= shift(p, over=snapshot, offset=1) + p_max
 ```
 
-$$p_{t,g} - p_{t \ominus 1,g} \le p_{t - 1,g} + p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} - p_{t \ominus 1,g} \le p_{t - 1,g} + \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `edges`
 
@@ -166,7 +172,7 @@ edges:
     <= shift(p, over=snapshot, offset=-1, edge=0) + p_max
 ```
 
-$$p_{t \boxminus_{0} 1,g} \le p_{t \boxplus_{0} 1,g} + p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t \boxminus_{0} 1,g} \le p_{t \boxplus_{0} 1,g} + \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `ahead`
 
@@ -190,7 +196,7 @@ composed:
   expression: shift(shift(p, over=snapshot, offset=1), over=snapshot, offset=1) <= shift(p_max, over=generator, offset=0)
 ```
 
-$$p_{t - 2,g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t - 2,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `uncomposed`
 
@@ -202,7 +208,7 @@ uncomposed:
   expression: shift(shift(p, over=snapshot, offset=lead), over=snapshot, offset=1) <= p_max
 ```
 
-$$p_{\left( t - 1 \right) - \mathit{lead},g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{\left( t - 1 \right) - \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `crossed`
 
@@ -214,7 +220,7 @@ crossed:
   expression: shift(shift(p, over=snapshot, offset=1, edge='wrap'), over=generator, offset=-1) <= p_max
 ```
 
-$$p_{t \ominus 1,g + 1} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t \ominus 1,g + 1} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `lead_time`
 
@@ -226,7 +232,7 @@ lead_time:
   expression: shift(p, over=snapshot, offset=lead, edge=0) <= p_max
 ```
 
-$$p_{t \boxminus_{0} \mathit{lead},g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t \boxminus_{0} \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `in_season`
 
@@ -238,7 +244,7 @@ in_season:
   expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
 ```
 
-$$p_{t,g} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `held_in_season`
 
@@ -250,7 +256,7 @@ held_in_season:
   expression: p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)
 ```
 
-$$p_{t,g} \le p_{t \boxminus_{0,\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} \le p_{t \boxminus_{0}^{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `window`
 
@@ -274,7 +280,7 @@ history:
   expression: sum_back(on, over=snapshot, within=min_up, edge='wrap') <= units
 ```
 
-$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t \ominus t' < \mathit{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t \ominus t' < \mathrm{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `pullback`
 
@@ -286,7 +292,7 @@ pullback:
   expression: spill <= at(zone_cap, by=zone_of)
 ```
 
-$$\mathit{spill}_{t} \le \mathit{zone}^{\mathrm{cap}}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+$$\mathit{spill}_{t} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
 #### `grouped_twice`
 
@@ -298,7 +304,7 @@ grouped_twice:
   expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap
 ```
 
-$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathit{tech\_cap}_{b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$$
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{tech\_cap}_{b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$$
 
 #### `pulled_back_twice`
 
@@ -310,11 +316,11 @@ pulled_back_twice:
   expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
 ```
 
-$$\mathit{units}_{g} \le \mathit{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
+$$\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
 
 #### `arithmetic`
 
-division, unary minus, nested reduction, bracketing
+division, both unary signs, nested reduction, bracketing
 
 ```yaml
 arithmetic:
@@ -322,10 +328,10 @@ arithmetic:
   # using it would not be a model. Format.power stays exercised by unit
   # tests rather than from here.
   foreach: [snapshot]
-  expression: sum(p / 2 + -cost, over=generator) >= -sum(p, over=generator) * 3
+  expression: sum(p / 2 + -cost, over=generator) >= -sum(+p, over=generator) * 3
 ```
 
-$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} + -\mathit{cost}_{g} \right) \ge \left( -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
+$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} \right) \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
 
 #### `total`
 
@@ -337,7 +343,7 @@ total:
   expression: sum(p) <= budget
 ```
 
-$$\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathit{budget}$$
+$$\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}$$
 
 #### `scalar`
 
@@ -350,7 +356,7 @@ scalar:
   expression: units <= budget
 ```
 
-$$\mathit{units}_{g} \le \mathit{budget} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathit{cost}_{g} \text{ is defined}$$
+$$\mathit{units}_{g} \le \mathrm{budget} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{cost}_{g} \text{ is defined}$$
 
 #### `running`
 
@@ -363,7 +369,7 @@ running:
   expression: theta <= load
 ```
 
-$$\mathit{theta}_{b} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathit{theta}_{b} \text{ exists} \wedge t \ge 3$$
+$$\theta_{b} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \theta_{b} \text{ exists} \wedge t \ge 3$$
 
 #### `first`
 
@@ -389,11 +395,23 @@ northern:
   expression: slack <= load
 ```
 
-$$\mathit{slack}_{t} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
+$$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
+
+#### `efficiency`
+
+a Greek-named parameter, which is given — so the convention wins and it prints as the word
+
+```yaml
+efficiency:
+  foreach: [snapshot, generator]
+  expression: p <= eta * p_max
+```
+
+$$p_{t,g} \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `always`
 
-the two constant masks, which are a quantifier and no equation
+a mask that is only the constant true, which the language says is no mask at all — so none prints
 
 ```yaml
 always:
@@ -402,11 +420,24 @@ always:
   expression: spill >= 0
 ```
 
-$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \top$$
+$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T}$$
+
+#### `redundant`
+
+the same constant *inside* a mask, where it is what the file says and prints
+
+```yaml
+redundant:
+  foreach: [snapshot]
+  where: "True AND spill"
+  expression: spill >= 0
+```
+
+$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \top \wedge \mathit{spill}_{t} \text{ exists}$$
 
 #### `never`
 
-the other constant mask
+the other constant mask, which says the rows are none and is worth seeing
 
 ```yaml
 never:
@@ -430,7 +461,7 @@ p:
   bounds: { lower: p_min, upper: p_max }
 ```
 
-$$p^{\mathrm{min}}_{g} \le p_{t,g} \le p^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( p^{\mathrm{max}}_{g} > 0 \wedge \neg \mathit{is\_flexible}_{g} \vee p^{\mathrm{min}}_{g} > 0 \right)$$
+$$\mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0 \right)$$
 
 #### `spill`
 
@@ -465,7 +496,7 @@ theta:
   foreach: [bus]
 ```
 
-$$\mathit{theta}_{b} \in \mathbb{R} \qquad \forall\thinspace b \in \mathcal{B}$$
+$$\theta_{b} \in \mathbb{R} \qquad \forall\thinspace b \in \mathcal{B}$$
 
 #### `on`
 
@@ -527,7 +558,7 @@ headroom:
   bounds: { lower: 0 }
 ```
 
-$$\mathit{headroom} \ge 0 \qquad \text{where } \mathit{budget} \text{ is defined}$$
+$$\mathit{headroom} \ge 0 \qquad \text{where } \mathrm{budget} \text{ is defined}$$
 
 #### `void`
 
@@ -561,6 +592,18 @@ A curve is sugar: what prints is the formulation it expands to, which is the mat
 
 **`method: adjacency`** — a binary per segment, and a row making the two nonzero weights neighbours, in `examples/ports/transport_pwl.yaml`.
 
+Rendered with the sidecar symbol table `examples/symbols/transport_pwl.yaml`, which is what the weights print as:
+
+```yaml
+notation: latex
+
+names:
+  economies_of_scale_lam: "\\lambda"
+  economies_of_scale_seg: "\\delta"
+  bp_x: "\\mathrm{x}"
+  bp_y: "\\mathrm{y}"
+```
+
 ```yaml
 economies_of_scale:
   over: bp
@@ -569,23 +612,34 @@ economies_of_scale:
     - [scaled, bp_y]
 ```
 
-$$\sum_{b \in \mathcal{B}} \mathit{economies\_of\_scale\_lam}_{p,m,b} = 1 \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M}$$
+$$\sum_{b \in \mathcal{B}} \lambda_{p,m,b} = 1 \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M}$$
 
-$$\mathit{shipment}_{p,m} = \sum_{b \in \mathcal{B}} \mathit{economies\_of\_scale\_lam}_{p,m,b} \cdot \mathit{bp}^{\mathrm{x}}_{b} \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M}$$
+$$\mathit{shipment}_{p,m} = \sum_{b \in \mathcal{B}} \lambda_{p,m,b} \cdot \mathrm{x}_{b} \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M}$$
 
-$$\mathit{scaled}_{p,m} = \sum_{b \in \mathcal{B}} \mathit{economies\_of\_scale\_lam}_{p,m,b} \cdot \mathit{bp}^{\mathrm{y}}_{b} \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M}$$
+$$\mathit{scaled}_{p,m} = \sum_{b \in \mathcal{B}} \lambda_{p,m,b} \cdot \mathrm{y}_{b} \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M}$$
 
-$$\sum_{b \in \mathcal{B}} \mathit{economies\_of\_scale\_seg}_{p,m,b} = 1 \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M}$$
+$$\sum_{b \in \mathcal{B}} \delta_{p,m,b} = 1 \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M}$$
 
-$$\mathit{economies\_of\_scale\_lam}_{p,m,b} \le \mathit{economies\_of\_scale\_seg}_{p,m,b} + \mathit{economies\_of\_scale\_seg}_{p,m,b \boxminus_{0} 1} \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M},\enspace b \in \mathcal{B}$$
+$$\lambda_{p,m,b} \le \delta_{p,m,b} + \delta_{p,m,b \boxminus_{0} 1} \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M},\enspace b \in \mathcal{B}$$
 
-$$0 \le \mathit{economies\_of\_scale\_lam}_{p,m,b} \le 1 \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M},\enspace b \in \mathcal{B}$$
+$$0 \le \lambda_{p,m,b} \le 1 \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M},\enspace b \in \mathcal{B}$$
 
-$$\mathit{economies\_of\_scale\_seg}_{p,m,b} \in \{0, 1\} \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M},\enspace b \in \mathcal{B}$$
+$$\delta_{p,m,b} \in \{0, 1\} \qquad \forall\thinspace p \in \mathcal{P},\enspace m \in \mathcal{M},\enspace b \in \mathcal{B}$$
 
 #### `cost_curve`
 
 **`method: sos2`** — the same weights, restricted by a set the sink branches on (the sos rules), in `examples/sos.yaml`.
+
+Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the weights print as:
+
+```yaml
+notation: latex
+
+names:
+  cost_curve_lam: "\\lambda"
+  bp_x: "\\mathrm{x}"
+  bp_y: "\\mathrm{y}"
+```
 
 ```yaml
 cost_curve:
@@ -596,19 +650,30 @@ cost_curve:
   method: sos2
 ```
 
-$$\sum_{b \in \mathcal{B}} \mathit{cost\_curve\_lam}_{t,g,b} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
-$$p_{t,g} = \sum_{b \in \mathcal{B}} \mathit{cost\_curve\_lam}_{t,g,b} \cdot \mathit{bp}^{\mathrm{x}}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
-$$\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \mathit{cost\_curve\_lam}_{t,g,b} \cdot \mathit{bp}^{\mathrm{y}}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{y}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
-$$0 \le \mathit{cost\_curve\_lam}_{t,g,b} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B}$$
+$$0 \le \lambda_{t,g,b} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B}$$
 
-$$\left( \mathit{cost\_curve\_lam}_{t,g,b} \right)_{b \in \mathcal{B}} \in \mathrm{SOS}2 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\left( \lambda_{t,g,b} \right)_{b \in \mathcal{B}} \in \mathrm{SOS}2 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `cost_curve`
 
 **`method: convex`** — nothing — the weights range over the hull, which is a pure LP, in `examples/piecewise.yaml`.
+
+Rendered with the sidecar symbol table `examples/symbols/piecewise.yaml`, which is what the weights print as:
+
+```yaml
+notation: latex
+
+names:
+  cost_curve_lam: "\\lambda"
+  bp_x: "\\mathrm{x}"
+  bp_y: "\\mathrm{y}"
+```
 
 ```yaml
 cost_curve:
@@ -619,17 +684,27 @@ cost_curve:
   method: convex
 ```
 
-$$\sum_{b \in \mathcal{B}} \mathit{cost\_curve\_lam}_{t,g,b} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\sum_{b \in \mathcal{B}} \lambda_{t,g,b} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
-$$p_{t,g} = \sum_{b \in \mathcal{B}} \mathit{cost\_curve\_lam}_{t,g,b} \cdot \mathit{bp}^{\mathrm{x}}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
-$$\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \mathit{cost\_curve\_lam}_{t,g,b} \cdot \mathit{bp}^{\mathrm{y}}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathit{op\_cost}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{y}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
-$$0 \le \mathit{cost\_curve\_lam}_{t,g,b} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B}$$
+$$0 \le \lambda_{t,g,b} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B}$$
 
 #### `cost_curve`
 
 **`method: lp`** — no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
+
+Rendered with the sidecar symbol table `examples/symbols/piecewise_lp.yaml`, which is what the weights print as:
+
+```yaml
+notation: latex
+
+names:
+  bp_x: "\\mathrm{x}"
+  bp_y: "\\mathrm{y}"
+```
 
 ```yaml
 cost_curve:
@@ -640,11 +715,11 @@ cost_curve:
   method: lp
 ```
 
-$$\mathit{op\_cost}_{t,g} \cdot \left( \mathit{bp}^{\mathrm{x}}_{g,b} - \mathit{bp}^{\mathrm{x}}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathit{bp}^{\mathrm{y}}_{g,b} - \mathit{bp}^{\mathrm{y}}_{g,b \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathit{bp}^{\mathrm{x}}_{g,b} \right) + \mathit{bp}^{\mathrm{y}}_{g,b} \cdot \left( \mathit{bp}^{\mathrm{x}}_{g,b} - \mathit{bp}^{\mathrm{x}}_{g,b \boxminus_{0} 1} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b \neq \mathrm{index}(\mathcal{B}, 0)$$
+$$\mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b \neq \mathrm{index}(\mathcal{B}, 0)$$
 
-$$p_{t,g} \ge \mathit{bp}^{\mathrm{x}}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b = \mathrm{index}(\mathcal{B}, 0)$$
+$$p_{t,g} \ge \mathrm{x}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b = \mathrm{index}(\mathcal{B}, 0)$$
 
-$$p_{t,g} \le \mathit{bp}^{\mathrm{x}}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b = \mathrm{index}(\mathcal{B}, -1)$$
+$$p_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace b = \mathrm{index}(\mathcal{B}, -1)$$
 
 ### Sets carried to the solver
 
