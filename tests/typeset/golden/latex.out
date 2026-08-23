@@ -27,6 +27,7 @@
 \item[$\mathrm{zone\_cap}$] \texttt{zone\_cap} over $\mathcal{Z}$
 \item[$\mathrm{tech\_cap}$] \texttt{tech\_cap} over $\mathcal{B} \times \mathcal{E}$
 \item[$\mathrm{min\_up}$] \texttt{min\_up} over $\mathcal{G}$
+\item[$\mathrm{eta}$] \texttt{eta} over $\mathcal{G}$
 \item[$\mathrm{lead}$] \texttt{lead} over $\mathcal{G}$
 \item[$\mathrm{budget}$] \texttt{budget} (scalar)
 \item[$\mathrm{growth}$] \texttt{growth} (scalar)
@@ -83,6 +84,7 @@
 \text{running} && \theta_{b} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \theta_{b} \text{ exists} \wedge t \ge 3 \\
 \text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( t = \mathrm{index}(\mathcal{T}, 0) \vee t = \mathrm{index}(\mathcal{T}, 0, \mathrm{season\_of}(t)) \right) \\
 \text{northern} && \mathit{slack}_{t} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined} \\
+\text{efficiency} && p_{t,g} & \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \top \wedge \mathit{spill}_{t} \text{ exists} \\
 \text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot

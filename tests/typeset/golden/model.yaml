@@ -37,6 +37,7 @@ parameters:
   zone_cap: { dims: [zone] }
   tech_cap: { dims: [bus, technology] }
   min_up: { dims: [generator], dtype: int }
+  eta: { dims: [generator] } # a Greek name that is *given*, so the rule wins and it prints as the word
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
@@ -157,6 +158,9 @@ constraints:
     foreach: [snapshot, bus]
     where: "zone_of == 'north' AND zone_of != area_of AND zone_of"
     expression: slack <= load
+  efficiency: # a Greek-named parameter, which is given — so the convention wins and it prints as the word
+    foreach: [snapshot, generator]
+    expression: p <= eta * p_max
   always: # a mask that is only the constant true, which the language says is no mask at all — so none prints
     foreach: [snapshot]
     where: "true"

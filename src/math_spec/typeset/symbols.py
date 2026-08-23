@@ -54,7 +54,7 @@ _GREEK = frozenset(
 
 
 def _word(name: str, fmt: Format, *, given: bool) -> str:
-    """One name as one symbol, upright where it is *given*.
+    r"""One name as one symbol, upright where it is *given*.
 
     **Upright is what the data supplies; italic is what the solver chooses.**
     Which of the two a symbol is, is the distinction a linear model cannot
@@ -64,16 +64,21 @@ def _word(name: str, fmt: Format, *, given: bool) -> str:
     sets, upright for the maps and qualifiers a model is handed, italic for
     quantities. The cut this adds is *inside* italic.
 
-    A name that *is* a Greek letter is set as the letter either way, which is
-    what the author meant by writing it out. The distinction does not reach
-    those: LaTeX sets lower-case Greek italic and has no upright form in the
-    two-package preamble the render gate holds itself to, so a Greek-named
-    parameter is one the legend has to place.
+    A name that *is* a Greek letter is set as the letter **where it is
+    chosen**, which is what the author meant by writing it out. Where it is
+    given, the rule wins and the name prints upright as the word: LaTeX has no
+    upright lower-case Greek without ``upgreek``, and taking that dependency
+    would break two things this repository holds — a preamble installable from
+    a two-package TeX, and `to_markdown` output that renders the same on GitHub
+    as on the docs site, GitHub's MathJax being unconfigurable. An italic
+    ``\eta`` that might be either is worse than an upright ``\mathrm{eta}``
+    that is one; a table entry is how an author whose own preamble loads
+    ``upgreek`` writes ``\upeta`` instead.
     """
-    if name in _GREEK:
-        return fmt.greek(name)
     if given:
         return fmt.upright(name)
+    if name in _GREEK:
+        return fmt.greek(name)
     return name if len(name) == 1 else fmt.italic(name)
 
 

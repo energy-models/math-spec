@@ -443,13 +443,19 @@ def test_an_underscore_is_only_a_qualifier_when_its_head_is_a_symbol(name: str, 
         pytest.param('cost', r'\mathrm{cost}', id='a-word'),
         pytest.param('p', r'\mathrm{p}', id='and-a-single-letter-too'),
         pytest.param('p_max', r'\mathrm{p}^{\mathrm{max}}', id='the-head-of-a-qualifier-with-it'),
-        pytest.param('theta', r'\theta', id='but-not-a-greek-letter-latex-has-no-upright-form-for'),
+        pytest.param('eta', r'\mathrm{eta}', id='and-a-greek-name-the-rule-beating-the-letter'),
     ],
 )
 def test_a_given_quantity_is_upright(name: str, expected: str):
-    """Upright is what the data supplies, and it reaches the single letters:
-    `p^max` beside a variable `p` is exactly the pair a reader has to be able
-    to tell apart."""
+    r"""Upright is what the data supplies, and it admits no exception.
+
+    Not for single letters — `p^max` beside a variable `p` is exactly the pair
+    a reader has to be able to tell apart — and not for a Greek name, where
+    LaTeX has no upright lower-case form without `upgreek`, and taking that
+    dependency would cost both a two-package preamble and markdown that
+    renders the same on GitHub as on the docs site. An italic `\eta` that
+    might be either is worse than an upright `\mathrm{eta}` that is one.
+    """
     assert _derive_name_symbol(name, frozenset({'p', 'soc'}), LATEX, given=True) == expected
 
 

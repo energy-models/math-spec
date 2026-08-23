@@ -63,6 +63,7 @@ parameters:
   zone_cap: { dims: [zone] }
   tech_cap: { dims: [bus, technology] }
   min_up: { dims: [generator], dtype: int }
+  eta: { dims: [generator] } # a Greek name that is *given*, so the rule wins and it prints as the word
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
@@ -91,6 +92,7 @@ parameters:
 | $\mathrm{zone\_cap}$ | `zone_cap` over $\mathcal{Z}$ |
 | $\mathrm{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
 | $\mathrm{min\_up}$ | `min_up` over $\mathcal{G}$ |
+| $\mathrm{eta}$ | `eta` over $\mathcal{G}$ |
 | $\mathrm{lead}$ | `lead` over $\mathcal{G}$ |
 | $\mathrm{budget}$ | `budget` (scalar) |
 | $\mathrm{growth}$ | `growth` (scalar) |
@@ -394,6 +396,18 @@ northern:
 ```
 
 $$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
+
+#### `efficiency`
+
+a Greek-named parameter, which is given — so the convention wins and it prints as the word
+
+```yaml
+efficiency:
+  foreach: [snapshot, generator]
+  expression: p <= eta * p_max
+```
+
+$$p_{t,g} \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `always`
 
