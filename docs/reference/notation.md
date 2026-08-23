@@ -499,7 +499,7 @@ startup_cost:
       expression: cost
 ```
 
-$$\mathit{startup\_cost}_{t,g} = \begin{cases} \mathit{cost}_{g} \cdot p^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathit{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathit{startup\_cost}_{t,g} = \begin{cases} \mathrm{cost}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 ### Variable domains
 

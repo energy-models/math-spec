@@ -102,13 +102,15 @@ def typeset(
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     walk = Walk(schema, Namespace.of(schema), Symbols(schema, fmt, table.checked_against(schema)), fmt)
 
-    # Order matters: `definitions()` prints what the other sections reached,
-    # so they run first and their output is placed around it.
+    # `definitions()` prints what the other sections reached, so it runs after
+    # them — a statement apart rather than a call inside the list, where the
+    # order it depends on would be invisible.
     objective, constraints, variables = walk.objective(), walk.constraints(), walk.variables()
+    definitions = walk.definitions()
     sections = [
         ('Objective', objective),
         ('Subject to', constraints),
-        ('Definitions', walk.definitions()),
+        ('Definitions', definitions),
         ('Variable domains', variables),
     ]
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
