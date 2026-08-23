@@ -732,13 +732,17 @@ class Walk:
         and the distinction is gone. So the symbols carry it, and this is where
         the page says which face is which.
 
-        Only where the model has both, since a note explaining a contrast the
-        page does not draw is the dead end the translation notes avoid.
+        Only where the model has both, and only quoting symbols the
+        *derivation* produced: a table is printed verbatim and is the author's
+        to write, so a symbol it supplies is not one this note governs.
         """
-        if not (self.schema.parameters and self.schema.variables):
+        derived = [
+            next((n for n in names if n not in self.symbols.overridden), None)
+            for names in (self.schema.parameters, self.schema.variables)
+        ]
+        if not all(derived):
             return []
-        given = self.format.math(self.symbols.name[next(iter(self.schema.parameters))])
-        chosen = self.format.math(self.symbols.name[next(iter(self.schema.variables))])
+        given, chosen = (self.format.math(self.symbols.name[n]) for n in derived if n is not None)
         return [
             f'Upright is what the model is given {self.format.dash} a parameter such as {given}, a coordinate '
             f'map, a label {self.format.dash} and italic is what the solver chooses, such as {chosen}. '

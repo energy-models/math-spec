@@ -136,6 +136,13 @@ class Symbols:
         # head a qualifier may hang off
         declared = frozenset({*schema.parameters, *schema.variables})
 
+        #: Names whose symbol came from the table rather than the derivation.
+        #: The convention note quotes only the others: a table is printed
+        #: verbatim and is the author's to write, so a symbol it supplies is
+        #: not one the note governs — the homepage's own table maps two
+        #: parameters to italic symbols, and the note quoting one of those
+        #: contradicted itself on the page.
+        self.overridden = frozenset(table.names) & {*schema.parameters, *schema.variables}
         self.name: dict[str, str] = {
             name: table.names[name]
             if name in table.names

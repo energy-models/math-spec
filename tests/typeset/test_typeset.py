@@ -496,6 +496,21 @@ def test_the_legend_states_the_convention_only_where_it_draws_it(fmt: Format):
 
 
 @EVERY_FORMAT
+def test_the_convention_note_quotes_only_what_the_derivation_chose(fmt: Format):
+    """A table is printed verbatim and is the author's to write, so a symbol it
+    supplies is not one the note governs.
+
+    `examples/symbols/dispatch.yaml` maps three parameters to italic symbols,
+    and the homepage renders through it — so the note quoting one of those said
+    "a parameter such as $\\bar p$" under a sentence claiming a parameter is
+    upright, contradicting itself on the page a reader arrives at first.
+    """
+    table = {'notation': fmt.notation, 'names': {'load': 'x', 'cost': 'c', 'p_max': 'm'}}
+    assert 'Upright is what the model is given' not in typeset(DISPATCH, fmt, symbols=table)
+    assert 'Upright is what the model is given' in typeset(DISPATCH, fmt), 'derived, so the note applies'
+
+
+@EVERY_FORMAT
 def test_a_dimension_is_not_a_head_a_qualifier_hangs_off(fmt: Format):
     """`zone_cap` is a capacity *indexed by* zone, not a zone qualified by cap.
 
