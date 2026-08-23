@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import pytest
 
-from tools import gallery
+from math_spec.model import PIECEWISE_METHODS
+from tools import gallery, notation
 
 
 @pytest.mark.parametrize('page', gallery.pages())
@@ -26,3 +27,29 @@ def test_the_gallery_math_is_current(page: str):
     assert gallery.rendered(page, text) == text, (
         f'docs/examples/{page} no longer matches the model it shows — run `pixi run python -m tools.gallery`'
     )
+
+
+def test_the_notation_page_is_current():
+    """The same claim, for the page that shows every construct at once.
+
+    It went unmade for longer, and cost more: four of the models the page
+    renders from were left behind when the language was extracted, so
+    `tools/notation.py` raised `FileNotFoundError` on the curve section and
+    the committed page kept showing math no model here produced. Nothing
+    failed, because nothing ran it.
+    """
+    text = notation.PAGE.read_text()
+    assert notation.rendered_page(text) == text, (
+        'docs/reference/notation.md no longer matches the fixture it is generated from — '
+        'run `pixi run python -m tools.notation`'
+    )
+
+
+def test_every_piecewise_method_has_a_model_on_the_notation_page():
+    """What the page's `_curves()` claims: one row per `method:`, all of them.
+
+    `PIECEWISE_METHODS` is the closed set, so a method added to the language
+    lands here as a missing key rather than as a section quietly showing three
+    of four formulations.
+    """
+    assert set(notation.PIECEWISE) == set(PIECEWISE_METHODS)

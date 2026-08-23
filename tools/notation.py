@@ -41,9 +41,9 @@ ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / 'docs' / 'reference' / 'notation.md'
 MODEL = ROOT / 'tests' / 'typeset' / 'golden' / 'model.yaml'
 
-#: One model per ``method:``, because the three expand to three different
-#: formulations and a section showing one of them would be showing a third of
-#: the construct. ``tests/test_docs_site.py`` holds these keys to
+#: One model per ``method:``, because the four expand to four different
+#: formulations and a section showing one of them would be showing a quarter
+#: of the construct. ``tests/test_docs.py`` holds these keys to
 #: :data:`math_spec.model.PIECEWISE_METHODS`, so a method added to the
 #: language arrives here or the page stops claiming to be all of them.
 #:

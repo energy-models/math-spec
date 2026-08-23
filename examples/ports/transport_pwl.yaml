@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  Dantzig's transportation problem with economies of scale — GAMS model library
+  trnspwl. Shipping cost grows as the square root of the consignment rather
+  than linearly, so a big consignment is cheaper per unit. Optimum
+  8.786852757777865, from linopy's own piecewise formulation.
+
+dimensions:
+  plant:
+    description: canning plants, with limited capacity
+    values: [seattle, san-diego]
+  market:
+    description: markets, with demand to be met
+    values: [new-york, chicago, topeka]
+  bp:
+    description: breakpoints of the discretised square-root curve
+    dtype: int
+
+parameters:
+  capacity:
+    description: capacity of each plant
+    dims: [plant]
+  demand:
+    description: demand at each market
+    dims: [market]
+  distance:
+    description: distance from plant to market
+    dims: [plant, market]
+  freight:
+    description: freight rate per case per unit distance
+    dims: []
+  bp_x:
+    description: >-
+      breakpoint shipment levels — one curve, the same on every route, so it
+      carries the breakpoint dimension alone and broadcasts across the pairs
+    dims: [bp]
+  bp_y:
+    description: the curve's value at each breakpoint
+    dims: [bp]
+
+variables:
+  shipment:
+    description: cases shipped from a plant to a market
+    foreach: [plant, market]
+    bounds:
+      lower: 0
+  scaled:
+    description: >-
+      what the objective is charged on — the square root of the shipment, read
+      off the curve rather than computed
+    foreach: [plant, market]
+    bounds:
+      lower: 0
+
+piecewise:
+  economies_of_scale:
+    description: >-
+      the shipment priced through the discretisation GAMS publishes, on segment
+      binaries and deliberately not the convex method: the curve is concave and
+      this is a
+      minimisation, so the convex-hull relaxation would let the solver ride the
+      chord underneath the true curve and buy transport cheaper than the model
+      allows. The binaries are what make the answer right — and what make this
+      port a MILP.
+    over: bp
+    links:
+      - [shipment, bp_x]
+      - [scaled, bp_y]
+
+constraints:
+  within_capacity:
+    foreach: [plant]
+    expression: sum(shipment, over=market) <= capacity
+  meet_demand:
+    foreach: [market]
+    expression: sum(shipment, over=plant) >= demand
+
+objective:
+  sense: minimize
+  description: total freight, charged on the scaled consignment rather than on the shipment
+  expression: sum(scaled * distance * freight / 1000)
