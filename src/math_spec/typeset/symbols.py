@@ -136,7 +136,9 @@ class Symbols:
         SchemaError: If *table* is written in a notation *fmt* does not read.
     """
 
-    def __init__(self, schema: Buildable, fmt: Format, table: SymbolTable) -> None:
+    def __init__(
+        self, schema: Buildable, fmt: Format, table: SymbolTable, chosen: frozenset[str] = frozenset()
+    ) -> None:
         if table.notation != fmt.notation:
             msg = (
                 f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
@@ -148,6 +150,10 @@ class Symbols:
         # head a qualifier may hang off. A cased expression is one of them: it
         # is a quantity the file names, which is why it prints at all.
         declared = frozenset({*schema.parameters, *schema.variables, *printed})
+        # *chosen* is the cased expressions that reach a variable, which
+        # `typeset` works out because it has the namespace to resolve an arm
+        # with. Everything else the file names is given: a parameter, and a
+        # cased expression whose every arm is one.
 
         #: Names whose symbol came from the table rather than the derivation.
         #: The convention note quotes only the others: a table is printed
@@ -159,7 +165,7 @@ class Symbols:
         self.name: dict[str, str] = {
             name: table.names[name]
             if name in table.names
-            else _derive_name_symbol(name, declared, fmt, given=name in schema.parameters)
+            else _derive_name_symbol(name, declared, fmt, given=name not in schema.variables and name not in chosen)
             for name in (*schema.parameters, *schema.variables, *printed)
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}

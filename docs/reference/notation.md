@@ -438,7 +438,19 @@ started:
   expression: slack >= on * startup_cost
 ```
 
-$$\mathit{slack}_{t} \ge \mathit{on}_{t,g} \cdot \mathit{startup\_cost}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathit{slack}_{t} \ge \mathit{on}_{t,g} \cdot \mathrm{startup\_cost}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+#### `committed`
+
+the same, for the cased expression the solver decides
+
+```yaml
+committed:
+  foreach: [snapshot, generator]
+  expression: committed_power <= p_max
+```
+
+$$\mathit{committed\_power}_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `always`
 
@@ -499,7 +511,25 @@ startup_cost:
       expression: cost
 ```
 
-$$\mathit{startup\_cost}_{t,g} = \begin{cases} \mathrm{cost}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathrm{startup\_cost}_{t,g} = \begin{cases} \mathrm{cost}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) \neq 0 \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+#### `committed_power`
+
+the other side of the convention: an arm reaches a variable, so the quantity is one the solver decides
+
+```yaml
+committed_power:
+  foreach: [snapshot, generator]
+  cases:
+    running:
+      when: "on"
+      expression: p
+    idle:
+      when: "NOT on"
+      expression: 0
+```
+
+$$\mathit{committed\_power}_{t,g} = \begin{cases} p_{t,g} & \text{if } \mathit{on}_{t,g} \text{ exists} \cr 0 & \text{if } \neg \mathit{on}_{t,g} \text{ exists} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 ### Variable domains
 

@@ -95,6 +95,15 @@ expressions:
       later:
         when: "position(snapshot) != 0"
         expression: cost
+  committed_power: # the other side of the convention: an arm reaches a variable, so the quantity is one the solver decides
+    foreach: [snapshot, generator]
+    cases:
+      running:
+        when: "on"
+        expression: p
+      idle:
+        when: "NOT on"
+        expression: 0
 
 constraints:
   balance: # sum over a lookup
@@ -179,6 +188,9 @@ constraints:
   started: # a named expression with cases, substituted where its name stands
     foreach: [snapshot, generator]
     expression: slack >= on * startup_cost
+  committed: # the same, for the cased expression the solver decides
+    foreach: [snapshot, generator]
+    expression: committed_power <= p_max
   always: # a mask that is only the constant true, which the language says is no mask at all — so none prints
     foreach: [snapshot]
     where: "true"

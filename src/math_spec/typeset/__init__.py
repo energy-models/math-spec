@@ -39,12 +39,14 @@ or from a shell::
 
 from __future__ import annotations
 
+from dataclasses import is_dataclass
 from typing import TYPE_CHECKING, Any
 
-from math_spec import Namespace, expand_piecewise, load_model
+from math_spec import Namespace, expand_piecewise, expression_of, load_model
+from math_spec.expression_parser import VariableNode
 from math_spec.typeset.latex import LatexFormat
 from math_spec.typeset.markdown import MarkdownFormat
-from math_spec.typeset.symbols import Symbols, SymbolTable
+from math_spec.typeset.symbols import Symbols, SymbolTable, printed_expressions
 from math_spec.typeset.typst import TypstFormat
 from math_spec.typeset.walk import Walk
 
@@ -52,7 +54,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from math_spec import Model
+    from math_spec import Buildable, Model
     from math_spec.typeset.format import Format
 
 __all__ = ['FORMATS', 'SymbolTable', 'to_latex', 'to_markdown', 'to_typst', 'typeset']
@@ -100,7 +102,9 @@ def typeset(
     if symbols is None:
         symbols = SymbolTable(fmt.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
-    walk = Walk(schema, Namespace.of(schema), Symbols(schema, fmt, table.checked_against(schema)), fmt)
+    namespace = Namespace.of(schema)
+    chosen = _reaching_a_variable(schema, namespace)
+    walk = Walk(schema, namespace, Symbols(schema, fmt, table.checked_against(schema), chosen), fmt)
 
     # `definitions()` prints what the other sections reached, so it runs after
     # them — a statement apart rather than a call inside the list, where the
@@ -122,6 +126,39 @@ def typeset(
         blocks += [fmt.note(text) for text in walk.translation_notes()]
         blocks += [fmt.note(text) for text in walk.position_notes()]
     return fmt.document([*blocks, *rendered], standalone=standalone)
+
+
+def _reaching_a_variable(schema: Buildable, namespace: Namespace) -> frozenset[str]:
+    """The cased expressions that print italic, because the solver decides them.
+
+    Upright is what the model is given and italic is what it chooses, and a
+    cased expression is on whichever side its arms put it: one whose every arm
+    is data is data, however many regions it is written in. An arm may name
+    another cased expression, which resolves to the arms of that one, so the
+    walk over the resolved node answers for the whole chain.
+    """
+    reaching = set()
+    for name in printed_expressions(schema):
+        for label, case in schema.expressions[name].cases.items():
+            node = expression_of(case.expression, schema, namespace, f"expression '{name}', case '{label}'")
+            if _touches_a_variable(node):
+                reaching.add(name)
+                break
+    return frozenset(reaching)
+
+
+def _touches_a_variable(node: object) -> bool:
+    """Whether *node*'s tree holds a variable anywhere, arms of a case included."""
+    if isinstance(node, VariableNode):
+        return True
+    if not is_dataclass(node):
+        return False
+    children = [
+        child
+        for value in vars(node).values()
+        for child in (value.values() if isinstance(value, dict) else value if isinstance(value, list) else [value])
+    ]
+    return any(_touches_a_variable(child) for child in children)
 
 
 def to_latex(model: str | Path | dict[str, Any] | Model, **options: Any) -> str:

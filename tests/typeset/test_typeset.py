@@ -32,7 +32,16 @@ from math_spec.expression_parser import ArithmeticNode, ComparisonNode, Function
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.typeset import FORMATS, SymbolTable, to_latex, to_markdown, to_typst, typeset, walk
+from math_spec.typeset import (
+    FORMATS,
+    SymbolTable,
+    _reaching_a_variable,
+    to_latex,
+    to_markdown,
+    to_typst,
+    typeset,
+    walk,
+)
 from math_spec.typeset.format import OPERATOR_NAMES
 from math_spec.typeset.symbols import Symbols, _derive_name_symbol
 from math_spec.validation import load_model
@@ -509,7 +518,11 @@ def test_a_cased_expression_is_the_exception_that_keeps_its_name(fmt: Format):
     puts whatever follows it beside its middle arm.
     """
     rendered = typeset(CASED, fmt, legend=False)
-    assert rendered.count(fmt.italic('headroom')) == 2, 'one use and one definition, no more'
+    # upright: every arm of this one is a parameter, so the quantity is given.
+    # Counted indexed, because Typst spells a row label and an upright symbol
+    # the same way and only the symbol carries the dims.
+    indexed = fmt.subscript(fmt.upright('headroom'), ['t', 'g'])
+    assert rendered.count(indexed) == 2, 'one use and one definition, no more'
     assert _section(rendered, fmt) == ['Objective', 'Subject to', 'Definitions', 'Variable domains']
 
 
@@ -539,8 +552,8 @@ def test_a_definition_naming_another_one_prints_both(fmt: Format):
         },
     )
     rendered = typeset(nested, fmt, legend=False)
-    assert fmt.italic('headroom') in rendered, 'the inner definition was reached through an arm'
-    assert rendered.count(fmt.italic('opening_cost')) == 2
+    assert fmt.upright('headroom') in rendered, 'the inner definition was reached through an arm'
+    assert rendered.count(fmt.subscript(fmt.upright('opening_cost'), ['t', 'g'])) == 2
 
 
 def _section(rendered: str, fmt: Format) -> list[str]:
@@ -650,11 +663,15 @@ def test_nothing_the_model_is_given_prints_italic():
     lands in one of these two nets.
     """
     schema = expand_piecewise(load_model(golden.MODEL))
+    # a cased expression is on whichever side its arms put it, which is what
+    # `_reaching_a_variable` decides — one whose every arm is data is data
+    chosen = set(schema.variables) | _reaching_a_variable(schema, Namespace.of(schema))
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
-    assert italic <= set(schema.variables), (
-        f'{sorted(italic - set(schema.variables))} print italic and are not variables — '
+    assert italic <= chosen, (
+        f'{sorted(italic - chosen)} print italic and are not quantities the solver decides — '
         f'upright is what the model is given'
     )
+    assert 'startup_cost' not in italic, 'a cased expression whose every arm is a parameter is given'
 
     symbols = Symbols(schema, LATEX, SymbolTable('latex'))
     given = {name: symbols.name[name] for name in schema.parameters}
