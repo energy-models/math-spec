@@ -38,8 +38,30 @@ __all__ = ['SymbolTable', 'Symbols']
 _INDEX_ALIASES = {'snapshot': 't', 'snapshots': 't', 'time': 't', 'timestep': 't', 'timesteps': 't'}
 
 
+#: Names that are a Greek letter written out. A variable called ``theta``
+#: printed as the italic word *theta* is the one derived symbol a paper would
+#: never accept, and the fix is the same shape as ``_INDEX_ALIASES``: a small
+#: curated map, with ``--symbols`` for anything it does not know. Lower case
+#: only — every one of these has a letter in LaTeX and in Typst, which the
+#: capitals do not, and ``omicron`` is left out because LaTeX spells it ``o``.
+_GREEK = frozenset(
+    {
+        'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta',
+        'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'rho', 'sigma', 'tau',
+        'upsilon', 'phi', 'chi', 'psi', 'omega',
+    }
+)  # fmt: skip
+
+
 def _word(name: str, fmt: Format) -> str:
-    """One name as one symbol: a letter stays a letter, a word is set italic."""
+    """One name as one symbol: a letter stays a letter, a word is set italic.
+
+    A name that *is* a Greek letter is set as the letter, which is what the
+    author meant by writing it out — the alphabet a model has, not one it is
+    kept out of.
+    """
+    if name in _GREEK:
+        return fmt.greek(name)
     return name if len(name) == 1 else fmt.italic(name)
 
 
@@ -47,16 +69,22 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format) -> str
     r"""``p`` → ``p``; ``load`` → ``\mathit{load}``; ``p_max`` → ``p^{\mathrm{max}}``.
 
     An underscore is a **qualifier** only when what precedes it is a symbol in
-    its own right — a single letter (``p_max``) or another declared name
-    (``soc_max``). Everywhere else it is word separation, where splitting
-    produces nonsense: ``marginal_cost`` is not *marginal* raised to *cost*.
+    its own right — a single letter (``p_max``), a Greek letter written out
+    (``theta_max``), or another declared **quantity** (``soc_max``).
+    Everywhere else it is word separation, where splitting produces nonsense:
+    ``marginal_cost`` is not *marginal* raised to *cost*.
+
+    A quantity, not a dimension: ``zone_cap`` is a capacity *indexed by* zone,
+    not a zone qualified by cap, and reading the axis as the head made a
+    parameter's symbol depend on whether some unrelated dimension happened to
+    share its prefix.
     The fallback therefore prints the name as written, underscore and all,
     which is plain rather than beautiful; ``--symbols`` is what makes it
     pretty. A qualifier lands in the superscript, the subscript slot being
     spoken for by the dimensions.
     """
     head, _, tail = name.partition('_')
-    if tail and (len(head) == 1 or head in declared):
+    if tail and (len(head) == 1 or head in _GREEK or head in declared):
         return fmt.superscript(_word(head, fmt), fmt.upright(tail.replace('_', ',')))
     return _word(name, fmt)
 
@@ -82,7 +110,9 @@ class Symbols:
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        declared = frozenset({*schema.dimensions, *schema.parameters, *schema.variables})
+        # quantities only — see `_derive_name_symbol` for why an axis is not a
+        # head a qualifier may hang off
+        declared = frozenset({*schema.parameters, *schema.variables})
 
         self.name: dict[str, str] = {
             name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt)

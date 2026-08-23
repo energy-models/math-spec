@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# The sidecar symbol table for `examples/ports/transport_pwl.yaml`. The
+# adjacency method expands to two families — the convex-combination weights and
+# the binary that says which segment is live — and names both after the block,
+# which no equation can carry. Lambda and delta are what the piecewise-linear
+# literature calls them.
+notation: latex
+
+names:
+  economies_of_scale_lam: "\\lambda"
+  economies_of_scale_seg: "\\delta"
+  bp_x: x
+  bp_y: y

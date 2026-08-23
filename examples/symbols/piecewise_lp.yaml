@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+notation: latex
+
+names:
+  bp_x: x
+  bp_y: y

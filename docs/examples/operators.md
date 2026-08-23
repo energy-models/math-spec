@@ -324,7 +324,7 @@ constraints:
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$p_{t} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1} \qquad \forall\thinspace t \in \mathcal{T}$
+$p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\thinspace t \in \mathcal{T}$
 
 ### `sum_back(array, over=dim, within=n)`
 

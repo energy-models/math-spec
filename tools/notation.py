@@ -233,7 +233,8 @@ def _curves() -> list[str]:
     """One row per ``method:``, each captioned with what that method restricts."""
     rows = []
     for method, source in PIECEWISE.items():
-        printed = equations(to_markdown(source, numbered=False))
+        table = _symbols(source)
+        printed = equations(to_markdown(source, symbols=table, numbered=False))
         found = [block for block in declarations(source.read_text())['piecewise'] if _method(block) == method]
         assert found, f'{source.name} declares no piecewise block with method: {method}'
         for block in found:
@@ -241,8 +242,33 @@ def _curves() -> list[str]:
             caption = (
                 f'**`method: {method}`** \N{EM DASH} {PIECEWISE_METHODS[method]}, in `{source.relative_to(ROOT)}`.'
             )
-            rows.append(row.replace('\n\n', f'\n\n{caption}\n\n', 1))
+            rows.append(row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1))
     return rows
+
+
+def _symbols(source: Path) -> Path | None:
+    """The sidecar symbol table for *source*, by the filename convention
+    ``tools/render_tex.py`` already uses."""
+    table = ROOT / 'examples' / 'symbols' / f'{source.stem}.yaml'
+    return table if table.exists() else None
+
+
+def _table_shown(table: Path | None) -> str:
+    """The symbol table, printed beside the math it renamed.
+
+    A curve expands to weights named after the block that declared them, which
+    an equation naming one six times cannot carry. Renaming them in the
+    typesetter would be a symbol a reader could not trace back to the file, so
+    the rename is a **declaration** — the same ``--symbols`` sidecar any reader
+    may write — and the page shows it rather than performing it.
+    """
+    if table is None:
+        return ''
+    body = re.sub(r'\A(?:#[^\n]*\n|\n)+', '', table.read_text()).strip()
+    return (
+        f'Rendered with the sidecar symbol table `{table.relative_to(ROOT)}`, '
+        f'which is what the weights print as:\n\n```yaml\n{body}\n```\n\n'
+    )
 
 
 def _method(block: Declaration) -> str:

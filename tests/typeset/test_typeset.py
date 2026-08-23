@@ -234,14 +234,15 @@ def test_a_numeric_edge_is_a_third_translation_and_shows_its_fill(fmt: Format):
 
 
 @EVERY_FORMAT
-def test_a_fill_and_a_group_share_the_operators_one_subscript(fmt: Format):
-    """Both policies subscript the operator, so a call carrying both writes one
-    subscript group rather than two.
+def test_a_fill_and_a_group_take_the_operators_two_slots(fmt: Format):
+    """The fill subscripts the operator; the group superscripts it.
 
-    Not a matter of taste: `\\boxminus_{0}_{season_of(t)}` is a *Double
-    subscript* error, so the page stopped compiling at the equation — and the
-    two policies are independent, so nothing else in the model has to be
-    wrong for a model to reach it.
+    One slot each, so neither `\\boxminus_{0}_{season_of(t)}` — a *Double
+    subscript* error that stopped the page compiling — nor
+    `\\boxminus_{0,season_of(t)}`, which compiles and leaves a reader to guess
+    which of the two is the value standing at the boundary and which is the
+    group the translation stays inside. The two policies are independent, so
+    nothing else has to be wrong for a model to reach this.
     """
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
@@ -256,10 +257,11 @@ def test_a_fill_and_a_group_share_the_operators_one_subscript(fmt: Format):
         'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
     }
     text = typeset(model, fmt, legend=False)
-    opened = fmt.subscript(fmt.operators['edge_minus'], ['0', 'GROUP']).split('GROUP')[0]
-    assert opened in text, 'the fill and the group do not share the one subscript the operator has'
-    assert fmt.subscript(fmt.operators['edge_minus'], ['0']) not in text, (
-        'the fill closed its own subscript and the group opened a second one'
+    group = fmt.apply(fmt.upright('season_of'), 't')
+    filled = fmt.subscript(fmt.operators['edge_minus'], ['0'])
+    assert fmt.superscript(filled, group) in text, 'the fill and the group are not in their own slots'
+    assert fmt.subscript(fmt.operators['edge_minus'], ['0', group]) not in text, (
+        'the fill and the group are sharing one subscript again'
     )
 
 
@@ -343,6 +345,29 @@ def test_translations_that_disagree_at_the_edge_do_not_merge(fmt: Format):
 
 
 @EVERY_FORMAT
+def test_a_negation_under_a_plus_is_the_subtraction_it_means(fmt: Format):
+    """`a + -b` is a spelling nobody uses, and the walk was printing it."""
+    model = override(DISPATCH, **{'objective.expression': 'sum(p) + -sum(p)'})
+    text = typeset(model, fmt)
+    assert f'{fmt.operators["plus"]} {fmt.operators["minus"]}' not in text
+    assert fmt.operators['minus'] in text, 'the subtraction it folded into should still print'
+
+
+@EVERY_FORMAT
+def test_a_mask_that_is_only_true_prints_no_condition(fmt: Format):
+    """The language says `True` is the same as no `where`, so a `\\top` on the
+    quantifier would put a condition on the page that reads as one and is not.
+
+    Nested it still prints: `\\top \\wedge x` is what the file says, and simplifying a
+    mask belongs to resolution rather than to the typesetter.
+    """
+    always = override(DISPATCH, **{'constraints.power_balance.where': 'True'})
+    assert fmt.operators['true'] not in typeset(always, fmt)
+    nested = override(DISPATCH, **{'constraints.power_balance.where': 'True AND load > 0'})
+    assert fmt.operators['true'] in typeset(nested, fmt)
+
+
+@EVERY_FORMAT
 def test_the_legend_explains_wraparound_only_when_it_is_used(fmt: Format):
     rolled = {
         'dimensions': {'snapshot': {'dtype': 'int'}},
@@ -401,12 +426,40 @@ def test_an_invalid_model_fails_the_same_way_check_does(fmt: Format):
         pytest.param('soc_max', r'\mathit{soc}^{\mathrm{max}}', id='declared-head-so-the-tail-is-a-qualifier'),
         pytest.param('marginal_cost', r'\mathit{marginal\_cost}', id='neither-so-it-stays-one-word'),
         pytest.param('shut_down', r'\mathit{shut\_down}', id='neither-even-when-the-tail-reads-like-a-qualifier'),
+        pytest.param('theta', r'\theta', id='a-name-that-is-a-greek-letter-is-the-letter'),
+        pytest.param('theta_max', r'\theta^{\mathrm{max}}', id='and-is-a-head-a-qualifier-may-hang-off'),
+        pytest.param('thetas', r'\mathit{thetas}', id='but-only-when-the-whole-name-is-the-letter'),
     ],
 )
 def test_an_underscore_is_only_a_qualifier_when_its_head_is_a_symbol(name: str, expected: str):
     """`marginal_cost` is not *marginal* raised to *cost*. Splitting every
     underscore turned about a third of real names into nonsense."""
     assert _derive_name_symbol(name, frozenset({'p', 'soc'}), LATEX) == expected
+
+
+@EVERY_FORMAT
+def test_a_name_that_is_a_greek_letter_prints_as_the_letter(fmt: Format):
+    """A variable called `theta` set as the italic word *theta* is the one
+    derived symbol no paper would accept."""
+    model = override(DISPATCH, **{'variables.theta': {'foreach': ['snapshot']}})
+    assert fmt.greek('theta') in typeset(model, fmt)
+
+
+@EVERY_FORMAT
+def test_a_dimension_is_not_a_head_a_qualifier_hangs_off(fmt: Format):
+    """`zone_cap` is a capacity *indexed by* zone, not a zone qualified by cap.
+
+    Reading the axis as the head also made a parameter's symbol depend on
+    whether some unrelated dimension happened to share its prefix: declare a
+    dimension named `tech` and `tech_cap` silently re-rendered.
+    """
+    model = override(
+        DISPATCH,
+        **{'dimensions.zone': {'dtype': 'str'}, 'parameters.zone_cap': {'dims': ['zone']}},
+    )
+    text = typeset(model, fmt)
+    assert fmt.italic('zone_cap') in text
+    assert fmt.superscript(fmt.italic('zone'), fmt.upright('cap')) not in text
 
 
 @EVERY_FORMAT

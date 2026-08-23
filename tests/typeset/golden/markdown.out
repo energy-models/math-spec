@@ -22,7 +22,7 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 | $\mathit{cost}$ | `cost` over $\mathcal{G}$ |
 | $\mathit{load}$ | `load` over $\mathcal{T} \times \mathcal{B}$ |
 | $\mathit{is\_flexible}$ | `is_flexible` over $\mathcal{G}$ |
-| $\mathit{zone}^{\mathrm{cap}}$ | `zone_cap` over $\mathcal{Z}$ |
+| $\mathit{zone\_cap}$ | `zone_cap` over $\mathcal{Z}$ |
 | $\mathit{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
 | $\mathit{min\_up}$ | `min_up` over $\mathcal{G}$ |
 | $\mathit{lead}$ | `lead` over $\mathcal{G}$ |
@@ -36,7 +36,7 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 | $p$ | `p` over $\mathcal{T} \times \mathcal{G}$ |
 | $\mathit{spill}$ | `spill` over $\mathcal{T}$ |
 | $\mathit{slack}$ | `slack` over $\mathcal{T}$ |
-| $\mathit{theta}$ | `theta` over $\mathcal{B}$ |
+| $\theta$ | `theta` over $\mathcal{B}$ |
 | $\mathit{on}$ | `on` over $\mathcal{T} \times \mathcal{G}$ |
 | $\mathit{units}$ | `units` over $\mathcal{G}$ |
 | $\mathit{spare}$ | `spare` over $\mathcal{G}$ |
@@ -49,9 +49,11 @@ $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of t
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
 
+$t \ominus^{\mathrm{lookup}(t)} k$ denotes a translation counted inside the group a lookup puts $t$ in (`shift(by=lookup)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $t \boxminus_{v}^{\mathrm{lookup}(t)} k$ is both at once.
+
 #### Objective
 
-$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} \cdot \mathit{growth}^{\mathit{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} + -\mathit{headroom}$$
+$$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathit{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathit{cost}_{g} \cdot \mathit{growth}^{\mathit{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p^{\mathrm{max}}_{g} - \mathit{reserve} - \mathit{headroom}$$
 
 #### Subject to
 
@@ -89,11 +91,11 @@ $$p_{t \boxminus_{0} \mathit{lead},g} \le p^{\mathrm{max}}_{g} \qquad \forall\th
 
 **`in_season`**
 
-$$p_{t,g} \le p_{t \ominus_{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`held_in_season`**
 
-$$p_{t,g} \le p_{t \boxminus_{0,\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} \le p_{t \boxminus_{0}^{\mathrm{season\_of}(t)} 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`window`**
 
@@ -105,7 +107,7 @@ $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t \ominus t' < \mathit{mi
 
 **`pullback`**
 
-$$\mathit{spill}_{t} \le \mathit{zone}^{\mathrm{cap}}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+$$\mathit{spill}_{t} \le \mathit{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
 **`grouped_twice`**
 
@@ -117,7 +119,7 @@ $$\mathit{units}_{g} \le \mathit{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_t
 
 **`arithmetic`**
 
-$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} + -\mathit{cost}_{g} \right) \ge \left( -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
+$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathit{cost}_{g} \right) \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
 
 **`total`**
 
@@ -129,7 +131,7 @@ $$\mathit{units}_{g} \le \mathit{budget} \qquad \forall\thinspace g \in \mathcal
 
 **`running`**
 
-$$\mathit{theta}_{b} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathit{theta}_{b} \text{ exists} \wedge t \ge 3$$
+$$\theta_{b} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \theta_{b} \text{ exists} \wedge t \ge 3$$
 
 **`first`**
 
@@ -141,7 +143,11 @@ $$\mathit{slack}_{t} \le \mathit{load}_{t,b} \qquad \forall\thinspace t \in \mat
 
 **`always`**
 
-$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \top$$
+$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T}$$
+
+**`redundant`**
+
+$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \top \wedge \mathit{spill}_{t} \text{ exists}$$
 
 **`never`**
 
@@ -163,7 +169,7 @@ $$\mathit{slack}_{t} \le 100 \qquad \forall\thinspace t \in \mathcal{T}$$
 
 **`theta`**
 
-$$\mathit{theta}_{b} \in \mathbb{R} \qquad \forall\thinspace b \in \mathcal{B}$$
+$$\theta_{b} \in \mathbb{R} \qquad \forall\thinspace b \in \mathcal{B}$$
 
 **`on`**
 

@@ -149,6 +149,15 @@ class Format(Protocol):
         """A set symbol."""
         ...
 
+    def greek(self, name: str) -> str:
+        """A name that *is* a Greek letter, set as the letter.
+
+        The walk decides which names those are; a format only spells one.
+        Lower-case names only — every one of them has a letter in both
+        notations, which the capitals do not.
+        """
+        ...
+
     def prose(self, text: str) -> str:
         """Words inside math."""
         ...
