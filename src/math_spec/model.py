@@ -384,6 +384,11 @@ class ExpressionBlock(_StrictBlock):
     def _from_string(cls, data: Any) -> Any:
         return {'expression': data} if isinstance(data, str) else data
 
+    @property
+    def referenced_dims(self) -> list[str]:
+        """``foreach`` where there is one — only a cased expression declares it."""
+        return self.foreach or []
+
     @model_validator(mode='after')
     def _one_form_or_the_other(self) -> Self:
         if bool(self.cases) == (self.expression is not None):
@@ -918,6 +923,7 @@ class Model(_StrictBlock):
                 ('Parameter', self.parameters),
                 ('Variable', self.variables),
                 ('Constraint', self.constraints),
+                ('Named expression', self.expressions),
             )
             for name, item in group.items()
             for d in item.referenced_dims

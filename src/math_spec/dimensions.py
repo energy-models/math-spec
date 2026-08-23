@@ -287,13 +287,9 @@ def check_schema(schema: Model) -> None:
     for ename, block in schema.expressions.items():
         if not block.cases:
             continue
+        # `foreach` naming a declared dimension is `Model._names_are_sound`'s,
+        # with every other block's — this is only about what the cases carry.
         frame = frozenset(block.foreach or [])
-        stray = sorted(frame - set(schema.dimensions))
-        if stray:
-            raise DimensionError(
-                f"Named expression '{ename}': foreach names {stray}, which are not dimensions.\n"
-                f'  Dimensions: {sorted(schema.dimensions)}'
-            )
         for case_name, case in block.cases.items():
             context = f"Named expression '{ename}', case '{case_name}'"
             _check_where_dims(where_of(case.when, ns, context), schema, frame, context)

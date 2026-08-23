@@ -448,6 +448,13 @@ class TestExpressionCases:
         with pytest.raises(SchemaError, match=re.escape(fragment)):
             load_model(schema)
 
+    def test_the_frame_must_name_dimensions(self):
+        """Refused by the same check, in the same words, as every other block's frame."""
+        schema = self._schema(**self.PREVIOUS_STATUS)
+        schema['expressions']['previous_status']['foreach'] = ['snapshot', 'nope']
+        with pytest.raises(SchemaError, match="references undeclared dimension 'nope'"):
+            load_model(schema)
+
     def test_a_case_may_not_widen_the_frame(self):
         """A case is a value *within* the frame — the `when` cannot reach outside it.
 
