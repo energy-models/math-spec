@@ -33,7 +33,6 @@ $\ell_t$. A [symbol table](typeset.md#symbol-tables) replaces them wholesale
 and changes nothing else on this page.
 
 <!-- notation:begin -->
-
 ### The legend
 
 A dimension, a lookup and a parameter declare no equation; what they print is the legend every model opens with.
@@ -71,46 +70,46 @@ parameters:
 
 #### Sets
 
-| Symbol        | Meaning                                                                                                                                                               |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| $\mathcal{T}$ | index $t$ — `snapshot` with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$                                                                                        |
+| Symbol | Meaning |
+|---|---|
+| $\mathcal{T}$ | index $t$ — `snapshot` with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$ |
 | $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$ |
-| $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$                                       |
-| $\mathcal{Z}$ | index $z$ — `zone`                                                                                                                                                    |
-| $\mathcal{S}$ | index $s$ — `season`                                                                                                                                                  |
-| $\mathcal{E}$ | index $e$ — `technology`                                                                                                                                              |
+| $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$ |
+| $\mathcal{Z}$ | index $z$ — `zone` |
+| $\mathcal{S}$ | index $s$ — `season` |
+| $\mathcal{E}$ | index $e$ — `technology` |
 
 #### Parameters
 
-| Symbol                         | Meaning                                          |
-| ------------------------------ | ------------------------------------------------ |
-| $p^{\mathrm{max}}$             | `p_max` over $\mathcal{G}$                       |
-| $p^{\mathrm{min}}$             | `p_min` over $\mathcal{G}$                       |
-| $\mathit{cost}$                | `cost` over $\mathcal{G}$                        |
-| $\mathit{load}$                | `load` over $\mathcal{T} \times \mathcal{B}$     |
-| $\mathit{is\_flexible}$        | `is_flexible` over $\mathcal{G}$                 |
-| $\mathit{zone}^{\mathrm{cap}}$ | `zone_cap` over $\mathcal{Z}$                    |
-| $\mathit{tech\_cap}$           | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
-| $\mathit{min\_up}$             | `min_up` over $\mathcal{G}$                      |
-| $\mathit{lead}$                | `lead` over $\mathcal{G}$                        |
-| $\mathit{budget}$              | `budget` (scalar)                                |
-| $\mathit{growth}$              | `growth` (scalar)                                |
+| Symbol | Meaning |
+|---|---|
+| $p^{\mathrm{max}}$ | `p_max` over $\mathcal{G}$ |
+| $p^{\mathrm{min}}$ | `p_min` over $\mathcal{G}$ |
+| $\mathit{cost}$ | `cost` over $\mathcal{G}$ |
+| $\mathit{load}$ | `load` over $\mathcal{T} \times \mathcal{B}$ |
+| $\mathit{is\_flexible}$ | `is_flexible` over $\mathcal{G}$ |
+| $\mathit{zone}^{\mathrm{cap}}$ | `zone_cap` over $\mathcal{Z}$ |
+| $\mathit{tech\_cap}$ | `tech_cap` over $\mathcal{B} \times \mathcal{E}$ |
+| $\mathit{min\_up}$ | `min_up` over $\mathcal{G}$ |
+| $\mathit{lead}$ | `lead` over $\mathcal{G}$ |
+| $\mathit{budget}$ | `budget` (scalar) |
+| $\mathit{growth}$ | `growth` (scalar) |
 
 #### Variables
 
-| Symbol              | Meaning                                        |
-| ------------------- | ---------------------------------------------- |
-| $p$                 | `p` over $\mathcal{T} \times \mathcal{G}$      |
-| $\mathit{spill}$    | `spill` over $\mathcal{T}$                     |
-| $\mathit{slack}$    | `slack` over $\mathcal{T}$                     |
-| $\mathit{theta}$    | `theta` over $\mathcal{B}$                     |
-| $\mathit{on}$       | `on` over $\mathcal{T} \times \mathcal{G}$     |
-| $\mathit{units}$    | `units` over $\mathcal{G}$                     |
-| $\mathit{spare}$    | `spare` over $\mathcal{G}$                     |
-| $\mathit{reserve}$  | `reserve` (scalar)                             |
-| $\mathit{headroom}$ | `headroom` (scalar)                            |
-| $\mathit{void}$     | `void` over $\mathcal{B}$                      |
-| $\mathit{weight}$   | `weight` over $\mathcal{T} \times \mathcal{G}$ |
+| Symbol | Meaning |
+|---|---|
+| $p$ | `p` over $\mathcal{T} \times \mathcal{G}$ |
+| $\mathit{spill}$ | `spill` over $\mathcal{T}$ |
+| $\mathit{slack}$ | `slack` over $\mathcal{T}$ |
+| $\mathit{theta}$ | `theta` over $\mathcal{B}$ |
+| $\mathit{on}$ | `on` over $\mathcal{T} \times \mathcal{G}$ |
+| $\mathit{units}$ | `units` over $\mathcal{G}$ |
+| $\mathit{spare}$ | `spare` over $\mathcal{G}$ |
+| $\mathit{reserve}$ | `reserve` (scalar) |
+| $\mathit{headroom}$ | `headroom` (scalar) |
+| $\mathit{void}$ | `void` over $\mathcal{B}$ |
+| $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
@@ -661,5 +660,4 @@ adjacent:
 ```
 
 $$\left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\thinspace t \in \mathcal{T}$$
-
 <!-- notation:end -->
