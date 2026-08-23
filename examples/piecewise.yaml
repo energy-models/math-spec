@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  Least-cost dispatch where each generator's cost curve is piecewise-linear in
+  its output, expanded into a lambda formulation.
+
+dimensions:
+  snapshot:
+    description: dispatch periods
+    dtype: int
+  generator:
+    description: dispatchable units
+    dtype: str
+  bp:
+    description: breakpoints of the cost curve
+    dtype: int
+
+parameters:
+  p_max:
+    description: maximum dispatch
+    dims: [generator]
+  load:
+    description: demand to be met
+    dims: [snapshot]
+  bp_x:
+    description: breakpoint dispatch levels, one curve per generator
+    dims: [generator, bp]
+  bp_y:
+    description: cost at each breakpoint, one curve per generator
+    dims: [generator, bp]
+
+variables:
+  p:
+    description: dispatched power
+    foreach: [snapshot, generator]
+    bounds:
+      lower: 0
+      upper: p_max
+  op_cost:
+    description: operating cost, piecewise-linear in dispatch
+    foreach: [snapshot, generator]
+    bounds:
+      lower: 0
+
+piecewise:
+  cost_curve:
+    description: >-
+      cost read off the generator's curve — convex, so the weights need no
+      binaries to keep them on one segment
+    over: bp
+    links:
+      - [p, bp_x]
+      - [op_cost, bp_y]
+    method: convex
+
+constraints:
+  balance:
+    foreach: [snapshot]
+    expression: sum(p, over=generator) == load
+
+objective:
+  sense: minimize
+  description: total operating cost, taken off the curves rather than from a marginal rate
+  expression: sum(op_cost)

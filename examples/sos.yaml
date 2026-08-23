@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A piecewise-linear cost curve stated as a special-ordered set, so the solver
+  is handed the adjacency restriction rather than binaries that encode it.
+
+dimensions:
+  snapshot:
+    description: dispatch periods
+    dtype: int
+  generator:
+    description: dispatchable units
+    dtype: str
+  bp:
+    description: breakpoints of the cost curve
+    dtype: int
+
+parameters:
+  p_max:
+    description: maximum dispatch
+    dims: [generator]
+  load:
+    description: demand to be met
+    dims: [snapshot]
+  bp_x:
+    description: breakpoint dispatch levels, one curve per generator
+    dims: [generator, bp]
+  bp_y:
+    description: cost at each breakpoint, one curve per generator
+    dims: [generator, bp]
+
+variables:
+  p:
+    description: dispatched power
+    foreach: [snapshot, generator]
+    bounds:
+      lower: 0
+      upper: p_max
+  op_cost:
+    description: operating cost, piecewise-linear in dispatch
+    foreach: [snapshot, generator]
+    bounds:
+      lower: 0
+
+piecewise:
+  cost_curve:
+    description: >-
+      cost read off the generator's curve, with at most two adjacent weights
+      non-zero — the restriction the default method builds out of binaries,
+      declared as a set instead
+    over: bp
+    links:
+      - [p, bp_x]
+      - [op_cost, bp_y]
+    method: sos2
+
+constraints:
+  balance:
+    foreach: [snapshot]
+    expression: sum(p, over=generator) == load
+
+objective:
+  sense: minimize
+  description: total operating cost, taken off the curves rather than from a marginal rate
+  expression: sum(op_cost)

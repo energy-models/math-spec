@@ -26,11 +26,11 @@ so the page never shows math without showing where it came from.
 from __future__ import annotations
 
 import argparse
-import sys
 import textwrap
 from pathlib import Path
 
 from math_spec.typeset import to_latex, to_markdown
+from tools import pages
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / 'docs' / 'index.md'
@@ -114,39 +114,16 @@ def model_block() -> str:
     return '```yaml title="{}"\n{}\n```'.format(MODEL.name, '\n'.join(lines[start:]).strip())
 
 
-def rendered_readme(readme: str) -> str:
-    i, j = readme.index(MODEL_BEGIN) + len(MODEL_BEGIN), readme.index(MODEL_END)
-    return readme[:i] + '\n\n' + model_block() + '\n\n' + readme[j:]
-
-
-def rendered_page(page: str) -> str:
-    i, j = page.index(BEGIN) + len(BEGIN), page.index(END)
-    # Prettier formats every page in `docs/`, and it wants a blank line on each
-    # side of the markers. Emitting them here is what keeps `--check` and the
-    # formatter from undoing each other on every commit.
-    return page[:i] + '\n\n' + block() + '\n\n' + page[j:]
-
-
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--check', action='store_true', help='fail if the committed block has drifted')
     opts = ap.parse_args(argv)
 
-    written = {PAGE: rendered_page(PAGE.read_text()), README: rendered_readme(README.read_text())}
-    stale = [path for path, updated in written.items() if updated != path.read_text()]
-
-    if opts.check:
-        for path in stale:
-            print(f'{path.relative_to(ROOT)} is stale — run `pixi run python -m tools.home_math`', file=sys.stderr)
-        if stale:
-            return 1
-        print(f'{PAGE.relative_to(ROOT)} and {README.relative_to(ROOT)} match the model')
-        return 0
-
-    for path in stale:
-        path.write_text(written[path])
-        print(f'wrote {path.relative_to(ROOT)}')
-    return 0
+    written = {
+        PAGE: pages.rewrite(PAGE.read_text(), BEGIN, END, block()),
+        README: pages.rewrite(README.read_text(), MODEL_BEGIN, MODEL_END, model_block()),
+    }
+    return pages.update(written, check=opts.check, tool='tools.home_math', subject='the model')
 
 
 if __name__ == '__main__':

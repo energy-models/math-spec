@@ -113,6 +113,18 @@ mkdocs-bibtex = ">=2.16"
 pymdown-extensions = ">=10.0"
 mkdocs-macros-plugin = ">=1.0"
 mkdocs-table-reader-plugin = ">=3.1"
+# The three generated pages, each against the thing it is generated from: the
+# notation reference against the golden model, the operator table against the
+# probes under `examples/operators/`, the homepage's model and math against
+# `examples/dispatch.yaml`. Nothing ran these before, which is how
+# `tools/notation.py` came to reference four example models the extraction had
+# not brought over and stayed broken without anyone finding out.
+#
+# They check content, not formatting — prettier owns the whitespace in these
+# files and the generators do not try to reproduce it. See tools/pages.py.
+[feature.docs.tasks.docs-current]
+cmd = "python -m tools.notation --check && python -m tools.spec_math --check && python -m tools.home_math --check"
+
 [feature.docs.tasks.docs-serve]
 cmd = "mkdocs serve"
 [feature.docs.tasks.docs-build]
@@ -152,7 +164,7 @@ depends-on = [{ task = "render-tex", args = ["{{ dir }}"] }]
 # separate steps so a red run names the one that broke; this is the same list
 # for anyone who wants to know before pushing.
 [tasks.ci]
-depends-on = ["lint", "test", "docs-build", "compile-tex"]
+depends-on = ["lint", "test", "docs-current", "docs-build", "compile-tex"]
 
 [feature.template.dependencies]
 copier = ">=9.16"

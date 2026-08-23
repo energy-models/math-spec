@@ -31,11 +31,11 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from pathlib import Path
 
 from math_spec.model import PIECEWISE_METHODS
 from math_spec.typeset import to_markdown
+from tools import pages
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / 'docs' / 'reference' / 'notation.md'
@@ -276,27 +276,13 @@ def _labels(declaration: Declaration, printed: dict[str, str]) -> list[str]:
     return expanded
 
 
-def rendered_page(page: str) -> str:
-    i, j = page.index(BEGIN) + len(BEGIN), page.index(END)
-    return page[:i] + '\n' + block() + '\n' + page[j:]
-
-
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--check', action='store_true', help='fail if the committed block has drifted')
     opts = ap.parse_args(argv)
 
-    page = PAGE.read_text()
-    updated = rendered_page(page)
-    if opts.check:
-        if updated != page:
-            print(f'{PAGE.relative_to(ROOT)} is stale — run `pixi run python -m tools.notation`', file=sys.stderr)
-            return 1
-        print(f'{PAGE.relative_to(ROOT)} matches the model')
-        return 0
-    PAGE.write_text(updated)
-    print(f'wrote {PAGE.relative_to(ROOT)}')
-    return 0
+    updated = pages.rewrite(PAGE.read_text(), BEGIN, END, block())
+    return pages.update({PAGE: updated}, check=opts.check, tool='tools.notation', subject='the model')
 
 
 if __name__ == '__main__':

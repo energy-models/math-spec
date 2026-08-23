@@ -12,7 +12,7 @@ name: CI
 # template's generated CI is deliberately not followed: it runs lint plus a
 # 3-interpreter by 3-OS pytest matrix, which is ten billed minutes a push.
 #
-# Every gate below is a pixi task, and `pixi run ci` runs the four of them in
+# Every gate below is a pixi task, and `pixi run ci` runs the five of them in
 # this order. They are separate steps here only so a red run names the gate
 # that broke; steps, unlike jobs, are free.
 
@@ -78,6 +78,13 @@ jobs:
 
       - name: Run pytest
         run: pixi run test --color=yes
+
+      # Three pages in `docs/` are generated from models in this repository, and
+      # nothing used to run their `--check`. That is how `tools/notation.py`
+      # came to point at four example models the extraction had not brought
+      # over: the tool raised, and no gate was calling it.
+      - name: The generated pages match what generates them
+        run: pixi run docs-current
 
       # `--strict` turns every mkdocs warning into a failure, so this gate
       # catches a dead cross-link, a page added without a nav entry, and an

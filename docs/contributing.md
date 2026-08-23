@@ -72,8 +72,16 @@ Here are some use-cases that you may come across in which you are considering up
     pixi run python -m tools.home_math --check   # fail if it has drifted
     ```
 
-    `tools/notation.py` does the same for `docs/reference/notation.md`, out of `tests/typeset/golden/model.yaml`.
-    It also wants the four `piecewise:` models one section of that page is built from, which the extraction from lpspec has not brought over yet — so it raises `FileNotFoundError` until they arrive, and the committed page is the last one lpspec generated.
+    Two more pages work the same way — `docs/reference/notation.md` out of `tests/typeset/golden/model.yaml` and the four `piecewise:` models under `examples/`, and the operator table in `docs/reference/language/operators.md` out of the probes in `examples/operators/`:
+
+    ```bash
+    pixi run python -m tools.notation
+    pixi run python -m tools.spec_math
+    ```
+
+    `pixi run docs-current` is all three `--check`s, and CI runs it, so a page cannot quietly stop matching what generates it.
+
+    These compare *content*, not formatting: prettier owns the whitespace in `docs/`, pads markdown tables, and the generators do not try to reproduce that — `tools/pages.py` says why, and is where the rule lives.
 
 ??? question annotate "I want to add a new page"
 
