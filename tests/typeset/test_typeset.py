@@ -536,6 +536,31 @@ def test_a_definition_is_printed_only_where_something_reached_it(fmt: Format):
 
 
 @EVERY_FORMAT
+def test_a_case_is_given_when_its_values_are_however_its_regions_are_chosen(fmt: Format):
+    """A `when` mentioning a variable does not make the quantity one.
+
+    The two halves of a case say different things: the value decides *what the
+    quantity is*, and the mask decides *which region applies*. A variable in a
+    mask is asking whether the variable exists at a coordinate, which the model
+    settles when it is built and not something a solver returns — so a cased
+    expression whose every arm is a parameter is data, whatever its regions are
+    cut by. Only a value reaching a variable moves it.
+    """
+    masked = override(
+        CASED,
+        **{
+            'expressions.headroom.cases': {
+                'running': {'when': 'p', 'expression': 'p_max'},
+                'idle': {'when': 'NOT p', 'expression': 0},
+            }
+        },
+    )
+    rendered = typeset(masked, fmt, legend=False)
+    assert fmt.upright('headroom') in rendered, 'every arm is a parameter, so the quantity is given'
+    assert fmt.italic('headroom') not in rendered
+
+
+@EVERY_FORMAT
 def test_a_definition_naming_another_one_prints_both(fmt: Format):
     """The arms are walked too, so the collection runs to a fixpoint."""
     nested = override(
