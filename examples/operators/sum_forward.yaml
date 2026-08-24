@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A leading window of a fixed width: a unit that shuts down in the next three
+  hours is running now, so it runs its minimum time *before* it may stop.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+
+parameters:
+  min_up: { dims: [unit], dtype: int }
+
+variables:
+  stopped:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  runs_before_it_stops:
+    foreach: [unit, hour]
+    expression: sum_forward(stopped, over=hour, within=3) <= on
+
+objective: { sense: minimize, expression: sum(on) }

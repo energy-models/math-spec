@@ -80,6 +80,12 @@ _TRANSLATIONS = {
     'edge': ('edge_minus', 'edge_plus'),
 }
 
+#: The window operators, and whether the row being written leads the difference
+#: their domain counts. That order is the whole of what separates them:
+#: ``sum_back`` counts ``t - t'``, outward from the row, and ``sum_forward``
+#: counts ``t' - t``, toward it.
+_WINDOWS = {'sum_back': True, 'sum_forward': False}
+
 
 PRIME = "'"
 
@@ -355,6 +361,11 @@ class Walk:
         substitution appears at the leaves; falling through to the summation
         would render it as a sum over the fine dim, silently the wrong
         equation.
+
+        The two windows are one branch because they are one operator pointed
+        two ways: everything about them — the width, the edge policy, the
+        summation, the pullback — is shared, and only which side of the
+        subtraction carries the prime tells them apart.
         """
         if node.name == 'shift':
             dim = node.kwargs['over']
@@ -367,13 +378,15 @@ class Walk:
                 step = replace(step, within=partition.names[0])
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 
-        if node.name == 'sum_back':
+        if node.name in _WINDOWS:
             over = node.kwargs['over']
             assert isinstance(over, DimensionNode)
             step = _Step(1, 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain')
             self.policies.add(step.policy)
             source = f'{self.symbols.index[over.name]}{PRIME}'
-            lag = f'{ctx.subscript(over.name)} {self.translation(step)} {source}'
+            written = ctx.subscript(over.name)
+            left, right = (written, source) if _WINDOWS[node.name] else (source, written)
+            lag = f'{left} {self.translation(step)} {right}'
             domain = (
                 f'{source} {self.op("in")} {self.symbols.set[over.name]} {self.op("such_that")} '
                 f'0 {self.op("le")} {lag} {self.op("lt")} {self._width(node.kwargs["within"])}'

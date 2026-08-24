@@ -427,6 +427,108 @@ objective: { sense: minimize, expression: sum(on) }
 ```
 
 $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+
+### `sum_forward(array, over=dim, within=n)`
+
+`examples/operators/sum_forward.yaml`
+
+```yaml
+description: >-
+  A leading window of a fixed width: a unit that shuts down in the next three
+  hours is running now, so it runs its minimum time *before* it may stop.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+
+parameters:
+  min_up: { dims: [unit], dtype: int }
+
+variables:
+  stopped:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  runs_before_it_stops:
+    foreach: [unit, hour]
+    expression: sum_forward(stopped, over=hour, within=3) <= on
+
+objective: { sense: minimize, expression: sum(on) }
+```
+
+$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' - h < 3} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+
+### `sum_forward(array, over=dim, within=p)`
+
+`examples/operators/sum_forward_by_parameter.yaml`
+
+```yaml
+description: >-
+  A leading window whose width is data — `within:` names an integer parameter,
+  so each unit runs for its *own* minimum time before it may stop.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+
+parameters:
+  min_up: { dims: [unit], dtype: int }
+
+variables:
+  stopped:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  runs_before_it_stops:
+    foreach: [unit, hour]
+    expression: sum_forward(stopped, over=hour, within=min_up) <= on
+
+objective: { sense: minimize, expression: sum(on) }
+```
+
+$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' - h < \mathrm{min\_up}} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+
+### `sum_forward(array, over=dim, within=p, edge='wrap')`
+
+`examples/operators/sum_forward_wrap.yaml`
+
+```yaml
+description: >-
+  A leading window on a representative period that repeats, so the window at
+  the last hour reaches around into the first.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+
+parameters:
+  min_up: { dims: [unit], dtype: int }
+
+variables:
+  stopped:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  runs_before_it_stops:
+    foreach: [unit, hour]
+    expression: sum_forward(stopped, over=hour, within=min_up, edge='wrap') <= on
+
+objective: { sense: minimize, expression: sum(on) }
+```
+
+$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' \ominus h < \mathrm{min\_up}} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.

@@ -114,6 +114,14 @@ $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < 3} \mathit{on}_{
 
 $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t \ominus t' < \mathrm{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
+**`horizon`**
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t' - t < 3} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`outlook`**
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t' \ominus t < \mathrm{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 **`pullback`**
 
 $$\mathit{spill}_{t} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$

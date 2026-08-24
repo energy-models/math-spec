@@ -102,6 +102,13 @@ BUILTINS: dict[str, Builtin] = {
         required_value_kwargs=('within',),
         edge_kwargs=('edge',),
     ),
+    'sum_forward': Builtin(
+        1,
+        "sum_forward(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'])",
+        dimension_kwargs=('over',),
+        required_value_kwargs=('within',),
+        edge_kwargs=('edge',),
+    ),
     'shift': Builtin(
         1,
         "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])",

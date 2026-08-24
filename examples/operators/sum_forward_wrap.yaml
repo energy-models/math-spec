@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A leading window on a representative period that repeats, so the window at
+  the last hour reaches around into the first.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+
+parameters:
+  min_up: { dims: [unit], dtype: int }
+
+variables:
+  stopped:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  runs_before_it_stops:
+    foreach: [unit, hour]
+    expression: sum_forward(stopped, over=hour, within=min_up, edge='wrap') <= on
+
+objective: { sense: minimize, expression: sum(on) }

@@ -124,6 +124,12 @@ constraints:
   history: # the same window, its width in the data and its edge wrapped
     foreach: [snapshot, generator]
     expression: sum_back(on, over=snapshot, within=min_up, edge='wrap') <= units
+  horizon: # a leading window: the same three positions, counted the other way
+    foreach: [snapshot, generator]
+    expression: sum_forward(on, over=snapshot, within=3) <= units
+  outlook: # the same leading window, its width in the data and its edge wrapped
+    foreach: [snapshot, generator]
+    expression: sum_forward(on, over=snapshot, within=min_up, edge='wrap') <= units
   pullback: # at(), which re-indexes through a lookup instead of an offset
     foreach: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of)

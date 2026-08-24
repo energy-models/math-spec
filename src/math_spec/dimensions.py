@@ -26,6 +26,7 @@ The rules::
                                plus the dim l is over
     shift(x, over=d, offset=n)  -> same dims as x;      error if x has no d
     sum_back(x, over=d, within=n) -> same dims as x; error if x has no d
+    sum_forward(x, over=d, within=n) -> the same, the other way
 
 and at the declaration level::
 
@@ -214,7 +215,7 @@ def _dims_call(
             )
         return (inner - set(by.into)) | {by.dimension}
 
-    if node.name in ('shift', 'sum_back'):
+    if node.name in ('shift', 'sum_back', 'sum_forward'):
         inner = _dims(node.args[0], schema, context)
         over = node.kwargs['over']
         assert isinstance(over, DimensionNode)
