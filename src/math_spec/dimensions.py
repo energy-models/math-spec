@@ -222,7 +222,7 @@ def _dims_call(
             raise DimensionError(
                 f'{context}: {node.name}(over={over.name}) but the expression has dims {sorted(inner)}.'
             )
-        _check_named_amount(node, over.name, schema, context)
+        _check_named_amount(node, over.name, inner, schema, context)
         partition = node.kwargs.get('by')
         if partition is not None:
             assert isinstance(partition, LookupNode)
@@ -252,6 +252,20 @@ def _dims_call(
 #: rules below.
 _AMOUNTS = {'shift': ('offset', 'offset'), 'sum_back': ('within', 'width')}
 
+#: Why negating a named amount at the call site is not what the caller means.
+#: ``shift`` has a direction and keeps it in the data; a window's direction is
+#: its own name, and a width is a count, which has none.
+_NEGATED = {
+    'shift': (
+        'A named offset carries its sign in its values, so that one row pointing backwards says '
+        'so where the data is read — negate the column instead.'
+    ),
+    'sum_back': (
+        'A width counts positions and so has no direction; which way a window reaches is the '
+        "operator's own name rather than the sign of its width."
+    ),
+}
+
 #: Why a named amount that varies along the axis it walks is not the thing its
 #: operator claims to be.
 _VARIES = {
@@ -260,19 +274,24 @@ _VARIES = {
 }
 
 
-def _check_named_amount(node: FunctionCallNode, over: str, schema: Model, context: str) -> None:
-    """The two rules that hold of an ``offset=`` or ``within=`` naming a parameter.
+def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str], schema: Model, context: str) -> None:
+    """The rules that hold of an ``offset=`` or ``within=`` naming a parameter.
 
-    Both are about the *amount*, not about a dim set, but they live here
+    They are about the *amount* rather than about a dim set, but they live here
     because here is where the schema is in hand — a parameter's ``dtype`` and
-    its ``dims`` are read off the same declaration, and splitting the pair
-    across two passes would give one rule of a documented pair two voices.
+    its ``dims`` are read off the same declaration, and splitting a documented
+    set across two passes would give one rule of it several voices.
 
-    A literal is checked by the grammar already: it parses as a number and a
-    number carries no dims, so only a named amount can break either rule.
+    A literal breaks none of them: it parses as a number, and a number has
+    neither a dtype to declare nor dims to vary over.
     """
     kwarg, noun = _AMOUNTS[node.name]
     amount = node.kwargs[kwarg]
+    if isinstance(amount, UnaryOperatorNode) and isinstance(amount.operand, ParameterNode):
+        raise DimensionError(
+            f'{context}: {node.name}({kwarg}={amount.op}{amount.operand.name}) negates a named '
+            f'{noun}. {_NEGATED[node.name]}'
+        )
     if not isinstance(amount, ParameterNode):
         return
     declared = schema.parameters[amount.name]
@@ -289,6 +308,16 @@ def _check_named_amount(node: FunctionCallNode, over: str, schema: Model, contex
             f"'{over}', but '{amount.name}' is declared over {sorted(declared.dims)}, which "
             f'carries it. A named {noun} that varies along the axis it walks is {_VARIES[node.name]} '
             f"— declare '{amount.name}' over dims '{over}' is not one of."
+        )
+    partition = node.kwargs.get('by')
+    groups = frozenset(partition.into) if isinstance(partition, LookupNode) else frozenset()
+    if stray := sorted(frozenset(declared.dims) - inner - groups):
+        raise DimensionError(
+            f'{context}: {node.name}({kwarg}={amount.name}) reads its {noun} at the coordinate it '
+            f"walks, but '{amount.name}' varies over {stray}, which that coordinate does not carry "
+            f'(dims {sorted(inner)}). A dim the coordinate does not have is no coordinate at all — '
+            f"declare '{amount.name}' over dims the expression carries, or group by a lookup into "
+            f'one of {stray}, so that each group is reached by its own {noun}.'
         )
 
 
