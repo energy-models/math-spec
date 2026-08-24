@@ -52,14 +52,14 @@ from math_spec import (
     expression_of,
     where_of,
 )
-from math_spec.typeset.format import Entry, Glossary, Line
+from math_spec.typesetting.format import Entry, Glossary, Line
 
 if TYPE_CHECKING:
     import datetime
 
     from math_spec import Buildable, Namespace, SosBlock
-    from math_spec.typeset.format import Format
-    from math_spec.typeset.symbols import Symbols
+    from math_spec.typesetting.format import Format
+    from math_spec.typesetting.symbols import Symbols
 
 #: Operator precedence, for deciding brackets. A reduction sits at the bottom
 #: with ``+``: an unbracketed sum reads as capturing whatever follows it, so as

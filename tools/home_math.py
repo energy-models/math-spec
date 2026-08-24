@@ -30,7 +30,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-from math_spec.typeset import to_latex, to_markdown
+from math_spec.typesetting import to_latex, to_markdown
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / 'docs' / 'index.md'

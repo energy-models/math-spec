@@ -4,7 +4,7 @@
 
 """Typst. The format that compiles without a toolchain.
 
-Here to keep :mod:`math_spec.typeset.format` honest: a seam with one
+Here to keep :mod:`math_spec.typesetting.format` honest: a seam with one
 implementation behind it is a shape, not an abstraction. Typst's syntax differs
 from LaTeX's in every respect that matters — ``sum_(…)``, ``cal(T)``,
 function-call grouping instead of brace groups, a term list instead of a
@@ -20,12 +20,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from math_spec.typeset.format import TYPST_OPERATORS
+from math_spec.typesetting.format import TYPST_OPERATORS
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from math_spec.typeset.format import Entry, Line
+    from math_spec.typesetting.format import Entry, Line
 
 _PREAMBLE = """#set page(margin: 2.5cm)
 #set text(size: 11pt)
@@ -53,7 +53,7 @@ def _raw(text: str) -> str:
 
 
 class TypstFormat:
-    """See :class:`math_spec.typeset.format.Format`.
+    """See :class:`math_spec.typesetting.format.Format`.
 
     The cyclic operators spell with ``.o``, Typst's circled modifier;
     ``minus.circle`` does not compile.

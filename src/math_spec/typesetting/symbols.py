@@ -12,7 +12,7 @@ way: ``description:`` is a key on the declaration, because it is the model
 talking about itself rather than a reader choosing notation.
 
 This module decides *which* symbol a name gets; a
-:class:`~math_spec.typeset.format.Format` decides how it is written.
+:class:`~math_spec.typesetting.format.Format` decides how it is written.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from math_spec.errors import SchemaError, did_you_mean
 
 if TYPE_CHECKING:
     from math_spec import Buildable
-    from math_spec.typeset.format import Format
+    from math_spec.typesetting.format import Format
 
 __all__ = ['SymbolTable', 'Symbols']
 

@@ -14,12 +14,12 @@ resolve names, walk. Expansion runs first, so a ``piecewise:`` block prints as
 the λ-formulation it *is* rather than the sugar it was written as.
 
 **One walk, many formats.** ``walk.py`` decides everything about the math and
-nothing about the syntax; a :class:`~math_spec.typeset.format.Format` decides only
+nothing about the syntax; a :class:`~math_spec.typesetting.format.Format` decides only
 how to spell it. See the [README](README.md) for what adding one costs.
 
 Symbols are **derived** by default, aiming at unambiguous rather than
 beautiful, so it prints with no setup; a
-:class:`~math_spec.typeset.symbols.SymbolTable` (``--symbols``) makes it
+:class:`~math_spec.typesetting.symbols.SymbolTable` (``--symbols``) makes it
 conventional. It does not line-break: a wide equation runs off the page.
 
 Usage::
@@ -42,18 +42,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from math_spec import Namespace, expand_piecewise, load_model
-from math_spec.typeset.latex import LatexFormat
-from math_spec.typeset.markdown import MarkdownFormat
-from math_spec.typeset.symbols import Symbols, SymbolTable
-from math_spec.typeset.typst import TypstFormat
-from math_spec.typeset.walk import Walk
+from math_spec.typesetting.latex import LatexFormat
+from math_spec.typesetting.markdown import MarkdownFormat
+from math_spec.typesetting.symbols import Symbols, SymbolTable
+from math_spec.typesetting.typst import TypstFormat
+from math_spec.typesetting.walk import Walk
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
     from math_spec import Model
-    from math_spec.typeset.format import Format
+    from math_spec.typesetting.format import Format
 
 __all__ = ['FORMATS', 'SymbolTable', 'to_latex', 'to_markdown', 'to_typst', 'typeset']
 

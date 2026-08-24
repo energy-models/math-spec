@@ -13,12 +13,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from math_spec.typeset.format import LATEX_OPERATORS
+from math_spec.typesetting.format import LATEX_OPERATORS
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from math_spec.typeset.format import Entry, Line
+    from math_spec.typesetting.format import Entry, Line
 
 _ESCAPES = {
     '\\': r'\textbackslash{}',
@@ -47,7 +47,7 @@ def _escape(text: str) -> str:
 
 
 class LatexFormat:
-    """See :class:`math_spec.typeset.format.Format`."""
+    """See :class:`math_spec.typesetting.format.Format`."""
 
     suffix: ClassVar[str] = '.tex'
     notation: ClassVar[str] = 'latex'

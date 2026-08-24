@@ -87,7 +87,7 @@ absorb any method later added to `LatexFormat`, and since the two differ
 exactly in the document methods, the silent case is a `\paragraph` in a
 Markdown file.
 
-`tests/typeset/test_typeset.py` runs the shared expectations against **every** entry in
+`tests/typesetting/test_typeset.py` runs the shared expectations against **every** entry in
 `FORMATS`, so a new format inherits the suite. Two of them are the point: every
 operator name is spelled, and no format leaks another's syntax.
 

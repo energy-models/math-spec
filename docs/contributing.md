@@ -72,7 +72,7 @@ Here are some use-cases that you may come across in which you are considering up
     pixi run python -m tools.home_math --check   # fail if it has drifted
     ```
 
-    `tools/notation.py` does the same for `docs/reference/notation.md`, out of `tests/typeset/golden/model.yaml`.
+    `tools/notation.py` does the same for `docs/reference/notation.md`, out of `tests/typesetting/golden/model.yaml`.
     It also wants the four `piecewise:` models one section of that page is built from, which the extraction from lpspec has not brought over yet — so it raises `FileNotFoundError` until they arrive, and the committed page is the last one lpspec generated.
 
 ??? question annotate "I want to add a new page"

@@ -5,7 +5,7 @@
 r"""The seam between *what* a model says and *how* a format spells it.
 
 One walk, many formats — the split ``relational/sinks/`` makes at the other end
-of the pipeline. :mod:`math_spec.typeset.walk` decides where a bracket is needed,
+of the pipeline. :mod:`math_spec.typesetting.walk` decides where a bracket is needed,
 which dimension a reduction binds and where a mask belongs; a :class:`Format`
 decides only that a sum is ``\sum_{…}`` or ``sum_(…)``.
 
@@ -200,7 +200,7 @@ class Format(Protocol):
         """How many members a set has: ``|T|``.
 
         A fence rather than an entry in :data:`OPERATOR_NAMES`, which is a
-        vocabulary of *infix* spellings — ``tests/typeset/test_typeset.py``
+        vocabulary of *infix* spellings — ``tests/typesetting/test_typeset.py``
         compiles every one of them between two operands.
         """
         ...
