@@ -72,6 +72,7 @@ $ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g)
   upright("history") & sum_(t' in cal(T) colon 0 <= t minus.o t' < upright("min_up")) italic("on")_(t',g) & <= italic("units")_(g) & forall t in cal(T), g in cal(G) \
   upright("horizon") & sum_(t' in cal(T) colon 0 <= t' - t < 3) italic("on")_(t',g) & <= italic("units")_(g) & forall t in cal(T), g in cal(G) \
   upright("outlook") & sum_(t' in cal(T) colon 0 <= t' minus.o t < upright("min_up")) italic("on")_(t',g) & <= italic("units")_(g) & forall t in cal(T), g in cal(G) \
+  upright("seasonal_window") & sum_(t' in cal(T) colon 0 <= t -^(upright("season_of")(t)) t' < 3) italic("on")_(t',g) & <= italic("units")_(g) & forall t in cal(T), g in cal(G) \
   upright("pullback") & italic("spill")_(t) & <= upright("zone_cap")_(upright("zone_of")(b)) & forall t in cal(T), b in cal(B) \
   upright("grouped_twice") & sum_(g in cal(G) colon upright("gen_bus")(g) = b and upright("gen_tech")(g) = e) p_(t,g) & <= upright("tech_cap")_(b,e) & forall t in cal(T), b in cal(B), e in cal(E) \
   upright("pulled_back_twice") & italic("units")_(g) & <= upright("tech_cap")_(upright("gen_bus")(g),upright("gen_tech")(g)) & forall g in cal(G) \

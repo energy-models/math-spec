@@ -25,9 +25,11 @@ Dimension arguments are name-checked at load time, so
 | `sum_back(array, over=dim, within=n)`              | the sum of the last `n` positions along `dim`, ending at _t_                                                                       |
 | `sum_back(array, over=dim, within=p)`              | `p` an integer parameter: each entity gets **its own** window length                                                               |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its start                                                         |
+| `sum_back(array, over=dim, within=n, by=lookup)`   | the window stops at each group's edge rather than reaching across it                                                               |
 | `sum_forward(array, over=dim, within=n)`           | the sum of the next `n` positions along `dim`, starting at _t_                                                                     |
 | `sum_forward(array, over=dim, within=p)`           | `p` an integer parameter: each entity gets **its own** window length                                                               |
 | `sum_forward(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its end                                                        |
+| `sum_forward(array, over=dim, within=n, by=lookup)` | the window stops at each group's edge rather than reaching across it                                                              |
 
 `array` is any expression of the right dim set, so these read a **parameter**
 as readily as a variable. Each row as the typesetter prints it is
@@ -147,6 +149,49 @@ own window, so no row is lost and there is nothing vacated to fill. A number
 there is a load error, because adding a constant is something the expression can
 say for itself. `edge='wrap'` makes the window reach around instead, which is
 what a representative period that repeats asks for.
+
+### A window that stops at each group's edge
+
+`by=` partitions the axis the window walks, so it reaches only within the group
+the row being written is in. It is the same `by=` as
+[`shift`'s](#a-translation-that-stops-at-each-groups-edge), and takes a lookup
+**over the dimension being summed over**.
+
+```yaml
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+  day: { dtype: str }
+lookups:
+  day_of: { over: hour, into: day }
+variables:
+  started: { foreach: [unit, hour], domain: binary }
+  on: { foreach: [unit, hour], domain: binary }
+constraints:
+  stays_up_inside_its_day:
+    foreach: [unit, hour]
+    expression: sum_back(started, over=hour, within=3, by=day_of) <= on
+```
+
+What asks for this is a model built on **representative periods**. A dozen typical
+days stand in for a year, each carrying a weight, and their hours are numbered
+consecutively — but that numbering is a storage order, not a timeline. The last
+hour of one representative day does not precede the first hour of the next in any
+physical sense; they are separate samples.
+
+An unpartitioned window sums straight across that seam. It builds, it solves, and
+the commitment it returns couples two independent days through a boundary that
+does not exist — which nothing warns about, because the axis is ordered and the
+language has no other way to know the order is not time.
+
+The `edge=` rules then read one group at a time, exactly as they do for `shift`:
+bare, a window at a group's opening is **short**, reaching no further back than
+the group starts; `edge='wrap'` closes **each group** onto its own end, which is
+what a representative day standing for a day that repeats asks for.
+
+A coordinate the lookup sends nowhere is in no group, so its window holds only
+itself. `sum_forward` partitions identically — the group bounds the direction it
+reaches, whichever that is.
 
 ## `sum_forward`
 
@@ -393,9 +438,11 @@ language is rendered the same way, on one page:
 | `sum_back(array, over=dim, within=n)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_back(array, over=dim, within=p)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+| `sum_back(array, over=dim, within=n, by=lookup)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_forward(array, over=dim, within=n)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' - h < 3} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_forward(array, over=dim, within=p)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' - h < \mathrm{min\_up}} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_forward(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' \ominus h < \mathrm{min\_up}} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+| `sum_forward(array, over=dim, within=n, by=lookup)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' -^{\mathrm{day\_of}(h)} h < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 

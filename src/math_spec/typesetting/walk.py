@@ -386,7 +386,10 @@ class Walk:
             source = f'{self.symbols.index[over.name]}{PRIME}'
             written = ctx.subscript(over.name)
             left, right = (written, source) if _WINDOWS[node.name] else (source, written)
-            lag = f'{left} {self.translation(step)} {right}'
+            # a partition rides the operator here exactly as it does on a leaf
+            # translation, and for the same reason: what the group changes is
+            # where the axis ends, not which coordinate is being written
+            lag = f'{left} {self.translation(step, self._group(node.kwargs.get("by"), over.name))} {right}'
             domain = (
                 f'{source} {self.op("in")} {self.symbols.set[over.name]} {self.op("such_that")} '
                 f'0 {self.op("le")} {lag} {self.op("lt")} {self._width(node.kwargs["within"])}'
@@ -418,6 +421,18 @@ class Walk:
             dims = self._sorted(dims_of(node.args[0], self.schema, 'a sum'))
             domain = self.format.joined([self.membership(d) for d in dims], '')
         return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
+
+    def _group(self, by: ArithmeticNode | None, dim: str) -> str:
+        """A window's ``by=`` as the superscript its operator carries.
+
+        The bare index, not the subscript in force: the group is a property of
+        the row being written, and a window whose operand is itself translated
+        still asks which group *that row* is in.
+        """
+        if by is None:
+            return ''
+        assert isinstance(by, LookupNode)
+        return self.format.apply(self.format.upright(by.names[0]), self.symbols.index[dim])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``within=``: a number, or a parameter's own symbol.

@@ -428,6 +428,42 @@ objective: { sense: minimize, expression: sum(on) }
 
 $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
 
+### `sum_back(array, over=dim, within=n, by=lookup)`
+
+`examples/operators/sum_back_partitioned.yaml`
+
+```yaml
+description: >-
+  A window that stops at each group's edge: representative days are separate
+  samples rather than consecutive hours, so a window must not reach across the
+  seam between two of them.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+  day: { dtype: str }
+
+lookups:
+  day_of: { over: hour, into: day }
+
+variables:
+  started:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  stays_up_inside_its_day:
+    foreach: [unit, hour]
+    expression: sum_back(started, over=hour, within=3, by=day_of) <= on
+
+objective: { sense: minimize, expression: sum(on) }
+```
+
+$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+
 ### `sum_forward(array, over=dim, within=n)`
 
 `examples/operators/sum_forward.yaml`
@@ -529,6 +565,42 @@ objective: { sense: minimize, expression: sum(on) }
 ```
 
 $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' \ominus h < \mathrm{min\_up}} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+
+### `sum_forward(array, over=dim, within=n, by=lookup)`
+
+`examples/operators/sum_forward_partitioned.yaml`
+
+```yaml
+description: >-
+  A window that stops at each group's edge: representative days are separate
+  samples rather than consecutive hours, so a window must not reach across the
+  seam between two of them.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+  day: { dtype: str }
+
+lookups:
+  day_of: { over: hour, into: day }
+
+variables:
+  started:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  stays_up_inside_its_day:
+    foreach: [unit, hour]
+    expression: sum_forward(started, over=hour, within=3, by=day_of) <= on
+
+objective: { sense: minimize, expression: sum(on) }
+```
+
+$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' -^{\mathrm{day\_of}(h)} h < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.
