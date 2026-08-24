@@ -27,52 +27,59 @@ from typing import TYPE_CHECKING, ClassVar, Protocol
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-#: Every operator a walk can emit, by the name the walk uses for it. A format
-#: supplies one spelling each, and ``tests/typeset/test_typeset.py`` asserts every
-#: format covers exactly this set, so a missing key is a test failure rather
-#: than a stray ``None`` in the output. The less obvious names: ``such_that``
-#: is the colon in "∀ t ∈ T : condition", ``times`` sits between sets in the
-#: legend, ``maps_to`` is the → in a coordinate map. The three translations get
-#: one operator each because they are three models: plain ``minus``/``plus``
-#: leaves the vacated position absent, ``cyclic_*`` is ``roll``'s wrapping
-#: translation, and ``edge_*`` fills that position with the value it carries as
-#: a subscript.
-OPERATOR_NAMES = frozenset(
-    {
-        'cdot',
-        'plus',
-        'minus',
-        'equal',
-        'le',
-        'ge',
-        'lt',
-        'gt',
-        'ne',
-        'in',
-        'and',
-        'or',
-        'not',
-        'true',
-        'false',
-        'forall',
-        'such_that',
-        'infinity',
-        'minus_infinity',
-        'cyclic_minus',
-        'cyclic_plus',
-        'edge_minus',
-        'edge_plus',
-        'times',
-        'maps_to',
-        'reals',
-        'integers',
-        'binary_set',
-        'sos_set',
-        'position',
-        'minimize',
-        'maximize',
-    }
-)
+#: Every operator a walk can emit, by the name the walk uses for it, paired
+#: with its spelling in each notation — LaTeX first, Typst second. One row per
+#: operator rather than one table per format, so a format cannot be missing a
+#: spelling: there is no second list to fall out of step with. The less obvious
+#: names: ``such_that`` is the colon in "∀ t ∈ T : condition", ``times`` sits
+#: between sets in the legend, ``maps_to`` is the → in a coordinate map. The
+#: three translations get one operator each because they are three models:
+#: plain ``minus``/``plus`` leaves the vacated position absent, ``cyclic_*`` is
+#: ``roll``'s wrapping translation, and ``edge_*`` fills that position with the
+#: value it carries as a subscript.
+OPERATOR_SPELLINGS: dict[str, tuple[str, str]] = {
+    'cdot': (r'\cdot', 'dot'),
+    'plus': ('+', '+'),
+    'minus': ('-', '-'),
+    'equal': ('=', '='),
+    'le': (r'\le', '<='),
+    'ge': (r'\ge', '>='),
+    'lt': ('<', '<'),
+    'gt': ('>', '>'),
+    'ne': (r'\neq', '!='),
+    'in': (r'\in', 'in'),
+    'and': (r'\wedge', 'and'),
+    'or': (r'\vee', 'or'),
+    'not': (r'\neg', 'not'),
+    'true': (r'\top', 'top'),
+    'false': (r'\bot', 'bot'),
+    'forall': (r'\forall\,', 'forall'),
+    'such_that': (r'\,:\,', 'colon'),
+    'infinity': (r'\infty', 'infinity'),
+    'minus_infinity': (r'-\infty', '-infinity'),
+    'cyclic_minus': (r'\ominus', 'minus.o'),
+    'cyclic_plus': (r'\oplus', 'plus.o'),
+    'edge_minus': (r'\boxminus', 'minus.square'),
+    'edge_plus': (r'\boxplus', 'plus.square'),
+    'times': (r'\times', 'times'),
+    'maps_to': (r'\to', 'arrow.r'),
+    'reals': (r'\mathbb{R}', 'RR'),
+    'integers': (r'\mathbb{Z}', 'ZZ'),
+    'binary_set': (r'\{0, 1\}', '{0, 1}'),
+    'sos_set': (r'\mathrm{SOS}', 'upright("SOS")'),
+    'position': (r'\mathrm{pos}', 'upright("pos")'),
+    'minimize': (r'\min', 'min'),
+    'maximize': (r'\max', 'max'),
+}
+
+#: The operator vocabulary itself. Derived, so :data:`OPERATOR_SPELLINGS` is the
+#: single place a new operator is added.
+OPERATOR_NAMES = frozenset(OPERATOR_SPELLINGS)
+
+#: One column each, for the two formats that spell their own math. Markdown
+#: takes LaTeX's and overrides the two entries MathJax reads differently.
+LATEX_OPERATORS: dict[str, str] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
+TYPST_OPERATORS: dict[str, str] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
 
 
 @dataclass(frozen=True)

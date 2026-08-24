@@ -52,18 +52,15 @@ from typing import assert_never
 from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
     BinaryOperatorNode,
-    ComparisonNode,
-    DimensionNode,
-    EdgeNode,
+    BranchNode,
     ExpressionNode,
     FunctionCallNode,
     KeywordNode,
-    LookupNode,
+    KwargNode,
     NameListNode,
     NameNode,
     NumberNode,
     ParameterNode,
-    UnaryOperatorNode,
     VariableNode,
     children,
 )
@@ -86,7 +83,7 @@ def carries_variable(node: ExpressionNode) -> bool:
     """
     if isinstance(node, VariableNode):
         return True
-    if isinstance(node, (NumberNode, ParameterNode, DimensionNode, LookupNode, EdgeNode)):
+    if isinstance(node, NumberNode | ParameterNode | KwargNode):
         return False
     if isinstance(node, NameListNode):
         msg = (
@@ -106,7 +103,7 @@ def carries_variable(node: ExpressionNode) -> bool:
             f'through resolution.expression_of() first (docs/about/architecture.md hard rule 1).'
         )
         raise AssertionError(msg)
-    if isinstance(node, (UnaryOperatorNode, BinaryOperatorNode, ComparisonNode, FunctionCallNode)):
+    if isinstance(node, BranchNode):
         return any(carries_variable(c) for c in children(node))
     assert_never(node)
 
@@ -121,7 +118,7 @@ def _adds(node: ExpressionNode) -> bool:
     """
     if isinstance(node, BinaryOperatorNode) and node.op in ('+', '-'):
         return True
-    if isinstance(node, (UnaryOperatorNode, BinaryOperatorNode, ComparisonNode, FunctionCallNode)):
+    if isinstance(node, BranchNode):
         return any(_adds(c) for c in children(node))
     return False
 

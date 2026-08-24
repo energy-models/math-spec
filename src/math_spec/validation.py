@@ -36,11 +36,9 @@ from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
-    DimensionNode,
-    EdgeNode,
     FunctionCallNode,
     KeywordNode,
-    LookupNode,
+    KwargNode,
     NameListNode,
     NameNode,
     NumberNode,
@@ -348,7 +346,7 @@ def _check_template_names(
     keyword names nothing; a dimension kwarg accepts a formal as well as a
     declared dimension, the call site being able to bind one.
     """
-    if isinstance(node, (NumberNode, VariableNode, ParameterNode, DimensionNode, LookupNode, EdgeNode)):
+    if isinstance(node, NumberNode | VariableNode | ParameterNode | KwargNode):
         return
 
     if isinstance(node, (KeywordNode, NameListNode)):

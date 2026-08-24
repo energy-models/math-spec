@@ -20,7 +20,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from math_spec.typeset.format import TYPST_OPERATORS
+
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from math_spec.typeset.format import Entry, Line
 
 _PREAMBLE = """#set page(margin: 2.5cm)
@@ -60,40 +64,7 @@ class TypstFormat:
     #: Typst applies the same substitution TeX does.
     dash: ClassVar[str] = '---'
 
-    operators: ClassVar[dict[str, str]] = {
-        'cdot': 'dot',
-        'plus': '+',
-        'minus': '-',
-        'equal': '=',
-        'le': '<=',
-        'ge': '>=',
-        'lt': '<',
-        'gt': '>',
-        'ne': '!=',
-        'in': 'in',
-        'and': 'and',
-        'or': 'or',
-        'not': 'not',
-        'true': 'top',
-        'false': 'bot',
-        'forall': 'forall',
-        'such_that': 'colon',
-        'infinity': 'infinity',
-        'minus_infinity': '-infinity',
-        'cyclic_minus': 'minus.o',
-        'cyclic_plus': 'plus.o',
-        'edge_minus': 'minus.square',
-        'edge_plus': 'plus.square',
-        'times': 'times',
-        'maps_to': 'arrow.r',
-        'reals': 'RR',
-        'integers': 'ZZ',
-        'binary_set': '{0, 1}',
-        'sos_set': 'upright("SOS")',
-        'position': 'upright("pos")',
-        'minimize': 'min',
-        'maximize': 'max',
-    }
+    operators: ClassVar[Mapping[str, str]] = TYPST_OPERATORS
 
     # -- atoms -------------------------------------------------------------
 

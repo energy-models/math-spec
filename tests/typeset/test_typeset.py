@@ -1024,9 +1024,9 @@ def _calls(node: object) -> Iterator[FunctionCallNode]:
 #: at most one, so a fixture that has one cannot also be a fixture that has
 #: none, and `test_a_model_with_no_objective_prints_the_rest` covers it instead.
 UNREACHABLE = {
-    'if isinstance(node, (NameNode, NameListNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):',
+    'if isinstance(node, UnresolvedNode | KwargNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
-    'if isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, UnresolvedPositionNode)):',
+    'if isinstance(node, UnresolvedWhereNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'",
     'if not isinstance(node, ComparisonNode):',
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",

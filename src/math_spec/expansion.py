@@ -50,18 +50,11 @@ from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
-    DimensionNode,
-    EdgeNode,
     ExpressionNode,
     FunctionCallNode,
-    KeywordNode,
-    LookupNode,
-    NameListNode,
+    LeafNode,
     NameNode,
-    NumberNode,
-    ParameterNode,
     UnaryOperatorNode,
-    VariableNode,
     parse_expression,
 )
 
@@ -123,18 +116,7 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
     differ only in what they do at NameNode and FunctionCallNode, and duplicating
     the other four cases is how the two drift apart.
     """
-    if isinstance(
-        node,
-        NumberNode
-        | NameNode
-        | NameListNode
-        | VariableNode
-        | ParameterNode
-        | DimensionNode
-        | LookupNode
-        | EdgeNode
-        | KeywordNode,
-    ):
+    if isinstance(node, LeafNode):
         return node
     if isinstance(node, UnaryOperatorNode):
         return UnaryOperatorNode(node.op, recurse(node.operand))

@@ -44,6 +44,9 @@ SURFACE = frozenset(
         'NameListNode', 'VariableNode', 'ParameterNode', 'DimensionNode', 'LookupNode',
         'EdgeNode', 'KeywordNode', 'UnaryOperatorNode', 'BinaryOperatorNode',
         'FunctionCallNode', 'children',
+        # the groups a pass asks about, rather than re-listing the classes in it
+        'LeafNode', 'BranchNode', 'KwargNode', 'UnresolvedNode',
+        'UnresolvedWhereNode', 'TypedPredicateNode', 'ConnectiveWhereNode',
         # the where AST
         'WhereNode', 'BooleanLiteralNode', 'AndNode', 'OrNode', 'NotNode',
         'ParameterComparisonNode', 'ParameterDefinedNode', 'VariableDefinedNode',

@@ -36,6 +36,7 @@ from math_spec.expression_parser import (
     ExpressionNode,
     FunctionCallNode,
     KeywordNode,
+    KwargNode,
     LookupNode,
     NameListNode,
     NameNode,
@@ -63,6 +64,7 @@ from math_spec.where_parser import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    TypedPredicateNode,
     UnresolvedComparisonNode,
     UnresolvedNameNode,
     UnresolvedPositionNode,
@@ -261,7 +263,7 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
     if isinstance(node, NumberNode):
         return node
 
-    if isinstance(node, (VariableNode, ParameterNode, DimensionNode, LookupNode, EdgeNode)):
+    if isinstance(node, VariableNode | ParameterNode | KwargNode):
         return node
 
     if isinstance(node, NameNode):
@@ -720,19 +722,7 @@ def _resolve_where(
     if isinstance(node, BooleanLiteralNode):
         return node
 
-    if isinstance(
-        node,
-        (
-            ParameterComparisonNode,
-            DimensionComparisonNode,
-            DimensionPositionNode,
-            LookupComparisonNode,
-            LookupPairComparisonNode,
-            LookupDefinedNode,
-            ParameterDefinedNode,
-            VariableDefinedNode,
-        ),
-    ):
+    if isinstance(node, TypedPredicateNode):
         return node
 
     if isinstance(node, UnresolvedNameNode):
