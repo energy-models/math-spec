@@ -195,6 +195,40 @@ class ComparisonNode:
 
 ExpressionNode = ArithmeticNode | ComparisonNode
 
+# ---------------------------------------------------------------------------
+# The groups a pass asks about
+#
+# Every pass over the AST asks the same three questions — is this a leaf, does
+# it carry sub-expressions, did resolution miss it — and each used to spell the
+# answer as a tuple of class names at the point of asking. Six modules listing
+# the same six or nine classes is six places to forget one when a node kind is
+# added, and a forgotten class does not fail: it falls through to whatever
+# branch comes next. Named here instead, once, so a new node joins a group and
+# every pass follows.
+#
+# `isinstance` narrows through these exactly as it does through a written-out
+# tuple, so the `assert_never` at the end of each walk still proves the union
+# is exhausted.
+# ---------------------------------------------------------------------------
+
+#: A resolved reference the language admits only as an operator kwarg *value*:
+#: ``sum(x, over=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
+#: the three is data, so none may stand in arithmetic — which is why the passes
+#: that walk a value position refuse them together.
+KwargNode = DimensionNode | LookupNode | EdgeNode
+
+#: What resolution rewrites away: a bare name, whose kind only the schema
+#: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
+#: downstream means the expression skipped :func:`~math_spec.expression_of`.
+UnresolvedNode = NameNode | NameListNode | KeywordNode
+
+#: Every leaf — nothing below it to descend into.
+LeafNode = NumberNode | VariableNode | ParameterNode | KwargNode | UnresolvedNode
+
+#: Every node carrying sub-expressions, which is exactly what :func:`children`
+#: descends and the only place a walk recurses.
+BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode
+
 
 def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
     """The sub-expressions of *node* — the structural half of any walk.

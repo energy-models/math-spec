@@ -13,7 +13,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from math_spec.typeset.format import LATEX_OPERATORS
+
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from math_spec.typeset.format import Entry, Line
 
 _ESCAPES = {
@@ -50,40 +54,7 @@ class LatexFormat:
     #: TeX's own em-dash ligature.
     dash: ClassVar[str] = '---'
 
-    operators: ClassVar[dict[str, str]] = {
-        'cdot': r'\cdot',
-        'plus': '+',
-        'minus': '-',
-        'equal': '=',
-        'le': r'\le',
-        'ge': r'\ge',
-        'lt': '<',
-        'gt': '>',
-        'ne': r'\neq',
-        'in': r'\in',
-        'and': r'\wedge',
-        'or': r'\vee',
-        'not': r'\neg',
-        'true': r'\top',
-        'false': r'\bot',
-        'forall': r'\forall\,',
-        'such_that': r'\,:\,',
-        'infinity': r'\infty',
-        'minus_infinity': r'-\infty',
-        'cyclic_minus': r'\ominus',
-        'cyclic_plus': r'\oplus',
-        'edge_minus': r'\boxminus',
-        'edge_plus': r'\boxplus',
-        'times': r'\times',
-        'maps_to': r'\to',
-        'reals': r'\mathbb{R}',
-        'integers': r'\mathbb{Z}',
-        'binary_set': r'\{0, 1\}',
-        'sos_set': r'\mathrm{SOS}',
-        'position': r'\mathrm{pos}',
-        'minimize': r'\min',
-        'maximize': r'\max',
-    }
+    operators: ClassVar[Mapping[str, str]] = LATEX_OPERATORS
 
     # -- atoms -------------------------------------------------------------
 

@@ -30,13 +30,11 @@ from math_spec import (
     DimensionPositionNode,
     EdgeNode,
     FunctionCallNode,
-    KeywordNode,
+    KwargNode,
     LookupComparisonNode,
     LookupDefinedNode,
     LookupNode,
     LookupPairComparisonNode,
-    NameListNode,
-    NameNode,
     NotNode,
     NumberNode,
     OrNode,
@@ -44,9 +42,8 @@ from math_spec import (
     ParameterDefinedNode,
     ParameterNode,
     UnaryOperatorNode,
-    UnresolvedComparisonNode,
-    UnresolvedNameNode,
-    UnresolvedPositionNode,
+    UnresolvedNode,
+    UnresolvedWhereNode,
     VariableDefinedNode,
     VariableNode,
     WhereNode,
@@ -302,7 +299,7 @@ class Walk:
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
 
-        if isinstance(node, (NameNode, NameListNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
+        if isinstance(node, UnresolvedNode | KwargNode):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
@@ -522,7 +519,7 @@ class Walk:
             sides = [self.where(node.left, ctx, need=1), self.where(node.right, ctx, need=1)]
             return self.format.joined(sides, self.op('or')), 0
 
-        if isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, UnresolvedPositionNode)):
+        if isinstance(node, UnresolvedWhereNode):
             msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'
             raise AssertionError(msg)
 

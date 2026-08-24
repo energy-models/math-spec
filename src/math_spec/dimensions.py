@@ -50,16 +50,14 @@ from math_spec.expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,
     DimensionNode,
-    EdgeNode,
     ExpressionNode,
     FunctionCallNode,
-    KeywordNode,
+    KwargNode,
     LookupNode,
-    NameListNode,
-    NameNode,
     NumberNode,
     ParameterNode,
     UnaryOperatorNode,
+    UnresolvedNode,
     VariableNode,
 )
 from math_spec.resolution import Namespace, expression_of, where_of
@@ -75,9 +73,7 @@ from math_spec.where_parser import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
-    UnresolvedComparisonNode,
-    UnresolvedNameNode,
-    UnresolvedPositionNode,
+    UnresolvedWhereNode,
     VariableDefinedNode,
     WhereNode,
 )
@@ -124,7 +120,7 @@ def _dims(
     if isinstance(node, VariableNode):
         return frozenset(schema.variables[node.name].foreach)
 
-    if isinstance(node, (NameNode, NameListNode, KeywordNode, DimensionNode, LookupNode, EdgeNode)):
+    if isinstance(node, UnresolvedNode | KwargNode):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
@@ -358,7 +354,7 @@ def _check_where_dims(
     elif isinstance(node, (AndNode, OrNode)):
         _check_where_dims(node.left, schema, frame, context)
         _check_where_dims(node.right, schema, frame, context)
-    elif isinstance(node, (UnresolvedNameNode, UnresolvedComparisonNode, UnresolvedPositionNode)):
+    elif isinstance(node, UnresolvedWhereNode):
         msg = f'{type(node).__name__} reached the dim checker unresolved.'
         raise AssertionError(msg)
     elif not isinstance(node, BooleanLiteralNode):

@@ -45,17 +45,13 @@ from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
-    DimensionNode,
-    EdgeNode,
     ExpressionNode,
     FunctionCallNode,
-    KeywordNode,
-    LookupNode,
-    NameListNode,
-    NameNode,
+    KwargNode,
     NumberNode,
     ParameterNode,
     UnaryOperatorNode,
+    UnresolvedNode,
     VariableNode,
     children,
 )
@@ -172,9 +168,7 @@ def _walk(node: ArithmeticNode, sign: Sign, signs: dict[str, Sign]) -> None:
     if isinstance(node, VariableNode):
         signs[node.name] = sign if signs.setdefault(node.name, sign) == sign else None
         return
-    if isinstance(
-        node, (NumberNode, ParameterNode, DimensionNode, LookupNode, EdgeNode, KeywordNode, NameNode, NameListNode)
-    ):
+    if isinstance(node, NumberNode | ParameterNode | KwargNode | UnresolvedNode):
         return
     if isinstance(node, UnaryOperatorNode):
         _walk(node.operand, _flip(sign) if node.op == '-' else sign, signs)

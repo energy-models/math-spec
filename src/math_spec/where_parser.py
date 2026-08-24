@@ -227,6 +227,30 @@ WhereNode = (
     | OrNode
 )
 
+#: What resolution rewrites away on the where side — the three nodes whose
+#: left-hand side is still a name the schema has not been asked about. The
+#: expression side has :data:`~math_spec.expression_parser.UnresolvedNode` for
+#: the same reason, and a pass meeting either ran before resolution.
+UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedPositionNode
+
+#: Every predicate resolution has typed: it names a declaration and the kind is
+#: settled. Resolution passes these straight through, having nothing left to
+#: decide about them.
+TypedPredicateNode = (
+    ParameterComparisonNode
+    | ParameterDefinedNode
+    | VariableDefinedNode
+    | DimensionComparisonNode
+    | DimensionPositionNode
+    | LookupComparisonNode
+    | LookupPairComparisonNode
+    | LookupDefinedNode
+)
+
+#: The boolean connectives — the only where nodes carrying other where nodes,
+#: and so the only place a walk over a predicate recurses.
+ConnectiveWhereNode = NotNode | AndNode | OrNode
+
 
 # ---------------------------------------------------------------------------
 # Grammar
