@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A window that stops at each group's edge: representative days are separate
+  samples rather than consecutive hours, so a window must not reach across the
+  seam between two of them.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+  day: { dtype: str }
+
+lookups:
+  day_of: { over: hour, into: day }
+
+variables:
+  started:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  stays_up_inside_its_day:
+    foreach: [unit, hour]
+    expression: sum_forward(started, over=hour, within=3, by=day_of) <= on
+
+objective: { sense: minimize, expression: sum(on) }

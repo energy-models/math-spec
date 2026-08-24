@@ -299,6 +299,42 @@ seasonal_window:
 
 $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t -^{\mathrm{season\_of}(t)} t' < 3} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
+#### `horizon`
+
+a leading window: the same three positions, counted the other way
+
+```yaml
+horizon:
+  foreach: [snapshot, generator]
+  expression: sum_forward(on, over=snapshot, within=3) <= units
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t' - t < 3} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+#### `outlook`
+
+the same leading window, its width in the data and its edge wrapped
+
+```yaml
+outlook:
+  foreach: [snapshot, generator]
+  expression: sum_forward(on, over=snapshot, within=min_up, edge='wrap') <= units
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t' \ominus t < \mathrm{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+#### `seasonal_outlook`
+
+the leading window partitioned, so it stops at the season's end
+
+```yaml
+seasonal_outlook:
+  foreach: [snapshot, generator]
+  expression: sum_forward(on, over=snapshot, within=3, by=season_of) <= units
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t' -^{\mathrm{season\_of}(t)} t < 3} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 #### `pullback`
 
 at(), which re-indexes through a lookup instead of an offset

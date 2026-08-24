@@ -216,7 +216,7 @@ def _multi_term(node: ExpressionNode) -> bool:
 #: The operators that fold several coordinates onto one, and so turn a term
 #: into a sum of terms. ``at`` and ``shift`` re-index and are not here: they
 #: move a term, leaving one term where there was one.
-_REDUCTIONS = frozenset({'sum', 'sum_back'})
+_REDUCTIONS = frozenset({'sum', 'sum_back', 'sum_forward'})
 
 
 def check_expression(node: ExpressionNode, context: str, *, ceiling: int = 1) -> None:
