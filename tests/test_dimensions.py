@@ -36,6 +36,10 @@ BASE = {
         'p_max': {'dims': ['generator']},
         'cost': {'dims': ['generator']},
         'load': {'dims': ['snapshot', 'bus']},
+        # a named offset or width counts positions, so the two rules about it
+        # need a parameter that obeys them and one that spans the axis walked
+        'spinup': {'dims': ['generator'], 'dtype': 'int'},
+        'horizon': {'dims': ['snapshot'], 'dtype': 'int'},
     },
     'variables': {'p': {'foreach': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
     'constraints': {
@@ -80,6 +84,8 @@ def test_the_base_model_typechecks():
         ('sum(p * cost, over=generator)', {'snapshot'}),
         ('sum(p, by=gen_bus)', {'snapshot', 'bus'}),
         ("shift(p, over=snapshot, offset=1, edge='wrap')", {'snapshot', 'generator'}),
+        ("shift(p, over=snapshot, offset=spinup, edge='wrap')", {'snapshot', 'generator'}),
+        ('sum_back(p, over=snapshot, within=spinup)', {'snapshot', 'generator'}),
     ],
 )
 def test_dim_inference(expr, expected):
@@ -126,6 +132,30 @@ def test_dim_inference(expr, expected):
             "shift(cost, over=snapshot, offset=1, edge='wrap')",
             r'shift\(over=snapshot\) but the expression has dims',
             id='shift-requires-the-dim',
+        ),
+        # A named offset or width counts positions along the axis its operator
+        # walks. Both rules below were documented as load errors and enforced
+        # nowhere (#58), so a fractional lag or a width that changed along the
+        # very axis it measured rendered as though it were neither.
+        pytest.param(
+            "shift(p, over=snapshot, offset=cost, edge='wrap')",
+            r'declared dtype: float',
+            id='a-named-offset-is-integral',
+        ),
+        pytest.param(
+            "shift(p, over=snapshot, offset=horizon, edge='wrap')",
+            r'varies along the axis it walks is a permutation rather than a lag',
+            id='a-named-offset-does-not-span-the-axis-it-walks',
+        ),
+        pytest.param(
+            'sum_back(p, over=snapshot, within=cost)',
+            r'declared dtype: float',
+            id='a-named-width-is-integral',
+        ),
+        pytest.param(
+            'sum_back(p, over=snapshot, within=horizon)',
+            r'no longer "the last n"',
+            id='a-named-width-does-not-span-the-summed-axis',
         ),
     ],
 )
