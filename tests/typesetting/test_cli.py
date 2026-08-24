@@ -25,8 +25,8 @@ from pathlib import Path
 import pytest
 
 import math_spec.__main__ as front
-from math_spec.typeset import FORMATS
-from tests.typeset import golden
+from math_spec.typesetting import FORMATS
+from tests.typesetting import golden
 
 #: The golden model, not `examples/dispatch.yaml`: the CLI travels with the
 #: renderer and this fixture travels with both, where the gallery stays.

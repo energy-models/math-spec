@@ -17,15 +17,8 @@ and so does the reverse — either alone rots.
 
 from __future__ import annotations
 
-import importlib
-
 import math_spec
-
-#: The typeset *package*, which `math_spec.typeset` is not: the re-exported
-#: function shadows the attribute, so this resolves through `sys.modules` the
-#: way every import statement does. Getting this wrong is the trap the last
-#: test in this file pins.
-_typeset_pkg = importlib.import_module('math_spec.typeset')
+from math_spec import typesetting as _typeset_pkg
 
 #: Every name `math_spec` promises. Grouped as a reader meets them, not
 #: alphabetically: the alphabetical form is `__all__` itself, and repeating it
@@ -91,23 +84,4 @@ def test_all_is_sorted_and_unique():
 
 def test_the_typeset_subpackage_binds_what_it_exports():
     missing = sorted(n for n in _typeset_pkg.__all__ if not hasattr(_typeset_pkg, n))
-    assert not missing, f'math_spec.typeset.__all__ names unbound attributes: {missing}'
-
-
-def test_the_typeset_function_shadows_its_package_without_breaking_imports():
-    """`typeset` is a function here and a subpackage one level down.
-
-    Binding the function on the package overwrites the submodule attribute, so
-    this pins the forms that must survive it: every import spelling resolves
-    through `sys.modules` and is unaffected, which is what lets `__all__` carry
-    the name at all. Attribute access off the package is the one casualty and
-    is asserted too, so the day someone unshadows it this test says what
-    changed rather than a downstream `AttributeError` saying nothing.
-    """
-    from math_spec.typeset import Walk
-    from math_spec.typeset.format import Format
-
-    assert callable(math_spec.typeset)
-    assert Walk is importlib.import_module('math_spec.typeset').Walk
-    assert Format is importlib.import_module('math_spec.typeset.format').Format
-    assert not hasattr(math_spec.typeset, 'to_latex')
+    assert not missing, f'math_spec.typesetting.__all__ names unbound attributes: {missing}'

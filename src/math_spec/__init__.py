@@ -120,7 +120,7 @@ from math_spec.where_parser import (
     WhereNode,
 )
 
-# Last, and deliberately out of alphabetical order. `math_spec.typeset` imports
+# Last, and deliberately out of alphabetical order. `math_spec.typesetting` imports
 # `Namespace`, `expand_piecewise` and `load_model` back from this module, so
 # those names have to be bound before it runs. Sorted into place with the rest
 # it would sit above `validation`, and the import would fail on a partially
@@ -128,17 +128,7 @@ from math_spec.where_parser import (
 # language subpackage were two modules there, and flattening them into this one
 # is what put both ends of the import in the same file.
 # isort: split
-# `typeset` here is the *function*, and binding it shadows the submodule
-# attribute of the same name: after this line `math_spec.typeset` is the
-# callable, not the package. Every import form is unaffected — they resolve
-# through `sys.modules` — so `from math_spec.typeset import Walk` and
-# `from math_spec.typeset.format import Format` both keep working; only
-# attribute access off the package (`import math_spec.typeset as ts`, then
-# `ts.to_latex`) reaches the function instead. The collision is tolerated
-# because `__all__` is what a consumer is held to, and a name it cannot
-# reach from `math_spec` is one it reaches by submodule path instead.
-# `tests/test_public_surface.py` pins the import forms that must survive it.
-from math_spec.typeset import (
+from math_spec.typesetting import (
     FORMATS,
     SymbolTable,
     to_latex,

@@ -4,7 +4,7 @@
 
 """Regenerate the committed golden output.
 
-    pixi run python -m tests.typeset.golden
+    pixi run python -m tests.typesetting.golden
 
 Then **read the diff**. That is the review: a golden file is only worth having
 if a change to it is looked at, and the reason the output is generated rather
@@ -14,8 +14,8 @@ review time, not at authoring time.
 
 from __future__ import annotations
 
-from math_spec.typeset import FORMATS, typeset
-from tests.typeset.golden import MODEL, path_for
+from math_spec.typesetting import FORMATS, typeset
+from tests.typesetting.golden import MODEL, path_for
 
 
 def main() -> int:

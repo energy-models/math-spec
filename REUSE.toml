@@ -32,11 +32,11 @@ SPDX-License-Identifier = "MIT"
 
 # `schema/math-spec.schema.json` is `Model.model_json_schema()` written out by
 # `tools/schema.py`, and the three `.out` files are what
-# `python -m tests.typeset.golden` prints. A header in any of them would last
+# `python -m tests.typesetting.golden` prints. A header in any of them would last
 # until the next regeneration, and tests/test_schema.py compares the file to
 # the models byte for byte.
 [[annotations]]
-path = ["schema/*.json", "tests/typeset/golden/*.out"]
+path = ["schema/*.json", "tests/typesetting/golden/*.out"]
 SPDX-FileCopyrightText = "math-spec Contributors"
 SPDX-License-Identifier = "MIT"
 

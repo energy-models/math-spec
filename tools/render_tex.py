@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # Every model the repository has, not a sample. `examples/*.yaml` is not
 # recursive and would cover none of these; a glob that silently narrows is how
 # a gate stops testing what it claims to.
-CORPUS = ('examples/**/*.yaml', 'tests/typeset/golden/*.yaml')
+CORPUS = ('examples/**/*.yaml', 'tests/typesetting/golden/*.yaml')
 
 # `examples/symbols/` sits inside that recursive glob and holds symbol tables,
 # which are not models and do not validate against the schema. Excluded by

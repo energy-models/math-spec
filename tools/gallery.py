@@ -29,7 +29,7 @@ import re
 import sys
 from pathlib import Path
 
-from math_spec.typeset import to_markdown
+from math_spec.typesetting import to_markdown
 from tools.spec_math import OPERATORS, rendered_probe
 
 ROOT = Path(__file__).resolve().parent.parent

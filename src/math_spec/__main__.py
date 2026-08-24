@@ -7,7 +7,7 @@
 **A document build step, not a command line under construction.** Rendering a
 model to LaTeX belongs in a Makefile next to ``pdflatex``, where a Python
 script would be awkward. One verb per typeset format, read off
-:data:`math_spec.typeset.FORMATS`, so a new format arrives with its verb written.
+:data:`math_spec.typesetting.FORMATS`, so a new format arrives with its verb written.
 
 **No verb becomes a second way to spell the source mapping.** ``lps.solve``
 takes a dict, and ``--source p_max=a.parquet`` is that dict with worse errors;
@@ -26,7 +26,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from math_spec.typeset import FORMATS, typeset
+from math_spec.typesetting import FORMATS, typeset
 
 
 def parser() -> argparse.ArgumentParser:

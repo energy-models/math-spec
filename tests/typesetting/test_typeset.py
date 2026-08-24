@@ -32,16 +32,16 @@ from math_spec.expression_parser import ArithmeticNode, ComparisonNode, Function
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.typeset import FORMATS, SymbolTable, to_latex, to_markdown, to_typst, typeset, walk
-from math_spec.typeset.format import OPERATOR_NAMES
-from math_spec.typeset.symbols import Symbols, _derive_name_symbol
+from math_spec.typesetting import FORMATS, SymbolTable, to_latex, to_markdown, to_typst, typeset, walk
+from math_spec.typesetting.format import OPERATOR_NAMES
+from math_spec.typesetting.symbols import Symbols, _derive_name_symbol
 from math_spec.validation import load_model
 from math_spec.where_parser import WhereNode
 from tests.fixtures import OPERATOR_PROBES, override
-from tests.typeset import golden
+from tests.typesetting import golden
 
 if TYPE_CHECKING:
-    from math_spec.typeset.format import Format
+    from math_spec.typesetting.format import Format
 
 
 LATEX, TYPST = FORMATS['latex'], FORMATS['typst']
@@ -877,7 +877,7 @@ def test_the_output_matches_the_committed_golden_file(name: str):
     actual = typeset(golden.MODEL, FORMATS[name], standalone=True)
     assert actual == expected.read_text(), (
         f'{expected.relative_to(Path.cwd())} is stale.\n'
-        f'If the change was intended: `pixi run python -m tests.typeset.golden`, then read the diff.'
+        f'If the change was intended: `pixi run python -m tests.typesetting.golden`, then read the diff.'
     )
 
 
@@ -933,7 +933,7 @@ def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells():
     sense = load_model(golden.MODEL).objective.sense
     unreachable = {'minimize', 'maximize'} - {sense}
     assert recorder.asked == OPERATOR_NAMES - unreachable, (
-        f'tests/typeset/golden/model.yaml no longer prints every operator: '
+        f'tests/typesetting/golden/model.yaml no longer prints every operator: '
         f'{sorted(OPERATOR_NAMES - unreachable - recorder.asked)} unrendered, '
         f'{sorted(recorder.asked - OPERATOR_NAMES)} unspelled. '
         f'Add the construct that prints it, or drop the spelling.'
@@ -991,7 +991,7 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
         _kinds(tree, kinds)
     declared = {node.__name__ for node in (*get_args(WhereNode), *get_args(ArithmeticNode), ComparisonNode)}
     assert kinds == declared - UNRESOLVED, (
-        f'tests/typeset/golden/model.yaml reaches {sorted(kinds - declared)} and misses '
+        f'tests/typesetting/golden/model.yaml reaches {sorted(kinds - declared)} and misses '
         f'{sorted(declared - UNRESOLVED - kinds)}. Every node the walk renders needs a case here, '
         f'or its arm ships output nobody has read.'
     )
@@ -1001,7 +1001,7 @@ def test_the_golden_model_calls_every_operator_in_the_language():
     """``BUILTINS`` is the closed set, so a new operator lands with its case here."""
     calls = {call.name for tree in _rendered_trees() for call in _calls(tree)}
     assert calls == BUILTIN_NAMES, (
-        f'tests/typeset/golden/model.yaml never calls {sorted(BUILTIN_NAMES - calls)}. '
+        f'tests/typesetting/golden/model.yaml never calls {sorted(BUILTIN_NAMES - calls)}. '
         f'An operator with no case here renders untested.'
     )
 
@@ -1071,7 +1071,7 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
     source = Path(walk.__file__).read_text().splitlines()
     unread = {line: source[line - 1].strip() for line in missing if source[line - 1].strip() not in UNREACHABLE}
     assert not unread, (
-        f'tests/typeset/golden/model.yaml never renders {len(unread)} line(s) of the walk:\n'
+        f'tests/typesetting/golden/model.yaml never renders {len(unread)} line(s) of the walk:\n'
         + '\n'.join(f'  {walk.__name__}:{line}  {text}' for line, text in sorted(unread.items()))
         + '\nAdd the case that reaches it, or say in UNREACHABLE why no model can.'
     )
