@@ -44,7 +44,7 @@ front-end module cannot land outside the fence by being spelled differently,
 and checks every consumer's imports against ``__all__`` below.
 """
 
-from math_spec._yaml import read_yaml
+from math_spec._yaml import parse_yaml, read_yaml
 from math_spec.boundedness import unbounded_notes
 from math_spec.degree import carries_variable, check_binary, is_quadratic
 from math_spec.dimensions import dims_of
@@ -75,8 +75,17 @@ from math_spec.expression_parser import (
     VariableNode,
     children,
 )
-from math_spec.model import Buildable, Model, SosBlock
+from math_spec.model import (
+    DIMENSION_DTYPES,
+    PARAMETER_DTYPES,
+    VARIABLE_ABSENCE,
+    VARIABLE_DOMAINS,
+    Buildable,
+    Model,
+    SosBlock,
+)
 from math_spec.operators import (
+    BUILTIN_NAMES,
     EDGE_WRAP,
     call_shape_error,
     edge_error,
@@ -112,10 +121,33 @@ from math_spec.where_parser import (
 # language subpackage were two modules there, and flattening them into this one
 # is what put both ends of the import in the same file.
 # isort: split
-from math_spec.typeset import SymbolTable, to_latex, to_markdown, to_typst
+# `typeset` here is the *function*, and binding it shadows the submodule
+# attribute of the same name: after this line `math_spec.typeset` is the
+# callable, not the package. Every import form is unaffected — they resolve
+# through `sys.modules` — so `from math_spec.typeset import Walk` and
+# `from math_spec.typeset.format import Format` both keep working; only
+# attribute access off the package (`import math_spec.typeset as ts`, then
+# `ts.to_latex`) reaches the function instead. The collision is tolerated
+# because `__all__` is what a consumer is held to, and a name it cannot
+# reach from `math_spec` is one it reaches by submodule path instead.
+# `tests/test_public_surface.py` pins the import forms that must survive it.
+from math_spec.typeset import (
+    FORMATS,
+    SymbolTable,
+    to_latex,
+    to_markdown,
+    to_typst,
+    typeset,
+)
 
 __all__ = [
+    'BUILTIN_NAMES',
+    'DIMENSION_DTYPES',
     'EDGE_WRAP',
+    'FORMATS',
+    'PARAMETER_DTYPES',
+    'VARIABLE_ABSENCE',
+    'VARIABLE_DOMAINS',
     'AndNode',
     'ArithmeticNode',
     'BinaryOperatorNode',
@@ -169,11 +201,13 @@ __all__ = [
     'is_quadratic',
     'load_model',
     'mask_of',
+    'parse_yaml',
     'read_yaml',
     'schema_error',
     'to_latex',
     'to_markdown',
     'to_typst',
+    'typeset',
     'unbounded_notes',
     'unknown_operator_message',
     'where_of',
