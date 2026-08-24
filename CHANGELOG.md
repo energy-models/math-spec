@@ -17,6 +17,19 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.10](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.9...v0.0.0-alpha.10) (2026-08-24)
+
+
+### Features
+
+* pin the eight names that keep this package and its consumer in step ([#51](https://github.com/energy-models/math-spec/issues/51)) ([15a354b](https://github.com/energy-models/math-spec/commit/15a354b1173f105d85113db6abc2f4e5ac28a6e3))
+
+
+### Refactoring
+
+* name the groups a pass asks about, and spell each operator once ([#52](https://github.com/energy-models/math-spec/issues/52)) ([e35c46c](https://github.com/energy-models/math-spec/commit/e35c46c128a29a620c9ed562684cf1dd43a08274))
+* the package is `typesetting`, the function stays `typeset` ([#54](https://github.com/energy-models/math-spec/issues/54)) ([a1d9599](https://github.com/energy-models/math-spec/commit/a1d95994333b25ac03f75f47eb2b376a03af6593))
+
 ## [0.0.0-alpha.9](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.8...v0.0.0-alpha.9) (2026-08-23)
 
 
