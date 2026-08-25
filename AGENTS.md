@@ -298,32 +298,52 @@ def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
 
 ## Commit messages and PR titles
 
-The subject names **the problem solved**. One line, scannable, no mechanism, no
-"why", no trailing clause. Conventional-commit form, the allowed types and the
-refused breaking marker:
-[CONTRIBUTING.md](CONTRIBUTING.md#commit-messages). The PR title, not a
-hand-written entry, is what appears in `CHANGELOG.md`.
+**The title is the changelog line.** release-please prints it in `CHANGELOG.md`,
+where the reader has no diff, no issue and none of our vocabulary. It names the
+problem solved — an outcome, not an activity, not a mechanism.
+
+- **A complete sentence, as long as it needs.** `a curve varying along a dim` is
+  a telegram; `a curve that varies along a dimension` is longer and it reads.
+- **A tail that parses on its own.** `…, not an em dash` is a fragment, and it
+  argues against a shape only that diff's reviewer saw. Give it a verb —
+  `rather than` — or drop it.
+- **A subject the changelog reader can name.** Not `a pass` or `a walk`; not
+  `dim`, `coord`, `AST`.
+- **Type by who can observe the work.** `feat fix perf refactor docs` publish,
+  `chore test ci build style` hide. Test scaffolding, the agent docs and an
+  internal reshuffle hide.
+
+Lower case, no full stop, conventional-commit form and the refused breaking
+marker: [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages). The 72-char warning
+in `pr-title.yml` is about `git log --oneline`; the changelog does not truncate.
 
 ```
 yes  fix(parser): a where clause with a trailing comma loads
 yes  feat(language): a coordinate may declare its own label space
-yes  docs: a named offset needs no edge=
 
-no   fix(parser): strip the trailing token before the pyparsing pass
-     ^ how it was done
-no   feat(language): label spaces per coordinate — the alternative was a global table
-     ^ mechanism plus its argument; two descriptions in a title
 no   fix(schema): fix schema bug
      ^ an activity, not an outcome
+no   fix(parser): strip the trailing token before the pyparsing pass
+     ^ how it was done
+no   fix: to_markdown printed TeX's em-dash ligature, not an em dash
+     ^ the tail is a fragment; say what it prints now
+no   refactor: name the groups a pass asks about, and spell each operator once
+     ^ `a pass` is nothing the changelog reader can reach
 ```
 
 ## PR descriptions
+
+**Forty words to the claim**, everything under it in `<details>` — the method,
+the gate output, the walk through what was considered. A body longer than its
+diff is one nobody finishes.
 
 - **Lead with the claim**, then the evidence.
 - **Say what was verified**, which gate you ran, and what you could not check.
 - **Name what you deliberately did not do**, and any default in Part 2 you
   departed from.
 - **One issue, one PR.** Separable work is stacked, not bundled.
+- **A body the work has overtaken is rewritten**, not appended to in a comment.
+- **The stack is the base branch**, not pin hashes and retarget notes in prose.
 - **Mark it**, evidence in `<details>`.
 
 ## Branch and worktree
