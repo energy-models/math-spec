@@ -11,10 +11,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from math_spec._yaml import parse_yaml
 from math_spec.errors import LanguageError
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import load_model, validate_expressions
 from math_spec.where_parser import DimensionPositionNode
+from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, override
 
 if TYPE_CHECKING:
     from math_spec.model import Model
@@ -436,3 +438,215 @@ class TestPositionResolves:
             where_of(mask, Namespace.of(schema), 'the mask')
         for fragment in fragments:
             assert fragment in str(excinfo.value)
+
+
+class TestDeclarationRules:
+    """Every cross-declaration rule the schema decides, one row each."""
+
+    BASE = {
+        'dimensions': {'g': {'values': ['a', 'b']}, 'h': {'values': ['x', 'y']}},
+        'lookups': {'lk': {'over': 'g', 'into': 'h'}, 'tag': {'over': 'g', 'dtype': 'str'}},
+        'parameters': {'c': {'dims': ['g']}, 'flag': {'dims': ['g'], 'dtype': 'bool'}},
+        'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}},
+    }
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'sos': {'s': {'variable': 'p', 'over': 'z', 'type': 1}}},
+                ("undeclared dimension 'z'",),
+                id='sos-over-undeclared',
+            ),
+            pytest.param(
+                {'sos': {'s': {'variable': 'c', 'over': 'g', 'type': 1}}},
+                ("'c' is not a declared variable",),
+                id='sos-over-a-parameter',
+            ),
+            pytest.param(
+                {'sos': {'s': {'variable': 'p', 'over': 'h', 'type': 1}}},
+                ("over 'h' is not a dim of variable 'p'",),
+                id='sos-along-a-dim-the-variable-lacks',
+            ),
+            pytest.param(
+                {
+                    'sos': {
+                        's': {'variable': 'p', 'over': 'g', 'type': 1},
+                        't': {'variable': 'p', 'over': 'g', 'type': 2},
+                    }
+                },
+                ("already carries the set declared by 's'",),
+                id='two-sets-on-one-variable',
+            ),
+            pytest.param(
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 3}}},
+                ('sos type must be 1 or 2, got 3',),
+                id='sos-of-order-three',
+            ),
+            pytest.param(
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'big_m': 0}}},
+                ('big_m must be a positive, finite number',),
+                id='sos-big-m-zero',
+            ),
+            pytest.param(
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1, 'big_m': float('inf')}}},
+                ('big_m must be a positive, finite number',),
+                id='sos-big-m-infinite',
+            ),
+            pytest.param(
+                {'lookups.both': {'over': 'g', 'into': 'h', 'dtype': 'int'}},
+                ('exactly one of',),
+                id='lookup-both-kinds',
+            ),
+            pytest.param({'lookups.neither': {'over': 'g'}}, ('exactly one of',), id='lookup-neither-kind'),
+            pytest.param({'lookups.lk.over': 'z'}, ("over undeclared dimension 'z'",), id='lookup-over-undeclared'),
+            pytest.param({'lookups.lk.into': 'z'}, ("targets undeclared dimension 'z'",), id='lookup-into-undeclared'),
+            pytest.param({'lookups.lk.into': 'g'}, ("maps 'g' into itself",), id='lookup-into-itself'),
+            pytest.param(
+                {'lookups.g': {'over': 'h', 'into': 'g'}},
+                ("Lookup 'g' collides with the dimension",),
+                id='lookup-named-after-a-dimension',
+            ),
+            pytest.param(
+                {'lookups.lk.values': {'zz': 'x'}},
+                ("declares values for ['zz'], which are not labels of 'g'",),
+                id='lookup-map-from-a-stranger',
+            ),
+            pytest.param(
+                {'lookups.lk.values': {'a': 'zz'}},
+                ("maps to 'zz', which are not labels of 'h'",),
+                id='lookup-map-to-a-stranger',
+            ),
+            pytest.param(
+                {'lookups.tag.values': {'a': 7}},
+                ("Lookup 'tag': value 7 has type int, but dtype is 'str'",),
+                id='lookup-map-to-the-wrong-dtype',
+            ),
+            pytest.param(
+                {'variables.p.absence': 'zero'}, ('absence: zero needs a `where:`',), id='absence-without-a-mask'
+            ),
+            pytest.param(
+                {'variables.p.bounds.upper': 'c * 2'},
+                ('not an expression', 'Precompute it as a parameter'),
+                id='a-bound-that-is-an-expression',
+            ),
+            pytest.param(
+                {'variables.p.bounds.upper': 'nope'},
+                ("'nope' is not a declared parameter",),
+                id='a-bound-naming-nothing',
+            ),
+            pytest.param(
+                {'variables.p.boundz': {'lower': 0}},
+                ("unknown key 'boundz'", 'bounds'),
+                id='a-misspelt-key-names-the-near-miss',
+            ),
+            pytest.param(
+                {'variables.p.foreach': ['g', 'z']}, ("references undeclared dimension 'z'",), id='foreach-undeclared'
+            ),
+            pytest.param({'parameters.c.dims': ['z']}, ("references undeclared dimension 'z'",), id='dims-undeclared'),
+            pytest.param(
+                {'parameters.p': {'dims': ['g']}},
+                ("Variable 'p' collides with the parameter",),
+                id='one-name-two-kinds',
+            ),
+        ],
+    )
+    def test_a_declaration_the_schema_refuses(self, patch, fragments):
+        with pytest.raises(LanguageError) as exc:
+            load_model(override(self.BASE, **patch))
+        for fragment in fragments:
+            assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'objective': {'expression': 'sum(g + p, over=g)'}},
+                ("'g' is a dimension, and a dimension is not a value",),
+                id='a-dimension-as-a-value',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(lk + p, over=g)'}},
+                ("'lk' is a lookup, and a lookup is structure",),
+                id='a-lookup-as-a-value',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=wrap), over=g)'}},
+                ('is a bare name where a keyword belongs',),
+                id='a-bare-edge-keyword',
+            ),
+            pytest.param(
+                {'objective': {'expression': "sum(shift(p, over=g, offset=1, edge='foo'), over=g)"}},
+                ("edge='foo') is not an edge policy",),
+                id='an-edge-policy-that-is-not-one',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(p, over=g, by=lk)'}}, ('at most one of',), id='over-and-by-together'
+            ),
+            pytest.param(
+                {'lookups.hk': {'over': 'h', 'into': 'g'}, 'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'}},
+                ('groups through lookups over different dimensions',),
+                id='by-lookups-over-different-dimensions',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=[lk, lk]))'}},
+                ("targets ['h'] more than once",),
+                id='by-the-same-target-twice',
+            ),
+        ],
+    )
+    def test_a_value_position_the_resolver_refuses(self, patch, fragments):
+        with pytest.raises(LanguageError) as exc:
+            load_model(override(self.BASE, **patch))
+        for fragment in fragments:
+            assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
+
+    @pytest.mark.parametrize(
+        ('where', 'fragments'),
+        [
+            pytest.param('c > flag', ('compares two parameters',), id='against-a-parameter'),
+            pytest.param(
+                'c > q', ('compares against variable', 'built before variables exist'), id='against-a-variable'
+            ),
+            pytest.param('c > lk', ('against lookup', 'structure rather than data'), id='against-a-lookup'),
+            pytest.param('c > h', ("compares against dimension 'h'", 'masks everything out'), id='against-a-dimension'),
+            pytest.param('g', ('a bare dimension name is true at every coordinate',), id='a-bare-dimension'),
+        ],
+    )
+    def test_a_where_the_resolver_refuses(self, where, fragments):
+        with pytest.raises(LanguageError) as exc:
+            load_model(override(self.BASE, **{'variables.p.where': where}))
+        for fragment in fragments:
+            assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
+
+
+class TestTheFrontDoor:
+    def test_a_list_of_models_is_not_a_model(self):
+        with pytest.raises(TypeError, match='one file, one dict or one Model, never a list'):
+            load_model([DISPATCH_MODEL, DISPATCH_MODEL])
+
+    def test_a_loaded_model_passes_through_as_itself(self):
+        model = load_model(DISPATCH_MODEL)
+        assert load_model(model) is model
+
+    def test_a_path_as_a_string_is_read_as_a_file(self, tmp_path):
+        path = tmp_path / 'm.yaml'
+        path.write_text(load_model(DISPATCH_MODEL).to_yaml())
+        assert load_model(str(path)).to_dict() == load_model(path).to_dict()
+
+    @pytest.mark.parametrize('probe', OPERATOR_PROBES, ids=[p.stem for p in OPERATOR_PROBES])
+    def test_to_dict_reproduces_the_model(self, probe):
+        model = load_model(probe)
+        assert load_model(model.to_dict()).to_dict() == model.to_dict()
+        assert load_model(model.to_dict()) == model
+
+    def test_to_yaml_reproduces_the_model(self):
+        model = load_model(DISPATCH_MODEL)
+        assert load_model(parse_yaml(model.to_yaml())) == model
+
+    def test_a_default_is_written_out_and_an_absence_is_not(self):
+        written = load_model(DISPATCH_MODEL).to_dict()
+        assert written['variables']['p']['domain'] == 'continuous', 'a default is a fact the reviewer reads'
+        assert 'upper' in written['variables']['p']['bounds'] and 'where' not in written['variables']['p'], (
+            'a null and an infinite bound say nothing, so they are not written'
+        )
