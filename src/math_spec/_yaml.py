@@ -64,17 +64,28 @@ def _install_bool_resolver(loader: type[yaml.SafeLoader]) -> None:
 _install_bool_resolver(_StrictLoader)
 
 
+#: PyYAML's tag for ``<<:``, the one key a mapping may carry more than once.
+_MERGE = 'tag:yaml.org,2002:merge'
+
+
 def _check_duplicate_keys(node: yaml.Node, origin: str) -> None:
-    """Reject a mapping that declares the same key twice.
+    """Reject a mapping that declares the same key twice, or a key that is not a scalar.
 
     Checked on the node tree before construction, so a ``<<:`` merge key that
-    a mapping overrides is not a duplicate — the override is the point.
+    a mapping overrides is not a duplicate — the override is the point — and
+    two merge keys are two merges, which PyYAML accumulates.
     """
     if isinstance(node, yaml.MappingNode):
         seen: dict[Any, int] = {}
         for key_node, value_node in node.value:
-            key = key_node.value
             line = key_node.start_mark.line + 1
+            if not isinstance(key_node, yaml.ScalarNode):
+                msg = f'{origin}:{line}: a key must be a scalar — a name, not a list or a mapping.'
+                raise SchemaError(msg)
+            key = key_node.value
+            if key_node.tag == _MERGE:
+                _check_duplicate_keys(value_node, origin)
+                continue
             if key in seen:
                 msg = (
                     f'{origin}:{line}: duplicate key {key!r} — first declared on '

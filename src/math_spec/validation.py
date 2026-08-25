@@ -132,7 +132,7 @@ def validate_expressions(schema: Model) -> None:
         _check_expression(block.expression, schema, ns, f"Named expression '{ename}'", errors, comparison=False)
 
     for vname, vdef in schema.variables.items():
-        _check_where(vdef.where, ns, f"Variable '{vname}'", errors)
+        _check_where(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
 
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
@@ -317,6 +317,7 @@ def _check_where(
     ns: Namespace,
     context: str,
     errors: list[str],
+    self_variable: str | None = None,
 ) -> None:
     if text is None:
         return
@@ -325,7 +326,7 @@ def _check_where(
     except ValueError as e:
         errors.append(f'{context}: {e}')
         return
-    resolve_where(node, ns, context, errors)
+    resolve_where(node, ns, context, errors, self_variable)
 
 
 def _check_template_names(

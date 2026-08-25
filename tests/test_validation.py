@@ -544,6 +544,56 @@ class TestDeclarationRules:
                 ("bounds.upper: 'flag' is a bool parameter, and a bound is a number",),
                 id='a-bound-naming-a-flag',
             ),
+            pytest.param({'variables.p.bounds.lower': float('nan')}, ('bounds.lower is nan',), id='a-nan-bound'),
+            pytest.param({'variables.p.bounds.lower': True}, ('bounds.lower is a boolean',), id='a-boolean-bound'),
+            pytest.param(
+                {'variables.p.foreach': ['g', 'g']},
+                ("Variable 'p' names dimension 'g' twice",),
+                id='foreach-repeats-a-dim',
+            ),
+            pytest.param(
+                {'parameters.c.dims': ['g', 'g']}, ("Parameter 'c' names dimension 'g' twice",), id='dims-repeat-a-dim'
+            ),
+            pytest.param(
+                {'dimensions.g.values': ['a', 'b', 'a']},
+                ("Dimension 'g' declares label 'a' twice",),
+                id='values-repeat-a-label',
+            ),
+            pytest.param(
+                {'variables.p.where': 'p'},
+                ('asks whether it exists in its own where',),
+                id='a-mask-naming-its-own-variable',
+            ),
+            pytest.param(
+                {'dimensions.g.values': [['a'], 'b'], 'lookups.lk.values': {'b': 'x'}},
+                ("Dimension 'g': value ['a'] has type list",),
+                id='an-unhashable-label-under-a-declared-map',
+            ),
+            pytest.param(
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': [1]}}},
+                ('sos type must be 1 or 2, got [1]',),
+                id='sos-type-a-list',
+            ),
+            pytest.param(
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': True}}},
+                ('sos type must be 1 or 2, got True',),
+                id='sos-type-a-boolean',
+            ),
+            pytest.param(
+                {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': 1.0}}},
+                ('sos type must be 1 or 2, got 1.0',),
+                id='sos-type-a-float',
+            ),
+            pytest.param(
+                {
+                    'dimensions.bp': {'dtype': 'int'},
+                    'parameters.bx': {'dims': ['bp']},
+                    'parameters.by': {'dims': ['bp']},
+                    'piecewise': {'cv': {'over': 'bp', 'links': [['p', 'bx'], ['q', 'by']], 'method': ['lp']}},
+                },
+                ("unknown piecewise method ['lp']",),
+                id='piecewise-method-a-list',
+            ),
             pytest.param(
                 {'variables.p.boundz': {'lower': 0}},
                 ("unknown key 'boundz'", 'bounds'),
@@ -670,6 +720,17 @@ class TestTheFrontDoor:
     def test_to_yaml_reproduces_the_model(self):
         model = load_model(DISPATCH_MODEL)
         assert load_model(parse_yaml(model.to_yaml())) == model
+
+    def test_a_declared_empty_map_survives_the_round_trip(self):
+        """`values: {}` is a map the file declares with nothing in it; `None` is a map supplied at bind time."""
+        model = load_model(override(RULES_BASE, **{'lookups.lk.values': {}}))
+        assert model.lookups['lk'].values == {}
+        assert load_model(model.to_dict()).lookups['lk'].values == {}, 'the two mean different things'
+        assert 'values: {}' in model.to_yaml()
+
+    def test_an_empty_section_is_not_written(self):
+        written = load_model(DISPATCH_MODEL).to_yaml()
+        assert 'lookups' not in written and 'macros' not in written, 'a section declaring nothing says nothing'
 
     def test_a_default_is_written_out_and_an_absence_is_not(self):
         written = load_model(DISPATCH_MODEL).to_dict()

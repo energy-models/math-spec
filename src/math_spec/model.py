@@ -21,6 +21,7 @@ from pydantic import (
     ConfigDict,
     PrivateAttr,
     ValidationError,
+    ValidationInfo,
     ValidatorFunctionWrapHandler,
     field_validator,
     model_serializer,
@@ -220,6 +221,17 @@ class BoundsBlock(_StrictBlock):
 
     lower: float | str = float('-inf')
     upper: float | str = float('inf')
+
+    @field_validator('lower', 'upper', mode='before')
+    @classmethod
+    def _a_number_or_a_name(cls, v: Any, info: ValidationInfo) -> Any:
+        if isinstance(v, bool):
+            msg = f'bounds.{info.field_name} is a boolean, and a bound is a number or a parameter name.'
+            raise ValueError(msg)
+        if isinstance(v, float) and math.isnan(v):
+            msg = f'bounds.{info.field_name} is nan, which no value compares to. Write a number, or omit the bound.'
+            raise ValueError(msg)
+        return v
 
 
 class VariableBlock(_StrictBlock):
@@ -544,7 +556,7 @@ class SosBlock(_StrictBlock):
     @field_validator('type', mode='before')
     @classmethod
     def _check_type(cls, v: Any) -> Any:
-        if v not in SOS_TYPES:
+        if type(v) is not int or v not in SOS_TYPES:
             orders = ' or '.join(str(t) for t in sorted(SOS_TYPES))
             msg = f'sos type must be {orders}, got {v!r}. A set of any other order is not a construct solvers carry.'
             raise ValueError(msg)
@@ -567,16 +579,29 @@ class SosBlock(_StrictBlock):
 SUPPORTED_VERSIONS: tuple[int, ...] = (0,)
 
 
-def _without_absence(value: Any) -> Any:
-    """Strip what is absent — a null, an infinite bound, or an empty mapping.
+def _repeated(items: Iterable[Any]) -> list[Any]:
+    """Each value that appears more than once, once, in first-repeat order — for labels that may be unhashable."""
+    seen: list[Any] = []
+    repeats: list[Any] = []
+    for item in items:
+        if item in seen and item not in repeats:
+            repeats.append(item)
+        seen.append(item)
+    return repeats
 
-    An empty **list** is kept: a list carries *cardinality* here and zero is
-    one of its values, ``foreach: []`` being a scalar declaration. Nothing else
-    is judged — a value that is there is written, default or not.
+
+def _without_absence(value: Any) -> Any:
+    """Strip what is absent — a null, an infinite bound, or a mapping left empty by stripping.
+
+    A mapping that was *declared* empty stays: ``values: {}`` is a map the
+    file states with nothing in it, which is not a map supplied later. An
+    empty **list** is kept for the same reason — a list carries *cardinality*
+    and zero is one of its values, ``foreach: []`` being a scalar declaration.
+    Nothing else is judged — a value that is there is written, default or not.
     """
     if isinstance(value, dict):
         pruned = {k: _without_absence(v) for k, v in value.items()}
-        return {k: v for k, v in pruned.items() if not _is_absent(v)}
+        return {k: v for k, v in pruned.items() if not _is_absent(v) and (v != {} or value[k] == {})}
     return value
 
 
@@ -601,7 +626,7 @@ def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any
 
 
 def _is_absent(value: Any) -> bool:
-    """Whether a serialised value says *nothing is here*.
+    """Whether a serialised value says *nothing is here* — a null, or an infinite bound.
 
     ``inf`` is included because an infinite bound is not a bound — it is the
     unbounded side, which is what omitting the bound already means. Stripping
@@ -610,7 +635,7 @@ def _is_absent(value: Any) -> bool:
     as absent anyway. Removing it here means the two agree instead of one being
     quietly wrong.
     """
-    if value is None or value == {}:
+    if value is None:
         return True
     return isinstance(value, float) and math.isinf(value)
 
@@ -678,7 +703,7 @@ class Model(_StrictBlock):
         errors = []
         over = self.dimensions.get(lookup.over)
         if over is not None and over.values is not None:
-            strangers = [k for k in lookup.values if k not in set(over.values)]
+            strangers = [k for k in lookup.values if k not in over.values]
             if strangers:
                 errors.append(
                     f"Lookup '{name}' declares values for {strangers!r}, which are not "
@@ -687,8 +712,7 @@ class Model(_StrictBlock):
                 )
         target = self.dimensions.get(lookup.into) if lookup.into is not None else None
         if target is not None and target.values is not None:
-            known = set(target.values)
-            strangers = sorted({repr(v) for v in lookup.values.values() if v is not None and v not in known})
+            strangers = sorted({repr(v) for v in lookup.values.values() if v is not None and v not in target.values})
             if strangers:
                 errors.append(
                     f"Lookup '{name}' maps to {', '.join(strangers)}, which are not labels of "
@@ -726,14 +750,15 @@ class Model(_StrictBlock):
 
     @model_serializer(mode='wrap')
     def _drop_absence(self, handler: Any) -> dict[str, Any]:
-        """Absence is not serialised — a null, or a mapping declaring nothing.
+        """Absence is not serialised — a null, an infinite bound, or a section declaring nothing.
 
         On the *serializer* rather than beside it so ``model_dump``,
         ``model_dump_json``, :meth:`to_dict` and :meth:`to_yaml` give the same
         content; a helper next to them would leave pydantic's own methods
         disagreeing with the file. See :func:`_without_absence` for what stays.
         """
-        return _without_absence(handler(self))
+        written = _without_absence(handler(self))
+        return {k: v for k, v in written.items() if v != {}}
 
     def to_dict(self) -> dict[str, Any]:
         """The model as plain data. ``load_model(m.to_dict())`` reproduces it."""
@@ -794,17 +819,26 @@ class Model(_StrictBlock):
                 else:
                     seen[name] = kind
 
-        errors.extend(
-            f"{kind} '{name}' references undeclared dimension '{d}'. Declare it under 'dimensions:'."
-            for kind, group in (
-                ('Parameter', self.parameters),
-                ('Variable', self.variables),
-                ('Constraint', self.constraints),
+        for kind, group in (
+            ('Parameter', self.parameters),
+            ('Variable', self.variables),
+            ('Constraint', self.constraints),
+        ):
+            for name, item in group.items():
+                errors.extend(
+                    f"{kind} '{name}' references undeclared dimension '{d}'. Declare it under 'dimensions:'."
+                    for d in item.referenced_dims
+                    if d not in self.dimensions
+                )
+                errors.extend(
+                    f"{kind} '{name}' names dimension '{d}' twice. A frame is a product of distinct dimensions."
+                    for d in _repeated(item.referenced_dims)
+                )
+        for dname, ddef in self.dimensions.items():
+            errors.extend(
+                f"Dimension '{dname}' declares label {label!r} twice. A label is one coordinate; drop the repeat."
+                for label in _repeated(ddef.values or [])
             )
-            for name, item in group.items()
-            for d in item.referenced_dims
-            if d not in self.dimensions
-        )
 
         for lname, lk in self.lookups.items():
             if lk.over not in self.dimensions:
