@@ -157,6 +157,28 @@ pyarrow = "*"
 pypsa = "*"
 highspy = "*"
 
+# The 5 skipped tests in tests/test_pypsa_parity.py need an actual build/solve
+# engine, which this repo doesn't have — lpspec does. Pulled from its GitHub
+# `main`, not a local checkout, so this environment resolves anywhere; its own
+# `math-spec` pin (a pinned git tag, since lpspec predates this split) is
+# shadowed by the local `math-spec` conda package already in the environment,
+# so the tests exercise *this* checkout's language, not the pinned one.
+#
+# Pulled in entirely through pypi-dependencies, pypsa included: the
+# `pypsa-parity` feature's *conda* pypsa drags in conda's linopy==0.9.1, which
+# conflicts with the git-master linopy the `linopy` extra below needs — conda
+# and pypi can't both pin the same name. Resolving pypsa from PyPI instead
+# keeps linopy a single, pypi-resolved package.
+[feature.lpspec-parity.pypi-dependencies]
+lpspec = { git = "https://github.com/fluxopt/lpspec", branch = "main" }
+pypsa = "*"
+pandas = ">=2"
+pyarrow = "*"
+highspy = "*"
+# Same git-master pin lpspec's own `linopy` extra uses — see lpspec's
+# pyproject.toml for why no release works yet.
+linopy = { git = "https://github.com/PyPSA/linopy", branch = "master" }
+
 # The whole gate, in the order a failure is cheapest to read. CI runs these as
 # separate steps so a red run names the one that broke; this is the same list
 # for anyone who wants to know before pushing.
@@ -182,3 +204,4 @@ py312 = ["py312", "test"]
 py313 = ["py313", "test"]
 py314 = ["py314", "test"]
 pypsa-parity = ["test", "pypsa-parity"]
+lpspec-parity = ["test", "lpspec-parity"]
