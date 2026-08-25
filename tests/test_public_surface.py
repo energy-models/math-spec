@@ -4,20 +4,14 @@
 
 """The export surface, pinned — because a consumer depends on it by name.
 
-`math_spec.__all__` is what another repository is allowed to import. A
-submodule path is a contract nobody agreed to, so `from math_spec import
-Model` is the only spelling that fails loudly the day `Model` stops being
-exported.
-
-That makes an addition here a decision rather than an import, which is what
-the table below is for. A name added to `__all__` and not to `SURFACE` fails,
-and so does the reverse — either alone rots.
+`math_spec.__all__` is what another repository is allowed to import, so an
+addition to it is a decision, and the table below is where it is recorded.
 """
 
 from __future__ import annotations
 
 import math_spec
-from math_spec import typesetting as _typeset_pkg
+from math_spec import typesetting
 
 #: Every name `math_spec` promises. Grouped as a reader meets them, not
 #: alphabetically: the alphabetical form is `__all__` itself, and repeating it
@@ -64,9 +58,7 @@ def test_all_matches_the_pinned_surface():
     """Both directions, because either alone rots."""
     declared = set(math_spec.__all__)
     assert declared == SURFACE, (
-        f'only in __all__: {sorted(declared - SURFACE)}; '
-        f'only in SURFACE: {sorted(SURFACE - declared)} — a name reaches a consumer '
-        f'through __all__, so adding one is a decision this table records'
+        f'only in __all__: {sorted(declared - SURFACE)}; only in SURFACE: {sorted(SURFACE - declared)}'
     )
 
 
@@ -82,5 +74,5 @@ def test_all_names_nothing_twice():
 
 
 def test_the_typeset_subpackage_binds_what_it_exports():
-    missing = sorted(n for n in _typeset_pkg.__all__ if not hasattr(_typeset_pkg, n))
+    missing = sorted(n for n in typesetting.__all__ if not hasattr(typesetting, n))
     assert not missing, f'math_spec.typesetting.__all__ names unbound attributes: {missing}'

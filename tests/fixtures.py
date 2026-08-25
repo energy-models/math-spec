@@ -16,15 +16,12 @@ from math_spec.validation import load_model
 if TYPE_CHECKING:
     from math_spec import Model
 
-#: The operator probes: one construct per file, and the corpus that travels with
-#: the language. `tools/spec_math.py` generates the operator reference
+#: One construct per file; `tools/spec_math.py` renders the operator reference
 #: from the same directory, so a probe added for the page is swept here too.
 OPERATOR_PROBES = sorted((Path(__file__).resolve().parent.parent / 'examples' / 'operators').glob('*.yaml'))
 
-#: The dispatch model as a dict, for tests that need to mutate a declaration
-#: rather than read a file. Deliberately the same math as
-#: ``examples/dispatch.yaml`` so a reader who knows one knows the other; use
-#: :func:`override` to vary it.
+#: The same math as ``examples/dispatch.yaml``, as a dict a test can vary with
+#: :func:`override`.
 DISPATCH_MODEL: dict[str, Any] = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'values': ['wind', 'gas']}},
     'parameters': {
@@ -37,14 +34,21 @@ DISPATCH_MODEL: dict[str, Any] = {
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
 }
 
+#: Two dimensions, a groupable and a label-space lookup, a numeric, a scalar and
+#: a boolean parameter, a variable on each frame — one declaration of every kind
+#: a rule can name, and no objective, so a test adds what it judges.
+SMALL_MODEL: dict[str, Any] = {
+    'dimensions': {'g': {'values': ['a', 'b']}, 'h': {'values': ['x', 'y']}},
+    'lookups': {'lk': {'over': 'g', 'into': 'h'}, 'tag': {'over': 'g', 'dtype': 'str'}},
+    'parameters': {'c': {'dims': ['g']}, 'k': {'dims': []}, 'flag': {'dims': ['g'], 'dtype': 'bool'}},
+    'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}},
+}
+
 
 def override(base: dict[str, Any], **patch: Any) -> dict[str, Any]:
-    """A deep copy of ``base`` with dotted paths replaced.
+    """A deep copy of ``base`` with dotted paths replaced, missing parents created.
 
-    ``override(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})``. Missing
-    intermediate keys are created, so this both edits an existing declaration
-    and adds a new one — which is what makes a whole family of "the base model
-    but for one thing" tests a one-liner each.
+    ``override(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})``.
     """
     raw = copy.deepcopy(base)
     for dotted, value in patch.items():
@@ -57,12 +61,9 @@ def override(base: dict[str, Any], **patch: Any) -> dict[str, Any]:
 
 
 def schema_of(source: str | Path | dict[str, Any], **patch: Any) -> Model:
-    """A ``Model`` from a YAML path, YAML text, or a raw dict.
+    """A ``Model`` from a YAML path, YAML text, or a raw dict, ``**patch`` applied by :func:`override`.
 
-    ``Path`` means a file, ``str`` means the YAML itself — the distinction is
-    the type, never a guess about the content. ``**patch`` applies
-    :func:`override` first, which is how a test says "this example, but with
-    ``**`` in the objective".
+    ``Path`` means a file, ``str`` means the YAML itself.
     """
     raw = raw_of(source)
     return load_model(override(raw, **patch) if patch else raw)

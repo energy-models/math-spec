@@ -39,33 +39,19 @@ def _write(tmp_path, text, name='m.yaml'):
 
 
 def test_only_true_and_false_are_booleans(tmp_path):
-    """YAML 1.1 resolved these to bools, so the rows they keyed silently vanished.
-
-    ``no`` is Norway, ``on`` is Ontario, ``y``/``n`` are perfectly ordinary
-    labels. Two 1.1 coercions deliberately survive — the implicit timestamp
-    and sexagesimal ints — because both interact with the unimplemented
-    ``dtype: datetime``. They belong to the dtype guard in #65.
-    """
+    """YAML 1.1 resolved these to bools, so the rows they keyed silently vanished — ``no`` is Norway."""
     path = _write(tmp_path, 'dimensions:\n  c: {dtype: str, values: [no, se, on, off, yes, n, y]}\n')
 
     assert read_yaml(path)['dimensions']['c']['values'] == ['no', 'se', 'on', 'off', 'yes', 'n', 'y']
 
 
 def test_the_harness_reads_a_model_the_way_the_product_does(tmp_path):
-    """``raw_of`` is the door every test walks through, and it was a different one.
-
-    It read YAML 1.1, so a ``no`` label reached the schema as ``False`` while
-    ``load_model`` saw the string — so a test on such a model judged a file
-    the product had never loaded. The corpus has no
-    ``no``/``yes``/``on``/``off`` label today, which is why nothing said so.
-    """
+    """``raw_of`` read YAML 1.1, so a ``no`` label reached a test's schema as ``False`` while ``load_model`` saw the string."""
     text = 'dimensions:\n  country: {dtype: str, values: [uk, de, no]}\n'
     path = _write(tmp_path, text)
 
-    assert raw_of(path) == read_yaml(path), 'a path through the harness reads what the product reads'
-    assert raw_of(text)['dimensions']['country']['values'] == ['uk', 'de', 'no'], (
-        'and so does YAML text, which is the form most fixtures take'
-    )
+    assert raw_of(path) == read_yaml(path)
+    assert raw_of(text)['dimensions']['country']['values'] == ['uk', 'de', 'no']
 
 
 def test_real_booleans_still_parse(tmp_path):
