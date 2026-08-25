@@ -104,6 +104,9 @@ PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
 DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
+#: The parameter dtypes that stand where a number belongs — a coefficient, a
+#: term, a divisor, a bound. A label selects and a flag masks; neither is one.
+NUMERIC_DTYPES = frozenset({'float', 'int'})
 VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
 VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
 
@@ -824,15 +827,23 @@ class Model(_StrictBlock):
         for vname, vdef in self.variables.items():
             for side in ('lower', 'upper'):
                 val = getattr(vdef.bounds, side)
-                if isinstance(val, str) and val not in self.parameters:
-                    looks_like_expression = not val.isidentifier()
-                    detail = (
-                        f'bounds accept a parameter name or a number, not an expression '
-                        f'(got {val!r}). Precompute it as a parameter'
-                        if looks_like_expression
-                        else f"'{val}' is not a declared parameter"
-                    )
-                    errors.append(f"Variable '{vname}' bounds.{side}: {detail}.")
+                if not isinstance(val, str):
+                    continue
+                if val in self.parameters:
+                    dtype = self.parameters[val].dtype
+                    if dtype not in NUMERIC_DTYPES:
+                        errors.append(
+                            f"Variable '{vname}' bounds.{side}: '{val}' is a {dtype} parameter, and a bound "
+                            f'is a number. Declare it dtype: float or int, or bound the variable by another.'
+                        )
+                    continue
+                detail = (
+                    f"'{val}' is not a declared parameter"
+                    if val.isidentifier()
+                    else f'bounds accept a parameter name or a number, not an expression (got {val!r}). '
+                    f'Precompute it as a parameter'
+                )
+                errors.append(f"Variable '{vname}' bounds.{side}: {detail}.")
 
         if errors:
             raise ValueError('\n'.join(errors))
