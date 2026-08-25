@@ -39,8 +39,9 @@ parameters:
 | `description` | free text                                                    | default `null`  |
 
 **`dtype` is a claim about the values, and the column has to be it.** It
-decides three things — what a `where` comparison is checked against, what a
-bare `where` on the name _means_
+decides four things — whether the name is a value in an
+[expression](expressions.md) at all, what a `where` comparison is checked
+against, what a bare `where` on the name _means_
 ([where strings](expressions.md#where-strings)), and whether the name may stand
 where an operator reads a
 [position](operators.md#an-offset-that-differs-per-entity) — so a column that
@@ -52,6 +53,15 @@ disagrees describes a model the data does not build, and does not bind.
 | `int`    | an integer column                      | which is why a fractional position cannot arrive |
 | `bool`   | a boolean column                       | `1`/`0` is not one; cast it, or declare `int`    |
 | `str`    | a string column                        |                                                  |
+
+**Arithmetic is over numbers, so only `float` and `int` are values.** A `str`
+parameter is a label and a `bool` one is a mask — each of them names rows
+rather than scaling them — so writing either as a coefficient, a term or a
+divisor is a load error, not a cast the engine performs on the way past.
+Select with the label (`where: "fuel == 'gas'"`) and carry the numbers it picks
+out in a parameter of its own; mask with the flag (`where: "committable"`), or
+declare it `dtype: int` where the `0`/`1` is meant to arrive as data and be
+multiplied by.
 
 ## `variables`
 

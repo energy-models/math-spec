@@ -251,7 +251,14 @@ def resolve_expression(
     return None if len(errors) > before else resolved
 
 
-def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: list[str]) -> ArithmeticNode:
+def _resolve_arith(
+    node: ArithmeticNode,
+    ns: Namespace,
+    context: str,
+    errors: list[str],
+    *,
+    amount: bool = False,
+) -> ArithmeticNode:
     """The recursive worker under :func:`resolve_expression`.
 
     Idempotent — already-typed nodes pass through unchanged, because
@@ -259,6 +266,12 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
     unreachable from a file: the grammar admits a quoted value only in a
     kwarg position, and the kwarg branches consume it there. It exists for a
     hand-built AST, and because the union must be exhausted.
+
+    *amount* marks the one value position that is not arithmetic: an
+    ``offset=``/``within=`` counting positions along an axis, whose dtype rule
+    is its own and stricter (``dimensions._check_named_amount`` wants ``int``,
+    not merely a number). Naming the position is what makes that sentence the
+    better one, so this pass leaves it to say it.
     """
     if isinstance(node, NumberNode):
         return node
@@ -271,6 +284,10 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
             case 'variable':
                 return VariableNode(node.name)
             case 'parameter':
+                dtype = ns.dtypes.get(node.name)
+                if not amount and dtype is not None and dtype not in _NUMERIC_DTYPES:
+                    errors.append(_not_a_number(node.name, dtype, context))
+                    return node
                 return ParameterNode(node.name)
             case 'dimension':
                 errors.append(
@@ -321,7 +338,7 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
             elif key in builtin.lookup_kwargs:
                 kwargs[key] = _resolve_lookup_ref(value, ns, context, node.name, key, errors)
             else:
-                kwargs[key] = _resolve_arith(value, ns, context, errors)
+                kwargs[key] = _resolve_arith(value, ns, context, errors, amount=True)
         return FunctionCallNode(node.name, args, kwargs)
 
     if isinstance(node, KeywordNode):
@@ -341,6 +358,44 @@ def _resolve_arith(node: ArithmeticNode, ns: Namespace, context: str, errors: li
         return node
 
     assert_never(node)
+
+
+#: The parameter dtypes an expression may name. Arithmetic is over numbers, and
+#: only these two bind a column there is arithmetic for — a ``str`` is a label
+#: and a ``bool`` is a mask, both of them data a file *selects* with rather than
+#: data it scales by.
+_NUMERIC_DTYPES = frozenset({'float', 'int'})
+
+
+def _not_a_number(name: str, dtype: str, context: str) -> str:
+    """Why a ``str`` or ``bool`` parameter is refused where a value belongs.
+
+    The dtype rules reached three positions — a where comparison, what a bare
+    where means, and an operator's named amount — and not this one, so a label
+    stood as a coefficient or a divisor and the file read as a model no data
+    could build: the column that binds has no arithmetic, and which lane says
+    so, in what words, and how far into a build, was the engine's to decide.
+
+    The rewrite is the dtype's own, so the sentence names it: a label has none
+    in the math at all and belongs in a ``where``, where a flag has one a
+    declaration away.
+    """
+    if dtype == 'str':
+        instead = (
+            f'A label selects rather than scales: compare it in a where '
+            f'("{name} == \'some_label\'"), and carry the numbers it picks out in a '
+            f'parameter of its own.'
+        )
+    else:
+        instead = (
+            f'A flag masks rather than scales: name it in a where ("{name}", "NOT {name}"), '
+            f'which is what a mask is — or declare it dtype: int where the 0/1 is meant to '
+            f'arrive as data and be multiplied by.'
+        )
+    return (
+        f"{context}: '{name}' is declared dtype: {dtype}, and an expression is arithmetic — "
+        f'only dtype: float and dtype: int bind a column it can be done to. {instead}'
+    )
 
 
 def _undeclared_dim(context: str, operator: str, shown: str, name: str, ns: Namespace) -> str:
