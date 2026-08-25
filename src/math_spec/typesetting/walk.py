@@ -284,8 +284,6 @@ class Walk:
     def number(self, value: float) -> str:
         if value == float('inf'):
             return self.op('infinity')
-        if value == float('-inf'):
-            return self.op('minus_infinity')
         if value == int(value):
             return str(int(value))
         mantissa, _, exponent = repr(value).partition('e')

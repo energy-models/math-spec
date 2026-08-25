@@ -569,6 +569,16 @@ class TestDeclarationRules:
             pytest.param({'variables.p.bounds.lower': float('nan')}, ('bounds.lower is nan',), id='a-nan-bound'),
             pytest.param({'variables.p.bounds.lower': True}, ('bounds.lower is a boolean',), id='a-boolean-bound'),
             pytest.param(
+                {'variables.p.bounds': {'lower': 5, 'upper': 1}},
+                ('bounds.lower 5.0 is above bounds.upper 1.0, so no value satisfies them',),
+                id='literal-bounds-that-cross',
+            ),
+            pytest.param(
+                {'variables.p.bounds': {'lower': float('inf'), 'upper': float('-inf')}},
+                ('bounds.lower inf is above bounds.upper -inf',),
+                id='infinite-bounds-that-cross',
+            ),
+            pytest.param(
                 {'variables.p.foreach': ['g', 'g']},
                 ("Variable 'p' names dimension 'g' twice",),
                 id='foreach-repeats-a-dim',

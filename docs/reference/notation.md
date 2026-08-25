@@ -110,7 +110,6 @@ parameters:
 | $\mathit{spare}$ | `spare` over $\mathcal{G}$ |
 | $\mathit{reserve}$ | `reserve` (scalar) |
 | $\mathit{headroom}$ | `headroom` (scalar) |
-| $\mathit{void}$ | `void` over $\mathcal{B}$ |
 | $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
 Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
@@ -439,6 +438,18 @@ efficiency:
 
 $$p_{t,g} \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
+#### `ceiling`
+
+the infinity literal, which is the one way infinity prints
+
+```yaml
+ceiling:
+  foreach: [bus]
+  expression: theta <= inf
+```
+
+$$\theta_{b} \le \infty \qquad \forall\thinspace b \in \mathcal{B}$$
+
 #### `always`
 
 a mask that is only the constant true, which the language says is no mask at all — so none prints
@@ -589,18 +600,6 @@ headroom:
 ```
 
 $$\mathit{headroom} \ge 0 \qquad \text{where } \mathrm{budget} \text{ is defined}$$
-
-#### `void`
-
-a bound on the wrong side of the line: the one way infinity prints
-
-```yaml
-void:
-  foreach: [bus]
-  bounds: { lower: .inf, upper: -.inf }
-```
-
-$$\infty \le \mathit{void}_{b} \le -\infty \qquad \forall\thinspace b \in \mathcal{B}$$
 
 #### `weight`
 

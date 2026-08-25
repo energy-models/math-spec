@@ -55,7 +55,6 @@ OPERATOR_SPELLINGS: dict[str, tuple[str, str]] = {
     'forall': (r'\forall\,', 'forall'),
     'such_that': (r'\,:\,', 'colon'),
     'infinity': (r'\infty', 'infinity'),
-    'minus_infinity': (r'-\infty', '-infinity'),
     'cyclic_minus': (r'\ominus', 'minus.o'),
     'cyclic_plus': (r'\oplus', 'plus.o'),
     'edge_minus': (r'\boxminus', 'minus.square'),

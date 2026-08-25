@@ -43,7 +43,6 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 | $\mathit{spare}$ | `spare` over $\mathcal{G}$ |
 | $\mathit{reserve}$ | `reserve` (scalar) |
 | $\mathit{headroom}$ | `headroom` (scalar) |
-| $\mathit{void}$ | `void` over $\mathcal{B}$ |
 | $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
 Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
@@ -162,6 +161,10 @@ $$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mat
 
 $$p_{t,g} \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
+**`ceiling`**
+
+$$\theta_{b} \le \infty \qquad \forall\thinspace b \in \mathcal{B}$$
+
 **`always`**
 
 $$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T}$$
@@ -211,10 +214,6 @@ $$\mathit{reserve} \ge 0$$
 **`headroom`**
 
 $$\mathit{headroom} \ge 0 \qquad \text{where } \mathrm{budget} \text{ is defined}$$
-
-**`void`**
-
-$$\infty \le \mathit{void}_{b} \le -\infty \qquad \forall\thinspace b \in \mathcal{B}$$
 
 **`weight`**
 
