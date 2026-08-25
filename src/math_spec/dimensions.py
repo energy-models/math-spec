@@ -222,6 +222,7 @@ def _dims_call(
             raise DimensionError(
                 f'{context}: {node.name}(over={over.name}) but the expression has dims {sorted(inner)}.'
             )
+        _check_named_amount(node, over.name, schema, context)
         partition = node.kwargs.get('by')
         if partition is not None:
             assert isinstance(partition, LookupNode)
@@ -243,6 +244,52 @@ def _dims_call(
 
     msg = f"{context}: operator '{node.name}' has no dim rule"
     raise DimensionError(msg)
+
+
+#: The kwarg each axis-walking operator takes its amount in, and the word its
+#: errors call that amount. ``shift`` reaches by an offset and a window reaches
+#: over a width, but both count positions along the axis, so both obey the two
+#: rules below.
+_AMOUNTS = {'shift': ('offset', 'offset'), 'sum_back': ('within', 'width')}
+
+#: Why a named amount that varies along the axis it walks is not the thing its
+#: operator claims to be.
+_VARIES = {
+    'shift': 'a permutation rather than a lag',
+    'sum_back': 'a different window at every position, which is no longer "the last n"',
+}
+
+
+def _check_named_amount(node: FunctionCallNode, over: str, schema: Model, context: str) -> None:
+    """The two rules that hold of an ``offset=`` or ``within=`` naming a parameter.
+
+    Both are about the *amount*, not about a dim set, but they live here
+    because here is where the schema is in hand — a parameter's ``dtype`` and
+    its ``dims`` are read off the same declaration, and splitting the pair
+    across two passes would give one rule of a documented pair two voices.
+
+    A literal is checked by the grammar already: it parses as a number and a
+    number carries no dims, so only a named amount can break either rule.
+    """
+    kwarg, noun = _AMOUNTS[node.name]
+    amount = node.kwargs[kwarg]
+    if not isinstance(amount, ParameterNode):
+        return
+    declared = schema.parameters[amount.name]
+    if declared.dtype != 'int':
+        raise DimensionError(
+            f'{context}: {node.name}({kwarg}={amount.name}) counts positions along '
+            f"'{over}', but '{amount.name}' is declared dtype: {declared.dtype}. A count of "
+            f'positions is integral — declare it dtype: int, which binds only an integer '
+            f'column, so a fractional {noun} has nowhere to arrive from.'
+        )
+    if over in declared.dims:
+        raise DimensionError(
+            f'{context}: {node.name}({kwarg}={amount.name}) walks '
+            f"'{over}', but '{amount.name}' is declared over {sorted(declared.dims)}, which "
+            f'carries it. A named {noun} that varies along the axis it walks is {_VARIES[node.name]} '
+            f"— declare '{amount.name}' over dims '{over}' is not one of."
+        )
 
 
 # ---------------------------------------------------------------------------
