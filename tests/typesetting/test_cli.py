@@ -101,11 +101,10 @@ def test_a_format_nothing_can_render_is_refused_rather_than_guessed():
 def test_no_verb_binds_data():
     """The rule the module docstring states, checked rather than asserted.
 
-    No verb takes `--source` or `--coords`, which would be `lps.solve`'s
-    mapping in flags with worse errors — and `solve_over`'s axis and `carry`
-    could not be spelled that way at all. If a verb ever needs data, it takes
-    one path to a run manifest, and that argument gets made before this test
-    changes.
+    No verb takes `--source` or `--coords`: a source mapping in flags is a
+    dict with worse errors, and a typed axis cannot be spelled in flags at
+    all. If a verb ever needs data, it takes one path to a run manifest, and
+    that argument gets made before this test changes.
     """
     banned = {'--source', '--coords', '--data'}
     for action in front.parser()._actions:

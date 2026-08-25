@@ -9,7 +9,7 @@ reading, which dimension a reduction binds, that a mask belongs on the ∀ rathe
 than in the equation, that a translation shows at the leaf it re-indexes. None
 of it is about syntax, so none is duplicated per format.
 
-The walk holds no opinion the lanes do not: names come from ``resolution``, dim
+The walk holds no opinion the language does not: names come from ``resolution``, dim
 sets from ``dimensions``, operator shapes from the closed ``BUILTINS`` set, and a
 operator it forgot is an ``assert_never`` rather than a blank.
 """
@@ -47,7 +47,6 @@ from math_spec import (
     VariableDefinedNode,
     VariableNode,
     WhereNode,
-    check_binary,
     dims_of,
     expression_of,
     where_of,
@@ -169,12 +168,6 @@ class _Context:
     #: own frame, then one entry per reduction entered — so a reduction over one
     #: of them takes a fresh dummy rather than capturing the index outside it.
     bound: tuple[str, ...] = ()
-    #: The degree this position may hold — 2 under the objective, 1 elsewhere,
-    #: which is the language's own split (:mod:`math_spec.degree`). The
-    #: typesetter carries it so that it renders what the language accepts and
-    #: refuses the rest in the language's own sentence, rather than typesetting
-    #: math no lane could build.
-    ceiling: int = 1
 
     def translated(self, dim: str, step: _Step) -> _Context:
         steps = self.offsets.get(dim, ())
@@ -183,10 +176,10 @@ class _Context:
             if steps and steps[-1].absorbs(step)
             else (*steps, step)
         )
-        return _Context(self.walk, {**self.offsets, dim: merged}, self.pullbacks, self.bound, self.ceiling)
+        return _Context(self.walk, {**self.offsets, dim: merged}, self.pullbacks, self.bound)
 
     def pulled_back(self, dim: str, rendered: str) -> _Context:
-        return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered}, self.bound, self.ceiling)
+        return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered}, self.bound)
 
     def reducing(self, dim: str) -> tuple[str, _Context]:
         """A dummy index for a reduction over *dim*, and the context its body reads under.
@@ -196,7 +189,7 @@ class _Context:
         under ``∀ g`` sums over ``g'`` and its condition can still name ``g``.
         """
         dummy = f'{self.walk.symbols.index[dim]}{PRIME * self.bound.count(dim)}'
-        body = _Context(self.walk, self.offsets, {**self.pullbacks, dim: dummy}, (*self.bound, dim), self.ceiling)
+        body = _Context(self.walk, self.offsets, {**self.pullbacks, dim: dummy}, (*self.bound, dim))
         return dummy, body
 
     def subscript(self, dim: str) -> str:
@@ -285,8 +278,8 @@ class Walk:
         self.grouped = True
         return self.format.superscript(operator, group)
 
-    def context(self, ceiling: int = 1, frame: Iterable[str] = ()) -> _Context:
-        return _Context(self, bound=tuple(frame), ceiling=ceiling)
+    def context(self, frame: Iterable[str] = ()) -> _Context:
+        return _Context(self, bound=tuple(frame))
 
     def number(self, value: float) -> str:
         if value == float('inf'):
@@ -351,15 +344,7 @@ class Walk:
         does not. A negation folds into the sign beside it — ``a + -b`` is
         ``a - b`` and ``a - -b`` is ``a + b`` — and as a factor it is
         bracketed, since ``a · -b`` is a spelling nobody reads.
-
-        ``check_binary`` first, so the typesetter renders exactly what
-        the language accepts and says so in the language's own sentence: ``**``
-        over a variable is refused wherever it stands, and a quadratic product
-        is refused wherever the objective is not — printing either would typeset
-        math no lane can build. The ceiling rides on the context because it is a
-        property of *where* the expression stands.
         """
-        check_binary(node, ceiling=ctx.ceiling)
         if node.op == '/':
             top = self.arithmetic(node.left, ctx)
             bottom = self.arithmetic(node.right, ctx)
@@ -669,7 +654,7 @@ class Walk:
         sense = self.op('minimize' if block.sense == 'minimize' else 'maximize')
         node = expression_of(block.expression, self.schema, self.namespace, 'the objective')
         assert not isinstance(node, ComparisonNode)
-        return [Line(label='', left=sense, right=self.arithmetic(node, self.context(ceiling=2)))]
+        return [Line(label='', left=sense, right=self.arithmetic(node, self.context()))]
 
     def constraints(self) -> list[Line]:
         lines = []
@@ -679,7 +664,7 @@ class Walk:
             if not isinstance(node, ComparisonNode):
                 msg = f'{context}: expected a comparison, got {type(node).__name__}'
                 raise AssertionError(msg)
-            ctx = self.context(ceiling=2, frame=block.foreach)
+            ctx = self.context(frame=block.foreach)
             condition = self.conjoined(ctx, where_of(block.where, self.namespace, context))
             lines.append(
                 Line(

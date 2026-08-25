@@ -94,7 +94,7 @@ def _is_open(vdef: VariableBlock, side: str) -> bool:
     """Whether *vdef* declares nothing at all on *side*.
 
     A ``domain: binary`` variable is bounded whatever its bounds block says —
-    it lowers to 0/1 (``lowering.lower_program``) — and a bound naming a
+    it is 0/1 whatever its bounds block says — and a bound naming a
     parameter is finite or not by data this pass does not have, which is why
     the match is against the open value rather than for a missing bound.
     """

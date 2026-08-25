@@ -25,8 +25,8 @@ is a literal on the other side of a ``where`` comparison
 order and equality, and nothing does arithmetic on a coordinate — so the
 timestamp coercion is the *useful* reading here, not a hazard to route around.
 
-The output is plain ``dict``/``str``: no loader wrapper reaches the schema,
-the AST, the plan, or the engine.
+The output is plain ``dict``/``str``: no loader wrapper reaches the schema
+or the AST.
 """
 
 from __future__ import annotations

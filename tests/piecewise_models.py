@@ -2,19 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The curves the piecewise tests are written against, on both sides of the cut.
+"""The curves the piecewise tests are written against.
 
 `piecewise:` expansion is the language's — a formulation emits declarations, and
-declarations are language — so its load-time tests live beside it. The same
-curves are what math_spec's suite *solves*, which is why these are here rather than
-in either test file: one model text, read by the tests that judge it and by the
-tests that build it.
+declarations are language — so its load-time tests live beside it. The curves
+are a module of their own rather than a fixture in one test file because more
+than one file reads them: one model text, whichever test judges it.
 
-At the cut math_spec takes a copy of this module. That is a real duplication of
-about a hundred and fifty lines of model YAML and the reason it is accepted is
-narrow: rewriting the solve tests against smaller curves would change what they
-test, and a curve that exercises adjacency binaries, links and a gate is not
-something a minimal probe can stand in for.
+They are larger than a minimal probe on purpose: a curve that exercises
+adjacency binaries, links and a gate is not something a smaller one can stand
+in for, and shrinking it would change what the tests test.
 """
 
 from __future__ import annotations

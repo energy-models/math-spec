@@ -4,11 +4,10 @@
 
 """The export surface, pinned — because a consumer depends on it by name.
 
-`math_spec.__all__` is what another repository is allowed to import. lpspec
-holds its own modules to it (`test_the_language_is_imported_as_one_package`
-there): a submodule path is a contract nobody agreed to, so `from math_spec
-import Model` is the only spelling that fails loudly the day `Model` stops
-being exported.
+`math_spec.__all__` is what another repository is allowed to import. A
+submodule path is a contract nobody agreed to, so `from math_spec import
+Model` is the only spelling that fails loudly the day `Model` stops being
+exported.
 
 That makes an addition here a decision rather than an import, which is what
 the table below is for. A name added to `__all__` and not to `SURFACE` fails,

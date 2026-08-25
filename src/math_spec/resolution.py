@@ -8,11 +8,11 @@ Parsers emit ``NameNode``: a token, not yet a meaning. This module rewrites
 each one into a typed node (``VariableNode`` / ``ParameterNode`` / ``DimensionNode`` /
 ``LookupNode``, and
 ``ParameterComparisonNode`` / ``DimensionComparisonNode`` / ``ParameterDefinedNode`` on the where
-side), so the AST reaching either backend holds no unresolved names.
+side), so the AST reaching a consumer holds no unresolved names.
 
-Doing this once here is what makes scoping identical across the lanes by
-construction rather than by test: a backend that resolves for itself is one
-that can build a model the other refuses. The name-resolution rules live in
+Doing this once here is what makes scoping identical across consumers by
+construction rather than by test: a consumer that resolves for itself is one
+that can build a model another refuses. The name-resolution rules live in
 the language reference.
 
 The namespace is flat and collisions are load errors; macro formals are the one
@@ -127,7 +127,7 @@ class Namespace:
     def of(cls, schema: Model) -> Namespace:
         """Build the namespace of *schema*.
 
-        Every name a file may use is declared in that file (hard rule 5), so
+        Every name a file may use is declared in that file, so
         the schema is the whole namespace and there is nothing to widen it
         with.
         """
@@ -181,14 +181,14 @@ class Namespace:
 
 
 # ---------------------------------------------------------------------------
-# the seam both backends use
+# the seam a consumer uses
 # ---------------------------------------------------------------------------
 
 
 def expression_of(text: str, schema: Model, ns: Namespace, context: str) -> ExpressionNode:
-    """Parse, expand and resolve *text* — the only way a backend gets an AST.
+    """Parse, expand and resolve *text* — the only way a consumer gets an AST.
 
-    ``validation.py`` runs the same path at load time, so a backend calling
+    ``validation.py`` runs the same path at load time, so a consumer calling
     this gets a *typed* tree off a result already known to be clean, without
     duplicating the pass.
 
@@ -233,7 +233,7 @@ def resolve_expression(
 
     Operator *call shapes* are checked here too (``operators.call_shape_error``).
     Arity is a language rule, and this is the pass every consumer goes through,
-    so neither backend has to state a signature a second time.
+    so no consumer has to state a signature a second time.
 
     Returns:
         The typed tree, or ``None`` once anything failed — appending to
@@ -371,8 +371,8 @@ def _not_a_number(name: str, dtype: str, context: str) -> str:
     The dtype rules reached three positions — a where comparison, what a bare
     where means, and an operator's named amount — and not this one, so a label
     stood as a coefficient or a divisor and the file read as a model no data
-    could build: the column that binds has no arithmetic, and which lane says
-    so, in what words, and how far into a build, was the engine's to decide.
+    could build: the column that binds has no arithmetic, so the refusal would come
+    from a build, in a build's words, however far in.
 
     The rewrite is the dtype's own, so the sentence names it: a label has none
     in the math at all and belongs in a ``where``, where a flag has one a
@@ -624,7 +624,7 @@ def _typed_literal(
     the model then solves a smaller problem without a word (#460).
 
     Returns ``None`` once it has recorded an error, so the caller leaves the
-    node unresolved rather than lowering something it could not type.
+    node unresolved rather than passing on something it could not type.
 
     ``dtype`` is ``None`` for a hand-built namespace, which accepts any
     literal. A parameter's dtype is never ``datetime`` (``_DTYPE_TYPES``), so
@@ -718,9 +718,10 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
     Two conditions, and each catches a *silent* wrong answer rather than an
     obvious one. They must map out of the same dimension, or no row carries
     both. And their values must come from the same label set, or no value of
-    one can equal a value of the other — a comparison the eager lane answers
-    ``True`` everywhere for ``!=`` while polars refuses the Enum mismatch, so
-    without this the two lanes disagree on a model both accepted. A label
+    one can equal a value of the other — a comparison a build answers
+    ``True`` everywhere for ``!=`` or refuses outright, by its data library and
+    not by the model, so without this two consumers disagree on a model both
+    accepted. A label
     space owns its values, so it is never the other side of one.
     """
     shown = f"'{node.name} {node.op} {other}'"

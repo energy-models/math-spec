@@ -55,8 +55,8 @@ def test_the_harness_reads_a_model_the_way_the_product_does(tmp_path):
     """``raw_of`` is the door every test walks through, and it was a different one.
 
     It read YAML 1.1, so a ``no`` label reached the schema as ``False`` while
-    ``load_model`` saw the string — and a differential test on such a model
-    compared two lanes that had loaded different files. The corpus has no
+    ``load_model`` saw the string — so a test on such a model judged a file
+    the product had never loaded. The corpus has no
     ``no``/``yes``/``on``/``off`` label today, which is why nothing said so.
     """
     text = 'dimensions:\n  country: {dtype: str, values: [uk, de, no]}\n'
@@ -76,7 +76,7 @@ def test_real_booleans_still_parse(tmp_path):
 
 
 def test_the_loader_yields_plain_types(tmp_path):
-    """No loader wrapper may reach the schema, the AST, the plan, or the engine."""
+    """No loader wrapper may reach the schema or the AST."""
     raw = read_yaml(_write(tmp_path, MODEL))
     assert type(raw) is dict
 

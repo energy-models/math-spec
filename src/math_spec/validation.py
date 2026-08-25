@@ -158,8 +158,8 @@ def _check_sos(schema: Model, errors: list[str]) -> None:
     variable's ``foreach`` has no members to hold — the one mistake here that
     would otherwise surface as an empty set the solver accepts. A second block
     over one variable is refused for a different reason: what an SOS *is* is a
-    property of the variable, which is the shape both sinks and the eager lane
-    take it in, so two would be two answers to one question.
+    property of the variable, which is the shape every consumer takes it in,
+    so two would be two answers to one question.
     """
     foreach = {name: tuple(v.foreach) for name, v in schema.variables.items()}
     claimed: dict[str, str] = {}
@@ -353,10 +353,7 @@ def _check_template_names(
     keyword names nothing; a dimension kwarg accepts a formal as well as a
     declared dimension, the call site being able to bind one.
     """
-    if isinstance(node, NumberNode | VariableNode | ParameterNode | KwargNode):
-        return
-
-    if isinstance(node, (KeywordNode, NameListNode)):
+    if isinstance(node, NumberNode | VariableNode | ParameterNode | KwargNode | KeywordNode | NameListNode):
         return
 
     if isinstance(node, NameNode):
