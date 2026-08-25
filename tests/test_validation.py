@@ -252,6 +252,87 @@ class TestDimensionKwargs:
             _schema(dimensions={'g': {'dtype': dtype}}, variables={'p': {'foreach': ['g'], 'where': where}})
 
 
+class TestArithmeticDtype:
+    """A name in an expression has to be a number, which its `dtype` says.
+
+    The dtype rules reached three positions — what a `where` comparison is
+    checked against, what a bare `where` on a name means, and whether a named
+    offset counts positions — and an ordinary *value* position was not among
+    them. So a label stood as a coefficient and as a divisor, and the file
+    declared a model no column could build: whether the engine multiplied a
+    string, cast it, or raised something out of its own exception tree was left
+    to the lane, this far from the declaration that was wrong.
+    """
+
+    @staticmethod
+    def _schema(dtype: str, expression: str) -> Model:
+        return load_model(
+            {
+                'dimensions': {'g': {'values': ['wind', 'solar']}},
+                'parameters': {'p_max': {'dims': ['g']}, 'a': {'dims': ['g'], 'dtype': dtype}},
+                'variables': {'p': {'foreach': ['g']}},
+                'constraints': {'cap': {'foreach': ['g'], 'expression': expression}},
+            }
+        )
+
+    @pytest.mark.parametrize('dtype', ['str', 'bool'])
+    @pytest.mark.parametrize(
+        'expression',
+        [
+            pytest.param('a * p <= p_max', id='a-coefficient'),
+            pytest.param('p / a <= p_max', id='a-divisor'),
+            pytest.param('p + a <= p_max', id='a-term'),
+            pytest.param('-a * p <= p_max', id='a-negated-factor'),
+            pytest.param('sum(a * p, over=g) <= 1', id='under-an-operator'),
+        ],
+    )
+    def test_a_label_or_a_flag_is_not_a_value(self, dtype, expression):
+        with pytest.raises(ValueError, match=f'declared dtype: {dtype}'):
+            self._schema(dtype, expression)
+
+    @pytest.mark.parametrize('dtype', ['float', 'int'])
+    def test_a_number_is(self, dtype):
+        self._schema(dtype, 'a * p <= p_max')
+
+    @pytest.mark.parametrize(
+        ('dtype', 'where'),
+        [
+            ('str', "a == 'wind'"),
+            ('bool', 'a'),
+            ('bool', 'NOT a'),
+        ],
+    )
+    def test_the_position_it_is_declared_for_still_takes_it(self, dtype, where):
+        """The refusal is about arithmetic, not about the dtype: selecting with
+        a label and masking with a flag are what those two columns are for."""
+        load_model(
+            {
+                'dimensions': {'g': {'values': ['wind', 'solar']}},
+                'parameters': {'p_max': {'dims': ['g']}, 'a': {'dims': ['g'], 'dtype': dtype}},
+                'variables': {'p': {'foreach': ['g'], 'where': where}},
+                'constraints': {'cap': {'foreach': ['g'], 'expression': 'p <= p_max'}},
+            }
+        )
+
+    def test_a_named_amount_keeps_its_own_sentence(self):
+        """An `offset=` is a value position with a *stricter* rule of its own —
+        a count of positions is integral, not merely numeric — and one that can
+        name the axis being walked. This pass leaves that position to it, so
+        the better sentence is still the one that arrives.
+        """
+        with pytest.raises(ValueError, match='counts positions along'):
+            load_model(
+                {
+                    'dimensions': {'t': {'dtype': 'int', 'values': [0, 1]}},
+                    'parameters': {'cap': {'dims': ['t']}, 'lag': {'dims': [], 'dtype': 'str'}},
+                    'variables': {'p': {'foreach': ['t']}},
+                    'constraints': {
+                        'c': {'foreach': ['t'], 'expression': "shift(p, over=t, offset=lag, edge='wrap') <= cap"}
+                    },
+                }
+            )
+
+
 class TestVersion:
     """`version:` — the field, and the policy that gives it meaning (#67).
 

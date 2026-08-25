@@ -101,14 +101,14 @@ parameter named `snapshot` would silently change what an existing
 **Position decides which kinds of name are legal**, and every name's kind is
 fixed when the file loads:
 
-| Position                                | Legal kinds                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------ |
-| expression (`p * cost`)                 | variable, parameter                                                      |
-| dimension argument (`over=`)            | dimension                                                                |
-| lookup argument (`by=` on `sum` / `at`) | lookup — never a dimension                                               |
-| `where` string                          | parameter, variable, dimension, lookup ([where strings](#where-strings)) |
-| `bounds.lower` / `bounds.upper`         | parameter name, or a number                                              |
-| the `edge` key of `shift`               | `'wrap'` **quoted**, or a bare number; never a dimension                 |
+| Position                                | Legal kinds                                                                        |
+| --------------------------------------- | ---------------------------------------------------------------------------------- |
+| expression (`p * cost`)                 | variable, parameter — the parameter a number ([dtype](declarations.md#parameters)) |
+| dimension argument (`over=`)            | dimension                                                                          |
+| lookup argument (`by=` on `sum` / `at`) | lookup — never a dimension                                                         |
+| `where` string                          | parameter, variable, dimension, lookup ([where strings](#where-strings))           |
+| `bounds.lower` / `bounds.upper`         | parameter name, or a number                                                        |
+| the `edge` key of `shift`               | `'wrap'` **quoted**, or a bare number; never a dimension                           |
 
 A bare word in a keyword-argument value is _a name to resolve_, which is why
 `wrap` is quoted: `shift(x, over=wrap, edge='wrap')` reads unambiguously even
@@ -118,6 +118,12 @@ change what it means.
 
 **A dimension in a value position is an error** — it is a coordinate space, not
 data. To use its coordinates as data, declare a parameter over it.
+
+**A `str` or `bool` parameter there is an error too** — data, but not a number.
+A label selects and a flag masks, which is what a `where` is for; multiplying by
+either is a cast the file never wrote, so only `dtype: float` and `dtype: int`
+stand as a coefficient, a term or a divisor
+([dtype](declarations.md#parameters)).
 
 **Constraints are outside the namespace**, no position resolving to one, so a
 model may name a constraint after a variable. What reads a solve back keys on
