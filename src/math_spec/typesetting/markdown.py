@@ -33,6 +33,11 @@ if TYPE_CHECKING:
 _LATEX = LatexFormat()
 
 
+def _cell(text: str) -> str:
+    """*text* as one table cell: a pipe would end it and a newline would end the row."""
+    return text.replace('|', r'\|').replace('\n', ' ')
+
+
 class MarkdownFormat:
     """See :class:`math_spec.typesetting.format.Format`. Math is LaTeX's; prose is not."""
 
@@ -139,7 +144,7 @@ class MarkdownFormat:
         return '\n\n'.join(blocks)
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
-        rows = '\n'.join(f'| {self.math(e.symbol)} | {e.meaning(self.dash)} |' for e in entries)
+        rows = '\n'.join(f'| {_cell(self.math(e.symbol))} | {_cell(e.meaning(self.dash))} |' for e in entries)
         return f'#### {title}\n\n| Symbol | Meaning |\n|---|---|\n{rows}'
 
     def section(self, title: str, body: str) -> str:

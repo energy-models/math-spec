@@ -80,3 +80,13 @@ TYPST_SYMBOLS = {
 def probe(name: str) -> Path:
     """One operator probe by stem, wherever the suite is run from."""
     return next(p for p in OPERATOR_PROBES if p.stem == name)
+
+
+#: Two frames over generators, a lookup onto buses and a boolean mask — what the
+#: scope and bracketing cases are written against.
+BUSES = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
+    'lookups': {'bus_of': {'over': 'generator', 'into': 'bus'}},
+    'parameters': {'load': {'dims': ['snapshot']}, 'k': {'dims': []}, 'flag': {'dims': ['snapshot'], 'dtype': 'bool'}},
+    'variables': {'p': {'foreach': ['snapshot', 'generator']}, 'q': {'foreach': ['snapshot', 'generator']}},
+}

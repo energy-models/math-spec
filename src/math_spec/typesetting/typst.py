@@ -18,6 +18,7 @@ are upright by default, which is why names go through ``italic("…")``.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, ClassVar
 
 from math_spec.typesetting.format import TYPST_OPERATORS
@@ -34,8 +35,11 @@ _PREAMBLE = """#set page(margin: 2.5cm)
 
 #: What Typst reads as markup in text mode, each escaped by a leading
 #: backslash. They are not LaTeX's: ``%`` and ``&`` are ordinary characters
-#: here, while ``*``, ``@`` and ``<`` are not.
-_SPECIALS = frozenset('\\#$*_@`<>~')
+#: here, while ``*``, ``@``, ``<``, ``/`` and the square brackets are not.
+_SPECIALS = frozenset('\\#$*_@`<>~/[]')
+
+#: A list or heading marker is markup only at the start of a line.
+_LEADING_MARKER = re.compile(r'(^|\n)([-+=])(?= )')
 
 
 def _quote(text: str) -> str:
@@ -44,7 +48,8 @@ def _quote(text: str) -> str:
 
 
 def _escape(text: str) -> str:
-    return ''.join(f'\\{c}' if c in _SPECIALS else c for c in text)
+    escaped = ''.join(f'\\{c}' if c in _SPECIALS else c for c in text)
+    return _LEADING_MARKER.sub(r'\1\\\2', escaped)
 
 
 def _raw(text: str) -> str:

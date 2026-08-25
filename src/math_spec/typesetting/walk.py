@@ -56,6 +56,7 @@ from math_spec.typesetting.format import Entry, Glossary, Line
 
 if TYPE_CHECKING:
     import datetime
+    from collections.abc import Iterable
 
     from math_spec import Buildable, Namespace, SosBlock
     from math_spec.typesetting.format import Format
@@ -164,6 +165,10 @@ class _Context:
     #: but through a coordinate rather than an offset, so it renders as an
     #: application, ``period(t)``, and not as arithmetic on the index.
     pullbacks: dict[str, str] = field(default_factory=dict)
+    #: Every dimension whose index is already in use here — the declaration's
+    #: own frame, then one entry per reduction entered — so a reduction over one
+    #: of them takes a fresh dummy rather than capturing the index outside it.
+    bound: tuple[str, ...] = ()
     #: The degree this position may hold — 2 under the objective, 1 elsewhere,
     #: which is the language's own split (:mod:`math_spec.degree`). The
     #: typesetter carries it so that it renders what the language accepts and
@@ -178,10 +183,21 @@ class _Context:
             if steps and steps[-1].absorbs(step)
             else (*steps, step)
         )
-        return _Context(self.walk, {**self.offsets, dim: merged}, self.pullbacks, self.ceiling)
+        return _Context(self.walk, {**self.offsets, dim: merged}, self.pullbacks, self.bound, self.ceiling)
 
     def pulled_back(self, dim: str, rendered: str) -> _Context:
-        return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered}, self.ceiling)
+        return _Context(self.walk, self.offsets, {**self.pullbacks, dim: rendered}, self.bound, self.ceiling)
+
+    def reducing(self, dim: str) -> tuple[str, _Context]:
+        """A dummy index for a reduction over *dim*, and the context its body reads under.
+
+        The plain index where nothing outside the reduction uses it; primed
+        once per enclosing use of the same dimension, so ``sum(q, by=bus_of)``
+        under ``∀ g`` sums over ``g'`` and its condition can still name ``g``.
+        """
+        dummy = f'{self.walk.symbols.index[dim]}{PRIME * self.bound.count(dim)}'
+        body = _Context(self.walk, self.offsets, {**self.pullbacks, dim: dummy}, (*self.bound, dim), self.ceiling)
+        return dummy, body
 
     def subscript(self, dim: str) -> str:
         """The index for *dim* here: its pullback if it has one, then every translation.
@@ -209,6 +225,20 @@ class _Context:
 
     def indexed(self, symbol: str, dims: list[str]) -> str:
         return self.walk.format.subscript(symbol, [self.subscript(d) for d in dims])
+
+
+def _unsigned(node: ArithmeticNode) -> ArithmeticNode | None:
+    """*node* with a leading minus taken off, or ``None`` where it carries none.
+
+    The minus may sit on the node or on the first factor of a product it
+    heads — ``-b`` and ``-b * c`` both open with a sign the operator before
+    them can absorb.
+    """
+    if isinstance(node, UnaryOperatorNode) and node.op == '-':
+        return node.operand
+    if isinstance(node, BinaryOperatorNode) and node.op in ('*', '/') and (left := _unsigned(node.left)) is not None:
+        return BinaryOperatorNode(node.op, left, node.right)
+    return None
 
 
 class Walk:
@@ -255,15 +285,21 @@ class Walk:
         self.grouped = True
         return self.format.superscript(operator, group)
 
-    def context(self, ceiling: int = 1) -> _Context:
-        return _Context(self, ceiling=ceiling)
+    def context(self, ceiling: int = 1, frame: Iterable[str] = ()) -> _Context:
+        return _Context(self, bound=tuple(frame), ceiling=ceiling)
 
     def number(self, value: float) -> str:
         if value == float('inf'):
             return self.op('infinity')
         if value == float('-inf'):
             return self.op('minus_infinity')
-        return str(int(value)) if value == int(value) else repr(value)
+        if value == int(value):
+            return str(int(value))
+        mantissa, _, exponent = repr(value).partition('e')
+        if not exponent:
+            return mantissa
+        power = self.format.superscript('10', str(int(exponent)))
+        return power if mantissa == '1' else f'{mantissa} {self.op("times")} {power}'
 
     # -- arithmetic --------------------------------------------------------
 
@@ -289,13 +325,11 @@ class Walk:
             return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].foreach)), _ATOM
 
         if isinstance(node, UnaryOperatorNode):
+            if node.op == '+':
+                return self._arithmetic(node.operand, ctx)
             text, precedence = self._arithmetic(node.operand, ctx)
             operand = self.format.parenthesise(text) if precedence < 2 else text
-            if node.op != '-':
-                return operand, precedence
-            # the operand's own brackets delimit the negation, so `-(Σ x) · 3`
-            # needs no second pair around the whole of it
-            return f'{self.op("minus")}{operand}', 2 if precedence < 2 else 1
+            return f'{self.op("minus")}{operand}', 2
 
         if isinstance(node, BinaryOperatorNode):
             return self._binary(node, ctx)
@@ -314,7 +348,9 @@ class Walk:
 
         Subtraction raises the requirement on its right operand by one:
         ``a - (b - c)`` and ``a - (b + c)`` need the bracket; ``a - b*c``
-        does not.
+        does not. A negation folds into the sign beside it — ``a + -b`` is
+        ``a - b`` and ``a - -b`` is ``a + b`` — and as a factor it is
+        bracketed, since ``a · -b`` is a spelling nobody reads.
 
         ``check_binary`` first, so the typesetter renders exactly what
         the language accepts and says so in the language's own sentence: ``**``
@@ -340,9 +376,11 @@ class Walk:
         # subtraction it already means, and folding it also hands the right
         # operand subtraction's bracket rule, which is the one it needs
         operand, op = node.right, node.op
-        if op == '+' and isinstance(operand, UnaryOperatorNode) and operand.op == '-':
-            operand, op = operand.operand, '-'
-        right = self.arithmetic(operand, ctx, need=_PRECEDENCE[op] + (1 if op == '-' else 0))
+        if op in ('+', '-') and (unsigned := _unsigned(operand)) is not None:
+            operand, op = unsigned, '-' if op == '+' else '+'
+        negated_factor = op == '*' and isinstance(operand, UnaryOperatorNode) and operand.op == '-'
+        need = _ATOM if negated_factor else _PRECEDENCE[op] + (1 if op == '-' else 0)
+        right = self.arithmetic(operand, ctx, need=need)
         names = {'*': 'cdot', '+': 'plus', '-': 'minus'}
         return self.format.joined([left, right], self.op(names[op])), precedence
 
@@ -376,7 +414,7 @@ class Walk:
             assert isinstance(over, DimensionNode)
             step = _Step(1, 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain')
             self.policies.add(step.policy)
-            source = f'{self.symbols.index[over.name]}{PRIME}'
+            source, inner = ctx.reducing(over.name)
             # a partition rides the operator here exactly as it does on a leaf
             # translation, and for the same reason: what the group changes is
             # where the axis ends, not which coordinate is being written
@@ -388,7 +426,7 @@ class Walk:
                 f'{source} {self.op("in")} {self.symbols.set[over.name]} {self.op("such_that")} '
                 f'0 {self.op("le")} {lag} {self.op("lt")} {self._width(node.kwargs["within"])}'
             )
-            body = self.reduction_body(node.args[0], ctx.pulled_back(over.name, source))
+            body = self.reduction_body(node.args[0], inner)
             return self.format.summation(domain, body), _PRECEDENCE['+']
 
         if node.name == 'at':
@@ -401,20 +439,27 @@ class Walk:
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, LookupNode)
-            domain = self.membership(by.dimension)
+            dummy, inner = ctx.reducing(by.dimension)
             conditions = [
-                f'{self.format.apply(self.format.upright(name), self.symbols.index[by.dimension])} '
-                f'{self.op("equal")} {ctx.subscript(into)}'
+                f'{self.format.apply(self.format.upright(name), dummy)} {self.op("equal")} {ctx.subscript(into)}'
                 for name, into in zip(by.names, by.into, strict=True)
             ]
-            domain = f'{domain} {self.op("such_that")} {self.format.joined(conditions, self.op("and"))}'
+            domain = (
+                f'{self.membership(by.dimension, dummy)} {self.op("such_that")} '
+                f'{self.format.joined(conditions, self.op("and"))}'
+            )
         elif (over := node.kwargs.get('over')) is not None:
             assert isinstance(over, DimensionNode)
-            domain = self.membership(over.name)
+            dummy, inner = ctx.reducing(over.name)
+            domain = self.membership(over.name, dummy)
         else:
-            dims = self._sorted(dims_of(node.args[0], self.schema, 'a sum'))
-            domain = self.format.joined([self.membership(d) for d in dims], '')
-        return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
+            memberships = []
+            inner = ctx
+            for d in self._sorted(dims_of(node.args[0], self.schema, 'a sum')):
+                dummy, inner = inner.reducing(d)
+                memberships.append(self.membership(d, dummy))
+            domain = self.format.joined(memberships, '')
+        return self.format.summation(domain, self.reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A window's ``by=`` as the superscript its operator carries.
@@ -456,8 +501,8 @@ class Walk:
         assert isinstance(edge, NumberNode)
         return _Step(by, 'edge', self.number(edge.value))
 
-    def membership(self, dim: str) -> str:
-        return f'{self.symbols.index[dim]} {self.op("in")} {self.symbols.set[dim]}'
+    def membership(self, dim: str, index: str | None = None) -> str:
+        return f'{index or self.symbols.index[dim]} {self.op("in")} {self.symbols.set[dim]}'
 
     def reduction_body(self, node: ArithmeticNode, ctx: _Context) -> str:
         """What sits to the right of a sum, bracketed only where it must be.
@@ -531,14 +576,14 @@ class Walk:
             return f'{applied} {self.format.prose(" is defined")}', 2
 
         if isinstance(node, NotNode):
-            return f'{self.op("not")} {self.where(node.operand, ctx, need=2)}', 2
+            return f'{self.op("not")} {self.where(node.operand, ctx, need=3)}', 3
 
         if isinstance(node, AndNode):
             sides = [self.where(node.left, ctx, need=1), self.where(node.right, ctx, need=1)]
             return self.format.joined(sides, self.op('and')), 1
 
         if isinstance(node, OrNode):
-            sides = [self.where(node.left, ctx, need=1), self.where(node.right, ctx, need=1)]
+            sides = [self.where(node.left, ctx, need=0), self.where(node.right, ctx, need=0)]
             return self.format.joined(sides, self.op('or')), 0
 
         if isinstance(node, UnresolvedWhereNode):
@@ -596,7 +641,7 @@ class Walk:
         simplifying a mask is resolution's job rather than the typesetter's.
         """
         kept = [n for n in nodes if n is not None and not (isinstance(n, BooleanLiteralNode) and n.value)]
-        parts = [self.where(n, ctx, need=1) for n in kept]
+        parts = [self.where(n, ctx, need=1 if len(kept) > 1 else 0) for n in kept]
         return self.format.joined(parts, self.op('and')) if parts else ''
 
     def quantifier(self, dims: list[str], condition: str) -> str:
@@ -634,7 +679,7 @@ class Walk:
             if not isinstance(node, ComparisonNode):
                 msg = f'{context}: expected a comparison, got {type(node).__name__}'
                 raise AssertionError(msg)
-            ctx = self.context(ceiling=2)
+            ctx = self.context(ceiling=2, frame=block.foreach)
             condition = self.conjoined(ctx, where_of(block.where, self.namespace, context))
             lines.append(
                 Line(
@@ -657,7 +702,7 @@ class Walk:
         sets = {block.variable: block for block in self.schema.sos.values()}
         lines = []
         for name, block in self.schema.variables.items():
-            ctx = self.context()
+            ctx = self.context(frame=block.foreach)
             symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
             where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
             condition = self.quantifier(list(block.foreach), self.conjoined(ctx, where))

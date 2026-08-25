@@ -19,7 +19,7 @@ from math_spec.typesetting.symbols import Symbols, _derive_name_symbol
 from math_spec.validation import load_model
 from tests.fixtures import OPERATOR_PROBES, override
 from tests.typesetting import golden
-from tests.typesetting.fixtures import DISPATCH, EVERY_FORMAT, LATEX, MIXED, over_generators, summations
+from tests.typesetting.fixtures import BUSES, DISPATCH, EVERY_FORMAT, LATEX, MIXED, over_generators, summations
 
 if TYPE_CHECKING:
     from math_spec.typesetting.format import Format
@@ -591,3 +591,97 @@ def test_every_travelling_model_renders(path, fmt):
     `load_model` accepts it must print — a node it forgot is an exception, not
     a blank."""
     assert typeset(path, fmt).strip(), f'{path.name} rendered empty as {fmt}'
+
+
+# ---------------------------------------------------------------------------
+# scope and brackets — where a rendering can read as different math
+# ---------------------------------------------------------------------------
+
+
+def _row(expression: str, where: str | None = None, **patch: object) -> str:
+    model = override(
+        BUSES,
+        **{'constraints.k': {'foreach': ['snapshot', 'generator'], 'expression': expression, 'where': where}},
+        **patch,
+    )
+    return next(line for line in to_latex(model, legend=False).splitlines() if line.startswith(r'\text{k}'))
+
+
+def test_a_reduction_under_its_own_dimension_takes_a_fresh_dummy():
+    """Under ∀ g, a sum over g must not reuse g: `bus_of(g) = bus_of(g)` is a tautology."""
+    tex = _row('p == at(sum(q, by=bus_of), by=bus_of)')
+    assert r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}" in tex, tex
+    tex = _row('p == q - sum(q, over=generator)')
+    assert r"\sum_{g' \in \mathcal{G}} q_{t,g'}" in tex, tex
+
+
+def test_a_reduction_over_a_free_dimension_keeps_the_plain_index():
+    model = override(
+        BUSES, **{'constraints.k': {'foreach': ['snapshot'], 'expression': 'sum(p, over=generator) == load'}}
+    )
+    assert r'\sum_{g \in \mathcal{G}} p_{t,g}' in to_latex(model, legend=False)
+
+
+@pytest.mark.parametrize(
+    ('where', 'expected'),
+    [
+        pytest.param('not (load >= 3)', r'\neg \left( \mathrm{load}_{t} \ge 3 \right)', id='a-comparison'),
+        pytest.param('not load', r'\neg \left( \mathrm{load}_{t} \text{ is defined} \right)', id='definedness'),
+        pytest.param('not flag', r'\neg \mathrm{flag}_{t}', id='a-boolean-is-the-predicate'),
+    ],
+)
+def test_a_negated_predicate_is_bracketed_where_it_could_read_otherwise(where, expected):
+    tex = _row('p <= q', where=where)
+    assert expected in tex, tex
+
+
+def test_a_chain_of_ors_is_flat():
+    tex = _row('p <= q', where='flag or flag or flag')
+    assert r'\mathrm{flag}_{t} \vee \mathrm{flag}_{t} \vee \mathrm{flag}_{t}' in tex, tex
+    assert r'\left(' not in tex.split(r'\,:\,')[1], tex
+
+
+def test_an_or_under_an_and_keeps_its_brackets():
+    tex = _row('p <= q', where='flag and (flag or load > 0)')
+    assert r'\mathrm{flag}_{t} \wedge \left( \mathrm{flag}_{t} \vee \mathrm{load}_{t} > 0 \right)' in tex, tex
+
+
+@pytest.mark.parametrize(
+    ('expression', 'expected', 'forbidden'),
+    [
+        pytest.param('p == q - -(q + k)', r'q_{t,g} + q_{t,g} + \mathrm{k}', '- -', id='minus-minus-folds-to-plus'),
+        pytest.param(
+            'p == q - -2 * k', r'q_{t,g} + 2 \cdot \mathrm{k}', '- -', id='a-sign-on-the-first-factor-folds-too'
+        ),
+        pytest.param('p == q + -k / 2', r'q_{t,g} - \frac{\mathrm{k}}{2}', '+ -', id='a-sign-on-a-dividend-folds-too'),
+        pytest.param(
+            'p == q * -(q + k)',
+            r'q_{t,g} \cdot \left( -\left( q_{t,g} + \mathrm{k} \right) \right)',
+            r'\cdot -',
+            id='a-negation-as-a-factor',
+        ),
+        pytest.param(
+            'p == 2 * +(q + k)',
+            r'2 \cdot \left( q_{t,g} + \mathrm{k} \right)',
+            r'\left( \left(',
+            id='a-unary-plus-says-nothing',
+        ),
+        pytest.param('p == -q * 2', r'-q_{t,g} \cdot 2', r'\left(', id='a-negated-first-factor'),
+    ],
+)
+def test_a_sign_beside_an_operator_is_bracketed_or_folded(expression, expected, forbidden):
+    tex = _row(expression)
+    assert expected in tex and forbidden not in tex, tex
+
+
+@pytest.mark.parametrize(
+    ('literal', 'expected'),
+    [
+        pytest.param('1e-5', r'10^{-5} \cdot q_{t,g}', id='a-power-of-ten'),
+        pytest.param('2.5e-7', r'2.5 \times 10^{-7} \cdot q_{t,g}', id='a-mantissa'),
+        pytest.param('1e6', r'1000000 \cdot q_{t,g}', id='a-whole-number-prints-whole'),
+        pytest.param('0.5', r'0.5 \cdot q_{t,g}', id='a-plain-decimal'),
+    ],
+)
+def test_a_float_prints_as_a_number_not_as_python(literal, expected):
+    assert expected in _row(f'p == {literal} * q')

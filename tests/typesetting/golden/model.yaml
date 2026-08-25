@@ -136,12 +136,11 @@ constraints:
   pulled_back_twice: # its adjoint, reading one slot through a pair of labels
     foreach: [generator]
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
-  arithmetic: # division, both unary signs, nested reduction, bracketing
-    # No `**`: the walk renders it, but `lower_program` rejects it, so a model
-    # using it would not be a model. Format.power stays exercised by unit
-    # tests rather than from here.
+  arithmetic: # division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
     foreach: [snapshot]
-    expression: sum(p / 2 + -cost, over=generator) >= -sum(+p, over=generator) * 3
+    expression: >-
+      sum(p / 2 + -cost - -1e-5 * p + 2.5e-7 * cost + 0.5 * p, over=generator)
+      >= -sum(+p, over=generator) * -3
   total: # a sum naming no dim, whose domain is the one place the dims it took are said
     foreach: []
     expression: sum(p) <= budget
