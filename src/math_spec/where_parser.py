@@ -5,12 +5,8 @@
 """pyparsing-based parser for where strings — grammar and AST only.
 
 Parses strings like ``"p_max > 0 AND NOT is_must_run"`` into an AST. What a
-mask *means* is each backend's business: the eager lane evaluates the AST
-against an xr.Dataset (``builder.evaluate_where``), the relational lane
-lowers it to SQL predicates (``lowering._lower_where``).
-
-Kept dependency-free on purpose — ``validation.py`` and ``lowering.py`` are
-linopy-free by hard rule 3, and they import this module.
+mask *means* is the consumer's business: it evaluates the AST against the data
+it holds.
 
 ``NotNode``, ``AndNode`` and ``OrNode`` reference the ``WhereNode`` union in
 their annotations before it is defined, which works only because ``from
@@ -138,8 +134,8 @@ class DimensionPositionNode:
     and a row reads its own group's, the broadcast ``at(by=)`` already defines.
 
     Resolved rather than lowered to a literal: which label sits at a position
-    is a property of the *data*, so the position travels and each lane reads
-    it off the coordinate order it already holds.
+    is a property of the *data*, so the position travels and a consumer reads
+    it off the coordinate order it holds.
     """
 
     name: str
@@ -153,7 +149,7 @@ class LookupComparisonNode:
     """Compare a lookup's values against a literal — ``period_of == 2030``.
 
     ``over`` is the dimension the lookup maps out of, copied off the
-    declaration during resolution so the frame check and both lanes read it
+    declaration during resolution so the frame check and every consumer read it
     here rather than looking the lookup up again.
     """
 

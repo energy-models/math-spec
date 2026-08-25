@@ -137,7 +137,7 @@ def expand_piecewise(schema: Model) -> Buildable:
         if pw.method == 'lp':
             _expand_lp(raw, name, pw, frame, mask, schema.parameters[pw.points].dims if pw.points else ())
             continue
-        lam, seg = f'{name}_lam', f'{name}_seg'
+        lam = f'{name}_lam'
 
         raw['variables'][lam] = {
             'foreach': [*frame, pw.over],
@@ -160,6 +160,7 @@ def expand_piecewise(schema: Model) -> Buildable:
         if pw.method == 'sos2':
             raw.setdefault('sos', {})[name] = {'variable': lam, 'over': pw.over, 'type': 2}
         elif pw.method == 'adjacency':
+            seg = f'{name}_seg'
             raw['variables'][seg] = {
                 'foreach': [*frame, pw.over],
                 **({'where': mask} if mask else {}),

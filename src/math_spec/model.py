@@ -888,8 +888,8 @@ class Model(_StrictBlock):
     def _validate_expressions(self) -> Model:
         """Every expression and where string, checked here rather than beside.
 
-        The checkers are a layer above this one, so the imports are local and
-        declared in ``DELIBERATE_LAZY_IMPORTS``. Expansion runs first — a
+        The checkers import this module, so the imports are local. Expansion
+        runs first — a
         formulation emits declarations that are language too — and the
         :class:`Buildable` it builds validates itself on the way out, so a file
         with curves is checked there rather than checked twice here.

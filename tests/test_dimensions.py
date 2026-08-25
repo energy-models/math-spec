@@ -21,7 +21,7 @@ from tests.fixtures import OPERATOR_PROBES, schema_of
 if TYPE_CHECKING:
     from math_spec.model import Model
 
-#: A *network* dispatch model: `conftest.DISPATCH_MODEL` plus buses, so
+#: A *network* dispatch model: `fixtures.DISPATCH_MODEL` plus buses, so
 #: `sum` and per-bus loads are in scope. The dim rules are mostly about
 #: expressions that carry a dim their frame does not, which needs three dims to
 #: state at all.
@@ -126,12 +126,11 @@ def test_dim_inference(expr, expected):
         # `sum(load, by=gen_bus)` -- with `load` already
         # carrying `bus` -- asks for `bus` twice: once as the operand's own dim, once
         # as the group its terms are placed into. The union returns one, so the rule reports
-        # a shape neither lane can build. The eager lane makes an xarray object with
-        # a repeated dim, which xarray warns will fail silently; the relational lane
-        # raised polars' DuplicateError from outside the package's exception tree.
+        # a shape no consumer can build: an array with a repeated dim is one that
+        # fails silently or raises from outside any exception tree the language owns.
         #
-        # Refusing it at load time is the only answer both lanes can give, which is
-        # why the rule lives here rather than in either engine.
+        # Refusing it at load time is the one answer every consumer receives, which
+        # is why the rule lives here.
         pytest.param(
             'sum(load * p, by=gen_bus)',
             'already carries',
@@ -250,11 +249,10 @@ def test_an_ill_dimensioned_declaration_is_rejected(patch, match):
 
 @pytest.mark.parametrize('path', OPERATOR_PROBES, ids=lambda p: p.name)
 def test_every_operator_probe_typechecks(path):
-    """The corpus that travels with the language, swept by the rules above.
+    """The corpus that lives with the language, swept by the rules above.
 
-    It used to be `MODEL_PATHS` — the gallery and the ports — which is math_spec's
-    corpus and stays there (#1149), so the sweep could not have travelled with
-    the rules it applies. `test_language_boundary.py` keeps that claim over the
-    models it is about.
+    The probes are the language's own corpus (#1149): one construct per file,
+    and the same directory the operator reference is generated from, so a
+    probe added for the page is typechecked here too.
     """
     check_schema(schema_of(path))

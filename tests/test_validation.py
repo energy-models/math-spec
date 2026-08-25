@@ -88,9 +88,9 @@ class TestValidateExpressions:
                 ('Failed to parse where string',),
                 id='a-malformed-where-string',
             ),
-            # Used to evaluate to False, which built an empty model in the eager
-            # lane and raised in the relational one — one language, two answers.
-            # Resolution makes it a load error for both.
+            # Used to evaluate to False, an empty selection a consumer could build
+            # or object to as it pleased — one language, two answers. Resolution
+            # makes it a load error.
             pytest.param(
                 {'constraints': {'cap': {'foreach': ['g'], 'where': 'not_a_param > 0', 'expression': 'p <= p_max'}}},
                 ("'not_a_param' not found",),
@@ -133,8 +133,9 @@ class TestValidateExpressions:
 class TestDimensionKwargs:
     """A dim kwarg that names nothing is a silent no-op, not an error.
 
-    ``sum(p, over=snapshto)`` used to build a model that solved and was wrong —
-    both lanes agree on the no-op, so nothing downstream caught it.
+    ``sum(p, over=snapshto)`` used to load as a model that meant something
+    else — a no-op is not a shape any consumer can object to, so nothing
+    downstream caught it.
     """
 
     @staticmethod
@@ -282,9 +283,9 @@ class TestArithmeticDtype:
     checked against, what a bare `where` on a name means, and whether a named
     offset counts positions — and an ordinary *value* position was not among
     them. So a label stood as a coefficient and as a divisor, and the file
-    declared a model no column could build: whether the engine multiplied a
-    string, cast it, or raised something out of its own exception tree was left
-    to the lane, this far from the declaration that was wrong.
+    declared a model no consumer could build: whether it multiplied a string,
+    cast it, or raised something out of its own exception tree was left to
+    the consumer, this far from the declaration that was wrong.
     """
 
     @staticmethod

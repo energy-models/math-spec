@@ -7,8 +7,8 @@
 Parameter ``dims`` are declared, variable ``foreach`` is declared, and operator
 dimension arguments are name-checked, so **every node's dim set is computable
 before any data is bound**. That is the whole basis of this pass: it runs at
-load time, on the resolved core AST, so both lanes get the same answer by
-construction rather than by differential test.
+load time, on the resolved core AST, so every consumer gets the same answer by
+construction.
 
 The rules::
 
@@ -34,9 +34,8 @@ and at the declaration level::
     bounds      -> the bound parameter's dims must not exceed foreach
 
 The direction that matters most is the *stray* dim: one the frame does not
-declare broadcasts silently in the eager lane and adds coordinate columns in
-the relational one, so the same YAML quietly builds a bigger model than it
-reads as. The missing direction is checked too, a foreach dim the equation
+declare broadcasts silently at build time, so the same YAML quietly builds a
+bigger model than it reads as. The missing direction is checked too, a foreach dim the equation
 never uses just repeating one row across it — nearly always a typo.
 """
 
@@ -187,7 +186,7 @@ def _dims_call(
                 f'{context}: sum(by={by.shown}) targets {collides}, '
                 f'which the expression already carries ({sorted(inner)}). The result would '
                 f"need {collides} twice — once as the operand's own dim and once as the "
-                f'group it is placed into — and neither lane can represent that: the union '
+                f'group it is placed into — and no build can represent that: the union '
                 f'below would silently absorb one of them. Sum over one of the two first, '
                 f'or group into a dimension the operand does not have.'
             )
@@ -389,8 +388,8 @@ def _check_where_dims(
     """A predicate may only test dims the frame carries.
 
     Reducing an outside dim to fit — with ``any()``, say — is a mask that fails
-    *open*, silently including everything. Both lanes reject it, and they
-    reject it here, at load time.
+    *open*, silently including everything. It is rejected here, at load
+    time.
     """
     if node is None:
         return
