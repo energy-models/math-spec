@@ -56,6 +56,7 @@ from math_spec.typesetting.format import Entry, Glossary, Line
 
 if TYPE_CHECKING:
     import datetime
+    from collections.abc import Iterable
 
     from math_spec import Buildable, Namespace, SosBlock
     from math_spec.typesetting.format import Format
