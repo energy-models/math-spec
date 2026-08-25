@@ -103,10 +103,6 @@ def validate_expressions(schema: Model) -> None:
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
-    Dim rules run here rather than at either entry point because they are
-    language rules: every lane arrives through this function, and one that
-    could skip them would be a lane with a different language (hard rule 3).
-
     Raises:
         SchemaError: Listing every problem found, one per line.
     """
@@ -121,7 +117,7 @@ def validate_expressions(schema: Model) -> None:
             body_ast = expand(parse_template(mname, macro, context), schema, context)
             assert not isinstance(body_ast, ComparisonNode)
         except ValueError as e:
-            errors.append(str(e) if str(e).startswith(context) else f'{context}: {e}')
+            errors.append(_prefixed(context, e))
             continue
         formals = {*macro.args, *macro.kwargs}
         errors.extend(
@@ -236,14 +232,16 @@ def _check_declared_values(schema: Model, errors: list[str]) -> None:
     for lname, lookup in schema.lookups.items():
         if lookup.values is None:
             continue
-        over = schema.dimensions.get(lookup.over)
-        if over is not None:
-            errors.extend(_mistyped_labels(f"Lookup '{lname}': key", over.dtype, lookup.values))
-        target = schema.dimensions.get(lookup.into) if lookup.into is not None else None
-        dtype = target.dtype if target is not None else lookup.dtype
+        errors.extend(_mistyped_labels(f"Lookup '{lname}': key", schema.dimensions[lookup.over].dtype, lookup.values))
+        dtype = schema.dimensions[lookup.into].dtype if lookup.into is not None else lookup.dtype
         if dtype is not None:
             mapped = [label for label in lookup.values.values() if label is not None]
             errors.extend(_mistyped_labels(f"Lookup '{lname}': value", dtype, mapped))
+
+
+def _prefixed(context: str, e: ValueError) -> str:
+    """*e* under *context*, once — expansion errors already carry it."""
+    return str(e) if str(e).startswith(context) else f'{context}: {e}'
 
 
 def _parse_expand(
@@ -255,7 +253,7 @@ def _parse_expand(
     try:
         return parse_and_expand(expression, schema, context)
     except ValueError as e:
-        errors.append(f'{context}: {e}')
+        errors.append(_prefixed(context, e))
         return None
 
 

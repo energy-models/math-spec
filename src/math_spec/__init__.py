@@ -4,44 +4,16 @@
 
 """The language: what a YAML file may say, and what it means.
 
-Everything from the bytes on disk to a fully typed, dim-checked core AST —
-the file reader, the schema, the two grammars, expansion, resolution, the dim
-rules, and the load-time pass that runs them all. The AST this package
-produces is the narrow waist of docs/about/architecture.md: everything downstream
-reads it, and nothing downstream is visible from here.
+Everything from the bytes on disk to a fully typed, dim-checked AST — the
+file reader, the schema, the two grammars, expansion, resolution, the dim
+rules, and the load-time pass that runs them all — plus the typesetters that
+print the result.
 
-**The directory is the rule, in the direction the engine's is not.** Hard rule
-2 says the engine never sees the schema or the AST; this is its mirror —
-nothing under ``language/`` may import ``lowering``, ``sources``, ``api``, or
-any of the three consuming subpackages. What a model *means* cannot depend on
-what any consumer does with it, which is what makes ``lps.check()`` a pass with
-no data and no plan, and a second consumer cheap.
-
-**This module is the seam, and the names below are the whole of it.** A
-consumer imports ``math_spec``; reaching a submodule is a lint failure,
-because a submodule path is not a contract anyone agreed to and a name reached
-that way cannot be counted. The count is the review surface: an addition here
-widens what every consumer may depend on, and what a future package boundary
-would have to keep stable, so it is a decision rather than an import.
-
-Two consequences the fence does not state on its own. **A rule stated here is
-stated once** — ``dims_of`` and ``check_binary`` are asked for a verdict, never
-re-derived, so a consumer that reimplements one has broken the waist without
-importing anything it should not. And **the error text for a language rule
-belongs to the language**: ``call_shape_error`` and friends are exported so
-that two consumers cannot word the same refusal differently.
-
-**This package imports nothing outside itself**, and ``LANGUAGE_MAY_IMPORT``
-is the empty set that says so. The errors it raises are its own
-(``errors.py`` beside this file, re-exported from ``math_spec.errors`` so a caller
-keeps saying ``lps.LanguageError``); the root of the hierarchy lives here too,
-because a base class cannot sit downstream of the classes that extend it. What
-that buys is not neatness: the directory can be lifted into a package of its
-own without an edit, and a test says so rather than a plan.
-
-``tests/test_architecture.py`` reads membership off the path, so a new
-front-end module cannot land outside the fence by being spelled differently,
-and checks every consumer's imports against ``__all__`` below.
+``__all__`` is the public surface; ``tests/test_public_surface.py`` pins it. A
+rule is stated once — ``dims_of`` and ``check_binary`` are asked for a
+verdict, never re-derived — and the error text for a language rule is
+exported (``call_shape_error`` and friends) so two consumers cannot word the
+same refusal differently.
 """
 
 from math_spec._yaml import parse_yaml, read_yaml
@@ -120,13 +92,8 @@ from math_spec.where_parser import (
     WhereNode,
 )
 
-# Last, and deliberately out of alphabetical order. `math_spec.typesetting` imports
-# `Namespace`, `expand_piecewise` and `load_model` back from this module, so
-# those names have to be bound before it runs. Sorted into place with the rest
-# it would sit above `validation`, and the import would fail on a partially
-# initialised module. Upstream had no cycle to avoid: the root package and the
-# language subpackage were two modules there, and flattening them into this one
-# is what put both ends of the import in the same file.
+# Last: `math_spec.typesetting` imports `Namespace`, `expand_piecewise` and
+# `load_model` back from this module, so those must be bound first.
 # isort: split
 from math_spec.typesetting import (
     FORMATS,

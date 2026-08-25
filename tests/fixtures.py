@@ -2,19 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What the language's own tests build a schema from, owned by this directory.
-
-These used to live in `tests/conftest.py`, which imports `tools.constructs` and
-so reaches `api`, `lowering` and `relational`. The fence in #1146 reads direct
-`math_spec` imports and never saw that, so the directory was prefix-clean and would
-not have started in a package of its own (#1150).
-
-Nothing here reaches past the language. `tests/conftest.py` re-exports the four
-names so the forty-odd tests on the other side of the cut are untouched; at the
-cut it keeps its own copy of these thirty lines and this file becomes math-spec's
-conftest. Two copies of a dict-patching helper is a cost worth paying to keep one
-copy of every *rule*.
-"""
+"""The schema the tests build from, and the helpers that vary it."""
 
 from __future__ import annotations
 

@@ -4,10 +4,8 @@
 
 """The two grammars: expression strings and where strings.
 
-Dependency-free by design — these must keep running on a bare install, which
-is why nothing here resolves names or touches a backend. A parse result still
-holds raw ``NameNode``/``Unresolved*`` nodes; giving them meaning is
-``resolution.py``'s job, tested in ``test_resolution.py``.
+Nothing here resolves names — a parse result still holds raw
+``NameNode``/``Unresolved*`` nodes.
 """
 
 import pytest

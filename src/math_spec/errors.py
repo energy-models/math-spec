@@ -2,20 +2,12 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The errors the language raises, and the root every other error derives from.
+"""The errors the language raises.
 
-The split that matters is **the model versus the run**, and this is the model
-half: :class:`LanguageError` is the file saying something the language does not
-accept — decidable at load time, with no data bound, which is what
-``lps.check()`` raises. The run half (a fine file with the wrong thing bound to
-it) lives in ``math_spec/errors.py`` beside the consumers that raise it.
-
-:class:`MathSpecError` is here rather than there because **the root is not
-divisible**: a consumer's own errors derive from it so that one ``except``
-clause covers the package, and a base class cannot live downstream of the
-classes that extend it. The consequence is stated in
-docs/about/architecture.md, hard rule 2 — ``math_spec/errors.py`` imports this
-package, so it is no longer a leaf.
+:class:`LanguageError` is the file saying something the language does not
+accept — decidable at load time, with no data bound. :class:`MathSpecError`
+is the root a consumer's own errors may derive from, so one ``except`` covers
+the package.
 
 ``model.py``'s field validators raise plain ``ValueError``, since pydantic
 collects those into its own ``ValidationError`` and a custom class does not

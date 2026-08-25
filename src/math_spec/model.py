@@ -8,15 +8,12 @@ A block per declaration kind, and one strict base: an unrecognised key is an
 error naming the near miss rather than a shrug, because a dropped ``bounds:``
 leaves a variable unbounded and says nothing.
 
-:class:`Model` is the first of the three stages the pipeline names — what a
-file *declares*, before ``plan.Program`` (what it lowers to) and an engine
-(what a build holds). Nothing here has seen data.
+Nothing here has seen data.
 """
 
 from __future__ import annotations
 
 import math
-from importlib import metadata
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, override
 
 from pydantic import (
@@ -24,6 +21,7 @@ from pydantic import (
     ConfigDict,
     PrivateAttr,
     ValidationError,
+    ValidatorFunctionWrapHandler,
     field_validator,
     model_serializer,
     model_validator,
@@ -82,12 +80,10 @@ DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 #: column must be.
 ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
-#: The domain a variable may declare (the declaration rules). Matches the plan's
-#: ``VariableType`` (``relational/plan.py``).
+#: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
 
-#: What a masked variable's non-existence *means* (the absence rules). Same
-#: vocabulary as the plan's ``VariableAbsence`` (``relational/plan.py``).
+#: What a masked variable's non-existence *means*.
 VariableAbsence = Literal['undefined', 'zero']
 
 #: Which way an objective is optimised (the declaration rules).
@@ -104,14 +100,7 @@ SosType = Literal[1, 2]
 #: ``tests/test_schema.py``.
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
-# --------------------------------------------------------------------------
-# The set form of each vocabulary above, for the callers that want membership
-# rather than a type. tests/test_architecture.py pins the engine's tables — the
-# empty-index dtypes (frames.py), the accepted columns
-# (relational/engines/polars/data_validation.py), the plan's variable
-# vocabularies — to these, a test rather than an import because the fence keeps
-# the engine from reaching the language.
-# --------------------------------------------------------------------------
+# The set form of each vocabulary above, for callers that want membership.
 
 DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
@@ -475,14 +464,15 @@ class PiecewiseBlock(_StrictBlock):
             return None
         return 'convex' if self.curve[1].sign == '>=' else 'concave'
 
-    @field_validator('method', mode='before')
+    @field_validator('method', mode='wrap')
     @classmethod
-    def _check_method(cls, v: Any) -> Any:
-        if v not in PIECEWISE_METHODS:
+    def _check_method(cls, v: Any, handler: ValidatorFunctionWrapHandler) -> PiecewiseMethod:
+        try:
+            return handler(v)
+        except ValidationError:
             options = '\n'.join(f'  {name}: {what}' for name, what in PIECEWISE_METHODS.items())
             msg = f'unknown piecewise method {v!r}. The formulations are:\n{options}'
-            raise ValueError(msg)
-        return v
+            raise ValueError(msg) from None
 
     @model_validator(mode='after')
     def _check_method_shape(self) -> PiecewiseBlock:
@@ -598,7 +588,7 @@ def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any
     ``__init__`` is deliberately *not* wrapped: defining one makes pydantic
     route validation through it, so every after-validator runs twice, and this
     model's validate every expression in the file. The constructor keeps
-    pydantic's error; ``lps.load_model`` is the documented door and comes
+    pydantic's error; ``load_model`` is the documented door and comes
     through here.
     """
     try:
@@ -623,16 +613,12 @@ def _is_absent(value: Any) -> bool:
 
 
 class Model(_StrictBlock):
-    """The declared math — one YAML file, or one dict, validated.
-
-    First of the three stages the pipeline names: ``Model`` is what a file
-    *says*, ``plan.Program`` what it lowers to, an engine what a build holds.
-    Nothing here has seen data.
+    """The declared math — one YAML file, or one dict, validated. Nothing here has seen data.
 
     The API is the ten declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads. In goes through
-    ``lps.load_model``, which raises
+    ``load_model``, which raises
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
 
     Everything else on this class is pydantic's, not a contract this package
@@ -675,31 +661,6 @@ class Model(_StrictBlock):
     def labels_of(self, dimension: str) -> dict[str, LookupBlock]:
         """The label-space lookups over *dimension* — selection only, never an axis."""
         return {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.into is None}
-
-    def label_space(self, lookup: str) -> str:
-        """What *lookup*'s values are labels of, named as a supplied relation names it.
-
-        The groupable kind lands its values in the dimension it targets, so
-        that dimension names them; the label-space kind owns its values and no
-        dimension holds them, so the lookup does. One rule — *the space the
-        values live in* — and the two kinds need no branch at the caller.
-        """
-        return self.lookups[lookup].into or lookup
-
-    def declared_maps(self, dimension: str) -> dict[str, dict[Any, Any]]:
-        """The lookups over *dimension* whose map the file declares, by name.
-
-        **A map is not the dimension.** It is a partial relation over one, free
-        to omit labels and written in whatever key order someone typed, so it
-        supplies values and never the label set or its order — those come from
-        ``dimensions.<d>.values`` or from the caller, and a label no map
-        mentions is a label with a null lookup, not a label that does not exist.
-
-        Returns:
-            ``{lookup name: {label: value}}``, empty where the file declares no
-            map over *dimension*.
-        """
-        return {n: lk.values or {} for n, lk in self.lookups.items() if lk.over == dimension and lk.values is not None}
 
     def _declared_lookup_errors(self, name: str, lookup: LookupBlock) -> list[str]:
         """What a lookup's inline ``values:`` can be wrong about, without data.
@@ -748,22 +709,11 @@ class Model(_StrictBlock):
     @field_validator('version')
     @classmethod
     def _check_version(cls, v: int) -> int:
-        """Refuse a surface this reader does not know — never interpret it.
-
-        Rejecting is the entire policy: the version gates nothing at runtime,
-        keeping two surfaces alive in one codebase being a large permanent cost
-        against a hard error that costs one line.
-
-        The installed version comes from the distribution's metadata rather
-        than ``math_spec.__version__``: a language module may not reach forward to
-        the package that consumes its AST.
-        """
+        """Refuse a surface this reader does not know — never interpret it."""
         if v in SUPPORTED_VERSIONS:
             return v
-        try:
-            installed = metadata.version('math_spec')
-        except metadata.PackageNotFoundError:  # pragma: no cover — a tree with no dist-info
-            installed = 'unknown'
+        from math_spec import __version__ as installed
+
         supported = ', '.join(str(s) for s in SUPPORTED_VERSIONS)
         msg = (
             f'model declares version {v}, and math_spec {installed} understands [{supported}]. '
@@ -921,10 +871,8 @@ class Buildable(Model):
 
     Taking one is how a consumer says it *builds* rather than *reads*, and
     passing a :class:`Model` where one is wanted is a type error rather than a
-    model quietly missing declarations. The subtyping runs the other way for
-    the same reason: whatever reads the file as written — the curve masks
-    :mod:`math_spec.sources` derives from ``piecewise:`` — takes a :class:`Model`
-    and accepts either.
+    model quietly missing declarations. Whatever reads the file as written
+    takes a :class:`Model` and accepts either.
 
     The guarantee is about *declarations*, and deliberately says nothing about
     the expression strings inside them: ``macros:`` and ``expressions:`` are
