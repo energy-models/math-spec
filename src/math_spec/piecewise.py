@@ -382,14 +382,10 @@ def _declared_order(schema: Model, dims: frozenset[str]) -> list[str]:
 
 
 def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:
-    """Dims of an affine link expression.
+    """Dims of an affine link expression — the frame a block is emitted over is their union.
 
-    The frame a block is emitted over is the union of its links' dims, so the
-    dim set has to be known *here*, before any declaration exists to carry it.
-    ``dimensions`` is the one implementation of that question, and asking it
-    is the whole of what this needs: whether the engine has a plan node for
-    the expression is a different question, asked later by whichever lane
-    builds a plan.
+    Known here, before any declaration exists to carry it; ``dimensions`` is
+    the one implementation of the question.
     """
     ast = parse_and_expand(text, schema, ctx)
     if isinstance(ast, ComparisonNode):
