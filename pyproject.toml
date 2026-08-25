@@ -192,3 +192,6 @@ unparseable = "unparseable"
 # to `NAMEEs` — which is not a word either. The key is the token it objects to,
 # not the text on the page.
 NAM = "NAM"
+# `fom` is PyPSA's `fom_cost` — fixed operation and maintenance — quoted by name
+# in docs/about/pypsa.md, not a misspelling of "from".
+fom = "fom"

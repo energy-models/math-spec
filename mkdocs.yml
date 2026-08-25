@@ -48,6 +48,7 @@ nav:
   - About:
       - The ceiling: about/ceiling.md
       - What counts as language: about/what-counts-as-language.md
+      - Modelling PyPSA in one file: about/pypsa.md
   - Contributing: contributing.md
   - Changelog: CHANGELOG.md
 
