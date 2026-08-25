@@ -2,47 +2,20 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Degree — the clause of the expressive ceiling that is a scope choice.
-
-Decidable on the resolved core AST with no data bound, which is what makes
-``lps.check()`` a real gate rather than a syntax pass, and the one
-admissibility rule that is a **scope choice** rather than a consequence of
-streaming (docs/about/ceiling.md).
+"""Degree — the one admissibility rule that is a scope choice (docs/about/ceiling.md).
 
 **Degree 2 in the math, degree 1 in what stands beside it.** An objective and a
 constraint both take ``variable * variable``; a *bound*, a named expression and
-a ``piecewise:`` link do not — each of those is read affinely by something
-downstream.
-
-**Where a quadratic model can *land* is a different axis**, declared by each
-consumer and answered by ``check(model, sink=...)``. This module says what is
-*sayable* and stops there; refusing degree 2 outright was letting one library's
-limits read as a rule about math.
+a ``piecewise:`` link do not — each of those is read affinely.
 
 A degree-2 product has a second rule: **at most one factor may be a sum of
-terms**. ``sum(x, over=i) * sum(y, over=j)`` is every term of one against every
-term of the other, a cross join whose size the file states nowhere — the one
-shape "bilinear" hides that the ceiling doc genuinely excludes, and the
-boundary linopy's own ``*`` draws, which is what keeps hard rule 3 structural
-rather than lucky. Factors carrying *different dims* are not that: ``x[i] *
-y[j]`` broadcasts, and ``x[i] * y[j] * a[i, j]`` joins through a declared table.
+terms**. ``sum(x, over=i) * sum(y, over=j)`` is a cross join whose size the
+file states nowhere. Factors carrying *different dims* are not that: ``x[i] *
+y[j]`` broadcasts.
 
-That is why it lives here and not in ``lowering.py``: degree is a property of
-the *language*, so both lanes give the same verdict *and the same sentence*, as
-they do for dim sets and the closed operator set. Stated once, every consumer
-**asks** — a copy in a lane is the spelling no differential test covers.
-
-A divisor's **shape** is decided here too. A quotient is built as
-multiplication by one reciprocal factor, and an addition is what makes a
-variable-free expression more than one — so a sum divisor is refused, and
-refused at load, where the sentence can name the rewrite. Not a degree
-question (``x / (a + b)`` is affine) but the same node, the same verdict owed
-to both lanes, and the same answer with no data bound.
-
-Deliberately narrow: :func:`check_binary` decides a *binary operator node*, the
-only place degree can be lost, and :func:`check_expression` is that decision
-over a whole expression — for the formulations, which judge a link before there
-is a declaration to name in the error.
+A divisor's **shape** is decided here too: a quotient is multiplication by one
+reciprocal factor, so a divisor that adds is refused at load, where the message
+can name the rewrite.
 """
 
 from __future__ import annotations
@@ -55,53 +28,31 @@ from math_spec.expression_parser import (
     BranchNode,
     ExpressionNode,
     FunctionCallNode,
-    KeywordNode,
     KwargNode,
-    NameListNode,
-    NameNode,
     NumberNode,
     ParameterNode,
+    UnresolvedNode,
     VariableNode,
     children,
 )
 
-#: The operators the language has. ``**`` is here **only over variable-free
-#: operands** — :func:`check_binary` refuses the rest — because there it is the
-#: arithmetic ``*`` already does, and a discount factor is derivable from a rate
-#: the model binds and a period it declares (#1175). The grammar emits nothing
-#: outside this set, so the by-name refusal below is a backstop for a hand-built
-#: AST rather than a path a file can reach.
+#: The operators the language has. ``**`` only over variable-free operands —
+#: :func:`check_binary` refuses the rest.
 ARITHMETIC_OPERATORS = frozenset({'+', '-', '*', '/', '**'})
 
 
 def carries_variable(node: ExpressionNode) -> bool:
     """Whether *node* contains a decision variable.
 
-    A structural question over the resolved AST — no data, no plan. A
-    ``NameNode`` reaching here is a resolution bug rather than a false
-    negative, so it is refused rather than silently answered.
+    An unresolved node reaching here is a resolution bug, so it is refused
+    rather than silently answered.
     """
     if isinstance(node, VariableNode):
         return True
     if isinstance(node, NumberNode | ParameterNode | KwargNode):
         return False
-    if isinstance(node, NameListNode):
-        msg = (
-            f'NameListNode({list(node.names)!r}) reached the degree check. A bracketed list is '
-            f'consumed by its kwarg during resolution (docs/about/architecture.md hard rule 1).'
-        )
-        raise AssertionError(msg)
-    if isinstance(node, KeywordNode):
-        msg = (
-            f'KeywordNode({node.value!r}) reached the degree check. A quoted keyword is '
-            f'consumed by its kwarg during resolution (docs/about/architecture.md hard rule 1).'
-        )
-        raise AssertionError(msg)
-    if isinstance(node, NameNode):
-        msg = (
-            f'NameNode({node.name!r}) reached the degree check. Expressions must go '
-            f'through resolution.expression_of() first (docs/about/architecture.md hard rule 1).'
-        )
+    if isinstance(node, UnresolvedNode):
+        msg = f'{node!r} reached the degree check. Expressions go through resolution.expression_of() first.'
         raise AssertionError(msg)
     if isinstance(node, BranchNode):
         return any(carries_variable(c) for c in children(node))
@@ -127,14 +78,7 @@ def is_quadratic(node: ExpressionNode) -> bool:
     """Whether *node* multiplies two variable-carrying operands.
 
     What :func:`check_binary` refuses at ``ceiling=1``, asked of a whole
-    expression rather than of one node — by a consumer that has to *build* the
-    thing rather than judge it, and cannot build this one. Whether an
-    expression is quadratic is a fact about the expression; what that costs a
-    consumer is the consumer's own to declare.
-
-    A second home reads the same question off the *plan* rather than the AST.
-    Two, because the two representations are different types and the lanes
-    share neither.
+    expression rather than of one node.
     """
     if (
         isinstance(node, BinaryOperatorNode)
@@ -149,14 +93,11 @@ def is_quadratic(node: ExpressionNode) -> bool:
 def check_binary(node: BinaryOperatorNode, context: str | None = None, *, ceiling: int = 1) -> None:
     """Check that *node* stays inside the degree its position allows.
 
-    Callers want the *raise*, not the answer — the same shape as
-    ``dimensions.dims_of`` being asked for its verdict.
-
     Args:
         node: The product, quotient or sum to judge.
-        context: What to name in the message — the declaration being lowered.
+        context: What to name in the message — the declaration being read.
         ceiling: The highest degree this position can honour — 2 in an
-            objective, 1 everywhere else, and the module docstring is why.
+            objective or a constraint, 1 everywhere else.
 
     Raises:
         LanguageError: A product of two variable-carrying factors where the

@@ -4,14 +4,9 @@
 
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
-This is schema-level expansion (the piecewise rules): a ``piecewise:`` block becomes
-ordinary affine declarations *before* anything is built, so both backends —
-eager and relational — receive identical schemas and stay differential-
-testable. Formulations never enter the plan as expression nodes.
-
-The λ convex-combination method is used because it is expansion-pure: it
-needs only the breakpoint coordinate parameters themselves, no derived data
-(no slopes, intercepts, or segment lengths). For a block
+A ``piecewise:`` block becomes ordinary affine declarations before anything
+reads the model. The λ convex-combination method needs only the breakpoint
+parameters themselves, no derived data. For a block
 
     piecewise:
       curve:
@@ -32,29 +27,14 @@ with F = the union of the links' dims, it emits:
       curve_link0(F):         (power) == sum(curve_lam * power_bp, over=bp)
       curve_link1(F):         (fuel * eff) <= sum(curve_lam * fuel_bp, over=bp)
 
-**Only the restriction on λ varies**, which is why it is one ``method:`` key
-and not three formulations (:data:`~math_spec.model.PIECEWISE_METHODS`).
-Every method emits the weights, the convexity row and the links. Then
-``adjacency`` adds the binaries above, so at most two *neighbouring* λ are
-nonzero and the linked expressions lie on the curve exactly; ``sos2`` states
-that same restriction as a ``sos:`` block over the same weights, leaving a
-sink that branches on a set to do so; and ``convex`` adds nothing, leaving λ
-over the hull of the breakpoints — the correct relaxation for a convex or
-concave curve under optimisation pressure.
+**Only the restriction on λ varies** (:data:`~math_spec.model.PIECEWISE_METHODS`):
+every method emits the weights, the convexity row and the links; ``adjacency``
+adds the binaries above, ``sos2`` states the same restriction as a ``sos:``
+block, ``convex`` adds nothing and leaves λ over the hull.
 
-``sos2`` is the one method emitting a declaration this module does not expand
-away, and that is what lets the choice reach a solver at all: an expansion is
-unconditional where a capability is per sink, so the *formulation* stays the
-file's and the *encoding* stays the sink's (``relational/sinks/sos.py``).
-
-A link expression is judged against the *language* before expansion — resolved,
-degree-checked, dims from :mod:`~math_spec.dimensions` — which keeps
-``p * p`` named against the link the user wrote rather than ``curve_link0``, a
-declaration they never saw.
-
-Two verdicts are deliberately elsewhere: what a plan node can represent is the
-consuming lane's business, and curvature is a property of the breakpoint
-*values*, so it needs data and lives in :mod:`math_spec.sources`.
+A link expression is judged against the language before expansion, so ``p * p``
+is named against the link the user wrote rather than ``curve_link0``.
+Curvature is a property of the breakpoint *values*, so it is not decided here.
 """
 
 from __future__ import annotations
@@ -76,11 +56,9 @@ def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
     """The parameter a block masks its weights with, or ``None`` for a whole curve.
 
     ``points:`` may name the mask itself, or one of the block's own values
-    parameters — "the curve runs as far as this does". The second is a mask
-    nobody wrote, derived from that parameter's rows when data binds
-    (:func:`math_spec.sources.derive_curve_masks`), so this is what says where it
-    lands. Both the expansion and the data guards ask here rather than reading
-    ``points:`` twice and disagreeing.
+    parameters — "the curve runs as far as this does" — in which case the
+    mask is derived from that parameter when data binds, under the name this
+    returns.
     """
     if pw.points is None:
         return None
@@ -393,8 +371,7 @@ def _declared_order(schema: Model, dims: frozenset[str]) -> list[str]:
     behind it varied between builds of the same model. Declaration order is
     what a hand-written ``foreach`` gets, so it is what an emitted one gets.
     """
-    declared = [d for d in schema.dimensions if d in dims]
-    return declared + sorted(dims.difference(declared))
+    return [d for d in schema.dimensions if d in dims]
 
 
 def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:

@@ -2,38 +2,17 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Provably unbounded models, named by ``check`` instead of by the solver.
+"""Provably unbounded models, named before a solver says a bare ``unbounded``.
 
 A variable that is unbounded on the side its objective term improves toward
-**and** appears in no constraint runs to infinity for any data at all — nothing
-in the model can stop it. A solver answers that with a bare ``unbounded``,
-naming nothing; ``check`` says it with the variable, the side and the reason
-(#229).
-
-Advice rather than a refusal, because the same shape is what a half-written
-model looks like — a variable declared before the constraint that will hold it
-— and no door should close on one. Which means these notes reach a caller who
-runs ``check``, and nobody else: straight to ``solve`` and the solver's answer
-is still the first word.
-
-The rule is a conjunction and needs both halves. A variable unbounded on the
-improving side but constrained somewhere is ordinary — the constraint is what
-bounds it, and "every variable must be defined by a constraint" would reject
-most working models. A variable in no constraint but bounded on the improving
-side is ordinary too; its own ``bounds:`` are what bound it.
+**and** appears in no constraint runs to infinity for any data at all. Advice
+rather than a refusal, because the same shape is what a half-written model
+looks like.
 
 Which side improves is read off the *sign* the variable enters the objective
-with, not off the sense alone: under ``minimize`` a ``+v`` term runs down
-toward ``lower`` and a ``-v`` term runs up toward ``upper``. Where that sign is
-not decidable without data — a parameter coefficient, which may be zero, or
-occurrences of both signs, which may cancel — nothing is claimed. A false
-note here would read as a defect in a model that solves, which is worse than
-saying nothing.
-
-Only the whole-variable case is decidable here. A variable whose *slice* gets
-no constraint row, because the mask that would have defined it is false in this
-data, is the same finding one step later, and the row tables at the end of a
-build are what would answer it.
+with: under ``minimize`` a ``+v`` term runs down toward ``lower``. Where that
+sign is not decidable without data — a parameter coefficient, or occurrences
+of both signs — nothing is claimed.
 """
 
 from __future__ import annotations
@@ -78,8 +57,7 @@ def unbounded_notes(schema: Model) -> list[str]:
 
     Returns:
         One note per variable that is unbounded on the side its objective term
-        improves toward and named by no constraint — what ``check`` warns with,
-        empty for a model this cannot prove anything about.
+        improves toward and named by no constraint.
     """
     if schema.objective is None:
         return []

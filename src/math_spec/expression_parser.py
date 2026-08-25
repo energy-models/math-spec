@@ -277,7 +277,7 @@ def _build_grammar() -> pp.ParserElement:
     # pyrefly: ignore[implicit-any-lambda]
     integer = pp.Regex(r'-?\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
     # pyrefly: ignore[implicit-any-lambda]
-    real = pp.Regex(r'-?\d+\.\d*([eE][+-]?\d+)?').set_parse_action(lambda t: NumberNode(float(t[0])))
+    real = pp.Regex(r'\d+\.\d*([eE][+-]?\d+)?').set_parse_action(lambda t: NumberNode(float(t[0])))
     inf_literal = (pp.Keyword('.inf') | pp.Keyword('inf')).set_parse_action(lambda: NumberNode(float('inf')))
     number = real | inf_literal | integer
 
@@ -287,7 +287,7 @@ def _build_grammar() -> pp.ParserElement:
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith | name)).set_parse_action(lambda t: (t[0], t[1]))
+    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)
@@ -311,10 +311,9 @@ def _build_grammar() -> pp.ParserElement:
     arith <<= add_sub
 
     comparator = pp.one_of('<= >= ==')
-    # pyrefly: ignore[implicit-any-lambda]
-    expr = (arith + comparator + arith).set_parse_action(lambda t: ComparisonNode(t[1], t[0], t[2])) | arith
-
-    return expr
+    return (arith + pp.Optional(comparator + arith)).set_parse_action(
+        lambda t: ComparisonNode(t[1], t[0], t[2]) if len(t) == 3 else t[0]
+    )
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
@@ -329,8 +328,6 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
     for item in tokens[1:]:
         if isinstance(item, tuple) and len(item) == 2:
             k, v = item
-            if isinstance(v, str):
-                v = NameNode(v) if not v.replace('.', '').isdigit() else NumberNode(float(v))
             kwargs[k] = v
         else:
             args.append(item)

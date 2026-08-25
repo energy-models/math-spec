@@ -4,8 +4,7 @@
 
 r"""The seam between *what* a model says and *how* a format spells it.
 
-One walk, many formats — the split ``relational/sinks/`` makes at the other end
-of the pipeline. :mod:`math_spec.typesetting.walk` decides where a bracket is needed,
+One walk, many formats. :mod:`math_spec.typesetting.walk` decides where a bracket is needed,
 which dimension a reduction binds and where a mask belongs; a :class:`Format`
 decides only that a sum is ``\sum_{…}`` or ``sum_(…)``.
 

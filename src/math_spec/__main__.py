@@ -4,20 +4,9 @@
 
 """``python -m math_spec <format> model.yaml`` — the typeset shell front.
 
-**A document build step, not a command line under construction.** Rendering a
-model to LaTeX belongs in a Makefile next to ``pdflatex``, where a Python
-script would be awkward. One verb per typeset format, read off
-:data:`math_spec.typesetting.FORMATS`, so a new format arrives with its verb written.
-
-**No verb becomes a second way to spell the source mapping.** ``lps.solve``
-takes a dict, and ``--source p_max=a.parquet`` is that dict with worse errors;
-``solve_over`` cannot be said in flags at all, its axis being a typed object.
-So data-binding verbs live in a caller's script. That bans a *spelling*, not a
-shell: driving a solve from a Makefile would arrive as one path argument over a
-run manifest (#479), where the file *is* the mapping.
-
-No entry point either — ``python -m`` says which environment it ran in, which a
-bare name on ``PATH`` does not.
+One verb per typeset format, read off :data:`math_spec.typesetting.FORMATS`.
+No entry point: ``python -m`` says which environment it ran in, which a bare
+name on ``PATH`` does not.
 """
 
 from __future__ import annotations
@@ -30,12 +19,7 @@ from math_spec.typesetting import FORMATS, typeset
 
 
 def parser() -> argparse.ArgumentParser:
-    """The verbs, built from ``FORMATS`` — so the list exists in one place.
-
-    Separate from :func:`main` so a test can read the verbs off it rather than
-    grep the help text, which would pass on a format merely *mentioned* in
-    prose.
-    """
+    """The verbs, built from ``FORMATS``; separate from :func:`main` so a test can read them off it."""
     front = argparse.ArgumentParser(prog='python -m math_spec')
     verbs = front.add_subparsers(dest='verb', required=True)
 

@@ -4,9 +4,7 @@
 
 """Named sub-expressions and expression macros — YAML-defined, schema-local.
 
-Both are expanded into core AST *before* any backend sees the expression, so
-the eager builder and the relational backend support them identically and the
-engine contract (core AST is the whole language) is untouched.
+Both are expanded into the AST before anything reads the expression.
 
 Two mechanisms, one substitution engine, zero global state:
 
@@ -42,7 +40,6 @@ than a registered function that reads like a built-in on the page.
 
 from __future__ import annotations
 
-import copy
 from typing import TYPE_CHECKING, assert_never, overload
 
 from math_spec.errors import SchemaError
@@ -62,9 +59,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from math_spec.model import MacroBlock, Model
-
-#: Backstop against pathological nesting the cycle check cannot see.
-_MAX_DEPTH = 50
 
 
 def parse_and_expand(text: str, schema: Model, context: str = 'expression') -> ExpressionNode:
@@ -137,11 +131,6 @@ def _expand(
     context: str,
     stack: tuple[str, ...],
 ) -> ArithmeticNode:
-    if len(stack) > _MAX_DEPTH:
-        chain = ' -> '.join(stack)
-        msg = f'{context}: expansion exceeds depth {_MAX_DEPTH} (via {chain})'
-        raise SchemaError(msg)
-
     def _cycle(name: str, kind: str) -> None:
         if name in stack:
             chain = ' -> '.join([*stack, name])
@@ -212,5 +201,5 @@ def _expand_macro(
 def _substitute(node: ArithmeticNode, bindings: dict[str, ArithmeticNode]) -> ArithmeticNode:
     """Replace formal-name NameNodes in *node* with their bound subtrees."""
     if isinstance(node, NameNode) and node.name in bindings:
-        return copy.deepcopy(bindings[node.name])
+        return bindings[node.name]
     return _descend(node, lambda child: _substitute(child, bindings))
