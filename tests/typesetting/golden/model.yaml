@@ -72,9 +72,6 @@ variables:
     foreach: []
     where: "budget"
     bounds: { lower: 0 }
-  void: # a bound on the wrong side of the line: the one way infinity prints
-    foreach: [bus]
-    bounds: { lower: .inf, upper: -.inf }
   weight: # the family a sos runs along
     foreach: [snapshot, generator]
     bounds: { lower: 0, upper: 1 }
@@ -167,6 +164,9 @@ constraints:
   efficiency: # a Greek-named parameter, which is given — so the convention wins and it prints as the word
     foreach: [snapshot, generator]
     expression: p <= eta * p_max
+  ceiling: # the infinity literal, which is the one way infinity prints
+    foreach: [bus]
+    expression: theta <= inf
   always: # a mask that is only the constant true, which the language says is no mask at all — so none prints
     foreach: [snapshot]
     where: "true"

@@ -233,6 +233,17 @@ class BoundsBlock(_StrictBlock):
             raise ValueError(msg)
         return v
 
+    @model_validator(mode='after')
+    def _literals_do_not_cross(self) -> BoundsBlock:
+        """Two numbers that leave no value between them are refused; a named bound is data."""
+        if isinstance(self.lower, float) and isinstance(self.upper, float) and self.lower > self.upper:
+            msg = (
+                f'bounds.lower {self.lower} is above bounds.upper {self.upper}, so no value satisfies them. '
+                f'Swap them, or drop one.'
+            )
+            raise ValueError(msg)
+        return self
+
 
 class VariableBlock(_StrictBlock):
     """A declared decision variable."""
