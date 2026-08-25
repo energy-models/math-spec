@@ -134,6 +134,9 @@ parameters:
   Link_efficiency:
     description: share of the flow that arrives at the link's `Link_bus1` end
     dims: [link]
+  Link_efficiency2:
+    description: share of the flow that arrives at the link's `Link_bus2` end — negative where that port consumes
+    dims: [link]
   Link_marginal_cost:
     description: cost of one unit of flow
     dims: [snapshot, link]
@@ -399,6 +402,13 @@ lookups:
     into: bus
   Link_bus1:
     description: the bus a link arrives at
+    over: link
+    into: bus
+  Link_bus2:
+    description: >-
+      a multi-link's second delivery bus. The map is partial — a two-port
+      link has no entry and contributes nothing there — and each further
+      port is one more lookup and one more balance term of this shape
     over: link
     into: bus
   Load_bus:
@@ -1104,9 +1114,9 @@ constraints:
     description: >-
       `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
       stores included, less what the links take away, plus what arrives over
-      them after losses, meets the load there. A bus nothing is attached to
-      has no row; PyPSA refuses one that carries load, and this file does not
-      yet.
+      them after losses at every port they deliver to, meets the load there.
+      A bus nothing is attached to has no row; PyPSA refuses one that
+      carries load, and this file does not yet.
     foreach: [snapshot, bus]
     expression: >-
       sum(Generator_p, by=Generator_bus)
@@ -1114,6 +1124,7 @@ constraints:
       + sum(Store_p, by=Store_bus)
       - sum(Link_p, by=Link_bus0)
       + sum(Link_p * Link_efficiency, by=Link_bus1)
+      + sum(Link_p * Link_efficiency2, by=Link_bus2)
       - sum(Line_s, by=Line_bus0)
       + sum(Line_s, by=Line_bus1)
       == sum(Load_p_set, by=Load_bus)
