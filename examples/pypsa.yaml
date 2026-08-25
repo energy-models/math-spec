@@ -99,6 +99,19 @@ parameters:
   Generator_stand_by_cost:
     description: cost of one snapshot spent on
     dims: [snapshot, generator]
+  Generator_p_nom_mod:
+    description: the module size a build comes in whole numbers of; no value means the build is continuous
+    dims: [generator]
+  Generator_big_m:
+    description: a bound safely above any feasible output — PyPSA's network-wide reduction, data prep
+    dims: [generator]
+  Generator_p_min_pu_nonneg:
+    description: >-
+      true where no committable extendable generator's minimum-per-unit is
+      negative — PyPSA's `(p_min_pu >= 0).all()`, data prep, one answer for
+      the whole network
+    dims: []
+    dtype: bool
   Link_ramp_limit_up:
     description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
     dims: [link]
@@ -444,6 +457,13 @@ variables:
   Store_p:
     description: "`Store-p` — power delivered to the bus; charging is negative"
     foreach: [snapshot, store]
+  Generator_n_mod:
+    description: "`Generator-n_mod` — how many modules of an extendable modular build"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    domain: integer
+    bounds:
+      lower: 0
   Generator_status:
     description: "`Generator-status` — whether a committable unit is on"
     foreach: [snapshot, generator]
@@ -712,6 +732,40 @@ constraints:
       shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
       Generator_ramp_limit_down * Generator_p_nom * Generator_status
       + Generator_ramp_limit_shut_down * Generator_p_nom * Generator_shut_down
+  Generator_p_nom_modularity:
+    description: "`Generator-p_nom_modularity` — the chosen build is a whole number of modules"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    expression: Generator_p_nom_ext == Generator_p_nom_mod * Generator_n_mod
+  Generator_com_ext_p_upper:
+    description: >-
+      `Generator-com-ext-p-upper` — a committed extendable unit outputs at
+      most what is available of the chosen build; off, the big M releases the
+      row
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable
+    expression: >-
+      Generator_p <=
+      Generator_p_max_pu * Generator_p_nom_ext
+      + Generator_big_m * Generator_status - Generator_big_m
+  Generator_com_ext_p_lower:
+    description: >-
+      `Generator-com-ext-p-lower` — a committed extendable unit outputs at
+      least its minimum of the chosen build; off, the big M releases the row
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND not Generator_p_min_pu_nonneg
+    expression: >-
+      Generator_p >=
+      Generator_p_min_pu * Generator_p_nom_ext
+      + Generator_big_m * Generator_status - Generator_big_m
+  Generator_com_ext_p_lower_nonneg:
+    description: >-
+      `Generator-com-ext-p-lower-nonneg` — where no minimum-per-unit is
+      negative an off unit's floor is already nothing, and the lower row
+      keeps output non-negative with no big M
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_min_pu_nonneg
+    expression: Generator_p >= 0
   Line_fix_s_lower:
     description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
     foreach: [snapshot, line]

@@ -110,13 +110,13 @@ each type is three blocks by sense.
 
 | PyPSA                                         | status | note                                                       |
 | --------------------------------------------- | ------ | ---------------------------------------------------------- |
-| `{c}-n_mod`, `{c}-p_nom_modularity`           |        |                                                            |
-| `{c}-*-p_nom-variable-upper`                  |        |                                                            |
-| `{c}-*-p-fixed-upper`, modular                | split  | non-integer `p_nom / p_nom_mod`: PyPSA refuses, see X1     |
-| `{c}-com-mod-p-lower/upper`                   |        |                                                            |
-| `{c}-com-ext-p-*` (big-M)                     | prep   | `M` is a network-wide reduction                            |
-| `{c}-com-ext-p-lower-nonneg`                  | prep   | `(p_min_pu >= 0).all()` is prep                            |
-| `{c}-p-ramp_limit_*-bigM`                     | prep   |                                                            |
+| [`{c}-n_mod`, `{c}-p_nom_modularity`](#generator-p_nom_modularity) | done |                                       |
+| `{c}-*-p_nom-variable-upper`                  | open   | not identified against the pinned source; raised in the PR |
+| `{c}-*-p-fixed-upper`, modular                | open   | non-integer `p_nom / p_nom_mod`: PyPSA refuses, see X1     |
+| `{c}-com-mod-p-lower/upper`                   | open   | not identified against the pinned source; raised in the PR |
+| [`{c}-com-ext-p-*` (big-M)](#generator-com-ext-p-upper) | done | `M` is a network-wide reduction, data prep       |
+| [`{c}-com-ext-p-lower-nonneg`](#generator-com-ext-p-lower-nonneg) | done | `(p_min_pu >= 0).all()` is prep        |
+| `{c}-p-ramp_limit_*-bigM`                     | open   | the exact linearization is unverified; raised in the PR    |
 
 ### Rung 9 — multi-link and delay
 
@@ -193,6 +193,9 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{c}^{\mathrm{up}}$ | `Generator_start_up_cost` over $\mathcal{G}$ — cost of one start |
 | $\mathrm{c}^{\mathrm{dn}}$ | `Generator_shut_down_cost` over $\mathcal{G}$ — cost of one stop |
 | $\mathrm{c}^{\mathrm{on}}$ | `Generator_stand_by_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one snapshot spent on |
+| $\mathrm{p}^{\mathrm{mod}}$ | `Generator_p_nom_mod` over $\mathcal{G}$ — the module size a build comes in whole numbers of; no value means the build is continuous |
+| $\mathrm{M}$ | `Generator_big_m` over $\mathcal{G}$ — a bound safely above any feasible output — PyPSA's network-wide reduction, data prep |
+| $\mathrm{nonneg}$ | `Generator_p_min_pu_nonneg` (scalar) — true where no committable extendable generator's minimum-per-unit is negative — PyPSA's `(p_min_pu >= 0).all()`, data prep, one answer for the whole network |
 | $\mathrm{ru}^{f}$ | `Link_ramp_limit_up` over $\mathcal{L}$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{rd}^{f}$ | `Link_ramp_limit_down` over $\mathcal{L}$ — most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
@@ -290,6 +293,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathit{spill}$ | `StorageUnit_spill` over $\mathcal{T} \times \mathcal{S}$ — `StorageUnit-spill` — inflow passed on unused. Zero where there is no inflow, so the balance keeps its row there; the bounds are PyPSA's, on the variable rather than as rows |
 | $e$ | `Store_e` over $\mathcal{T} \times \mathcal{V}$ — `Store-e` — energy held at the end of a snapshot |
 | $q$ | `Store_p` over $\mathcal{T} \times \mathcal{V}$ — `Store-p` — power delivered to the bus; charging is negative |
+| $N$ | `Generator_n_mod` over $\mathcal{G}$ — `Generator-n_mod` — how many modules of an extendable modular build |
 | $u$ | `Generator_status` over $\mathcal{T} \times \mathcal{G}$ — `Generator-status` — whether a committable unit is on |
 | $\mathit{up}$ | `Generator_start_up` over $\mathcal{T} \times \mathcal{G}$ — `Generator-start_up` — whether a committable unit turns on this snapshot |
 | $\mathit{dn}$ | `Generator_shut_down` over $\mathcal{T} \times \mathcal{G}$ — `Generator-shut_down` — whether a committable unit turns off this snapshot |
@@ -808,6 +812,76 @@ Generator_p_ramp_limit_down_com:
 ```
 
 $$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+
+### `Generator-p_nom_modularity`
+
+`Generator_p_nom_modularity`
+
+```yaml
+Generator_p_nom_modularity:
+  description: "`Generator-p_nom_modularity` — the chosen build is a whole number of modules"
+  foreach: [generator]
+  where: Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  expression: Generator_p_nom_ext == Generator_p_nom_mod * Generator_n_mod
+```
+
+$$P_{g} = \mathrm{p}^{\mathrm{mod}}_{g} \cdot N_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+
+### `Generator-com-ext-p-upper`
+
+`Generator_com_ext_p_upper`
+
+```yaml
+Generator_com_ext_p_upper:
+  description: >-
+    `Generator-com-ext-p-upper` — a committed extendable unit outputs at
+    most what is available of the chosen build; off, the big M releases the
+    row
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable
+  expression: >-
+    Generator_p <=
+    Generator_p_max_pu * Generator_p_nom_ext
+    + Generator_big_m * Generator_status - Generator_big_m
+```
+
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} + \mathrm{M}_{g} \cdot u_{t,g} - \mathrm{M}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g}$$
+
+### `Generator-com-ext-p-lower`
+
+`Generator_com_ext_p_lower`
+
+```yaml
+Generator_com_ext_p_lower:
+  description: >-
+    `Generator-com-ext-p-lower` — a committed extendable unit outputs at
+    least its minimum of the chosen build; off, the big M releases the row
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND not Generator_p_min_pu_nonneg
+  expression: >-
+    Generator_p >=
+    Generator_p_min_pu * Generator_p_nom_ext
+    + Generator_big_m * Generator_status - Generator_big_m
+```
+
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} + \mathrm{M}_{g} \cdot u_{t,g} - \mathrm{M}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \mathrm{nonneg}$$
+
+### `Generator-com-ext-p-lower-nonneg`
+
+`Generator_com_ext_p_lower_nonneg`
+
+```yaml
+Generator_com_ext_p_lower_nonneg:
+  description: >-
+    `Generator-com-ext-p-lower-nonneg` — where no minimum-per-unit is
+    negative an off unit's floor is already nothing, and the lower row
+    keeps output non-negative with no big M
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_min_pu_nonneg
+  expression: Generator_p >= 0
+```
+
+$$p_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg}$$
 
 ### `Line-fix-s-lower`
 
@@ -1733,6 +1807,10 @@ $$e_{t,v} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \
 **`Store_p`**
 
 $$q_{t,v} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V}$$
+
+**`Generator_n_mod`**
+
+$$N_{g} \ge 0, N_{g} \in \mathbb{Z} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
 
 **`Generator_status`**
 

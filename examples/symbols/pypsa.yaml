@@ -38,6 +38,10 @@ names:
   Generator_start_up_cost: '\mathrm{c}^{\mathrm{up}}'
   Generator_shut_down_cost: '\mathrm{c}^{\mathrm{dn}}'
   Generator_stand_by_cost: '\mathrm{c}^{\mathrm{on}}'
+  Generator_p_nom_mod: '\mathrm{p}^{\mathrm{mod}}'
+  Generator_n_mod: "N"
+  Generator_big_m: '\mathrm{M}'
+  Generator_p_min_pu_nonneg: '\mathrm{nonneg}'
   Link_ramp_limit_up: '\mathrm{ru}^{f}'
   Link_ramp_limit_down: '\mathrm{rd}^{f}'
   Link_p: f
