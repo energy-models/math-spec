@@ -86,7 +86,7 @@ variables:
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------- |
 | `foreach`                       | required — the dim signature                                                                                           |                        |
 | `where`                         | which coordinates exist ([absence](absence.md))                                                                        | default `null`         |
-| `bounds.lower` / `bounds.upper` | a number, or the name of a parameter                                                                                   | default `-inf` / `inf` |
+| `bounds.lower` / `bounds.upper` | a number, or the name of a `float` or `int` parameter                                                                  | default `-inf` / `inf` |
 | `domain`                        | `continuous`, `integer` or `binary` — which carries fixed 0/1 bounds                                                   | default `continuous`   |
 | `absence`                       | `undefined` or `zero` — what the masked-out coordinates _mean_ ([absence](absence.md#what-a-missing-coordinate-means)) | default `undefined`    |
 | `description`                   | free text                                                                                                              | default `null`         |

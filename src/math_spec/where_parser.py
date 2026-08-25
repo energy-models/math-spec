@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 import pyparsing as pp
 
 from math_spec.errors import SchemaError
+from math_spec.expression_parser import REAL
 
 if TYPE_CHECKING:
     import datetime
@@ -305,7 +306,7 @@ def _build_where_grammar() -> pp.ParserElement:
     false_lit = pp.CaselessKeyword('False').set_parse_action(lambda: BooleanLiteralNode(False))
 
     # pyrefly: ignore[implicit-any-lambda]
-    real = pp.Regex(r'-?\d+\.\d*([eE][+-]?\d+)?').set_parse_action(lambda t: float(t[0]))
+    real = pp.Regex(f'-?({REAL})').set_parse_action(lambda t: float(t[0]))
     # pyrefly: ignore[implicit-any-lambda]
     integer = pp.Regex(r'-?\d+').set_parse_action(lambda t: float(t[0]))
     number = real | integer

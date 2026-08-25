@@ -540,6 +540,11 @@ class TestDeclarationRules:
                 id='a-bound-naming-nothing',
             ),
             pytest.param(
+                {'variables.p.bounds.upper': 'flag'},
+                ("bounds.upper: 'flag' is a bool parameter, and a bound is a number",),
+                id='a-bound-naming-a-flag',
+            ),
+            pytest.param(
                 {'variables.p.boundz': {'lower': 0}},
                 ("unknown key 'boundz'", 'bounds'),
                 id='a-misspelt-key-names-the-near-miss',
@@ -586,6 +591,24 @@ class TestDeclarationRules:
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(p, over=g, by=lk)'}}, ('at most one of',), id='over-and-by-together'
+            ),
+            pytest.param(
+                {
+                    'parameters.off': {'dims': [], 'dtype': 'int'},
+                    'objective': {'expression': 'sum(shift(p, over=g, offset=off + 0), over=g)'},
+                },
+                ('shift(offset=) takes a number or the name of an integer parameter, not an expression',),
+                id='an-amount-that-is-an-expression',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum_back(p, over=g, within=2 * 1), over=g)'}},
+                ('sum_back(within=) takes a number or the name of an integer parameter',),
+                id='a-width-that-is-an-expression',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=1 + 1), over=g)'}},
+                ('shift(edge=) is an expression, and an edge is the keyword',),
+                id='an-edge-that-is-an-expression',
             ),
             pytest.param(
                 {'lookups.hk': {'over': 'h', 'into': 'g'}, 'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'}},

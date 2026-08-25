@@ -275,9 +275,9 @@ def _build_grammar() -> pp.ParserElement:
     arith = pp.Forward()
 
     # pyrefly: ignore[implicit-any-lambda]
-    integer = pp.Regex(r'-?\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
+    integer = pp.Regex(r'\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
     # pyrefly: ignore[implicit-any-lambda]
-    real = pp.Regex(r'\d+\.\d*([eE][+-]?\d+)?').set_parse_action(lambda t: NumberNode(float(t[0])))
+    real = pp.Regex(REAL).set_parse_action(lambda t: NumberNode(float(t[0])))
     inf_literal = (pp.Keyword('.inf') | pp.Keyword('inf')).set_parse_action(lambda: NumberNode(float('inf')))
     number = real | inf_literal | integer
 
@@ -296,13 +296,12 @@ def _build_grammar() -> pp.ParserElement:
     name_node = name.copy().set_parse_action(lambda t: NameNode(t[0]))
     atom = func_call | number | name_node | (pp.Suppress('(') + arith + pp.Suppress(')'))
 
+    unary = pp.Forward()
+    power = (atom + pp.Optional(pp.Literal('**') + unary)).set_parse_action(_make_power)
     # pyrefly: ignore[implicit-any-lambda]
-    unary = (pp.one_of('+ -') + atom).set_parse_action(lambda t: UnaryOperatorNode(t[0], t[1])) | atom
+    unary <<= (pp.one_of('+ -') + unary).set_parse_action(lambda t: UnaryOperatorNode(t[0], t[1])) | power
 
-    power = unary + pp.ZeroOrMore(pp.Literal('**') + unary)
-    power.set_parse_action(_make_right_assoc)
-
-    mul_div = power + pp.ZeroOrMore(pp.one_of('* /') + power)
+    mul_div = unary + pp.ZeroOrMore(pp.one_of('* /') + unary)
     mul_div.set_parse_action(_make_left_assoc)
 
     add_sub = mul_div + pp.ZeroOrMore(pp.one_of('+ -') + mul_div)
@@ -328,6 +327,9 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
     for item in tokens[1:]:
         if isinstance(item, tuple) and len(item) == 2:
             k, v = item
+            if k in kwargs:
+                msg = f'{name}({k}=) is given twice. A keyword names one value; drop one of them.'
+                raise SchemaError(msg)
             kwargs[k] = v
         else:
             args.append(item)
@@ -347,23 +349,16 @@ def _make_left_assoc(tokens: pp.ParseResults) -> Any:
     return result
 
 
-def _make_right_assoc(tokens: pp.ParseResults) -> Any:
-    """Fold tokens into right-associative BinaryOperatorNode chain (for **).
-
-    Right-associative: ``a ** b ** c`` is ``a ** (b ** c)``.
-    """
+def _make_power(tokens: pp.ParseResults) -> Any:
+    """A base and at most one exponent — right-associative, since the exponent is itself a ``unary``."""
     items = list(tokens)
-    if len(items) == 1:
-        return items[0]
-    result = items[-1]
-    i = len(items) - 3
-    while i >= 0:
-        op = items[i + 1]
-        left = items[i]
-        result = BinaryOperatorNode(op, left, result)
-        i -= 2
-    return result
+    return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
+
+#: A number with a fractional part or an exponent; a bare run of digits is the
+#: integer rule. Signs are the unary operator's, so ``-2`` is one node over
+#: another and a coefficient's sign is read where every other sign is.
+REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
 
 _GRAMMAR = _build_grammar()
 

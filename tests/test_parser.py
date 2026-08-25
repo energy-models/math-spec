@@ -78,6 +78,39 @@ def test_an_unparseable_expression_is_an_error():
         parse_expression('a +')
 
 
+def test_a_negation_is_over_the_power_not_under_it():
+    """`-a ** 2` is `-(a ** 2)`, as in every language a modeller has met — a
+    file writing `-cost ** 2` means minus the square, not the square of minus."""
+    node = parse_expression('-a ** 2')
+    assert isinstance(node, UnaryOperatorNode) and node.op == '-'
+    assert isinstance(node.operand, BinaryOperatorNode) and node.operand.op == '**'
+
+
+def test_a_negation_binds_tighter_than_a_product():
+    node = parse_expression('-a * b')
+    assert node.op == '*'
+    assert isinstance(node.left, UnaryOperatorNode)
+
+
+def test_an_exponent_may_be_negated_and_a_negation_stacked():
+    assert parse_expression('2 ** -1').right == UnaryOperatorNode('-', NumberNode(1))
+    assert parse_expression('--x') == UnaryOperatorNode('-', UnaryOperatorNode('-', NameNode('x')))
+
+
+def test_a_keyword_given_twice_is_refused_not_overwritten():
+    with pytest.raises(SchemaError, match='sum\\(over=\\) is given twice'):
+        parse_expression('sum(p, over=snapshot, over=generator)')
+
+
+@pytest.mark.parametrize(
+    ('text', 'value'),
+    [('1e5', 1e5), ('2.5E-3', 2.5e-3), ('1e+3', 1e3), ('7.e2', 700.0)],
+)
+def test_scientific_notation_is_a_number(text, value):
+    assert parse_expression(text) == NumberNode(value)
+    assert parse_where(f'p > {text}').value == value
+
+
 @pytest.mark.parametrize('spelling', ['inf', '.inf'])
 def test_inf_is_a_literal(spelling):
     """Both spellings, since `bounds: {upper: .inf}` is how YAML writes it."""

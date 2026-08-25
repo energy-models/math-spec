@@ -45,6 +45,7 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
+from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
     BUILTINS,
     EDGE_WRAP,
@@ -285,7 +286,7 @@ def _resolve_arith(
                 return VariableNode(node.name)
             case 'parameter':
                 dtype = ns.dtypes.get(node.name)
-                if not amount and dtype is not None and dtype not in _NUMERIC_DTYPES:
+                if not amount and dtype is not None and dtype not in NUMERIC_DTYPES:
                     errors.append(_not_a_number(node.name, dtype, context))
                     return node
                 return ParameterNode(node.name)
@@ -338,7 +339,7 @@ def _resolve_arith(
             elif key in builtin.lookup_kwargs:
                 kwargs[key] = _resolve_lookup_ref(value, ns, context, node.name, key, errors)
             else:
-                kwargs[key] = _resolve_arith(value, ns, context, errors, amount=True)
+                kwargs[key] = _resolve_amount(value, ns, context, node.name, key, errors)
         return FunctionCallNode(node.name, args, kwargs)
 
     if isinstance(node, KeywordNode):
@@ -364,9 +365,6 @@ def _resolve_arith(
 #: only these two bind a column there is arithmetic for — a ``str`` is a label
 #: and a ``bool`` is a mask, both of them data a file *selects* with rather than
 #: data it scales by.
-_NUMERIC_DTYPES = frozenset({'float', 'int'})
-
-
 def _not_a_number(name: str, dtype: str, context: str) -> str:
     """Why a ``str`` or ``bool`` parameter is refused where a value belongs.
 
@@ -407,6 +405,26 @@ def _undeclared_dim(context: str, operator: str, shown: str, name: str, ns: Name
     )
 
 
+def _resolve_amount(
+    value: ArithmeticNode, ns: Namespace, context: str, operator: str, key: str, errors: list[str]
+) -> ArithmeticNode:
+    """Resolve ``offset=`` or ``within=``: a number, or the name of a parameter.
+
+    The shape is closed here so that the rules a named amount is held to
+    (:func:`math_spec.dimensions._check_named_amount`) see every parameter an
+    amount carries — an expression could hide one inside arithmetic, and a
+    count of positions is not something the file computes.
+    """
+    literal = value.operand if isinstance(value, UnaryOperatorNode) else value
+    if not isinstance(literal, NumberNode | NameNode):
+        errors.append(
+            f'{context}: {operator}({key}=) takes a number or the name of an integer parameter, '
+            f'not an expression. Precompute it as a parameter.'
+        )
+        return value
+    return _resolve_arith(value, ns, context, errors, amount=True)
+
+
 def _resolve_edge(
     value: ArithmeticNode,
     context: str,
@@ -439,6 +457,12 @@ def _resolve_edge(
             return value
         errors.append(f'{context}: {edge_error(operator, value.name)}')
         return value
+    literal = value.operand if isinstance(value, UnaryOperatorNode) else value
+    if not isinstance(literal, NumberNode):
+        errors.append(
+            f"{context}: {operator}(edge=) is an expression, and an edge is the keyword '{EDGE_WRAP}' "
+            f'or a number. Write the number itself.'
+        )
     return value
 
 
