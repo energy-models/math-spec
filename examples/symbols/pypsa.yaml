@@ -11,6 +11,8 @@ dimensions:
   generator: { index: g, set: '\mathcal{G}' }
   link: { index: l, set: '\mathcal{L}' }
   load: { index: d, set: '\mathcal{D}' }
+  storage_unit: { index: s, set: '\mathcal{S}' }
+  store: { index: v, set: '\mathcal{V}' }
 names:
   snapshot_weightings_objective: '\mathrm{w}'
   Generator_p: p
@@ -27,3 +29,38 @@ names:
   Link_efficiency: '\eta'
   Link_marginal_cost: '\mathrm{c}^{f}'
   Load_p_set: '\mathrm{load}'
+  Generator_p_set: '\mathrm{p}^{\mathrm{set}}'
+  Link_p_set: '\mathrm{f}^{\mathrm{set}}'
+  snapshot_weightings_stores: '\mathrm{w}^{\mathrm{sto}}'
+  StorageUnit_p_dispatch: "h^{+}"
+  StorageUnit_p_store: "h^{-}"
+  StorageUnit_state_of_charge: '\mathit{soc}'
+  StorageUnit_spill: '\mathit{spill}'
+  StorageUnit_p_nom: '\mathrm{h}^{\mathrm{nom}}'
+  StorageUnit_p_nom_extendable: '\mathrm{ext}^{h}'
+  StorageUnit_p_min_pu: '\underline{\mathrm{h}}'
+  StorageUnit_p_max_pu: '\overline{\mathrm{h}}'
+  StorageUnit_max_hours: '\mathrm{T}^{h}'
+  StorageUnit_efficiency_store: '\eta^{-}'
+  StorageUnit_efficiency_dispatch: '\eta^{+}'
+  StorageUnit_retention: '\rho'
+  StorageUnit_inflow: '\mathrm{inflow}'
+  StorageUnit_state_of_charge_initial: '\mathrm{soc}^{0}'
+  StorageUnit_cyclic_state_of_charge: '\mathrm{cyc}'
+  StorageUnit_marginal_cost: '\mathrm{c}^{h}'
+  StorageUnit_marginal_cost_storage: '\mathrm{c}^{\mathrm{soc}}'
+  StorageUnit_spill_cost: '\mathrm{c}^{\mathrm{spill}}'
+  StorageUnit_p_set: '\mathrm{h}^{\mathrm{set}}'
+  StorageUnit_state_of_charge_set: '\mathrm{soc}^{\mathrm{set}}'
+  Store_e: "e"
+  Store_p: "q"
+  Store_e_nom: '\mathrm{e}^{\mathrm{nom}}'
+  Store_e_nom_extendable: '\mathrm{ext}^{e}'
+  Store_e_min_pu: '\underline{\mathrm{e}}'
+  Store_e_max_pu: '\overline{\mathrm{e}}'
+  Store_retention: '\rho^{e}'
+  Store_e_initial: '\mathrm{e}^{0}'
+  Store_e_cyclic: '\mathrm{cyc}^{e}'
+  Store_marginal_cost: '\mathrm{c}^{q}'
+  Store_marginal_cost_storage: '\mathrm{c}^{e}'
+  Store_e_set: '\mathrm{e}^{\mathrm{set}}'
