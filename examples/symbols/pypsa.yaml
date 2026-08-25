@@ -13,6 +13,8 @@ dimensions:
   load: { index: d, set: '\mathcal{D}' }
   storage_unit: { index: s, set: '\mathcal{S}' }
   store: { index: v, set: '\mathcal{V}' }
+  line: { index: k, set: '\mathcal{K}' }
+  cycle: { index: c, set: '\mathcal{C}' }
 names:
   snapshot_weightings_objective: '\mathrm{w}'
   Generator_p: p
@@ -60,6 +62,17 @@ names:
   Store_e_nom_max: '\overline{\mathrm{e}}^{\mathrm{nom}}'
   Store_capital_cost: '\mathrm{c}^{\mathrm{cap},e}'
   Store_e_nom_set: '\mathrm{e}^{\mathrm{nom,set}}'
+  Line_s: "s"
+  Line_s_nom_ext: "S"
+  Line_s_nom: '\mathrm{s}^{\mathrm{nom}}'
+  Line_s_nom_extendable: '\mathrm{ext}^{s}'
+  Line_s_max_pu: '\overline{\mathrm{s}}'
+  Line_s_nom_min: '\underline{\mathrm{s}}^{\mathrm{nom}}'
+  Line_s_nom_max: '\overline{\mathrm{s}}^{\mathrm{nom}}'
+  Line_capital_cost: '\mathrm{c}^{\mathrm{cap},s}'
+  Line_s_nom_set: '\mathrm{s}^{\mathrm{nom,set}}'
+  Line_s_set: '\mathrm{s}^{\mathrm{set}}'
+  Line_cycle_weight: '\mathrm{x}'
   StorageUnit_p_dispatch: "h^{+}"
   StorageUnit_p_store: "h^{-}"
   StorageUnit_state_of_charge: '\mathit{soc}'

@@ -28,6 +28,10 @@ dimensions:
     description: storage units, dispatch and store behind one bus connection
   store:
     description: pure energy stores, each on one bus
+  line:
+    description: passive branches, each between two buses, their flow set by impedance
+  cycle:
+    description: independent cycles of the passive network graph — the cycle basis, data prep
 
 parameters:
   snapshot_weightings_objective:
@@ -235,6 +239,36 @@ parameters:
   Store_e_set:
     description: a given energy schedule; a store without one has no row here
     dims: [snapshot, store]
+  Line_s_nom:
+    description: nominal apparent power
+    dims: [line]
+  Line_s_nom_extendable:
+    description: whether the nominal apparent power is a decision
+    dims: [line]
+    dtype: bool
+  Line_s_max_pu:
+    description: most flow either way, per unit of nominal apparent power
+    dims: [snapshot, line]
+  Line_s_nom_min:
+    description: least nominal apparent power an extendable line may be built at
+    dims: [line]
+  Line_s_nom_max:
+    description: most nominal apparent power an extendable line may be built at
+    dims: [line]
+  Line_capital_cost:
+    description: cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [line]
+  Line_s_nom_set:
+    description: a given nominal apparent power for an extendable line; one without a value has no row here
+    dims: [line]
+  Line_s_set:
+    description: a given flow schedule; a line without one has no row here
+    dims: [snapshot, line]
+  Line_cycle_weight:
+    description: >-
+      the line's series impedance, signed by its orientation in the cycle —
+      the cycle basis, data prep; a line in no cycle has no row
+    dims: [line, cycle]
 
 lookups:
   Generator_bus:
@@ -256,6 +290,14 @@ lookups:
   StorageUnit_bus:
     description: the bus a storage unit sits on
     over: storage_unit
+    into: bus
+  Line_bus0:
+    description: the bus a line's flow is measured at
+    over: line
+    into: bus
+  Line_bus1:
+    description: the bus at a line's other end
+    over: line
     into: bus
   Store_bus:
     description: the bus a store sits on
@@ -297,6 +339,17 @@ variables:
   Store_p:
     description: "`Store-p` — power delivered to the bus; charging is negative"
     foreach: [snapshot, store]
+  Line_s:
+    description: >-
+      `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a
+      positive value withdraws there and injects at `Line_bus1`, lossless
+    foreach: [snapshot, line]
+  Line_s_nom_ext:
+    description: >-
+      `Line-s_nom` — nominal apparent power where it is a decision; the
+      parameter of the same PyPSA name carries the fixed regime
+    foreach: [line]
+    where: Line_s_nom_extendable
   Generator_p_nom_ext:
     description: >-
       `Generator-p_nom` — nominal power where it is a decision; the parameter
@@ -435,6 +488,53 @@ constraints:
     foreach: [snapshot, storage_unit]
     where: not StorageUnit_p_nom_extendable
     expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom
+  Line_fix_s_lower:
+    description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
+    foreach: [snapshot, line]
+    where: not Line_s_nom_extendable
+    expression: Line_s >= -Line_s_max_pu * Line_s_nom
+  Line_fix_s_upper:
+    description: "`Line-fix-s-upper` — a fixed line carries at most its rating"
+    foreach: [snapshot, line]
+    where: not Line_s_nom_extendable
+    expression: Line_s <= Line_s_max_pu * Line_s_nom
+  Line_ext_s_lower:
+    description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
+    foreach: [snapshot, line]
+    where: Line_s_nom_extendable
+    expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
+  Line_ext_s_upper:
+    description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
+    foreach: [snapshot, line]
+    where: Line_s_nom_extendable
+    expression: Line_s <= Line_s_max_pu * Line_s_nom_ext
+  Line_ext_s_nom_lower:
+    description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
+    foreach: [line]
+    where: Line_s_nom_extendable
+    expression: Line_s_nom_ext >= Line_s_nom_min
+  Line_ext_s_nom_upper:
+    description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [line]
+    where: Line_s_nom_extendable AND Line_s_nom_max
+    expression: Line_s_nom_ext <= Line_s_nom_max
+  Line_s_nom_set:
+    description: "`Line-s_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [line]
+    where: Line_s_nom_extendable AND Line_s_nom_set
+    expression: Line_s_nom_ext == Line_s_nom_set
+  Line_s_set:
+    description: "`Line-s_set` — flow pinned to the given schedule, wherever one is given"
+    foreach: [snapshot, line]
+    where: Line_s_set
+    expression: Line_s == Line_s_set
+  Kirchhoff_Voltage_Law:
+    description: >-
+      `Kirchhoff-Voltage-Law` — around every independent cycle the
+      impedance-weighted flows sum to nothing, which is what makes the linear
+      power flow physical rather than transport
+    foreach: [snapshot, cycle]
+    expression: sum(Line_s * Line_cycle_weight, over=line) == 0
   Generator_p_ramp_limit_up_fix:
     description: >-
       `Generator-p-ramp_limit_up` — a fixed generator raises output no faster
@@ -661,6 +761,8 @@ constraints:
       + sum(Store_p, by=Store_bus)
       - sum(Link_p, by=Link_bus0)
       + sum(Link_p * Link_efficiency, by=Link_bus1)
+      - sum(Line_s, by=Line_bus0)
+      + sum(Line_s, by=Line_bus1)
       == sum(Load_p_set, by=Load_bus)
 
 objective:
@@ -678,3 +780,4 @@ objective:
     + sum(Link_p_nom_ext * Link_capital_cost)
     + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost)
     + sum(Store_e_nom_ext * Store_capital_cost)
+    + sum(Line_s_nom_ext * Line_capital_cost)

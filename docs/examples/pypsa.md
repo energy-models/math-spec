@@ -50,14 +50,14 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 | [`StorageUnit-fix-*`](#storageunit-fix-p_dispatch-lower), [`Store-fix-e-*`](#store-fix-e-lower) | done |                                 |
 | [`StorageUnit-energy_balance`](#storageunit-energy_balance) | done | three blocks: carried / initial / cyclic; `(1-loss)**eh` is prep |
 | [`Store-energy_balance`](#store-energy_balance)       | done   | same                                                          |
-| [`StorageUnit-p_set`](#storageunit-p_set), [`{c}-{attr}_set`](#generator-p_set) | done | `Generator-p_set`, `Link-p_set`, `StorageUnit-state_of_charge_set`, `Store-e_set` |
+| [`StorageUnit-p_set`](#storageunit-p_set), [`{c}-{attr}_set`](#generator-p_set) | done | `Generator-p_set`, `Link-p_set`, `StorageUnit-state_of_charge_set`, `Store-e_set`, `Line-s_set` |
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 ### Rung 3 — expansion
 
 | PyPSA                            | status | note                                        |
 | -------------------------------- | ------ | ------------------------------------------- |
-| [`{c}-p_nom`, `-s_nom`, `-e_nom`](#variable-domains) | done | `{c}_p_nom_ext` here — the fixed regime keeps the parameter; `Line-s_nom` lands with rung 6 |
+| [`{c}-p_nom`, `-s_nom`, `-e_nom`](#variable-domains) | done | `{c}_p_nom_ext` here — the fixed regime keeps the parameter |
 | [`{c}-ext-{attr}-lower/upper`](#generator-ext-p-lower) | done |                                           |
 | [`{c}-ext-p_nom-lower/upper`](#generator-ext-p_nom-lower) | done | a cap of infinity is no row            |
 | [`{c}-p_nom_set`](#generator-p_nom_set) | done |                                                      |
@@ -90,8 +90,8 @@ each type is three blocks by sense.
 
 | PyPSA                   | status | note                              |
 | ----------------------- | ------ | --------------------------------- |
-| `Line-s`, `Line-fix-s-*` |       |                                   |
-| `Kirchhoff-Voltage-Law` | prep   | the cycle basis is data prep      |
+| [`Line-s`](#variable-domains), [`Line-fix-s-*`](#line-fix-s-lower) | done | the ext and nominal rows sit under rung 3's pattern |
+| [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 ### Rung 7 — commitment
 
@@ -167,6 +167,8 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathcal{D}$ | index $d$ — `load` with $\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}$ — demands, each on one bus |
 | $\mathcal{S}$ | index $s$ — `storage_unit` with $\mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}$ — storage units, dispatch and store behind one bus connection |
 | $\mathcal{V}$ | index $v$ — `store` with $\mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}$ — pure energy stores, each on one bus |
+| $\mathcal{K}$ | index $k$ — `line` with $\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\enspace \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}$ — passive branches, each between two buses, their flow set by impedance |
+| $\mathcal{C}$ | index $c$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
 
 #### Parameters
 
@@ -238,6 +240,15 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{c}^{q}$ | `Store_marginal_cost` over $\mathcal{T} \times \mathcal{V}$ — cost of one unit of power delivered |
 | $\mathrm{c}^{e}$ | `Store_marginal_cost_storage` over $\mathcal{T} \times \mathcal{V}$ — cost of one unit of energy held over one snapshot |
 | $\mathrm{e}^{\mathrm{set}}$ | `Store_e_set` over $\mathcal{T} \times \mathcal{V}$ — a given energy schedule; a store without one has no row here |
+| $\mathrm{s}^{\mathrm{nom}}$ | `Line_s_nom` over $\mathcal{K}$ — nominal apparent power |
+| $\mathrm{ext}^{s}$ | `Line_s_nom_extendable` over $\mathcal{K}$ — whether the nominal apparent power is a decision |
+| $\overline{\mathrm{s}}$ | `Line_s_max_pu` over $\mathcal{T} \times \mathcal{K}$ — most flow either way, per unit of nominal apparent power |
+| $\underline{\mathrm{s}}^{\mathrm{nom}}$ | `Line_s_nom_min` over $\mathcal{K}$ — least nominal apparent power an extendable line may be built at |
+| $\overline{\mathrm{s}}^{\mathrm{nom}}$ | `Line_s_nom_max` over $\mathcal{K}$ — most nominal apparent power an extendable line may be built at |
+| $\mathrm{c}^{\mathrm{cap},s}$ | `Line_capital_cost` over $\mathcal{K}$ — cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $\mathrm{s}^{\mathrm{nom,set}}$ | `Line_s_nom_set` over $\mathcal{K}$ — a given nominal apparent power for an extendable line; one without a value has no row here |
+| $\mathrm{s}^{\mathrm{set}}$ | `Line_s_set` over $\mathcal{T} \times \mathcal{K}$ — a given flow schedule; a line without one has no row here |
+| $\mathrm{x}$ | `Line_cycle_weight` over $\mathcal{K} \times \mathcal{C}$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
 
 #### Variables
 
@@ -251,6 +262,8 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathit{spill}$ | `StorageUnit_spill` over $\mathcal{T} \times \mathcal{S}$ — `StorageUnit-spill` — inflow passed on unused. Zero where there is no inflow, so the balance keeps its row there; the bounds are PyPSA's, on the variable rather than as rows |
 | $e$ | `Store_e` over $\mathcal{T} \times \mathcal{V}$ — `Store-e` — energy held at the end of a snapshot |
 | $q$ | `Store_p` over $\mathcal{T} \times \mathcal{V}$ — `Store-p` — power delivered to the bus; charging is negative |
+| $s$ | `Line_s` over $\mathcal{T} \times \mathcal{K}$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
+| $S$ | `Line_s_nom_ext` over $\mathcal{K}$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $F$ | `Link_p_nom_ext` over $\mathcal{L}$ — `Link-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $H$ | `StorageUnit_p_nom_ext` over $\mathcal{S}$ — `StorageUnit-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
@@ -278,9 +291,10 @@ objective:
     + sum(Link_p_nom_ext * Link_capital_cost)
     + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost)
     + sum(Store_e_nom_ext * Store_capital_cost)
+    + sum(Line_s_nom_ext * Line_capital_cost)
 ```
 
-$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v}$$
+$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k}$$
 
 ### `Generator-fix-p-lower`
 
@@ -591,6 +605,134 @@ StorageUnit_fix_state_of_charge_upper:
 ```
 
 $$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `Line-fix-s-lower`
+
+`Line_fix_s_lower`
+
+```yaml
+Line_fix_s_lower:
+  description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
+  foreach: [snapshot, line]
+  where: not Line_s_nom_extendable
+  expression: Line_s >= -Line_s_max_pu * Line_s_nom
+```
+
+$$s_{t,k} \ge \left( -\overline{\mathrm{s}}_{t,k} \right) \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \neg \mathrm{ext}^{s}_{k}$$
+
+### `Line-fix-s-upper`
+
+`Line_fix_s_upper`
+
+```yaml
+Line_fix_s_upper:
+  description: "`Line-fix-s-upper` — a fixed line carries at most its rating"
+  foreach: [snapshot, line]
+  where: not Line_s_nom_extendable
+  expression: Line_s <= Line_s_max_pu * Line_s_nom
+```
+
+$$s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \neg \mathrm{ext}^{s}_{k}$$
+
+### `Line-ext-s-lower`
+
+`Line_ext_s_lower`
+
+```yaml
+Line_ext_s_lower:
+  description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
+  foreach: [snapshot, line]
+  where: Line_s_nom_extendable
+  expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
+```
+
+$$s_{t,k} \ge \left( -\overline{\mathrm{s}}_{t,k} \right) \cdot S_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
+
+### `Line-ext-s-upper`
+
+`Line_ext_s_upper`
+
+```yaml
+Line_ext_s_upper:
+  description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
+  foreach: [snapshot, line]
+  where: Line_s_nom_extendable
+  expression: Line_s <= Line_s_max_pu * Line_s_nom_ext
+```
+
+$$s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
+
+### `Line-ext-s_nom-lower`
+
+`Line_ext_s_nom_lower`
+
+```yaml
+Line_ext_s_nom_lower:
+  description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
+  foreach: [line]
+  where: Line_s_nom_extendable
+  expression: Line_s_nom_ext >= Line_s_nom_min
+```
+
+$$S_{k} \ge \underline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
+
+### `Line-ext-s_nom-upper`
+
+`Line_ext_s_nom_upper`
+
+```yaml
+Line_ext_s_nom_upper:
+  description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [line]
+  where: Line_s_nom_extendable AND Line_s_nom_max
+  expression: Line_s_nom_ext <= Line_s_nom_max
+```
+
+$$S_{k} \le \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k} \wedge \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \text{ is defined}$$
+
+### `Line-s_nom_set`
+
+`Line_s_nom_set`
+
+```yaml
+Line_s_nom_set:
+  description: "`Line-s_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [line]
+  where: Line_s_nom_extendable AND Line_s_nom_set
+  expression: Line_s_nom_ext == Line_s_nom_set
+```
+
+$$S_{k} = \mathrm{s}^{\mathrm{nom,set}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k} \wedge \mathrm{s}^{\mathrm{nom,set}}_{k} \text{ is defined}$$
+
+### `Line-s_set`
+
+`Line_s_set`
+
+```yaml
+Line_s_set:
+  description: "`Line-s_set` — flow pinned to the given schedule, wherever one is given"
+  foreach: [snapshot, line]
+  where: Line_s_set
+  expression: Line_s == Line_s_set
+```
+
+$$s_{t,k} = \mathrm{s}^{\mathrm{set}}_{t,k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{s}^{\mathrm{set}}_{t,k} \text{ is defined}$$
+
+### `Kirchhoff-Voltage-Law`
+
+`Kirchhoff_Voltage_Law`
+
+```yaml
+Kirchhoff_Voltage_Law:
+  description: >-
+    `Kirchhoff-Voltage-Law` — around every independent cycle the
+    impedance-weighted flows sum to nothing, which is what makes the linear
+    power flow physical rather than transport
+  foreach: [snapshot, cycle]
+  expression: sum(Line_s * Line_cycle_weight, over=line) == 0
+```
+
+$$\sum_{k \in \mathcal{K}} s_{t,k} \cdot \mathrm{x}_{k,c} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace c \in \mathcal{C}$$
 
 ### `Generator-p-ramp_limit_up`
 
@@ -1138,10 +1280,12 @@ Bus_nodal_balance:
     + sum(Store_p, by=Store_bus)
     - sum(Link_p, by=Link_bus0)
     + sum(Link_p * Link_efficiency, by=Link_bus1)
+    - sum(Line_s, by=Line_bus0)
+    + sum(Line_s, by=Line_bus1)
     == sum(Load_p_set, by=Load_bus)
 ```
 
-$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{Generator\_bus}(g) = n} p_{t,g} + \sum_{s \in \mathcal{S} \thinspace:\thinspace \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{t,s} - h^{-}_{t,s} \right) + \sum_{v \in \mathcal{V} \thinspace:\thinspace \mathrm{Store\_bus}(v) = n} q_{t,v} - \left( \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus0}(l) = n} f_{t,l} \right) + \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus1}(l) = n} f_{t,l} \cdot \eta_{l} = \sum_{d \in \mathcal{D} \thinspace:\thinspace \mathrm{Load\_bus}(d) = n} \mathrm{load}_{t,d} \qquad \forall\thinspace t \in \mathcal{T},\enspace n \in \mathcal{N}$$
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{Generator\_bus}(g) = n} p_{t,g} + \sum_{s \in \mathcal{S} \thinspace:\thinspace \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{t,s} - h^{-}_{t,s} \right) + \sum_{v \in \mathcal{V} \thinspace:\thinspace \mathrm{Store\_bus}(v) = n} q_{t,v} - \left( \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus0}(l) = n} f_{t,l} \right) + \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus1}(l) = n} f_{t,l} \cdot \eta_{l} - \left( \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus0}(k) = n} s_{t,k} \right) + \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus1}(k) = n} s_{t,k} = \sum_{d \in \mathcal{D} \thinspace:\thinspace \mathrm{Load\_bus}(d) = n} \mathrm{load}_{t,d} \qquad \forall\thinspace t \in \mathcal{T},\enspace n \in \mathcal{N}$$
 
 #### Variable domains
 
@@ -1176,6 +1320,14 @@ $$e_{t,v} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \
 **`Store_p`**
 
 $$q_{t,v} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V}$$
+
+**`Line_s`**
+
+$$s_{t,k} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K}$$
+
+**`Line_s_nom_ext`**
+
+$$S_{k} \in \mathbb{R} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
 
 **`Generator_p_nom_ext`**
 
