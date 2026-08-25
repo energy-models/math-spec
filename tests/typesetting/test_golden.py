@@ -46,7 +46,7 @@ def test_the_output_matches_the_committed_golden_file(name: str):
     expected = golden.path_for(name)
     actual = typeset(golden.MODEL, FORMATS[name], standalone=True)
     assert actual == expected.read_text(), (
-        f'{expected.relative_to(Path.cwd())} is stale.\n'
+        f'tests/typesetting/golden/{expected.name} is stale.\n'
         f'If the change was intended: `pixi run python -m tests.typesetting.golden`, then read the diff.'
     )
 
@@ -232,7 +232,15 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
     render = tmp_path / 'render.py'
     render.write_text(f'from math_spec import to_latex\nto_latex({str(golden.MODEL)!r})\n')
     subprocess.run(
-        [sys.executable, '-m', 'coverage', 'run', f'--data-file={data}', '--include=*/typeset/walk.py', str(render)],
+        [
+            sys.executable,
+            '-m',
+            'coverage',
+            'run',
+            f'--data-file={data}',
+            f'--source={Path(walk.__file__).parent}',
+            str(render),
+        ],
         check=True,
     )
     measured = coverage.Coverage(data_file=str(data))

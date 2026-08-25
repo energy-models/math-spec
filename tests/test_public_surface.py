@@ -77,7 +77,7 @@ def test_every_exported_name_is_bound():
     assert not missing, f'__all__ names unbound attributes: {missing}'
 
 
-def test_all_is_sorted_and_unique():
+def test_all_names_nothing_twice():
     names = list(math_spec.__all__)
     assert len(names) == len(set(names)), 'duplicate name in __all__'
 

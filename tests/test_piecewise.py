@@ -16,7 +16,7 @@ import pytest
 import yaml as pyyaml
 
 from math_spec import Buildable, expand_piecewise
-from math_spec.errors import PiecewiseExpansionError, SchemaError
+from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
 from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
 from tests.piecewise_models import (
     CHP_YAML,
@@ -197,7 +197,7 @@ def test_an_inline_expression_is_a_legal_link():
 def test_a_malformed_block_is_refused(model, patch, match):
     """Schema-level arity rules and the expansion's own preconditions — both
     have to fire before any data is bound."""
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(LanguageError, match=match):
         expand_piecewise(schema_of(model, **patch))
 
 

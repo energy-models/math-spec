@@ -11,8 +11,11 @@ from typing import TYPE_CHECKING
 import pytest
 
 from math_spec.typesetting import FORMATS
+from tests.fixtures import OPERATOR_PROBES
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from math_spec.typesetting.format import Format
 
 
@@ -72,3 +75,8 @@ TYPST_SYMBOLS = {
     'dimensions': {'generator': {'index': 'u', 'set': 'cal(U)'}},
     'names': {'p': 'pi', 'p_max': 'bar(p)'},
 }
+
+
+def probe(name: str) -> Path:
+    """One operator probe by stem, wherever the suite is run from."""
+    return next(p for p in OPERATOR_PROBES if p.stem == name)

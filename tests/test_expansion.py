@@ -10,12 +10,17 @@ the end proves the whole feature works identically on both backends.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
+from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
 from math_spec.expression_parser import parse_expression
-from math_spec.model import Model
 from tests.fixtures import DISPATCH_MODEL, schema_of
+
+if TYPE_CHECKING:
+    from math_spec.model import Model
 
 WEIGHTED_SUM = {
     'args': ['array', 'weights'],
@@ -70,7 +75,7 @@ def test_named_expressions_nest():
     ],
 )
 def test_a_bad_named_expression_is_refused_at_load(expressions, match):
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(LanguageError, match=match):
         make_schema(expressions)
 
 
@@ -132,12 +137,12 @@ def test_macro_body_may_use_macros_and_named_expressions():
 )
 def test_macro_arity_errors(call, match):
     schema = make_schema(macros={'ws': WEIGHTED_SUM})
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(LanguageError, match=match):
         parse_and_expand(call, schema)
 
 
 def test_macro_cycle_raises():
-    with pytest.raises(ValueError, match='circular macro reference'):
+    with pytest.raises(LanguageError, match='circular macro reference'):
         make_schema(
             macros={
                 'loop_a': {'template': 'loop_b() + 1'},
@@ -165,7 +170,7 @@ def test_macro_cycle_raises():
             id='a-built-in-operator',
         ),
         pytest.param(
-            lambda: Model(dimensions={'sum': {'values': [1]}}),
+            lambda: schema_of({'dimensions': {'sum': {'values': [1]}}}),
             "collides with the built-in operator 'sum'",
             id='a-built-in-operator-taken-by-a-dimension',
         ),
@@ -176,12 +181,12 @@ def test_macro_collisions_rejected(build, match):
 
     The collision is caught building the schema rather than validating it.
     """
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(LanguageError, match=match):
         build()
 
 
 def test_duplicate_formals_rejected():
-    with pytest.raises(ValueError, match='duplicate formal'):
+    with pytest.raises(LanguageError, match='duplicate formal'):
         make_schema(macros={'m': {'args': ['a'], 'kwargs': ['a'], 'template': 'a'}})
 
 
@@ -203,7 +208,7 @@ def test_duplicate_formals_rejected():
 def test_macro_templates_validated_even_when_unused(macros, match):
     """Schema-local macros make load-time validation complete: a typo in a
     template the model never calls is still caught."""
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(LanguageError, match=match):
         make_schema(macros=macros)
 
 
@@ -244,7 +249,7 @@ objective:
 
 def test_unknown_operator_rejected_at_load_time_with_the_rewrite():
     """An unknown operator fails validation, before either backend is chosen."""
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(LanguageError) as exc:
         make_schema(
             constraints={
                 'c': {
