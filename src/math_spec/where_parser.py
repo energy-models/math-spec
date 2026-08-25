@@ -7,11 +7,6 @@
 Parses strings like ``"p_max > 0 AND NOT is_must_run"`` into an AST. What a
 mask *means* is the consumer's business: it evaluates the AST against the data
 it holds.
-
-``NotNode``, ``AndNode`` and ``OrNode`` reference the ``WhereNode`` union in
-their annotations before it is defined, which works only because ``from
-__future__ import annotations`` makes annotations strings — removing that
-future-import requires reordering the definitions.
 """
 
 from __future__ import annotations
@@ -116,26 +111,12 @@ class DimensionComparisonNode:
 
 @dataclass
 class DimensionPositionNode:
-    """Compare where a row sits along a dimension against a position.
+    """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
-    ``where: "position(snapshot) == 0"`` — the boundary of a recurrence named
-    by where it sits rather than by the label that happens to be there, so the
-    clause survives the index being relabelled. Negative counts from the end,
-    ``-1`` being the last.
-
-    **Both sides are integers**, which is what makes every comparator read one
-    way. Naming the coordinate *at* a position and comparing coordinates
-    against it left an ordering meaning either that or a comparison of
-    positions, and the two part company on an axis whose coordinates do not
-    arrive sorted (#32).
-
-    With ``by`` it is the boundary of *each group* the lookup makes —
-    ``position(snapshot, by=period_of) == 0`` is every period's first snapshot,
-    and a row reads its own group's, the broadcast ``at(by=)`` already defines.
-
-    Resolved rather than lowered to a literal: which label sits at a position
-    is a property of the *data*, so the position travels and a consumer reads
-    it off the coordinate order it holds.
+    Both sides are integers, negative counting from the end; comparing
+    coordinates against the label *at* a position would read differently on an
+    axis whose coordinates do not arrive sorted (#32). With ``by`` the position
+    is counted within each group the lookup makes.
     """
 
     name: str
@@ -255,20 +236,9 @@ ConnectiveWhereNode = NotNode | AndNode | OrNode
 
 
 class _Quoted(str):
-    """A right-hand side that arrived in quotes.
-
-    A ``str`` subclass rather than a wrapper so pyparsing's own machinery keeps
-    working on it. It lives between the grammar and the comparison's parse
-    action and no further — :class:`UnresolvedComparisonNode` records the fact
-    as a plain flag, so nothing downstream has to know this type exists.
-    """
+    """A right-hand side that arrived in quotes; :func:`_comparison` turns it back into a flag."""
 
     __slots__ = ()
-
-
-def _bare(value: float | str) -> float | str:
-    """The literal without the quoted marker, so equality is by value."""
-    return str(value) if isinstance(value, _Quoted) else value
 
 
 def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
@@ -276,25 +246,22 @@ def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
     *call, op, at = tokens
     dimension, by = call[0], call[1] if len(call) > 1 else None
     return UnresolvedPositionNode(
-        str(dimension), cast('PredicateOperator', op), int(cast('float', at)), None if by is None else str(by)
+        str(dimension), cast('PredicateOperator', op), cast('int', at), None if by is None else str(by)
     )
 
 
-def _comparison(name: str, op: Any, value: Any) -> UnresolvedComparisonNode:
-    """The comparison node a name-against-a-literal right-hand side asks for."""
-    return UnresolvedComparisonNode(name, op, _bare(value), quoted=isinstance(value, _Quoted))
+def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
+    """``name <op> literal`` off the tokens the grammar captured, the quoted marker turned into a flag."""
+    name, op, value = tokens
+    quoted = isinstance(value, _Quoted)
+    return UnresolvedComparisonNode(str(name), cast('PredicateOperator', op), str(value) if quoted else value, quoted)
 
 
 def _build_where_grammar() -> pp.ParserElement:
-    """Build and return the pyparsing grammar for where strings.
+    """Build the pyparsing grammar for where strings.
 
-    Every numeric literal is stored as ``float``, since
-    ``UnresolvedComparisonNode.value`` is declared ``float``. Both quote
-    characters are accepted because YAML already owns one of them: a where
-    lives inside a YAML scalar, so ``where: "generator == 'wind'"`` is the
-    spelling that needs no escaping, and the double-quoted form is there for
-    the file that quoted the other way round. ``NOT`` binds tightest, then
-    ``AND``, then ``OR``.
+    Both quote characters are accepted because YAML already owns one of them.
+    ``NOT`` binds tightest, then ``AND``, then ``OR``.
     """
     where_expr = pp.Forward()
 
@@ -302,10 +269,9 @@ def _build_where_grammar() -> pp.ParserElement:
     false_lit = pp.CaselessKeyword('False').set_parse_action(lambda: BooleanLiteralNode(False))
 
     # pyrefly: ignore[implicit-any-lambda]
-    real = pp.Regex(f'-?({REAL})').set_parse_action(lambda t: float(t[0]))
+    number = pp.Regex(rf'-?({REAL}|\d+)').set_parse_action(lambda t: float(t[0]))
     # pyrefly: ignore[implicit-any-lambda]
-    integer = pp.Regex(r'-?\d+').set_parse_action(lambda t: float(t[0]))
-    number = real | integer
+    position = pp.Regex(r'-?\d+').set_parse_action(lambda t: int(t[0]))
 
     name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
 
@@ -316,23 +282,18 @@ def _build_where_grammar() -> pp.ParserElement:
     grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name
     comparator = pp.one_of('<= >= == != < >')
 
-    # Leads the `atom` alternation below: `position` would otherwise be taken
-    # for a bare name. See `DimensionPositionNode` for why it converts on the
-    # left rather than naming the coordinate at a position (#32).
     position_call = (
         pp.Suppress(pp.Keyword('position')) + pp.Suppress('(') + name + pp.Optional(grouped_by) + pp.Suppress(')')
     )
-    position_comparison = (position_call + comparator + integer).set_parse_action(_position_comparison)
+    position_comparison = (position_call + comparator + position).set_parse_action(_position_comparison)
 
-    comparison = (name + comparator + (number | quoted | name)).set_parse_action(
-        # pyrefly: ignore[implicit-any-lambda]
-        lambda t: _comparison(t[0], t[1], t[2])
-    )
+    comparison = (name + comparator + (number | quoted | name)).set_parse_action(_comparison)
     # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
 
     # `position_comparison` leads: it starts with a keyword that `existence`
     # would otherwise take for a bare name, and `comparison` for a parameter.
+    # See `DimensionPositionNode` for why it converts on the left (#32).
     atom = (
         true_lit
         | false_lit
@@ -391,8 +352,8 @@ _INDEX_REWRITE = (
 def parse_where(text: str) -> WhereNode:
     """Parse a where string into an AST.
 
-    With ``parse_all`` and a single top-level alternative, element 0 of the
-    parse result is the root node.
+    Raises:
+        SchemaError: If *text* is not a where string of the language.
     """
     try:
         result = _WHERE_GRAMMAR.parse_string(text, parse_all=True)

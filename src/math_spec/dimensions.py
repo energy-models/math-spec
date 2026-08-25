@@ -8,26 +8,8 @@ Parameter ``dims`` are declared, variable ``foreach`` is declared, and operator
 dimension arguments are name-checked, so **every node's dim set is computable
 before any data is bound**. That is the whole basis of this pass: it runs at
 load time, on the resolved core AST, so every consumer gets the same answer by
-construction.
-
-The rules::
-
-    number                  -> no dims
-    parameter p             -> its declared dims
-    variable v              -> its foreach
-    -x, +x                  -> same dims as x
-    a + b, a * b, a / b     -> every dim either side carries (set union)
-    sum(x, over=d)          -> x's dims without d;  error if x has no d
-    sum(x, by=l)            -> x's dims without the dim l is over, plus the
-                               dim l maps into; error if x has no such dim
-    sum(x, by=[l, m])       -> the same, with every target at once; l and m
-                               must be over one dim and target different ones
-    at(x, by=l)             -> the reverse: x's dims without l's target(s),
-                               plus the dim l is over
-    shift(x, over=d, offset=n)  -> same dims as x;      error if x has no d
-    sum_back(x, over=d, within=n) -> same dims as x; error if x has no d
-
-and at the declaration level::
+construction. The per-node rules are the "Dim algebra" table in
+``docs/reference/language/expressions.md``; at the declaration level::
 
     constraint  -> the dims of both sides together must *equal* foreach
     where       -> the predicate's dims must not exceed the frame
@@ -60,6 +42,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
+from math_spec.operators import BUILTINS
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.where_parser import (
     AndNode,
@@ -102,15 +85,7 @@ def _dims(
     schema: Model,
     context: str,
 ) -> frozenset[str]:
-    """The recursive worker under :func:`dims_of`.
-
-    A binary operator takes the *union* of its sides with no subset check: an
-    outer product is legitimate when the frame declares the result — the
-    convex-piecewise epigraph multiplies a per-segment slope by a per-snapshot
-    variable and wants one row per (snapshot, generator, segment). What must
-    not be silent is the *declaration* disagreeing, which ``dims == foreach``
-    in :func:`check_schema` catches where model size is decided.
-    """
+    """The recursive worker under :func:`dims_of`; a binary operator takes the union of its sides, unchecked, since :func:`check_schema` compares the result with the declared frame."""
     if isinstance(node, NumberNode):
         return frozenset()
 
@@ -187,8 +162,7 @@ def _dims_call(
                 f'{context}: sum(by={by.shown}) targets {collides}, '
                 f'which the expression already carries ({sorted(inner)}). The result would '
                 f"need {collides} twice — once as the operand's own dim and once as the "
-                f'group it is placed into — and no build can represent that: the union '
-                f'below would silently absorb one of them. Sum over one of the two first, '
+                f'group it is placed into. Sum over one of the two first, '
                 f'or group into a dimension the operand does not have.'
             )
         return (inner - {by.dimension}) | set(by.into)
@@ -242,35 +216,26 @@ def _dims_call(
                 )
         return inner
 
-    msg = f"{context}: operator '{node.name}' has no dim rule"
-    raise DimensionError(msg)
+    msg = f"operator '{node.name}' reached the dim checker without a rule; resolution admits only BUILTINS."
+    raise AssertionError(msg)
 
 
-#: The kwarg each axis-walking operator takes its amount in, and the word its
-#: errors call that amount. ``shift`` reaches by an offset and a window reaches
-#: over a width, but both count positions along the axis, so both obey the two
-#: rules below.
-_AMOUNTS = {'shift': ('offset', 'offset'), 'sum_back': ('within', 'width')}
-
-#: Why negating a named amount at the call site is not what the caller means.
-#: ``shift`` has a direction and keeps it in the data; a window's direction is
-#: its own name, and a width is a count, which has none.
-_NEGATED = {
+#: Per axis-walking operator: the word its errors call the amount it takes,
+#: why negating a named one at the call site is not what the caller means, and
+#: what a named one that varies along the axis it walks becomes.
+_AMOUNT_WORDING = {
     'shift': (
+        'offset',
         'A named offset carries its sign in its values, so that one row pointing backwards says '
-        'so where the data is read — negate the column instead.'
+        'so where the data is read — negate the column instead.',
+        'a permutation rather than a lag',
     ),
     'sum_back': (
+        'width',
         'A width counts positions and so has no direction; which way a window reaches is the '
-        "operator's own name rather than the sign of its width."
+        "operator's own name rather than the sign of its width.",
+        'a different window at every position, which is no longer "the last n"',
     ),
-}
-
-#: Why a named amount that varies along the axis it walks is not the thing its
-#: operator claims to be.
-_VARIES = {
-    'shift': 'a permutation rather than a lag',
-    'sum_back': 'a different window at every position, which is no longer "the last n"',
 }
 
 
@@ -285,12 +250,12 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
     A literal breaks none of them: it parses as a number, and a number has
     neither a dtype to declare nor dims to vary over.
     """
-    kwarg, noun = _AMOUNTS[node.name]
+    (kwarg,) = BUILTINS[node.name].required_value_kwargs
+    noun, negated, varies = _AMOUNT_WORDING[node.name]
     amount = node.kwargs[kwarg]
     if isinstance(amount, UnaryOperatorNode) and isinstance(amount.operand, ParameterNode):
         raise DimensionError(
-            f'{context}: {node.name}({kwarg}={amount.op}{amount.operand.name}) negates a named '
-            f'{noun}. {_NEGATED[node.name]}'
+            f'{context}: {node.name}({kwarg}={amount.op}{amount.operand.name}) negates a named {noun}. {negated}'
         )
     if not isinstance(amount, ParameterNode):
         return
@@ -306,7 +271,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
         raise DimensionError(
             f'{context}: {node.name}({kwarg}={amount.name}) walks '
             f"'{over}', but '{amount.name}' is declared over {sorted(declared.dims)}, which "
-            f'carries it. A named {noun} that varies along the axis it walks is {_VARIES[node.name]} '
+            f'carries it. A named {noun} that varies along the axis it walks is {varies} '
             f"— declare '{amount.name}' over dims '{over}' is not one of."
         )
     partition = node.kwargs.get('by')
@@ -351,8 +316,8 @@ def check_schema(schema: Model) -> None:
 
     for cname, cdef in schema.constraints.items():
         frame = frozenset(cdef.foreach)
-        _check_where_dims(where_of(cdef.where, ns, f"Constraint '{cname}'"), schema, frame, f"Constraint '{cname}'")
         context = f"Constraint '{cname}'"
+        _check_where_dims(where_of(cdef.where, ns, context), schema, frame, context)
         got = dims_of(expression_of(cdef.expression, schema, ns, context), schema, context)
         if got != frame:
             stray, missing = sorted(got - frame), sorted(frame - got)
@@ -374,9 +339,7 @@ def check_schema(schema: Model) -> None:
             raise DimensionError(
                 f'{context}: the expression carries dims {sorted(got)}, and an objective is one '
                 f'number. Wrap each additive term in its own sum(): '
-                f'`sum(p * cost) + sum(p_nom * capex)`. One sum around the whole expression says '
-                f'something else — over terms carrying different dims it counts each of them '
-                f'once per coordinate of the others.'
+                f'`sum(p * cost) + sum(p_nom * capex)`.'
             )
 
 
