@@ -67,25 +67,39 @@ def parse_and_expand(text: str, schema: Model, context: str = 'expression') -> E
 
 
 @overload
-def expand(node: ArithmeticNode, schema: Model, context: str = ...) -> ArithmeticNode: ...
+def expand(
+    node: ArithmeticNode, schema: Model, context: str = ..., *, shadow: frozenset[str] = ...
+) -> ArithmeticNode: ...
 @overload
-def expand(node: ComparisonNode, schema: Model, context: str = ...) -> ComparisonNode: ...
+def expand(
+    node: ComparisonNode, schema: Model, context: str = ..., *, shadow: frozenset[str] = ...
+) -> ComparisonNode: ...
 
 
-def expand(node: ExpressionNode, schema: Model, context: str = 'expression') -> ExpressionNode:
+def expand(
+    node: ExpressionNode, schema: Model, context: str = 'expression', *, shadow: frozenset[str] = frozenset()
+) -> ExpressionNode:
     """Expand all named sub-expressions and macro calls under *node*.
 
     Expansion never changes the shape of the root: a comparison stays a
     comparison, an arithmetic node stays arithmetic. The overloads say so, so
     callers holding an ``ArithmeticNode`` keep it across the call.
+
+    Args:
+        node: The parsed expression.
+        schema: Where the names and macros are declared.
+        context: What to name in an error.
+        shadow: Names to leave as they are even where a named expression has
+            that name — a macro's formals, when its template is checked
+            without a call to bind them.
     """
     if isinstance(node, ComparisonNode):
         return ComparisonNode(
             node.op,
-            _expand(node.left, schema, context, ()),
-            _expand(node.right, schema, context, ()),
+            _expand(node.left, schema, context, (), shadow),
+            _expand(node.right, schema, context, (), shadow),
         )
-    return _expand(node, schema, context, ())
+    return _expand(node, schema, context, (), shadow)
 
 
 def macro_signature(name: str, macro: MacroBlock) -> str:
@@ -130,6 +144,7 @@ def _expand(
     schema: Model,
     context: str,
     stack: tuple[str, ...],
+    shadow: frozenset[str],
 ) -> ArithmeticNode:
     def _cycle(name: str, kind: str) -> None:
         if name in stack:
@@ -137,16 +152,16 @@ def _expand(
             msg = f'{context}: circular {kind} reference: {chain}'
             raise SchemaError(msg)
 
-    if isinstance(node, NameNode) and node.name in schema.expressions:
+    if isinstance(node, NameNode) and node.name in schema.expressions and node.name not in shadow:
         _cycle(node.name, 'expression')
         body = _parse_named(node.name, schema, context)
-        return _expand(body, schema, context, (*stack, node.name))
+        return _expand(body, schema, context, (*stack, node.name), shadow)
 
     if isinstance(node, FunctionCallNode) and node.name in schema.macros:
         _cycle(node.name, 'macro')
-        return _expand_macro(node, schema, context, stack)
+        return _expand_macro(node, schema, context, stack, shadow)
 
-    return _descend(node, lambda child: _expand(child, schema, context, stack))
+    return _descend(node, lambda child: _expand(child, schema, context, stack, shadow))
 
 
 def _parse_named(name: str, schema: Model, context: str) -> ArithmeticNode:
@@ -165,6 +180,7 @@ def _expand_macro(
     schema: Model,
     context: str,
     stack: tuple[str, ...],
+    shadow: frozenset[str],
 ) -> ArithmeticNode:
     """Expand one macro call to its substituted, fully expanded body.
 
@@ -190,12 +206,15 @@ def _expand_macro(
         raise SchemaError(msg)
 
     bindings = {
-        **{formal: _expand(arg, schema, context, stack) for formal, arg in zip(macro.args, call.args, strict=False)},
-        **{formal: _expand(call.kwargs[formal], schema, context, stack) for formal in macro.kwargs},
+        **{
+            formal: _expand(arg, schema, context, stack, shadow)
+            for formal, arg in zip(macro.args, call.args, strict=True)
+        },
+        **{formal: _expand(call.kwargs[formal], schema, context, stack, shadow) for formal in macro.kwargs},
     }
     body = parse_template(call.name, macro, context)
     substituted = _substitute(body, bindings)
-    return _expand(substituted, schema, context, (*stack, call.name))
+    return _expand(substituted, schema, context, (*stack, call.name), shadow)
 
 
 def _substitute(node: ArithmeticNode, bindings: dict[str, ArithmeticNode]) -> ArithmeticNode:

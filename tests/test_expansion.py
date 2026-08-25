@@ -203,6 +203,21 @@ def test_duplicate_formals_rejected():
             'must not contain a comparison',
             id='a-comparison-in-a-template',
         ),
+        pytest.param(
+            {'lag': {'args': ['x'], 'template': 'shift(x, over=snapshot, offset=nope)'}},
+            r"Macro 'lag'.*'nope' not found",
+            id='a-typo-in-an-amount',
+        ),
+        pytest.param(
+            {'grouped': {'args': ['x'], 'template': 'sum(x, by=nope)'}},
+            r"Macro 'grouped'.*sum\(by=nope\) does not name a lookup",
+            id='a-typo-in-a-lookup-kwarg',
+        ),
+        pytest.param(
+            {'grouped': {'args': ['x'], 'template': 'sum(x, by=[nope, also])'}},
+            r"Macro 'grouped'.*sum\(by=nope\) does not name a lookup",
+            id='a-typo-in-a-lookup-list',
+        ),
     ],
 )
 def test_macro_templates_validated_even_when_unused(macros, match):
@@ -245,6 +260,24 @@ objective:
   sense: minimize
   expression: sum(weighted_sum(p, cost, over=generator))
 """
+
+
+def test_a_formal_shadows_a_named_expression_of_the_same_name():
+    """Inside the template `sc` is the formal, whatever the file calls `sc` elsewhere —
+    so a named expression `sc` that calls the macro is not a cycle."""
+    schema = make_schema({'sc': 'm(p)'}, macros={'m': {'args': ['sc'], 'template': 'sc + 1'}})
+    assert parse_and_expand('sc', schema) == parse_expression('p + 1')
+
+
+def test_a_long_acyclic_chain_of_named_expressions_expands():
+    chain = {f'e{i}': f'e{i + 1} + 1' for i in range(80)} | {'e80': 'p'}
+    assert parse_and_expand('e0', make_schema(chain)) == parse_expression(' + '.join(['p', *['1'] * 80]))
+
+
+def test_a_refusal_names_its_context_once():
+    with pytest.raises(LanguageError) as exc:
+        make_schema({'a': 'a + 1'})
+    assert str(exc.value).count("Named expression 'a'") == 1, str(exc.value)
 
 
 def test_unknown_operator_rejected_at_load_time_with_the_rewrite():

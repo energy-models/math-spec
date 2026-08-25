@@ -155,11 +155,25 @@ def test_the_emitted_foreach_follows_declaration_order():
     ]
 
 
-def test_an_inline_expression_is_a_legal_link():
-    raw = raw_of(NONCONVEX_YAML)
-    raw['piecewise']['cost_curve']['links'][0] = ['p * 2', 'bp_x']
+@pytest.mark.parametrize(
+    'link',
+    [
+        pytest.param('p * 2', id='arithmetic'),
+        pytest.param('twice(p)', id='a-macro-call'),
+        pytest.param('doubled', id='a-named-expression'),
+        pytest.param('twice(doubled) + 1', id='both'),
+    ],
+)
+def test_any_affine_expression_is_a_legal_link(link):
+    """A link is read as a constraint's expression is — a macro or a named expression in it expands."""
+    raw = override(
+        raw_of(NONCONVEX_YAML),
+        macros={'twice': {'args': ['x'], 'template': 'x * 2'}},
+        expressions={'doubled': 'p * 2'},
+    )
+    raw['piecewise']['cost_curve']['links'][0] = [link, 'bp_x']
     expanded = expand_piecewise(schema_of(raw))
-    assert expanded.constraints['cost_curve_link0'].expression.startswith('(p * 2) ==')
+    assert expanded.constraints['cost_curve_link0'].expression.startswith(f'({link}) ==')
 
 
 @pytest.mark.parametrize(
@@ -191,6 +205,12 @@ def test_an_inline_expression_is_a_legal_link():
             {'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'nope']]},
             "undeclared parameter 'nope'",
             id='undeclared-parameter',
+        ),
+        pytest.param(
+            NONCONVEX_YAML,
+            {'parameters.reach': {'dims': ['bp']}, 'piecewise.cost_curve.points': 'reach'},
+            "points parameter 'reach' is float, and a mask is a bool parameter",
+            id='points-that-are-not-a-mask',
         ),
     ],
 )
