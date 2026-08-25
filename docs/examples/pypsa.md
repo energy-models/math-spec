@@ -31,6 +31,23 @@ Three decisions shape the file, and they are visible in every block:
   statement it stands for, so the file reads beside `n.model` — and a symbol
   table, `examples/pypsa.symbols.yaml`, is what makes the math read as math.
 
+## Rungs
+
+One file, grown in this order; each rung keeps the rows above it green. A row
+links to its block below once it is in the file.
+
+| rung                  | adds                                                        | rows                                                                                                                                                                                   |
+| --------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 transport           | generator dispatch, controllable links, nodal balance, cost | [`Generator-fix-p-lower`](#generator-fix-p-lower) · [`Generator-fix-p-upper`](#generator-fix-p-upper) · [`Link-fix-p-lower`](#link-fix-p-lower) · [`Link-fix-p-upper`](#link-fix-p-upper) · [`Bus-nodal_balance`](#bus-nodal_balance) |
+| 2 storage             | stores carrying energy between snapshots, cyclic and not    | next                                                                                                                                                                                   |
+| 3 expansion           | nominal power as a decision                                 |                                                                                                                                                                                        |
+| 4 ramps               | limits on how far output moves between snapshots            |                                                                                                                                                                                        |
+| 5 global constraints  | emission and expansion budgets                              |                                                                                                                                                                                        |
+| 6 KVL                 | flows around cycles of lines with reactance                 |                                                                                                                                                                                        |
+| 7 commitment          | binary status, minimum up and down times — a MILP           |                                                                                                                                                                                        |
+| 8 modular and big-M   | integer module counts; committable and extendable at once   |                                                                                                                                                                                        |
+| 9 multi-link and delay | links with more than two ports; flow that arrives later     |                                                                                                                                                                                        |
+
 <!-- gallery:begin -->
 The model a plain `n.optimize()` builds, stated in one file. Every declaration is named `Component_attribute` after the PyPSA statement it stands for, and each constraint's description opens with the linopy name PyPSA gives that row, so the two can be read side by side. PyPSA's regimes — extendable, committable — are data columns and become `where:` masks. Rung 1, transport: generator dispatch, controllable links, a nodal balance, a linear cost. Bounds are the explicit rows PyPSA writes, so their duals are row duals.
 
