@@ -373,7 +373,13 @@ class Walk:
             step = _Step(1, 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain')
             self.policies.add(step.policy)
             source = f'{self.symbols.index[over.name]}{PRIME}'
-            lag = f'{ctx.subscript(over.name)} {self.translation(step)} {source}'
+            # a partition rides the operator here exactly as it does on a leaf
+            # translation, and for the same reason: what the group changes is
+            # where the axis ends, not which coordinate is being written
+            lag = (
+                f'{ctx.subscript(over.name)} '
+                f'{self.translation(step, self._group(node.kwargs.get("by"), over.name))} {source}'
+            )
             domain = (
                 f'{source} {self.op("in")} {self.symbols.set[over.name]} {self.op("such_that")} '
                 f'0 {self.op("le")} {lag} {self.op("lt")} {self._width(node.kwargs["within"])}'
@@ -405,6 +411,18 @@ class Walk:
             dims = self._sorted(dims_of(node.args[0], self.schema, 'a sum'))
             domain = self.format.joined([self.membership(d) for d in dims], '')
         return self.format.summation(domain, self.reduction_body(node.args[0], ctx)), _PRECEDENCE['+']
+
+    def _group(self, by: ArithmeticNode | None, dim: str) -> str:
+        """A window's ``by=`` as the superscript its operator carries.
+
+        The bare index, not the subscript in force: the group is a property of
+        the row being written, and a window whose operand is itself translated
+        still asks which group *that row* is in.
+        """
+        if by is None:
+            return ''
+        assert isinstance(by, LookupNode)
+        return self.format.apply(self.format.upright(by.names[0]), self.symbols.index[dim])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``within=``: a number, or a parameter's own symbol.

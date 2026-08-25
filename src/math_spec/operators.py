@@ -97,10 +97,12 @@ BUILTINS: dict[str, Builtin] = {
     ),
     'sum_back': Builtin(
         1,
-        "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'])",
+        "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>])",
         dimension_kwargs=('over',),
+        lookup_kwargs=('by',),
         required_value_kwargs=('within',),
         edge_kwargs=('edge',),
+        optional_kwargs=('by',),
     ),
     'shift': Builtin(
         1,

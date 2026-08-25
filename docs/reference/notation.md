@@ -288,6 +288,18 @@ history:
 
 $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t \ominus t' < \mathrm{min\_up}} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
+#### `seasonal_window`
+
+a window partitioned by a lookup: the group rides on the operator
+
+```yaml
+seasonal_window:
+  foreach: [snapshot, generator]
+  expression: sum_back(on, over=snapshot, within=3, by=season_of) <= units
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t -^{\mathrm{season\_of}(t)} t' < 3} \mathit{on}_{t',g} \le \mathit{units}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 #### `pullback`
 
 at(), which re-indexes through a lookup instead of an offset
