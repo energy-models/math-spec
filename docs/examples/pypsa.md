@@ -29,7 +29,7 @@ Three decisions shape the file, and they are visible in every block:
   a later rung under the complementary mask; the file never forks.
 - **Names are PyPSA's.** Every declaration is `Component_attribute` after the
   statement it stands for, so the file reads beside `n.model` — and a symbol
-  table, `examples/pypsa.symbols.yaml`, is what makes the math read as math.
+  table, `examples/symbols/pypsa.yaml`, is what makes the math read as math.
 
 ## Rungs
 

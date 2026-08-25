@@ -50,7 +50,7 @@ MODELS = {
 #: *this* row", so each block is headed by the name the other side gives it,
 #: read from the declaration's own description.
 DECLARED = {
-    'pypsa.md': (ROOT / 'examples' / 'pypsa.yaml', ROOT / 'examples' / 'pypsa.symbols.yaml'),
+    'pypsa.md': (ROOT / 'examples' / 'pypsa.yaml', ROOT / 'examples' / 'symbols' / 'pypsa.yaml'),
 }
 
 #: The probe page shows every model under `examples/operators/`, keyed by the

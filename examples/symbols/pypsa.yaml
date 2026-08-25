@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-# How `pypsa.yaml` prints. The names are PyPSA's, which is what makes the file
+# How `examples/pypsa.yaml` prints. The names are PyPSA's, which is what makes the file
 # readable beside `n.model`; these symbols are what makes the math readable.
 notation: latex
 dimensions:
