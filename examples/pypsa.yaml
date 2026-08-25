@@ -80,6 +80,63 @@ parameters:
   snapshot_weightings_stores:
     description: PyPSA's `snapshot_weightings.stores` — hours a snapshot stands for in a storage balance
     dims: [snapshot]
+  snapshot_weightings_generators:
+    description: PyPSA's `snapshot_weightings.generators` — hours a snapshot stands for in an energy total
+    dims: [snapshot]
+  Generator_p_nom_min:
+    description: least nominal power an extendable generator may be built at
+    dims: [generator]
+  Generator_p_nom_max:
+    description: most nominal power an extendable generator may be built at
+    dims: [generator]
+  Generator_capital_cost:
+    description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [generator]
+  Generator_p_nom_set:
+    description: a given nominal power for an extendable generator; one without a value has no row here
+    dims: [generator]
+  Generator_e_sum_min:
+    description: least energy over the horizon; minus infinity where no floor is meant
+    dims: [generator]
+  Generator_e_sum_max:
+    description: most energy over the horizon — a fuel or emission budget in energy terms; infinity where no cap is meant
+    dims: [generator]
+  Link_p_nom_min:
+    description: least nominal power an extendable link may be built at
+    dims: [link]
+  Link_p_nom_max:
+    description: most nominal power an extendable link may be built at
+    dims: [link]
+  Link_capital_cost:
+    description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [link]
+  Link_p_nom_set:
+    description: a given nominal power for an extendable link; one without a value has no row here
+    dims: [link]
+  StorageUnit_p_nom_min:
+    description: least nominal power an extendable storage unit may be built at
+    dims: [storage_unit]
+  StorageUnit_p_nom_max:
+    description: most nominal power an extendable storage unit may be built at
+    dims: [storage_unit]
+  StorageUnit_capital_cost:
+    description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [storage_unit]
+  StorageUnit_p_nom_set:
+    description: a given nominal power for an extendable storage unit; one without a value has no row here
+    dims: [storage_unit]
+  Store_e_nom_min:
+    description: least nominal capacity an extendable store may be built at
+    dims: [store]
+  Store_e_nom_max:
+    description: most nominal capacity an extendable store may be built at
+    dims: [store]
+  Store_capital_cost:
+    description: cost of one unit of nominal capacity — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [store]
+  Store_e_nom_set:
+    description: a given nominal capacity for an extendable store; one without a value has no row here
+    dims: [store]
   StorageUnit_p_nom:
     description: nominal power
     dims: [storage_unit]
@@ -224,6 +281,30 @@ variables:
   Store_p:
     description: "`Store-p` — power delivered to the bus; charging is negative"
     foreach: [snapshot, store]
+  Generator_p_nom_ext:
+    description: >-
+      `Generator-p_nom` — nominal power where it is a decision; the parameter
+      of the same PyPSA name carries the fixed regime
+    foreach: [generator]
+    where: Generator_p_nom_extendable
+  Link_p_nom_ext:
+    description: >-
+      `Link-p_nom` — nominal power where it is a decision; the parameter of
+      the same PyPSA name carries the fixed regime
+    foreach: [link]
+    where: Link_p_nom_extendable
+  StorageUnit_p_nom_ext:
+    description: >-
+      `StorageUnit-p_nom` — nominal power where it is a decision; the
+      parameter of the same PyPSA name carries the fixed regime
+    foreach: [storage_unit]
+    where: StorageUnit_p_nom_extendable
+  Store_e_nom_ext:
+    description: >-
+      `Store-e_nom` — nominal capacity where it is a decision; the parameter
+      of the same PyPSA name carries the fixed regime
+    foreach: [store]
+    where: Store_e_nom_extendable
 
 constraints:
   Generator_fix_p_lower:
@@ -246,6 +327,66 @@ constraints:
     foreach: [snapshot, link]
     where: not Link_p_nom_extendable
     expression: Link_p <= Link_p_max_pu * Link_p_nom
+  Generator_ext_p_lower:
+    description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
+  Generator_ext_p_upper:
+    description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+  Generator_ext_p_nom_lower:
+    description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
+    foreach: [generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p_nom_ext >= Generator_p_nom_min
+  Generator_ext_p_nom_upper:
+    description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_max
+    expression: Generator_p_nom_ext <= Generator_p_nom_max
+  Generator_p_nom_set:
+    description: "`Generator-p_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_set
+    expression: Generator_p_nom_ext == Generator_p_nom_set
+  Generator_e_sum_min:
+    description: "`Generator-e_sum_min` — energy over the horizon is at least its floor; a floor of minus infinity is no row"
+    foreach: [generator]
+    where: Generator_e_sum_min
+    expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) >= Generator_e_sum_min
+  Generator_e_sum_max:
+    description: "`Generator-e_sum_max` — energy over the horizon is at most its budget; a budget of infinity is no row"
+    foreach: [generator]
+    where: Generator_e_sum_max
+    expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) <= Generator_e_sum_max
+  Link_ext_p_lower:
+    description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
+    foreach: [snapshot, link]
+    where: Link_p_nom_extendable
+    expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
+  Link_ext_p_upper:
+    description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
+    foreach: [snapshot, link]
+    where: Link_p_nom_extendable
+    expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
+  Link_ext_p_nom_lower:
+    description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
+    foreach: [link]
+    where: Link_p_nom_extendable
+    expression: Link_p_nom_ext >= Link_p_nom_min
+  Link_ext_p_nom_upper:
+    description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [link]
+    where: Link_p_nom_extendable AND Link_p_nom_max
+    expression: Link_p_nom_ext <= Link_p_nom_max
+  Link_p_nom_set:
+    description: "`Link-p_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [link]
+    where: Link_p_nom_extendable AND Link_p_nom_set
+    expression: Link_p_nom_ext == Link_p_nom_set
   StorageUnit_fix_p_dispatch_lower:
     description: "`StorageUnit-fix-p_dispatch-lower` — dispatch is non-negative"
     foreach: [snapshot, storage_unit]
@@ -278,6 +419,53 @@ constraints:
     foreach: [snapshot, storage_unit]
     where: not StorageUnit_p_nom_extendable
     expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom
+  StorageUnit_ext_p_dispatch_lower:
+    description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_dispatch >= 0
+  StorageUnit_ext_p_dispatch_upper:
+    description: "`StorageUnit-ext-p_dispatch-upper` — an extendable unit dispatches at most the chosen build"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom_ext
+  StorageUnit_ext_p_store_lower:
+    description: "`StorageUnit-ext-p_store-lower` — storing is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_store >= 0
+  StorageUnit_ext_p_store_upper:
+    description: >-
+      `StorageUnit-ext-p_store-upper` — an extendable unit stores at most the
+      chosen build, the minimum-per-unit column carrying that cap negated
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom_ext
+  StorageUnit_ext_state_of_charge_lower:
+    description: "`StorageUnit-ext-state_of_charge-lower` — charge is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_state_of_charge >= 0
+  StorageUnit_ext_state_of_charge_upper:
+    description: "`StorageUnit-ext-state_of_charge-upper` — an extendable unit holds at most its hours at the chosen build"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom_ext
+  StorageUnit_ext_p_nom_lower:
+    description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor"
+    foreach: [storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_nom_ext >= StorageUnit_p_nom_min
+  StorageUnit_ext_p_nom_upper:
+    description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [storage_unit]
+    where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_max
+    expression: StorageUnit_p_nom_ext <= StorageUnit_p_nom_max
+  StorageUnit_p_nom_set:
+    description: "`StorageUnit-p_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [storage_unit]
+    where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_set
+    expression: StorageUnit_p_nom_ext == StorageUnit_p_nom_set
   StorageUnit_energy_balance:
     description: >-
       `StorageUnit-energy_balance` — charge carried over less standing loss,
@@ -323,6 +511,31 @@ constraints:
     foreach: [snapshot, store]
     where: not Store_e_nom_extendable
     expression: Store_e <= Store_e_max_pu * Store_e_nom
+  Store_ext_e_lower:
+    description: "`Store-ext-e-lower` — an extendable store holds at least its floor of the chosen build"
+    foreach: [snapshot, store]
+    where: Store_e_nom_extendable
+    expression: Store_e >= Store_e_min_pu * Store_e_nom_ext
+  Store_ext_e_upper:
+    description: "`Store-ext-e-upper` — an extendable store holds at most the chosen build"
+    foreach: [snapshot, store]
+    where: Store_e_nom_extendable
+    expression: Store_e <= Store_e_max_pu * Store_e_nom_ext
+  Store_ext_e_nom_lower:
+    description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor"
+    foreach: [store]
+    where: Store_e_nom_extendable
+    expression: Store_e_nom_ext >= Store_e_nom_min
+  Store_ext_e_nom_upper:
+    description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [store]
+    where: Store_e_nom_extendable AND Store_e_nom_max
+    expression: Store_e_nom_ext <= Store_e_nom_max
+  Store_e_nom_set:
+    description: "`Store-e_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [store]
+    where: Store_e_nom_extendable AND Store_e_nom_set
+    expression: Store_e_nom_ext == Store_e_nom_set
   Store_energy_balance:
     description: >-
       `Store-energy_balance` — energy carried over less standing loss, less
@@ -402,3 +615,7 @@ objective:
     + sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective)
     + sum(Store_p * Store_marginal_cost * snapshot_weightings_objective)
     + sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective)
+    + sum(Generator_p_nom_ext * Generator_capital_cost)
+    + sum(Link_p_nom_ext * Link_capital_cost)
+    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost)
+    + sum(Store_e_nom_ext * Store_capital_cost)

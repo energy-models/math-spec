@@ -32,6 +32,29 @@ names:
   Generator_p_set: '\mathrm{p}^{\mathrm{set}}'
   Link_p_set: '\mathrm{f}^{\mathrm{set}}'
   snapshot_weightings_stores: '\mathrm{w}^{\mathrm{sto}}'
+  snapshot_weightings_generators: '\mathrm{w}^{\mathrm{gen}}'
+  Generator_p_nom_ext: "P"
+  Generator_p_nom_min: '\underline{\mathrm{p}}^{\mathrm{nom}}'
+  Generator_p_nom_max: '\overline{\mathrm{p}}^{\mathrm{nom}}'
+  Generator_capital_cost: '\mathrm{c}^{\mathrm{cap}}'
+  Generator_p_nom_set: '\mathrm{p}^{\mathrm{nom,set}}'
+  Generator_e_sum_min: '\underline{\mathrm{E}}'
+  Generator_e_sum_max: '\overline{\mathrm{E}}'
+  Link_p_nom_ext: "F"
+  Link_p_nom_min: '\underline{\mathrm{f}}^{\mathrm{nom}}'
+  Link_p_nom_max: '\overline{\mathrm{f}}^{\mathrm{nom}}'
+  Link_capital_cost: '\mathrm{c}^{\mathrm{cap},f}'
+  Link_p_nom_set: '\mathrm{f}^{\mathrm{nom,set}}'
+  StorageUnit_p_nom_ext: "H"
+  StorageUnit_p_nom_min: '\underline{\mathrm{h}}^{\mathrm{nom}}'
+  StorageUnit_p_nom_max: '\overline{\mathrm{h}}^{\mathrm{nom}}'
+  StorageUnit_capital_cost: '\mathrm{c}^{\mathrm{cap},h}'
+  StorageUnit_p_nom_set: '\mathrm{h}^{\mathrm{nom,set}}'
+  Store_e_nom_ext: "E"
+  Store_e_nom_min: '\underline{\mathrm{e}}^{\mathrm{nom}}'
+  Store_e_nom_max: '\overline{\mathrm{e}}^{\mathrm{nom}}'
+  Store_capital_cost: '\mathrm{c}^{\mathrm{cap},e}'
+  Store_e_nom_set: '\mathrm{e}^{\mathrm{nom,set}}'
   StorageUnit_p_dispatch: "h^{+}"
   StorageUnit_p_store: "h^{-}"
   StorageUnit_state_of_charge: '\mathit{soc}'

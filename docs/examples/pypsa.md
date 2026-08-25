@@ -57,12 +57,12 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 
 | PyPSA                            | status | note                                        |
 | -------------------------------- | ------ | ------------------------------------------- |
-| `{c}-p_nom`, `-s_nom`, `-e_nom`  |        |                                             |
-| `{c}-ext-{attr}-lower/upper`     |        |                                             |
-| `{c}-ext-p_nom-lower/upper`      |        |                                             |
-| `{c}-p_nom_set`                  |        |                                             |
-| `Generator-e_sum_min/max`        |        |                                             |
-| capital cost                     | prep   | `periodized_cost` is an annuity, data prep  |
+| [`{c}-p_nom`, `-s_nom`, `-e_nom`](#variable-domains) | done | `{c}_p_nom_ext` here — the fixed regime keeps the parameter; `Line-s_nom` lands with rung 6 |
+| [`{c}-ext-{attr}-lower/upper`](#generator-ext-p-lower) | done |                                           |
+| [`{c}-ext-p_nom-lower/upper`](#generator-ext-p_nom-lower) | done | a cap of infinity is no row            |
+| [`{c}-p_nom_set`](#generator-p_nom_set) | done |                                                      |
+| [`Generator-e_sum_min/max`](#generator-e_sum_min) | done | no row where the bound is not finite       |
+| [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 ### Rung 4 — ramps
 
@@ -188,6 +188,25 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{p}^{\mathrm{set}}$ | `Generator_p_set` over $\mathcal{T} \times \mathcal{G}$ — a given output schedule; a generator without one has no row here |
 | $\mathrm{f}^{\mathrm{set}}$ | `Link_p_set` over $\mathcal{T} \times \mathcal{L}$ — a given flow schedule; a link without one has no row here |
 | $\mathrm{w}^{\mathrm{sto}}$ | `snapshot_weightings_stores` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.stores` — hours a snapshot stands for in a storage balance |
+| $\mathrm{w}^{\mathrm{gen}}$ | `snapshot_weightings_generators` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.generators` — hours a snapshot stands for in an energy total |
+| $\underline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_min` over $\mathcal{G}$ — least nominal power an extendable generator may be built at |
+| $\overline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_max` over $\mathcal{G}$ — most nominal power an extendable generator may be built at |
+| $\mathrm{c}^{\mathrm{cap}}$ | `Generator_capital_cost` over $\mathcal{G}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $\mathrm{p}^{\mathrm{nom,set}}$ | `Generator_p_nom_set` over $\mathcal{G}$ — a given nominal power for an extendable generator; one without a value has no row here |
+| $\underline{\mathrm{E}}$ | `Generator_e_sum_min` over $\mathcal{G}$ — least energy over the horizon; minus infinity where no floor is meant |
+| $\overline{\mathrm{E}}$ | `Generator_e_sum_max` over $\mathcal{G}$ — most energy over the horizon — a fuel or emission budget in energy terms; infinity where no cap is meant |
+| $\underline{\mathrm{f}}^{\mathrm{nom}}$ | `Link_p_nom_min` over $\mathcal{L}$ — least nominal power an extendable link may be built at |
+| $\overline{\mathrm{f}}^{\mathrm{nom}}$ | `Link_p_nom_max` over $\mathcal{L}$ — most nominal power an extendable link may be built at |
+| $\mathrm{c}^{\mathrm{cap},f}$ | `Link_capital_cost` over $\mathcal{L}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $\mathrm{f}^{\mathrm{nom,set}}$ | `Link_p_nom_set` over $\mathcal{L}$ — a given nominal power for an extendable link; one without a value has no row here |
+| $\underline{\mathrm{h}}^{\mathrm{nom}}$ | `StorageUnit_p_nom_min` over $\mathcal{S}$ — least nominal power an extendable storage unit may be built at |
+| $\overline{\mathrm{h}}^{\mathrm{nom}}$ | `StorageUnit_p_nom_max` over $\mathcal{S}$ — most nominal power an extendable storage unit may be built at |
+| $\mathrm{c}^{\mathrm{cap},h}$ | `StorageUnit_capital_cost` over $\mathcal{S}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $\mathrm{h}^{\mathrm{nom,set}}$ | `StorageUnit_p_nom_set` over $\mathcal{S}$ — a given nominal power for an extendable storage unit; one without a value has no row here |
+| $\underline{\mathrm{e}}^{\mathrm{nom}}$ | `Store_e_nom_min` over $\mathcal{V}$ — least nominal capacity an extendable store may be built at |
+| $\overline{\mathrm{e}}^{\mathrm{nom}}$ | `Store_e_nom_max` over $\mathcal{V}$ — most nominal capacity an extendable store may be built at |
+| $\mathrm{c}^{\mathrm{cap},e}$ | `Store_capital_cost` over $\mathcal{V}$ — cost of one unit of nominal capacity — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $\mathrm{e}^{\mathrm{nom,set}}$ | `Store_e_nom_set` over $\mathcal{V}$ — a given nominal capacity for an extendable store; one without a value has no row here |
 | $\mathrm{h}^{\mathrm{nom}}$ | `StorageUnit_p_nom` over $\mathcal{S}$ — nominal power |
 | $\mathrm{ext}^{h}$ | `StorageUnit_p_nom_extendable` over $\mathcal{S}$ — whether the nominal power is a decision |
 | $\underline{\mathrm{h}}$ | `StorageUnit_p_min_pu` over $\mathcal{T} \times \mathcal{S}$ — most storing, per unit of nominal power and negated |
@@ -227,6 +246,10 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathit{spill}$ | `StorageUnit_spill` over $\mathcal{T} \times \mathcal{S}$ — `StorageUnit-spill` — inflow passed on unused. Zero where there is no inflow, so the balance keeps its row there; the bounds are PyPSA's, on the variable rather than as rows |
 | $e$ | `Store_e` over $\mathcal{T} \times \mathcal{V}$ — `Store-e` — energy held at the end of a snapshot |
 | $q$ | `Store_p` over $\mathcal{T} \times \mathcal{V}$ — `Store-p` — power delivered to the bus; charging is negative |
+| $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $F$ | `Link_p_nom_ext` over $\mathcal{L}$ — `Link-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $H$ | `StorageUnit_p_nom_ext` over $\mathcal{S}$ — `StorageUnit-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $E$ | `Store_e_nom_ext` over $\mathcal{V}$ — `Store-e_nom` — nominal capacity where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
@@ -246,9 +269,13 @@ objective:
     + sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective)
     + sum(Store_p * Store_marginal_cost * snapshot_weightings_objective)
     + sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective)
+    + sum(Generator_p_nom_ext * Generator_capital_cost)
+    + sum(Link_p_nom_ext * Link_capital_cost)
+    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost)
+    + sum(Store_e_nom_ext * Store_capital_cost)
 ```
 
-$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t}$$
+$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v}$$
 
 ### `Generator-fix-p-lower`
 
@@ -305,6 +332,174 @@ Link_fix_p_upper:
 ```
 
 $$f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l}$$
+
+### `Generator-ext-p-lower`
+
+`Generator_ext_p_lower`
+
+```yaml
+Generator_ext_p_lower:
+  description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
+  foreach: [snapshot, generator]
+  where: Generator_p_nom_extendable
+  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
+```
+
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+
+### `Generator-ext-p-upper`
+
+`Generator_ext_p_upper`
+
+```yaml
+Generator_ext_p_upper:
+  description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
+  foreach: [snapshot, generator]
+  where: Generator_p_nom_extendable
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+```
+
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+
+### `Generator-ext-p_nom-lower`
+
+`Generator_ext_p_nom_lower`
+
+```yaml
+Generator_ext_p_nom_lower:
+  description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
+  foreach: [generator]
+  where: Generator_p_nom_extendable
+  expression: Generator_p_nom_ext >= Generator_p_nom_min
+```
+
+$$P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+
+### `Generator-ext-p_nom-upper`
+
+`Generator_ext_p_nom_upper`
+
+```yaml
+Generator_ext_p_nom_upper:
+  description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [generator]
+  where: Generator_p_nom_extendable AND Generator_p_nom_max
+  expression: Generator_p_nom_ext <= Generator_p_nom_max
+```
+
+$$P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \text{ is defined}$$
+
+### `Generator-p_nom_set`
+
+`Generator_p_nom_set`
+
+```yaml
+Generator_p_nom_set:
+  description: "`Generator-p_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [generator]
+  where: Generator_p_nom_extendable AND Generator_p_nom_set
+  expression: Generator_p_nom_ext == Generator_p_nom_set
+```
+
+$$P_{g} = \mathrm{p}^{\mathrm{nom,set}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{nom,set}}_{g} \text{ is defined}$$
+
+### `Generator-e_sum_min`
+
+`Generator_e_sum_min`
+
+```yaml
+Generator_e_sum_min:
+  description: "`Generator-e_sum_min` — energy over the horizon is at least its floor; a floor of minus infinity is no row"
+  foreach: [generator]
+  where: Generator_e_sum_min
+  expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) >= Generator_e_sum_min
+```
+
+$$\sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \ge \underline{\mathrm{E}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \underline{\mathrm{E}}_{g} \text{ is defined}$$
+
+### `Generator-e_sum_max`
+
+`Generator_e_sum_max`
+
+```yaml
+Generator_e_sum_max:
+  description: "`Generator-e_sum_max` — energy over the horizon is at most its budget; a budget of infinity is no row"
+  foreach: [generator]
+  where: Generator_e_sum_max
+  expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) <= Generator_e_sum_max
+```
+
+$$\sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \le \overline{\mathrm{E}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \overline{\mathrm{E}}_{g} \text{ is defined}$$
+
+### `Link-ext-p-lower`
+
+`Link_ext_p_lower`
+
+```yaml
+Link_ext_p_lower:
+  description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
+  foreach: [snapshot, link]
+  where: Link_p_nom_extendable
+  expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
+```
+
+$$f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
+
+### `Link-ext-p-upper`
+
+`Link_ext_p_upper`
+
+```yaml
+Link_ext_p_upper:
+  description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
+  foreach: [snapshot, link]
+  where: Link_p_nom_extendable
+  expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
+```
+
+$$f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
+
+### `Link-ext-p_nom-lower`
+
+`Link_ext_p_nom_lower`
+
+```yaml
+Link_ext_p_nom_lower:
+  description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
+  foreach: [link]
+  where: Link_p_nom_extendable
+  expression: Link_p_nom_ext >= Link_p_nom_min
+```
+
+$$F_{l} \ge \underline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
+
+### `Link-ext-p_nom-upper`
+
+`Link_ext_p_nom_upper`
+
+```yaml
+Link_ext_p_nom_upper:
+  description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [link]
+  where: Link_p_nom_extendable AND Link_p_nom_max
+  expression: Link_p_nom_ext <= Link_p_nom_max
+```
+
+$$F_{l} \le \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \text{ is defined}$$
+
+### `Link-p_nom_set`
+
+`Link_p_nom_set`
+
+```yaml
+Link_p_nom_set:
+  description: "`Link-p_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [link]
+  where: Link_p_nom_extendable AND Link_p_nom_set
+  expression: Link_p_nom_ext == Link_p_nom_set
+```
+
+$$F_{l} = \mathrm{f}^{\mathrm{nom,set}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{nom,set}}_{l} \text{ is defined}$$
 
 ### `StorageUnit-fix-p_dispatch-lower`
 
@@ -391,6 +586,134 @@ StorageUnit_fix_state_of_charge_upper:
 ```
 
 $$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_dispatch-lower`
+
+`StorageUnit_ext_p_dispatch_lower`
+
+```yaml
+StorageUnit_ext_p_dispatch_lower:
+  description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_dispatch >= 0
+```
+
+$$h^{+}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_dispatch-upper`
+
+`StorageUnit_ext_p_dispatch_upper`
+
+```yaml
+StorageUnit_ext_p_dispatch_upper:
+  description: "`StorageUnit-ext-p_dispatch-upper` — an extendable unit dispatches at most the chosen build"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom_ext
+```
+
+$$h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_store-lower`
+
+`StorageUnit_ext_p_store_lower`
+
+```yaml
+StorageUnit_ext_p_store_lower:
+  description: "`StorageUnit-ext-p_store-lower` — storing is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_store >= 0
+```
+
+$$h^{-}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_store-upper`
+
+`StorageUnit_ext_p_store_upper`
+
+```yaml
+StorageUnit_ext_p_store_upper:
+  description: >-
+    `StorageUnit-ext-p_store-upper` — an extendable unit stores at most the
+    chosen build, the minimum-per-unit column carrying that cap negated
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom_ext
+```
+
+$$h^{-}_{t,s} \le \left( -\underline{\mathrm{h}}_{t,s} \right) \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-state_of_charge-lower`
+
+`StorageUnit_ext_state_of_charge_lower`
+
+```yaml
+StorageUnit_ext_state_of_charge_lower:
+  description: "`StorageUnit-ext-state_of_charge-lower` — charge is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_state_of_charge >= 0
+```
+
+$$\mathit{soc}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-state_of_charge-upper`
+
+`StorageUnit_ext_state_of_charge_upper`
+
+```yaml
+StorageUnit_ext_state_of_charge_upper:
+  description: "`StorageUnit-ext-state_of_charge-upper` — an extendable unit holds at most its hours at the chosen build"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom_ext
+```
+
+$$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_nom-lower`
+
+`StorageUnit_ext_p_nom_lower`
+
+```yaml
+StorageUnit_ext_p_nom_lower:
+  description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor"
+  foreach: [storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_nom_ext >= StorageUnit_p_nom_min
+```
+
+$$H_{s} \ge \underline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_nom-upper`
+
+`StorageUnit_ext_p_nom_upper`
+
+```yaml
+StorageUnit_ext_p_nom_upper:
+  description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_max
+  expression: StorageUnit_p_nom_ext <= StorageUnit_p_nom_max
+```
+
+$$H_{s} \le \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s} \wedge \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \text{ is defined}$$
+
+### `StorageUnit-p_nom_set`
+
+`StorageUnit_p_nom_set`
+
+```yaml
+StorageUnit_p_nom_set:
+  description: "`StorageUnit-p_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_set
+  expression: StorageUnit_p_nom_ext == StorageUnit_p_nom_set
+```
+
+$$H_{s} = \mathrm{h}^{\mathrm{nom,set}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s} \wedge \mathrm{h}^{\mathrm{nom,set}}_{s} \text{ is defined}$$
 
 ### `StorageUnit-energy_balance`
 
@@ -481,6 +804,76 @@ Store_fix_e_upper:
 ```
 
 $$e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{ext}^{e}_{v}$$
+
+### `Store-ext-e-lower`
+
+`Store_ext_e_lower`
+
+```yaml
+Store_ext_e_lower:
+  description: "`Store-ext-e-lower` — an extendable store holds at least its floor of the chosen build"
+  foreach: [snapshot, store]
+  where: Store_e_nom_extendable
+  expression: Store_e >= Store_e_min_pu * Store_e_nom_ext
+```
+
+$$e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
+
+### `Store-ext-e-upper`
+
+`Store_ext_e_upper`
+
+```yaml
+Store_ext_e_upper:
+  description: "`Store-ext-e-upper` — an extendable store holds at most the chosen build"
+  foreach: [snapshot, store]
+  where: Store_e_nom_extendable
+  expression: Store_e <= Store_e_max_pu * Store_e_nom_ext
+```
+
+$$e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
+
+### `Store-ext-e_nom-lower`
+
+`Store_ext_e_nom_lower`
+
+```yaml
+Store_ext_e_nom_lower:
+  description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor"
+  foreach: [store]
+  where: Store_e_nom_extendable
+  expression: Store_e_nom_ext >= Store_e_nom_min
+```
+
+$$E_{v} \ge \underline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
+
+### `Store-ext-e_nom-upper`
+
+`Store_ext_e_nom_upper`
+
+```yaml
+Store_ext_e_nom_upper:
+  description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [store]
+  where: Store_e_nom_extendable AND Store_e_nom_max
+  expression: Store_e_nom_ext <= Store_e_nom_max
+```
+
+$$E_{v} \le \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v} \wedge \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \text{ is defined}$$
+
+### `Store-e_nom_set`
+
+`Store_e_nom_set`
+
+```yaml
+Store_e_nom_set:
+  description: "`Store-e_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [store]
+  where: Store_e_nom_extendable AND Store_e_nom_set
+  expression: Store_e_nom_ext == Store_e_nom_set
+```
+
+$$E_{v} = \mathrm{e}^{\mathrm{nom,set}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v} \wedge \mathrm{e}^{\mathrm{nom,set}}_{v} \text{ is defined}$$
 
 ### `Store-energy_balance`
 
@@ -663,6 +1056,22 @@ $$e_{t,v} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \
 **`Store_p`**
 
 $$q_{t,v} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V}$$
+
+**`Generator_p_nom_ext`**
+
+$$P_{g} \in \mathbb{R} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+
+**`Link_p_nom_ext`**
+
+$$F_{l} \in \mathbb{R} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
+
+**`StorageUnit_p_nom_ext`**
+
+$$H_{s} \in \mathbb{R} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+**`Store_e_nom_ext`**
+
+$$E_{v} \in \mathbb{R} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.
