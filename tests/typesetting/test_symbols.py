@@ -12,29 +12,50 @@ import pytest
 
 from math_spec.errors import SchemaError
 from math_spec.typesetting import SymbolTable, to_latex, to_markdown, to_typst, typeset
-from tests.fixtures import override
-from tests.typesetting.fixtures import DISPATCH, EVERY_FORMAT, SYMBOLS, TYPST_SYMBOLS
+from tests.fixtures import DISPATCH_MODEL, override
+from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
     from math_spec.typesetting.format import Format
 
 
 WITH_MARGINAL_COST = override(
-    DISPATCH,
+    DISPATCH_MODEL,
     **{'parameters.marginal_cost': {'dims': ['generator']}, 'objective.expression': 'sum(p * marginal_cost)'},
 )
 
 
-def test_the_table_overrides_and_the_rest_is_still_derived():
-    tex = to_latex(WITH_MARGINAL_COST, symbols=SYMBOLS, legend=False)
-    assert r'\pi_{t,u}' in tex, 'both the symbol and its subscripts were overridden'
-    assert r'c^{\mathrm{marg}}_{u}' in tex
-    assert r'\mathrm{load}_{t}' in tex, 'untouched, so still derived'
-    assert r'u \in \mathcal{U}' in tex
+@pytest.mark.parametrize(
+    ('render', 'symbols', 'fragments'),
+    [
+        pytest.param(
+            to_latex,
+            {
+                'notation': 'latex',
+                'dimensions': {'generator': {'index': 'u', 'set': r'\mathcal{U}'}},
+                'names': {'p': r'\pi', 'marginal_cost': r'c^{\mathrm{marg}}'},
+            },
+            (r'\pi_{t,u}', r'c^{\mathrm{marg}}_{u}', r'u \in \mathcal{U}', r'\mathrm{load}_{t}'),
+            id='latex',
+        ),
+        pytest.param(
+            to_typst,
+            TYPST_SYMBOLS,
+            ('pi_(t,u)', 'bar(p)_(u)', 'u in cal(U)', 'upright("load")_(t)'),
+            id='typst',
+        ),
+    ],
+)
+def test_the_table_prints_verbatim_and_the_rest_is_still_derived(render, symbols, fragments):
+    """A symbol the table supplies, with its subscripts, is printed as written;
+    `load` is in no table, so it is still derived."""
+    out = render(WITH_MARGINAL_COST, symbols=symbols, legend=False)
+    for fragment in fragments:
+        assert fragment in out
 
 
 DESCRIBED = override(
-    DISPATCH,
+    DISPATCH_MODEL,
     **{
         'dimensions.generator.description': 'dispatchable units',
         'parameters.p_max.description': 'installed capacity',
@@ -49,7 +70,7 @@ def test_a_description_reaches_the_legend_without_hiding_the_name(fmt: Format):
     sidecar involved, so a model carries its prose wherever it goes."""
     out = typeset(DESCRIBED, fmt)
     for text in ('dispatchable units', 'installed capacity', 'output of a generator in a snapshot'):
-        assert text in out, f'{text!r} never reached the legend'
+        assert text in out
     assert 'generator' in out, 'the description sits beside the name, it does not replace it'
 
 
@@ -75,14 +96,7 @@ def test_an_entry_naming_nothing_is_an_error_with_the_near_miss(symbols, match):
     """A silent typo means a symbol that never applies and a reader who never
     finds out — so it fails, and says what it probably meant."""
     with pytest.raises(SchemaError, match=match):
-        to_latex(DISPATCH, symbols={'notation': 'latex', **symbols})
-
-
-def test_a_table_prints_its_own_notation_verbatim():
-    typ = to_typst(DISPATCH, symbols=TYPST_SYMBOLS)
-    assert 'pi_(t,u)' in typ
-    assert 'bar(p)_(u)' in typ
-    assert 'u in cal(U)' in typ
+        to_latex(DISPATCH_MODEL, symbols={'notation': 'latex', **symbols})
 
 
 @pytest.mark.parametrize(
@@ -111,19 +125,19 @@ def test_a_table_in_the_wrong_notation_refuses(render, symbols, match):
     """#321 was this failing silently — LaTeX passed into a Typst document,
     breaking three tools later; now it stops at the call, naming both notations."""
     with pytest.raises(SchemaError, match=match):
-        render(DISPATCH, symbols=symbols)
+        render(DISPATCH_MODEL, symbols=symbols)
 
 
 def test_notation_is_case_insensitive():
-    assert to_latex(DISPATCH, symbols={'notation': 'LaTeX', 'names': {'p': r'\pi'}}) == to_latex(
-        DISPATCH, symbols={'notation': 'latex', 'names': {'p': r'\pi'}}
+    assert to_latex(DISPATCH_MODEL, symbols={'notation': 'LaTeX', 'names': {'p': r'\pi'}}) == to_latex(
+        DISPATCH_MODEL, symbols={'notation': 'latex', 'names': {'p': r'\pi'}}
     ), 'load lower-cases the notation, so casing never changes the render'
 
 
 def test_an_empty_override_is_used_not_fallen_through():
-    tex = to_latex(DISPATCH, symbols={'notation': 'latex', 'names': {'p_max': ''}})
+    tex = to_latex(DISPATCH_MODEL, symbols={'notation': 'latex', 'names': {'p_max': ''}})
     assert r'p^{\mathrm{max}}' not in tex, 'an entry in the table is used verbatim, even empty — never re-derived'
 
 
 def test_a_model_renders_identically_with_an_empty_table():
-    assert to_latex(DISPATCH) == to_latex(DISPATCH, symbols=SymbolTable('latex'))
+    assert to_latex(DISPATCH_MODEL) == to_latex(DISPATCH_MODEL, symbols=SymbolTable('latex'))
