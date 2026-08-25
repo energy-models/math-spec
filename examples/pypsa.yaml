@@ -49,6 +49,22 @@ parameters:
   Generator_marginal_cost:
     description: cost of one unit of output
     dims: [snapshot, generator]
+  Generator_committable:
+    description: whether output is gated by an on/off status decision
+    dims: [generator]
+    dtype: bool
+  Generator_ramp_limit_up:
+    description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit
+    dims: [generator]
+  Generator_ramp_limit_down:
+    description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit
+    dims: [generator]
+  Link_ramp_limit_up:
+    description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
+    dims: [link]
+  Link_ramp_limit_down:
+    description: most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit
+    dims: [link]
   Link_p_nom:
     description: nominal power
     dims: [link]
@@ -419,6 +435,49 @@ constraints:
     foreach: [snapshot, storage_unit]
     where: not StorageUnit_p_nom_extendable
     expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom
+  Generator_p_ramp_limit_up_fix:
+    description: >-
+      `Generator-p-ramp_limit_up` — a fixed generator raises output no faster
+      than its limit. The translated term vacates the first snapshot, where a
+      plain optimize builds no row either
+    foreach: [snapshot, generator]
+    where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
+    expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom
+  Generator_p_ramp_limit_down_fix:
+    description: "`Generator-p-ramp_limit_down` — a fixed generator lowers output no faster than its limit"
+    foreach: [snapshot, generator]
+    where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
+    expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom
+  Generator_p_ramp_limit_up_ext:
+    description: "`Generator-p-ramp_limit_up` — an extendable generator raises output no faster than its limit of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable AND Generator_ramp_limit_up
+    expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom_ext
+  Generator_p_ramp_limit_down_ext:
+    description: "`Generator-p-ramp_limit_down` — an extendable generator lowers output no faster than its limit of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable AND Generator_ramp_limit_down
+    expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom_ext
+  Link_p_ramp_limit_up_fix:
+    description: "`Link-p-ramp_limit_up` — a fixed link raises flow no faster than its limit"
+    foreach: [snapshot, link]
+    where: not Link_p_nom_extendable AND Link_ramp_limit_up
+    expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom
+  Link_p_ramp_limit_down_fix:
+    description: "`Link-p-ramp_limit_down` — a fixed link lowers flow no faster than its limit"
+    foreach: [snapshot, link]
+    where: not Link_p_nom_extendable AND Link_ramp_limit_down
+    expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom
+  Link_p_ramp_limit_up_ext:
+    description: "`Link-p-ramp_limit_up` — an extendable link raises flow no faster than its limit of the chosen build"
+    foreach: [snapshot, link]
+    where: Link_p_nom_extendable AND Link_ramp_limit_up
+    expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_ext
+  Link_p_ramp_limit_down_ext:
+    description: "`Link-p-ramp_limit_down` — an extendable link lowers flow no faster than its limit of the chosen build"
+    foreach: [snapshot, link]
+    where: Link_p_nom_extendable AND Link_ramp_limit_down
+    expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_ext
   StorageUnit_ext_p_dispatch_lower:
     description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
     foreach: [snapshot, storage_unit]

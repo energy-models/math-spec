@@ -21,6 +21,11 @@ names:
   Generator_p_min_pu: '\underline{\mathrm{p}}'
   Generator_p_max_pu: '\overline{\mathrm{p}}'
   Generator_marginal_cost: '\mathrm{c}'
+  Generator_committable: '\mathrm{com}'
+  Generator_ramp_limit_up: '\mathrm{ru}'
+  Generator_ramp_limit_down: '\mathrm{rd}'
+  Link_ramp_limit_up: '\mathrm{ru}^{f}'
+  Link_ramp_limit_down: '\mathrm{rd}^{f}'
   Link_p: f
   Link_p_nom: '\mathrm{f}^{\mathrm{nom}}'
   Link_p_nom_extendable: '\mathrm{ext}^{f}'

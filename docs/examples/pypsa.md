@@ -68,7 +68,7 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 
 | PyPSA                          | status | note                                                       |
 | ------------------------------ | ------ | ---------------------------------------------------------- |
-| `{c}-p-ramp_limit_up/down`     | split  | one block per regime, one for the first snapshot           |
+| [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | fix and ext blocks; com is rung 7's, big-M rung 8's; the first snapshot's row is rolling horizon's, a flag |
 
 ### Rung 5 — global constraints
 
@@ -178,6 +178,11 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
 | $\overline{\mathrm{p}}$ | `Generator_p_max_pu` over $\mathcal{T} \times \mathcal{G}$ — most output, per unit of nominal power — an availability profile |
 | $\mathrm{c}$ | `Generator_marginal_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one unit of output |
+| $\mathrm{com}$ | `Generator_committable` over $\mathcal{G}$ — whether output is gated by an on/off status decision |
+| $\mathrm{ru}$ | `Generator_ramp_limit_up` over $\mathcal{G}$ — most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit |
+| $\mathrm{rd}$ | `Generator_ramp_limit_down` over $\mathcal{G}$ — most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit |
+| $\mathrm{ru}^{f}$ | `Link_ramp_limit_up` over $\mathcal{L}$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
+| $\mathrm{rd}^{f}$ | `Link_ramp_limit_down` over $\mathcal{L}$ — most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
 | $\mathrm{ext}^{f}$ | `Link_p_nom_extendable` over $\mathcal{L}$ — whether the nominal power is a decision; false on this rung |
 | $\underline{\mathrm{f}}$ | `Link_p_min_pu` over $\mathcal{T} \times \mathcal{L}$ — least flow, per unit of nominal power — negative for a link that carries both ways |
@@ -586,6 +591,121 @@ StorageUnit_fix_state_of_charge_upper:
 ```
 
 $$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `Generator-p-ramp_limit_up`
+
+`Generator_p_ramp_limit_up_fix`
+
+```yaml
+Generator_p_ramp_limit_up_fix:
+  description: >-
+    `Generator-p-ramp_limit_up` — a fixed generator raises output no faster
+    than its limit. The translated term vacates the first snapshot, where a
+    plain optimize builds no row either
+  foreach: [snapshot, generator]
+  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
+  expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom
+```
+
+$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_down`
+
+`Generator_p_ramp_limit_down_fix`
+
+```yaml
+Generator_p_ramp_limit_down_fix:
+  description: "`Generator-p-ramp_limit_down` — a fixed generator lowers output no faster than its limit"
+  foreach: [snapshot, generator]
+  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
+  expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom
+```
+
+$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_up`
+
+`Generator_p_ramp_limit_up_ext`
+
+```yaml
+Generator_p_ramp_limit_up_ext:
+  description: "`Generator-p-ramp_limit_up` — an extendable generator raises output no faster than its limit of the chosen build"
+  foreach: [snapshot, generator]
+  where: Generator_p_nom_extendable AND Generator_ramp_limit_up
+  expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom_ext
+```
+
+$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_down`
+
+`Generator_p_ramp_limit_down_ext`
+
+```yaml
+Generator_p_ramp_limit_down_ext:
+  description: "`Generator-p-ramp_limit_down` — an extendable generator lowers output no faster than its limit of the chosen build"
+  foreach: [snapshot, generator]
+  where: Generator_p_nom_extendable AND Generator_ramp_limit_down
+  expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom_ext
+```
+
+$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+
+### `Link-p-ramp_limit_up`
+
+`Link_p_ramp_limit_up_fix`
+
+```yaml
+Link_p_ramp_limit_up_fix:
+  description: "`Link-p-ramp_limit_up` — a fixed link raises flow no faster than its limit"
+  foreach: [snapshot, link]
+  where: not Link_p_nom_extendable AND Link_ramp_limit_up
+  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom
+```
+
+$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined}$$
+
+### `Link-p-ramp_limit_down`
+
+`Link_p_ramp_limit_down_fix`
+
+```yaml
+Link_p_ramp_limit_down_fix:
+  description: "`Link-p-ramp_limit_down` — a fixed link lowers flow no faster than its limit"
+  foreach: [snapshot, link]
+  where: not Link_p_nom_extendable AND Link_ramp_limit_down
+  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom
+```
+
+$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined}$$
+
+### `Link-p-ramp_limit_up`
+
+`Link_p_ramp_limit_up_ext`
+
+```yaml
+Link_p_ramp_limit_up_ext:
+  description: "`Link-p-ramp_limit_up` — an extendable link raises flow no faster than its limit of the chosen build"
+  foreach: [snapshot, link]
+  where: Link_p_nom_extendable AND Link_ramp_limit_up
+  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_ext
+```
+
+$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined}$$
+
+### `Link-p-ramp_limit_down`
+
+`Link_p_ramp_limit_down_ext`
+
+```yaml
+Link_p_ramp_limit_down_ext:
+  description: "`Link-p-ramp_limit_down` — an extendable link lowers flow no faster than its limit of the chosen build"
+  foreach: [snapshot, link]
+  where: Link_p_nom_extendable AND Link_ramp_limit_down
+  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_ext
+```
+
+$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined}$$
 
 ### `StorageUnit-ext-p_dispatch-lower`
 
