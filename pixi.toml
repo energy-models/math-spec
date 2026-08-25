@@ -148,6 +148,15 @@ cmd = "python -m tools.compile_tex {{ dir }}"
 args = [{ arg = "dir", default = "build/tex" }]
 depends-on = [{ task = "render-tex", args = ["{{ dir }}"] }]
 
+# `compat/pypsa/` and `tests/test_pypsa_parity.py`: proof-of-concept groundwork
+# for putting mathspec under PyPSA, ported from lpspec. Not part of the default
+# environment — a wheel consumer and most contributors need none of this.
+[feature.pypsa-parity.dependencies]
+pandas = ">=2"
+pyarrow = "*"
+pypsa = "*"
+highspy = "*"
+
 # The whole gate, in the order a failure is cheapest to read. CI runs these as
 # separate steps so a red run names the one that broke; this is the same list
 # for anyone who wants to know before pushing.
@@ -172,3 +181,4 @@ template = ["template"]
 py312 = ["py312", "test"]
 py313 = ["py313", "test"]
 py314 = ["py314", "test"]
+pypsa-parity = ["test", "pypsa-parity"]

@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  PyPSA parity rung 1: a transport model — generator dispatch, controllable
+  links, nodal balance, linear cost. No storage, ramps, unit commitment, KVL
+  or extendable capacity; those are later rungs on the same instance. Every
+  declaration is named ``<Component>_<attribute>`` after the PyPSA statement it
+  stands for, so the two linopy models can be read side by side. Verified
+  against ``n.optimize(solver_name='highs')`` on ``Shape('base')``.
+
+dimensions:
+  snapshot:
+    description: dispatch periods
+    dtype: int
+  bus:
+    description: network nodes
+    dtype: str
+  generator:
+    description: generating units, each sitting on one bus
+    dtype: str
+  link:
+    description: controllable connections, each joining two buses
+    dtype: str
+
+parameters:
+  Generator_p_max:
+    description: >-
+      most a generator may output in a snapshot — PyPSA's ``p_nom * p_max_pu``,
+      already multiplied out, because a bound takes a name or a number and
+      never arithmetic
+    dims: [snapshot, generator]
+  Generator_marginal_cost:
+    description: cost of one unit of output
+    dims: [generator]
+  Link_p_max:
+    description: most a link may carry towards its `Link_bus1` bus — PyPSA's `p_nom * p_max_pu`
+    dims: [link]
+  Link_p_min:
+    description: most a link may carry the other way — PyPSA's `p_nom * p_min_pu`, negative
+    dims: [link]
+  Load_p_set:
+    description: demand at each bus in each snapshot
+    dims: [snapshot, bus]
+
+lookups:
+  Generator_bus:
+    description: the bus a generator sits on
+    over: generator
+    into: bus
+  Link_bus0:
+    description: the bus a link leaves
+    over: link
+    into: bus
+  Link_bus1:
+    description: the bus a link arrives at
+    over: link
+    into: bus
+
+variables:
+  Generator_p:
+    description: output of a generator in a snapshot
+    foreach: [snapshot, generator]
+    bounds:
+      lower: 0
+      upper: Generator_p_max
+  Link_p:
+    description: >-
+      PyPSA's p0 — flow measured at the link's `Link_bus0` end, so a positive
+      value withdraws there and injects at `Link_bus1`
+    foreach: [snapshot, link]
+    bounds:
+      lower: Link_p_min
+      upper: Link_p_max
+
+constraints:
+  Bus_nodal_balance:
+    description: what is generated at a bus plus what arrives over the links meets the load there
+    foreach: [snapshot, bus]
+    expression: >-
+      sum(Generator_p, by=Generator_bus)
+      + sum(Link_p, by=Link_bus1)
+      - sum(Link_p, by=Link_bus0)
+      == Load_p_set
+
+objective:
+  sense: minimize
+  description: total cost of generation; moving power over a link is free here
+  expression: sum(Generator_p * Generator_marginal_cost)

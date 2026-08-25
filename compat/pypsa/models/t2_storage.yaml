@@ -1,0 +1,152 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  PyPSA parity rung 2: rung 1's transport with a store at every bus,
+  cyclic — the first snapshot's level carries over from the last. The one
+  construct on top of T1 is `shift(over=snapshot, edge='wrap')`, the self-join;
+  no ramps, unit commitment, KVL or extendable capacity. Every declaration is
+  named ``<Component>_<attribute>`` after the PyPSA statement it stands for, so
+  the two linopy models can be read side by side. Verified against
+  ``n.optimize(solver_name='highs')`` on ``Shape('base')``.
+
+dimensions:
+  snapshot:
+    description: dispatch periods, cyclic at the horizon
+    dtype: int
+  bus:
+    description: network nodes
+    dtype: str
+  generator:
+    description: generating units, each sitting on one bus
+    dtype: str
+  link:
+    description: controllable connections, each joining two buses
+    dtype: str
+  storage_unit:
+    description: stores, each sitting on one bus
+    dtype: str
+
+parameters:
+  Generator_p_max:
+    description: >-
+      most a generator may output in a snapshot — PyPSA's ``p_nom * p_max_pu``,
+      already multiplied out, because a bound takes a name or a number and
+      never arithmetic
+    dims: [snapshot, generator]
+  Generator_marginal_cost:
+    description: cost of one unit of output
+    dims: [generator]
+  Link_p_max:
+    description: most a link may carry towards its `Link_bus1` bus — PyPSA's `p_nom * p_max_pu`
+    dims: [link]
+  Link_p_min:
+    description: most a link may carry the other way — PyPSA's `p_nom * p_min_pu`, negative
+    dims: [link]
+  StorageUnit_p_nom:
+    description: >-
+      most a store may charge or discharge in a snapshot — PyPSA's
+      ``p_nom * p_max_pu`` and ``-p_nom * p_min_pu``, one number here because
+      the instance leaves both per-unit factors at their defaults
+    dims: [storage_unit]
+  StorageUnit_state_of_charge_max:
+    description: energy a store holds when full — PyPSA's `p_nom * max_hours`, multiplied out
+    dims: [storage_unit]
+  StorageUnit_efficiency_store:
+    description: share of charging energy that reaches the store
+    dims: [storage_unit]
+  StorageUnit_efficiency_dispatch:
+    description: share of stored energy that reaches the bus on the way out
+    dims: [storage_unit]
+  StorageUnit_standing_loss:
+    description: share of the carried-over level lost between snapshots
+    dims: [storage_unit]
+  Load_p_set:
+    description: demand at each bus in each snapshot
+    dims: [snapshot, bus]
+
+lookups:
+  Generator_bus:
+    description: the bus a generator sits on
+    over: generator
+    into: bus
+  Link_bus0:
+    description: the bus a link leaves
+    over: link
+    into: bus
+  Link_bus1:
+    description: the bus a link arrives at
+    over: link
+    into: bus
+  StorageUnit_bus:
+    description: the bus a store sits on
+    over: storage_unit
+    into: bus
+
+variables:
+  Generator_p:
+    description: output of a generator in a snapshot
+    foreach: [snapshot, generator]
+    bounds:
+      lower: 0
+      upper: Generator_p_max
+  Link_p:
+    description: >-
+      PyPSA's p0 — flow measured at the link's `Link_bus0` end, so a positive
+      value withdraws there and injects at `Link_bus1`
+    foreach: [snapshot, link]
+    bounds:
+      lower: Link_p_min
+      upper: Link_p_max
+  StorageUnit_p_dispatch:
+    description: power a store puts onto its bus
+    foreach: [snapshot, storage_unit]
+    bounds:
+      lower: 0
+      upper: StorageUnit_p_nom
+  StorageUnit_p_store:
+    description: power a store takes off its bus
+    foreach: [snapshot, storage_unit]
+    bounds:
+      lower: 0
+      upper: StorageUnit_p_nom
+  StorageUnit_state_of_charge:
+    description: energy in the store at the end of a snapshot
+    foreach: [snapshot, storage_unit]
+    bounds:
+      lower: 0
+      upper: StorageUnit_state_of_charge_max
+
+constraints:
+  Bus_nodal_balance:
+    description: >-
+      what is generated at a bus, plus what arrives over the links and out of
+      the stores, meets the load there
+    foreach: [snapshot, bus]
+    expression: >-
+      sum(Generator_p, by=Generator_bus)
+      + sum(Link_p, by=Link_bus1)
+      - sum(Link_p, by=Link_bus0)
+      + sum(StorageUnit_p_dispatch, by=StorageUnit_bus)
+      - sum(StorageUnit_p_store, by=StorageUnit_bus)
+      == Load_p_set
+
+  StorageUnit_energy_balance:
+    description: >-
+      the level carried into a snapshot, decayed, plus what was stored and less
+      what was taken — and it wraps at the horizon, so the first snapshot
+      inherits from the last. Written with the level on the right because that
+      is the side PyPSA leaves it on, and the gate compares coefficients.
+    foreach: [snapshot, storage_unit]
+    expression: >-
+      shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+      * (1 - StorageUnit_standing_loss)
+      + StorageUnit_p_store * StorageUnit_efficiency_store
+      - StorageUnit_p_dispatch / StorageUnit_efficiency_dispatch
+      == StorageUnit_state_of_charge
+
+objective:
+  sense: minimize
+  description: total cost of generation; storage and transmission are free here
+  expression: sum(Generator_p * Generator_marginal_cost)
