@@ -14,9 +14,7 @@ It reads the model as :func:`~math_spec.load_model` validates it: expand
 block prints as the λ-formulation it *is* rather than the sugar it was written
 as.
 
-**One walk, many formats.** ``walk.py`` decides everything about the math and
-nothing about the syntax; a :class:`~math_spec.typesetting.format.Format` decides only
-how to spell it. See the [README](README.md) for what adding one costs.
+**One walk, many formats** — the split is :mod:`math_spec.typesetting.format`'s.
 
 Symbols are **derived** by default, aiming at unambiguous rather than
 beautiful, so it prints with no setup; a

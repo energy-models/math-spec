@@ -26,16 +26,13 @@ from typing import TYPE_CHECKING, ClassVar, Protocol
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-#: Every operator a walk can emit, by the name the walk uses for it, paired
-#: with its spelling in each notation — LaTeX first, Typst second. One row per
-#: operator rather than one table per format, so a format cannot be missing a
-#: spelling: there is no second list to fall out of step with. The less obvious
-#: names: ``such_that`` is the colon in "∀ t ∈ T : condition", ``times`` sits
-#: between sets in the legend, ``maps_to`` is the → in a coordinate map. The
-#: three translations get one operator each because they are three models:
-#: plain ``minus``/``plus`` leaves the vacated position absent, ``cyclic_*`` is
-#: ``roll``'s wrapping translation, and ``edge_*`` fills that position with the
-#: value it carries as a subscript.
+#: Every operator a walk can emit, by the name the walk uses for it, with its
+#: LaTeX spelling first and its Typst spelling second — one row per operator,
+#: so no format can be missing one. ``such_that`` is the colon in
+#: "∀ t ∈ T : condition", ``times`` sits between sets in the legend,
+#: ``maps_to`` is the → in a coordinate map, and the three translations are
+#: three models: plain leaves the vacated position absent, ``cyclic_*`` wraps,
+#: ``edge_*`` fills it with the value it carries as a subscript.
 OPERATOR_SPELLINGS: dict[str, tuple[str, str]] = {
     'cdot': (r'\cdot', 'dot'),
     'plus': ('+', '+'),
@@ -70,14 +67,8 @@ OPERATOR_SPELLINGS: dict[str, tuple[str, str]] = {
     'maximize': (r'\max', 'max'),
 }
 
-#: The operator vocabulary itself. Derived, so :data:`OPERATOR_SPELLINGS` is the
-#: single place a new operator is added.
+#: The operator vocabulary itself.
 OPERATOR_NAMES = frozenset(OPERATOR_SPELLINGS)
-
-#: One column each, for the two formats that spell their own math. Markdown
-#: takes LaTeX's and overrides the two entries MathJax reads differently.
-LATEX_OPERATORS: dict[str, str] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
-TYPST_OPERATORS: dict[str, str] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
 
 
 @dataclass(frozen=True)
@@ -97,22 +88,10 @@ class Line:
 
 @dataclass(frozen=True)
 class Entry:
-    """One legend row: a symbol, the name it stands for, and what it is."""
+    """One legend row: a symbol, and everything opposite it as one string."""
 
     symbol: str
-    name: str
-    detail: str = ''
-    description: str = ''
-
-    def meaning(self, dash: str) -> str:
-        """Everything opposite the symbol, as one string.
-
-        What the row *says* is the walk's answer, not a spelling, so the three
-        formats differ only in the table cell they put it in — and in how
-        they spell the dash between a name and its description, which is the
-        one piece of punctuation here that is not the same in all three.
-        """
-        return f'{self.name}{self.detail}' + (f' {dash} {self.description}' if self.description else '')
+    meaning: str
 
 
 @dataclass(frozen=True)
@@ -133,12 +112,7 @@ class Format(Protocol):
     notation: ClassVar[str]
     #: Spelling for each of :data:`OPERATOR_NAMES`.
     operators: ClassVar[Mapping[str, str]]
-    #: The em dash, in prose. TeX and Typst both read ``---`` as one and set
-    #: it as a dash; Markdown has no such rule and renders three hyphens, so
-    #: the character itself is what a Markdown reader has to be given. It is
-    #: an atom rather than something the walk spells because the walk is
-    #: format-agnostic exactly where this appears — a legend row, a
-    #: translation note.
+    #: The em dash in prose: TeX and Typst read ``---`` as one, Markdown does not.
     dash: ClassVar[str]
 
     # -- atoms -------------------------------------------------------------
@@ -156,12 +130,7 @@ class Format(Protocol):
         ...
 
     def greek(self, name: str) -> str:
-        """A name that *is* a Greek letter, set as the letter.
-
-        The walk decides which names those are; a format only spells one.
-        Lower-case names only — every one of them has a letter in both
-        notations, which the capitals do not.
-        """
+        """A lower-case name that *is* a Greek letter, set as the letter."""
         ...
 
     def prose(self, text: str) -> str:
@@ -173,13 +142,7 @@ class Format(Protocol):
         ...
 
     def escape(self, prose: str) -> str:
-        """Author prose, made safe for this format's text mode.
-
-        Every other atom escapes as it wraps, so what passes through here is
-        what arrives already being prose — a ``description:``. Not
-        :meth:`prose`, which is words *inside* math, and not :meth:`note`,
-        which is handed generated markup too.
-        """
+        """Author prose — a ``description:`` — made safe for this format's text mode."""
         ...
 
     def math(self, expression: str) -> str:
@@ -195,12 +158,7 @@ class Format(Protocol):
     def parenthesise(self, inner: str) -> str: ...
 
     def cardinality(self, inner: str) -> str:
-        """How many members a set has: ``|T|``.
-
-        A fence rather than an entry in :data:`OPERATOR_NAMES`, which is a
-        vocabulary of *infix* spellings — ``tests/typesetting/test_typeset.py``
-        compiles every one of them between two operands.
-        """
+        """How many members a set has: ``|T|``. A fence, so not an infix entry in :data:`OPERATOR_NAMES`."""
         ...
 
     def fraction(self, numerator: str, denominator: str) -> str: ...
