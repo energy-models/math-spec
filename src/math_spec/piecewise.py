@@ -44,7 +44,8 @@ from typing import TYPE_CHECKING, Any
 from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
-from math_spec.expression_parser import ComparisonNode, parse_expression
+from math_spec.expansion import parse_and_expand
+from math_spec.expression_parser import ComparisonNode
 from math_spec.model import Buildable, Model, PiecewiseBlock
 from math_spec.resolution import Namespace, resolve_expression
 
@@ -326,6 +327,11 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
     elif pw.points is not None:
         if pw.points not in schema.parameters:
             raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
+        if (dtype := schema.parameters[pw.points].dtype) != 'bool':
+            raise PiecewiseExpansionError(
+                f"{ctx}: points parameter '{pw.points}' is {dtype}, and a mask is a bool parameter — one "
+                f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
+            )
         mask = schema.parameters[pw.points].dims
         if pw.over not in mask:
             raise PiecewiseExpansionError(
@@ -384,7 +390,7 @@ def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:
     the expression is a different question, asked later by whichever lane
     builds a plan.
     """
-    ast = parse_expression(text)
+    ast = parse_and_expand(text, schema, ctx)
     if isinstance(ast, ComparisonNode):
         raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
     errors: list[str] = []

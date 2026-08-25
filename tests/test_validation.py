@@ -69,6 +69,21 @@ class TestValidateExpressions:
                 id='an-unknown-operator',
             ),
             pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p * p * p <= p_max'}}},
+                ("Constraint 'cap'", 'this product is degree 3'),
+                id='a-cubic-constraint',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(p ** 2, over=g)'}},
+                ('The objective', '`**` is not in the language over variables'),
+                id='a-variable-under-a-power',
+            ),
+            pytest.param(
+                {'expressions': {'sq': 'p * p'}},
+                ("Named expression 'sq'", 'which is degree 2'),
+                id='a-quadratic-named-expression',
+            ),
+            pytest.param(
                 {'constraints': {'cap': {'foreach': ['g'], 'where': 'p_max >', 'expression': 'p <= p_max'}}},
                 ('Failed to parse where string',),
                 id='a-malformed-where-string',
@@ -88,6 +103,12 @@ class TestValidateExpressions:
             _schema(**overrides)
         for fragment in fragments:
             assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
+
+    def test_the_objective_and_a_constraint_take_degree_two(self):
+        _schema(
+            constraints={'floor': {'foreach': ['g'], 'expression': 'p * p >= 1'}},
+            objective={'expression': 'sum(p * p * p_max, over=g)'},
+        )
 
     def test_dim_name_kwarg_not_flagged(self):
         """Keyword-arg names are dimension names, not data references."""

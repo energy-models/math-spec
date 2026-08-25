@@ -28,9 +28,9 @@ from typing import TYPE_CHECKING, Any, assert_never
 from pydantic import ValidationError
 
 from math_spec._yaml import read_yaml
-from math_spec.degree import carries_variable
+from math_spec.degree import carries_variable, check_expression
 from math_spec.dimensions import check_schema
-from math_spec.errors import SchemaError, schema_error
+from math_spec.errors import LanguageError, SchemaError, schema_error
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.expression_parser import (
     ArithmeticNode,
@@ -113,13 +113,12 @@ def validate_expressions(schema: Model) -> None:
 
     for mname, macro in schema.macros.items():
         context = f"Macro '{mname}'"
+        formals = frozenset((*macro.args, *macro.kwargs))
         try:
-            body_ast = expand(parse_template(mname, macro, context), schema, context)
-            assert not isinstance(body_ast, ComparisonNode)
+            body_ast = expand(parse_template(mname, macro, context), schema, context, shadow=formals)
         except ValueError as e:
             errors.append(_prefixed(context, e))
             continue
-        formals = {*macro.args, *macro.kwargs}
         errors.extend(
             f"{context}: formal '{f}' collides with declared dimension '{f}'. "
             f'Rename the formal — a dimension name inside a template is '
@@ -129,7 +128,9 @@ def validate_expressions(schema: Model) -> None:
         _check_template_names(body_ast, macro.template, context, ns, formals, errors)
 
     for ename, block in schema.expressions.items():
-        _check_expression(block.expression, schema, ns, f"Named expression '{ename}'", errors, comparison=False)
+        _check_expression(
+            block.expression, schema, ns, f"Named expression '{ename}'", errors, comparison=False, ceiling=1
+        )
 
     for vname, vdef in schema.variables.items():
         _check_where(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
@@ -137,10 +138,10 @@ def validate_expressions(schema: Model) -> None:
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
         _check_where(cdef.where, ns, context, errors)
-        _check_expression(cdef.expression, schema, ns, context, errors, comparison=True)
+        _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
 
     if schema.objective is not None:
-        _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False)
+        _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2)
 
     _check_sos(schema, errors)
 
@@ -265,8 +266,9 @@ def _check_expression(
     errors: list[str],
     *,
     comparison: bool,
+    ceiling: int,
 ) -> None:
-    """Parse, expand and resolve one expression, given whether it must compare.
+    """Parse, expand, resolve and degree-check one expression, given whether it must compare.
 
     The three kinds a file declares differ only in that answer, so the parse,
     the shape verdict and the resolve are one path. Nothing resolves once the
@@ -290,8 +292,14 @@ def _check_expression(
         errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {expression!r}')
         return
     resolved = resolve_expression(ast, ns, context, errors)
+    if resolved is None:
+        return
     if isinstance(resolved, ComparisonNode) and not carries_variable(resolved):
         errors.append(f'{context}: {_no_decision_message(expression)}')
+    try:
+        check_expression(resolved, context, ceiling=ceiling)
+    except LanguageError as e:
+        errors.append(str(e))
 
 
 def _no_decision_message(expression: str) -> str:
@@ -334,7 +342,7 @@ def _check_template_names(
     template: str,
     context: str,
     ns: Namespace,
-    formals: set[str],
+    formals: frozenset[str],
     errors: list[str],
 ) -> None:
     """Name-check a macro body, treating formals as bound.
@@ -377,16 +385,27 @@ def _check_template_names(
             errors.append(f'{context}: {unknown_operator_message(node.name)}')
         for arg in node.args:
             _check_template_names(arg, template, context, ns, formals, errors)
-        known_dims = ns.dimensions | formals
-        for kwarg in builtin.dimension_kwargs if builtin else ():
-            value = node.kwargs.get(kwarg)
-            if isinstance(value, NameNode) and value.name not in known_dims:
-                errors.append(
-                    f'{context}: {node.name}({kwarg}={value.name}) does not name a '
-                    f'declared dimension or a formal of this macro.'
+        for kwarg, value in node.kwargs.items():
+            if builtin is not None and kwarg in builtin.dimension_kwargs:
+                if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
+                    errors.append(
+                        f'{context}: {node.name}({kwarg}={value.name}) does not name a '
+                        f'declared dimension or a formal of this macro.'
+                    )
+            elif builtin is not None and kwarg in builtin.lookup_kwargs:
+                named = (
+                    (value.name,)
+                    if isinstance(value, NameNode)
+                    else value.names
+                    if isinstance(value, NameListNode)
+                    else ()
                 )
-        for value in node.kwargs.values():
-            if not isinstance(value, NameNode):
+                errors.extend(
+                    f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
+                    for one in named
+                    if one not in formals and ns.kind(one) != 'lookup'
+                )
+            elif builtin is None or kwarg not in builtin.edge_kwargs:
                 _check_template_names(value, template, context, ns, formals, errors)
         return
 
