@@ -21,8 +21,8 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 
 ## Index
 
-A row links once it is in the file. A blank status is a row expected to
-state one-to-one; a word is the catch: **prep** needs a parameter computed in
+A row is **done** and links once it is in the file. A blank status is a row
+expected to state one-to-one; a word is the catch: **prep** needs a parameter computed in
 data prep · **split** one PyPSA row is several `where:` blocks · **not** a
 PyPSA workaround not reproduced · **flag** only under an `n.optimize()`
 keyword · **scope** multi-period or stochastic · **open** not stateable yet.
@@ -31,14 +31,14 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 
 | PyPSA                                               | status | note                                                       |
 | --------------------------------------------------- | ------ | ---------------------------------------------------------- |
-| [`Generator-p`, `Link-p`](#variable-domains)        |        |                                                            |
-| [`Generator-fix-p-lower`](#generator-fix-p-lower)   |        |                                                            |
-| [`Generator-fix-p-upper`](#generator-fix-p-upper)   |        |                                                            |
-| [`Link-fix-p-lower`](#link-fix-p-lower)             |        |                                                            |
-| [`Link-fix-p-upper`](#link-fix-p-upper)             |        |                                                            |
-| [`Bus-nodal_balance`](#bus-nodal_balance)           |        | a loaded bus with nothing attached: PyPSA refuses, see X2  |
+| [`Generator-p`, `Link-p`](#variable-domains)        | done   |                                                            |
+| [`Generator-fix-p-lower`](#generator-fix-p-lower)   | done   |                                                            |
+| [`Generator-fix-p-upper`](#generator-fix-p-upper)   | done   |                                                            |
+| [`Link-fix-p-lower`](#link-fix-p-lower)             | done   |                                                            |
+| [`Link-fix-p-upper`](#link-fix-p-upper)             | done   |                                                            |
+| [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
 | `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here                         |
-| [`marginal_cost`](#objective)                       |        |                                                            |
+| [`marginal_cost`](#objective)                       | done   |                                                            |
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 ### Rung 2 — storage
