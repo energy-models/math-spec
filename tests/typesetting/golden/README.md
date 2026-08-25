@@ -23,7 +23,7 @@ constant masks, and a set carried to the solver rather than rows. A real model
 exercises a handful of those and reads better on a gallery page; this one is
 here to be complete rather than to be read.
 
-**Complete is asserted, not claimed.** Three checks in `tests/typesetting/test_typeset.py`
+**Complete is asserted, not claimed.** Three checks in `tests/typesetting/test_golden.py`
 hold this file to the language: every operator a format spells is asked for
 while rendering it, every node kind the parsers produce reaches the walk, and
 every line of `walk.py` runs. A construct added to the language lands with a
