@@ -368,12 +368,6 @@ def _resolve_arith(
 def _not_a_number(name: str, dtype: str, context: str) -> str:
     """Why a ``str`` or ``bool`` parameter is refused where a value belongs.
 
-    The dtype rules reached three positions — a where comparison, what a bare
-    where means, and an operator's named amount — and not this one, so a label
-    stood as a coefficient or a divisor and the file read as a model no data
-    could build: the column that binds has no arithmetic, so the refusal would come
-    from a build, in a build's words, however far in.
-
     The rewrite is the dtype's own, so the sentence names it: a label has none
     in the math at all and belongs in a ``where``, where a flag has one a
     declaration away.
@@ -405,18 +399,20 @@ def _undeclared_dim(context: str, operator: str, shown: str, name: str, ns: Name
     )
 
 
+def _unsigned(value: ArithmeticNode) -> ArithmeticNode:
+    """*value* under its sign, if it carries one."""
+    return value.operand if isinstance(value, UnaryOperatorNode) else value
+
+
 def _resolve_amount(
     value: ArithmeticNode, ns: Namespace, context: str, operator: str, key: str, errors: list[str]
 ) -> ArithmeticNode:
-    """Resolve ``offset=`` or ``within=``: a number, or the name of a parameter.
+    """Resolve ``offset=`` or ``within=``: a number or a parameter name, never an expression.
 
-    The shape is closed here so that the rules a named amount is held to
-    (:func:`math_spec.dimensions._check_named_amount`) see every parameter an
-    amount carries — an expression could hide one inside arithmetic, and a
-    count of positions is not something the file computes.
+    Closed so that :func:`math_spec.dimensions._check_named_amount` sees every
+    parameter an amount carries.
     """
-    literal = value.operand if isinstance(value, UnaryOperatorNode) else value
-    if not isinstance(literal, NumberNode | NameNode):
+    if not isinstance(_unsigned(value), NumberNode | NameNode):
         errors.append(
             f'{context}: {operator}({key}=) takes a number or the name of an integer parameter, '
             f'not an expression. Precompute it as a parameter.'
@@ -457,8 +453,7 @@ def _resolve_edge(
             return value
         errors.append(f'{context}: {edge_error(operator, value.name)}')
         return value
-    literal = value.operand if isinstance(value, UnaryOperatorNode) else value
-    if not isinstance(literal, NumberNode):
+    if not isinstance(_unsigned(value), NumberNode):
         errors.append(
             f"{context}: {operator}(edge=) is an expression, and an edge is the keyword '{EDGE_WRAP}' "
             f'or a number. Write the number itself.'

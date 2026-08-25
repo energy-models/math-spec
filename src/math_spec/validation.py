@@ -337,6 +337,13 @@ def _check_where(
     resolve_where(node, ns, context, errors, self_variable)
 
 
+def _names_in(value: ArithmeticNode) -> tuple[str, ...]:
+    """The names a lookup kwarg carries: one bare, several bracketed, none otherwise."""
+    if isinstance(value, NameNode):
+        return (value.name,)
+    return value.names if isinstance(value, NameListNode) else ()
+
+
 def _check_template_names(
     node: ArithmeticNode,
     template: str,
@@ -382,27 +389,23 @@ def _check_template_names(
             errors.append(f'{context}: {unknown_operator_message(node.name)}')
         for arg in node.args:
             _check_template_names(arg, template, context, ns, formals, errors)
+        dimension_kwargs, lookup_kwargs, edge_kwargs = (
+            (builtin.dimension_kwargs, builtin.lookup_kwargs, builtin.edge_kwargs) if builtin else ((), (), ())
+        )
         for kwarg, value in node.kwargs.items():
-            if builtin is not None and kwarg in builtin.dimension_kwargs:
+            if kwarg in dimension_kwargs:
                 if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
                     errors.append(
                         f'{context}: {node.name}({kwarg}={value.name}) does not name a '
                         f'declared dimension or a formal of this macro.'
                     )
-            elif builtin is not None and kwarg in builtin.lookup_kwargs:
-                named = (
-                    (value.name,)
-                    if isinstance(value, NameNode)
-                    else value.names
-                    if isinstance(value, NameListNode)
-                    else ()
-                )
+            elif kwarg in lookup_kwargs:
                 errors.extend(
                     f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
-                    for one in named
+                    for one in _names_in(value)
                     if one not in formals and ns.kind(one) != 'lookup'
                 )
-            elif builtin is None or kwarg not in builtin.edge_kwargs:
+            elif kwarg not in edge_kwargs:
                 _check_template_names(value, template, context, ns, formals, errors)
         return
 

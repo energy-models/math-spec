@@ -2,11 +2,10 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What `unbounded_notes` may claim about a model with no data.
+"""What `unbounded_notes` may claim with no data.
 
-Every note is a proof — *no data can bound this* — so the tests are about the
-rule's two halves and every reason it must stay silent. A false note reads as
-a defect in a model that solves, which is worse than no note at all.
+A note is a proof that no data can bound the variable, so most rows here are
+reasons it must stay silent: a false note is worse than none.
 """
 
 from __future__ import annotations
