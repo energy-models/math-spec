@@ -48,7 +48,7 @@ def test_expansion_emits_the_lambda_declarations():
 
 def test_an_emitted_set_may_not_collide_with_a_declared_one():
     """The emitted-name rule, for the one declaration kind that is new."""
-    raw = override(raw_of(SOS2_MODEL), **{'sos.cost_curve': {'variable': 'p', 'over': 'bp', 'type': 1}})
+    raw = override(raw_of(SOS2_MODEL), **{'sos.cost_curve': {'variable': 'p', 'over': 'snapshot', 'type': 1}})
     with pytest.raises(PiecewiseExpansionError, match="emitted sos 'cost_curve' collides"):
         schema_of(raw)
 
