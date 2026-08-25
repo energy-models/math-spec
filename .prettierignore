@@ -22,6 +22,7 @@ CHANGELOG.md
 # hand. `index.md` is not listed — it carries no generated block.
 docs/examples/dispatch.md
 docs/examples/operators.md
+docs/examples/pypsa.md
 
 # `tools/notation.py` writes this page's block, and it is the same trap: the
 # legend tables it emits are the same unpadded ones. The page was not listed
