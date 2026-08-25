@@ -473,8 +473,8 @@ RULES_BASE = {
 }
 
 
-class TestDeclarationRules:
-    """Every cross-declaration rule the schema decides, one row each."""
+class TestRulesDecidedWithoutData:
+    """Every refusal the schema or the resolver makes with no data bound, one row each."""
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -640,17 +640,6 @@ class TestDeclarationRules:
                 ("Variable 'p' collides with the parameter",),
                 id='one-name-two-kinds',
             ),
-        ],
-    )
-    def test_a_declaration_the_schema_refuses(self, patch, fragments):
-        with pytest.raises(LanguageError) as exc:
-            load_model(override(RULES_BASE, **patch))
-        for fragment in fragments:
-            assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
-
-    @pytest.mark.parametrize(
-        ('patch', 'fragments'),
-        [
             pytest.param(
                 {'objective': {'expression': 'sum(g + p, over=g)'}},
                 ("'g' is a dimension, and a dimension is not a value",),
@@ -702,29 +691,34 @@ class TestDeclarationRules:
                 ("targets ['h'] more than once",),
                 id='by-the-same-target-twice',
             ),
+            pytest.param(
+                {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'
+            ),
+            pytest.param(
+                {'variables.p.where': 'c > q'},
+                ('compares against variable', 'built before variables exist'),
+                id='where-against-a-variable',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c > lk'},
+                ('against lookup', 'structure rather than data'),
+                id='where-against-a-lookup',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c > h'},
+                ("compares against dimension 'h'", 'masks everything out'),
+                id='where-against-a-dimension',
+            ),
+            pytest.param(
+                {'variables.p.where': 'g'},
+                ('a bare dimension name is true at every coordinate',),
+                id='where-a-bare-dimension',
+            ),
         ],
     )
-    def test_a_value_position_the_resolver_refuses(self, patch, fragments):
+    def test_a_rule_decided_without_data(self, patch, fragments):
         with pytest.raises(LanguageError) as exc:
             load_model(override(RULES_BASE, **patch))
-        for fragment in fragments:
-            assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
-
-    @pytest.mark.parametrize(
-        ('where', 'fragments'),
-        [
-            pytest.param('c > flag', ('compares two parameters',), id='against-a-parameter'),
-            pytest.param(
-                'c > q', ('compares against variable', 'built before variables exist'), id='against-a-variable'
-            ),
-            pytest.param('c > lk', ('against lookup', 'structure rather than data'), id='against-a-lookup'),
-            pytest.param('c > h', ("compares against dimension 'h'", 'masks everything out'), id='against-a-dimension'),
-            pytest.param('g', ('a bare dimension name is true at every coordinate',), id='a-bare-dimension'),
-        ],
-    )
-    def test_a_where_the_resolver_refuses(self, where, fragments):
-        with pytest.raises(LanguageError) as exc:
-            load_model(override(RULES_BASE, **{'variables.p.where': where}))
         for fragment in fragments:
             assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
 
@@ -746,7 +740,6 @@ class TestTheFrontDoor:
     @pytest.mark.parametrize('probe', OPERATOR_PROBES, ids=[p.stem for p in OPERATOR_PROBES])
     def test_to_dict_reproduces_the_model(self, probe):
         model = load_model(probe)
-        assert load_model(model.to_dict()).to_dict() == model.to_dict()
         assert load_model(model.to_dict()) == model
 
     def test_to_yaml_reproduces_the_model(self):

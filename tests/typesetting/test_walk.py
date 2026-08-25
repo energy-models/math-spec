@@ -608,7 +608,7 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
 
 
 def test_a_reduction_under_its_own_dimension_takes_a_fresh_dummy():
-    """Under ∀ g, a sum over g must not reuse g: `bus_of(g) = bus_of(g)` is a tautology."""
+    """Reusing `g` makes `bus_of(g) = bus_of(g)` a tautology — the sum of everything."""
     tex = _row('p == at(sum(q, by=bus_of), by=bus_of)')
     assert r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}" in tex, tex
     tex = _row('p == q - sum(q, over=generator)')

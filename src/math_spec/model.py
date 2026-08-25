@@ -602,18 +602,21 @@ def _repeated(items: Iterable[Any]) -> list[Any]:
 
 
 def _without_absence(value: Any) -> Any:
-    """Strip what is absent — a null, an infinite bound, or a mapping left empty by stripping.
+    """Strip what is absent — a null, an infinite bound, or a mapping that stripping emptied.
 
-    A mapping that was *declared* empty stays: ``values: {}`` is a map the
-    file states with nothing in it, which is not a map supplied later. An
-    empty **list** is kept for the same reason — a list carries *cardinality*
-    and zero is one of its values, ``foreach: []`` being a scalar declaration.
-    Nothing else is judged — a value that is there is written, default or not.
+    A mapping *declared* empty stays: ``values: {}`` is a map with nothing in
+    it, not a map supplied later. An empty list stays too — ``foreach: []`` is
+    a scalar declaration.
     """
-    if isinstance(value, dict):
-        pruned = {k: _without_absence(v) for k, v in value.items()}
-        return {k: v for k, v in pruned.items() if not _is_absent(v) and (v != {} or value[k] == {})}
-    return value
+    if not isinstance(value, dict):
+        return value
+    kept = {}
+    for key, before in value.items():
+        after = _without_absence(before)
+        emptied = after == {} and before != {}
+        if not _is_absent(after) and not emptied:
+            kept[key] = after
+    return kept
 
 
 def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -639,12 +642,9 @@ def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any
 def _is_absent(value: Any) -> bool:
     """Whether a serialised value says *nothing is here* — a null, or an infinite bound.
 
-    ``inf`` is included because an infinite bound is not a bound — it is the
-    unbounded side, which is what omitting the bound already means. Stripping
-    it is what makes JSON lossless as well: JSON has no infinity, so anything
-    that reached ``model_dump_json`` as ``inf`` came back as ``null`` and read
-    as absent anyway. Removing it here means the two agree instead of one being
-    quietly wrong.
+    An infinite bound is the unbounded side, which omitting the bound already
+    says; and JSON has no infinity, so ``model_dump_json`` would read it back
+    as null anyway.
     """
     if value is None:
         return True

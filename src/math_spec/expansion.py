@@ -87,11 +87,10 @@ def expand(
 
     Args:
         node: The parsed expression.
-        schema: Where the names and macros are declared.
-        context: What to name in an error.
-        shadow: Names to leave as they are even where a named expression has
-            that name — a macro's formals, when its template is checked
-            without a call to bind them.
+        schema: Where names and macros are declared.
+        context: What an error names.
+        shadow: Names left as written even where a named expression has that
+            name — a template's formals, checked without a call to bind them.
     """
     if isinstance(node, ComparisonNode):
         return ComparisonNode(

@@ -164,9 +164,8 @@ class _Context:
     #: but through a coordinate rather than an offset, so it renders as an
     #: application, ``period(t)``, and not as arithmetic on the index.
     pullbacks: dict[str, str] = field(default_factory=dict)
-    #: Every dimension whose index is already in use here — the declaration's
-    #: own frame, then one entry per reduction entered — so a reduction over one
-    #: of them takes a fresh dummy rather than capturing the index outside it.
+    #: Every dimension whose index is in use here — the frame, then one entry
+    #: per reduction entered — so a reduction over one takes a fresh dummy.
     bound: tuple[str, ...] = ()
 
     def translated(self, dim: str, step: _Step) -> _Context:
@@ -221,12 +220,7 @@ class _Context:
 
 
 def _unsigned(node: ArithmeticNode) -> ArithmeticNode | None:
-    """*node* with a leading minus taken off, or ``None`` where it carries none.
-
-    The minus may sit on the node or on the first factor of a product it
-    heads — ``-b`` and ``-b * c`` both open with a sign the operator before
-    them can absorb.
-    """
+    """*node* without its leading minus — on the node, or on the first factor of a product it heads — else ``None``."""
     if isinstance(node, UnaryOperatorNode) and node.op == '-':
         return node.operand
     if isinstance(node, BinaryOperatorNode) and node.op in ('*', '/') and (left := _unsigned(node.left)) is not None:
@@ -355,9 +349,6 @@ class Walk:
             return self.format.superscript(base, self.arithmetic(node.right, ctx)), _PRECEDENCE['**']
         precedence = _PRECEDENCE[node.op]
         left = self.arithmetic(node.left, ctx, need=precedence)
-        # `a + -b` is a spelling nobody uses: a negation under a `+` is the
-        # subtraction it already means, and folding it also hands the right
-        # operand subtraction's bracket rule, which is the one it needs
         operand, op = node.right, node.op
         if op in ('+', '-') and (unsigned := _unsigned(operand)) is not None:
             operand, op = unsigned, '-' if op == '+' else '+'
