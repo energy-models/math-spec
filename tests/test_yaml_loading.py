@@ -127,3 +127,23 @@ def test_a_non_mapping_document_is_a_load_error(tmp_path):
 def test_an_empty_file_is_an_empty_model(tmp_path):
     assert read_yaml(_write(tmp_path, '')) == {}
     assert read_yaml(_write(tmp_path, '# only a comment\n')) == {}
+
+
+def test_a_complex_key_is_refused_in_our_tree(tmp_path):
+    """A `? [a, b]` key cannot name a declaration; the refusal is the loader's, not a TypeError."""
+    path = _write(tmp_path, MODEL + 'expressions:\n  ? [a, b]\n  : p\n')
+    with pytest.raises(SchemaError, match='a key must be a scalar'):
+        load_model(path)
+
+
+def test_two_merge_keys_accumulate(tmp_path):
+    """`<<:` twice in one mapping merges both — PyYAML's reading, and not a duplicate."""
+    path = _write(
+        tmp_path,
+        'anchors:\n  a: &a {dtype: int}\n  b: &b {description: periods}\n'
+        + MODEL.replace(
+            'snapshot: {dtype: int, values: [0, 1]}', 'snapshot:\n    <<: *a\n    <<: *b\n    values: [0, 1]'
+        ),
+    )
+    with pytest.raises(SchemaError, match="unknown key 'anchors'"):
+        load_model(path)
