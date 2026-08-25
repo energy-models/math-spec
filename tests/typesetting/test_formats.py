@@ -15,7 +15,7 @@ from math_spec.typesetting import FORMATS, to_latex, to_markdown, to_typst, type
 from math_spec.typesetting.format import OPERATOR_NAMES
 from tests.fixtures import override
 from tests.typesetting import golden
-from tests.typesetting.fixtures import DISPATCH, EVERY_FORMAT, TYPST, TYPST_SYMBOLS, probe
+from tests.typesetting.fixtures import BUSES, DISPATCH, EVERY_FORMAT, TYPST, TYPST_SYMBOLS, probe
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -253,3 +253,28 @@ def test_a_description_sets_as_text_rather_than_as_markup(notation: str, positio
     for expected in ESCAPED[notation]:
         assert expected in out, f'{notation}: {expected!r} is set as text'
     assert SPECIALS not in out, 'the raw prose reached the document unescaped'
+
+
+# ---------------------------------------------------------------------------
+# escaping — prose that each format would otherwise read as markup
+# ---------------------------------------------------------------------------
+
+
+def test_typst_prose_escapes_what_typst_reads_as_markup(typst, tmp_path: Path):
+    described = override(BUSES, description='- a list? a // comment [a link] and = a heading')
+    typ = to_typst(described, standalone=True)
+    assert r'\- a list? a \/\/ comment \[a link\] and = a heading' in typ, typ
+    source = tmp_path / 'prose.typ'
+    source.write_text(typ)
+    typst.compile(str(source), output=str(tmp_path / 'prose.pdf'))
+
+
+def test_markdown_glossary_cells_survive_a_pipe_and_a_newline():
+    described = override(BUSES, **{'parameters.load.description': 'a | b\nc'})
+    md = to_markdown(described)
+    assert r'| `load` over $\mathcal{T}$ — a \| b c |' in md, md
+
+
+def test_latex_glossary_item_guards_a_bracket_in_the_symbol():
+    tex = to_latex(BUSES, symbols={'notation': 'latex', 'names': {'load': 'L^{[k]}'}})
+    assert r'\item[{$L^{[k]}$}]' in tex, tex

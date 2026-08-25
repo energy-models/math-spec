@@ -74,12 +74,12 @@ $ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g)
   upright("pullback") & italic("spill")_(t) & <= upright("zone_cap")_(upright("zone_of")(b)) & forall t in cal(T), b in cal(B) \
   upright("grouped_twice") & sum_(g in cal(G) colon upright("gen_bus")(g) = b and upright("gen_tech")(g) = e) p_(t,g) & <= upright("tech_cap")_(b,e) & forall t in cal(T), b in cal(B), e in cal(E) \
   upright("pulled_back_twice") & italic("units")_(g) & <= upright("tech_cap")_(upright("gen_bus")(g),upright("gen_tech")(g)) & forall g in cal(G) \
-  upright("arithmetic") & sum_(g in cal(G)) (frac(p_(t,g), 2) - upright("cost")_(g)) & >= -(sum_(g in cal(G)) p_(t,g)) dot 3 & forall t in cal(T) \
+  upright("arithmetic") & sum_(g in cal(G)) (frac(p_(t,g), 2) - upright("cost")_(g) + 10^(-5) dot p_(t,g) + 2.5 times 10^(-7) dot upright("cost")_(g) + 0.5 dot p_(t,g)) & >= -(sum_(g in cal(G)) p_(t,g)) dot (-3) & forall t in cal(T) \
   upright("total") & sum_(t in cal(T), g in cal(G)) p_(t,g) & <= upright("budget") \
   upright("scalar") & italic("units")_(g) & <= upright("budget") & forall g in cal(G) colon upright("cost")_(g) upright(" is defined") \
   upright("running") & theta_(b) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) colon theta_(b) upright(" exists") and t >= 3 \
-  upright("first") & italic("on")_(t,g) & = 1 & forall t in cal(T), g in cal(G) colon (upright("pos")(t) = 0 or upright("pos")_(upright("season_of")(t))(t) = 0) \
-  upright("last") & italic("on")_(t,g) & = 0 & forall t in cal(T), g in cal(G) colon (upright("pos")(t) = abs(cal(T)) - 1 or upright("pos")_(upright("season_of")(t))(t) = abs(cal(T)_(upright("season_of")(t))) - 1) \
+  upright("first") & italic("on")_(t,g) & = 1 & forall t in cal(T), g in cal(G) colon upright("pos")(t) = 0 or upright("pos")_(upright("season_of")(t))(t) = 0 \
+  upright("last") & italic("on")_(t,g) & = 0 & forall t in cal(T), g in cal(G) colon upright("pos")(t) = abs(cal(T)) - 1 or upright("pos")_(upright("season_of")(t))(t) = abs(cal(T)_(upright("season_of")(t))) - 1 \
   upright("northern") & italic("slack")_(t) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) colon upright("zone_of")(b) = upright("north") and upright("zone_of")(b) != upright("area_of")(b) and upright("zone_of")(b) upright(" is defined") \
   upright("efficiency") & p_(t,g) & <= upright("eta")_(g) dot upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
   upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) \
@@ -88,7 +88,7 @@ $ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g)
 
 == Variable domains
 #set math.equation(numbering: "(1)")
-$ upright("p") & upright("p")^(upright("min"))_(g) <= p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon (upright("p")^(upright("max"))_(g) > 0 and not upright("is_flexible")_(g) or upright("p")^(upright("min"))_(g) > 0) \
+$ upright("p") & upright("p")^(upright("min"))_(g) <= p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("p")^(upright("max"))_(g) > 0 and not upright("is_flexible")_(g) or upright("p")^(upright("min"))_(g) > 0 \
   upright("spill") & italic("spill")_(t) & >= 0 & forall t in cal(T) \
   upright("slack") & italic("slack")_(t) & <= 100 & forall t in cal(T) \
   upright("theta") & theta_(b) & in RR & forall b in cal(B) \
