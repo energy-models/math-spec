@@ -80,7 +80,8 @@ A row can carry two, e.g. `prep, split`.
 ### Notes
 
 Note IDs are section letter plus a counter: V variables, N nominal, B bounds,
-U unit commitment, R ramps, F fixed, W network, G global, O objective.
+U unit commitment, R ramps, F fixed, W network, G global, O objective, X
+refusals.
 
 ## Variables
 
@@ -137,7 +138,7 @@ These rows carry `mu_upper` and `mu_lower`.
 - B3: PyPSA's mask is `(p_min_pu >= 0).all(snapshot)`; a reduction inside
   `where:` is not in the language, so a per-generator bool.
 - B4: PyPSA raises when `p_nom` is not an integer multiple of `p_nom_mod`; we
-  would build it. A refusal gap of the #11 kind.
+  would build it. See Refusals, X1.
 
 ## Unit commitment
 
@@ -205,7 +206,7 @@ These rows carry `mu_upper` and `mu_lower`.
 - W1: link ports as `- sum(Link_p, by=Link_bus0) + sum(Link_p * Link_efficiency, by=Link_bus1) + sum(Link_p * Link_efficiency2, by=Link_bus2) …`.
   A partial lookup contributes nothing, which is PyPSA's `bus_i == ""` drop.
   Buses with an empty LHS are rows not built; PyPSA raises if such a bus has
-  load, a refusal we lack.
+  load. See Refusals, X2.
 - W2: a linopy-speed workaround (`meshed_thresholds`). One `Bus_nodal_balance`;
   `marginal_price` compared over the union.
 - W3: per-entity `offset=` is in the language; the per-link edge kind
@@ -268,6 +269,33 @@ comparator from data.
   variable, not `n_mod`, as in PyPSA.
 - O4: unweighted in PyPSA; keep it that way.
 
+## Refusals
+
+Where PyPSA refuses to build, parity means refusing too: on these inputs PyPSA
+has no solution to agree with. None is a language gap; each is a check on the
+data that we do not make yet. Whether a check lives in the language, in the
+data-prep contract, or in the harness is one design question, argued here
+once.
+
+| PyPSA raises                                           | at                                         | on what data                                                      | status | today                                     | note |
+| ------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------- | ------ | ----------------------------------------- | ---- |
+| `ValueError`, `constraints.py:1449`                    | `{c}-status-p-fixed-upper` (B4)            | committable, modular, fixed `p_nom` not a multiple of `p_nom_mod` | open   | builds; `status <= 2.5` caps at 2 modules | X1   |
+| `ValueError`, `constraints.py:1192`                    | `Bus-nodal_balance` (W1)                   | load on a bus with no attached variable                           | open   | row not built; the load is unserved       | X2   |
+| `ValueError`, `optimize.py:430`                        | objective                                  | no component carries a cost                                       | open   | objective `0`; solves                     | X3   |
+| `NotImplementedError`, `global_constraints.py:339,618` | `primary_energy`, `operational_limit` (G1) | non-cyclic storage depletion with period weightings `!= 1`        | scope  | multi-period; #11                         |      |
+| `ValueError`, `constraints.py:2008`                    | `{c}-loss_upper`                           | `s_nom_max = inf` on a lossy branch                               | flag   | `transmission_losses`                     |      |
+| `RuntimeError`, `constraints.py:2175`                  | `{c}-loss_secants-*`                       | secant count reaches `max_segments`                               | flag   | `transmission_losses`                     |      |
+| warning, `check_big_m_exceeded`                        | post-solve                                 | a solution sitting on the big-M                                   | —      | harness                                   | X4   |
+
+- X1: an integer `status` under a fractional cap is a quietly smaller plant,
+  not an error.
+- X2: a constraint row with no variable terms is not built and shows in
+  `diagnostics().omissions`; `0 == -load` vanishes instead of failing.
+- X3: PyPSA refuses a costless model; we would accept a feasibility problem.
+  Arguably not worth mirroring.
+- X4: not a refusal; PyPSA warns after solving. The harness runs the same
+  check when comparing.
+
 ## Post-solve
 
 math-spec declares shape; reading back is the consumer's. These live in the
@@ -302,8 +330,8 @@ Nothing a plain `n.optimize()` emits is unstateable. The debt is three kinds:
    `position() OP parameter` (U3), a value at a position (G1), a comparator
    from data (global constraints). Plus #75 (W3), the only workaround that
    changes structure.
-3. **Refusals PyPSA has and we lack.** Non-integer `p_nom / p_nom_mod` (B4),
-   load on an unconnected bus (W1). Both of the #11 kind.
+3. **Refusals PyPSA has and we lack.** Three reachable in a single-period
+   run (X1 to X3), of the #11 kind: we would build a wrong model silently.
 
 Ladder to grow the one file in, each rung keeping the rows above it green
 against a real PyPSA network: transport, storage (cyclic and non-cyclic),
