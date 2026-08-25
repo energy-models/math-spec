@@ -97,13 +97,13 @@ each type is three blocks by sense.
 
 | PyPSA                                        | status | note                                                          |
 | -------------------------------------------- | ------ | ------------------------------------------------------------- |
-| `{c}-status`, `-start_up`, `-shut_down`      |        |                                                               |
-| `{c}-com-p-lower/upper`                      |        |                                                               |
-| `{c}-*-p-fixed-upper`                        |        |                                                               |
-| `{c}-com-transition-start-up/shut-down`      | split  | first snapshot carries the initial status                     |
-| `{c}-com-up-time`, `-down-time`              |        | `sum_back(within=min_up_time)`                                |
-| `{c}-com-status-*-must_stay_up`              | prep   | `position()` takes a literal, not a parameter                 |
-| `stand_by_cost`, `start_up_cost`, `shut_down_cost` |     |                                                             |
+| [`{c}-status`, `-start_up`, `-shut_down`](#variable-domains) | done | Generator; a committable link is not taken up here |
+| [`{c}-com-p-lower/upper`](#generator-com-p-lower) | done |                                                          |
+| `{c}-*-p-fixed-upper`                        | open   | not identified against the pinned source; raised in the PR    |
+| [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | first snapshot carries the initial status |
+| [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(within=min_up_time)`                    |
+| [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal, not a parameter |
+| [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
 ### Rung 8 — modular and big-M
@@ -184,6 +184,15 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{com}$ | `Generator_committable` over $\mathcal{G}$ — whether output is gated by an on/off status decision |
 | $\mathrm{ru}$ | `Generator_ramp_limit_up` over $\mathcal{G}$ — most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{rd}$ | `Generator_ramp_limit_down` over $\mathcal{G}$ — most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit |
+| $\mathrm{ru}^{\mathrm{up}}$ | `Generator_ramp_limit_start_up` over $\mathcal{G}$ — most output in the snapshot a unit starts, per unit of nominal power |
+| $\mathrm{rd}^{\mathrm{dn}}$ | `Generator_ramp_limit_shut_down` over $\mathcal{G}$ — most output in the snapshot before a unit stops, per unit of nominal power |
+| $\mathrm{UT}$ | `Generator_min_up_time` over $\mathcal{G}$ — least snapshots a unit stays on once started |
+| $\mathrm{DT}$ | `Generator_min_down_time` over $\mathcal{G}$ — least snapshots a unit stays off once stopped |
+| $\mathrm{u}^{0}$ | `Generator_status_initial` over $\mathcal{G}$ — one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
+| $\mathrm{hold}$ | `Generator_must_stay_up` over $\mathcal{T} \times \mathcal{G}$ — true while the up time a unit brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
+| $\mathrm{c}^{\mathrm{up}}$ | `Generator_start_up_cost` over $\mathcal{G}$ — cost of one start |
+| $\mathrm{c}^{\mathrm{dn}}$ | `Generator_shut_down_cost` over $\mathcal{G}$ — cost of one stop |
+| $\mathrm{c}^{\mathrm{on}}$ | `Generator_stand_by_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one snapshot spent on |
 | $\mathrm{ru}^{f}$ | `Link_ramp_limit_up` over $\mathcal{L}$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{rd}^{f}$ | `Link_ramp_limit_down` over $\mathcal{L}$ — most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
@@ -281,6 +290,9 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathit{spill}$ | `StorageUnit_spill` over $\mathcal{T} \times \mathcal{S}$ — `StorageUnit-spill` — inflow passed on unused. Zero where there is no inflow, so the balance keeps its row there; the bounds are PyPSA's, on the variable rather than as rows |
 | $e$ | `Store_e` over $\mathcal{T} \times \mathcal{V}$ — `Store-e` — energy held at the end of a snapshot |
 | $q$ | `Store_p` over $\mathcal{T} \times \mathcal{V}$ — `Store-p` — power delivered to the bus; charging is negative |
+| $u$ | `Generator_status` over $\mathcal{T} \times \mathcal{G}$ — `Generator-status` — whether a committable unit is on |
+| $\mathit{up}$ | `Generator_start_up` over $\mathcal{T} \times \mathcal{G}$ — `Generator-start_up` — whether a committable unit turns on this snapshot |
+| $\mathit{dn}$ | `Generator_shut_down` over $\mathcal{T} \times \mathcal{G}$ — `Generator-shut_down` — whether a committable unit turns off this snapshot |
 | $s$ | `Line_s` over $\mathcal{T} \times \mathcal{K}$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
 | $S$ | `Line_s_nom_ext` over $\mathcal{K}$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
@@ -311,9 +323,12 @@ objective:
     + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost)
     + sum(Store_e_nom_ext * Store_capital_cost)
     + sum(Line_s_nom_ext * Line_capital_cost)
+    + sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective)
+    + sum(Generator_start_up * Generator_start_up_cost)
+    + sum(Generator_shut_down * Generator_shut_down_cost)
 ```
 
-$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k}$$
+$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} u_{t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{up}_{t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{dn}_{t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g}$$
 
 ### `Generator-fix-p-lower`
 
@@ -624,6 +639,175 @@ StorageUnit_fix_state_of_charge_upper:
 ```
 
 $$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `Generator-com-p-lower`
+
+`Generator_com_p_lower`
+
+```yaml
+Generator_com_p_lower:
+  description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable
+  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
+```
+
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g}$$
+
+### `Generator-com-p-upper`
+
+`Generator_com_p_upper`
+
+```yaml
+Generator_com_p_upper:
+  description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
+```
+
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g}$$
+
+### `Generator-com-transition-start-up`
+
+`Generator_com_transition_start_up`
+
+```yaml
+Generator_com_transition_start_up:
+  description: >-
+    `Generator-com-transition-start-up` — turning on is a start. The
+    translated term vacates the first snapshot; the initial block below
+    compares it against the given status instead
+  foreach: [snapshot, generator]
+  where: Generator_committable
+  expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
+```
+
+$$\mathit{up}_{t,g} \ge u_{t,g} - u_{t - 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
+### `Generator-com-transition-start-up`
+
+`Generator_com_transition_start_up_initial`
+
+```yaml
+Generator_com_transition_start_up_initial:
+  description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND position(snapshot) == 0
+  expression: Generator_start_up >= Generator_status - Generator_status_initial
+```
+
+$$\mathit{up}_{t,g} \ge u_{t,g} - \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
+
+### `Generator-com-transition-shut-down`
+
+`Generator_com_transition_shut_down`
+
+```yaml
+Generator_com_transition_shut_down:
+  description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
+  foreach: [snapshot, generator]
+  where: Generator_committable
+  expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
+```
+
+$$\mathit{dn}_{t,g} \ge u_{t - 1,g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
+### `Generator-com-transition-shut-down`
+
+`Generator_com_transition_shut_down_initial`
+
+```yaml
+Generator_com_transition_shut_down_initial:
+  description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND position(snapshot) == 0
+  expression: Generator_shut_down >= Generator_status_initial - Generator_status
+```
+
+$$\mathit{dn}_{t,g} \ge \mathrm{u}^{0}_{g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
+
+### `Generator-com-up-time`
+
+`Generator_com_up_time`
+
+```yaml
+Generator_com_up_time:
+  description: "`Generator-com-up-time` — a unit started within its own minimum up time is still on"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_min_up_time > 0
+  expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < \mathrm{UT}} \mathit{up}_{t',g} \le u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{UT}_{g} > 0$$
+
+### `Generator-com-down-time`
+
+`Generator_com_down_time`
+
+```yaml
+Generator_com_down_time:
+  description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_min_down_time > 0
+  expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < \mathrm{DT}} \mathit{dn}_{t',g} \le 1 - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{DT}_{g} > 0$$
+
+### `Generator-com-status-min_up_time_must_stay_up`
+
+`Generator_com_status_must_stay_up`
+
+```yaml
+Generator_com_status_must_stay_up:
+  description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_must_stay_up
+  expression: Generator_status == 1
+```
+
+$$u_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g}$$
+
+### `Generator-p-ramp_limit_up`
+
+`Generator_p_ramp_limit_up_com`
+
+```yaml
+Generator_p_ramp_limit_up_com:
+  description: >-
+    `Generator-p-ramp_limit_up` — a committed unit raises output no faster
+    than its limit, and in the snapshot it starts no further than its
+    start-up ramp
+  foreach: [snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_up
+  expression: >-
+    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
+    Generator_ramp_limit_up * Generator_p_nom * (Generator_status - Generator_start_up)
+    + Generator_ramp_limit_start_up * Generator_p_nom * Generator_start_up
+```
+
+$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathit{up}_{t,g} \right) + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_down`
+
+`Generator_p_ramp_limit_down_com`
+
+```yaml
+Generator_p_ramp_limit_down_com:
+  description: >-
+    `Generator-p-ramp_limit_down` — a committed unit lowers output no
+    faster than its limit, and in the snapshot it stops no further than its
+    shut-down ramp
+  foreach: [snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_down
+  expression: >-
+    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
+    Generator_ramp_limit_down * Generator_p_nom * Generator_status
+    + Generator_ramp_limit_shut_down * Generator_p_nom * Generator_shut_down
+```
+
+$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
 
 ### `Line-fix-s-lower`
 
@@ -1549,6 +1733,18 @@ $$e_{t,v} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \
 **`Store_p`**
 
 $$q_{t,v} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V}$$
+
+**`Generator_status`**
+
+$$u_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
+**`Generator_start_up`**
+
+$$\mathit{up}_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
+**`Generator_shut_down`**
+
+$$\mathit{dn}_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 **`Line_s`**
 

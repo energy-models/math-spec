@@ -65,6 +65,40 @@ parameters:
   Generator_ramp_limit_down:
     description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit
     dims: [generator]
+  Generator_ramp_limit_start_up:
+    description: most output in the snapshot a unit starts, per unit of nominal power
+    dims: [generator]
+  Generator_ramp_limit_shut_down:
+    description: most output in the snapshot before a unit stops, per unit of nominal power
+    dims: [generator]
+  Generator_min_up_time:
+    description: least snapshots a unit stays on once started
+    dims: [generator]
+    dtype: int
+  Generator_min_down_time:
+    description: least snapshots a unit stays off once stopped
+    dims: [generator]
+    dtype: int
+  Generator_status_initial:
+    description: one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
+    dims: [generator]
+    dtype: int
+  Generator_must_stay_up:
+    description: >-
+      true while the up time a unit brought into the horizon still binds —
+      data prep, since `position()` compares against a literal rather than a
+      parameter
+    dims: [snapshot, generator]
+    dtype: bool
+  Generator_start_up_cost:
+    description: cost of one start
+    dims: [generator]
+  Generator_shut_down_cost:
+    description: cost of one stop
+    dims: [generator]
+  Generator_stand_by_cost:
+    description: cost of one snapshot spent on
+    dims: [snapshot, generator]
   Link_ramp_limit_up:
     description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
     dims: [link]
@@ -410,6 +444,21 @@ variables:
   Store_p:
     description: "`Store-p` — power delivered to the bus; charging is negative"
     foreach: [snapshot, store]
+  Generator_status:
+    description: "`Generator-status` — whether a committable unit is on"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    domain: binary
+  Generator_start_up:
+    description: "`Generator-start_up` — whether a committable unit turns on this snapshot"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    domain: binary
+  Generator_shut_down:
+    description: "`Generator-shut_down` — whether a committable unit turns off this snapshot"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    domain: binary
   Line_s:
     description: >-
       `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a
@@ -593,6 +642,76 @@ constraints:
     foreach: [snapshot, storage_unit]
     where: not StorageUnit_p_nom_extendable
     expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom
+  Generator_com_p_lower:
+    description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND not Generator_p_nom_extendable
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
+  Generator_com_p_upper:
+    description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND not Generator_p_nom_extendable
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
+  Generator_com_transition_start_up:
+    description: >-
+      `Generator-com-transition-start-up` — turning on is a start. The
+      translated term vacates the first snapshot; the initial block below
+      compares it against the given status instead
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
+  Generator_com_transition_start_up_initial:
+    description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND position(snapshot) == 0
+    expression: Generator_start_up >= Generator_status - Generator_status_initial
+  Generator_com_transition_shut_down:
+    description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
+  Generator_com_transition_shut_down_initial:
+    description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND position(snapshot) == 0
+    expression: Generator_shut_down >= Generator_status_initial - Generator_status
+  Generator_com_up_time:
+    description: "`Generator-com-up-time` — a unit started within its own minimum up time is still on"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_min_up_time > 0
+    expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
+  Generator_com_down_time:
+    description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_min_down_time > 0
+    expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
+  Generator_com_status_must_stay_up:
+    description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_must_stay_up
+    expression: Generator_status == 1
+  Generator_p_ramp_limit_up_com:
+    description: >-
+      `Generator-p-ramp_limit_up` — a committed unit raises output no faster
+      than its limit, and in the snapshot it starts no further than its
+      start-up ramp
+    foreach: [snapshot, generator]
+    where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_up
+    expression: >-
+      Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
+      Generator_ramp_limit_up * Generator_p_nom * (Generator_status - Generator_start_up)
+      + Generator_ramp_limit_start_up * Generator_p_nom * Generator_start_up
+  Generator_p_ramp_limit_down_com:
+    description: >-
+      `Generator-p-ramp_limit_down` — a committed unit lowers output no
+      faster than its limit, and in the snapshot it stops no further than its
+      shut-down ramp
+    foreach: [snapshot, generator]
+    where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_down
+    expression: >-
+      shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
+      Generator_ramp_limit_down * Generator_p_nom * Generator_status
+      + Generator_ramp_limit_shut_down * Generator_p_nom * Generator_shut_down
   Line_fix_s_lower:
     description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
     foreach: [snapshot, line]
@@ -961,3 +1080,6 @@ objective:
     + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost)
     + sum(Store_e_nom_ext * Store_capital_cost)
     + sum(Line_s_nom_ext * Line_capital_cost)
+    + sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective)
+    + sum(Generator_start_up * Generator_start_up_cost)
+    + sum(Generator_shut_down * Generator_shut_down_cost)

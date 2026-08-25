@@ -26,6 +26,18 @@ names:
   Generator_committable: '\mathrm{com}'
   Generator_ramp_limit_up: '\mathrm{ru}'
   Generator_ramp_limit_down: '\mathrm{rd}'
+  Generator_ramp_limit_start_up: '\mathrm{ru}^{\mathrm{up}}'
+  Generator_ramp_limit_shut_down: '\mathrm{rd}^{\mathrm{dn}}'
+  Generator_status: "u"
+  Generator_start_up: '\mathit{up}'
+  Generator_shut_down: '\mathit{dn}'
+  Generator_min_up_time: '\mathrm{UT}'
+  Generator_min_down_time: '\mathrm{DT}'
+  Generator_status_initial: '\mathrm{u}^{0}'
+  Generator_must_stay_up: '\mathrm{hold}'
+  Generator_start_up_cost: '\mathrm{c}^{\mathrm{up}}'
+  Generator_shut_down_cost: '\mathrm{c}^{\mathrm{dn}}'
+  Generator_stand_by_cost: '\mathrm{c}^{\mathrm{on}}'
   Link_ramp_limit_up: '\mathrm{ru}^{f}'
   Link_ramp_limit_down: '\mathrm{rd}^{f}'
   Link_p: f
