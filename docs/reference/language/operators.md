@@ -263,7 +263,7 @@ constraints:
 objective: { sense: minimize, expression: sum(order) }
 ```
 
-Four rules keep that a translation rather than something else, each a load
+Three rules keep that a translation rather than something else, each a load
 error naming its rewrite:
 
 - **the parameter is integral** — an offset lands on a coordinate, so it counts
@@ -275,11 +275,16 @@ error naming its rewrite:
 - **it varies only over dims the shift can read it at** — the shifted
   expression's own, or the one a `by=` lookup groups into (below). An offset is
   read at the coordinate it moves, and a dimension that coordinate does not
-  have is no coordinate at all;
-- **it says what the vacated positions contribute** — `edge='wrap'` or a
-  number. The bare form's _absence_ is carried by a frame keyed by the
-  translated dimension alone, and a per-entity offset vacates a different slot
-  for each entity, which that frame cannot yet say.
+  have is no coordinate at all.
+
+`edge=` is not among them: a named offset may be bare, and its vacated
+positions are absent exactly as a numeric one's are. The rule that used to sit
+here said a consuming lane could not key absence per entity, which stopped
+being true once the edge frame was keyed by the offset's own dims — a
+per-entity lead vacates a different slot for each entity and both lanes say so.
+What stays refused is a bare `shift` over a **variable-free** operand, for the
+separate reason [above](#shift): a parameter's missing row is a zero
+coefficient, so there is no absence for the vacated slot to carry.
 
 A named offset also carries its **sign in the values**: `lag=-lead` is refused,
 so one row that points backwards says so where the data is read.
