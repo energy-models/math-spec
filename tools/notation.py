@@ -18,7 +18,7 @@ notation is judged against what it is standing for.
 The source is ``tests/typesetting/golden/model.yaml``, the one model that carries every
 construct. Not a corpus written for this page: a second exhaustive model is a
 second thing to keep exhaustive, and the fixture's completeness is already
-enforced — ``tests/typesetting/test_typeset.py`` holds it to the language's operator set,
+enforced — ``tests/typesetting/test_golden.py`` holds it to the language's operator set,
 its node kinds, and every line of :mod:`math_spec.typesetting.walk`. That chain is
 what lets this page claim *every*: the guards say the fixture omits no
 construct, and this tool emits a row for every declaration in the fixture.

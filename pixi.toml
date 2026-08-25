@@ -63,7 +63,7 @@ pyrefly = "==1.2.0"
 [feature.test.pypi-dependencies]
 # The PyPI bindings, which compile in-process — not conda-forge's `typst`,
 # which is the CLI binary and cannot be imported. Three compile tests in
-# tests/typesetting/test_typeset.py skip without it.
+# tests/typesetting/test_formats.py skip without it.
 typst = ">=0.15.0"
 [feature.test.tasks]
 test = "pytest -q -n auto"
