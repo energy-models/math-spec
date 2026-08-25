@@ -135,5 +135,5 @@ def test_is_quadratic_finds_a_product_of_variables_anywhere(text, quadratic):
 
 
 def test_carries_variable_refuses_an_unresolved_name():
-    with pytest.raises(AssertionError, match='must go through resolution'):
+    with pytest.raises(AssertionError, match=r'resolution\.expression_of'):
         carries_variable(NameNode('p'))

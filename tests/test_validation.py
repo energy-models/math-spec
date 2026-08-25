@@ -440,15 +440,19 @@ class TestPositionResolves:
             assert fragment in str(excinfo.value)
 
 
+#: Two dimensions, a groupable and a label-space lookup, a numeric and a boolean
+#: parameter, a variable on each frame — one declaration of every kind a rule
+#: below can name.
+RULES_BASE = {
+    'dimensions': {'g': {'values': ['a', 'b']}, 'h': {'values': ['x', 'y']}},
+    'lookups': {'lk': {'over': 'g', 'into': 'h'}, 'tag': {'over': 'g', 'dtype': 'str'}},
+    'parameters': {'c': {'dims': ['g']}, 'flag': {'dims': ['g'], 'dtype': 'bool'}},
+    'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}},
+}
+
+
 class TestDeclarationRules:
     """Every cross-declaration rule the schema decides, one row each."""
-
-    BASE = {
-        'dimensions': {'g': {'values': ['a', 'b']}, 'h': {'values': ['x', 'y']}},
-        'lookups': {'lk': {'over': 'g', 'into': 'h'}, 'tag': {'over': 'g', 'dtype': 'str'}},
-        'parameters': {'c': {'dims': ['g']}, 'flag': {'dims': ['g'], 'dtype': 'bool'}},
-        'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}},
-    }
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -553,7 +557,7 @@ class TestDeclarationRules:
     )
     def test_a_declaration_the_schema_refuses(self, patch, fragments):
         with pytest.raises(LanguageError) as exc:
-            load_model(override(self.BASE, **patch))
+            load_model(override(RULES_BASE, **patch))
         for fragment in fragments:
             assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
 
@@ -597,7 +601,7 @@ class TestDeclarationRules:
     )
     def test_a_value_position_the_resolver_refuses(self, patch, fragments):
         with pytest.raises(LanguageError) as exc:
-            load_model(override(self.BASE, **patch))
+            load_model(override(RULES_BASE, **patch))
         for fragment in fragments:
             assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
 
@@ -615,7 +619,7 @@ class TestDeclarationRules:
     )
     def test_a_where_the_resolver_refuses(self, where, fragments):
         with pytest.raises(LanguageError) as exc:
-            load_model(override(self.BASE, **{'variables.p.where': where}))
+            load_model(override(RULES_BASE, **{'variables.p.where': where}))
         for fragment in fragments:
             assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
 
