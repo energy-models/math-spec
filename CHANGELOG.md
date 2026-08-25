@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.12](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.11...v0.0.0-alpha.12) (2026-08-25)
+
+
+### Documentation
+
+* a named offset needs no edge=, the limitation it named is gone ([#68](https://github.com/energy-models/math-spec/issues/68)) ([d91a0c3](https://github.com/energy-models/math-spec/commit/d91a0c37803906848808c49310356004740b8172)), closes [#64](https://github.com/energy-models/math-spec/issues/64)
+
 ## [0.0.0-alpha.11](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.10...v0.0.0-alpha.11) (2026-08-25)
 
 
