@@ -85,15 +85,19 @@ PRIME = "'"
 
 
 def _amount(node: ArithmeticNode) -> int | str:
-    """``shift``'s ``by=``: a signed number, or the name of a parameter.
+    """``shift``'s ``offset=``: a signed number, or the name of a parameter.
 
     A negated literal parses as a unary minus over a number rather than as a
-    negative one, so reading the ``NumberNode`` alone both aborted on ``by=-1``
-    and left the forward direction of every translation operator unreachable.
+    negative one, so reading the ``NumberNode`` alone both aborted on
+    ``offset=-1`` and left the forward direction of every translation operator
+    unreachable.
 
-    A named offset comes back as its name. It is always backward — the language
-    refuses ``by=-p``, so the direction lives in the data — and it renders as
-    the parameter's own symbol rather than as a number.
+    A named offset comes back as its name. It is always backward, because a
+    negated one is refused at load — :func:`math_spec.dimensions.check_schema`,
+    so the direction lives in the data — and it renders as the parameter's own
+    symbol rather than as a number. The assert below is that rule's
+    precondition rather than a hope: before it was enforced, this raised a bare
+    ``AssertionError`` out of the typesetter on a model that had loaded clean.
     """
     if isinstance(node, ParameterNode):
         return node.name
@@ -241,8 +245,8 @@ class Walk:
         the group the translation stays inside.
         """
         backward, forward = _TRANSLATIONS[step.policy]
-        # a named offset is always backward: `by=-p` is refused, so the sign is
-        # in the data and the operator cannot read it off the call
+        # a named offset is always backward: `offset=-p` is refused at load, so
+        # the sign is in the data and the operator cannot read it off the call
         operator = self.op(backward if isinstance(step.by, str) or step.by > 0 else forward)
         if step.fill:
             operator = self.format.subscript(operator, [step.fill])

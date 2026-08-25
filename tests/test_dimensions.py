@@ -31,7 +31,11 @@ BASE = {
         'generator': {'values': ['wind', 'gas']},
         'bus': {'values': ['n', 's']},
     },
-    'lookups': {'gen_bus': {'over': 'generator', 'into': 'bus'}},
+    'lookups': {
+        'gen_bus': {'over': 'generator', 'into': 'bus'},
+        # over `snapshot`, so it can partition the axis the translations walk
+        'snap_bus': {'over': 'snapshot', 'into': 'bus'},
+    },
     'parameters': {
         'p_max': {'dims': ['generator']},
         'cost': {'dims': ['generator']},
@@ -40,6 +44,8 @@ BASE = {
         # need a parameter that obeys them and one that spans the axis walked
         'spinup': {'dims': ['generator'], 'dtype': 'int'},
         'horizon': {'dims': ['snapshot'], 'dtype': 'int'},
+        # over a dim `p` does not carry, so it is readable only through a `by=`
+        'bus_lead': {'dims': ['bus'], 'dtype': 'int'},
     },
     'variables': {'p': {'foreach': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
     'constraints': {
@@ -86,6 +92,9 @@ def test_the_base_model_typechecks():
         ("shift(p, over=snapshot, offset=1, edge='wrap')", {'snapshot', 'generator'}),
         ("shift(p, over=snapshot, offset=spinup, edge='wrap')", {'snapshot', 'generator'}),
         ('sum_back(p, over=snapshot, within=spinup)', {'snapshot', 'generator'}),
+        # the same offset a `by=` makes readable: one lag per group it maps into
+        ("shift(p, over=snapshot, offset=bus_lead, edge='wrap', by=snap_bus)", {'snapshot', 'generator'}),
+        ('sum_back(p, over=snapshot, within=bus_lead, by=snap_bus)', {'snapshot', 'generator'}),
     ],
 )
 def test_dim_inference(expr, expected):
@@ -156,6 +165,24 @@ def test_dim_inference(expr, expected):
             'sum_back(p, over=snapshot, within=horizon)',
             r'no longer "the last n"',
             id='a-named-width-does-not-span-the-summed-axis',
+        ),
+        # Before this was refused, it loaded clean and then raised a bare
+        # `AssertionError` out of the typesetter (#62) — on the very rule
+        # `walk.py` reads a named offset as always-backward *because of*.
+        pytest.param(
+            "shift(p, over=snapshot, offset=-spinup, edge='wrap')",
+            r'negates a named offset',
+            id='a-named-offset-is-not-negated-at-the-call',
+        ),
+        pytest.param(
+            'sum_back(p, over=snapshot, within=-spinup)',
+            r'which way a window reaches is the operator',
+            id='a-named-width-has-no-direction-to-negate',
+        ),
+        pytest.param(
+            "shift(p, over=snapshot, offset=bus_lead, edge='wrap')",
+            r"varies over \['bus'\], which that coordinate does not carry",
+            id='a-named-offset-is-read-where-the-expression-has-a-coordinate',
         ),
     ],
 )
