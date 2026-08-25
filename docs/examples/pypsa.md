@@ -77,11 +77,11 @@ each type is three blocks by sense.
 
 | PyPSA type                            | status      | note                                              |
 | ------------------------------------- | ----------- | ------------------------------------------------- |
-| `primary_energy`                      | prep, split | carrier weights and "soc at the end" are prep     |
-| `operational_limit`                   | prep, split |                                                   |
-| `transmission_volume_expansion_limit` | prep, split | membership from PyPSA's carrier string is prep    |
-| `transmission_expansion_cost_limit`   | prep, split |                                                   |
-| `tech_capacity_expansion_limit`       | prep, split |                                                   |
+| [`primary_energy`](#primary_energy)   | done        | carrier weights and the horizon-end charge read are prep |
+| [`operational_limit`](#operational_limit) | done    |                                                   |
+| [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) | done | membership from PyPSA's carrier string is prep |
+| [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | done |                                       |
+| [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | done |                                               |
 | `Bus-nom_min/max_{carrier}`           | not         | deprecated in PyPSA                               |
 | `Carrier-growth_limit`                | scope       | multi-period                                      |
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
@@ -169,6 +169,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathcal{V}$ | index $v$ — `store` with $\mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}$ — pure energy stores, each on one bus |
 | $\mathcal{K}$ | index $k$ — `line` with $\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\enspace \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}$ — passive branches, each between two buses, their flow set by impedance |
 | $\mathcal{C}$ | index $c$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
+| $\mathcal{O}$ | index $o$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
 
 #### Parameters
 
@@ -176,7 +177,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 |---|---|
 | $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
 | $\mathrm{p}^{\mathrm{nom}}$ | `Generator_p_nom` over $\mathcal{G}$ — nominal power |
-| $\mathrm{ext}$ | `Generator_p_nom_extendable` over $\mathcal{G}$ — whether the nominal power is a decision; false on this rung |
+| $\mathrm{ext}$ | `Generator_p_nom_extendable` over $\mathcal{G}$ — whether the nominal power is a decision |
 | $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
 | $\overline{\mathrm{p}}$ | `Generator_p_max_pu` over $\mathcal{T} \times \mathcal{G}$ — most output, per unit of nominal power — an availability profile |
 | $\mathrm{c}$ | `Generator_marginal_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one unit of output |
@@ -186,7 +187,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{ru}^{f}$ | `Link_ramp_limit_up` over $\mathcal{L}$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{rd}^{f}$ | `Link_ramp_limit_down` over $\mathcal{L}$ — most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
-| $\mathrm{ext}^{f}$ | `Link_p_nom_extendable` over $\mathcal{L}$ — whether the nominal power is a decision; false on this rung |
+| $\mathrm{ext}^{f}$ | `Link_p_nom_extendable` over $\mathcal{L}$ — whether the nominal power is a decision |
 | $\underline{\mathrm{f}}$ | `Link_p_min_pu` over $\mathcal{T} \times \mathcal{L}$ — least flow, per unit of nominal power — negative for a link that carries both ways |
 | $\overline{\mathrm{f}}$ | `Link_p_max_pu` over $\mathcal{T} \times \mathcal{L}$ — most flow, per unit of nominal power |
 | $\eta$ | `Link_efficiency` over $\mathcal{L}$ — share of the flow that arrives at the link's `Link_bus1` end |
@@ -249,6 +250,24 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{s}^{\mathrm{nom,set}}$ | `Line_s_nom_set` over $\mathcal{K}$ — a given nominal apparent power for an extendable line; one without a value has no row here |
 | $\mathrm{s}^{\mathrm{set}}$ | `Line_s_set` over $\mathcal{T} \times \mathcal{K}$ — a given flow schedule; a line without one has no row here |
 | $\mathrm{x}$ | `Line_cycle_weight` over $\mathcal{K} \times \mathcal{C}$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
+| $\mathrm{type}$ | `GlobalConstraint_type` over $\mathcal{O}$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
+| $\mathrm{sense}$ | `GlobalConstraint_sense` over $\mathcal{O}$ — which way the row binds — `<=`, `>=` or `==` |
+| $\mathrm{K}$ | `GlobalConstraint_constant` over $\mathcal{O}$ — the constant the total is held against; what a variable cannot carry — an initial charge, a non-extendable build — is folded in here by data prep |
+| $\mathrm{last}$ | `snapshot_is_last` over $\mathcal{T}$ — one at the horizon's last snapshot, zero elsewhere — data prep, how an expression reads a final level |
+| $\mathrm{a}$ | `Generator_primary_energy_weight` over $\mathcal{O} \times \mathcal{G}$ — the constrained attribute per unit of energy at the bus — the carrier's `co2_emissions` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
+| $\mathrm{a}^{h}$ | `StorageUnit_primary_energy_weight` over $\mathcal{O} \times \mathcal{S}$ — the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row |
+| $\mathrm{a}^{e}$ | `Store_primary_energy_weight` over $\mathcal{O} \times \mathcal{V}$ — the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row |
+| $\mathrm{b}$ | `Generator_operational_limit_weight` over $\mathcal{O} \times \mathcal{G}$ — one where the generator is in the row's set — data prep; one outside it has no row |
+| $\mathrm{b}^{h}$ | `StorageUnit_operational_limit_weight` over $\mathcal{O} \times \mathcal{S}$ — one where the storage unit is in the row's set — data prep; one outside it has no row |
+| $\mathrm{b}^{e}$ | `Store_operational_limit_weight` over $\mathcal{O} \times \mathcal{V}$ — one where the store is in the row's set — data prep; one outside it has no row |
+| $\mathrm{len}$ | `Line_volume_weight` over $\mathcal{O} \times \mathcal{K}$ — the line's length where its carrier is in the row's set — data prep; a line outside it has no row |
+| $\mathrm{len}^{f}$ | `Link_volume_weight` over $\mathcal{O} \times \mathcal{L}$ — the link's length where its carrier is in the row's set — data prep; a link outside it has no row |
+| $\mathrm{cc}$ | `Line_expansion_cost_weight` over $\mathcal{O} \times \mathcal{K}$ — the line's capital cost where its carrier is in the row's set — data prep; a line outside it has no row |
+| $\mathrm{cc}^{f}$ | `Link_expansion_cost_weight` over $\mathcal{O} \times \mathcal{L}$ — the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row |
+| $\mathrm{m}$ | `Generator_tech_capacity_weight` over $\mathcal{O} \times \mathcal{G}$ — one where the generator is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $\mathrm{m}^{f}$ | `Link_tech_capacity_weight` over $\mathcal{O} \times \mathcal{L}$ — one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $\mathrm{m}^{h}$ | `StorageUnit_tech_capacity_weight` over $\mathcal{O} \times \mathcal{S}$ — one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $\mathrm{m}^{e}$ | `Store_tech_capacity_weight` over $\mathcal{O} \times \mathcal{V}$ — one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row |
 
 #### Variables
 
@@ -1260,6 +1279,216 @@ Store_e_set:
 ```
 
 $$e_{t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{e}^{\mathrm{set}}_{t,v} \text{ is defined}$$
+
+### `primary_energy`
+
+`GlobalConstraint_primary_energy_ub`
+
+```yaml
+GlobalConstraint_primary_energy_ub:
+  description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
+  expression: primary_energy <= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{primary\_energy} \wedge \mathrm{sense}_{o} = \text{<=}$$
+
+### `primary_energy`
+
+`GlobalConstraint_primary_energy_lb`
+
+```yaml
+GlobalConstraint_primary_energy_lb:
+  description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
+  expression: primary_energy >= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{primary\_energy} \wedge \mathrm{sense}_{o} = \text{>=}$$
+
+### `primary_energy`
+
+`GlobalConstraint_primary_energy_eq`
+
+```yaml
+GlobalConstraint_primary_energy_eq:
+  description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
+  expression: primary_energy == GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{primary\_energy} \wedge \mathrm{sense}_{o} = \text{==}$$
+
+### `operational_limit`
+
+`GlobalConstraint_operational_limit_ub`
+
+```yaml
+GlobalConstraint_operational_limit_ub:
+  description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
+  expression: operational_limit <= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{operational\_limit} \wedge \mathrm{sense}_{o} = \text{<=}$$
+
+### `operational_limit`
+
+`GlobalConstraint_operational_limit_lb`
+
+```yaml
+GlobalConstraint_operational_limit_lb:
+  description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
+  expression: operational_limit >= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{operational\_limit} \wedge \mathrm{sense}_{o} = \text{>=}$$
+
+### `operational_limit`
+
+`GlobalConstraint_operational_limit_eq`
+
+```yaml
+GlobalConstraint_operational_limit_eq:
+  description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
+  expression: operational_limit == GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{operational\_limit} \wedge \mathrm{sense}_{o} = \text{==}$$
+
+### `transmission_volume_expansion_limit`
+
+`GlobalConstraint_transmission_volume_expansion_limit_ub`
+
+```yaml
+GlobalConstraint_transmission_volume_expansion_limit_ub:
+  description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
+  expression: transmission_volume_expansion <= GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_volume\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{<=}$$
+
+### `transmission_volume_expansion_limit`
+
+`GlobalConstraint_transmission_volume_expansion_limit_lb`
+
+```yaml
+GlobalConstraint_transmission_volume_expansion_limit_lb:
+  description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
+  expression: transmission_volume_expansion >= GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_volume\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{>=}$$
+
+### `transmission_volume_expansion_limit`
+
+`GlobalConstraint_transmission_volume_expansion_limit_eq`
+
+```yaml
+GlobalConstraint_transmission_volume_expansion_limit_eq:
+  description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
+  expression: transmission_volume_expansion == GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_volume\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{==}$$
+
+### `transmission_expansion_cost_limit`
+
+`GlobalConstraint_transmission_expansion_cost_limit_ub`
+
+```yaml
+GlobalConstraint_transmission_expansion_cost_limit_ub:
+  description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
+  expression: transmission_expansion_cost <= GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_expansion\_cost\_limit} \wedge \mathrm{sense}_{o} = \text{<=}$$
+
+### `transmission_expansion_cost_limit`
+
+`GlobalConstraint_transmission_expansion_cost_limit_lb`
+
+```yaml
+GlobalConstraint_transmission_expansion_cost_limit_lb:
+  description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
+  expression: transmission_expansion_cost >= GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_expansion\_cost\_limit} \wedge \mathrm{sense}_{o} = \text{>=}$$
+
+### `transmission_expansion_cost_limit`
+
+`GlobalConstraint_transmission_expansion_cost_limit_eq`
+
+```yaml
+GlobalConstraint_transmission_expansion_cost_limit_eq:
+  description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
+  expression: transmission_expansion_cost == GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_expansion\_cost\_limit} \wedge \mathrm{sense}_{o} = \text{==}$$
+
+### `tech_capacity_expansion_limit`
+
+`GlobalConstraint_tech_capacity_expansion_limit_ub`
+
+```yaml
+GlobalConstraint_tech_capacity_expansion_limit_ub:
+  description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
+  expression: tech_capacity_expansion <= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{tech\_capacity\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{<=}$$
+
+### `tech_capacity_expansion_limit`
+
+`GlobalConstraint_tech_capacity_expansion_limit_lb`
+
+```yaml
+GlobalConstraint_tech_capacity_expansion_limit_lb:
+  description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
+  expression: tech_capacity_expansion >= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{tech\_capacity\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{>=}$$
+
+### `tech_capacity_expansion_limit`
+
+`GlobalConstraint_tech_capacity_expansion_limit_eq`
+
+```yaml
+GlobalConstraint_tech_capacity_expansion_limit_eq:
+  description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
+  expression: tech_capacity_expansion == GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{tech\_capacity\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{==}$$
 
 ### `Bus-nodal_balance`
 

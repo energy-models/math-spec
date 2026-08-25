@@ -32,6 +32,8 @@ dimensions:
     description: passive branches, each between two buses, their flow set by impedance
   cycle:
     description: independent cycles of the passive network graph — the cycle basis, data prep
+  global_constraint:
+    description: PyPSA's `GlobalConstraint` rows, one label per declared limit
 
 parameters:
   snapshot_weightings_objective:
@@ -41,7 +43,7 @@ parameters:
     description: nominal power
     dims: [generator]
   Generator_p_nom_extendable:
-    description: whether the nominal power is a decision; false on this rung
+    description: whether the nominal power is a decision
     dims: [generator]
     dtype: bool
   Generator_p_min_pu:
@@ -73,7 +75,7 @@ parameters:
     description: nominal power
     dims: [link]
   Link_p_nom_extendable:
-    description: whether the nominal power is a decision; false on this rung
+    description: whether the nominal power is a decision
     dims: [link]
     dtype: bool
   Link_p_min_pu:
@@ -269,6 +271,75 @@ parameters:
       the line's series impedance, signed by its orientation in the cycle —
       the cycle basis, data prep; a line in no cycle has no row
     dims: [line, cycle]
+  GlobalConstraint_type:
+    description: >-
+      which formula the row takes — `primary_energy`, `operational_limit`,
+      `transmission_volume_expansion_limit`,
+      `transmission_expansion_cost_limit` or
+      `tech_capacity_expansion_limit`
+    dims: [global_constraint]
+    dtype: str
+  GlobalConstraint_sense:
+    description: which way the row binds — `<=`, `>=` or `==`
+    dims: [global_constraint]
+    dtype: str
+  GlobalConstraint_constant:
+    description: >-
+      the constant the total is held against; what a variable cannot carry —
+      an initial charge, a non-extendable build — is folded in here by data
+      prep
+    dims: [global_constraint]
+  snapshot_is_last:
+    description: one at the horizon's last snapshot, zero elsewhere — data prep, how an expression reads a final level
+    dims: [snapshot]
+    dtype: int
+  Generator_primary_energy_weight:
+    description: >-
+      the constrained attribute per unit of energy at the bus — the carrier's
+      `co2_emissions` over the generator's efficiency, data prep; a generator
+      of an unweighted carrier has no row
+    dims: [global_constraint, generator]
+  StorageUnit_primary_energy_weight:
+    description: the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row
+    dims: [global_constraint, storage_unit]
+  Store_primary_energy_weight:
+    description: the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row
+    dims: [global_constraint, store]
+  Generator_operational_limit_weight:
+    description: one where the generator is in the row's set — data prep; one outside it has no row
+    dims: [global_constraint, generator]
+  StorageUnit_operational_limit_weight:
+    description: one where the storage unit is in the row's set — data prep; one outside it has no row
+    dims: [global_constraint, storage_unit]
+  Store_operational_limit_weight:
+    description: one where the store is in the row's set — data prep; one outside it has no row
+    dims: [global_constraint, store]
+  Line_volume_weight:
+    description: the line's length where its carrier is in the row's set — data prep; a line outside it has no row
+    dims: [global_constraint, line]
+  Link_volume_weight:
+    description: the link's length where its carrier is in the row's set — data prep; a link outside it has no row
+    dims: [global_constraint, link]
+  Line_expansion_cost_weight:
+    description: the line's capital cost where its carrier is in the row's set — data prep; a line outside it has no row
+    dims: [global_constraint, line]
+  Link_expansion_cost_weight:
+    description: the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row
+    dims: [global_constraint, link]
+  Generator_tech_capacity_weight:
+    description: >-
+      one where the generator is in the row's carrier-and-bus set — data
+      prep; one outside it has no row
+    dims: [global_constraint, generator]
+  Link_tech_capacity_weight:
+    description: one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row
+    dims: [global_constraint, link]
+  StorageUnit_tech_capacity_weight:
+    description: one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row
+    dims: [global_constraint, storage_unit]
+  Store_tech_capacity_weight:
+    description: one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row
+    dims: [global_constraint, store]
 
 lookups:
   Generator_bus:
@@ -374,6 +445,40 @@ variables:
       of the same PyPSA name carries the fixed regime
     foreach: [store]
     where: Store_e_nom_extendable
+
+expressions:
+  primary_energy:
+    description: >-
+      what a `primary_energy` row totals — weighted generator energy, less
+      the charge left in weighted storage at the horizon's end; the initial
+      charge it is compared against is folded into the row's constant
+    expression: >-
+      sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, over=snapshot), over=generator)
+      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+      - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, over=snapshot), over=store)
+  operational_limit:
+    description: what an `operational_limit` row totals — the energy delivered by the row's set over the horizon
+    expression: >-
+      sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, over=snapshot), over=generator)
+      + sum(sum(StorageUnit_p_dispatch * snapshot_weightings_generators * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+      + sum(sum(Store_p * snapshot_weightings_generators * Store_operational_limit_weight, over=snapshot), over=store)
+  transmission_volume_expansion:
+    description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
+    expression: >-
+      sum(Line_s_nom_ext * Line_volume_weight, over=line)
+      + sum(Link_p_nom_ext * Link_volume_weight, over=link)
+  transmission_expansion_cost:
+    description: what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches
+    expression: >-
+      sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
+      + sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+  tech_capacity_expansion:
+    description: what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set
+    expression: >-
+      sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
+      + sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
+      + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
+      + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
 
 constraints:
   Generator_fix_p_lower:
@@ -747,6 +852,81 @@ constraints:
     foreach: [snapshot, store]
     where: Store_e_set
     expression: Store_e == Store_e_set
+  GlobalConstraint_primary_energy_ub:
+    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
+    expression: primary_energy <= GlobalConstraint_constant
+  GlobalConstraint_primary_energy_lb:
+    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
+    expression: primary_energy >= GlobalConstraint_constant
+  GlobalConstraint_primary_energy_eq:
+    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
+    expression: primary_energy == GlobalConstraint_constant
+  GlobalConstraint_operational_limit_ub:
+    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
+    expression: operational_limit <= GlobalConstraint_constant
+  GlobalConstraint_operational_limit_lb:
+    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
+    expression: operational_limit >= GlobalConstraint_constant
+  GlobalConstraint_operational_limit_eq:
+    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
+    expression: operational_limit == GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_ub:
+    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
+    expression: transmission_volume_expansion <= GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_lb:
+    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
+    expression: transmission_volume_expansion >= GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_eq:
+    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
+    expression: transmission_volume_expansion == GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_ub:
+    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
+    expression: transmission_expansion_cost <= GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_lb:
+    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
+    expression: transmission_expansion_cost >= GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_eq:
+    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
+    expression: transmission_expansion_cost == GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_ub:
+    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
+    expression: tech_capacity_expansion <= GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_lb:
+    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
+    expression: tech_capacity_expansion >= GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_eq:
+    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
+    expression: tech_capacity_expansion == GlobalConstraint_constant
   Bus_nodal_balance:
     description: >-
       `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
