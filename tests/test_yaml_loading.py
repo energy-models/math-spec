@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from math_spec._yaml import read_yaml
+from math_spec.errors import SchemaError
 from math_spec.validation import load_model
 from tests.fixtures import raw_of
 
@@ -91,14 +92,15 @@ def test_duplicate_key_is_an_error_naming_both_lines(tmp_path):
         tmp_path, MODEL.replace('constraints:\n', 'constraints:\n  balance:\n    foreach: []\n    equations: []\n')
     )
 
-    with pytest.raises(ValueError, match=r"duplicate key 'balance' .* first declared on line 12"):
+    first = MODEL.splitlines().index('  balance:') + 1
+    with pytest.raises(SchemaError, match=rf"duplicate key 'balance' .* first declared on line {first}"):
         load_model(path)
 
 
 def test_duplicate_top_level_section_is_an_error(tmp_path):
     path = _write(tmp_path, MODEL + 'parameters:\n  other: {dims: [snapshot]}\n')
 
-    with pytest.raises(ValueError, match="duplicate key 'parameters'"):
+    with pytest.raises(SchemaError, match="duplicate key 'parameters'"):
         load_model(path)
 
 
@@ -118,7 +120,7 @@ def test_a_non_mapping_document_is_a_load_error(tmp_path):
     """Otherwise `Model(**raw)` raises a bare TypeError about `**`."""
     for text in ('- a\n- b\n', 'just a string\n'):
         path = _write(tmp_path, text)
-        with pytest.raises(ValueError, match='must be a mapping of sections'):
+        with pytest.raises(SchemaError, match='must be a mapping of sections'):
             load_model(path)
 
 

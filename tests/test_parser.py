@@ -74,7 +74,7 @@ def test_a_call_carries_its_positional_and_keyword_arguments():
 
 
 def test_an_unparseable_expression_is_an_error():
-    with pytest.raises(ValueError, match='Failed to parse'):
+    with pytest.raises(SchemaError, match='Failed to parse'):
         parse_expression('a +')
 
 

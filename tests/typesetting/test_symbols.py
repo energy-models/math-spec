@@ -127,8 +127,3 @@ def test_an_empty_override_is_used_not_fallen_through():
 
 def test_a_model_renders_identically_with_an_empty_table():
     assert to_latex(DISPATCH) == to_latex(DISPATCH, symbols=SymbolTable('latex'))
-
-
-def test_exported_from_the_package():
-    assert to_latex is to_latex
-    assert to_typst is to_typst

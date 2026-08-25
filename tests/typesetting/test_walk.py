@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from math_spec.errors import MathSpecError
+from math_spec.errors import LanguageError
 from math_spec.piecewise import expand_piecewise
 from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset
 from math_spec.typesetting.format import OPERATOR_NAMES
@@ -53,8 +53,10 @@ def test_a_where_lands_on_the_quantifier_not_in_the_equation(fmt: Format):
     """A mask is row absence, so it belongs to the ∀ that names the rows."""
     model = override(DISPATCH, **{'variables.p.where': 'p_max > 0'})
     text = typeset(model, fmt, legend=False)
-    assert fmt.operators['forall'] in text
-    assert fmt.operators['such_that'] in text
+    forall, such_that = fmt.operators['forall'], fmt.operators['such_that']
+    masked = [line for line in text.splitlines() if such_that in line]
+    assert len(masked) == 1, 'one declaration carries a mask, so exactly one line says so'
+    assert masked[0].index(forall) < masked[0].index(such_that), 'the mask follows the quantifier, not the equation'
 
 
 def _masked(dtype: str) -> dict[str, object]:
@@ -107,27 +109,29 @@ def test_a_negated_boolean_mask_negates_the_predicate_alone(fmt: Format):
     )
 
 
+def _storage(edge: str) -> dict[str, object]:
+    """A state-of-charge balance whose shift carries *edge* — one model per edge policy."""
+    return {
+        'dimensions': {'snapshot': {'dtype': 'int'}},
+        'parameters': {'load': {'dims': ['snapshot']}},
+        'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0, 'upper': 100}}},
+        'constraints': {
+            'balance': {
+                'foreach': ['snapshot'],
+                'expression': f'soc == shift(soc, over=snapshot, offset=1{edge}) + load',
+            }
+        },
+    }
+
+
 @EVERY_FORMAT
 def test_translation_distinguishes_a_wrapping_edge_from_a_dropping_one(fmt: Format):
     """``edge='wrap'`` wraps and a bare shift does not — one symbol each, since a
     reader who cannot tell them apart cannot tell the two models apart either."""
 
-    def storage(edge: str) -> dict[str, object]:
-        return {
-            'dimensions': {'snapshot': {'dtype': 'int'}},
-            'parameters': {'load': {'dims': ['snapshot']}},
-            'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0, 'upper': 100}}},
-            'constraints': {
-                'balance': {
-                    'foreach': ['snapshot'],
-                    'expression': f'soc == shift(soc, over=snapshot, offset=1{edge}) + load',
-                }
-            },
-        }
-
     cyclic = fmt.operators['cyclic_minus']
-    assert cyclic in typeset(storage(", edge='wrap'"), fmt, legend=False)
-    assert cyclic not in typeset(storage(''), fmt, legend=False)
+    assert cyclic in typeset(_storage(", edge='wrap'"), fmt, legend=False)
+    assert cyclic not in typeset(_storage(''), fmt, legend=False)
 
 
 @EVERY_FORMAT
@@ -144,23 +148,10 @@ def test_a_numeric_edge_is_a_third_translation_and_shows_its_fill(fmt: Format):
     say which term is which.
     """
 
-    def storage(edge: str) -> dict[str, object]:
-        return {
-            'dimensions': {'snapshot': {'dtype': 'int'}},
-            'parameters': {'load': {'dims': ['snapshot']}},
-            'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0, 'upper': 100}}},
-            'constraints': {
-                'balance': {
-                    'foreach': ['snapshot'],
-                    'expression': f'soc == shift(soc, over=snapshot, offset=1{edge}) + load',
-                }
-            },
-        }
-
-    padded = typeset(storage(', edge=0'), fmt, legend=False)
+    padded = typeset(_storage(', edge=0'), fmt, legend=False)
     assert fmt.operators['edge_minus'] in padded, 'a numeric edge renders as neither a plain nor a cyclic translation'
     assert fmt.subscript(fmt.operators['edge_minus'], ['0']) in padded, 'the substituted value is not on the operator'
-    for other in (storage(''), storage(", edge='wrap'")):
+    for other in (_storage(''), _storage(", edge='wrap'")):
         assert fmt.operators['edge_minus'] not in typeset(other, fmt, legend=False), (
             'a shift with no numeric edge borrowed the padded spelling'
         )
@@ -229,7 +220,7 @@ def test_a_translation_under_a_pullback_survives_it(fmt: Format):
 
 @EVERY_FORMAT
 def test_a_shift_forward_renders_and_does_not_crash(fmt: Format):
-    """``by=-1`` is a model the language accepts and the walk used to abort on.
+    """``offset=-1`` is a model the language accepts and the walk used to abort on.
 
     The parser reads a negated literal as a unary minus over a number, and the
     walk asserted a bare ``NumberNode`` — so every format raised
@@ -410,9 +401,9 @@ def test_macros_and_named_expressions_are_expanded_away(fmt: Format):
 
 
 @EVERY_FORMAT
-def test_an_invalid_model_fails_the_same_way_check_does(fmt: Format):
+def test_an_invalid_model_is_refused_before_anything_renders(fmt: Format):
     broken = override(DISPATCH, **{'objective.expression': 'p * nonexistent'})
-    with pytest.raises(MathSpecError):
+    with pytest.raises(LanguageError):
         typeset(broken, fmt)
 
 

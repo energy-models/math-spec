@@ -82,7 +82,7 @@ class TestValidateExpressions:
         ],
     )
     def test_a_bad_declaration_is_refused_at_load(self, overrides, fragments):
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(LanguageError) as exc:
             _schema(**overrides)
         for fragment in fragments:
             assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
@@ -95,7 +95,7 @@ class TestValidateExpressions:
         validate_expressions(schema)
 
     def test_multiple_errors_collected(self):
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(LanguageError) as exc_info:
             _schema(
                 constraints={
                     'a': {'foreach': ['g'], 'expression': 'q <= 1'},
@@ -158,7 +158,7 @@ class TestDimensionKwargs:
         ],
     )
     def test_a_dim_kwarg_typo_is_rejected(self, expression, fragments):
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(LanguageError) as exc:
             validate_expressions(self._schema(expression))
         for fragment in fragments:
             assert fragment in str(exc.value), f'the refusal has to carry {fragment!r}'
@@ -212,7 +212,7 @@ class TestDimensionKwargs:
         resolved to another type failed to join the user's data — and row
         absence is the structural zero, so the model solved a smaller problem.
         """
-        with pytest.raises(ValueError, match=match):
+        with pytest.raises(LanguageError, match=match):
             _schema(dimensions={'g': {'dtype': dtype, 'values': values}})
 
     @pytest.mark.parametrize(
@@ -248,7 +248,7 @@ class TestDimensionKwargs:
         the structural zero, so the model solved a smaller problem with no
         error anywhere.
         """
-        with pytest.raises(ValueError, match=match):
+        with pytest.raises(LanguageError, match=match):
             _schema(dimensions={'g': {'dtype': dtype}}, variables={'p': {'foreach': ['g'], 'where': where}})
 
 
@@ -287,7 +287,7 @@ class TestArithmeticDtype:
         ],
     )
     def test_a_label_or_a_flag_is_not_a_value(self, dtype, expression):
-        with pytest.raises(ValueError, match=f'declared dtype: {dtype}'):
+        with pytest.raises(LanguageError, match=f'declared dtype: {dtype}'):
             self._schema(dtype, expression)
 
     @pytest.mark.parametrize('dtype', ['float', 'int'])
@@ -320,7 +320,7 @@ class TestArithmeticDtype:
         name the axis being walked. This pass leaves that position to it, so
         the better sentence is still the one that arrives.
         """
-        with pytest.raises(ValueError, match='counts positions along'):
+        with pytest.raises(LanguageError, match='counts positions along'):
             load_model(
                 {
                     'dimensions': {'t': {'dtype': 'int', 'values': [0, 1]}},
@@ -362,7 +362,7 @@ class TestVersion:
     def test_an_unknown_version_is_refused_not_interpreted(self):
         """A file from the future must not be read by an older reader — that is
         the whole reason the field exists, and the only thing it does."""
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(LanguageError) as exc:
             load_model(self._model(version=1))
 
         message = str(exc.value)

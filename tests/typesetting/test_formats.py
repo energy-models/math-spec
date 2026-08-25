@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 import pytest
@@ -14,7 +15,7 @@ from math_spec.typesetting import FORMATS, to_latex, to_markdown, to_typst, type
 from math_spec.typesetting.format import OPERATOR_NAMES
 from tests.fixtures import override
 from tests.typesetting import golden
-from tests.typesetting.fixtures import DISPATCH, EVERY_FORMAT, TYPST, TYPST_SYMBOLS
+from tests.typesetting.fixtures import DISPATCH, EVERY_FORMAT, TYPST, TYPST_SYMBOLS, probe
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -91,7 +92,7 @@ def test_latex_sum_renders_the_coordinate_map_as_a_set_condition():
     corpus that will still be beside it. Two maps rather than one: the
     conjunction is the part a single lookup cannot show.
     """
-    tex = to_latex('examples/operators/sum_by_lookups.yaml', legend=False)
+    tex = to_latex(probe('sum_by_lookups'), legend=False)
     assert r'\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g}' in tex
 
 
@@ -127,7 +128,7 @@ def test_typst_uses_its_own_grouping_and_set_notation():
 
 def test_typst_sum_renders_the_coordinate_map():
     """The same map in the other notation, off the same travelling probe."""
-    typ = to_typst('examples/operators/sum_by_lookups.yaml', legend=False)
+    typ = to_typst(probe('sum_by_lookups'), legend=False)
     assert 'sum_(g in cal(G) colon upright("gen_bus")(g) = b and upright("gen_tech")(g) = e) p_(t,g)' in typ
 
 
@@ -169,10 +170,9 @@ def test_markdown_gives_each_equation_its_own_block():
 def test_markdown_renders_the_legend_as_a_table():
     md = to_markdown(DISPATCH)
     assert '| Symbol | Meaning |' in md
-    assert '| `p_max` over' in md.replace('$p^{\\mathrm{max}}$ ', '')
-
-
-#: Reduction operators carry a subscript without being a symbol.
+    assert re.search(r'^\| \$.*\$ \| `p_max` over ', md, re.MULTILINE), (
+        'each legend row is: symbol cell, then name-over-dims cell'
+    )
 
 
 def test_typst_standalone_adds_page_setup():
