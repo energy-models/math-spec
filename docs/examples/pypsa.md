@@ -21,47 +21,47 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 
 ## Index
 
-Status: **yes** stated one-to-one · **prep** needs a parameter computed in
+A row links once it is in the file. A blank status is a row expected to
+state one-to-one; a word is the catch: **prep** needs a parameter computed in
 data prep · **split** one PyPSA row is several `where:` blocks · **not** a
 PyPSA workaround not reproduced · **flag** only under an `n.optimize()`
 keyword · **scope** multi-period or stochastic · **open** not stateable yet.
-A row links once it is in the file.
 
 ### Rung 1 — transport
 
 | PyPSA                                               | status | note                                                       |
 | --------------------------------------------------- | ------ | ---------------------------------------------------------- |
-| [`Generator-p`, `Link-p`](#variable-domains)        | yes    |                                                            |
-| [`Generator-fix-p-lower`](#generator-fix-p-lower)   | yes    |                                                            |
-| [`Generator-fix-p-upper`](#generator-fix-p-upper)   | yes    |                                                            |
-| [`Link-fix-p-lower`](#link-fix-p-lower)             | yes    |                                                            |
-| [`Link-fix-p-upper`](#link-fix-p-upper)             | yes    |                                                            |
-| [`Bus-nodal_balance`](#bus-nodal_balance)           | yes    | a loaded bus with nothing attached: PyPSA refuses, see X2  |
+| [`Generator-p`, `Link-p`](#variable-domains)        |        |                                                            |
+| [`Generator-fix-p-lower`](#generator-fix-p-lower)   |        |                                                            |
+| [`Generator-fix-p-upper`](#generator-fix-p-upper)   |        |                                                            |
+| [`Link-fix-p-lower`](#link-fix-p-lower)             |        |                                                            |
+| [`Link-fix-p-upper`](#link-fix-p-upper)             |        |                                                            |
+| [`Bus-nodal_balance`](#bus-nodal_balance)           |        | a loaded bus with nothing attached: PyPSA refuses, see X2  |
 | `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here                         |
-| [`marginal_cost`](#objective)                       | yes    |                                                            |
+| [`marginal_cost`](#objective)                       |        |                                                            |
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 ### Rung 2 — storage
 
 | PyPSA                                                 | status | note                                                          |
 | ----------------------------------------------------- | ------ | ------------------------------------------------------------- |
-| `StorageUnit-p_dispatch`, `-p_store`, `-state_of_charge`, `Store-e`, `Store-p` | yes |                                             |
-| `StorageUnit-spill`                                   | yes    | `where: inflow > 0`, `absence: zero`                          |
-| `StorageUnit-fix-*`, `Store-fix-e-*`                  | yes    |                                                               |
+| `StorageUnit-p_dispatch`, `-p_store`, `-state_of_charge`, `Store-e`, `Store-p` |     |                                             |
+| `StorageUnit-spill`                                   |        | `where: inflow > 0`, `absence: zero`                          |
+| `StorageUnit-fix-*`, `Store-fix-e-*`                  |        |                                                               |
 | `StorageUnit-energy_balance`                          | split  | cyclic / non-cyclic / first snapshot; `(1-loss)**eh` is prep   |
 | `Store-energy_balance`                                | split  | same                                                          |
-| `StorageUnit-p_set`, `{c}-{attr}_set`                 | yes    |                                                               |
-| `marginal_cost_storage`, `spill_cost`                 | yes    |                                                               |
+| `StorageUnit-p_set`, `{c}-{attr}_set`                 |        |                                                               |
+| `marginal_cost_storage`, `spill_cost`                 |        |                                                               |
 
 ### Rung 3 — expansion
 
 | PyPSA                            | status | note                                        |
 | -------------------------------- | ------ | ------------------------------------------- |
-| `{c}-p_nom`, `-s_nom`, `-e_nom`  | yes    |                                             |
-| `{c}-ext-{attr}-lower/upper`     | yes    |                                             |
-| `{c}-ext-p_nom-lower/upper`      | yes    |                                             |
-| `{c}-p_nom_set`                  | yes    |                                             |
-| `Generator-e_sum_min/max`        | yes    |                                             |
+| `{c}-p_nom`, `-s_nom`, `-e_nom`  |        |                                             |
+| `{c}-ext-{attr}-lower/upper`     |        |                                             |
+| `{c}-ext-p_nom-lower/upper`      |        |                                             |
+| `{c}-p_nom_set`                  |        |                                             |
+| `Generator-e_sum_min/max`        |        |                                             |
 | capital cost                     | prep   | `periodized_cost` is an annuity, data prep  |
 
 ### Rung 4 — ramps
@@ -90,30 +90,30 @@ each type is three blocks by sense.
 
 | PyPSA                   | status | note                              |
 | ----------------------- | ------ | --------------------------------- |
-| `Line-s`, `Line-fix-s-*` | yes   |                                   |
+| `Line-s`, `Line-fix-s-*` |       |                                   |
 | `Kirchhoff-Voltage-Law` | prep   | the cycle basis is data prep      |
 
 ### Rung 7 — commitment
 
 | PyPSA                                        | status | note                                                          |
 | -------------------------------------------- | ------ | ------------------------------------------------------------- |
-| `{c}-status`, `-start_up`, `-shut_down`      | yes    |                                                               |
-| `{c}-com-p-lower/upper`                      | yes    |                                                               |
-| `{c}-*-p-fixed-upper`                        | yes    |                                                               |
+| `{c}-status`, `-start_up`, `-shut_down`      |        |                                                               |
+| `{c}-com-p-lower/upper`                      |        |                                                               |
+| `{c}-*-p-fixed-upper`                        |        |                                                               |
 | `{c}-com-transition-start-up/shut-down`      | split  | first snapshot carries the initial status                     |
-| `{c}-com-up-time`, `-down-time`              | yes    | `sum_back(within=min_up_time)`                                |
+| `{c}-com-up-time`, `-down-time`              |        | `sum_back(within=min_up_time)`                                |
 | `{c}-com-status-*-must_stay_up`              | prep   | `position()` takes a literal, not a parameter                 |
-| `stand_by_cost`, `start_up_cost`, `shut_down_cost` | yes |                                                             |
+| `stand_by_cost`, `start_up_cost`, `shut_down_cost` |     |                                                             |
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
 ### Rung 8 — modular and big-M
 
 | PyPSA                                         | status | note                                                       |
 | --------------------------------------------- | ------ | ---------------------------------------------------------- |
-| `{c}-n_mod`, `{c}-p_nom_modularity`           | yes    |                                                            |
-| `{c}-*-p_nom-variable-upper`                  | yes    |                                                            |
+| `{c}-n_mod`, `{c}-p_nom_modularity`           |        |                                                            |
+| `{c}-*-p_nom-variable-upper`                  |        |                                                            |
 | `{c}-*-p-fixed-upper`, modular                | split  | non-integer `p_nom / p_nom_mod`: PyPSA refuses, see X1     |
-| `{c}-com-mod-p-lower/upper`                   | yes    |                                                            |
+| `{c}-com-mod-p-lower/upper`                   |        |                                                            |
 | `{c}-com-ext-p-*` (big-M)                     | prep   | `M` is a network-wide reduction                            |
 | `{c}-com-ext-p-lower-nonneg`                  | prep   | `(p_min_pu >= 0).all()` is prep                            |
 | `{c}-p-ramp_limit_*-bigM`                     | prep   |                                                            |
@@ -122,7 +122,7 @@ each type is three blocks by sense.
 
 | PyPSA                        | status | note                                          |
 | ---------------------------- | ------ | --------------------------------------------- |
-| nodal balance, ports 2..n    | yes    |                                               |
+| nodal balance, ports 2..n    |        |                                               |
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 ### Not on a rung
@@ -130,7 +130,7 @@ each type is three blocks by sense.
 | PyPSA                          | status | note                                 |
 | ------------------------------ | ------ | ------------------------------------ |
 | `{c}-loss*`                    | flag   | `transmission_losses`                |
-| `marginal_cost_quadratic`      | yes    | degree 2 in the objective            |
+| `marginal_cost_quadratic`      |        | degree 2 in the objective            |
 | `CVaR-*`                       | scope  | stochastic                           |
 
 ## Refusals
