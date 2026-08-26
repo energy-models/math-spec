@@ -108,6 +108,18 @@ def test_the_stamps_certify_this_record(stem: str):
 
 
 @pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_the_nodal_prices_are_pypsas_where_the_lane_prices(stem: str):
+    prices = RECORDED[stem]['parity'].get('prices')
+    assert prices is not None, 'no price stamp — run lpspec differential/pypsa/parity.py against this checkout'
+    if prices['compared']:
+        assert prices['matches'], f'lpspec prices differ from marginal_price by up to {prices["max_abs_diff"]}'
+    else:
+        assert 'mixed-integer' in prices['skipped'], (
+            'a rung without prices names the integer variables that undefine them'
+        )
+
+
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
 def test_the_two_linopy_models_are_one_or_the_blocker_is_named(stem: str):
     """The model-level proof: label for label where `lpspec.linopy` builds, the stamped blocker where not."""
     structural = RECORDED[stem].get('structural')
