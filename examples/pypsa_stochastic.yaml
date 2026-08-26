@@ -1,0 +1,204 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  The two-stage class of a plain `n.optimize()`: a network with scenarios,
+  stated on rung 1's transport and rung 3's expansion in a file of its own.
+  Everything over a snapshot spans a scenario as well; capacity does not —
+  it is chosen once, before the future is known — and the cost is the
+  expectation over the scenarios' weights. With a risk preference PyPSA adds
+  the CVaR rows: an excess per scenario and the tail's average, blended into
+  the objective. A dimension a run may not have cannot ride on
+  `examples/pypsa.yaml`, so this class lives here.
+
+dimensions:
+  scenario:
+    description: the futures dispatch is chosen in, each with a weight
+  snapshot:
+    description: dispatch periods
+    dtype: int
+  bus:
+    description: network nodes
+  generator:
+    description: generating units, each on one bus
+  link:
+    description: controllable connections, each from one bus to another
+  load:
+    description: demands, each on one bus
+
+parameters:
+  scenario_weight:
+    description: PyPSA's `scenario_weightings.weight` — the probability of a future
+    dims: [scenario]
+  CVaR_omega:
+    description: PyPSA's `risk_preference['omega']` — the share of the operating cost priced at the tail rather than in expectation
+    dims: []
+  CVaR_inv_tail:
+    description: PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor
+    dims: []
+  snapshot_weightings_objective:
+    description: PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost
+    dims: [snapshot]
+  Generator_p_nom:
+    description: nominal power
+    dims: [generator]
+  Generator_p_nom_extendable:
+    description: whether the nominal power is a decision
+    dims: [generator]
+    dtype: bool
+  Generator_p_nom_min:
+    description: least nominal power an extendable generator may be built at
+    dims: [generator]
+  Generator_p_nom_max:
+    description: most nominal power an extendable generator may be built at
+    dims: [generator]
+  Generator_capital_cost:
+    description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [generator]
+  Generator_p_min_pu:
+    description: least output, per unit of nominal power
+    dims: [snapshot, generator]
+  Generator_p_max_pu:
+    description: most output, per unit of nominal power — an availability profile
+    dims: [scenario, snapshot, generator]
+  Generator_marginal_cost:
+    description: cost of one unit of output
+    dims: [snapshot, generator]
+  Link_p_nom:
+    description: nominal power
+    dims: [link]
+  Link_p_min_pu:
+    description: least flow, per unit of nominal power — negative for a link that carries both ways
+    dims: [snapshot, link]
+  Link_p_max_pu:
+    description: most flow, per unit of nominal power
+    dims: [snapshot, link]
+  Link_efficiency:
+    description: share of the flow that arrives at the link's `Link_bus1` end
+    dims: [link]
+  Link_marginal_cost:
+    description: cost of one unit of flow
+    dims: [snapshot, link]
+  Load_p_set:
+    description: demand
+    dims: [scenario, snapshot, load]
+
+lookups:
+  Generator_bus:
+    description: the bus a generator sits on
+    over: generator
+    into: bus
+  Link_bus0:
+    description: the bus a link leaves
+    over: link
+    into: bus
+  Link_bus1:
+    description: the bus a link arrives at
+    over: link
+    into: bus
+  Load_bus:
+    description: the bus a load sits on
+    over: load
+    into: bus
+
+variables:
+  Generator_p:
+    description: "`Generator-p` — output of a generator in a snapshot"
+    foreach: [scenario, snapshot, generator]
+  Link_p:
+    description: >-
+      `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a
+      positive value withdraws there and injects at `Link_bus1`
+    foreach: [scenario, snapshot, link]
+  Generator_p_nom_ext:
+    description: >-
+      `Generator-p_nom` — nominal power where it is a decision; the parameter
+      of the same PyPSA name carries the fixed regime
+    foreach: [generator]
+    where: Generator_p_nom_extendable
+  CVaR_a:
+    description: "`CVaR-a` — how far a scenario's operating cost exceeds the tail's start; nothing where it does not"
+    foreach: [scenario]
+    bounds:
+      lower: 0
+  CVaR_theta:
+    description: "`CVaR-theta` — where the tail starts, the value at risk"
+    foreach: []
+  CVaR:
+    description: "`CVaR` — the tail's average cost, what the objective prices at `omega`"
+    foreach: []
+
+expressions:
+  scenario_opex:
+    description: what a future costs to run — the operating terms, before their weight
+    expression: >-
+      sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective, over=generator), over=snapshot)
+      + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective, over=link), over=snapshot)
+
+constraints:
+  Generator_fix_p_lower:
+    description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
+    foreach: [scenario, snapshot, generator]
+    where: not Generator_p_nom_extendable
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
+  Generator_fix_p_upper:
+    description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
+    foreach: [scenario, snapshot, generator]
+    where: not Generator_p_nom_extendable
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
+  Generator_ext_p_lower:
+    description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
+    foreach: [scenario, snapshot, generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
+  Generator_ext_p_upper:
+    description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
+    foreach: [scenario, snapshot, generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+  Generator_ext_p_nom_lower:
+    description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
+    foreach: [generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p_nom_ext >= Generator_p_nom_min
+  Generator_ext_p_nom_upper:
+    description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_max
+    expression: Generator_p_nom_ext <= Generator_p_nom_max
+  Link_fix_p_lower:
+    description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
+    foreach: [scenario, snapshot, link]
+    expression: Link_p >= Link_p_min_pu * Link_p_nom
+  Link_fix_p_upper:
+    description: "`Link-fix-p-upper` — a link carries at most its nominal power"
+    foreach: [scenario, snapshot, link]
+    expression: Link_p <= Link_p_max_pu * Link_p_nom
+  Bus_nodal_balance:
+    description: >-
+      `Bus-nodal_balance` — what is generated at a bus, less what the links
+      take away, plus what arrives over them after losses, meets the load
+      there
+    foreach: [scenario, snapshot, bus]
+    expression: >-
+      sum(Generator_p, by=Generator_bus)
+      - sum(Link_p, by=Link_bus0)
+      + sum(Link_p * Link_efficiency, by=Link_bus1)
+      == sum(Load_p_set, by=Load_bus)
+  CVaR_excess:
+    description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"
+    foreach: [scenario]
+    expression: CVaR_a - scenario_opex + CVaR_theta >= 0
+  CVaR_def:
+    description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
+    foreach: []
+    expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
+
+objective:
+  sense: minimize
+  description: capacity once, operation in expectation, and a share of it at the tail
+  expression: >-
+    sum(Generator_p_nom_ext * Generator_capital_cost)
+    + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
+    + CVaR_omega * CVaR
