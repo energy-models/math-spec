@@ -17,7 +17,11 @@ and PyPSA supplies its default, exactly as for an unpassed keyword.
 The rung scripts beside this file run out of band — PyPSA is not a dependency
 of this project, and each pins the versions its recorded numbers are from.
 They share `stamp`, which solves a network through PyPSA's own linopy model
-and writes what it saw into `references.json`.
+and writes what it saw into `references.json`. The engines' side of that
+file — the parity and model-for-model stamps — is written by lpspec's
+differential runner (`differential/pypsa/parity.py` there), run against this
+checkout whenever the corpus changes; nothing in this repository builds or
+solves the models it states.
 """
 
 from __future__ import annotations
