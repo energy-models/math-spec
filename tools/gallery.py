@@ -145,7 +145,7 @@ def reference_block(stem: str) -> str:
     structural = recorded.get('structural', {})
     agreement = (
         f' `lpspec {parity["lpspec"]}` binds `{parity["model"]}` against the same network and lands on the'
-        ' same objective (`parity.py`).'
+        " same objective (lpspec's parity gate)."
         if parity.get('matches')
         else ''
     )

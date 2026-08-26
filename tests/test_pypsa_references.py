@@ -2,16 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What the PyPSA references pin the model to, without a build engine.
+"""What the PyPSA references pin the model to, without any engine.
 
-The scripts under ``examples/references/pypsa/`` run out of band — PyPSA is
-not a dependency of this project — and record what each lane built and
-solved. The suite asserts from the records: names both directions, one
-objective across the fence, block-level coverage, and — where
-`lpspec.linopy` can build — that the two lanes build one linopy model,
-label for label; a rung the linopy lane cannot build yet stamps its blocker
-and its proof stops at the objective. The page blocks the records feed are
-held current by ``tests/test_docs.py`` through ``tools.gallery``.
+This repository holds the corpus — the model files, the reference networks
+as data with their loader, and `references.json`: the PyPSA record the rung
+scripts write out of band, plus the certification stamps lpspec's
+differential runner (`differential/pypsa/parity.py` there) writes when run
+against this checkout. Everything here asserts over those committed files
+alone: names both directions, one objective across the fence, block-level
+coverage, the model-for-model verdicts where `lpspec.linopy` builds, and
+that the stamps certify *this* record rather than a stale one. The page
+blocks the records feed are held current by ``tests/test_docs.py`` through
+``tools.gallery``.
 """
 
 from __future__ import annotations
@@ -91,10 +93,21 @@ def test_the_recorded_solve_is_usable_as_an_oracle(stem: str):
 @pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
 def test_both_lanes_solve_the_rung_to_one_objective(stem: str):
     parity = RECORDED[stem].get('parity')
-    assert parity is not None, 'the rung has no cross-lane record — run parity.py in its pinned environment'
+    assert parity is not None, (
+        'the rung has no cross-lane record — run lpspec differential/pypsa/parity.py against this checkout'
+    )
     assert parity['matches'], (
         f'lpspec and pypsa disagree: {parity["lpspec_objective"]} against {RECORDED[stem]["objective"]} '
-        f'— re-run parity.py and read its per-rung report'
+        f'— re-run lpspec differential/pypsa/parity.py and read its per-rung report'
+    )
+
+
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_the_stamps_certify_this_record(stem: str):
+    """A re-recorded fixture with unrefreshed stamps would certify another network — arithmetic on the file alone."""
+    parity = RECORDED[stem]['parity']
+    assert math.isclose(parity['lpspec_objective'], RECORDED[stem]['objective'], rel_tol=1e-9, abs_tol=1e-6), (
+        "the stamped lpspec objective is not this record's — re-run lpspec differential/pypsa/parity.py"
     )
 
 
@@ -102,9 +115,11 @@ def test_both_lanes_solve_the_rung_to_one_objective(stem: str):
 def test_the_two_linopy_models_are_one_or_the_blocker_is_named(stem: str):
     """The model-level proof: label for label where `lpspec.linopy` builds, the stamped blocker where not."""
     structural = RECORDED[stem].get('structural')
-    assert structural is not None, 'no structural record — run parity.py in its pinned environment'
+    assert structural is not None, (
+        'no structural record — run lpspec differential/pypsa/parity.py against this checkout'
+    )
     assert not structural.get('mismatch'), (
-        f'the two lanes build different models: {structural.get("mismatch")} — parity.py prints each label'
+        f'the two lanes build different models: {structural.get("mismatch")} — the parity runner prints each label'
     )
     assert structural.get('error') or 'equal' in structural, 'a structural stamp carries a verdict or its blocker'
 
