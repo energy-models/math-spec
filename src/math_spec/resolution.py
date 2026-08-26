@@ -4,19 +4,10 @@
 
 """Name resolution — the pass that makes the core AST fully typed.
 
-Parsers emit ``NameNode``: a token, not yet a meaning. This module rewrites
-each one into a typed node (``VariableNode`` / ``ParameterNode`` / ``DimensionNode`` /
-``LookupNode``, and
-``ParameterComparisonNode`` / ``DimensionComparisonNode`` / ``ParameterDefinedNode`` on the where
-side), so the AST reaching a consumer holds no unresolved names.
-
-Doing this once here is what makes scoping identical across consumers by
-construction rather than by test: a consumer that resolves for itself is one
-that can build a model another refuses. The name-resolution rules live in
-the language reference.
-
-The namespace is flat and collisions are load errors; macro formals are the one
-scope, and may not collide with a declared dimension.
+Parsers emit unresolved names; this module rewrites each into the typed node
+its kind asks for, so the AST reaching a consumer holds none. Done once here,
+every consumer scopes identically by construction. The rules live in the
+language reference; the namespace is flat, and macro formals are the one scope.
 """
 
 from __future__ import annotations
@@ -44,6 +35,7 @@ from math_spec.expression_parser import (
     ParameterNode,
     UnaryOperatorNode,
     VariableNode,
+    shown,
 )
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
@@ -94,26 +86,18 @@ class Namespace:
         variables: Iterable[str],
         parameters: Iterable[str],
         dimensions: Iterable[str],
-        lookups: Mapping[str, tuple[str, str | None]] | None = None,
-        dtypes: Mapping[str, str] | None = None,
+        lookups: Mapping[str, tuple[str, str | None]],
+        dtypes: Mapping[str, str],
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
         self.dimensions = frozenset(dimensions)
-        #: name -> declared dtype, for dimensions, parameters and label-space
-        #: lookups alike. A where comparison is the one place a *literal*
-        #: meets a declared type, and comparing the wrong one is silent: polars
-        #: reads a datetime against an integer as an epoch offset and drops
-        #: rows, and row absence is the structural zero. Empty when a caller
-        #: builds a namespace by hand, which only widens what is accepted.
-        self.dtypes: dict[str, str] = dict(dtypes or {})
-        #: lookup name -> ``(over, into)``, both kinds in one store: ``into`` is
-        #: ``None`` for a label space, which owns its values and targets
-        #: nothing. That is the schema's own discriminator
-        #: (:class:`~math_spec.model.LookupBlock` declares exactly one of
-        #: ``into:`` and ``dtype:``), carried rather than re-encoded as two
-        #: dicts — one fact, one home.
-        self.lookups: dict[str, tuple[str, str | None]] = dict(lookups or {})
+        #: name -> declared dtype, for dimensions, parameters and lookups alike;
+        #: what a where comparison checks its literal against.
+        self.dtypes: dict[str, str] = dict(dtypes)
+        #: lookup name -> ``(over, into)``; ``into`` is ``None`` for a label
+        #: space, which owns its values.
+        self.lookups: dict[str, tuple[str, str | None]] = dict(lookups)
 
     def groupable(self) -> dict[str, str]:
         """The lookups a ``by=`` may name: name -> the dimension it maps into.
@@ -125,27 +109,20 @@ class Namespace:
 
     @classmethod
     def of(cls, schema: Model) -> Namespace:
-        """Build the namespace of *schema*.
+        """Build the namespace of *schema*, the whole of what a file may name.
 
-        Every name a file may use is declared in that file, so
-        the schema is the whole namespace and there is nothing to widen it
-        with.
+        A targeted lookup's values are labels of its target, so its dtype is
+        the target's.
         """
         return cls(
-            set(schema.variables),
+            schema.variables,
             schema.parameters,
             schema.dimensions,
             {n: (lk.over, lk.into) for n, lk in schema.lookups.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
-                # A targeted lookup's values are labels of its target, so the
-                # target's dtype is what a literal is checked against.
-                **{
-                    n: schema.dimensions[lk.into].dtype
-                    for n, lk in schema.lookups.items()
-                    if lk.into is not None and lk.into in schema.dimensions
-                },
+                **{n: schema.dimensions[lk.into].dtype for n, lk in schema.lookups.items() if lk.into is not None},
                 **{n: lk.dtype for n, lk in schema.lookups.items() if lk.dtype is not None},
             },
         )
@@ -262,17 +239,10 @@ def _resolve_arith(
 ) -> ArithmeticNode:
     """The recursive worker under :func:`resolve_expression`.
 
-    Idempotent — already-typed nodes pass through unchanged, because
-    piecewise re-resolves expanded links. The ``KeywordNode`` branch is
-    unreachable from a file: the grammar admits a quoted value only in a
-    kwarg position, and the kwarg branches consume it there. It exists for a
-    hand-built AST, and because the union must be exhausted.
-
-    *amount* marks the one value position that is not arithmetic: an
-    ``offset=``/``within=`` counting positions along an axis, whose dtype rule
-    is its own and stricter (``dimensions._check_named_amount`` wants ``int``,
-    not merely a number). Naming the position is what makes that sentence the
-    better one, so this pass leaves it to say it.
+    *amount* marks an ``offset=``/``within=`` value, whose dtype rule is
+    ``dimensions._check_named_amount``'s and stricter than "a number", so the
+    numeric check here stands aside for it. A quoted keyword or a name list in
+    arithmetic arrives through a macro formal bound to one.
     """
     if isinstance(node, NumberNode):
         return node
@@ -361,17 +331,8 @@ def _resolve_arith(
     assert_never(node)
 
 
-#: The parameter dtypes an expression may name. Arithmetic is over numbers, and
-#: only these two bind a column there is arithmetic for — a ``str`` is a label
-#: and a ``bool`` is a mask, both of them data a file *selects* with rather than
-#: data it scales by.
 def _not_a_number(name: str, dtype: str, context: str) -> str:
-    """Why a ``str`` or ``bool`` parameter is refused where a value belongs.
-
-    The rewrite is the dtype's own, so the sentence names it: a label has none
-    in the math at all and belongs in a ``where``, where a flag has one a
-    declaration away.
-    """
+    """Why a ``str`` or ``bool`` parameter is refused where a value belongs; the rewrite is the dtype's own."""
     if dtype == 'str':
         instead = (
             f'A label selects rather than scales: compare it in a where '
@@ -414,8 +375,8 @@ def _resolve_amount(
     """
     if not isinstance(_unsigned(value), NumberNode | NameNode):
         errors.append(
-            f'{context}: {operator}({key}=) takes a number or the name of an integer parameter, '
-            f'not an expression. Precompute it as a parameter.'
+            f'{context}: {operator}({key}=) takes a number or the name of an integer parameter. '
+            f'Precompute it as a parameter.'
         )
         return value
     return _resolve_arith(value, ns, context, errors, amount=True)
@@ -429,12 +390,8 @@ def _resolve_edge(
 ) -> ArithmeticNode:
     """Resolve ``edge=``: the closed keyword ``wrap``, or a number to contribute.
 
-    Takes no namespace: the keyword set is closed, so an unrecognised name here
-    is a typo rather than a lookup and nothing could make ``edge=usual`` mean
-    anything. The keyword must still be quoted — a bare ``edge=wrap`` would make
-    ``over=wrap`` and ``edge='wrap'`` the same token meaning two things in one
-    call, and quoting is how the language says "literal, not a name" (the
-    where-string rules).
+    Takes no namespace: the keyword set is closed, so a name here is a typo
+    rather than a lookup.
     """
     if isinstance(value, EdgeNode):
         return value
@@ -447,8 +404,7 @@ def _resolve_edge(
         if value.name == EDGE_WRAP:
             errors.append(
                 f'{context}: {operator}(edge={EDGE_WRAP}) is a bare name where a keyword belongs. '
-                f"Write edge='{EDGE_WRAP}' — quoted, because a bare word in a kwarg value is a "
-                f'name to resolve and this one is a literal.'
+                f"Write edge='{EDGE_WRAP}', quoted."
             )
             return value
         errors.append(f'{context}: {edge_error(operator, value.name)}')
@@ -502,24 +458,23 @@ def _resolve_lookup_ref(
         return value
     if isinstance(value, NameListNode):
         names = value.names
-    elif isinstance(value, (NameNode, DimensionNode)):
+    elif isinstance(value, NameNode):
         names = (value.name,)
     else:
         errors.append(f'{context}: {operator}({key}=...) must name a lookup.')
         return value
 
-    shown = names[0] if len(names) == 1 else f'[{", ".join(names)}]'
     groupable = ns.groupable()
     named = [_ungroupable(name, ns, groupable, context, operator, key) for name in names]
     if any(problem is not None for problem in named):
         errors.extend(problem for problem in named if problem is not None)
         return value
 
-    over = {ns.lookups[name][0] for name in names}
+    over = {ns.over_of(name) for name in names}
     if len(over) > 1:
         errors.append(
-            f'{context}: {operator}({key}={shown}) groups through lookups over '
-            f'different dimensions ({", ".join(f"{n} over {ns.lookups[n][0]}" for n in names)}). '
+            f'{context}: {operator}({key}={shown(names)}) groups through lookups over '
+            f'different dimensions ({", ".join(f"{n} over {ns.over_of(n)}" for n in names)}). '
             f'One grouping consumes one dimension, so every lookup in the list must be '
             f'over the same one — group through them in turn instead, one call each.'
         )
@@ -529,7 +484,7 @@ def _resolve_lookup_ref(
     repeated = sorted({t for t in targets if targets.count(t) > 1})
     if repeated:
         errors.append(
-            f'{context}: {operator}({key}={shown}) targets {repeated} more than once. '
+            f'{context}: {operator}({key}={shown(names)}) targets {repeated} more than once. '
             f'Each lookup in the list produces its own dimension, so two that land on the '
             f'same one would need it twice — drop one, or group into a dimension of its own.'
         )
@@ -548,7 +503,7 @@ def _ungroupable(
 ) -> str | None:
     """Why *name* is not a groupable lookup; ``None`` where it is one."""
     if name in ns.lookups and name not in groupable:
-        over, _ = ns.lookups[name]
+        over = ns.over_of(name)
         return (
             f'{context}: {operator}({key}={name}): '
             f"'{name}' is a label space over '{over}', not a groupable lookup — "
@@ -606,27 +561,17 @@ _HAS_TIME = re.compile(r'[T ]\d')
 
 def _typed_literal(
     node: UnresolvedComparisonNode,
-    dtype: str | None,
+    dtype: str,
     context: str,
     errors: list[str],
 ) -> float | str | datetime.date | None:
     """The comparison's literal, checked against the declared dtype.
 
-    A where comparison is the one place a literal meets a declared type, and
-    getting it wrong is **silent**: polars reads a datetime column against an
-    integer as an epoch offset, so ``snapshot > 0`` means *"after 1970-01-01"*
-    and drops every earlier coordinate — row absence being the structural zero,
-    the model then solves a smaller problem without a word (#460).
-
-    Returns ``None`` once it has recorded an error, so the caller leaves the
-    node unresolved rather than passing on something it could not type.
-
-    ``dtype`` is ``None`` for a hand-built namespace, which accepts any
-    literal. A parameter's dtype is never ``datetime`` (``_DTYPE_TYPES``), so
-    only a dimension comparison receives a ``datetime.date`` from here.
+    Getting it wrong is silent: polars reads a datetime column against an
+    integer as an epoch offset, so ``snapshot > 0`` drops every coordinate
+    before 1970 without a word (#460). Returns ``None`` once it has recorded
+    an error, so the caller leaves the node unresolved.
     """
-    if dtype is None:
-        return node.value
     value = node.value
     text = isinstance(value, str)
 
@@ -669,12 +614,7 @@ def _typed_literal(
 
 
 def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str, kind: str) -> str:
-    """Why the right-hand side of a where-comparison may not name a declaration.
-
-    One refusal — the RHS is a literal — but three distinct reasons, and the
-    wording has to say which, since only the dimension case is a *silent* wrong
-    answer rather than an obvious one.
-    """
+    """Why the right-hand side of a where-comparison may not name a declaration."""
     shown = f"'{node.name} {node.op} {value}'"
     if kind == 'parameter':
         return (
@@ -694,10 +634,9 @@ def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str
         )
     return (
         f'{context}: {shown} compares against dimension {value!r}, which the RHS reads '
-        f'as the literal coordinate {value!r} — so the predicate tests one dimension '
-        f"against another dimension's *name* and masks everything out. Comparing two "
-        f'dimensions to each other is not in the language; if {value!r} is a coordinate '
-        f'rather than the dimension, rename one of the two.'
+        f'as the literal coordinate {value!r} and so masks everything out. Comparing two '
+        f'dimensions is not in the language; if {value!r} is a coordinate rather than the '
+        f'dimension, rename one of the two.'
     )
 
 
@@ -710,14 +649,9 @@ def _label_set_of(ns: Namespace, lookup: str) -> str:
 def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str, ns: Namespace) -> str | None:
     """Why two lookups may not be compared, or ``None`` where they may.
 
-    Two conditions, and each catches a *silent* wrong answer rather than an
-    obvious one. They must map out of the same dimension, or no row carries
-    both. And their values must come from the same label set, or no value of
-    one can equal a value of the other — a comparison a build answers
-    ``True`` everywhere for ``!=`` or refuses outright, by its data library and
-    not by the model, so without this two consumers disagree on a model both
-    accepted. A label
-    space owns its values, so it is never the other side of one.
+    They must map out of the same dimension, or no row carries both; and into
+    the same one, or no value of one is ever a value of the other. Both wrong
+    answers are silent, and a build's data library decides which one.
     """
     shown = f"'{node.name} {node.op} {other}'"
     left_over, right_over = ns.over_of(node.name), ns.over_of(other)
@@ -740,16 +674,11 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
 
 
 def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str, errors: list[str]) -> WhereNode:
-    """Type ``position(dim) <op> i`` — the name has to be a dimension.
+    """Type ``position(dim[, by=lookup]) <op> i``.
 
-    ``position()`` converts a dimension to the row's place along it, so it
-    takes the one thing that has an order to count along. Anything else has no
-    coordinate order, and the comparison would have nothing to be a position
-    *in*.
-
-    ``by=`` groups that order, so it takes a lookup *over the dimension being
-    counted*: the groups are its target's labels, and a lookup over anything
-    else has no position within a group to name.
+    The name has to be a dimension, the one thing with an order to count
+    along; ``by=`` has to be a lookup over that dimension, or no row of it
+    carries a group for a position to be counted in.
     """
     if node.dimension not in ns.dimensions:
         kind = ns.kind(node.dimension)
@@ -759,36 +688,26 @@ def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str,
             f"'{node.dimension}' is {was}.\n  Dimensions: {sorted(ns.dimensions)}"
         )
         return node
-    if node.by is not None and _refuse_grouping(node, node.by, ns, context, errors):
-        return node
-    return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
-
-
-def _refuse_grouping(node: UnresolvedPositionNode, by: str, ns: Namespace, context: str, errors: list[str]) -> bool:
-    """Whether ``by=`` names something other than a lookup over the counted dim.
-
-    The groups are the lookup's target labels and the positions are counted
-    inside each, so a lookup over another dimension carries no row of the one
-    being indexed — there is nothing for a position to be a position *in*.
-    """
-    shown = f'position({node.dimension}, by={by})'
-    if (kind := ns.kind(by)) != 'lookup':
+    if node.by is None:
+        return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
+    call = f'position({node.dimension}, by={node.by})'
+    if (kind := ns.kind(node.by)) != 'lookup':
         was = f'a {kind}' if kind else 'not declared'
         errors.append(
-            f"{context}: '{shown}' groups by '{by}', which is {was}. "
+            f"{context}: '{call}' groups by '{node.by}', which is {was}. "
             f'``by=`` takes a lookup, the same as sum(by=) and at(by=).\n'
             f'  Lookups: {sorted(ns.lookups)}'
         )
-        return True
-    over = ns.over_of(by)
+        return node
+    over = ns.over_of(node.by)
     if over != node.dimension:
         errors.append(
-            f"{context}: '{shown}' counts positions along '{node.dimension}' but groups by a "
+            f"{context}: '{call}' counts positions along '{node.dimension}' but groups by a "
             f"lookup over '{over}'. No row of '{node.dimension}' carries it, so there is no "
             f"position within a group to name — group by a lookup over '{node.dimension}'."
         )
-        return True
-    return False
+        return node
+    return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
 
 
 def _resolve_where(
@@ -812,7 +731,7 @@ def _resolve_where(
                 )
                 return node
             case 'lookup':
-                return LookupDefinedNode(node.name, ns.lookups[node.name][0])
+                return LookupDefinedNode(node.name, ns.over_of(node.name))
             case 'variable':
                 if node.name == self_variable:
                     errors.append(
@@ -842,7 +761,7 @@ def _resolve_where(
 
         kind = ns.kind(node.name)
         if kind in ('parameter', 'dimension', 'lookup'):
-            typed = _typed_literal(node, ns.dtypes.get(node.name), context, errors)
+            typed = _typed_literal(node, ns.dtypes[node.name], context, errors)
             if typed is None:
                 return node
             value = typed
@@ -854,7 +773,7 @@ def _resolve_where(
             case 'dimension':
                 return DimensionComparisonNode(node.name, node.op, value)
             case 'lookup':
-                return LookupComparisonNode(node.name, ns.lookups[node.name][0], node.op, value)
+                return LookupComparisonNode(node.name, ns.over_of(node.name), node.op, value)
             case 'variable':
                 errors.append(
                     f"{context}: where references variable '{node.name}'. A where "

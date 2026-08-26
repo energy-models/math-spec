@@ -131,13 +131,7 @@ def edge_error(name: str, given: str) -> str:
 
 
 def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str | None:
-    """Why a call to *name* does not fit its signature; ``None`` if it fits.
-
-    Arity is a language rule, so it is checked in resolution — the pass every
-    consumer goes through — and the same wording is available to any consumer
-    that wants to state it again. A retired kwarg speaks before the generic
-    mismatch: naming the rewrite is the migration story.
-    """
+    """Why a call to *name* does not fit its signature; ``None`` if it fits."""
     builtin = BUILTINS[name]
     keys = set(kwargs)
     if len(keys & set(builtin.at_most_one_of)) > 1:
