@@ -21,9 +21,14 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
 
 RUNG = 'rung6_kvl'
 
@@ -35,37 +40,7 @@ def build() -> pypsa.Network:
     impedance rather than by cost, which is what the KVL row enforces; one
     line is extendable, so its rating is a decision.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['a', 'b', 'c'])
-    n.add('Line', 'ab', bus0='a', bus1='b', x=0.1, r=0.01, s_nom=60.0)
-    n.add(
-        'Line',
-        'bc',
-        bus0='b',
-        bus1='c',
-        x=0.2,
-        r=0.01,
-        s_nom=60.0,
-        s_set=[10.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add('Line', 'ca', bus0='c', bus1='a', x=0.1, r=0.01, s_nom=60.0)
-    n.add(
-        'Line',
-        'ca2',
-        bus0='c',
-        bus1='a',
-        x=0.15,
-        r=0.01,
-        s_nom_extendable=True,
-        capital_cost=10.0,
-        s_nom_max=40.0,
-        s_nom_set=30.0,
-    )
-    n.add('Generator', 'hydro', bus='a', p_nom=80.0, marginal_cost=10.0)
-    n.add('Generator', 'diesel', bus='b', p_nom=80.0, marginal_cost=50.0)
-    n.add('Load', 'town', bus='c', p_set=45.0)
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

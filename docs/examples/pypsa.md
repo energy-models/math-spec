@@ -47,7 +47,7 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 <!-- reference:rung1_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung1_transport/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung1_transport` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -60,25 +60,7 @@ def build() -> pypsa.Network:
     the south's load splits between imports, a small must-run pinned by its
     given schedule, and its own gas at the link's rating.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['north', 'south'])
-    n.add('Generator', 'coal', bus='north', p_nom=100.0, marginal_cost=10.0)
-    n.add('Generator', 'gas', bus='south', p_nom=100.0, marginal_cost=30.0)
-    n.add(
-        'Link',
-        'wire',
-        bus0='north',
-        bus1='south',
-        p_nom=40.0,
-        p_min_pu=-1.0,
-        efficiency=0.9,
-        p_set=[10.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add('Generator', 'must_run', bus='south', p_nom=10.0, marginal_cost=0.0, p_set=[5.0, 5.0, 5.0, 5.0])
-    n.add('Load', 'north_load', bus='north', p_set=30.0)
-    n.add('Load', 'south_load', bus='south', p_set=40.0)
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>
@@ -97,7 +79,7 @@ def build() -> pypsa.Network:
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung2_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `975.711471`, 83 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung2_storage/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `975.711471`, 83 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung2_storage` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -111,47 +93,7 @@ def build() -> pypsa.Network:
     opens on a given charge and spills the inflow it cannot hold; the cavern
     drains from its initial fill.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add('Generator', 'gas', bus='grid', p_nom=80.0, marginal_cost=[10.0, 10.0, 60.0, 60.0])
-    n.add('Load', 'town', bus='grid', p_set=30.0)
-    n.add(
-        'StorageUnit',
-        'battery',
-        bus='grid',
-        p_nom=20.0,
-        max_hours=4.0,
-        efficiency_store=0.95,
-        efficiency_dispatch=0.9,
-        standing_loss=0.01,
-        cyclic_state_of_charge=True,
-        marginal_cost=0.5,
-        p_set=[0.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add(
-        'StorageUnit',
-        'reservoir',
-        bus='grid',
-        p_nom=10.0,
-        max_hours=2.0,
-        inflow=[12.0, 12.0, 12.0, 12.0],
-        spill_cost=2.0,
-        state_of_charge_initial=5.0,
-        marginal_cost_storage=0.1,
-        state_of_charge_set=[float('nan'), float('nan'), float('nan'), 10.0],
-    )
-    n.add(
-        'Store',
-        'cavern',
-        bus='grid',
-        e_nom=40.0,
-        e_initial=25.0,
-        standing_loss=0.005,
-        marginal_cost=0.2,
-        e_set=[float('nan'), float('nan'), float('nan'), 20.0],
-    )
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>
@@ -169,7 +111,7 @@ def build() -> pypsa.Network:
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung3_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5332.105263157895`, 96 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung3_expansion/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5332.105263157895`, 96 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung3_expansion` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -184,71 +126,7 @@ def build() -> pypsa.Network:
     energy floor it also carries. The cable to the island is the extendable
     link, and the pump and tank are the extendable storage.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'wind',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=50.0,
-        p_nom_min=5.0,
-        p_nom_max=80.0,
-        p_max_pu=[0.3, 0.8, 0.5, 0.9],
-        marginal_cost=0.0,
-        e_sum_min=40.0,
-    )
-    n.add('Generator', 'gas', bus='grid', p_nom=60.0, marginal_cost=40.0, e_sum_max=70.0)
-    n.add(
-        'StorageUnit',
-        'pump',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=15.0,
-        p_nom_max=30.0,
-        max_hours=4.0,
-        efficiency_store=0.9,
-        efficiency_dispatch=0.9,
-        cyclic_state_of_charge=True,
-        p_nom_set=20.0,
-    )
-    n.add(
-        'Store',
-        'tank',
-        bus='grid',
-        e_nom_extendable=True,
-        capital_cost=2.0,
-        e_nom_max=80.0,
-        e_cyclic=True,
-        e_nom_set=50.0,
-    )
-    n.add(
-        'Generator',
-        'solar',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=60.0,
-        p_max_pu=[0.5, 0.6, 0.4, 0.2],
-        p_nom_max=40.0,
-        p_nom_set=15.0,
-        marginal_cost=0.0,
-    )
-    n.add('Load', 'town', bus='grid', p_set=40.0)
-    n.add('Bus', 'island')
-    n.add('Load', 'island_load', bus='island', p_set=10.0)
-    n.add(
-        'Link',
-        'cable',
-        bus0='grid',
-        bus1='island',
-        p_nom_extendable=True,
-        capital_cost=20.0,
-        p_nom_max=30.0,
-        efficiency=0.95,
-        p_nom_set=25.0,
-    )
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>
@@ -261,7 +139,7 @@ def build() -> pypsa.Network:
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | fix and ext blocks; com is rung 7's, big-M rung 8's; the first snapshot's row is rolling horizon's, a flag |
 
 <!-- reference:rung4_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10420.0`, 44 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung4_ramps/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10420.0`, 44 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung4_ramps` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -273,25 +151,7 @@ def build() -> pypsa.Network:
     Coal may move a fifth of its capacity per snapshot, so the swings belong
     to the peaker however dear it is; the tie line east ramps too.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add('Generator', 'coal', bus='grid', p_nom=80.0, marginal_cost=10.0, ramp_limit_up=0.2, ramp_limit_down=0.2)
-    n.add('Generator', 'peaker', bus='grid', p_nom=100.0, marginal_cost=100.0)
-    n.add('Load', 'town', bus='grid', p_set=[20.0, 60.0, 80.0, 30.0])
-    n.add('Bus', 'east')
-    n.add(
-        'Link',
-        'tie',
-        bus0='grid',
-        bus1='east',
-        p_nom=50.0,
-        efficiency=1.0,
-        ramp_limit_up=0.4,
-        ramp_limit_down=0.4,
-    )
-    n.add('Load', 'east_load', bus='east', p_set=[5.0, 20.0, 25.0, 10.0])
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>
@@ -314,7 +174,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung5_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5187.5`, 29 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung5_global_constraints/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5187.5`, 29 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung5_global_constraints` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -327,25 +187,7 @@ def build() -> pypsa.Network:
     run here; the cap decides the mix, and its shadow price is the carbon
     price.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Carrier', 'coal', co2_emissions=0.9)
-    n.add('Carrier', 'gas', co2_emissions=0.4)
-    n.add('Carrier', 'wind', co2_emissions=0.0)
-    n.add('Bus', 'grid')
-    n.add('Generator', 'coal', bus='grid', carrier='coal', p_nom=60.0, marginal_cost=10.0, efficiency=0.35)
-    n.add('Generator', 'gas', bus='grid', carrier='gas', p_nom=60.0, marginal_cost=25.0, efficiency=0.5)
-    n.add('Generator', 'wind', bus='grid', carrier='wind', p_nom=60.0, marginal_cost=40.0)
-    n.add('Load', 'town', bus='grid', p_set=50.0)
-    n.add(
-        'GlobalConstraint',
-        'co2_cap',
-        type='primary_energy',
-        carrier_attribute='co2_emissions',
-        sense='<=',
-        constant=150.0,
-    )
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>
@@ -359,7 +201,7 @@ def build() -> pypsa.Network:
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung6_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2460.0`, 72 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung6_kvl/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2460.0`, 72 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung6_kvl` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -372,37 +214,7 @@ def build() -> pypsa.Network:
     impedance rather than by cost, which is what the KVL row enforces; one
     line is extendable, so its rating is a decision.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['a', 'b', 'c'])
-    n.add('Line', 'ab', bus0='a', bus1='b', x=0.1, r=0.01, s_nom=60.0)
-    n.add(
-        'Line',
-        'bc',
-        bus0='b',
-        bus1='c',
-        x=0.2,
-        r=0.01,
-        s_nom=60.0,
-        s_set=[10.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add('Line', 'ca', bus0='c', bus1='a', x=0.1, r=0.01, s_nom=60.0)
-    n.add(
-        'Line',
-        'ca2',
-        bus0='c',
-        bus1='a',
-        x=0.15,
-        r=0.01,
-        s_nom_extendable=True,
-        capital_cost=10.0,
-        s_nom_max=40.0,
-        s_nom_set=30.0,
-    )
-    n.add('Generator', 'hydro', bus='a', p_nom=80.0, marginal_cost=10.0)
-    n.add('Generator', 'diesel', bus='b', p_nom=80.0, marginal_cost=50.0)
-    n.add('Load', 'town', bus='c', p_set=45.0)
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>
@@ -422,7 +234,7 @@ def build() -> pypsa.Network:
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
 <!-- reference:rung7_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3065.0`, 54 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung7_commitment/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3065.0`, 54 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung7_commitment` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -436,31 +248,7 @@ def build() -> pypsa.Network:
     ramps against its previous status — so the swing between it and the
     peaker is a schedule, not a dispatch.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'base',
-        bus='grid',
-        committable=True,
-        p_nom=50.0,
-        marginal_cost=10.0,
-        p_min_pu=0.4,
-        min_up_time=3,
-        min_down_time=2,
-        up_time_before=1,
-        ramp_limit_up=0.5,
-        ramp_limit_down=0.5,
-        ramp_limit_start_up=0.6,
-        ramp_limit_shut_down=0.6,
-        start_up_cost=100.0,
-        shut_down_cost=50.0,
-        stand_by_cost=5.0,
-    )
-    n.add('Generator', 'peaker', bus='grid', p_nom=100.0, marginal_cost=80.0)
-    n.add('Load', 'town', bus='grid', p_set=[25.0, 45.0, 45.0, 10.0])
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>
@@ -479,7 +267,7 @@ def build() -> pypsa.Network:
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down, each with its initial block |
 
 <!-- reference:rung8_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8725.0`, 97 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung8_modular_big_m/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8725.0`, 97 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung8_modular_big_m` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -493,39 +281,7 @@ def build() -> pypsa.Network:
     extendable and committable with ramps, which is the pairing PyPSA's big-M
     rows linearize.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'block',
-        bus='grid',
-        p_nom_extendable=True,
-        committable=True,
-        p_nom_mod=25.0,
-        p_nom_max=100.0,
-        capital_cost=30.0,
-        marginal_cost=20.0,
-        p_min_pu=0.2,
-        up_time_before=0,
-    )
-    n.add(
-        'Generator',
-        'flex',
-        bus='grid',
-        p_nom_extendable=True,
-        committable=True,
-        p_nom_max=80.0,
-        capital_cost=50.0,
-        marginal_cost=10.0,
-        p_min_pu=0.3,
-        ramp_limit_up=0.25,
-        ramp_limit_down=0.25,
-        up_time_before=0,
-    )
-    n.add('Generator', 'backstop', bus='grid', p_nom=200.0, marginal_cost=300.0)
-    n.add('Load', 'town', bus='grid', p_set=[40.0, 80.0, 120.0, 60.0])
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>
@@ -539,7 +295,7 @@ def build() -> pypsa.Network:
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung9_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `1920.0`, 36 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung9_multilink/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `1920.0`, 36 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung9_multilink` rows of the corpus tables in `data/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -552,25 +308,7 @@ def build() -> pypsa.Network:
     by its two efficiencies; the heat bus has no other supply, so the link
     runs and the power bus tops up from imports.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['gas', 'power', 'heat'])
-    n.add('Generator', 'well', bus='gas', p_nom=100.0, marginal_cost=5.0)
-    n.add(
-        'Link',
-        'chp',
-        bus0='gas',
-        bus1='power',
-        bus2='heat',
-        efficiency=0.4,
-        efficiency2=0.45,
-        p_nom=60.0,
-        marginal_cost=1.0,
-    )
-    n.add('Generator', 'grid_import', bus='power', p_nom=50.0, marginal_cost=60.0)
-    n.add('Load', 'homes', bus='power', p_set=20.0)
-    n.add('Load', 'district', bus='heat', p_set=18.0)
-    return n
+    return instances.build(RUNG)
 ```
 
 </details>

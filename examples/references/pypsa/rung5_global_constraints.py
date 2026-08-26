@@ -21,9 +21,14 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
 
 RUNG = 'rung5_global_constraints'
 
@@ -35,25 +40,7 @@ def build() -> pypsa.Network:
     run here; the cap decides the mix, and its shadow price is the carbon
     price.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Carrier', 'coal', co2_emissions=0.9)
-    n.add('Carrier', 'gas', co2_emissions=0.4)
-    n.add('Carrier', 'wind', co2_emissions=0.0)
-    n.add('Bus', 'grid')
-    n.add('Generator', 'coal', bus='grid', carrier='coal', p_nom=60.0, marginal_cost=10.0, efficiency=0.35)
-    n.add('Generator', 'gas', bus='grid', carrier='gas', p_nom=60.0, marginal_cost=25.0, efficiency=0.5)
-    n.add('Generator', 'wind', bus='grid', carrier='wind', p_nom=60.0, marginal_cost=40.0)
-    n.add('Load', 'town', bus='grid', p_set=50.0)
-    n.add(
-        'GlobalConstraint',
-        'co2_cap',
-        type='primary_energy',
-        carrier_attribute='co2_emissions',
-        sense='<=',
-        constant=150.0,
-    )
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

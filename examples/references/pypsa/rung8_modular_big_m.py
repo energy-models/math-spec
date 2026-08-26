@@ -21,9 +21,14 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
 
 RUNG = 'rung8_modular_big_m'
 
@@ -36,39 +41,7 @@ def build() -> pypsa.Network:
     extendable and committable with ramps, which is the pairing PyPSA's big-M
     rows linearize.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'block',
-        bus='grid',
-        p_nom_extendable=True,
-        committable=True,
-        p_nom_mod=25.0,
-        p_nom_max=100.0,
-        capital_cost=30.0,
-        marginal_cost=20.0,
-        p_min_pu=0.2,
-        up_time_before=0,
-    )
-    n.add(
-        'Generator',
-        'flex',
-        bus='grid',
-        p_nom_extendable=True,
-        committable=True,
-        p_nom_max=80.0,
-        capital_cost=50.0,
-        marginal_cost=10.0,
-        p_min_pu=0.3,
-        ramp_limit_up=0.25,
-        ramp_limit_down=0.25,
-        up_time_before=0,
-    )
-    n.add('Generator', 'backstop', bus='grid', p_nom=200.0, marginal_cost=300.0)
-    n.add('Load', 'town', bus='grid', p_set=[40.0, 80.0, 120.0, 60.0])
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

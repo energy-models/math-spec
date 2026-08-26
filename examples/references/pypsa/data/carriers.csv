@@ -1,0 +1,4 @@
+rung,name,co2_emissions
+rung5_global_constraints,coal,0.9
+rung5_global_constraints,gas,0.4
+rung5_global_constraints,wind,

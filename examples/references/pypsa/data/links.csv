@@ -1,0 +1,6 @@
+rung,name,bus0,bus1,efficiency,p_nom,p_min_pu,marginal_cost,marginal_cost_quadratic,p_nom_extendable,p_nom_max,p_nom_set,capital_cost,ramp_limit_up,ramp_limit_down,bus2,efficiency2
+rung10_quadratic_costs,wire,a,b,0.9,40.0,-1.0,1.0,0.02,,,,,,,,
+rung1_transport,wire,north,south,0.9,40.0,-1.0,,,,,,,,,,
+rung3_expansion,cable,grid,island,0.95,,,,,True,30.0,25.0,20.0,,,,
+rung4_ramps,tie,grid,east,,50.0,,,,,,,,0.4,0.4,,
+rung9_multilink,chp,gas,power,0.4,60.0,,1.0,,,,,,,,heat,0.45

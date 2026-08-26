@@ -1,0 +1,5 @@
+rung,name,bus0,bus1,x,r,s_nom,s_nom_extendable,s_nom_max,s_nom_set,capital_cost
+rung6_kvl,ab,a,b,0.1,0.01,60.0,,,,
+rung6_kvl,bc,b,c,0.2,0.01,60.0,,,,
+rung6_kvl,ca,c,a,0.1,0.01,60.0,,,,
+rung6_kvl,ca2,c,a,0.15,0.01,,True,40.0,30.0,10.0

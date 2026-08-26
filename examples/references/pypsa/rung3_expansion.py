@@ -21,9 +21,14 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
 
 RUNG = 'rung3_expansion'
 
@@ -37,71 +42,7 @@ def build() -> pypsa.Network:
     energy floor it also carries. The cable to the island is the extendable
     link, and the pump and tank are the extendable storage.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'wind',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=50.0,
-        p_nom_min=5.0,
-        p_nom_max=80.0,
-        p_max_pu=[0.3, 0.8, 0.5, 0.9],
-        marginal_cost=0.0,
-        e_sum_min=40.0,
-    )
-    n.add('Generator', 'gas', bus='grid', p_nom=60.0, marginal_cost=40.0, e_sum_max=70.0)
-    n.add(
-        'StorageUnit',
-        'pump',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=15.0,
-        p_nom_max=30.0,
-        max_hours=4.0,
-        efficiency_store=0.9,
-        efficiency_dispatch=0.9,
-        cyclic_state_of_charge=True,
-        p_nom_set=20.0,
-    )
-    n.add(
-        'Store',
-        'tank',
-        bus='grid',
-        e_nom_extendable=True,
-        capital_cost=2.0,
-        e_nom_max=80.0,
-        e_cyclic=True,
-        e_nom_set=50.0,
-    )
-    n.add(
-        'Generator',
-        'solar',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=60.0,
-        p_max_pu=[0.5, 0.6, 0.4, 0.2],
-        p_nom_max=40.0,
-        p_nom_set=15.0,
-        marginal_cost=0.0,
-    )
-    n.add('Load', 'town', bus='grid', p_set=40.0)
-    n.add('Bus', 'island')
-    n.add('Load', 'island_load', bus='island', p_set=10.0)
-    n.add(
-        'Link',
-        'cable',
-        bus0='grid',
-        bus1='island',
-        p_nom_extendable=True,
-        capital_cost=20.0,
-        p_nom_max=30.0,
-        efficiency=0.95,
-        p_nom_set=25.0,
-    )
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

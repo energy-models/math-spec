@@ -21,9 +21,14 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
 
 RUNG = 'rung9_multilink'
 
@@ -35,25 +40,7 @@ def build() -> pypsa.Network:
     by its two efficiencies; the heat bus has no other supply, so the link
     runs and the power bus tops up from imports.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['gas', 'power', 'heat'])
-    n.add('Generator', 'well', bus='gas', p_nom=100.0, marginal_cost=5.0)
-    n.add(
-        'Link',
-        'chp',
-        bus0='gas',
-        bus1='power',
-        bus2='heat',
-        efficiency=0.4,
-        efficiency2=0.45,
-        p_nom=60.0,
-        marginal_cost=1.0,
-    )
-    n.add('Generator', 'grid_import', bus='power', p_nom=50.0, marginal_cost=60.0)
-    n.add('Load', 'homes', bus='power', p_set=20.0)
-    n.add('Load', 'district', bus='heat', p_set=18.0)
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

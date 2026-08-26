@@ -1,0 +1,2 @@
+rung,name,sense,constant
+rung5_global_constraints,co2_cap,<=,150.0
