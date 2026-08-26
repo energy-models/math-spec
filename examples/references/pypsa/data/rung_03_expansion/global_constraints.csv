@@ -1,0 +1,9 @@
+name,type,carrier_attribute,sense,constant
+tech_wind,tech_capacity_expansion_limit,onwind,==,50.0
+tech_solar,tech_capacity_expansion_limit,solarpv,>=,10.0
+tech_dc,tech_capacity_expansion_limit,dc,<=,28.0
+tech_phs,tech_capacity_expansion_limit,phs,<=,25.0
+tech_h2,tech_capacity_expansion_limit,h2,>=,30.0
+vol_dc,transmission_volume_expansion_limit,dc,<=,3500.0
+cost_dc,transmission_expansion_cost_limit,dc,>=,400.0
+cost_dc_exact,transmission_expansion_cost_limit,dc,==,500.0

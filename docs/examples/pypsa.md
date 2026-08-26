@@ -199,7 +199,7 @@ Store,cavern,e_set,3,20.0
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7752.992982456141`, 124 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7754.515789473684`, 132 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -219,20 +219,45 @@ name
 island
 ```
 
+`data/rung_03_expansion/carriers.csv`
+
+```csv
+name
+onwind
+solarpv
+dc
+phs
+h2
+```
+
 `data/rung_03_expansion/generators.csv`
 
 ```csv
-name,bus,p_nom_extendable,capital_cost,p_nom_min,p_nom_max,marginal_cost,e_sum_min,p_nom_set,p_nom,e_sum_max
-wind,north,True,50.0,5.0,80.0,0.0,40.0,,,
-solar,north,True,60.0,,40.0,0.0,,15.0,,
-diesel,island,,,,,40.0,,,60.0,70.0
+name,bus,carrier,p_nom_extendable,capital_cost,p_nom_min,p_nom_max,marginal_cost,e_sum_min,p_nom_set,p_nom,e_sum_max
+wind,north,onwind,True,50.0,5.0,80.0,0.0,40.0,,,
+solar,north,solarpv,True,60.0,,40.0,0.0,,15.0,,
+diesel,island,,,,,,40.0,,,60.0,70.0
+```
+
+`data/rung_03_expansion/global_constraints.csv`
+
+```csv
+name,type,carrier_attribute,sense,constant
+tech_wind,tech_capacity_expansion_limit,onwind,==,50.0
+tech_solar,tech_capacity_expansion_limit,solarpv,>=,10.0
+tech_dc,tech_capacity_expansion_limit,dc,<=,28.0
+tech_phs,tech_capacity_expansion_limit,phs,<=,25.0
+tech_h2,tech_capacity_expansion_limit,h2,>=,30.0
+vol_dc,transmission_volume_expansion_limit,dc,<=,3500.0
+cost_dc,transmission_expansion_cost_limit,dc,>=,400.0
+cost_dc_exact,transmission_expansion_cost_limit,dc,==,500.0
 ```
 
 `data/rung_03_expansion/links.csv`
 
 ```csv
-name,bus0,bus1,p_nom_extendable,capital_cost,p_nom_max,efficiency,p_nom_set
-cable,north,island,True,20.0,30.0,0.95,25.0
+name,bus0,bus1,carrier,length,p_nom_extendable,capital_cost,p_nom_max,efficiency,p_nom_set
+cable,north,island,dc,120.0,True,20.0,30.0,0.95,25.0
 ```
 
 `data/rung_03_expansion/loads.csv`
@@ -245,15 +270,15 @@ island_load,island,10.0
 `data/rung_03_expansion/storage_units.csv`
 
 ```csv
-name,bus,p_nom_extendable,capital_cost,p_nom_max,max_hours,efficiency_store,efficiency_dispatch,cyclic_state_of_charge,p_nom_set
-pump,north,True,15.0,30.0,4.0,0.9,0.9,True,20.0
+name,bus,carrier,p_nom_extendable,capital_cost,p_nom_max,max_hours,efficiency_store,efficiency_dispatch,cyclic_state_of_charge,p_nom_set
+pump,north,phs,True,15.0,30.0,4.0,0.9,0.9,True,20.0
 ```
 
 `data/rung_03_expansion/stores.csv`
 
 ```csv
-name,bus,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set
-tank,north,True,2.0,80.0,True,50.0
+name,bus,carrier,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set
+tank,north,h2,True,2.0,80.0,True,50.0
 ```
 
 `data/rung_03_expansion/timeseries.csv`
@@ -353,7 +378,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `13120.0`, 57 rows — recorded by `examples/references/pypsa/rung_05_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10282.833333333334`, 102 rows — recorded by `examples/references/pypsa/rung_05_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -387,6 +412,11 @@ wind5,north,windc,60.0,40.0,
 ```csv
 name,type,carrier_attribute,sense,constant
 co2_cap,primary_energy,co2_emissions,<=,150.0
+co2_floor,primary_energy,co2_emissions,>=,20.0
+co2_exact,primary_energy,co2_emissions,==,120.0
+op_wind,operational_limit,windc,==,30.0
+op_coal,operational_limit,coalc,<=,200.0
+op_gas,operational_limit,gasc,>=,10.0
 ```
 
 `data/rung_05_global_constraints/loads.csv`
@@ -394,6 +424,20 @@ co2_cap,primary_energy,co2_emissions,<=,150.0
 ```csv
 name,bus,p_set
 extra5,north,50.0
+```
+
+`data/rung_05_global_constraints/storage_units.csv`
+
+```csv
+name,bus,carrier,p_nom,max_hours,state_of_charge_initial
+res5,north,gasc,20.0,4.0,30.0
+```
+
+`data/rung_05_global_constraints/stores.csv`
+
+```csv
+name,bus,carrier,e_nom,e_initial
+tank5,north,coalc,40.0,25.0
 ```
 
 </details>
@@ -407,7 +451,7 @@ extra5,north,50.0
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung_06_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `12450.0`, 104 rows — recorded by `examples/references/pypsa/rung_06_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `23962.0`, 123 rows — recorded by `examples/references/pypsa/rung_06_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -435,14 +479,26 @@ hydro,a,80.0,10.0
 diesel6,b,80.0,50.0
 ```
 
+`data/rung_06_kvl/global_constraints.csv`
+
+```csv
+name,type,carrier_attribute,sense,constant
+vol_ac,transmission_volume_expansion_limit,AC,==,2300.0
+vol_ac_floor,transmission_volume_expansion_limit,AC,>=,1000.0
+cost_ac,transmission_expansion_cost_limit,AC,<=,500.0
+cost_ac_floor,transmission_expansion_cost_limit,AC,>=,100.0
+tech_ac,tech_capacity_expansion_limit,AC,<=,60.0
+```
+
 `data/rung_06_kvl/lines.csv`
 
 ```csv
-name,bus0,bus1,x,r,s_nom,s_nom_extendable,capital_cost,s_nom_max,s_nom_set
-ab,a,b,0.1,0.01,60.0,,,,
-bc,b,c,0.2,0.01,60.0,,,,
-ca,c,a,0.1,0.01,60.0,,,,
-ca2,c,a,0.15,0.01,,True,10.0,40.0,30.0
+name,bus0,bus1,carrier,length,x,r,s_nom,s_nom_extendable,capital_cost,s_nom_max,s_nom_set
+ab,a,b,AC,30.0,0.1,0.01,60.0,,,,
+bc,b,c,AC,40.0,0.2,0.01,60.0,,,,
+ca,c,a,AC,35.0,0.1,0.01,60.0,,,,
+ca2,c,a,AC,50.0,0.15,0.01,,True,10.0,40.0,30.0
+ca3,c,a,AC,80.0,0.12,0.01,,True,8.0,40.0,
 ```
 
 `data/rung_06_kvl/loads.csv`
@@ -456,7 +512,7 @@ town,c,45.0
 
 ```csv
 component,name,attribute,snapshot,value
-Line,bc,s_set,0,10.0
+Line,bc,s_set,0,16.0
 ```
 
 </details>
@@ -783,6 +839,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{cc}^{f}$ | `Link_expansion_cost_weight` over $\mathcal{O} \times \mathcal{L}$ — the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row |
 | $\mathrm{m}$ | `Generator_tech_capacity_weight` over $\mathcal{O} \times \mathcal{G}$ — one where the generator is in the row's carrier-and-bus set — data prep; one outside it has no row |
 | $\mathrm{m}^{f}$ | `Link_tech_capacity_weight` over $\mathcal{O} \times \mathcal{L}$ — one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row |
+| $\mathrm{m}^{l}$ | `Line_tech_capacity_weight` over $\mathcal{O} \times \mathcal{K}$ — one where the line is in the row's carrier-and-bus set — data prep; one outside it has no row |
 | $\mathrm{m}^{h}$ | `StorageUnit_tech_capacity_weight` over $\mathcal{O} \times \mathcal{S}$ — one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row |
 | $\mathrm{m}^{e}$ | `Store_tech_capacity_weight` over $\mathcal{O} \times \mathcal{V}$ — one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row |
 
@@ -2425,7 +2482,7 @@ GlobalConstraint_operational_limit_ub:
   expression: operational_limit <= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `operational_limit`
 
@@ -2439,7 +2496,7 @@ GlobalConstraint_operational_limit_lb:
   expression: operational_limit >= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `operational_limit`
 
@@ -2453,7 +2510,7 @@ GlobalConstraint_operational_limit_eq:
   expression: operational_limit == GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 
 ### `transmission_volume_expansion_limit`
 
@@ -2551,7 +2608,7 @@ GlobalConstraint_tech_capacity_expansion_limit_ub:
   expression: tech_capacity_expansion <= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `tech_capacity_expansion_limit`
 
@@ -2565,7 +2622,7 @@ GlobalConstraint_tech_capacity_expansion_limit_lb:
   expression: tech_capacity_expansion >= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `tech_capacity_expansion_limit`
 
@@ -2579,7 +2636,7 @@ GlobalConstraint_tech_capacity_expansion_limit_eq:
   expression: tech_capacity_expansion == GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 
 ### `Bus-nodal_balance`
 

@@ -1,2 +1,2 @@
-name,bus,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set
-tank,north,True,2.0,80.0,True,50.0
+name,bus,carrier,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set
+tank,north,h2,True,2.0,80.0,True,50.0

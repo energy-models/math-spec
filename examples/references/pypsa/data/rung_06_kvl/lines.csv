@@ -1,5 +1,6 @@
-name,bus0,bus1,x,r,s_nom,s_nom_extendable,capital_cost,s_nom_max,s_nom_set
-ab,a,b,0.1,0.01,60.0,,,,
-bc,b,c,0.2,0.01,60.0,,,,
-ca,c,a,0.1,0.01,60.0,,,,
-ca2,c,a,0.15,0.01,,True,10.0,40.0,30.0
+name,bus0,bus1,carrier,length,x,r,s_nom,s_nom_extendable,capital_cost,s_nom_max,s_nom_set
+ab,a,b,AC,30.0,0.1,0.01,60.0,,,,
+bc,b,c,AC,40.0,0.2,0.01,60.0,,,,
+ca,c,a,AC,35.0,0.1,0.01,60.0,,,,
+ca2,c,a,AC,50.0,0.15,0.01,,True,10.0,40.0,30.0
+ca3,c,a,AC,80.0,0.12,0.01,,True,8.0,40.0,

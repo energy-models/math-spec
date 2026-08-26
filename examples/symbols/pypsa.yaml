@@ -106,6 +106,7 @@ names:
   Link_expansion_cost_weight: '\mathrm{cc}^{f}'
   Generator_tech_capacity_weight: '\mathrm{m}'
   Link_tech_capacity_weight: '\mathrm{m}^{f}'
+  Line_tech_capacity_weight: '\mathrm{m}^{l}'
   StorageUnit_tech_capacity_weight: '\mathrm{m}^{h}'
   Store_tech_capacity_weight: '\mathrm{m}^{e}'
   StorageUnit_p_dispatch: "h^{+}"
