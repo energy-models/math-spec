@@ -7,46 +7,151 @@ SPDX-License-Identifier: CC-BY-4.0
 
 The model a plain `n.optimize()` builds, stated as one file and grown a rung
 at a time towards
-[milestone 1](https://github.com/energy-models/math-spec/milestone/1). This is
-rung 1, transport: generator dispatch, controllable links, a nodal balance and
-a linear cost.
+[milestone 1](https://github.com/energy-models/math-spec/milestone/1). The
+index below lists every row PyPSA emits (PyPSA `0d7d683`,
+`pypsa/optimization/`) and links each to its block in the file once it is
+there. The blocks are the file — PyPSA's name for the row, the YAML, the
+equation the typesetter prints — and are generated, so a row that stops
+loading or changes its math fails CI.
 
-The page is the file a declaration at a time. Each constraint is headed by the
-name PyPSA's own linopy model gives that row — `Generator-fix-p-upper`,
-`Bus-nodal_balance` — then the YAML that states it here, then the equation the
-typesetter prints from that YAML. Nothing on this page is typed: a constraint
-that stops loading, or starts printing different math, fails CI.
+Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
+their duals are row duals. Regimes are data columns and `where:` masks, never
+file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
+(`examples/symbols/pypsa.yaml`) making the math read as math.
 
-Three decisions shape the file, and they are visible in every block:
+## Index
 
-- **Bounds are rows.** PyPSA writes a generator's limits as explicit
-  constraints, `Generator-fix-p-lower` and `-upper`, and reads `mu_lower` and
-  `mu_upper` off them. So does this file — a `bounds:` on the variable would
-  fold them onto the column, and the dual would have nowhere to come from.
-- **Regimes are data.** Whether a generator is extendable is a column,
-  `Generator_p_nom_extendable`, and the fixed-capacity rows carry
-  `where: not Generator_p_nom_extendable`. The extendable rows join the file on
-  a later rung under the complementary mask; the file never forks.
-- **Names are PyPSA's.** Every declaration is `Component_attribute` after the
-  statement it stands for, so the file reads beside `n.model` — and a symbol
-  table, `examples/symbols/pypsa.yaml`, is what makes the math read as math.
+A row is **done** and links once it is in the file. A blank status is a row
+expected to state one-to-one; a word is the catch: **prep** needs a parameter computed in
+data prep · **split** one PyPSA row is several `where:` blocks · **not** a
+PyPSA workaround not reproduced · **flag** only under an `n.optimize()`
+keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 
-## Rungs
+### Rung 1 — transport
 
-One file, grown in this order; each rung keeps the rows above it green. A row
-links to its block below once it is in the file.
+| PyPSA                                               | status | note                                                       |
+| --------------------------------------------------- | ------ | ---------------------------------------------------------- |
+| [`Generator-p`, `Link-p`](#variable-domains)        | done   |                                                            |
+| [`Generator-fix-p-lower`](#generator-fix-p-lower)   | done   |                                                            |
+| [`Generator-fix-p-upper`](#generator-fix-p-upper)   | done   |                                                            |
+| [`Link-fix-p-lower`](#link-fix-p-lower)             | done   |                                                            |
+| [`Link-fix-p-upper`](#link-fix-p-upper)             | done   |                                                            |
+| [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
+| `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here                         |
+| [`marginal_cost`](#objective)                       | done   |                                                            |
+| `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
-| rung                  | adds                                                        | rows                                                                                                                                                                                   |
-| --------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 transport           | generator dispatch, controllable links, nodal balance, cost | [`Generator-fix-p-lower`](#generator-fix-p-lower) · [`Generator-fix-p-upper`](#generator-fix-p-upper) · [`Link-fix-p-lower`](#link-fix-p-lower) · [`Link-fix-p-upper`](#link-fix-p-upper) · [`Bus-nodal_balance`](#bus-nodal_balance) |
-| 2 storage             | stores carrying energy between snapshots, cyclic and not    | next                                                                                                                                                                                   |
-| 3 expansion           | nominal power as a decision                                 |                                                                                                                                                                                        |
-| 4 ramps               | limits on how far output moves between snapshots            |                                                                                                                                                                                        |
-| 5 global constraints  | emission and expansion budgets                              |                                                                                                                                                                                        |
-| 6 KVL                 | flows around cycles of lines with reactance                 |                                                                                                                                                                                        |
-| 7 commitment          | binary status, minimum up and down times — a MILP           |                                                                                                                                                                                        |
-| 8 modular and big-M   | integer module counts; committable and extendable at once   |                                                                                                                                                                                        |
-| 9 multi-link and delay | links with more than two ports; flow that arrives later     |                                                                                                                                                                                        |
+### Rung 2 — storage
+
+| PyPSA                                                 | status | note                                                          |
+| ----------------------------------------------------- | ------ | ------------------------------------------------------------- |
+| `StorageUnit-p_dispatch`, `-p_store`, `-state_of_charge`, `Store-e`, `Store-p` |     |                                             |
+| `StorageUnit-spill`                                   |        | `where: inflow > 0`, `absence: zero`                          |
+| `StorageUnit-fix-*`, `Store-fix-e-*`                  |        |                                                               |
+| `StorageUnit-energy_balance`                          | split  | cyclic / non-cyclic / first snapshot; `(1-loss)**eh` is prep   |
+| `Store-energy_balance`                                | split  | same                                                          |
+| `StorageUnit-p_set`, `{c}-{attr}_set`                 |        |                                                               |
+| `marginal_cost_storage`, `spill_cost`                 |        |                                                               |
+
+### Rung 3 — expansion
+
+| PyPSA                            | status | note                                        |
+| -------------------------------- | ------ | ------------------------------------------- |
+| `{c}-p_nom`, `-s_nom`, `-e_nom`  |        |                                             |
+| `{c}-ext-{attr}-lower/upper`     |        |                                             |
+| `{c}-ext-p_nom-lower/upper`      |        |                                             |
+| `{c}-p_nom_set`                  |        |                                             |
+| `Generator-e_sum_min/max`        |        |                                             |
+| capital cost                     | prep   | `periodized_cost` is an annuity, data prep  |
+
+### Rung 4 — ramps
+
+| PyPSA                          | status | note                                                       |
+| ------------------------------ | ------ | ---------------------------------------------------------- |
+| `{c}-p-ramp_limit_up/down`     | split  | one block per regime, one for the first snapshot           |
+
+### Rung 5 — global constraints
+
+`GlobalConstraint-{name}` for all; the type and the comparator are data, so
+each type is three blocks by sense.
+
+| PyPSA type                            | status      | note                                              |
+| ------------------------------------- | ----------- | ------------------------------------------------- |
+| `primary_energy`                      | prep, split | carrier weights and "soc at the end" are prep     |
+| `operational_limit`                   | prep, split |                                                   |
+| `transmission_volume_expansion_limit` | prep, split | membership from PyPSA's carrier string is prep    |
+| `transmission_expansion_cost_limit`   | prep, split |                                                   |
+| `tech_capacity_expansion_limit`       | prep, split |                                                   |
+| `Bus-nom_min/max_{carrier}`           | not         | deprecated in PyPSA                               |
+| `Carrier-growth_limit`                | scope       | multi-period                                      |
+| `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
+
+### Rung 6 — KVL
+
+| PyPSA                   | status | note                              |
+| ----------------------- | ------ | --------------------------------- |
+| `Line-s`, `Line-fix-s-*` |       |                                   |
+| `Kirchhoff-Voltage-Law` | prep   | the cycle basis is data prep      |
+
+### Rung 7 — commitment
+
+| PyPSA                                        | status | note                                                          |
+| -------------------------------------------- | ------ | ------------------------------------------------------------- |
+| `{c}-status`, `-start_up`, `-shut_down`      |        |                                                               |
+| `{c}-com-p-lower/upper`                      |        |                                                               |
+| `{c}-*-p-fixed-upper`                        |        |                                                               |
+| `{c}-com-transition-start-up/shut-down`      | split  | first snapshot carries the initial status                     |
+| `{c}-com-up-time`, `-down-time`              |        | `sum_back(within=min_up_time)`                                |
+| `{c}-com-status-*-must_stay_up`              | prep   | `position()` takes a literal, not a parameter                 |
+| `stand_by_cost`, `start_up_cost`, `shut_down_cost` |     |                                                             |
+| `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
+
+### Rung 8 — modular and big-M
+
+| PyPSA                                         | status | note                                                       |
+| --------------------------------------------- | ------ | ---------------------------------------------------------- |
+| `{c}-n_mod`, `{c}-p_nom_modularity`           |        |                                                            |
+| `{c}-*-p_nom-variable-upper`                  |        |                                                            |
+| `{c}-*-p-fixed-upper`, modular                | split  | non-integer `p_nom / p_nom_mod`: PyPSA refuses, see X1     |
+| `{c}-com-mod-p-lower/upper`                   |        |                                                            |
+| `{c}-com-ext-p-*` (big-M)                     | prep   | `M` is a network-wide reduction                            |
+| `{c}-com-ext-p-lower-nonneg`                  | prep   | `(p_min_pu >= 0).all()` is prep                            |
+| `{c}-p-ramp_limit_*-bigM`                     | prep   |                                                            |
+
+### Rung 9 — multi-link and delay
+
+| PyPSA                        | status | note                                          |
+| ---------------------------- | ------ | --------------------------------------------- |
+| nodal balance, ports 2..n    |        |                                               |
+| nodal balance, link delay    | open   | #75, a per-link edge kind                     |
+
+### Not on a rung
+
+| PyPSA                          | status | note                                 |
+| ------------------------------ | ------ | ------------------------------------ |
+| `{c}-loss*`                    | flag   | `transmission_losses`                |
+| `marginal_cost_quadratic`      |        | degree 2 in the objective            |
+| `CVaR-*`                       | scope  | stochastic                           |
+
+## Refusals
+
+Where PyPSA refuses to build, parity means refusing too. None is a language
+gap; each is a data check not made yet, and where it should live — language,
+data prep, or harness — is one open question.
+
+| PyPSA raises                                 | on                                                | here                    | note |
+| -------------------------------------------- | ------------------------------------------------- | ----------------------- | ---- |
+| `ValueError`, `constraints.py:1449`          | fixed modular `p_nom` not a multiple of `p_nom_mod` | builds a smaller plant | X1   |
+| `ValueError`, `constraints.py:1192`          | load on a bus with nothing attached               | row not built, unserved | X2   |
+| `ValueError`, `optimize.py:430`              | no component carries a cost                       | feasibility problem     | X3   |
+| `NotImplementedError`, `global_constraints.py:339` | depletion with period weightings `!= 1`     | scope                   |      |
+| `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | flag                    |      |
+
+Duals and solutions are read back by the harness on the lpspec side:
+`marginal_price` is the balance dual over `w_objective`, `mu_upper` the
+concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
+
+## The file
 
 <!-- gallery:begin -->
 The model a plain `n.optimize()` builds, stated in one file. Every declaration is named `Component_attribute` after the PyPSA statement it stands for, and each constraint's description opens with the linopy name PyPSA gives that row, so the two can be read side by side. PyPSA's regimes — extendable, committable — are data columns and become `where:` masks. Rung 1, transport: generator dispatch, controllable links, a nodal balance, a linear cost. Bounds are the explicit rows PyPSA writes, so their duals are row duals.
