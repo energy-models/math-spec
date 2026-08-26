@@ -36,10 +36,6 @@ from math_spec.expression_parser import (
     children,
 )
 
-#: The operators the language has. ``**`` only over variable-free operands —
-#: :func:`check_binary` refuses the rest.
-ARITHMETIC_OPERATORS = frozenset({'+', '-', '*', '/', '**'})
-
 
 def carries_variable(node: ExpressionNode) -> bool:
     """Whether *node* contains a decision variable.
@@ -103,17 +99,9 @@ def check_binary(node: BinaryOperatorNode, context: str | None = None, *, ceilin
         LanguageError: A product of two variable-carrying factors where the
             position allows only degree 1 or where both factors are sums of
             terms, a power over anything carrying a variable, a divisor carrying
-            a variable or adding, or an operator the language does not have.
+            a variable or adding.
     """
     where = f'{context}: ' if context else ''
-    if node.op not in ARITHMETIC_OPERATORS:
-        raise LanguageError(
-            f"{where}operator '{node.op}' is not in the language. Write the product "
-            f'out — `x * x` for a square — or precompute the factor as a parameter. '
-            f'A variable base above degree 2 has no rewrite at all, and one whose '
-            f'exponent is data has no degree until the data arrives '
-            f'(see docs/about/ceiling.md).'
-        )
     if node.op == '**':
         if carries_variable(node):
             raise LanguageError(_a_variable_under_a_power_message(where))
@@ -162,15 +150,10 @@ def _degree(node: ExpressionNode) -> int:
 
 
 def _above_the_ceiling_message(where: str, degree: int) -> str:
-    """A product inside the position's degree at every step and above it whole.
-
-    ``p * p * p`` is two nested products of a variable-carrying pair, each of
-    them admissible on its own, so the sentence is about the product's own
-    degree rather than about its factors.
-    """
+    """About the product's own degree, since ``p * p * p`` is two admissible products nested."""
     return (
         f'{where}this product is degree {degree}. The language takes degree 2, in the '
-        f'**objective** and nowhere else: a sink takes a quadratic form and none takes a '
+        f'**objective and constraints** and nowhere else: a sink takes a quadratic form and none takes a '
         f'cubic one.\n'
         f'Multiply by a parameter instead, or give the inner product a name — a variable '
         f'constrained to equal it is degree 1 wherever it is used.'
@@ -178,13 +161,7 @@ def _above_the_ceiling_message(where: str, degree: int) -> str:
 
 
 def _a_variable_under_a_power_message(where: str) -> str:
-    """Why ``**`` is refused once a variable is anywhere under it.
-
-    Two different reasons, and the message carries both because which one
-    applies depends on where the variable is. A variable *base* is a degree
-    question; a variable *exponent* is worse than that — it makes degree itself
-    a property of the numbers, so no data-free check could answer it (rule 2).
-    """
+    """A variable base is a degree question; a variable exponent has no degree until the data arrives."""
     return (
         f'{where}`**` is not in the language over variables: it takes a base and an exponent that '
         f'carry none.\n'
@@ -195,12 +172,7 @@ def _a_variable_under_a_power_message(where: str) -> str:
 
 
 def _degree_two_here_message(where: str) -> str:
-    """Why a product of variables is refused *in this position*.
-
-    Naming the position rather than the math, which is sayable one line away.
-    Blaming a solver instead would be the confusion between the ceiling and the
-    capability axis that this module exists on the right side of.
-    """
+    """Names the position, not the math — the same product is admissible one declaration away."""
     return (
         f'{where}both factors of a product contain variables, which is degree 2. '
         f'The **objective and constraints** take that; a bound, a named expression '
@@ -208,8 +180,7 @@ def _degree_two_here_message(where: str) -> str:
         f'something downstream.\n'
         f'Multiply the variable by a parameter instead, or state the product where '
         f'it can stand: as a constraint of its own, with a variable holding the '
-        f'result. Where a quadratic model can be *solved* is a separate question — '
-        f'ask check(model, sink=...) (see docs/about/ceiling.md).'
+        f'result.'
     )
 
 
@@ -222,8 +193,7 @@ def _check_single_term_factor(node: BinaryOperatorNode, where: str) -> None:
         f'product — every term of one against every term of the other, and nothing in the file '
         f'says how many that is.\n'
         f'Multiply *before* reducing (``sum(x * y, over=d)`` rather than '
-        f'``sum(x, over=d) * sum(y, over=d)``), or give the reduction a name — a variable '
-        f'constrained to equal it is one term, and a product of two of those is one term too.'
+        f'``sum(x, over=d) * sum(y, over=d)``).'
     )
 
 
@@ -254,16 +224,8 @@ _REDUCTIONS = frozenset({'sum', 'sum_back'})
 def check_expression(node: ExpressionNode, context: str, *, ceiling: int = 1) -> None:
     """Apply :func:`check_binary` everywhere in *node*.
 
-    Lowering asks per node as it descends, because it is already walking. A
-    caller that only wants the verdict on an expression it holds asks here,
-    and gets the identical sentence — which is the point: ``piecewise:``
-    judges its link expressions this way so that ``p * p`` is refused against
-    *the link the user wrote*, not against ``curve_link0``, the declaration
-    the expansion went on to generate.
-
-    Degree only, deliberately. What a plan node can represent is a different
-    question and a consuming lane's to ask; a formulation runs in lanes that
-    build no plan at all.
+    Degree only, deliberately: what a plan node can represent is a consuming
+    lane's question.
     """
     if isinstance(node, BinaryOperatorNode):
         check_binary(node, context, ceiling=ceiling)

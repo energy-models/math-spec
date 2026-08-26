@@ -9,10 +9,6 @@ by hand, that math would be a claim nothing checks — on a site whose subject i
 the math a file means, and in a repository that owns the renderer which would
 have caught it. So the blocks are generated, and this is what makes
 "generated" true of the committed files rather than of scripts nobody runs.
-
-Three of the five pages below were stale at some point with the whole suite
-green, which is why the last test in this module exists: a tool that can tell
-a page has drifted is one a test has to *ask*.
 """
 
 from __future__ import annotations
@@ -59,16 +55,8 @@ def test_the_generated_page_is_current(path: Path, render: Callable[[str], str],
 
 
 def test_every_generator_is_asked():
-    """A tool that can say a page is stale needs a test that asks it.
-
-    Three of the pages above were stale at some point with the suite green: the
-    notation page for the whole life of the extraction, because the models it
-    renders stayed behind and nothing ran `--check` (#41); then the homepage and
-    the operator reference, under a change to how a parameter prints. Each time
-    the tool knew and nothing asked it, so the next generator lands with its row
-    or this fails — which is cheaper than a reader finding the drift.
-    """
-    detects_drift = {path.stem for path in (ROOT / 'tools').glob('*.py') if '--check' in path.read_text()}
+    """Three of the pages above were stale with the suite green (#41): the tool knew and nothing asked it."""
+    detects_drift = {path.stem for path in (ROOT / 'tools').glob('*.py') if 'page_main(' in path.read_text()}
     assert detects_drift == {tool for *_, tool in GENERATED}, (
         'a tool that can detect a stale page has no row in GENERATED, or a row names a tool that cannot'
     )

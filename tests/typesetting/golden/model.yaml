@@ -72,9 +72,6 @@ variables:
     foreach: []
     where: "budget"
     bounds: { lower: 0 }
-  void: # a bound on the wrong side of the line: the one way infinity prints
-    foreach: [bus]
-    bounds: { lower: .inf, upper: -.inf }
   weight: # the family a sos runs along
     foreach: [snapshot, generator]
     bounds: { lower: 0, upper: 1 }
@@ -136,12 +133,11 @@ constraints:
   pulled_back_twice: # its adjoint, reading one slot through a pair of labels
     foreach: [generator]
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
-  arithmetic: # division, both unary signs, nested reduction, bracketing
-    # No `**`: the walk renders it, but `lower_program` rejects it, so a model
-    # using it would not be a model. Format.power stays exercised by unit
-    # tests rather than from here.
+  arithmetic: # division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
     foreach: [snapshot]
-    expression: sum(p / 2 + -cost, over=generator) >= -sum(+p, over=generator) * 3
+    expression: >-
+      sum(p / 2 + -cost - -1e-5 * p + 2.5e-7 * cost + 0.5 * p, over=generator)
+      >= -sum(+p, over=generator) * -3
   total: # a sum naming no dim, whose domain is the one place the dims it took are said
     foreach: []
     expression: sum(p) <= budget
@@ -168,6 +164,9 @@ constraints:
   efficiency: # a Greek-named parameter, which is given — so the convention wins and it prints as the word
     foreach: [snapshot, generator]
     expression: p <= eta * p_max
+  ceiling: # the infinity literal, which is the one way infinity prints
+    foreach: [bus]
+    expression: theta <= inf
   always: # a mask that is only the constant true, which the language says is no mask at all — so none prints
     foreach: [snapshot]
     where: "true"

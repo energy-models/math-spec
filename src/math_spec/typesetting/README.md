@@ -5,9 +5,8 @@ SPDX-License-Identifier: MIT
 
 # `typeset/` — the model, printed
 
-A third consumer of the resolved core AST. It builds no model, binds no data
-and never reaches the plan; it walks the same typed tree both lanes consume and
-prints it.
+A consumer of the resolved core AST. It builds no model and binds no data; it
+walks the typed tree `load_model` validates and prints it.
 
 | Module        | Role                                                                            |
 | ------------- | ------------------------------------------------------------------------------- |
@@ -26,11 +25,9 @@ reduction binds, that a mask belongs on the ∀ rather than in the equation, and
 that a translation shows at the leaf it re-indexes. A `Format` decides that a
 sum is `\sum_{…}` or `sum_(…)`.
 
-Those are different questions, and the reason they are in different files is
-the same reason `relational/sinks/` exists: with one module the second format
-becomes a _copy of the walk_, and two copies of a walk are two walks that can
-disagree about what the model says. This is the same divergence hard rule 3
-spends its budget preventing at the other end of the pipeline — and it matters
+Those are different questions, and they are in different files because with
+one module the second format becomes a _copy of the walk_, and two copies of a
+walk are two walks that can disagree about what the model says. That matters
 more here than it looks, because a typeset model is what a reader checks the
 math against.
 
@@ -49,9 +46,9 @@ Symbols are derived by default, so a model prints with no setup at all. A
 caller already has — the CLI's `--symbols` is the path case:
 
 ```python
-lps.to_latex('dispatch.yaml', symbols='dispatch.symbols.yaml')  # a path
-lps.to_latex('dispatch.yaml', symbols={'notation': 'latex', 'names': {'load': r'\ell'}})  # a dict
-lps.to_latex('dispatch.yaml', symbols=lps.SymbolTable.load(table))  # the object
+math_spec.to_latex('dispatch.yaml', symbols='dispatch.symbols.yaml')  # a path
+math_spec.to_latex('dispatch.yaml', symbols={'notation': 'latex', 'names': {'load': r'\ell'}})  # a dict
+math_spec.to_latex('dispatch.yaml', symbols=math_spec.SymbolTable.load(table))  # the object
 ```
 
 The dict is the same sections as the file (`notation`, `dimensions`, `names`) —
@@ -80,12 +77,8 @@ by every format.
    syntax decision it should not, or the seam is missing a method — fix that
    rather than special-casing.
 
-`markdown.py` is the cheap case worth knowing about: Markdown has no math of
-its own, so it _forwards_ every math method to `LatexFormat` and writes only
-the document layer. Forwarding, not subclassing — inheritance would silently
-absorb any method later added to `LatexFormat`, and since the two differ
-exactly in the document methods, the silent case is a `\paragraph` in a
-Markdown file.
+`markdown.py` is the cheap case: Markdown has no math of its own, so it
+subclasses `LatexFormat` and overrides only the document layer.
 
 `tests/typesetting/test_typeset.py` runs the shared expectations against **every** entry in
 `FORMATS`, so a new format inherits the suite. Two of them are the point: every

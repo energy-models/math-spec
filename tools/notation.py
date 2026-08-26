@@ -7,37 +7,24 @@
     pixi run python -m tools.notation           # rewrite the page's block
     pixi run python -m tools.notation --check   # fail if it has drifted
 
-The page exists to be *read as a whole*. Whether a notation is good is a
-question about the set of it — whether two constructs that mean different
-things look different, whether a symbol introduced in one place is the one used
-in another — and that question cannot be asked of a gallery page showing one
-model, or of an operator table showing one row each. So the page shows every
-construct at once, and each row carries the YAML that produced it, because
-notation is judged against what it is standing for.
-
-The source is ``tests/typesetting/golden/model.yaml``, the one model that carries every
-construct. Not a corpus written for this page: a second exhaustive model is a
-second thing to keep exhaustive, and the fixture's completeness is already
-enforced — ``tests/typesetting/test_golden.py`` holds it to the language's operator set,
-its node kinds, and every line of :mod:`math_spec.typesetting.walk`. That chain is
-what lets this page claim *every*: the guards say the fixture omits no
-construct, and this tool emits a row for every declaration in the fixture.
-
-The fixture's own case-label comments become the captions, so what a row is
-*for* is written where the case is, and moving the case moves its caption.
+The source is ``tests/typesetting/golden/model.yaml``, the one model that
+carries every construct — ``tests/typesetting/test_golden.py`` holds it to the
+language, and this tool emits a row for every declaration in it. The fixture's
+own case-label comments become the captions.
 """
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from math_spec.model import PIECEWISE_METHODS
 from math_spec.typesetting import to_markdown
+from tools._page import ROOT, sidecar_for, splice, without_header
+from tools._page import main as page_main
 
-ROOT = Path(__file__).resolve().parent.parent
+if TYPE_CHECKING:
+    from pathlib import Path
 PAGE = ROOT / 'docs' / 'reference' / 'notation.md'
 MODEL = ROOT / 'tests' / 'typesetting' / 'golden' / 'model.yaml'
 
@@ -197,16 +184,6 @@ def preamble(text: str) -> str:
     return '\n'.join(blocks).strip()
 
 
-#: What each section says about itself, where the section needs saying.
-NOTES = {
-    'piecewise': (
-        'A curve is sugar: what prints is the formulation it expands to, which is the math the solver '
-        'receives. One row per `method:`, each from the model named under it, so the symbols in this '
-        "section are that model's."
-    ),
-}
-
-
 def block() -> str:
     """The page's generated half: the legend, then every declaration in turn."""
     rendered = to_markdown(MODEL, numbered=False)
@@ -220,9 +197,12 @@ def block() -> str:
     printed = equations(rendered)
     for section, title in SECTIONS.items():
         parts.append(f'### {title}')
-        if note := NOTES.get(section):
-            parts.append(note)
         if section == 'piecewise':
+            parts.append(
+                'A curve is sugar: what prints is the formulation it expands to, which is the math the solver '
+                'receives. One row per `method:`, each from the model named under it, so the symbols in this '
+                "section are that model's."
+            )
             parts += _curves()
             continue
         parts += [_row(found, printed) for found in declarations(MODEL.read_text())[section]]
@@ -233,9 +213,13 @@ def _curves() -> list[str]:
     """One row per ``method:``, each captioned with what that method restricts."""
     rows = []
     for method, source in PIECEWISE.items():
-        table = _symbols(source)
+        table = sidecar_for(source)
         printed = equations(to_markdown(source, symbols=table, numbered=False))
-        found = [block for block in declarations(source.read_text())['piecewise'] if _method(block) == method]
+        found = [
+            block
+            for block in declarations(source.read_text())['piecewise']
+            if (block.field('method') or 'adjacency') == method
+        ]
         assert found, f'{source.name} declares no piecewise block with method: {method}'
         for block in found:
             row = _row(block, printed)
@@ -244,13 +228,6 @@ def _curves() -> list[str]:
             )
             rows.append(row.replace('\n\n', f'\n\n{caption}\n\n{_table_shown(table)}', 1))
     return rows
-
-
-def _symbols(source: Path) -> Path | None:
-    """The sidecar symbol table for *source*, by the filename convention
-    ``tools/render_tex.py`` already uses."""
-    table = ROOT / 'examples' / 'symbols' / f'{source.stem}.yaml'
-    return table if table.exists() else None
 
 
 def _table_shown(table: Path | None) -> str:
@@ -264,16 +241,11 @@ def _table_shown(table: Path | None) -> str:
     """
     if table is None:
         return ''
-    body = re.sub(r'\A(?:#[^\n]*\n|\n)+', '', table.read_text()).strip()
+    body = without_header(table)
     return (
         f'Rendered with the sidecar symbol table `{table.relative_to(ROOT)}`, '
         f'which is what the weights print as:\n\n```yaml\n{body}\n```\n\n'
     )
-
-
-def _method(block: Declaration) -> str:
-    """The block's ``method:``, or the default the language gives it."""
-    return block.field('method') or 'adjacency'
 
 
 def _row(declaration: Declaration, printed: dict[str, str]) -> str:
@@ -303,26 +275,11 @@ def _labels(declaration: Declaration, printed: dict[str, str]) -> list[str]:
 
 
 def rendered_page(page: str) -> str:
-    i, j = page.index(BEGIN) + len(BEGIN), page.index(END)
-    return page[:i] + '\n' + block() + '\n' + page[j:]
+    return splice(page, BEGIN, END, block())
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--check', action='store_true', help='fail if the committed block has drifted')
-    opts = ap.parse_args(argv)
-
-    page = PAGE.read_text()
-    updated = rendered_page(page)
-    if opts.check:
-        if updated != page:
-            print(f'{PAGE.relative_to(ROOT)} is stale — run `pixi run python -m tools.notation`', file=sys.stderr)
-            return 1
-        print(f'{PAGE.relative_to(ROOT)} matches the model')
-        return 0
-    PAGE.write_text(updated)
-    print(f'wrote {PAGE.relative_to(ROOT)}')
-    return 0
+    return page_main(argv, {PAGE: rendered_page}, 'notation')
 
 
 if __name__ == '__main__':

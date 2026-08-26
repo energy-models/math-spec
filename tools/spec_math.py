@@ -7,42 +7,23 @@
     pixi run python -m tools.spec_math           # rewrite the block
     pixi run python -m tools.spec_math --check   # fail if it has drifted
 
-The operator table above the block says what each operator *does*, in prose.
-This says what each one *looks like*, and it is generated for a reason beyond
-the usual one: the three ``shift`` rows differ only at the boundary, and the
-three renderings that make them distinguishable are a property of
-:mod:`math_spec.typesetting.walk` rather than of this page. Printed side by side, two
-operators that render the same are visible at a glance — which is exactly the
-bug class #830 fixed, three times over.
-
-Every cell comes from a **model**, one per row, under ``examples/operators/``.
-That is what makes the block a check rather than a picture: a row whose
-operator changed shape stops loading, in CI, in the same run that would
-otherwise have shipped the old math. Rendering a fragment instead would only
-have proved that a string still formats.
-
-``OPERATORS`` keys are the table's own first cells, verbatim, so
-``tests/test_docs_site.py`` can hold the two lists to each other: an operator
-added to the language and to the table but not given a probe fails there rather
-than quietly rendering a section that claims to be all of them.
+Every cell comes from a **model**, one per row, under ``examples/operators/``:
+a row whose operator changed shape stops loading, in the same run that would
+otherwise have shipped the old math.
 """
 
 from __future__ import annotations
 
-import argparse
-import sys
-from pathlib import Path
-
 from math_spec.typesetting import to_markdown
+from tools._page import ROOT, splice
+from tools._page import main as page_main
 
-ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / 'docs' / 'reference' / 'language' / 'operators.md'
 PROBES = ROOT / 'examples' / 'operators'
 BEGIN, END = '<!-- operator-math:begin -->', '<!-- operator-math:end -->'
 
 #: The operator-table row -> the model that renders it. The key is that
-#: table's first cell verbatim, which is the whole coupling: it cannot be
-#: edited on one side alone without a test noticing.
+#: table's first cell verbatim.
 OPERATORS = {
     'sum(array)': 'sum_all',
     'sum(array, over=dim)': 'sum',
@@ -98,41 +79,13 @@ def block() -> str:
     return '\n'.join(rows) + ''.join(f'\n\n{note}' for note in notes)
 
 
-def table_operators() -> list[str]:
-    """The first cell of every row of the operator table, in order.
-
-    Read back out of the page rather than kept beside :data:`OPERATORS`,
-    because the point is to catch the two disagreeing.
-    """
-    table = PAGE.read_text()
-    table = table[table.index('| Operator | Result |') :]
-    table = table[: table.index('\n\n')]
-    rows = [line for line in table.splitlines()[2:] if line.startswith('|')]
-    return [row.split('|')[1].strip().strip('`') for row in rows]
-
-
 def rendered(page: str) -> str:
-    i, j = page.index(BEGIN) + len(BEGIN), page.index(END)
-    return page[:i] + '\n' + block() + '\n' + page[j:]
+    return splice(page, BEGIN, END, block())
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--check', action='store_true', help='fail if the committed block has drifted')
-    opts = ap.parse_args(argv)
-
-    page = PAGE.read_text()
-    updated = rendered(page)
-    if opts.check:
-        if updated != page:
-            print(f'{PAGE} is stale — run `pixi run python -m tools.spec_math`', file=sys.stderr)
-            return 1
-        print(f'{PAGE} matches the operator probes')
-        return 0
-    PAGE.write_text(updated)
-    print(f'{PAGE} refreshed')
-    return 0
+    return page_main(argv, {PAGE: rendered}, 'spec_math')
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    raise SystemExit(main())

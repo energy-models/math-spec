@@ -21,10 +21,12 @@ from tests.fixtures import OPERATOR_PROBES, schema_of
 if TYPE_CHECKING:
     from math_spec.model import Model
 
-#: A *network* dispatch model: `conftest.DISPATCH_MODEL` plus buses, so
-#: `sum` and per-bus loads are in scope. The dim rules are mostly about
-#: expressions that carry a dim their frame does not, which needs three dims to
-#: state at all.
+#: `fixtures.DISPATCH_MODEL` plus buses: a dim rule is mostly about an
+#: expression carrying a dim its frame does not, which needs three dims to
+#: state. `snap_bus` is over `snapshot` so it can partition the axis the
+#: translations walk; `spinup` and `horizon` are the named amount that obeys
+#: the position rules and the one that spans the axis walked; `bus_lead` is
+#: over a dim `p` does not carry, so it is readable only through a `by=`.
 BASE = {
     'dimensions': {
         'snapshot': {'dtype': 'int'},
@@ -33,18 +35,14 @@ BASE = {
     },
     'lookups': {
         'gen_bus': {'over': 'generator', 'into': 'bus'},
-        # over `snapshot`, so it can partition the axis the translations walk
         'snap_bus': {'over': 'snapshot', 'into': 'bus'},
     },
     'parameters': {
         'p_max': {'dims': ['generator']},
         'cost': {'dims': ['generator']},
         'load': {'dims': ['snapshot', 'bus']},
-        # a named offset or width counts positions, so the two rules about it
-        # need a parameter that obeys them and one that spans the axis walked
         'spinup': {'dims': ['generator'], 'dtype': 'int'},
         'horizon': {'dims': ['snapshot'], 'dtype': 'int'},
-        # over a dim `p` does not carry, so it is readable only through a `by=`
         'bus_lead': {'dims': ['bus'], 'dtype': 'int'},
     },
     'variables': {'p': {'foreach': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
@@ -62,13 +60,9 @@ def _schema(**overrides) -> Model:
     return schema_of(BASE, **overrides)
 
 
-def _dims(expr: str, schema: Model | None = None) -> frozenset[str]:
-    s = schema or _schema()
+def _dims(expr: str) -> frozenset[str]:
+    s = _schema()
     return dims_of(expression_of(expr, s, Namespace.of(s), 't'), s, 't')
-
-
-def test_the_base_model_typechecks():
-    check_schema(_schema())
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +89,7 @@ def test_the_base_model_typechecks():
         # the same offset a `by=` makes readable: one lag per group it maps into
         ("shift(p, over=snapshot, offset=bus_lead, edge='wrap', by=snap_bus)", {'snapshot', 'generator'}),
         ('sum_back(p, over=snapshot, within=bus_lead, by=snap_bus)', {'snapshot', 'generator'}),
+        pytest.param('p + 1', {'snapshot', 'generator'}, id='a-scalar-broadcasts'),
     ],
 )
 def test_dim_inference(expr, expected):
@@ -104,8 +99,6 @@ def test_dim_inference(expr, expected):
 @pytest.mark.parametrize(
     ('expr', 'match'),
     [
-        # the operator rules used to return the array unchanged. `sum(p, over=bus)` then
-        # built and solved a model that silently never summed anything.
         pytest.param(
             'sum(p, over=bus)',
             r'sum\(over=bus\) but the expression has dims',
@@ -121,17 +114,6 @@ def test_dim_inference(expr, expected):
             r"sum\(by=gen_bus\) consumes 'generator', the dim it maps out of",
             id='sum-requires-the-grouped-dim',
         ),
-        # `(inner - {over}) | {into}` is a union, and a union absorbs a collision.
-        #
-        # `sum(load, by=gen_bus)` -- with `load` already
-        # carrying `bus` -- asks for `bus` twice: once as the operand's own dim, once
-        # as the group its terms are placed into. The union returns one, so the rule reports
-        # a shape neither lane can build. The eager lane makes an xarray object with
-        # a repeated dim, which xarray warns will fail silently; the relational lane
-        # raised polars' DuplicateError from outside the package's exception tree.
-        #
-        # Refusing it at load time is the only answer both lanes can give, which is
-        # why the rule lives here rather than in either engine.
         pytest.param(
             'sum(load * p, by=gen_bus)',
             'already carries',
@@ -142,14 +124,10 @@ def test_dim_inference(expr, expected):
             r'shift\(over=snapshot\) but the expression has dims',
             id='shift-requires-the-dim',
         ),
-        # A named offset or width counts positions along the axis its operator
-        # walks. Both rules below were documented as load errors and enforced
-        # nowhere (#58), so a fractional lag or a width that changed along the
-        # very axis it measured rendered as though it were neither.
         pytest.param(
             "shift(p, over=snapshot, offset=cost, edge='wrap')",
             r'declared dtype: float',
-            id='a-named-offset-is-integral',
+            id='a-named-offset-is-integral-58',
         ),
         pytest.param(
             "shift(p, over=snapshot, offset=horizon, edge='wrap')",
@@ -166,13 +144,10 @@ def test_dim_inference(expr, expected):
             r'no longer "the last n"',
             id='a-named-width-does-not-span-the-summed-axis',
         ),
-        # Before this was refused, it loaded clean and then raised a bare
-        # `AssertionError` out of the typesetter (#62) — on the very rule
-        # `walk.py` reads a named offset as always-backward *because of*.
         pytest.param(
             "shift(p, over=snapshot, offset=-spinup, edge='wrap')",
             r'negates a named offset',
-            id='a-named-offset-is-not-negated-at-the-call',
+            id='a-named-offset-is-not-negated-at-the-call-62',
         ),
         pytest.param(
             'sum_back(p, over=snapshot, within=-spinup)',
@@ -199,11 +174,6 @@ def test_an_outer_product_is_legal_and_carries_both_dim_sets():
     assert _dims('cost + load') == {'generator', 'snapshot', 'bus'}
 
 
-def test_broadcast_is_legal_when_one_side_contains_the_other():
-    assert _dims('p * cost') == {'snapshot', 'generator'}
-    assert _dims('p + 1') == {'snapshot', 'generator'}
-
-
 # ---------------------------------------------------------------------------
 # declaration-level rules
 # ---------------------------------------------------------------------------
@@ -212,8 +182,6 @@ def test_broadcast_is_legal_when_one_side_contains_the_other():
 @pytest.mark.parametrize(
     ('patch', 'match'),
     [
-        # The rule that matters most: a dim the foreach does not declare
-        # multiplies the rows this constraint builds.
         pytest.param(
             {'constraints.stray': {'foreach': ['snapshot'], 'expression': 'p <= p_max'}},
             r"carries dims \['generator'\] that are not in foreach",
@@ -224,8 +192,6 @@ def test_broadcast_is_legal_when_one_side_contains_the_other():
             r"does not carry \['bus'\]",
             id='foreach-dim-the-equation-never-uses',
         ),
-        # the absence rules once documented an `any()` reduction here — a mask that fails
-        # *open*, silently including everything.
         pytest.param(
             {'variables.cap': {'foreach': ['generator'], 'where': 'load > 0'}},
             r"where-parameter 'load' has dims \['bus', 'snapshot'\]",
@@ -250,11 +216,4 @@ def test_an_ill_dimensioned_declaration_is_rejected(patch, match):
 
 @pytest.mark.parametrize('path', OPERATOR_PROBES, ids=lambda p: p.name)
 def test_every_operator_probe_typechecks(path):
-    """The corpus that travels with the language, swept by the rules above.
-
-    It used to be `MODEL_PATHS` — the gallery and the ports — which is math_spec's
-    corpus and stays there (#1149), so the sweep could not have travelled with
-    the rules it applies. `test_language_boundary.py` keeps that claim over the
-    models it is about.
-    """
     check_schema(schema_of(path))

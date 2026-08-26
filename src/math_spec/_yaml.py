@@ -25,8 +25,8 @@ is a literal on the other side of a ``where`` comparison
 order and equality, and nothing does arithmetic on a coordinate — so the
 timestamp coercion is the *useful* reading here, not a hazard to route around.
 
-The output is plain ``dict``/``str``: no loader wrapper reaches the schema,
-the AST, the plan, or the engine.
+The output is plain ``dict``/``str``: no loader wrapper reaches the schema
+or the AST.
 """
 
 from __future__ import annotations
@@ -47,34 +47,37 @@ class _StrictLoader(yaml.SafeLoader):
     """SafeLoader with 1.2 booleans. Duplicate keys are checked on the nodes."""
 
 
-def _install_bool_resolver(loader: type[yaml.SafeLoader]) -> None:
-    """Give *loader* the 1.2 boolean set in place of 1.1's.
-
-    The table is rebuilt rather than edited: a subclass inherits
-    ``yaml_implicit_resolvers`` from ``SafeLoader``, so mutating it in place
-    would reconfigure PyYAML for the whole process.
-    """
-    loader.yaml_implicit_resolvers = {
-        ch: [(tag, rx) for tag, rx in pairs if tag != 'tag:yaml.org,2002:bool']
-        for ch, pairs in yaml.SafeLoader.yaml_implicit_resolvers.items()
-    }
-    loader.add_implicit_resolver('tag:yaml.org,2002:bool', _BOOL_1_2, list('tTfF'))
+#: The resolver table is rebuilt, not edited in place: it is inherited from
+#: ``SafeLoader``, and mutating it would reconfigure PyYAML for the whole process.
+_StrictLoader.yaml_implicit_resolvers = {
+    ch: [(tag, rx) for tag, rx in pairs if tag != 'tag:yaml.org,2002:bool']
+    for ch, pairs in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_StrictLoader.add_implicit_resolver('tag:yaml.org,2002:bool', _BOOL_1_2, list('tTfF'))
 
 
-_install_bool_resolver(_StrictLoader)
+#: PyYAML's tag for ``<<:``, the one key a mapping may carry more than once.
+_MERGE = 'tag:yaml.org,2002:merge'
 
 
 def _check_duplicate_keys(node: yaml.Node, origin: str) -> None:
-    """Reject a mapping that declares the same key twice.
+    """Reject a mapping that declares the same key twice, or a key that is not a scalar.
 
     Checked on the node tree before construction, so a ``<<:`` merge key that
-    a mapping overrides is not a duplicate — the override is the point.
+    a mapping overrides is not a duplicate — the override is the point — and
+    two merge keys are two merges, which PyYAML accumulates.
     """
     if isinstance(node, yaml.MappingNode):
         seen: dict[Any, int] = {}
         for key_node, value_node in node.value:
-            key = key_node.value
             line = key_node.start_mark.line + 1
+            if not isinstance(key_node, yaml.ScalarNode):
+                msg = f'{origin}:{line}: a key must be a scalar — a name, not a list or a mapping.'
+                raise SchemaError(msg)
+            key = key_node.value
+            if key_node.tag == _MERGE:
+                _check_duplicate_keys(value_node, origin)
+                continue
             if key in seen:
                 msg = (
                     f'{origin}:{line}: duplicate key {key!r} — first declared on '
@@ -104,11 +107,7 @@ def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
 
     Args:
         text: The YAML source.
-        origin: What a load error should call this source. The two errors
-            raised here — a duplicate key and a document that is not a
-            mapping — name their location, and a caller that read a file
-            passes its path. The default is Python's own name for source
-            that never was a file.
+        origin: What a load error calls this source — a file's path, or the default for text that never was one.
     """
     loader = _StrictLoader(text)
     try:
@@ -119,7 +118,7 @@ def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
         data = loader.construct_document(node)
     finally:
         loader.dispose()
-    if data is None:
+    if not data:
         return {}
     if not isinstance(data, dict):
         msg = f'{origin}: a model file must be a mapping of sections (dimensions:, variables:, …), got {type(data).__name__}.'

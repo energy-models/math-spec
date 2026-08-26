@@ -16,13 +16,16 @@ atom        ::= NUMBER | NAME
 unary_op    ::= "+" | "-"       binary_op ::= "+" | "-" | "*" | "/" | "**"
 COMPARATOR  ::= "<=" | ">=" | "=="
 function_call ::= NAME "(" [pos_arg ("," pos_arg)*] ["," kwarg ("," kwarg)*] ")"
-kwarg       ::= NAME "=" (arithmetic | NAME)
+kwarg       ::= NAME "=" (arithmetic | QUOTED | "[" NAME ("," NAME)* "]")
 NAME        ::= [a-zA-Z][a-zA-Z0-9_]*
 NUMBER      ::= integer | float | "inf" | ".inf"
 ```
 
-Precedence, highest first: `**`, then `*` `/`, then binary `+` `-`, then unary
-`+` `-`. Parentheses override.
+Precedence, highest first: `**`, then unary `+` `-`, then `*` `/`, then binary
+`+` `-` — so `-x ** 2` is `-(x ** 2)` and `-x * y` is `(-x) * y`, as in Python.
+Parentheses override. A float may carry an exponent (`1e5`, `2.5e-3`); a sign
+is always the unary operator's. A keyword given twice in one call is an error
+rather than the later one winning.
 
 ## Degree 2 in the math, degree 1 beside it
 
