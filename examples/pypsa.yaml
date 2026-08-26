@@ -55,6 +55,9 @@ parameters:
   Generator_marginal_cost:
     description: cost of one unit of output
     dims: [snapshot, generator]
+  Generator_marginal_cost_quadratic:
+    description: cost of the square of one unit of output; a generator with none has no row here
+    dims: [snapshot, generator]
   Generator_committable:
     description: whether output is gated by an on/off status decision
     dims: [generator]
@@ -139,6 +142,9 @@ parameters:
     dims: [link]
   Link_marginal_cost:
     description: cost of one unit of flow
+    dims: [snapshot, link]
+  Link_marginal_cost_quadratic:
+    description: cost of the square of one unit of flow; a link with none has no row here
     dims: [snapshot, link]
   Load_p_set:
     description: demand
@@ -1135,6 +1141,8 @@ objective:
   expression: >-
     sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)
     + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective)
+    + sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective)
+    + sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective)
     + sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective)
     + sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective)
     + sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective)

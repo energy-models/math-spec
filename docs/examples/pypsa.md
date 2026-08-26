@@ -39,6 +39,7 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
 | `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here                         |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
+| [`marginal_cost_quadratic`](#objective)             | done   | degree 2 in the objective; Generator and Link here         |
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 ### Rung 2 — storage
@@ -130,7 +131,6 @@ each type is three blocks by sense.
 | PyPSA                          | status | note                                 |
 | ------------------------------ | ------ | ------------------------------------ |
 | `{c}-loss*`                    | flag   | `transmission_losses`                |
-| `marginal_cost_quadratic`      |        | degree 2 in the objective            |
 | `CVaR-*`                       | scope  | stochastic                           |
 
 ## Refusals
@@ -181,6 +181,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
 | $\overline{\mathrm{p}}$ | `Generator_p_max_pu` over $\mathcal{T} \times \mathcal{G}$ — most output, per unit of nominal power — an availability profile |
 | $\mathrm{c}$ | `Generator_marginal_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one unit of output |
+| $\mathrm{c}^{(2)}$ | `Generator_marginal_cost_quadratic` over $\mathcal{T} \times \mathcal{G}$ — cost of the square of one unit of output; a generator with none has no row here |
 | $\mathrm{com}$ | `Generator_committable` over $\mathcal{G}$ — whether output is gated by an on/off status decision |
 | $\mathrm{ru}$ | `Generator_ramp_limit_up` over $\mathcal{G}$ — most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{rd}$ | `Generator_ramp_limit_down` over $\mathcal{G}$ — most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit |
@@ -205,6 +206,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\eta$ | `Link_efficiency` over $\mathcal{L}$ — share of the flow that arrives at the link's `Link_bus1` end |
 | $\eta^{2}$ | `Link_efficiency2` over $\mathcal{L}$ — share of the flow that arrives at the link's `Link_bus2` end — negative where that port consumes |
 | $\mathrm{c}^{f}$ | `Link_marginal_cost` over $\mathcal{T} \times \mathcal{L}$ — cost of one unit of flow |
+| $\mathrm{c}^{f,(2)}$ | `Link_marginal_cost_quadratic` over $\mathcal{T} \times \mathcal{L}$ — cost of the square of one unit of flow; a link with none has no row here |
 | $\mathrm{load}$ | `Load_p_set` over $\mathcal{T} \times \mathcal{D}$ — demand |
 | $\mathrm{p}^{\mathrm{set}}$ | `Generator_p_set` over $\mathcal{T} \times \mathcal{G}$ — a given output schedule; a generator without one has no row here |
 | $\mathrm{f}^{\mathrm{set}}$ | `Link_p_set` over $\mathcal{T} \times \mathcal{L}$ — a given flow schedule; a link without one has no row here |
@@ -318,6 +320,8 @@ objective:
   expression: >-
     sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)
     + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective)
+    + sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective)
+    + sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective)
     + sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective)
     + sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective)
     + sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective)
@@ -333,7 +337,7 @@ objective:
     + sum(Generator_shut_down * Generator_shut_down_cost)
 ```
 
-$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} u_{t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{up}_{t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{dn}_{t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g}$$
+$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot f_{t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} u_{t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{up}_{t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{dn}_{t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g}$$
 
 ### `Generator-fix-p-lower`
 
