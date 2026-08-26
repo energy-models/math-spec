@@ -44,6 +44,17 @@ GC_RECORDED: dict[str, dict] = {
 }
 
 
+@pytest.mark.parametrize('script', SCRIPTS, ids=[script.stem for script in SCRIPTS])
+def test_every_rung_has_its_marker_pair_on_exactly_one_declared_page(script: Path):
+    from tools import gallery
+
+    pages = [(gallery.PAGES / page).read_text() for page in gallery.DECLARED]
+    carrying = sum(f'<!-- reference:{script.stem}:begin -->' in text for text in pages)
+    assert carrying == 1, (
+        'a rung shows its reference on one declared page — the generator skips a page without the marker'
+    )
+
+
 def test_every_reference_script_has_a_recorded_solve():
     assert {script.stem for script in SCRIPTS} == set(RECORDED), (
         'a reference script without a record, or a record without a script — run the scripts, or delete the orphan'

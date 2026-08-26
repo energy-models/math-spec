@@ -44,6 +44,10 @@ MODELS = {
 #: read from the declaration's own description.
 DECLARED = {
     'pypsa.md': (ROOT / 'examples' / 'pypsa.yaml', ROOT / 'examples' / 'symbols' / 'pypsa.yaml'),
+    'pypsa_quadratic.md': (
+        ROOT / 'examples' / 'pypsa_quadratic.yaml',
+        ROOT / 'examples' / 'symbols' / 'pypsa_quadratic.yaml',
+    ),
 }
 
 #: One PyPSA reference network per rung of the declared page, run out of band
@@ -139,7 +143,7 @@ def reference_block(stem: str) -> str:
     rows = sum(recorded['rows'].values())
     parity = recorded.get('parity', {})
     agreement = (
-        f' `lpspec {parity["lpspec"]}` binds `examples/pypsa.yaml` against the same network and lands on the'
+        f' `lpspec {parity["lpspec"]}` binds `{parity["model"]}` against the same network and lands on the'
         ' same objective (`parity.py`).'
         if parity.get('matches')
         else ''
@@ -159,13 +163,16 @@ def reference_block(stem: str) -> str:
 
 
 def with_references(page: str, text: str) -> str:
-    """Every reference script's block, between its own marker pair on the page."""
+    """Every reference script's block whose marker pair is on this page.
+
+    A rung's marker lives on whichever declared page carries its section, so a
+    stem absent here is another page's; a stem on no page at all is what
+    ``tests/test_pypsa_references.py`` says out loud.
+    """
     for script in sorted(REFERENCES.glob('rung*.py')):
         begin, end = f'<!-- reference:{script.stem}:begin -->', f'<!-- reference:{script.stem}:end -->'
-        if begin not in text or end not in text:
-            msg = f"{page}: no marker pair for {script.stem} — add {begin} and {end} where the rung's table ends"
-            raise ValueError(msg)
-        text = splice(text, begin, end, reference_block(script.stem))
+        if begin in text and end in text:
+            text = splice(text, begin, end, reference_block(script.stem))
     return text
 
 

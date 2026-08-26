@@ -276,3 +276,36 @@ def sources(n: pypsa.Network) -> dict[str, object]:
             }
             tables[name] = pl.from_pandas(table.astype(lost))
     return tables
+
+
+def quadratic_sources(n: pypsa.Network) -> dict[str, object]:
+    """The tables `examples/pypsa_quadratic.yaml` binds — rung 1's surface plus the quadratic coefficients."""
+    everything = sources(n)
+    names = [
+        'snapshot',
+        'bus',
+        'generator',
+        'link',
+        'load',
+        'Generator_bus',
+        'Link_bus0',
+        'Link_bus1',
+        'Load_bus',
+        'snapshot_weightings_objective',
+        'Load_p_set',
+        'Generator_p_nom',
+        'Generator_p_min_pu',
+        'Generator_p_max_pu',
+        'Generator_marginal_cost',
+        'Link_p_nom',
+        'Link_p_min_pu',
+        'Link_p_max_pu',
+        'Link_efficiency',
+        'Link_marginal_cost',
+    ]
+    tables = {name: everything[name] for name in names}
+    tables['Generator_marginal_cost_quadratic'] = pl.from_pandas(
+        _varying(n, 'Generator', 'marginal_cost_quadratic', 'generator')
+    )
+    tables['Link_marginal_cost_quadratic'] = pl.from_pandas(_varying(n, 'Link', 'marginal_cost_quadratic', 'link'))
+    return tables
