@@ -4,9 +4,7 @@
 
 """The typeset shell front — `python -m math_spec <format> model.yaml`.
 
-Forty-eight lines that nothing exercised until now, which is the wrong ratio in
-a repo that pins its Python surface against a table in both directions. What is
-checked here is the *design* rather than argparse: that the verbs are read off
+What is checked here is the *design* rather than argparse: that the verbs are read off
 `FORMATS` rather than listed twice, that the front costs no dependency, that no
 verb binds data, and that a format nothing can render is refused rather than
 written as an empty file.
@@ -33,15 +31,15 @@ from tests.typesetting import golden
 MODEL = str(golden.MODEL)
 
 
-def _verbs() -> set[str]:
-    """The subcommands the front actually registered.
+def _verbs() -> dict[str, argparse.ArgumentParser]:
+    """The subcommands the front actually registered, each with its parser.
 
     Read off the parser rather than the ``--help`` text: a format named in a
     help *sentence* would satisfy a substring check without a verb existing.
     """
     for action in front.parser()._actions:
         if isinstance(action, argparse._SubParsersAction):
-            return set(action.choices)
+            return action.choices
     raise AssertionError('the front registered no subcommands at all')
 
 
@@ -52,7 +50,7 @@ def test_the_verbs_are_the_formats_and_nothing_else():
     arrives with its verb already written and there is no second list to
     forget. A verb hand-added here, or a format quietly dropped, breaks this.
     """
-    assert _verbs() == set(FORMATS)
+    assert set(_verbs()) == set(FORMATS)
 
 
 def test_the_shell_front_costs_no_dependency():
@@ -85,7 +83,7 @@ def test_every_format_renders_to_stdout_and_to_a_file(fmt, tmp_path, capsys):
 
     out = tmp_path / f'model.{fmt}'
     assert front.main([fmt, MODEL, '-o', str(out)]) == 0
-    assert out.read_text() == streamed, 'the file and the stream disagree'
+    assert out.read_text() == streamed
 
 
 def test_a_format_nothing_can_render_is_refused_rather_than_guessed():
@@ -107,8 +105,6 @@ def test_no_verb_binds_data():
     that argument gets made before this test changes.
     """
     banned = {'--source', '--coords', '--data'}
-    for action in front.parser()._actions:
-        if isinstance(action, argparse._SubParsersAction):
-            for name, verb in action.choices.items():
-                flags = {option for verb_action in verb._actions for option in verb_action.option_strings}
-                assert not (flags & banned), f'{name} binds data: {sorted(flags & banned)}'
+    for name, verb in _verbs().items():
+        flags = {option for action in verb._actions for option in action.option_strings}
+        assert not (flags & banned), f'{name} binds data: {sorted(flags & banned)}'
