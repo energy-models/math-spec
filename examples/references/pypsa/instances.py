@@ -6,9 +6,9 @@
 
 `data/base/` is rung 1's transport spine, the network every rung starts from;
 `data/<rung>/` holds only what that rung adds — its components as wide CSVs in
-PyPSA's vocabulary, a `timeseries.csv` for what varies, which may also put a
-schedule on a base component, and a `README.md` telling what the instance is
-for. The folders are the list of rungs: `reference.py` runs every one.
+PyPSA's vocabulary and a `timeseries.csv` for what varies, which may also put
+a schedule on a base component. The folders are the rungs: `reference.py`
+runs every one.
 
 Folders combine by appending rows, table by table — never by replacing a
 table and never by a column-wise join. Each row keeps its own file's columns

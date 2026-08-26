@@ -117,15 +117,6 @@ def declared_block(path: Path) -> str:
     return '\n\n'.join(parts)
 
 
-def _story(stem: str) -> str:
-    """The fixture's narrative — the rung folder's ``README.md``, as prose."""
-    readme = REFERENCES / 'data' / stem / 'README.md'
-    if not readme.is_file():
-        msg = f'data/{stem}/README.md tells what the fixture is for, and the page shows it'
-        raise FileNotFoundError(msg)
-    return readme.read_text().strip()
-
-
 def _folder(name: str) -> str:
     """Every table in ``data/<name>/``, verbatim — the file is the artifact under review."""
     return '\n\n'.join(
@@ -156,8 +147,6 @@ def reference_block(stem: str) -> str:
         '<details markdown="1">\n'
         '<summary>What this rung adds, as data</summary>\n'
         '\n'
-        f'{_story(stem)}\n'
-        '\n'
         f'{_folder(stem)}\n'
         '\n'
         '</details>'
@@ -167,17 +156,9 @@ def reference_block(stem: str) -> str:
 def spine_block() -> str:
     """The shared spine, shown once, under the one sentence of how folders combine."""
     return (
-        "> Every rung's network is the spine below plus the rung's own folder of additions, read by"
-        ' `examples/references/pypsa/instances.py` and solved by `reference.py` beside it. Folders combine by'
-        " appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`. A blank"
-        " cell is an attribute the row does not set — PyPSA's default. The one cross-folder touch is"
-        ' `timeseries.csv`, which may put a schedule on a spine component.\n'
-        '>\n'
-        "> Each rung's banner says what its record holds: PyPSA's objective, and where lpspec's parity gate"
-        ' agrees, that lpspec binds the file against the same network to the same objective. Where'
-        ' `lpspec.linopy` can build the rung, the banner also says the two lanes build one model label for'
-        ' label; where it cannot yet, the blocker is stamped in `references.json` and the banner says nothing'
-        ' more.\n'
+        "> A rung's network is `data/base/` plus `data/<rung>/`, rows appended table by table; a blank cell is"
+        " PyPSA's default. A banner states PyPSA's objective, lpspec's parity where its gate agrees, and the"
+        ' model-for-model line where `lpspec.linopy` builds the rung.\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>The shared spine, <code>data/base/</code></summary>\n'

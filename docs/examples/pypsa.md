@@ -38,9 +38,7 @@ whose file the linopy lane cannot build yet says so, its blocker stamped in
 hardens.
 
 <!-- reference:spine:begin -->
-> Every rung's network is the spine below plus the rung's own folder of additions, read by `examples/references/pypsa/instances.py` and solved by `reference.py` beside it. Folders combine by appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`. A blank cell is an attribute the row does not set — PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.
->
-> Each rung's banner says what its record holds: PyPSA's objective, and where lpspec's parity gate agrees, that lpspec binds the file against the same network to the same objective. Where `lpspec.linopy` can build the rung, the banner also says the two lanes build one model label for label; where it cannot yet, the blocker is stamped in `references.json` and the banner says nothing more.
+> A rung's network is `data/base/` plus `data/<rung>/`, rows appended table by table; a blank cell is PyPSA's default. A banner states PyPSA's objective, lpspec's parity where its gate agrees, and the model-for-model line where `lpspec.linopy` builds the rung.
 
 <details markdown="1">
 <summary>The shared spine, <code>data/base/</code></summary>
@@ -110,12 +108,6 @@ snapshot,objective,stores,generators
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
 
-Rung 1's transport: the spine as it stands, plus a must-run its schedule pins.
-
-Coal in the north is cheap and the wire loses a tenth on the way south, so
-the south's load splits between imports, a small must-run pinned by its
-given schedule, and its own gas at the link's rating.
-
 `data/rung_01_transport/generators.csv`
 
 ```csv
@@ -154,13 +146,6 @@ Link,wire,p_set,0,10.0
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
-
-The generator is cheap for two snapshots and dear for two, so the battery
-buys low and sells high and its horizon closes on itself; the reservoir
-opens on a given charge and spills the inflow it cannot hold; the cavern
-drains from its initial fill.
 
 `data/rung_02_storage/storage_units.csv`
 
@@ -213,14 +198,6 @@ Store,cavern,e_set,3,20.0
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
-
-Wind is free to run but costs capacity, its availability varies, and its
-build is floored and capped; gas is fixed, dear, and budgeted in energy
-over the horizon, so the optimum has to buy some wind — at least the
-energy floor it also carries. The cable to the island is the extendable
-link, and the pump and tank are the extendable storage.
 
 `data/rung_03_expansion/buses.csv`
 
@@ -322,11 +299,6 @@ Generator,solar,p_max_pu,3,0.2
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
 
-Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
-
-Coal may move a fifth of its capacity per snapshot, so the swings belong
-to the peaker however dear it is; the tie line east ramps too.
-
 `data/rung_04_ramps/buses.csv`
 
 ```csv
@@ -395,12 +367,6 @@ each type is three blocks by sense.
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
 
-Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
-
-Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
-run here; the cap decides the mix, and its shadow price is the carbon
-price.
-
 `data/rung_05_global_constraints/carriers.csv`
 
 ```csv
@@ -467,12 +433,6 @@ tank5,north,coalc,40.0,25.0
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 6's voltage law: three buses in a triangle of lines.
-
-Two generators and one load; with a cycle in the graph the flows split by
-impedance rather than by cost, which is what the KVL row enforces; one
-line is extendable, so its rating is a decision.
 
 `data/rung_06_kvl/buses.csv`
 
@@ -549,13 +509,6 @@ Line,bc,s_set,0,16.0
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
 
-Rung 7's commitment: a unit that pays to start, to stop, and to idle.
-
-The base unit may not run below forty percent, was already on with two
-snapshots of its minimum up time left to serve, pays for each start, and
-ramps against its previous status — so the swing between it and the
-peaker is a schedule, not a dispatch.
-
 `data/rung_07_commitment/generators.csv`
 
 ```csv
@@ -601,13 +554,6 @@ Load,swing7,p_set,3,10.0
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
-
-The block plant is bought twenty-five megawatts at a time and gated by a
-status, so its bounds are one module's share; the flexible plant is
-extendable and committable with ramps, which is the pairing PyPSA's big-M
-rows linearize.
 
 `data/rung_08_modular_big_m/buses.csv`
 
@@ -657,12 +603,6 @@ Load,mill_load,p_set,3,60.0
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 9's multi-link: one gas flow delivering power and heat at two ports.
-
-The CHP link withdraws gas at its first bus and injects at the other two
-by its two efficiencies; the heat bus has no other supply, so the link
-runs and the power bus tops up from imports.
 
 `data/rung_09_multilink/buses.csv`
 

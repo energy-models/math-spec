@@ -12,9 +12,7 @@
     uv run --script examples/references/pypsa/reference.py            # every rung
     uv run --script examples/references/pypsa/reference.py rung_04_ramps
 
-The rungs are the folders under `data/` other than `base`: a rung is added by
-adding a folder, and its story is the folder's `README.md`. `instances.build`
-reads the spine plus the folder, `instances.stamp` writes the record.
+The rungs are the folders under `data/` other than `base`.
 """
 
 from __future__ import annotations

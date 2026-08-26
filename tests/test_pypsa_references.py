@@ -59,11 +59,8 @@ def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(
 
 
 @pytest.mark.parametrize('rung', RUNGS)
-def test_every_rung_folder_tells_its_story(rung: str):
-    """The folder is the rung: its tables are the construct as data, its README is what the page shows."""
-    folder = REFERENCES / 'data' / rung
-    assert any(folder.glob('*.csv')), 'no addition tables — the rung folder is where its construct lives, as data'
-    assert (folder / 'README.md').read_text().strip(), 'an empty story — the page shows what the fixture is for'
+def test_every_rung_folder_adds_tables(rung: str):
+    assert any((REFERENCES / 'data' / rung).glob('*.csv')), 'a rung is its folder of additions'
 
 
 def test_every_rung_folder_has_a_recorded_solve():
