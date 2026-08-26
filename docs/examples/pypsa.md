@@ -20,13 +20,14 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 
 ## Index
 
-A row is **done** and links once it is in the file. Under each rung's table
-sits its reference network, solved out of band by the pinned scripts beside
-it, with the objective and row counts a parity gate will compare. A blank status is a row
-expected to state one-to-one; a word is the catch: **prep** needs a parameter computed in
-data prep · **split** one PyPSA row is several `where:` blocks · **not** a
-PyPSA workaround not reproduced · **flag** only under an `n.optimize()`
-keyword · **scope** multi-period or stochastic · **open** not stateable yet.
+A row is **done** and links once it is in the file — on this branch, as it
+stands; a fix still on its way stays not-done, its PR or issue in the note.
+Any other word is the catch: **not** a PyPSA workaround not reproduced ·
+**flag** only under an `n.optimize()` keyword · **scope** multi-period or
+stochastic · **open** not stateable yet. Under each rung's table sits its
+reference network, solved out of band by the pinned scripts beside it, and
+`parity.py` holds both lanes to one objective, one row and column count
+under every PyPSA name, and one set of bus prices.
 
 <!-- reference:spine:begin -->
 > Every rung's network is the spine below plus the rung's own folder of additions, read by `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`. A blank cell is an attribute the row does not set — PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.
