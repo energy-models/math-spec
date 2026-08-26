@@ -70,3 +70,41 @@ def test_every_piecewise_method_has_a_model_on_the_notation_page():
     of four formulations.
     """
     assert set(notation.PIECEWISE) == set(PIECEWISE_METHODS)
+
+
+def _card_bodies(page: Path) -> list[tuple[int, str]]:
+    """Every line inside a `grid cards` block that continues a card, numbered from one.
+
+    A card is a list item, so its body has to be indented far enough for
+    python-markdown to read it as the item's content — anything less and the
+    block still *looks* right in the source.
+    """
+    lines = page.read_text().split('\n')
+    inside, bodies = False, []
+    for number, line in enumerate(lines, start=1):
+        if line.startswith('<div class="grid cards"'):
+            inside = True
+        elif inside and line.startswith('</div>'):
+            inside = False
+        elif inside and line.startswith(' '):
+            bodies.append((number, line))
+    return bodies
+
+
+@pytest.mark.parametrize(
+    'page',
+    sorted(p for p in (ROOT / 'docs').rglob('*.md') if 'grid cards' in p.read_text()),
+    ids=lambda page: page.stem,
+)
+def test_a_card_body_is_indented_far_enough_to_stay_in_its_card(page: Path):
+    """Two spaces built a page whose six cards were six loose rules and paragraphs (#87).
+
+    python-markdown wants four, prettier writes two, and the site rendered the
+    difference: the `***` separator became a top-level rule and the prose fell
+    out of the list. `<!-- prettier-ignore -->` above the list is what keeps
+    the formatter off it.
+    """
+    shallow = [number for number, line in _card_bodies(page) if not line.startswith('    ')]
+    assert not shallow, (
+        f'{page.relative_to(ROOT)} lines {shallow}: a card body indented under four spaces leaves the list'
+    )
