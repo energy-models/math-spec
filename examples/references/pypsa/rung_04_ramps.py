@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 8 of `examples/pypsa.yaml` — modular builds and big M.
+"""Reference for rung 4 of `examples/pypsa.yaml` — ramp limits.
 
-    uv run --script examples/references/pypsa/rung8_modular_big_m.py
+    uv run --script examples/references/pypsa/rung_04_ramps.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,54 +21,25 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung8_modular_big_m'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_04_ramps'
 
 
 def build() -> pypsa.Network:
-    """Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
+    """Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
 
-    The block plant is bought twenty-five megawatts at a time and gated by a
-    status, so its bounds are one module's share; the flexible plant is
-    extendable and committable with ramps, which is the pairing PyPSA's big-M
-    rows linearize.
+    Coal may move a fifth of its capacity per snapshot, so the swings belong
+    to the peaker however dear it is; the tie line east ramps too.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'block',
-        bus='grid',
-        p_nom_extendable=True,
-        committable=True,
-        p_nom_mod=25.0,
-        p_nom_max=100.0,
-        capital_cost=30.0,
-        marginal_cost=20.0,
-        p_min_pu=0.2,
-        up_time_before=0,
-    )
-    n.add(
-        'Generator',
-        'flex',
-        bus='grid',
-        p_nom_extendable=True,
-        committable=True,
-        p_nom_max=80.0,
-        capital_cost=50.0,
-        marginal_cost=10.0,
-        p_min_pu=0.3,
-        ramp_limit_up=0.25,
-        ramp_limit_down=0.25,
-        up_time_before=0,
-    )
-    n.add('Generator', 'backstop', bus='grid', p_nom=200.0, marginal_cost=300.0)
-    n.add('Load', 'town', bus='grid', p_set=[40.0, 80.0, 120.0, 60.0])
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

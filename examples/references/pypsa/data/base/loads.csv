@@ -1,0 +1,3 @@
+name,bus,p_set
+north_load,north,30.0
+south_load,south,40.0

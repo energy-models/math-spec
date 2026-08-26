@@ -1,0 +1,2 @@
+name,bus0,bus1,p_nom,p_min_pu,efficiency
+wire,north,south,40.0,-1.0,0.9

@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 1 of `examples/pypsa.yaml` — transport.
+"""Reference for rung 9 of `examples/pypsa.yaml` — a multi-link delivering at two ports.
 
-    uv run --script examples/references/pypsa/rung1_transport.py
+    uv run --script examples/references/pypsa/rung_09_multilink.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,39 +21,26 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung1_transport'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_09_multilink'
 
 
 def build() -> pypsa.Network:
-    """Rung 1's transport spine: two buses, a lossy link, a cheap and a dear generator.
+    """Rung 9's multi-link: one gas flow delivering power and heat at two ports.
 
-    Coal in the north is cheap and the wire loses a tenth on the way south, so
-    the south's load splits between imports, a small must-run pinned by its
-    given schedule, and its own gas at the link's rating.
+    The CHP link withdraws gas at its first bus and injects at the other two
+    by its two efficiencies; the heat bus has no other supply, so the link
+    runs and the power bus tops up from imports.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['north', 'south'])
-    n.add('Generator', 'coal', bus='north', p_nom=100.0, marginal_cost=10.0)
-    n.add('Generator', 'gas', bus='south', p_nom=100.0, marginal_cost=30.0)
-    n.add(
-        'Link',
-        'wire',
-        bus0='north',
-        bus1='south',
-        p_nom=40.0,
-        p_min_pu=-1.0,
-        efficiency=0.9,
-        p_set=[10.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add('Generator', 'must_run', bus='south', p_nom=10.0, marginal_cost=0.0, p_set=[5.0, 5.0, 5.0, 5.0])
-    n.add('Load', 'north_load', bus='north', p_set=30.0)
-    n.add('Load', 'south_load', bus='south', p_set=40.0)
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

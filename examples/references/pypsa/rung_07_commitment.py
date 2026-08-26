@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 10 of `examples/pypsa_quadratic.yaml` — quadratic costs.
+"""Reference for rung 7 of `examples/pypsa.yaml` — unit commitment.
 
-    uv run --script examples/references/pypsa/rung10_quadratic_costs.py
+    uv run --script examples/references/pypsa/rung_07_commitment.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,39 +21,27 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung10_quadratic_costs'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_07_commitment'
 
 
 def build() -> pypsa.Network:
-    """Rung 10's quadratic costs: two generators splitting a load by their marginal slopes.
+    """Rung 7's commitment: a unit that pays to start, to stop, and to idle.
 
-    Steam is cheap to start and steepens fast, the engine is dear but flat, so
-    the optimum is an interior split only a quadratic objective produces; the
-    lossy link carries its own quadratic cost.
+    The base unit may not run below forty percent, was already on with two
+    snapshots of its minimum up time left to serve, pays for each start, and
+    ramps against its previous status — so the swing between it and the
+    peaker is a schedule, not a dispatch.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['a', 'b'])
-    n.add('Generator', 'steam', bus='a', p_nom=80.0, marginal_cost=5.0, marginal_cost_quadratic=0.08)
-    n.add('Generator', 'engine', bus='a', p_nom=80.0, marginal_cost=20.0, marginal_cost_quadratic=0.01)
-    n.add(
-        'Link',
-        'wire',
-        bus0='a',
-        bus1='b',
-        p_nom=40.0,
-        p_min_pu=-1.0,
-        efficiency=0.9,
-        marginal_cost=1.0,
-        marginal_cost_quadratic=0.02,
-    )
-    n.add('Load', 'town', bus='a', p_set=[30.0, 50.0, 40.0, 60.0])
-    n.add('Load', 'village', bus='b', p_set=15.0)
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

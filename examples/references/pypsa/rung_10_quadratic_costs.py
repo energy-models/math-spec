@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 4 of `examples/pypsa.yaml` — ramp limits.
+"""Reference for rung 10 of `examples/pypsa_quadratic.yaml` — quadratic costs.
 
-    uv run --script examples/references/pypsa/rung4_ramps.py
+    uv run --script examples/references/pypsa/rung_10_quadratic_costs.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,38 +21,26 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung4_ramps'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_10_quadratic_costs'
 
 
 def build() -> pypsa.Network:
-    """Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
+    """Rung 10's quadratic costs: two generators splitting a load by their marginal slopes.
 
-    Coal may move a fifth of its capacity per snapshot, so the swings belong
-    to the peaker however dear it is; the tie line east ramps too.
+    Steam is cheap to start and steepens fast, the engine is dear but flat, so
+    the optimum is an interior split only a quadratic objective produces; the
+    lossy link carries its own quadratic cost.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add('Generator', 'coal', bus='grid', p_nom=80.0, marginal_cost=10.0, ramp_limit_up=0.2, ramp_limit_down=0.2)
-    n.add('Generator', 'peaker', bus='grid', p_nom=100.0, marginal_cost=100.0)
-    n.add('Load', 'town', bus='grid', p_set=[20.0, 60.0, 80.0, 30.0])
-    n.add('Bus', 'east')
-    n.add(
-        'Link',
-        'tie',
-        bus0='grid',
-        bus1='east',
-        p_nom=50.0,
-        efficiency=1.0,
-        ramp_limit_up=0.4,
-        ramp_limit_down=0.4,
-    )
-    n.add('Load', 'east_load', bus='east', p_set=[5.0, 20.0, 25.0, 10.0])
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

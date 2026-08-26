@@ -55,6 +55,24 @@ def test_every_rung_has_its_marker_pair_on_exactly_one_declared_page(script: Pat
     )
 
 
+def test_the_spine_shows_on_exactly_one_declared_page():
+    """`with_references` fills only markers a page carries, so a dropped pair silently loses the block."""
+    from tools import gallery
+
+    pages = [(gallery.PAGES / page).read_text() for page in gallery.DECLARED]
+    carrying = sum('<!-- reference:spine:begin -->' in text for text in pages)
+    assert carrying == 1, (
+        'the shared spine and the rule for how folders combine show once, on the page carrying the rung ladder'
+    )
+
+
+@pytest.mark.parametrize('script', SCRIPTS, ids=[script.stem for script in SCRIPTS])
+def test_every_rung_is_the_spine_plus_its_own_folder(script: Path):
+    """`instances.build` reads `data/base/` plus `data/<rung>/`, so a rung without a folder adds nothing."""
+    folder = REFERENCES / 'data' / script.stem
+    assert any(folder.glob('*.csv')), 'no addition tables — the rung folder is where its construct lives, as data'
+
+
 def test_every_reference_script_has_a_recorded_solve():
     assert {script.stem for script in SCRIPTS} == set(RECORDED), (
         'a reference script without a record, or a record without a script — run the scripts, or delete the orphan'

@@ -1,0 +1,2 @@
+name,bus,p_nom,marginal_cost,ramp_limit_up,ramp_limit_down
+coal_slow,north,80.0,8.0,0.2,0.2

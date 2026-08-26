@@ -22,14 +22,65 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 ## Index
 
 A row is **done** and links once it is in the file. Under each rung's table
-sits its reference network — PyPSA's own statements, solved out of band by the
-pinned scripts in `examples/references/pypsa/` — with the objective and row
-counts a parity gate will compare, so the YAML and the PyPSA it stands for
-read side by side. A blank status is a row
+sits its reference network — the shared spine below plus the rung's own
+folder of additions under `examples/references/pypsa/data/`, solved out of
+band by the pinned scripts beside it — with the objective and row counts a
+parity gate will compare, so the YAML and the data it binds read side by
+side. A blank status is a row
 expected to state one-to-one; a word is the catch: **prep** needs a parameter computed in
 data prep · **split** one PyPSA row is several `where:` blocks · **not** a
 PyPSA workaround not reproduced · **flag** only under an `n.optimize()`
 keyword · **scope** multi-period or stochastic · **open** not stateable yet.
+
+<!-- reference:spine:begin -->
+> Every rung's network is the spine below plus the rung's own folder of additions, read by `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`, so no table is column-joined and no empty cells are invented — a blank cell is an attribute the row does not set, PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.
+
+<details markdown="1">
+<summary>The shared spine, <code>data/base/</code></summary>
+
+`data/base/buses.csv`
+
+```csv
+name
+north
+south
+```
+
+`data/base/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost
+coal,north,100.0,10.0
+gas,south,100.0,30.0
+```
+
+`data/base/links.csv`
+
+```csv
+name,bus0,bus1,p_nom,p_min_pu,efficiency
+wire,north,south,40.0,-1.0,0.9
+```
+
+`data/base/loads.csv`
+
+```csv
+name,bus,p_set
+north_load,north,30.0
+south_load,south,40.0
+```
+
+`data/base/snapshots.csv`
+
+```csv
+snapshot,objective,stores,generators
+0,1.0,1.0,1.0
+1,1.0,1.0,1.0
+2,1.0,1.0,1.0
+3,1.0,1.0,1.0
+```
+
+</details>
+<!-- reference:spine:end -->
 
 ### Rung 1 — transport
 
@@ -46,43 +97,38 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 | [`marginal_cost_quadratic`](pypsa_quadratic.md)     | done   | rung 10, a file of its own — one model cannot carry a quadratic objective beside rung 7's integers and keep a HiGHS lane |
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
-<!-- reference:rung1_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_01_transport:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung_01_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_01_transport/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 1's transport spine: two buses, a lossy link, a cheap and a dear generator.
+Rung 1's transport: the spine as it stands, plus a must-run its schedule pins.
 
-    Coal in the north is cheap and the wire loses a tenth on the way south, so
-    the south's load splits between imports, a small must-run pinned by its
-    given schedule, and its own gas at the link's rating.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['north', 'south'])
-    n.add('Generator', 'coal', bus='north', p_nom=100.0, marginal_cost=10.0)
-    n.add('Generator', 'gas', bus='south', p_nom=100.0, marginal_cost=30.0)
-    n.add(
-        'Link',
-        'wire',
-        bus0='north',
-        bus1='south',
-        p_nom=40.0,
-        p_min_pu=-1.0,
-        efficiency=0.9,
-        p_set=[10.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add('Generator', 'must_run', bus='south', p_nom=10.0, marginal_cost=0.0, p_set=[5.0, 5.0, 5.0, 5.0])
-    n.add('Load', 'north_load', bus='north', p_set=30.0)
-    n.add('Load', 'south_load', bus='south', p_set=40.0)
-    return n
+Coal in the north is cheap and the wire loses a tenth on the way south, so
+the south's load splits between imports, a small must-run pinned by its
+given schedule, and its own gas at the link's rating.
+
+`data/rung_01_transport/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost
+must_run,south,10.0,0.0
+```
+
+`data/rung_01_transport/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Generator,must_run,p_set,0,5.0
+Generator,must_run,p_set,1,5.0
+Generator,must_run,p_set,2,5.0
+Generator,must_run,p_set,3,5.0
+Link,wire,p_set,0,10.0
 ```
 
 </details>
-<!-- reference:rung1_transport:end -->
+<!-- reference:rung_01_transport:end -->
 
 ### Rung 2 — storage
 
@@ -96,66 +142,53 @@ def build() -> pypsa.Network:
 | [`StorageUnit-p_set`](#storageunit-p_set), [`{c}-{attr}_set`](#generator-p_set) | done | `Generator-p_set`, `Link-p_set`, `StorageUnit-state_of_charge_set`, `Store-e_set`, `Line-s_set` |
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
-<!-- reference:rung2_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `975.711471`, 83 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_02_storage:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2488.903629000791`, 103 rows — recorded by `examples/references/pypsa/rung_02_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_02_storage/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
+Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
 
-    The generator is cheap for two snapshots and dear for two, so the battery
-    buys low and sells high and its horizon closes on itself; the reservoir
-    opens on a given charge and spills the inflow it cannot hold; the cavern
-    drains from its initial fill.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add('Generator', 'gas', bus='grid', p_nom=80.0, marginal_cost=[10.0, 10.0, 60.0, 60.0])
-    n.add('Load', 'town', bus='grid', p_set=30.0)
-    n.add(
-        'StorageUnit',
-        'battery',
-        bus='grid',
-        p_nom=20.0,
-        max_hours=4.0,
-        efficiency_store=0.95,
-        efficiency_dispatch=0.9,
-        standing_loss=0.01,
-        cyclic_state_of_charge=True,
-        marginal_cost=0.5,
-        p_set=[0.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add(
-        'StorageUnit',
-        'reservoir',
-        bus='grid',
-        p_nom=10.0,
-        max_hours=2.0,
-        inflow=[12.0, 12.0, 12.0, 12.0],
-        spill_cost=2.0,
-        state_of_charge_initial=5.0,
-        marginal_cost_storage=0.1,
-        state_of_charge_set=[float('nan'), float('nan'), float('nan'), 10.0],
-    )
-    n.add(
-        'Store',
-        'cavern',
-        bus='grid',
-        e_nom=40.0,
-        e_initial=25.0,
-        standing_loss=0.005,
-        marginal_cost=0.2,
-        e_set=[float('nan'), float('nan'), float('nan'), 20.0],
-    )
-    return n
+The generator is cheap for two snapshots and dear for two, so the battery
+buys low and sells high and its horizon closes on itself; the reservoir
+opens on a given charge and spills the inflow it cannot hold; the cavern
+drains from its initial fill.
+
+`data/rung_02_storage/storage_units.csv`
+
+```csv
+name,bus,p_nom,max_hours,efficiency_store,efficiency_dispatch,standing_loss,cyclic_state_of_charge,marginal_cost,spill_cost,state_of_charge_initial,marginal_cost_storage
+battery,south,20.0,4.0,0.95,0.9,0.01,True,0.5,,,
+reservoir,south,10.0,2.0,,,,,,2.0,5.0,0.1
+```
+
+`data/rung_02_storage/stores.csv`
+
+```csv
+name,bus,e_nom,e_initial,standing_loss,marginal_cost
+cavern,south,40.0,25.0,0.005,0.2
+```
+
+`data/rung_02_storage/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Generator,gas,marginal_cost,0,15.0
+Generator,gas,marginal_cost,1,15.0
+Generator,gas,marginal_cost,2,60.0
+Generator,gas,marginal_cost,3,60.0
+StorageUnit,battery,p_set,0,0.0
+StorageUnit,reservoir,inflow,0,12.0
+StorageUnit,reservoir,inflow,1,12.0
+StorageUnit,reservoir,inflow,2,12.0
+StorageUnit,reservoir,inflow,3,12.0
+StorageUnit,reservoir,state_of_charge_set,3,10.0
+Store,cavern,e_set,3,20.0
 ```
 
 </details>
-<!-- reference:rung2_storage:end -->
+<!-- reference:rung_02_storage:end -->
 
 ### Rung 3 — expansion
 
@@ -168,91 +201,80 @@ def build() -> pypsa.Network:
 | [`Generator-e_sum_min/max`](#generator-e_sum_min) | done | no row where the bound is not finite       |
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
-<!-- reference:rung3_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5332.105263157895`, 96 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_03_expansion:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5646.0526315789475`, 124 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_03_expansion/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
+Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
 
-    Wind is free to run but costs capacity, its availability varies, and its
-    build is floored and capped; gas is fixed, dear, and budgeted in energy
-    over the horizon, so the optimum has to buy some wind — at least the
-    energy floor it also carries. The cable to the island is the extendable
-    link, and the pump and tank are the extendable storage.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'wind',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=50.0,
-        p_nom_min=5.0,
-        p_nom_max=80.0,
-        p_max_pu=[0.3, 0.8, 0.5, 0.9],
-        marginal_cost=0.0,
-        e_sum_min=40.0,
-    )
-    n.add('Generator', 'gas', bus='grid', p_nom=60.0, marginal_cost=40.0, e_sum_max=70.0)
-    n.add(
-        'StorageUnit',
-        'pump',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=15.0,
-        p_nom_max=30.0,
-        max_hours=4.0,
-        efficiency_store=0.9,
-        efficiency_dispatch=0.9,
-        cyclic_state_of_charge=True,
-        p_nom_set=20.0,
-    )
-    n.add(
-        'Store',
-        'tank',
-        bus='grid',
-        e_nom_extendable=True,
-        capital_cost=2.0,
-        e_nom_max=80.0,
-        e_cyclic=True,
-        e_nom_set=50.0,
-    )
-    n.add(
-        'Generator',
-        'solar',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=60.0,
-        p_max_pu=[0.5, 0.6, 0.4, 0.2],
-        p_nom_max=40.0,
-        p_nom_set=15.0,
-        marginal_cost=0.0,
-    )
-    n.add('Load', 'town', bus='grid', p_set=40.0)
-    n.add('Bus', 'island')
-    n.add('Load', 'island_load', bus='island', p_set=10.0)
-    n.add(
-        'Link',
-        'cable',
-        bus0='grid',
-        bus1='island',
-        p_nom_extendable=True,
-        capital_cost=20.0,
-        p_nom_max=30.0,
-        efficiency=0.95,
-        p_nom_set=25.0,
-    )
-    return n
+Wind is free to run but costs capacity, its availability varies, and its
+build is floored and capped; gas is fixed, dear, and budgeted in energy
+over the horizon, so the optimum has to buy some wind — at least the
+energy floor it also carries. The cable to the island is the extendable
+link, and the pump and tank are the extendable storage.
+
+`data/rung_03_expansion/buses.csv`
+
+```csv
+name
+island
+```
+
+`data/rung_03_expansion/generators.csv`
+
+```csv
+name,bus,p_nom_extendable,capital_cost,p_nom_min,p_nom_max,marginal_cost,e_sum_min,p_nom_set,p_nom,e_sum_max
+wind,north,True,50.0,5.0,80.0,0.0,40.0,,,
+solar,north,True,60.0,,40.0,0.0,,15.0,,
+diesel,island,,,,,40.0,,,60.0,70.0
+```
+
+`data/rung_03_expansion/links.csv`
+
+```csv
+name,bus0,bus1,p_nom_extendable,capital_cost,p_nom_max,efficiency,p_nom_set
+cable,north,island,True,20.0,30.0,0.95,25.0
+```
+
+`data/rung_03_expansion/loads.csv`
+
+```csv
+name,bus,p_set
+island_load,island,10.0
+```
+
+`data/rung_03_expansion/storage_units.csv`
+
+```csv
+name,bus,p_nom_extendable,capital_cost,p_nom_max,max_hours,efficiency_store,efficiency_dispatch,cyclic_state_of_charge,p_nom_set
+pump,north,True,15.0,30.0,4.0,0.9,0.9,True,20.0
+```
+
+`data/rung_03_expansion/stores.csv`
+
+```csv
+name,bus,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set
+tank,north,True,2.0,80.0,True,50.0
+```
+
+`data/rung_03_expansion/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Generator,wind,p_max_pu,0,0.3
+Generator,wind,p_max_pu,1,0.8
+Generator,wind,p_max_pu,2,0.5
+Generator,wind,p_max_pu,3,0.9
+Generator,solar,p_max_pu,0,0.5
+Generator,solar,p_max_pu,1,0.6
+Generator,solar,p_max_pu,2,0.4
+Generator,solar,p_max_pu,3,0.2
 ```
 
 </details>
-<!-- reference:rung3_expansion:end -->
+<!-- reference:rung_03_expansion:end -->
 
 ### Rung 4 — ramps
 
@@ -260,42 +282,62 @@ def build() -> pypsa.Network:
 | ------------------------------ | ------ | ---------------------------------------------------------- |
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | fix and ext blocks; com is rung 7's, big-M rung 8's; the first snapshot's row is rolling horizon's, a flag |
 
-<!-- reference:rung4_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10420.0`, 44 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_04_ramps:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3950.0`, 64 rows — recorded by `examples/references/pypsa/rung_04_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_04_ramps/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
+Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
 
-    Coal may move a fifth of its capacity per snapshot, so the swings belong
-    to the peaker however dear it is; the tie line east ramps too.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add('Generator', 'coal', bus='grid', p_nom=80.0, marginal_cost=10.0, ramp_limit_up=0.2, ramp_limit_down=0.2)
-    n.add('Generator', 'peaker', bus='grid', p_nom=100.0, marginal_cost=100.0)
-    n.add('Load', 'town', bus='grid', p_set=[20.0, 60.0, 80.0, 30.0])
-    n.add('Bus', 'east')
-    n.add(
-        'Link',
-        'tie',
-        bus0='grid',
-        bus1='east',
-        p_nom=50.0,
-        efficiency=1.0,
-        ramp_limit_up=0.4,
-        ramp_limit_down=0.4,
-    )
-    n.add('Load', 'east_load', bus='east', p_set=[5.0, 20.0, 25.0, 10.0])
-    return n
+Coal may move a fifth of its capacity per snapshot, so the swings belong
+to the peaker however dear it is; the tie line east ramps too.
+
+`data/rung_04_ramps/buses.csv`
+
+```csv
+name
+east
+```
+
+`data/rung_04_ramps/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost,ramp_limit_up,ramp_limit_down
+coal_slow,north,80.0,8.0,0.2,0.2
+```
+
+`data/rung_04_ramps/links.csv`
+
+```csv
+name,bus0,bus1,p_nom,efficiency,ramp_limit_up,ramp_limit_down
+tie,north,east,50.0,1.0,0.4,0.4
+```
+
+`data/rung_04_ramps/loads.csv`
+
+```csv
+name,bus
+east_load,east
+swing,north
+```
+
+`data/rung_04_ramps/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Load,east_load,p_set,0,5.0
+Load,east_load,p_set,1,20.0
+Load,east_load,p_set,2,25.0
+Load,east_load,p_set,3,10.0
+Load,swing,p_set,0,0.0
+Load,swing,p_set,1,25.0
+Load,swing,p_set,2,45.0
+Load,swing,p_set,3,0.0
 ```
 
 </details>
-<!-- reference:rung4_ramps:end -->
+<!-- reference:rung_04_ramps:end -->
 
 ### Rung 5 — global constraints
 
@@ -313,43 +355,52 @@ each type is three blocks by sense.
 | `Carrier-growth_limit`                | scope       | multi-period                                      |
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
-<!-- reference:rung5_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5187.5`, 29 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_05_global_constraints:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5590.0`, 57 rows — recorded by `examples/references/pypsa/rung_05_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_05_global_constraints/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
+Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
 
-    Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
-    run here; the cap decides the mix, and its shadow price is the carbon
-    price.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Carrier', 'coal', co2_emissions=0.9)
-    n.add('Carrier', 'gas', co2_emissions=0.4)
-    n.add('Carrier', 'wind', co2_emissions=0.0)
-    n.add('Bus', 'grid')
-    n.add('Generator', 'coal', bus='grid', carrier='coal', p_nom=60.0, marginal_cost=10.0, efficiency=0.35)
-    n.add('Generator', 'gas', bus='grid', carrier='gas', p_nom=60.0, marginal_cost=25.0, efficiency=0.5)
-    n.add('Generator', 'wind', bus='grid', carrier='wind', p_nom=60.0, marginal_cost=40.0)
-    n.add('Load', 'town', bus='grid', p_set=50.0)
-    n.add(
-        'GlobalConstraint',
-        'co2_cap',
-        type='primary_energy',
-        carrier_attribute='co2_emissions',
-        sense='<=',
-        constant=150.0,
-    )
-    return n
+Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
+run here; the cap decides the mix, and its shadow price is the carbon
+price.
+
+`data/rung_05_global_constraints/carriers.csv`
+
+```csv
+name,co2_emissions
+coalc,0.9
+gasc,0.4
+windc,
+```
+
+`data/rung_05_global_constraints/generators.csv`
+
+```csv
+name,bus,carrier,p_nom,marginal_cost,efficiency
+coal5,north,coalc,60.0,9.0,0.35
+gas5,north,gasc,60.0,25.0,0.5
+wind5,north,windc,60.0,40.0,
+```
+
+`data/rung_05_global_constraints/global_constraints.csv`
+
+```csv
+name,type,carrier_attribute,sense,constant
+co2_cap,primary_energy,co2_emissions,<=,150.0
+```
+
+`data/rung_05_global_constraints/loads.csv`
+
+```csv
+name,bus,p_set
+extra5,north,50.0
 ```
 
 </details>
-<!-- reference:rung5_global_constraints:end -->
+<!-- reference:rung_05_global_constraints:end -->
 
 ### Rung 6 — KVL
 
@@ -358,55 +409,61 @@ def build() -> pypsa.Network:
 | [`Line-s`](#variable-domains), [`Line-fix-s-*`](#line-fix-s-lower) | done | the ext and nominal rows sit under rung 3's pattern |
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
-<!-- reference:rung6_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2460.0`, 72 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_06_kvl:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5740.0`, 104 rows — recorded by `examples/references/pypsa/rung_06_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_06_kvl/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 6's voltage law: three buses in a triangle of lines.
+Rung 6's voltage law: three buses in a triangle of lines.
 
-    Two generators and one load; with a cycle in the graph the flows split by
-    impedance rather than by cost, which is what the KVL row enforces; one
-    line is extendable, so its rating is a decision.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['a', 'b', 'c'])
-    n.add('Line', 'ab', bus0='a', bus1='b', x=0.1, r=0.01, s_nom=60.0)
-    n.add(
-        'Line',
-        'bc',
-        bus0='b',
-        bus1='c',
-        x=0.2,
-        r=0.01,
-        s_nom=60.0,
-        s_set=[10.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add('Line', 'ca', bus0='c', bus1='a', x=0.1, r=0.01, s_nom=60.0)
-    n.add(
-        'Line',
-        'ca2',
-        bus0='c',
-        bus1='a',
-        x=0.15,
-        r=0.01,
-        s_nom_extendable=True,
-        capital_cost=10.0,
-        s_nom_max=40.0,
-        s_nom_set=30.0,
-    )
-    n.add('Generator', 'hydro', bus='a', p_nom=80.0, marginal_cost=10.0)
-    n.add('Generator', 'diesel', bus='b', p_nom=80.0, marginal_cost=50.0)
-    n.add('Load', 'town', bus='c', p_set=45.0)
-    return n
+Two generators and one load; with a cycle in the graph the flows split by
+impedance rather than by cost, which is what the KVL row enforces; one
+line is extendable, so its rating is a decision.
+
+`data/rung_06_kvl/buses.csv`
+
+```csv
+name
+a
+b
+c
+```
+
+`data/rung_06_kvl/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost
+hydro,a,80.0,10.0
+diesel6,b,80.0,50.0
+```
+
+`data/rung_06_kvl/lines.csv`
+
+```csv
+name,bus0,bus1,x,r,s_nom,s_nom_extendable,capital_cost,s_nom_max,s_nom_set
+ab,a,b,0.1,0.01,60.0,,,,
+bc,b,c,0.2,0.01,60.0,,,,
+ca,c,a,0.1,0.01,60.0,,,,
+ca2,c,a,0.15,0.01,,True,10.0,40.0,30.0
+```
+
+`data/rung_06_kvl/loads.csv`
+
+```csv
+name,bus,p_set
+town,c,45.0
+```
+
+`data/rung_06_kvl/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Line,bc,s_set,0,10.0
 ```
 
 </details>
-<!-- reference:rung6_kvl:end -->
+<!-- reference:rung_06_kvl:end -->
 
 ### Rung 7 — commitment
 
@@ -421,50 +478,45 @@ def build() -> pypsa.Network:
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
-<!-- reference:rung7_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3065.0`, 54 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_07_commitment:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3550.0`, 74 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_07_commitment/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 7's commitment: a unit that pays to start, to stop, and to idle.
+Rung 7's commitment: a unit that pays to start, to stop, and to idle.
 
-    The base unit may not run below forty percent, was already on with two
-    snapshots of its minimum up time left to serve, pays for each start, and
-    ramps against its previous status — so the swing between it and the
-    peaker is a schedule, not a dispatch.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'base',
-        bus='grid',
-        committable=True,
-        p_nom=50.0,
-        marginal_cost=10.0,
-        p_min_pu=0.4,
-        min_up_time=3,
-        min_down_time=2,
-        up_time_before=1,
-        ramp_limit_up=0.5,
-        ramp_limit_down=0.5,
-        ramp_limit_start_up=0.6,
-        ramp_limit_shut_down=0.6,
-        start_up_cost=100.0,
-        shut_down_cost=50.0,
-        stand_by_cost=5.0,
-    )
-    n.add('Generator', 'peaker', bus='grid', p_nom=100.0, marginal_cost=80.0)
-    n.add('Load', 'town', bus='grid', p_set=[25.0, 45.0, 45.0, 10.0])
-    return n
+The base unit may not run below forty percent, was already on with two
+snapshots of its minimum up time left to serve, pays for each start, and
+ramps against its previous status — so the swing between it and the
+peaker is a schedule, not a dispatch.
+
+`data/rung_07_commitment/generators.csv`
+
+```csv
+name,bus,committable,p_nom,marginal_cost,p_min_pu,min_up_time,min_down_time,up_time_before,ramp_limit_up,ramp_limit_down,ramp_limit_start_up,ramp_limit_shut_down,start_up_cost,shut_down_cost,stand_by_cost
+uc,north,True,50.0,5.0,0.4,3,2,1,0.5,0.5,0.6,0.6,100.0,50.0,5.0
+```
+
+`data/rung_07_commitment/loads.csv`
+
+```csv
+name,bus
+swing7,north
+```
+
+`data/rung_07_commitment/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Load,swing7,p_set,0,25.0
+Load,swing7,p_set,1,45.0
+Load,swing7,p_set,2,45.0
+Load,swing7,p_set,3,10.0
 ```
 
 </details>
-<!-- reference:rung7_commitment:end -->
+<!-- reference:rung_07_commitment:end -->
 
 ### Rung 8 — modular and big-M
 
@@ -478,58 +530,54 @@ def build() -> pypsa.Network:
 | [`{c}-com-ext-p-lower-nonneg`](#generator-com-ext-p-lower-nonneg) | done | `(p_min_pu >= 0).all()` is prep        |
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down, each with its initial block |
 
-<!-- reference:rung8_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8725.0`, 97 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_08_modular_big_m:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `12005.0`, 129 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_08_modular_big_m/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
+Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
 
-    The block plant is bought twenty-five megawatts at a time and gated by a
-    status, so its bounds are one module's share; the flexible plant is
-    extendable and committable with ramps, which is the pairing PyPSA's big-M
-    rows linearize.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'block',
-        bus='grid',
-        p_nom_extendable=True,
-        committable=True,
-        p_nom_mod=25.0,
-        p_nom_max=100.0,
-        capital_cost=30.0,
-        marginal_cost=20.0,
-        p_min_pu=0.2,
-        up_time_before=0,
-    )
-    n.add(
-        'Generator',
-        'flex',
-        bus='grid',
-        p_nom_extendable=True,
-        committable=True,
-        p_nom_max=80.0,
-        capital_cost=50.0,
-        marginal_cost=10.0,
-        p_min_pu=0.3,
-        ramp_limit_up=0.25,
-        ramp_limit_down=0.25,
-        up_time_before=0,
-    )
-    n.add('Generator', 'backstop', bus='grid', p_nom=200.0, marginal_cost=300.0)
-    n.add('Load', 'town', bus='grid', p_set=[40.0, 80.0, 120.0, 60.0])
-    return n
+The block plant is bought twenty-five megawatts at a time and gated by a
+status, so its bounds are one module's share; the flexible plant is
+extendable and committable with ramps, which is the pairing PyPSA's big-M
+rows linearize.
+
+`data/rung_08_modular_big_m/buses.csv`
+
+```csv
+name
+mill
+```
+
+`data/rung_08_modular_big_m/generators.csv`
+
+```csv
+name,bus,p_nom_extendable,committable,p_nom_mod,p_nom_max,capital_cost,marginal_cost,p_min_pu,up_time_before,ramp_limit_up,ramp_limit_down,p_nom
+block,mill,True,True,25.0,100.0,30.0,20.0,0.2,0,,,
+flex,mill,True,True,,80.0,50.0,10.0,0.3,0,0.25,0.25,
+backstop,mill,,,,,,300.0,,,,,200.0
+```
+
+`data/rung_08_modular_big_m/loads.csv`
+
+```csv
+name,bus
+mill_load,mill
+```
+
+`data/rung_08_modular_big_m/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Load,mill_load,p_set,0,40.0
+Load,mill_load,p_set,1,80.0
+Load,mill_load,p_set,2,120.0
+Load,mill_load,p_set,3,60.0
 ```
 
 </details>
-<!-- reference:rung8_modular_big_m:end -->
+<!-- reference:rung_08_modular_big_m:end -->
 
 ### Rung 9 — multi-link and delay
 
@@ -538,43 +586,52 @@ def build() -> pypsa.Network:
 | [nodal balance, ports 2..n](#bus-nodal_balance) | done | port 2 states the pattern: a partial `Link_bus2` map, one more term per port |
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
-<!-- reference:rung9_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `1920.0`, 36 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+<!-- reference:rung_09_multilink:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5200.0`, 68 rows — recorded by `examples/references/pypsa/rung_09_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_09_multilink/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 9's multi-link: one gas flow delivering power and heat at two ports.
+Rung 9's multi-link: one gas flow delivering power and heat at two ports.
 
-    The CHP link withdraws gas at its first bus and injects at the other two
-    by its two efficiencies; the heat bus has no other supply, so the link
-    runs and the power bus tops up from imports.
-    """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['gas', 'power', 'heat'])
-    n.add('Generator', 'well', bus='gas', p_nom=100.0, marginal_cost=5.0)
-    n.add(
-        'Link',
-        'chp',
-        bus0='gas',
-        bus1='power',
-        bus2='heat',
-        efficiency=0.4,
-        efficiency2=0.45,
-        p_nom=60.0,
-        marginal_cost=1.0,
-    )
-    n.add('Generator', 'grid_import', bus='power', p_nom=50.0, marginal_cost=60.0)
-    n.add('Load', 'homes', bus='power', p_set=20.0)
-    n.add('Load', 'district', bus='heat', p_set=18.0)
-    return n
+The CHP link withdraws gas at its first bus and injects at the other two
+by its two efficiencies; the heat bus has no other supply, so the link
+runs and the power bus tops up from imports.
+
+`data/rung_09_multilink/buses.csv`
+
+```csv
+name
+gasb
+power
+heat
+```
+
+`data/rung_09_multilink/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost
+well,gasb,100.0,5.0
+grid_import,power,50.0,60.0
+```
+
+`data/rung_09_multilink/links.csv`
+
+```csv
+name,bus0,bus1,bus2,efficiency,efficiency2,p_nom,marginal_cost
+chp,gasb,power,heat,0.4,0.45,60.0,1.0
+```
+
+`data/rung_09_multilink/loads.csv`
+
+```csv
+name,bus,p_set
+homes,power,20.0
+district,heat,18.0
 ```
 
 </details>
-<!-- reference:rung9_multilink:end -->
+<!-- reference:rung_09_multilink:end -->
 
 ### Not on a rung
 
@@ -1255,19 +1312,20 @@ $$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} 
 ```yaml
 Generator_p_ramp_limit_up_com_initial:
   description: >-
-    `Generator-p-ramp_limit_up` — the first snapshot ramps against the
-    status the unit brought in and an output of nothing
+    `Generator-p-ramp_limit_up` — a unit that was off ramps its first
+    snapshot from an output of nothing; one already on brought an unknown
+    output, so it carries no row
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND not Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     Generator_p <=
     Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
     + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
 ```
 
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathrm{u}^{0}_{g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathrm{u}^{0}_{g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$p_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathrm{u}^{0}_{g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathrm{u}^{0}_{g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_down`
 
@@ -1297,19 +1355,19 @@ $$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} 
 ```yaml
 Generator_p_ramp_limit_down_com_initial:
   description: >-
-    `Generator-p-ramp_limit_down` — the first snapshot ramps down from an
-    output of nothing against the status the unit brought in
+    `Generator-p-ramp_limit_down` — a unit that was off ramps its first
+    snapshot down from an output of nothing; one already on carries no row
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND not Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     -Generator_p <=
     Generator_ramp_limit_down * Generator_p_nom * Generator_status
     + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
 ```
 
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_up-run-bigM`
 
@@ -1337,18 +1395,18 @@ $$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \math
 
 ```yaml
 Generator_p_ramp_limit_up_run_big_m_initial:
-  description: "`Generator-p-ramp_limit_up-run-bigM` — the first snapshot reads the status the unit brought in"
+  description: "`Generator-p-ramp_limit_up-run-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     Generator_p <=
     Generator_ramp_limit_up * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_status_initial
 ```
 
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$p_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_up-start-bigM`
 
@@ -1376,18 +1434,18 @@ $$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{
 
 ```yaml
 Generator_p_ramp_limit_up_start_big_m_initial:
-  description: "`Generator-p-ramp_limit_up-start-bigM` — the first snapshot ramps up from an output of nothing"
+  description: "`Generator-p-ramp_limit_up-start-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     Generator_p <=
     Generator_ramp_limit_start_up * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_start_up
 ```
 
-$$p_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$p_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_down-run-bigM`
 
@@ -1415,18 +1473,18 @@ $$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \math
 
 ```yaml
 Generator_p_ramp_limit_down_run_big_m_initial:
-  description: "`Generator-p-ramp_limit_down-run-bigM` — the first snapshot ramps down from an output of nothing"
+  description: "`Generator-p-ramp_limit_down-run-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     -Generator_p <=
     Generator_ramp_limit_down * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_status
 ```
 
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$-p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_down-shut-bigM`
 
@@ -1454,18 +1512,18 @@ $$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{
 
 ```yaml
 Generator_p_ramp_limit_down_shut_big_m_initial:
-  description: "`Generator-p-ramp_limit_down-shut-bigM` — the first snapshot ramps down from an output of nothing"
+  description: "`Generator-p-ramp_limit_down-shut-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     -Generator_p <=
     Generator_ramp_limit_shut_down * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_shut_down
 ```
 
-$$-p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$-p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p_nom_modularity`
 
@@ -2328,7 +2386,7 @@ GlobalConstraint_primary_energy_ub:
   expression: primary_energy <= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{primary\_energy} \wedge \mathrm{sense}_{o} = \text{<=}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `primary_energy`
 
@@ -2342,7 +2400,7 @@ GlobalConstraint_primary_energy_lb:
   expression: primary_energy >= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{primary\_energy} \wedge \mathrm{sense}_{o} = \text{>=}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `primary_energy`
 
@@ -2356,7 +2414,7 @@ GlobalConstraint_primary_energy_eq:
   expression: primary_energy == GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{primary\_energy} \wedge \mathrm{sense}_{o} = \text{==}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 
 ### `operational_limit`
 
@@ -2370,7 +2428,7 @@ GlobalConstraint_operational_limit_ub:
   expression: operational_limit <= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{operational\_limit} \wedge \mathrm{sense}_{o} = \text{<=}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `operational_limit`
 
@@ -2384,7 +2442,7 @@ GlobalConstraint_operational_limit_lb:
   expression: operational_limit >= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{operational\_limit} \wedge \mathrm{sense}_{o} = \text{>=}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `operational_limit`
 
@@ -2398,7 +2456,7 @@ GlobalConstraint_operational_limit_eq:
   expression: operational_limit == GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{operational\_limit} \wedge \mathrm{sense}_{o} = \text{==}$$
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} + \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{h}_{o,s} + \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} q_{t,v} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 
 ### `transmission_volume_expansion_limit`
 
@@ -2412,7 +2470,7 @@ GlobalConstraint_transmission_volume_expansion_limit_ub:
   expression: transmission_volume_expansion <= GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_volume\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{<=}$$
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `transmission_volume_expansion_limit`
 
@@ -2426,7 +2484,7 @@ GlobalConstraint_transmission_volume_expansion_limit_lb:
   expression: transmission_volume_expansion >= GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_volume\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{>=}$$
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `transmission_volume_expansion_limit`
 
@@ -2440,7 +2498,7 @@ GlobalConstraint_transmission_volume_expansion_limit_eq:
   expression: transmission_volume_expansion == GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_volume\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{==}$$
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 
 ### `transmission_expansion_cost_limit`
 
@@ -2454,7 +2512,7 @@ GlobalConstraint_transmission_expansion_cost_limit_ub:
   expression: transmission_expansion_cost <= GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_expansion\_cost\_limit} \wedge \mathrm{sense}_{o} = \text{<=}$$
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `transmission_expansion_cost_limit`
 
@@ -2468,7 +2526,7 @@ GlobalConstraint_transmission_expansion_cost_limit_lb:
   expression: transmission_expansion_cost >= GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_expansion\_cost\_limit} \wedge \mathrm{sense}_{o} = \text{>=}$$
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `transmission_expansion_cost_limit`
 
@@ -2482,7 +2540,7 @@ GlobalConstraint_transmission_expansion_cost_limit_eq:
   expression: transmission_expansion_cost == GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{transmission\_expansion\_cost\_limit} \wedge \mathrm{sense}_{o} = \text{==}$$
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 
 ### `tech_capacity_expansion_limit`
 
@@ -2496,7 +2554,7 @@ GlobalConstraint_tech_capacity_expansion_limit_ub:
   expression: tech_capacity_expansion <= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{tech\_capacity\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{<=}$$
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `tech_capacity_expansion_limit`
 
@@ -2510,7 +2568,7 @@ GlobalConstraint_tech_capacity_expansion_limit_lb:
   expression: tech_capacity_expansion >= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{tech\_capacity\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{>=}$$
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `tech_capacity_expansion_limit`
 
@@ -2524,7 +2582,7 @@ GlobalConstraint_tech_capacity_expansion_limit_eq:
   expression: tech_capacity_expansion == GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{tech\_capacity\_expansion\_limit} \wedge \mathrm{sense}_{o} = \text{==}$$
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 
 ### `Bus-nodal_balance`
 

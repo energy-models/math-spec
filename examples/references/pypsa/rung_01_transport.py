@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 7 of `examples/pypsa.yaml` — unit commitment.
+"""Reference for rung 1 of `examples/pypsa.yaml` — transport.
 
-    uv run --script examples/references/pypsa/rung7_commitment.py
+    uv run --script examples/references/pypsa/rung_01_transport.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,46 +21,26 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung7_commitment'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_01_transport'
 
 
 def build() -> pypsa.Network:
-    """Rung 7's commitment: a unit that pays to start, to stop, and to idle.
+    """Rung 1's transport: the spine as it stands, plus a must-run its schedule pins.
 
-    The base unit may not run below forty percent, was already on with two
-    snapshots of its minimum up time left to serve, pays for each start, and
-    ramps against its previous status — so the swing between it and the
-    peaker is a schedule, not a dispatch.
+    Coal in the north is cheap and the wire loses a tenth on the way south, so
+    the south's load splits between imports, a small must-run pinned by its
+    given schedule, and its own gas at the link's rating.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'base',
-        bus='grid',
-        committable=True,
-        p_nom=50.0,
-        marginal_cost=10.0,
-        p_min_pu=0.4,
-        min_up_time=3,
-        min_down_time=2,
-        up_time_before=1,
-        ramp_limit_up=0.5,
-        ramp_limit_down=0.5,
-        ramp_limit_start_up=0.6,
-        ramp_limit_shut_down=0.6,
-        start_up_cost=100.0,
-        shut_down_cost=50.0,
-        stand_by_cost=5.0,
-    )
-    n.add('Generator', 'peaker', bus='grid', p_nom=100.0, marginal_cost=80.0)
-    n.add('Load', 'town', bus='grid', p_set=[25.0, 45.0, 45.0, 10.0])
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

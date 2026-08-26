@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 2 of `examples/pypsa.yaml` — storage units and stores.
+"""Reference for rung 5 of `examples/pypsa.yaml` — a CO2 cap priced through the carrier map.
 
-    uv run --script examples/references/pypsa/rung2_storage.py
+    uv run --script examples/references/pypsa/rung_05_global_constraints.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,62 +21,26 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung2_storage'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_05_global_constraints'
 
 
 def build() -> pypsa.Network:
-    """Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
+    """Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
 
-    The generator is cheap for two snapshots and dear for two, so the battery
-    buys low and sells high and its horizon closes on itself; the reservoir
-    opens on a given charge and spills the inflow it cannot hold; the cavern
-    drains from its initial fill.
+    Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
+    run here; the cap decides the mix, and its shadow price is the carbon
+    price.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add('Generator', 'gas', bus='grid', p_nom=80.0, marginal_cost=[10.0, 10.0, 60.0, 60.0])
-    n.add('Load', 'town', bus='grid', p_set=30.0)
-    n.add(
-        'StorageUnit',
-        'battery',
-        bus='grid',
-        p_nom=20.0,
-        max_hours=4.0,
-        efficiency_store=0.95,
-        efficiency_dispatch=0.9,
-        standing_loss=0.01,
-        cyclic_state_of_charge=True,
-        marginal_cost=0.5,
-        p_set=[0.0, float('nan'), float('nan'), float('nan')],
-    )
-    n.add(
-        'StorageUnit',
-        'reservoir',
-        bus='grid',
-        p_nom=10.0,
-        max_hours=2.0,
-        inflow=[12.0, 12.0, 12.0, 12.0],
-        spill_cost=2.0,
-        state_of_charge_initial=5.0,
-        marginal_cost_storage=0.1,
-        state_of_charge_set=[float('nan'), float('nan'), float('nan'), 10.0],
-    )
-    n.add(
-        'Store',
-        'cavern',
-        bus='grid',
-        e_nom=40.0,
-        e_initial=25.0,
-        standing_loss=0.005,
-        marginal_cost=0.2,
-        e_set=[float('nan'), float('nan'), float('nan'), 20.0],
-    )
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

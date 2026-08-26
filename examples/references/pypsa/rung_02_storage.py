@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 9 of `examples/pypsa.yaml` — a multi-link delivering at two ports.
+"""Reference for rung 2 of `examples/pypsa.yaml` — storage units and stores.
 
-    uv run --script examples/references/pypsa/rung9_multilink.py
+    uv run --script examples/references/pypsa/rung_02_storage.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,39 +21,27 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung9_multilink'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_02_storage'
 
 
 def build() -> pypsa.Network:
-    """Rung 9's multi-link: one gas flow delivering power and heat at two ports.
+    """Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
 
-    The CHP link withdraws gas at its first bus and injects at the other two
-    by its two efficiencies; the heat bus has no other supply, so the link
-    runs and the power bus tops up from imports.
+    The generator is cheap for two snapshots and dear for two, so the battery
+    buys low and sells high and its horizon closes on itself; the reservoir
+    opens on a given charge and spills the inflow it cannot hold; the cavern
+    drains from its initial fill.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', ['gas', 'power', 'heat'])
-    n.add('Generator', 'well', bus='gas', p_nom=100.0, marginal_cost=5.0)
-    n.add(
-        'Link',
-        'chp',
-        bus0='gas',
-        bus1='power',
-        bus2='heat',
-        efficiency=0.4,
-        efficiency2=0.45,
-        p_nom=60.0,
-        marginal_cost=1.0,
-    )
-    n.add('Generator', 'grid_import', bus='power', p_nom=50.0, marginal_cost=60.0)
-    n.add('Load', 'homes', bus='power', p_set=20.0)
-    n.add('Load', 'district', bus='heat', p_set=18.0)
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

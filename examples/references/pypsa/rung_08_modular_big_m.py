@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 5 of `examples/pypsa.yaml` — a CO2 cap priced through the carrier map.
+"""Reference for rung 8 of `examples/pypsa.yaml` — modular builds and big M.
 
-    uv run --script examples/references/pypsa/rung5_global_constraints.py
+    uv run --script examples/references/pypsa/rung_08_modular_big_m.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,39 +21,27 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung5_global_constraints'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_08_modular_big_m'
 
 
 def build() -> pypsa.Network:
-    """Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
+    """Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
 
-    Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
-    run here; the cap decides the mix, and its shadow price is the carbon
-    price.
+    The block plant is bought twenty-five megawatts at a time and gated by a
+    status, so its bounds are one module's share; the flexible plant is
+    extendable and committable with ramps, which is the pairing PyPSA's big-M
+    rows linearize.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Carrier', 'coal', co2_emissions=0.9)
-    n.add('Carrier', 'gas', co2_emissions=0.4)
-    n.add('Carrier', 'wind', co2_emissions=0.0)
-    n.add('Bus', 'grid')
-    n.add('Generator', 'coal', bus='grid', carrier='coal', p_nom=60.0, marginal_cost=10.0, efficiency=0.35)
-    n.add('Generator', 'gas', bus='grid', carrier='gas', p_nom=60.0, marginal_cost=25.0, efficiency=0.5)
-    n.add('Generator', 'wind', bus='grid', carrier='wind', p_nom=60.0, marginal_cost=40.0)
-    n.add('Load', 'town', bus='grid', p_set=50.0)
-    n.add(
-        'GlobalConstraint',
-        'co2_cap',
-        type='primary_energy',
-        carrier_attribute='co2_emissions',
-        sense='<=',
-        constant=150.0,
-    )
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

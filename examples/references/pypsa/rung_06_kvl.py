@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 3 of `examples/pypsa.yaml` — capacity expansion.
+"""Reference for rung 6 of `examples/pypsa.yaml` — passive lines and the voltage law.
 
-    uv run --script examples/references/pypsa/rung3_expansion.py
+    uv run --script examples/references/pypsa/rung_06_kvl.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -21,87 +21,26 @@ numbers are from. Nothing here imports math_spec.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pypsa
 
-RUNG = 'rung3_expansion'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import instances
+
+RUNG = 'rung_06_kvl'
 
 
 def build() -> pypsa.Network:
-    """Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
+    """Rung 6's voltage law: three buses in a triangle of lines.
 
-    Wind is free to run but costs capacity, its availability varies, and its
-    build is floored and capped; gas is fixed, dear, and budgeted in energy
-    over the horizon, so the optimum has to buy some wind — at least the
-    energy floor it also carries. The cable to the island is the extendable
-    link, and the pump and tank are the extendable storage.
+    Two generators and one load; with a cycle in the graph the flows split by
+    impedance rather than by cost, which is what the KVL row enforces; one
+    line is extendable, so its rating is a decision.
     """
-    n = pypsa.Network()
-    n.set_snapshots(range(4))
-    n.add('Bus', 'grid')
-    n.add(
-        'Generator',
-        'wind',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=50.0,
-        p_nom_min=5.0,
-        p_nom_max=80.0,
-        p_max_pu=[0.3, 0.8, 0.5, 0.9],
-        marginal_cost=0.0,
-        e_sum_min=40.0,
-    )
-    n.add('Generator', 'gas', bus='grid', p_nom=60.0, marginal_cost=40.0, e_sum_max=70.0)
-    n.add(
-        'StorageUnit',
-        'pump',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=15.0,
-        p_nom_max=30.0,
-        max_hours=4.0,
-        efficiency_store=0.9,
-        efficiency_dispatch=0.9,
-        cyclic_state_of_charge=True,
-        p_nom_set=20.0,
-    )
-    n.add(
-        'Store',
-        'tank',
-        bus='grid',
-        e_nom_extendable=True,
-        capital_cost=2.0,
-        e_nom_max=80.0,
-        e_cyclic=True,
-        e_nom_set=50.0,
-    )
-    n.add(
-        'Generator',
-        'solar',
-        bus='grid',
-        p_nom_extendable=True,
-        capital_cost=60.0,
-        p_max_pu=[0.5, 0.6, 0.4, 0.2],
-        p_nom_max=40.0,
-        p_nom_set=15.0,
-        marginal_cost=0.0,
-    )
-    n.add('Load', 'town', bus='grid', p_set=40.0)
-    n.add('Bus', 'island')
-    n.add('Load', 'island_load', bus='island', p_set=10.0)
-    n.add(
-        'Link',
-        'cable',
-        bus0='grid',
-        bus1='island',
-        p_nom_extendable=True,
-        capital_cost=20.0,
-        p_nom_max=30.0,
-        efficiency=0.95,
-        p_nom_set=25.0,
-    )
-    return n
+    return instances.build(RUNG)
 
 
 def record(n: pypsa.Network) -> dict[str, object]:

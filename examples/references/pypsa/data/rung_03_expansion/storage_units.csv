@@ -1,0 +1,2 @@
+name,bus,p_nom_extendable,capital_cost,p_nom_max,max_hours,efficiency_store,efficiency_dispatch,cyclic_state_of_charge,p_nom_set
+pump,north,True,15.0,30.0,4.0,0.9,0.9,True,20.0
