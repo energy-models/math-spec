@@ -22,12 +22,11 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 
 A row is **done** and links once the file states it as the one block PyPSA
 builds — on this branch, as it stands; a fix still on its way stays
-not-done, its PR or issue in the note. Any other word is the catch:
-**split** the same rows under several `where:` blocks — the feasible
-region and the optimum are PyPSA's own, held by the gates; only the
-block-for-block shape is missing · **not** a PyPSA workaround not
-reproduced · **flag** only under an `n.optimize()` keyword · **scope**
-multi-period or stochastic · **open** not stateable yet. Under each rung's table sits its
+not-done, its PR or issue in the note. Three words say the distance:
+**split** — the same feasible region and optimum under a different
+statement: several `where:` blocks, or a bookkeeping difference the note
+names · **open** — not stated yet · **out** — never stated, deliberately:
+emitted only under the keyword, scope or version the note names. Under each rung's table sits its
 reference network, solved out of band by the pinned scripts beside it, and
 `parity.py` holds both lanes to one objective, one row and column count
 under every PyPSA name, and one set of bus prices.
@@ -92,10 +91,10 @@ snapshot,objective,stores,generators
 | [`Link-fix-p-lower`](#link-fix-p-lower)             | done   |                                                            |
 | [`Link-fix-p-upper`](#link-fix-p-upper)             | done   |                                                            |
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
-| `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here — no fixture triggers the split, so the row-for-row dual carry-over is unproven |
+| `Bus-meshed-*-nodal_balance`                        | split  | a linopy-speed split of the one balance row here — no fixture triggers it yet, so the row-for-row carry-over is unproven (#123) |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
 | [`marginal_cost_quadratic`](pypsa_quadratic.md)     | done   | rung 10, a file of its own                                 |
-| `objective_constant`                                | not    | compare objectives net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested; a constant moves no dual |
+| `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested (#123) |
 
 <!-- reference:rung_01_transport:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7182.222222222223`, 45 rows — recorded by `examples/references/pypsa/rung_01_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
@@ -378,8 +377,8 @@ each type is three blocks by sense.
 | [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) | split | a block per sense; membership from PyPSA's carrier string is prep |
 | [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | split | a block per sense                     |
 | [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | split | a block per sense                             |
-| `Bus-nom_min/max_{carrier}`           | not         | deprecated in PyPSA                               |
-| `Carrier-growth_limit`                | scope       | multi-period                                      |
+| `Bus-nom_min/max_{carrier}`           | out         | deprecated in PyPSA                               |
+| `Carrier-growth_limit`                | out         | multi-period                                      |
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
@@ -534,7 +533,7 @@ Line,bc,s_set,0,16.0
 | [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(within=min_up_time)`                    |
 | [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal, not a parameter |
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
-| `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
+| `{c}-com-p-before/-current/-partly-*`        | out    | only under `linearized_unit_commitment`                       |
 
 <!-- reference:rung_07_commitment:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7775.0`, 116 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name (`parity.py`).
@@ -583,7 +582,7 @@ Load,swing7,p_set,3,10.0
 | --------------------------------------------- | ------ | ---------------------------------------------------------- |
 | [`{c}-n_mod`, `{c}-p_nom_modularity`](#generator-p_nom_modularity) | done |                                       |
 | [`{c}-*-p_nom-variable-upper`](#generator-status-p_nom-variable-upper) | done | a modular unit is on only where a module is built |
-| `{c}-*-p-fixed-upper`, modular                | not    | a fixed modular build is floored in data prep, see X1; its rows are the ordinary fix rows — no fixture fixes a modular build, so the floor's dual equality is unproven |
+| `{c}-*-p-fixed-upper`, modular                | split  | a fixed modular build is floored in data prep, see X1; its rows are the ordinary fix rows — no fixture fixes one yet, so the floor is unproven (#123) |
 | [`{c}-com-mod-p-lower/upper`](#generator-com-mod-p-lower) | done | one module's share, times the status          |
 | [`{c}-com-ext-p-*` (big-M)](#generator-com-ext-p-upper-cap) | done | a cap row beside a big-M row; `M` is the build cap at full availability, data prep |
 | [`{c}-com-ext-p-lower-nonneg`](#generator-com-ext-p-lower-nonneg) | done | `(p_min_pu >= 0).all()` is prep        |
@@ -696,8 +695,8 @@ district,heat,18.0
 
 | PyPSA                          | status | note                                 |
 | ------------------------------ | ------ | ------------------------------------ |
-| `{c}-loss*`                    | flag   | `transmission_losses`                |
-| `CVaR-*`                       | scope  | stochastic                           |
+| `{c}-loss*`                    | out    | only under `transmission_losses`     |
+| `CVaR-*`                       | out    | stochastic                           |
 
 ## Refusals
 
@@ -710,8 +709,8 @@ data prep, or harness — is one open question.
 | `ValueError`, `constraints.py:1449`          | fixed modular `p_nom` not a multiple of `p_nom_mod` | builds a smaller plant | X1   |
 | `ValueError`, `constraints.py:1192`          | load on a bus with nothing attached               | row not built, unserved | X2   |
 | `ValueError`, `optimize.py:430`              | no component carries a cost                       | feasibility problem     | X3   |
-| `NotImplementedError`, `global_constraints.py:339` | depletion with period weightings `!= 1`     | scope                   |      |
-| `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | flag                    |      |
+| `NotImplementedError`, `global_constraints.py:339` | depletion with period weightings `!= 1`     | out                     |      |
+| `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | out                     |      |
 
 Duals and solutions are read back by the harness on the lpspec side:
 `marginal_price` is the balance dual over `w_objective`, `mu_upper` the
