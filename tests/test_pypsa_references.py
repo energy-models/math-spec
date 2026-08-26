@@ -30,6 +30,7 @@ from tools.gallery import DECLARED, RECORDED, REFERENCES, _stands_for
 
 RUNGS = sorted(path.name for path in (REFERENCES / 'data').iterdir() if path.is_dir() and path.name != 'base')
 SCRIPT = REFERENCES / 'reference.py'
+PARITY_WORKFLOW = ROOT / '.github' / 'workflows' / 'pypsa-parity.yml'
 PAGE_TEXTS = [(gallery.PAGES / page).read_text() for page in DECLARED]
 
 MODELS = [load_model(path) for path in DECLARED.values()]
@@ -117,6 +118,18 @@ def test_the_two_linopy_models_are_one_or_the_blocker_is_named(stem: str):
         f'the two lanes build different models: {structural.get("mismatch")} — the parity runner prints each label'
     )
     assert structural.get('error') or 'equal' in structural, 'a structural stamp carries a verdict or its blocker'
+
+
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_the_stamps_are_from_the_pinned_lpspec(stem: str):
+    """A blocker is a claim about one lpspec commit; the workflow pins that commit, and the stamp names it."""
+    pinned = re.search(r'ref: ([0-9a-f]{40})', PARITY_WORKFLOW.read_text())
+    assert pinned is not None, 'pypsa-parity.yml pins the certifying lpspec by SHA'
+    certified = re.search(r'\+g([0-9a-f]{7,})', RECORDED[stem]['parity']['lpspec'])
+    assert certified is not None, 'the lpspec version stamp carries the commit it was built from'
+    assert pinned.group(1).startswith(certified.group(1)), (
+        f'stamped at lpspec {certified.group(1)}, workflow pins {pinned.group(1)[:9]} — re-run the runner at the pin'
+    )
 
 
 @pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))

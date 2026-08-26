@@ -220,7 +220,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 7182.222222222221,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -501,7 +501,7 @@
         "storage_unit": 2,
         "store": 1
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 4456.659315422355,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -850,7 +850,7 @@
         "storage_unit": 2,
         "store": 2
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 7633.908502024291,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -1145,7 +1145,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 8785.0,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -1459,8 +1459,8 @@
         "storage_unit": 1,
         "store": 1
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
-      "lpspec_objective": 10282.833333333334,
+      "lpspec": "0.0.1.dev2+ge30be475d",
+      "lpspec_objective": 10282.833333333332,
       "matches": true,
       "model": "examples/pypsa.yaml"
     },
@@ -1773,7 +1773,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 23962.0,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -2030,7 +2030,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 7775.0,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -2293,7 +2293,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 19712.5,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -2573,7 +2573,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 11700.0,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -2662,7 +2662,7 @@
         "load": 4,
         "snapshot": 4
       },
-      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
+      "lpspec": "0.0.1.dev2+ge30be475d",
       "lpspec_objective": 12587.437500000098,
       "matches": true,
       "model": "examples/pypsa_quadratic.yaml"
