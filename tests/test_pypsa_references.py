@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import math
 import re
-from typing import TYPE_CHECKING
 
 import pytest
 
@@ -29,10 +28,8 @@ from tools import gallery
 from tools._page import ROOT
 from tools.gallery import DECLARED, RECORDED, REFERENCES, _stands_for
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-SCRIPTS = sorted(REFERENCES.glob('rung_*.py'))
+RUNGS = sorted(path.name for path in (REFERENCES / 'data').iterdir() if path.is_dir() and path.name != 'base')
+SCRIPT = REFERENCES / 'reference.py'
 PAGE_TEXTS = [(gallery.PAGES / page).read_text() for page in DECLARED]
 
 MODELS = [load_model(path) for path in DECLARED.values()]
@@ -53,7 +50,7 @@ GC_RECORDED: dict[str, dict] = {
 }
 
 
-@pytest.mark.parametrize('key', ['spine', *(script.stem for script in SCRIPTS)])
+@pytest.mark.parametrize('key', ['spine', *RUNGS])
 def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(key: str):
     carrying = sum(f'<!-- reference:{key}:begin -->' in text for text in PAGE_TEXTS)
     assert carrying == 1, (
@@ -61,24 +58,22 @@ def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(
     )
 
 
-@pytest.mark.parametrize('script', SCRIPTS, ids=[script.stem for script in SCRIPTS])
-def test_every_rung_is_the_spine_plus_its_own_folder(script: Path):
-    """`instances.build` reads `data/base/` plus `data/<rung>/`, so a rung without a folder adds nothing."""
-    folder = REFERENCES / 'data' / script.stem
-    assert any(folder.glob('*.csv')), 'no addition tables — the rung folder is where its construct lives, as data'
+@pytest.mark.parametrize('rung', RUNGS)
+def test_every_rung_folder_adds_tables(rung: str):
+    assert any((REFERENCES / 'data' / rung).glob('*.csv')), 'a rung is its folder of additions'
 
 
-def test_every_reference_script_has_a_recorded_solve():
-    assert {script.stem for script in SCRIPTS} == set(RECORDED), (
-        'a reference script without a record, or a record without a script — run the scripts, or delete the orphan'
+def test_every_rung_folder_has_a_recorded_solve():
+    assert set(RUNGS) == set(RECORDED), (
+        'a rung folder without a record, or a record without a folder — run reference.py, or delete the orphan'
     )
 
 
-@pytest.mark.parametrize('script', SCRIPTS, ids=[script.stem for script in SCRIPTS])
-def test_the_record_is_from_the_pinned_pypsa(script: Path):
-    pinned = re.search(r'"pypsa==([^"]+)"', script.read_text())
-    assert pinned is not None, 'a reference script pins pypsa in its PEP 723 block'
-    assert RECORDED[script.stem]['pypsa'] == pinned.group(1), (
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_the_record_is_from_the_pinned_pypsa(stem: str):
+    pinned = re.search(r'"pypsa==([^"]+)"', SCRIPT.read_text())
+    assert pinned is not None, 'reference.py pins pypsa in its PEP 723 block'
+    assert RECORDED[stem]['pypsa'] == pinned.group(1), (
         'the recorded solve is from another pypsa than the script pins — re-run it in the pinned environment'
     )
 

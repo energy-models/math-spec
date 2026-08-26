@@ -7,17 +7,18 @@
 `data/base/` is rung 1's transport spine, the network every rung starts from;
 `data/<rung>/` holds only what that rung adds — its components as wide CSVs in
 PyPSA's vocabulary and a `timeseries.csv` for what varies, which may also put
-a schedule on a base component.
+a schedule on a base component. The folders are the rungs: `reference.py`
+runs every one.
 
 Folders combine by appending rows, table by table — never by replacing a
 table and never by a column-wise join. Each row keeps its own file's columns
 and becomes one ``n.add``; a blank cell is an attribute the row does not set,
 and PyPSA supplies its default, exactly as for an unpassed keyword.
 
-The rung scripts beside this file run out of band — PyPSA is not a dependency
-of this project, and each pins the versions its recorded numbers are from.
-They share `stamp`, which solves a network through PyPSA's own linopy model
-and writes what it saw into `references.json`. The engines' side of that
+`reference.py` beside this file runs out of band — PyPSA is not a dependency
+of this project, and the script pins the versions the recorded numbers are
+from. It calls `stamp`, which solves a network through PyPSA's own linopy
+model and writes what it saw into `references.json`. The engines' side of that
 file — the parity and model-for-model stamps — is written by lpspec's
 differential runner (`differential/pypsa/parity.py` there), run against this
 checkout whenever the corpus changes; nothing in this repository builds or
@@ -85,6 +86,11 @@ def _parsed(attrs, column: str, cell: str) -> object:
         return float(cell)
     except ValueError:
         return cell
+
+
+def rungs() -> list[str]:
+    """Every rung, in ladder order — the folders beside the spine."""
+    return sorted(path.name for path in DATA.iterdir() if path.is_dir() and path.name != 'base')
 
 
 def build(rung: str) -> pypsa.Network:

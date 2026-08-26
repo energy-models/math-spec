@@ -13,7 +13,6 @@ math below it are written from here.
 
 from __future__ import annotations
 
-import ast
 import json
 import re
 import textwrap
@@ -118,17 +117,6 @@ def declared_block(path: Path) -> str:
     return '\n\n'.join(parts)
 
 
-def _story(script: Path) -> str:
-    """The fixture's narrative — ``build()``'s docstring, as prose."""
-    tree = ast.parse(script.read_text())
-    build = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'build')
-    story = ast.get_docstring(build)
-    if story is None:
-        msg = f"{script.name}: build() carries the fixture's story in its docstring, and the page shows it"
-        raise ValueError(msg)
-    return story
-
-
 def _folder(name: str) -> str:
     """Every table in ``data/<name>/``, verbatim — the file is the artifact under review."""
     return '\n\n'.join(
@@ -151,23 +139,13 @@ def reference_block(stem: str) -> str:
     )
     if agreement and 'equal' in structural and not structural.get('mismatch'):
         splits = f' up to {len(structural["region"])} documented splits' if structural.get('region') else ''
-        agreement += (
-            f' **Proven model-for-model**: `lpspec.linopy` builds the very linopy model PyPSA builds, label for'
-            f' label{splits}.'
-        )
-    elif agreement and structural.get('error'):
-        agreement += (
-            ' The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.'
-        )
+        agreement += f' **Model-for-model**: the two lanes build one linopy model, label for label{splits}.'
     return (
-        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network through its own linopy model "
-        f'at objective `{recorded["objective"]}`, {rows} rows — recorded by '
-        f'`examples/references/pypsa/{stem}.py`.{agreement}\n'
+        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network at objective "
+        f'`{recorded["objective"]}`, {rows} rows.{agreement}\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>What this rung adds, as data</summary>\n'
-        '\n'
-        f'{_story(REFERENCES / f"{stem}.py")}\n'
         '\n'
         f'{_folder(stem)}\n'
         '\n'
@@ -178,11 +156,9 @@ def reference_block(stem: str) -> str:
 def spine_block() -> str:
     """The shared spine, shown once, under the one sentence of how folders combine."""
     return (
-        "> Every rung's network is the spine below plus the rung's own folder of additions, read by"
-        ' `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row'
-        " keeps its own file's columns and becomes one `n.add`. A blank cell is an attribute the row does not"
-        " set — PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a"
-        ' spine component.\n'
+        "> A rung's network is `data/base/` plus `data/<rung>/`, rows appended table by table; a blank cell is"
+        " PyPSA's default. A banner states PyPSA's objective, lpspec's parity where its gate agrees, and the"
+        ' model-for-model line where `lpspec.linopy` builds the rung.\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>The shared spine, <code>data/base/</code></summary>\n'

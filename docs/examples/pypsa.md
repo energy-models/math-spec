@@ -38,7 +38,7 @@ whose file the linopy lane cannot build yet says so, its blocker stamped in
 hardens.
 
 <!-- reference:spine:begin -->
-> Every rung's network is the spine below plus the rung's own folder of additions, read by `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`. A blank cell is an attribute the row does not set — PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.
+> A rung's network is `data/base/` plus `data/<rung>/`, rows appended table by table; a blank cell is PyPSA's default. A banner states PyPSA's objective, lpspec's parity where its gate agrees, and the model-for-model line where `lpspec.linopy` builds the rung.
 
 <details markdown="1">
 <summary>The shared spine, <code>data/base/</code></summary>
@@ -103,16 +103,10 @@ snapshot,objective,stores,generators
 | `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested (#123) |
 
 <!-- reference:rung_01_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7182.222222222223`, 45 rows — recorded by `examples/references/pypsa/rung_01_transport.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7182.222222222223`, 45 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 1's transport: the spine as it stands, plus a must-run its schedule pins.
-
-Coal in the north is cheap and the wire loses a tenth on the way south, so
-the south's load splits between imports, a small must-run pinned by its
-given schedule, and its own gas at the link's rating.
 
 `data/rung_01_transport/generators.csv`
 
@@ -148,17 +142,10 @@ Link,wire,p_set,0,10.0
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung_02_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `4456.659315422356`, 103 rows — recorded by `examples/references/pypsa/rung_02_storage.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `4456.659315422356`, 103 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
-
-The generator is cheap for two snapshots and dear for two, so the battery
-buys low and sells high and its horizon closes on itself; the reservoir
-opens on a given charge and spills the inflow it cannot hold; the cavern
-drains from its initial fill.
 
 `data/rung_02_storage/storage_units.csv`
 
@@ -207,18 +194,10 @@ Store,cavern,e_set,3,20.0
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7633.908502024292`, 184 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7633.908502024292`, 184 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
-
-Wind is free to run but costs capacity, its availability varies, and its
-build is floored and capped; gas is fixed, dear, and budgeted in energy
-over the horizon, so the optimum has to buy some wind — at least the
-energy floor it also carries. The cable to the island is the extendable
-link, and the pump and tank are the extendable storage.
 
 `data/rung_03_expansion/buses.csv`
 
@@ -315,15 +294,10 @@ Generator,solar,p_max_pu,3,0.2
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | split | fix, ext and first-snapshot blocks, fused by #70; com is rung 7's, big-M rung 8's |
 
 <!-- reference:rung_04_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8785.0`, 64 rows — recorded by `examples/references/pypsa/rung_04_ramps.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `8785.0`, 64 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
-
-Coal may move a fifth of its capacity per snapshot, so the swings belong
-to the peaker however dear it is; the tie line east ramps too.
 
 `data/rung_04_ramps/buses.csv`
 
@@ -388,16 +362,10 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10282.833333333334`, 102 rows — recorded by `examples/references/pypsa/rung_05_global_constraints.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `10282.833333333334`, 102 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
-
-Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
-run here; the cap decides the mix, and its shadow price is the carbon
-price.
 
 `data/rung_05_global_constraints/carriers.csv`
 
@@ -461,16 +429,10 @@ tank5,north,coalc,40.0,25.0
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung_06_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `23962.0`, 123 rows — recorded by `examples/references/pypsa/rung_06_kvl.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `23962.0`, 123 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 6's voltage law: three buses in a triangle of lines.
-
-Two generators and one load; with a cycle in the graph the flows split by
-impedance rather than by cost, which is what the KVL row enforces; one
-line is extendable, so its rating is a decision.
 
 `data/rung_06_kvl/buses.csv`
 
@@ -542,17 +504,10 @@ Line,bc,s_set,0,16.0
 | `{c}-com-p-before/-current/-partly-*`        | out    | only under `linearized_unit_commitment`                       |
 
 <!-- reference:rung_07_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7775.0`, 116 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7775.0`, 116 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 7's commitment: a unit that pays to start, to stop, and to idle.
-
-The base unit may not run below forty percent, was already on with two
-snapshots of its minimum up time left to serve, pays for each start, and
-ramps against its previous status — so the swing between it and the
-peaker is a schedule, not a dispatch.
 
 `data/rung_07_commitment/generators.csv`
 
@@ -595,17 +550,10 @@ Load,swing7,p_set,3,10.0
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | split | run and start rows up, run and shut rows down, each with an initial block #70 fuses |
 
 <!-- reference:rung_08_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `19712.5`, 155 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `19712.5`, 155 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
-
-The block plant is bought twenty-five megawatts at a time and gated by a
-status, so its bounds are one module's share; the flexible plant is
-extendable and committable with ramps, which is the pairing PyPSA's big-M
-rows linearize.
 
 `data/rung_08_modular_big_m/buses.csv`
 
@@ -651,16 +599,10 @@ Load,mill_load,p_set,3,60.0
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung_09_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `11700.0`, 68 rows — recorded by `examples/references/pypsa/rung_09_multilink.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `11700.0`, 68 rows. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
-
-Rung 9's multi-link: one gas flow delivering power and heat at two ports.
-
-The CHP link withdraws gas at its first bus and injects at the other two
-by its two efficiencies; the heat bus has no other supply, so the link
-runs and the power bus tops up from imports.
 
 `data/rung_09_multilink/buses.csv`
 
