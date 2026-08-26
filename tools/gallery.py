@@ -13,13 +13,16 @@ math below it are written from here.
 
 from __future__ import annotations
 
+import re
+import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
+from math_spec import load_model
 from math_spec.typesetting import to_markdown
 from tools._page import ROOT, splice, without_header
 from tools._page import main as page_main
-from tools.spec_math import OPERATORS, PROBES, rendered_probe
+from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -31,6 +34,15 @@ BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 #: fragments is what the reference pages already are.
 MODELS = {
     'dispatch.md': ROOT / 'examples' / 'dispatch.yaml',
+}
+
+#: Page -> (the model, how it prints), shown a **declaration** at a time: the
+#: YAML of one constraint, then the equation it renders. For a model that
+#: states someone else's — PyPSA's — the question a reader brings is "where is
+#: *this* row", so each block is headed by the name the other side gives it,
+#: read from the declaration's own description.
+DECLARED = {
+    'pypsa.md': (ROOT / 'examples' / 'pypsa.yaml', ROOT / 'examples' / 'symbols' / 'pypsa.yaml'),
 }
 
 
@@ -53,8 +65,65 @@ def probe_block() -> str:
     return '\n\n'.join(parts)
 
 
+def declaration(text: str, section: str, name: str | None = None) -> str:
+    """One declaration as written: ``section:`` itself, or ``name:`` under it."""
+    lines = text.splitlines()
+    i = lines.index(f'{section}:')
+    if name is not None:
+        i = next(k for k in range(i + 1, len(lines)) if lines[k].startswith(f'  {name}:'))
+    deeper = '    ' if name is not None else '  '
+    j = i + 1
+    while j < len(lines) and (lines[j].startswith(deeper) or not lines[j].strip()):
+        j += 1
+    return textwrap.dedent('\n'.join(lines[i:j])).rstrip()
+
+
+def _equation(subject: str, name: str) -> str:
+    """The display equation the typesetter printed for constraint *name*."""
+    body = subject[subject.index(f'**`{name}`**') :]
+    return next(line for line in body.splitlines() if line.startswith('$$'))
+
+
+def _stands_for(name: str, description: str | None) -> str:
+    """The other side's name for a declaration — the backticked opening of its description."""
+    found = re.match(r'`([^`]+)`', description or '')
+    if found is None:
+        msg = (
+            f'{name}: a declaration on a declared page opens its description with the name it stands for, in backticks'
+        )
+        raise ValueError(msg)
+    return found.group(1)
+
+
+def declared_block(path: Path, symbols: Path) -> str:
+    """The legend, the objective, then every constraint as YAML beside its equation."""
+    text = without_header(path)
+    page = to_markdown(path, symbols=symbols, numbered=False)
+    legend = page[: page.index('#### Objective')].strip()
+    objective = _section(page, 'Objective').strip()
+    subject = _section(page, 'Subject to')
+    domains = _section(page, 'Variable domains').strip()
+    parts = [
+        legend,
+        f'### Objective\n\n```yaml\n{declaration(text, "objective")}\n```\n\n{objective.removeprefix("#### Objective").strip()}',
+    ]
+    for name, block in load_model(path).constraints.items():
+        parts.append(
+            f'### `{_stands_for(name, block.description)}`\n\n'
+            f'`{name}`\n\n'
+            f'```yaml\n{declaration(text, "constraints", name)}\n```\n\n'
+            f'{_equation(subject, name)}'
+        )
+    parts.append(domains)
+    return '\n\n'.join(parts)
+
+
 def block(page: str) -> str:
-    return probe_block() if page == 'operators.md' else model_block(MODELS[page])
+    if page == 'operators.md':
+        return probe_block()
+    if page in DECLARED:
+        return declared_block(*DECLARED[page])
+    return model_block(MODELS[page])
 
 
 def rendered(page: str, text: str) -> str:
@@ -62,7 +131,7 @@ def rendered(page: str, text: str) -> str:
 
 
 def pages() -> list[str]:
-    return [*MODELS, 'operators.md']
+    return [*MODELS, *DECLARED, 'operators.md']
 
 
 def main(argv: list[str] | None = None) -> int:
