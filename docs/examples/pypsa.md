@@ -199,7 +199,7 @@ Store,cavern,e_set,3,20.0
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7754.515789473684`, 132 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7633.908502024292`, 184 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -233,10 +233,10 @@ h2
 `data/rung_03_expansion/generators.csv`
 
 ```csv
-name,bus,carrier,p_nom_extendable,capital_cost,p_nom_min,p_nom_max,marginal_cost,e_sum_min,p_nom_set,p_nom,e_sum_max
-wind,north,onwind,True,50.0,5.0,80.0,0.0,40.0,,,
-solar,north,solarpv,True,60.0,,40.0,0.0,,15.0,,
-diesel,island,,,,,,40.0,,,60.0,70.0
+name,bus,carrier,p_nom_extendable,capital_cost,p_nom_min,p_nom_max,marginal_cost,e_sum_min,p_nom_set,p_nom,e_sum_max,ramp_limit_up,ramp_limit_down
+wind,north,onwind,True,50.0,5.0,80.0,0.0,40.0,,,,0.4,0.4
+solar,north,solarpv,True,60.0,,40.0,0.0,,15.0,,,,
+diesel,island,,,,,,40.0,,,60.0,70.0,,
 ```
 
 `data/rung_03_expansion/global_constraints.csv`
@@ -256,8 +256,8 @@ cost_dc_exact,transmission_expansion_cost_limit,dc,==,500.0
 `data/rung_03_expansion/links.csv`
 
 ```csv
-name,bus0,bus1,carrier,length,p_nom_extendable,capital_cost,p_nom_max,efficiency,p_nom_set
-cable,north,island,dc,120.0,True,20.0,30.0,0.95,25.0
+name,bus0,bus1,carrier,length,p_nom_extendable,capital_cost,p_nom_max,efficiency,p_nom_set,ramp_limit_up,ramp_limit_down
+cable,north,island,dc,120.0,True,20.0,30.0,0.95,25.0,0.3,0.3
 ```
 
 `data/rung_03_expansion/loads.csv`
@@ -270,15 +270,17 @@ island_load,island,10.0
 `data/rung_03_expansion/storage_units.csv`
 
 ```csv
-name,bus,carrier,p_nom_extendable,capital_cost,p_nom_max,max_hours,efficiency_store,efficiency_dispatch,cyclic_state_of_charge,p_nom_set
-pump,north,phs,True,15.0,30.0,4.0,0.9,0.9,True,20.0
+name,bus,carrier,p_nom_extendable,capital_cost,p_nom_max,max_hours,efficiency_store,efficiency_dispatch,cyclic_state_of_charge,p_nom_set,p_nom,state_of_charge_initial
+pump,north,phs,True,15.0,30.0,4.0,0.9,0.9,True,20.0,,
+ice,island,,,,,2.0,,,,,8.0,6.0
 ```
 
 `data/rung_03_expansion/stores.csv`
 
 ```csv
-name,bus,carrier,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set
-tank,north,h2,True,2.0,80.0,True,50.0
+name,bus,carrier,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set,e_nom,e_initial
+tank,north,h2,True,2.0,80.0,True,50.0,,
+keg,island,,,,,,,15.0,5.0
 ```
 
 `data/rung_03_expansion/timeseries.csv`
@@ -532,7 +534,7 @@ Line,bc,s_set,0,16.0
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
 <!-- reference:rung_07_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7775.0`, 74 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7775.0`, 116 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -549,6 +551,7 @@ peaker is a schedule, not a dispatch.
 ```csv
 name,bus,committable,p_nom,marginal_cost,p_min_pu,min_up_time,min_down_time,up_time_before,ramp_limit_up,ramp_limit_down,ramp_limit_start_up,ramp_limit_shut_down,start_up_cost,shut_down_cost,stand_by_cost
 uc,north,True,50.0,5.0,0.4,3,2,1,0.5,0.5,0.6,0.6,100.0,50.0,5.0
+cold,south,True,30.0,60.0,0.3,2,1,0,0.5,0.5,,,80.0,,
 ```
 
 `data/rung_07_commitment/loads.csv`
@@ -584,7 +587,7 @@ Load,swing7,p_set,3,10.0
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down, each with its initial block |
 
 <!-- reference:rung_08_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `20767.5`, 129 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `19712.5`, 155 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -609,7 +612,7 @@ mill
 name,bus,p_nom_extendable,committable,p_nom_mod,p_nom_max,capital_cost,marginal_cost,p_min_pu,up_time_before,ramp_limit_up,ramp_limit_down,p_nom
 block,mill,True,True,25.0,100.0,30.0,20.0,0.2,0,,,
 flex,mill,True,True,,80.0,50.0,10.0,0.3,0,0.25,0.25,
-backstop,mill,,,,,,300.0,,,,,200.0
+sink,mill,True,True,,30.0,40.0,15.0,-0.2,0,,,
 ```
 
 `data/rung_08_modular_big_m/loads.csv`
@@ -755,7 +758,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{c}^{\mathrm{on}}$ | `Generator_stand_by_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one snapshot spent on |
 | $\mathrm{p}^{\mathrm{mod}}$ | `Generator_p_nom_mod` over $\mathcal{G}$ — the module size a build comes in whole numbers of; no value means the build is continuous |
 | $\mathrm{M}$ | `Generator_big_m` over $\mathcal{G}$ — a bound safely above any feasible output — the build cap at full availability, data prep |
-| $\mathrm{nonneg}$ | `Generator_p_min_pu_nonneg` (scalar) — true where no committable extendable generator's minimum-per-unit is negative — PyPSA's `(p_min_pu >= 0).all()`, data prep, one answer for the whole network |
+| $\mathrm{nonneg}$ | `Generator_p_min_pu_nonneg` over $\mathcal{G}$ — true where none of the generator's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep |
 | $\mathrm{ru}^{f}$ | `Link_ramp_limit_up` over $\mathcal{L}$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{rd}^{f}$ | `Link_ramp_limit_down` over $\mathcal{L}$ — most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
@@ -1659,7 +1662,7 @@ Generator_com_ext_p_lower_nonneg:
   expression: Generator_p >= 0
 ```
 
-$$p_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+$$p_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 
 ### `Generator-com-mod-p-lower`
 

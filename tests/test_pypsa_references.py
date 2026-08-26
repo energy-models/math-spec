@@ -24,6 +24,7 @@ import pytest
 
 from math_spec import load_model
 from tools import gallery
+from tools._page import ROOT
 from tools.gallery import DECLARED, RECORDED, REFERENCES, _stands_for
 
 if TYPE_CHECKING:
@@ -33,6 +34,10 @@ SCRIPTS = sorted(REFERENCES.glob('rung_*.py'))
 PAGE_TEXTS = [(gallery.PAGES / page).read_text() for page in DECLARED]
 
 MODELS = [load_model(path) for path in DECLARED.values()]
+#: Model (by the path parity stamps) -> the loaded model and the rungs that bind it.
+BINDINGS = {str(path.relative_to(ROOT)): (load_model(path), []) for path in DECLARED.values()}
+for _stem, _record in RECORDED.items():
+    BINDINGS[_record['parity']['model']][1].append(_stem)
 ROWS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.constraints.items()}
 COLUMNS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.variables.items()}
 #: The five GlobalConstraint formulas open with their *type* — PyPSA names
@@ -127,6 +132,61 @@ def test_pypsa_builds_no_row_the_files_do_not_declare():
 def test_every_declared_row_is_built_by_some_reference():
     unbuilt = ROWS_DECLARED - GC_TYPES - RECORDED_ROWS
     assert not unbuilt, f'no reference network builds these declared rows — extend a fixture: {sorted(unbuilt)}'
+
+
+def _blocks():
+    for rel, (model, stems) in BINDINGS.items():
+        for kind, blocks in (('built_rows', model.constraints), ('built_columns', model.variables)):
+            for name, block in blocks.items():
+                yield rel, kind, name, block, stems
+
+
+@pytest.mark.parametrize(
+    ('rel', 'kind', 'name', 'block', 'stems'),
+    list(_blocks()),
+    ids=[f'{rel}:{name}' for rel, _, name, _, _ in _blocks()],
+)
+def test_every_block_is_built_by_some_rung(rel, kind, name, block, stems):
+    """A declared block no fixture builds is a silent regime — the class #124 tracks."""
+    assert sum(RECORDED[stem]['parity'][kind][name] for stem in stems), (
+        f'no reference network builds {name} of {rel} — extend a fixture until its rows exist somewhere'
+    )
+
+
+@pytest.mark.parametrize(
+    ('rel', 'kind', 'name', 'block', 'stems'),
+    [entry for entry in _blocks() if entry[3].where],
+    ids=[f'{rel}:{name}' for rel, _, name, block, _ in _blocks() if block.where],
+)
+def test_every_masked_block_is_partially_masked_somewhere(rel, kind, name, block, stems):
+    """A `where:` no rung leaves half-true is untested as a mask — full or empty proves only all-or-nothing."""
+    partial = any(
+        0
+        < RECORDED[stem]['parity'][kind][name]
+        < math.prod(RECORDED[stem]['parity']['dims'][dim] for dim in block.foreach)
+        for stem in stems
+    )
+    assert partial, f'{name} of {rel} is always all-or-nothing — give some fixture a label its mask excludes'
+
+
+@pytest.mark.parametrize('rel', sorted(BINDINGS), ids=sorted(BINDINGS))
+def test_every_parameter_is_bound_nonempty_by_some_rung(rel):
+    """A parameter every rung leaves empty is data no gate has ever weighed."""
+    model, stems = BINDINGS[rel]
+    fed = set().union(*(RECORDED[stem]['parity']['bound_nonempty'] for stem in stems))
+    unfed = ({*model.parameters, *model.lookups} - fed) - {
+        name for name in model.parameters if name in model.dimensions
+    }
+    assert not unfed, f'no reference network feeds these: {sorted(unfed)}'
+
+
+def test_the_spine_weightings_are_generic():
+    """At weighting 1.0 a missing hours factor builds the identical matrix and passes every gate."""
+    header, *rows = (REFERENCES / 'data' / 'base' / 'snapshots.csv').read_text().strip().splitlines()
+    columns = list(zip(*(line.split(',')[1:] for line in rows), strict=True))
+    for name, values in zip(header.split(',')[1:], columns, strict=True):
+        assert len(set(values)) > 1, f'{name} weightings are constant — a swapped or dropped factor cannot show'
+        assert '1.0' not in values, f'{name} carries a 1.0 — the identity a missing factor hides behind'
 
 
 @pytest.mark.parametrize('row', sorted(row for row in RECORDED_ROWS if row.startswith('GlobalConstraint-')), ids=str)
