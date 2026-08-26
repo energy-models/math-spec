@@ -26,6 +26,22 @@ SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
 
 [[annotations]]
+path = ["examples/references/pypsa/references.json"]
+SPDX-FileCopyrightText = "math-spec contributors"
+SPDX-License-Identifier = "CC0-1.0"
+
+# The rung scripts and the spine are printed verbatim on the docs pages —
+# `tools/gallery.py` shows each as the artifact under review — so an in-file
+# header would render as license boilerplate on every rung.
+[[annotations]]
+path = [
+  "examples/references/pypsa/rung_*.py",
+  "examples/references/pypsa/spine.py",
+]
+SPDX-FileCopyrightText = "math-spec Contributors"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = ["pixi.lock"]
 SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "MIT"

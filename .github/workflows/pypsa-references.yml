@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# The PyPSA references: every rung's network, solved through PyPSA itself, lands
+# on the objective and row set recorded in examples/references/pypsa/references.json.
+# PyPSA is not a dependency of this project and nothing here builds or solves
+# the models the files state; this runs PyPSA as the oracle the rung scripts
+# pin, so a rung script edited without re-recording is red on the PR.
+name: PyPSA references
+
+on:
+  pull_request:
+    paths:
+      - examples/references/pypsa/**
+      - .github/workflows/pypsa-references.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypsa-references-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  references:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
+        with:
+          run-install: false
+      - name: every rung solves to its record
+        run: pixi exec -s uv uv run --script examples/references/pypsa/reference.py --check

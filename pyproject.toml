@@ -107,6 +107,10 @@ extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
 # script, where a summary line it has to fit in is the worse sentence.
 "tools/**/*.py" = ["T20", "D"] # a generator says what it wrote
 "tests/**/*.py" = ["D"]
+"examples/references/**/*.py" = [
+  "T20",
+  "D",
+] # an out-of-band script says what it stamped
 "tests/typesetting/golden/__main__.py" = [
   "T20",
   "D",
@@ -197,3 +201,6 @@ unparseable = "unparseable"
 # to `NAMEEs` — which is not a word either. The key is the token it objects to,
 # not the text on the page.
 NAM = "NAM"
+# `fom` is PyPSA's `fom_cost` — fixed operation and maintenance — quoted by name
+# in docs/about/pypsa.md, not a misspelling of "from".
+fom = "fom"

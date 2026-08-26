@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  The quadratic class of a plain `n.optimize()`: PyPSA's
+  `marginal_cost_quadratic`, stated on rung 1's transport surface in a file of
+  its own. One model cannot carry a quadratic objective beside commitment's
+  integer variables and keep a HiGHS lane — degree is the model's property,
+  not the data's — so the class a free solver takes as a QP lives here, and
+  `examples/pypsa.yaml` stays the mixed-integer one. PyPSA also carries the
+  attribute on storage units and stores; each is one more term of the same
+  shape.
+
+dimensions:
+  snapshot:
+    description: dispatch periods
+    dtype: int
+  bus:
+    description: network nodes
+  generator:
+    description: generating units, each on one bus
+  link:
+    description: controllable connections, each from one bus to another
+  load:
+    description: demands, each on one bus
+
+parameters:
+  snapshot_weightings_objective:
+    description: PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost
+    dims: [snapshot]
+  Generator_p_nom:
+    description: nominal power
+    dims: [generator]
+  Generator_p_min_pu:
+    description: least output, per unit of nominal power
+    dims: [snapshot, generator]
+  Generator_p_max_pu:
+    description: most output, per unit of nominal power — an availability profile
+    dims: [snapshot, generator]
+  Generator_marginal_cost:
+    description: cost of one unit of output
+    dims: [snapshot, generator]
+  Generator_marginal_cost_quadratic:
+    description: cost of the square of one unit of output
+    dims: [snapshot, generator]
+  Link_p_nom:
+    description: nominal power
+    dims: [link]
+  Link_p_min_pu:
+    description: least flow, per unit of nominal power — negative for a link that carries both ways
+    dims: [snapshot, link]
+  Link_p_max_pu:
+    description: most flow, per unit of nominal power
+    dims: [snapshot, link]
+  Link_efficiency:
+    description: share of the flow that arrives at the link's `Link_bus1` end
+    dims: [link]
+  Link_marginal_cost:
+    description: cost of one unit of flow
+    dims: [snapshot, link]
+  Link_marginal_cost_quadratic:
+    description: cost of the square of one unit of flow
+    dims: [snapshot, link]
+  Load_p_set:
+    description: demand
+    dims: [snapshot, load]
+
+lookups:
+  Generator_bus:
+    description: the bus a generator sits on
+    over: generator
+    into: bus
+  Link_bus0:
+    description: the bus a link leaves
+    over: link
+    into: bus
+  Link_bus1:
+    description: the bus a link arrives at
+    over: link
+    into: bus
+  Load_bus:
+    description: the bus a load sits on
+    over: load
+    into: bus
+
+variables:
+  Generator_p:
+    description: "`Generator-p` — output of a generator in a snapshot"
+    foreach: [snapshot, generator]
+  Link_p:
+    description: >-
+      `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a
+      positive value withdraws there and injects at `Link_bus1`
+    foreach: [snapshot, link]
+
+constraints:
+  Generator_fix_p_lower:
+    description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
+    foreach: [snapshot, generator]
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
+  Generator_fix_p_upper:
+    description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
+    foreach: [snapshot, generator]
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
+  Link_fix_p_lower:
+    description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
+    foreach: [snapshot, link]
+    expression: Link_p >= Link_p_min_pu * Link_p_nom
+  Link_fix_p_upper:
+    description: "`Link-fix-p-upper` — a link carries at most its nominal power"
+    foreach: [snapshot, link]
+    expression: Link_p <= Link_p_max_pu * Link_p_nom
+  Bus_nodal_balance:
+    description: >-
+      `Bus-nodal_balance` — what is generated at a bus, less what the links
+      take away, plus what arrives over them after losses, meets the load
+      there
+    foreach: [snapshot, bus]
+    expression: >-
+      sum(Generator_p, by=Generator_bus)
+      - sum(Link_p, by=Link_bus0)
+      + sum(Link_p * Link_efficiency, by=Link_bus1)
+      == sum(Load_p_set, by=Load_bus)
+
+objective:
+  sense: minimize
+  description: operating cost, linear and quadratic, each snapshot weighted by the hours it stands for
+  expression: >-
+    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)
+    + sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective)
+    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective)
+    + sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective)

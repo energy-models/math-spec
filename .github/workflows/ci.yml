@@ -21,6 +21,10 @@ on:
     branches:
       - main
   pull_request:
+  # A push made with the GitHub App's token creates no pull_request run, so a
+  # PR head can sit with the required check unreported; dispatching runs the
+  # same gate on that head by hand.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -30,6 +30,8 @@ nav:
       - examples/index.md
       - Least-cost dispatch: examples/dispatch.md
       - One construct per model: examples/operators.md
+      - PyPSA in one file: examples/pypsa.md
+      - PyPSA, the quadratic class: examples/pypsa_quadratic.md
   - Reference:
       - Language:
           - reference/language/index.md

@@ -13,13 +13,18 @@ math below it are written from here.
 
 from __future__ import annotations
 
+import json
+import re
+import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
+from math_spec import load_model
 from math_spec.typesetting import to_markdown
-from tools._page import ROOT, splice, without_header
+from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
-from tools.spec_math import OPERATORS, PROBES, rendered_probe
+from tools.notation import equations
+from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -32,6 +37,20 @@ BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 MODELS = {
     'dispatch.md': ROOT / 'examples' / 'dispatch.yaml',
 }
+
+#: Page -> the model it shows one declaration at a time — its YAML, then the
+#: equation it renders, headed by the name the other side gives it, read from
+#: the declaration's own description.
+DECLARED = {
+    'pypsa.md': ROOT / 'examples' / 'pypsa.yaml',
+    'pypsa_quadratic.md': ROOT / 'examples' / 'pypsa_quadratic.yaml',
+}
+
+#: One PyPSA reference network per rung, run out of band with the versions
+#: each script pins; `references.json` beside them holds what each solve
+#: recorded.
+REFERENCES = ROOT / 'examples' / 'references' / 'pypsa'
+RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 
 
 def model_block(path: Path) -> str:
@@ -53,16 +72,119 @@ def probe_block() -> str:
     return '\n\n'.join(parts)
 
 
+def declaration(text: str, section: str, name: str | None = None) -> str:
+    """One declaration as written: ``section:`` itself, or ``name:`` under it."""
+    lines = text.splitlines()
+    i = lines.index(f'{section}:')
+    if name is not None:
+        i = next(k for k in range(i + 1, len(lines)) if lines[k].startswith(f'  {name}:'))
+    deeper = '    ' if name is not None else '  '
+    j = i + 1
+    while j < len(lines) and (lines[j].startswith(deeper) or not lines[j].strip()):
+        j += 1
+    return textwrap.dedent('\n'.join(lines[i:j])).rstrip()
+
+
+def _stands_for(name: str, description: str | None) -> str:
+    """The other side's name for a declaration — the backticked opening of its description."""
+    found = re.match(r'`([^`]+)`', description or '')
+    if found is None:
+        msg = (
+            f'{name}: a declaration on a declared page opens its description with the name it stands for, in backticks'
+        )
+        raise ValueError(msg)
+    return found.group(1)
+
+
+def declared_block(path: Path) -> str:
+    """The legend, the objective, then every constraint as YAML beside its equation."""
+    text = without_header(path)
+    model = load_model(path)
+    page = to_markdown(model, symbols=sidecar_for(path), numbered=False)
+    legend = page[: page.index('#### Objective')].strip()
+    objective = _section(page, 'Objective').strip().removeprefix('#### Objective').strip()
+    equation = equations(_section(page, 'Subject to'))
+    domains = _section(page, 'Variable domains').strip()
+    parts = [legend, f'### Objective\n\n```yaml\n{declaration(text, "objective")}\n```\n\n{objective}']
+    for name, block in model.constraints.items():
+        parts.append(
+            f'### `{_stands_for(name, block.description)}`\n\n'
+            f'`{name}`\n\n'
+            f'```yaml\n{declaration(text, "constraints", name)}\n```\n\n'
+            f'{equation[name]}'
+        )
+    parts.append(domains)
+    return '\n\n'.join(parts)
+
+
+def _script(name: str) -> str:
+    """A rung's PyPSA script, verbatim — the model under review is the code itself."""
+    return f'`{name}.py`\n\n```python\n{(REFERENCES / f"{name}.py").read_text().strip()}\n```'
+
+
+def reference_block(stem: str) -> str:
+    """A rung's oracle: the recorded solve, then the PyPSA script that builds its network."""
+    recorded = RECORDED[stem]
+    rows = sum(recorded['rows'].values())
+    return (
+        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's network at objective "
+        f'`{recorded["objective"]}`, {rows} rows.\n'
+        '\n'
+        '<details markdown="1">\n'
+        '<summary>The network, as PyPSA code</summary>\n'
+        '\n'
+        f'{_script(stem)}\n'
+        '\n'
+        '</details>'
+    )
+
+
+def spine_block() -> str:
+    """The shared spine, shown once."""
+    return (
+        "> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not"
+        " passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to"
+        " the file, and what it makes of it, is that engine's own record.\n"
+        '\n'
+        '<details markdown="1">\n'
+        '<summary>The shared spine, <code>spine.py</code></summary>\n'
+        '\n'
+        f'{_script("spine")}\n'
+        '\n'
+        '</details>'
+    )
+
+
+def with_references(text: str) -> str:
+    """Every reference block whose marker pair is on this page; a stem on no page at all is the test's business."""
+    blocks = {
+        'spine': spine_block,
+        **{stem: partial(reference_block, stem) for stem in sorted(RECORDED)},
+    }
+    for key, block in blocks.items():
+        begin, end = f'<!-- reference:{key}:begin -->', f'<!-- reference:{key}:end -->'
+        if begin in text and end in text:
+            text = splice(text, begin, end, block())
+    return text
+
+
 def block(page: str) -> str:
-    return probe_block() if page == 'operators.md' else model_block(MODELS[page])
+    if page == 'operators.md':
+        return probe_block()
+    if page in DECLARED:
+        return declared_block(DECLARED[page])
+    return model_block(MODELS[page])
 
 
 def rendered(page: str, text: str) -> str:
-    return splice(text, BEGIN, END, block(page))
+    text = splice(text, BEGIN, END, block(page))
+    if page in DECLARED:
+        text = with_references(text)
+    return text
 
 
 def pages() -> list[str]:
-    return [*MODELS, 'operators.md']
+    return [*MODELS, *DECLARED, 'operators.md']
 
 
 def main(argv: list[str] | None = None) -> int:
