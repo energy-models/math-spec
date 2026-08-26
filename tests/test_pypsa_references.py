@@ -5,13 +5,12 @@
 """What the PyPSA references pin the model to, without a build engine.
 
 The scripts under ``examples/references/pypsa/`` run out of band — PyPSA is
-not a dependency of this project — and record the variables and constraints
-PyPSA actually built. That makes the *names* assertable in both directions
-today: PyPSA builds nothing the files do not stand for, and everything the
-files declare is built by some reference network. Row **counts** and the
-recorded duals stay recorded rather than asserted — comparing those takes the
-build engine the parity harness is waiting on. The page blocks the records
-feed are held current by ``tests/test_docs.py`` through ``tools.gallery``.
+not a dependency of this project — and record what each lane built and
+solved. The suite asserts from the records: names both directions, per-name
+row and column counts, bus prices where both lanes price, block-level
+coverage, and — where `lpspec.linopy` can build — that the two lanes build
+one linopy model, label for label. The page blocks the records feed are held
+current by ``tests/test_docs.py`` through ``tools.gallery``.
 """
 
 from __future__ import annotations
@@ -111,6 +110,30 @@ def test_bus_prices_agree_wherever_both_lanes_price(stem: str):
     assert RECORDED[stem]['parity']['duals'] in ('match', 'mip', 'unpriced'), (
         "lpspec's bus-balance duals differ from PyPSA's recorded marginal_price — parity.py prints where"
     )
+
+
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_the_structural_lane_finds_one_model_or_names_its_blocker(stem: str):
+    """`structural.py` compares the two linopy models label for label; a rung it cannot build stamps why."""
+    structural = RECORDED[stem].get('structural')
+    assert structural is not None, 'no structural record — run structural.py in its pinned environment'
+    assert not structural.get('mismatch'), (
+        f'the two lanes build different models: {structural.get("mismatch")} — structural.py prints each label'
+    )
+    assert structural.get('error') or 'equal' in structural, 'a structural stamp carries a verdict or its blocker'
+
+
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_a_region_verdict_is_a_documented_split(stem: str):
+    """`region` — same feasible region, several blocks — may cover only names the file states as several blocks."""
+    structural = RECORDED[stem].get('structural', {})
+    model, _ = BINDINGS[RECORDED[stem]['parity']['model']]
+    counts: dict[str, int] = {}
+    for name, block in [*model.constraints.items(), *model.variables.items()]:
+        key = _stands_for(name, block.description)
+        counts[key] = counts.get(key, 0) + 1
+    undocumented = set(structural.get('region', [])) - {name for name, n in counts.items() if n > 1}
+    assert not undocumented, f'region verdicts on names the file states as one block: {sorted(undocumented)}'
 
 
 def test_pypsa_builds_no_variable_the_files_do_not_declare():

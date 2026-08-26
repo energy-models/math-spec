@@ -142,6 +142,7 @@ def reference_block(stem: str) -> str:
     recorded = RECORDED[stem]
     rows = sum(recorded['rows'].values())
     parity = recorded.get('parity', {})
+    structural = recorded.get('structural', {})
     prices = ', and the same bus prices' if parity.get('duals') == 'match' else ''
     agreement = (
         f' `lpspec {parity["lpspec"]}` binds `{parity["model"]}` against the same network and lands on the'
@@ -149,6 +150,8 @@ def reference_block(stem: str) -> str:
         if parity.get('matches') and parity.get('rows_match') and parity.get('columns_match')
         else ''
     )
+    if agreement and 'equal' in structural and not structural.get('region') and not structural.get('mismatch'):
+        agreement += ' `lpspec.linopy` builds the very linopy model PyPSA builds, label for label (`structural.py`).'
     return (
         f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network through its own linopy model "
         f'at objective `{recorded["objective"]}`, {rows} rows — recorded by '

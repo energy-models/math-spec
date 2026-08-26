@@ -237,6 +237,10 @@
       "Link-fix-p-lower": 4,
       "Link-fix-p-upper": 4,
       "Link-p_set": 1
+    },
+    "structural": {
+      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_02_storage": {
@@ -528,6 +532,10 @@
       "Store-energy_balance": 4,
       "Store-fix-e-lower": 4,
       "Store-fix-e-upper": 4
+    },
+    "structural": {
+      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_03_expansion": {
@@ -911,6 +919,10 @@
       "Store-ext-e_nom-upper": 1,
       "Store-fix-e-lower": 4,
       "Store-fix-e-upper": 4
+    },
+    "structural": {
+      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_04_ramps": {
@@ -1161,6 +1173,10 @@
       "Link-fix-p-upper": 8,
       "Link-p-ramp_limit_down": 3,
       "Link-p-ramp_limit_up": 3
+    },
+    "structural": {
+      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_05_global_constraints": {
@@ -1486,6 +1502,10 @@
       "Store-energy_balance": 4,
       "Store-fix-e-lower": 4,
       "Store-fix-e-upper": 4
+    },
+    "structural": {
+      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_06_kvl": {
@@ -1797,6 +1817,10 @@
       "Line-s_set": 1,
       "Link-fix-p-lower": 4,
       "Link-fix-p-upper": 4
+    },
+    "structural": {
+      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_07_commitment": {
@@ -2051,6 +2075,10 @@
       "Generator-status-p-fixed-upper": 8,
       "Link-fix-p-lower": 4,
       "Link-fix-p-upper": 4
+    },
+    "structural": {
+      "error": "ValueError: NaN found in a user-supplied constant. linopy treats this as ambiguous: if you meant a *data error*, fix it with .fillna(value); if you meant *absent at this slot*, mark it on the variable",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_08_modular_big_m": {
@@ -2324,6 +2352,10 @@
       "Generator-status-p_nom-variable-upper": 4,
       "Link-fix-p-lower": 4,
       "Link-fix-p-upper": 4
+    },
+    "structural": {
+      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_09_multilink": {
@@ -2580,6 +2612,10 @@
       "Generator-fix-p-upper": 16,
       "Link-fix-p-lower": 8,
       "Link-fix-p-upper": 8
+    },
+    "structural": {
+      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
   "rung_10_quadratic_costs": {
@@ -2668,6 +2704,21 @@
       "Generator-fix-p-upper": 16,
       "Link-fix-p-lower": 8,
       "Link-fix-p-upper": 8
+    },
+    "structural": {
+      "equal": [
+        "Bus-nodal_balance",
+        "Generator-fix-p-lower",
+        "Generator-fix-p-upper",
+        "Generator-p",
+        "Link-fix-p-lower",
+        "Link-fix-p-upper",
+        "Link-p",
+        "objective"
+      ],
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d",
+      "mismatch": [],
+      "region": []
     }
   }
 }
