@@ -155,7 +155,7 @@ $$\mathit{on}_{t,g} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \i
 
 **`northern`**
 
-$$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
+$$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{'}\mathrm{north}\text{'} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
 
 **`efficiency`**
 

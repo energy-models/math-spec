@@ -137,6 +137,10 @@ class Format(Protocol):
         """Words inside math."""
         ...
 
+    def quoted(self, label: str) -> str:
+        """A string value as the file spells it — quoted, so a label reads as data rather than a name."""
+        ...
+
     def mono(self, text: str) -> str:
         """A name exactly as the YAML spells it."""
         ...

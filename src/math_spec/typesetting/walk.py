@@ -518,7 +518,7 @@ class Walk:
         assert_never(node)
 
     def literal(self, value: float | str | datetime.date) -> str:
-        return self.number(value) if isinstance(value, (int, float)) else self.format.prose(str(value))
+        return self.number(value) if isinstance(value, (int, float)) else self.format.quoted(str(value))
 
     def position(self, index: str, grouping: str | None) -> str:
         """``position(dim)`` applied to the row, *grouping* as a subscript — as an argument it read as a second position."""
