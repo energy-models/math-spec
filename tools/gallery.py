@@ -44,6 +44,7 @@ MODELS = {
 DECLARED = {
     'pypsa.md': ROOT / 'examples' / 'pypsa.yaml',
     'pypsa_quadratic.md': ROOT / 'examples' / 'pypsa_quadratic.yaml',
+    'pypsa_linearized_uc.md': ROOT / 'examples' / 'pypsa_linearized_uc.yaml',
 }
 
 #: One PyPSA reference network per rung, run out of band with the versions
