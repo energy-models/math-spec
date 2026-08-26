@@ -35,8 +35,9 @@ and at the declaration level::
 
 The direction that matters most is the *stray* dim: one the frame does not
 declare broadcasts silently at build time, so the same YAML quietly builds a
-bigger model than it reads as. The missing direction is checked too, a foreach dim the equation
-never uses just repeating one row across it — nearly always a typo.
+bigger model than it reads as. The missing direction is checked too, a foreach
+dim the equation never uses just repeating one row across it — nearly always a
+typo.
 """
 
 from __future__ import annotations

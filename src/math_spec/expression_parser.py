@@ -355,9 +355,7 @@ def _make_power(tokens: pp.ParseResults) -> Any:
     return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
 
-#: A number with a fractional part or an exponent; a bare run of digits is the
-#: integer rule. Signs are the unary operator's, so ``-2`` is one node over
-#: another and a coefficient's sign is read where every other sign is.
+#: A float — a fractional part or an exponent. A sign is the unary operator's.
 REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
 
 _GRAMMAR = _build_grammar()
