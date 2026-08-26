@@ -657,7 +657,7 @@ $$\delta_{p,m,b} \in \{0, 1\} \qquad \forall\thinspace p \in \mathcal{P},\enspac
 
 #### `cost_curve`
 
-**`method: sos2`** — the same weights, restricted by a set the sink branches on (the sos rules), in `examples/sos.yaml`.
+**`method: sos2`** — the same weights, restricted by a set the solver branches on (the sos rules), in `examples/sos.yaml`.
 
 Rendered with the sidecar symbol table `examples/symbols/sos.yaml`, which is what the weights print as:
 

@@ -76,7 +76,7 @@ def test_the_shell_front_costs_no_dependency():
 
 @pytest.mark.parametrize('fmt', sorted(FORMATS))
 def test_every_format_renders_to_stdout_and_to_a_file(fmt, tmp_path, capsys):
-    """Both sinks, because `-o` is the one a Makefile actually uses."""
+    """Both outputs, because `-o` is the one a Makefile actually uses."""
     assert front.main([fmt, MODEL]) == 0
     streamed = capsys.readouterr().out
     assert streamed.strip(), f'{fmt} rendered nothing'

@@ -49,8 +49,8 @@ over=g)` is refused: that is every term of one against every term of the
 
 `/` needs a variable-free divisor everywhere, and a single factor rather than a
 sum — both decided at load time, since neither depends on the numbers that
-arrive, and a variable divisor is rational rather than polynomial, which no
-sink takes at any degree.
+arrive, and a variable divisor is rational rather than polynomial, which is
+outside the language at any degree.
 
 `**` takes a base and an exponent that **carry no variable**, and nothing else.
 `growth ** period` is a discount factor — one number per coordinate, folded
@@ -61,34 +61,21 @@ both at load:
 - **A variable anywhere under it.** `x * x` is how a square gets written; above
   degree 2 there is no rewrite at all. A variable _exponent_ is out for a
   sharper reason — `p ** n` is affine at `n = 1` and quadratic at `n = 2`, so
-  the _degree_ would be a property of the data and `check` could not answer
-  with nothing bound.
+  the _degree_ would be a property of the data and `load_model` could not
+  answer with nothing bound.
 - **An operand that adds.** Addition does not distribute over `**`, so
   `(1 + rate) ** period` is two factors wearing one and is refused where
   `growth ** period` is not. Bind the factor itself.
 
-### What it costs, and where it can land
+### What it costs is a consumer's question
 
 Saying it is one question; solving it is another
-([the ceiling](../../about/ceiling.md#capability-is-not-the-ceiling)), and this
-is the construct where the difference starts to matter:
-
-|                   | quadratic objective                              | quadratic constraint                                 |
-| ----------------- | ------------------------------------------------ | ---------------------------------------------------- |
-| `highs`           | convex only, and not beside `binary:`/`integer:` | **no concept at all**                                |
-| `gurobi`          | any, integrality included                        | any                                                  |
-| `xpress`          | **no path in this sink**                         | **no path in this sink**                             |
-| `.lp` file        | written as a section                             | written as a section, which HiGHS will not read back |
-| `.mps` file       | **not written**                                  | **not written**                                      |
-| the `linopy` lane | builds it                                        | **cannot build it**                                  |
-
-`lps.check(model, sink='highs')` answers all of that before you build, and
-`sink='linopy'` answers for the lane. Two things it cannot answer, because both
-are properties of your _data_ rather than of the model: whether a quadratic
-form is **convex**, and therefore whether HiGHS will take it at all — and
-whether a quadratic row can be priced, since duals for one need `QCPDual` and
-that needs convexity. A quadratic constraint comes back without duals unless
-you ask.
+([the ceiling](../../about/ceiling.md#capability-is-not-the-ceiling)). This
+language admits degree 2 in the objective and constraints and says nothing
+about which solver, lane or file format takes it — that is the consumer's
+axis, and each consumer answers for itself. Two things no consumer can answer
+from the model alone, because both are properties of the _data_: whether a
+quadratic form is **convex**, and whether a quadratic row can be priced.
 
 A `piecewise:` block with `method: convex` remains the way to spend a curve and
 keep the LP, its duals and its warm start.

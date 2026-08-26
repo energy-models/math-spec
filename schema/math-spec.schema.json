@@ -458,7 +458,7 @@
     },
     "SosBlock": {
       "additionalProperties": false,
-      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``foreach`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order, and ``big_m`` is the optional cap a\nreformulating sink puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath a sink can read off ``A``: it is a *set*, carried to the sink that\nhas the concept and reformulated for the sink that does not.",
+      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``foreach`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order, and ``big_m`` is the optional cap a consumer\nthat reformulates the set puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath to read off ``A``: it is a *set*, carried to a consumer that has the\nconcept and reformulated for one that does not.",
       "properties": {
         "big_m": {
           "anyOf": [
