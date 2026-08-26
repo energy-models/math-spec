@@ -1,9 +1,0 @@
-component,name,attribute,snapshot,value
-Load,east_load,p_set,0,5.0
-Load,east_load,p_set,1,20.0
-Load,east_load,p_set,2,25.0
-Load,east_load,p_set,3,10.0
-Load,swing,p_set,0,0.0
-Load,swing,p_set,1,25.0
-Load,swing,p_set,2,45.0
-Load,swing,p_set,3,0.0

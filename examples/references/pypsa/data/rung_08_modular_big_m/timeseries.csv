@@ -1,5 +1,0 @@
-component,name,attribute,snapshot,value
-Load,mill_load,p_set,0,40.0
-Load,mill_load,p_set,1,80.0
-Load,mill_load,p_set,2,120.0
-Load,mill_load,p_set,3,60.0

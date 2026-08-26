@@ -5,8 +5,8 @@
 """What the PyPSA references pin the model files to, without any engine.
 
 This repository holds the corpus — the model files, the reference networks
-as data with their loader, and `references.json`: the PyPSA record the
-reference script writes out of band. Everything here asserts over those
+as PyPSA scripts with the data inline, and `references.json`: what PyPSA
+solved each of them to, checked by the `PyPSA references` workflow. Everything here asserts over those
 committed files alone: names both directions between what PyPSA built and
 what the files declare, a record per rung from the pinned pypsa, generic
 spine weightings. What an engine makes of the rungs — one objective across
@@ -18,8 +18,10 @@ blocks the records feed are held current by ``tests/test_docs.py`` through
 
 from __future__ import annotations
 
+import importlib
 import math
 import re
+import sys
 
 import pytest
 
@@ -27,7 +29,7 @@ from math_spec import load_model
 from tools import gallery
 from tools.gallery import DECLARED, RECORDED, REFERENCES, _stands_for
 
-RUNGS = sorted(path.name for path in (REFERENCES / 'data').iterdir() if path.is_dir() and path.name != 'base')
+RUNGS = sorted(path.stem for path in REFERENCES.glob('rung_*.py'))
 SCRIPT = REFERENCES / 'reference.py'
 PAGE_TEXTS = [(gallery.PAGES / page).read_text() for page in DECLARED]
 
@@ -45,7 +47,7 @@ GC_RECORDED: dict[str, dict] = {
 }
 
 
-@pytest.mark.parametrize('key', ['spine', *RUNGS])
+@pytest.mark.parametrize('key', ['spine', 'binding', *RUNGS])
 def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(key: str):
     carrying = sum(f'<!-- reference:{key}:begin -->' in text for text in PAGE_TEXTS)
     assert carrying == 1, (
@@ -54,11 +56,12 @@ def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(
 
 
 @pytest.mark.parametrize('rung', RUNGS)
-def test_every_rung_folder_adds_tables(rung: str):
-    assert any((REFERENCES / 'data' / rung).glob('*.csv')), 'a rung is its folder of additions'
+def test_every_rung_script_adds_to_the_spine(rung: str):
+    text = (REFERENCES / f'{rung}.py').read_text()
+    assert 'n = spine.build()' in text and 'n.add(' in text, 'a rung is the spine plus its own n.add calls'
 
 
-def test_every_rung_folder_has_a_recorded_solve():
+def test_every_rung_script_has_a_recorded_solve():
     assert set(RUNGS) == set(RECORDED), (
         'a rung folder without a record, or a record without a folder — run reference.py, or delete the orphan'
     )
@@ -103,11 +106,11 @@ def test_every_declared_row_is_built_by_some_reference():
 
 def test_the_spine_weightings_are_generic():
     """At weighting 1.0 a missing hours factor builds the identical matrix and passes every gate."""
-    header, *rows = (REFERENCES / 'data' / 'base' / 'snapshots.csv').read_text().strip().splitlines()
-    columns = list(zip(*(line.split(',')[1:] for line in rows), strict=True))
-    for name, values in zip(header.split(',')[1:], columns, strict=True):
+    sys.path.insert(0, str(REFERENCES))
+    weightings = importlib.import_module('spine').WEIGHTINGS
+    for name, values in weightings.items():
         assert len(set(values)) > 1, f'{name} weightings are constant — a swapped or dropped factor cannot show'
-        assert '1.0' not in values, f'{name} carries a 1.0 — the identity a missing factor hides behind'
+        assert 1.0 not in values, f'{name} carries a 1.0 — the identity a missing factor hides behind'
 
 
 @pytest.mark.parametrize('row', sorted(row for row in RECORDED_ROWS if row.startswith('GlobalConstraint-')), ids=str)

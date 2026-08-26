@@ -1,2 +1,0 @@
-name,bus0,bus1,carrier,length,p_nom_extendable,capital_cost,p_nom_max,efficiency,p_nom_set,ramp_limit_up,ramp_limit_down
-cable,north,island,dc,120.0,True,20.0,30.0,0.95,25.0,0.3,0.3

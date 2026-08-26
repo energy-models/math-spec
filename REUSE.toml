@@ -26,10 +26,7 @@ SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
 
 [[annotations]]
-path = [
-  "examples/references/pypsa/references.json",
-  "examples/references/pypsa/data/**/*",
-]
+path = ["examples/references/pypsa/references.json"]
 SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "CC0-1.0"
 

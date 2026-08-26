@@ -1,4 +1,0 @@
-name,bus,carrier,p_nom,marginal_cost,efficiency
-coal5,north,coalc,60.0,9.0,0.35
-gas5,north,gasc,60.0,25.0,0.5
-wind5,north,windc,60.0,40.0,

@@ -17,49 +17,44 @@ spine, `data/base/`, shown once on [the rung ladder's page](pypsa.md#index).
 | [`marginal_cost_quadratic`](#objective) | done   | degree 2 in the objective; Generator and Link here — PyPSA also carries it on storage units and stores, one more term each of the same shape |
 
 <!-- reference:rung_10_quadratic_costs:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `12587.437500000098`, 60 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `12587.437500000098`, 60 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_10_quadratic_costs/buses.csv`
+`rung_10_quadratic_costs.py`
 
-```csv
-name
-village
-```
+```python
+"""Rung 10: quadratic costs — a marginal cost quadratic in output, stated by `pypsa_quadratic.yaml`."""
 
-`data/rung_10_quadratic_costs/generators.csv`
+from __future__ import annotations
 
-```csv
-name,bus,p_nom,marginal_cost,marginal_cost_quadratic
-steam,north,80.0,5.0,0.08
-engine,north,80.0,20.0,0.01
-```
+import spine
 
-`data/rung_10_quadratic_costs/links.csv`
+#: This rung binds a file of its own.
+MODEL = 'pypsa_quadratic.yaml'
 
-```csv
-name,bus0,bus1,p_nom,p_min_pu,efficiency,marginal_cost,marginal_cost_quadratic
-wire2,north,village,40.0,-1.0,0.9,1.0,0.02
-```
 
-`data/rung_10_quadratic_costs/loads.csv`
-
-```csv
-name,bus,p_set
-village_load,village,15.0
-extra10,north,
-```
-
-`data/rung_10_quadratic_costs/timeseries.csv`
-
-```csv
-component,name,attribute,snapshot,value
-Load,extra10,p_set,0,30.0
-Load,extra10,p_set,1,50.0
-Load,extra10,p_set,2,40.0
-Load,extra10,p_set,3,60.0
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'village')
+    n.add('Generator', 'steam', bus='north', p_nom=80, marginal_cost=5, marginal_cost_quadratic=0.08)
+    n.add('Generator', 'engine', bus='north', p_nom=80, marginal_cost=20, marginal_cost_quadratic=0.01)
+    n.add(
+        'Link',
+        'wire2',
+        bus0='north',
+        bus1='village',
+        p_nom=40,
+        p_min_pu=-1,
+        efficiency=0.9,
+        marginal_cost=1,
+        marginal_cost_quadratic=0.02,
+    )
+    n.add('Load', 'village_load', bus='village', p_set=15)
+    n.add('Load', 'extra10', bus='north', p_set=[30, 50, 40, 60])
+    return n
 ```
 
 </details>
