@@ -45,9 +45,16 @@ slots with NaN where lpspec writes -0.0, and term order within a row is the
 builder's own. A canonicalizing ``assert`` upstream would shrink this file.
 PyPSA's model is built before `lpspec.linopy` is imported: that import flips
 linopy's global ``semantics`` option to ``v1`` and PyPSA speaks ``legacy``,
-so the option is reset around each PyPSA build. Run out of band with the
-pins above; linopy is pinned to a master commit because `lpspec.linopy`
-needs the ``semantics`` option no release carries yet.
+so the option is reset around each PyPSA build.
+
+This script never runs in this repository's CI — building and solving are
+the engines' business, and it speaks the language of the math-spec *lpspec
+pins*, not this tree's. It runs in two places: here, out of band with the
+pins above, to refresh the stamps when the corpus changes; and in lpspec's
+CI against the corpus it certifies, with its own tree swapped in, where an
+engine change that breaks parity goes red. linopy is pinned to a master
+commit because `lpspec.linopy` needs the ``semantics`` option no release
+carries yet.
 """
 
 from __future__ import annotations
