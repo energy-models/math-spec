@@ -1,0 +1,2 @@
+name,bus0,bus1,bus2,efficiency,efficiency2,p_nom,marginal_cost
+chp,gasb,power,heat,0.4,0.45,60.0,1.0

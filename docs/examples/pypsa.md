@@ -47,7 +47,7 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 <!-- reference:rung1_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung1_transport` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung1_transport/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -79,7 +79,7 @@ def build() -> pypsa.Network:
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung2_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `975.711471`, 83 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung2_storage` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2488.903629000791`, 103 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung2_storage/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -111,7 +111,7 @@ def build() -> pypsa.Network:
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung3_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5332.105263157895`, 96 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung3_expansion` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5646.0526315789475`, 124 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung3_expansion/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -139,7 +139,7 @@ def build() -> pypsa.Network:
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | fix and ext blocks; com is rung 7's, big-M rung 8's; the first snapshot's row is rolling horizon's, a flag |
 
 <!-- reference:rung4_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10420.0`, 44 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung4_ramps` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3950.0`, 64 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung4_ramps/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -174,7 +174,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung5_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5187.5`, 29 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung5_global_constraints` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5590.0`, 57 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung5_global_constraints/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -201,7 +201,7 @@ def build() -> pypsa.Network:
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung6_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2460.0`, 72 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung6_kvl` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5740.0`, 104 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung6_kvl/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -234,7 +234,7 @@ def build() -> pypsa.Network:
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
 <!-- reference:rung7_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3065.0`, 54 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung7_commitment` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3550.0`, 74 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung7_commitment/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -267,7 +267,7 @@ def build() -> pypsa.Network:
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down, each with its initial block |
 
 <!-- reference:rung8_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8725.0`, 97 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung8_modular_big_m` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `12005.0`, 129 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung8_modular_big_m/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -295,7 +295,7 @@ def build() -> pypsa.Network:
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung9_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `1920.0`, 36 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is the `rung9_multilink` rows of the corpus tables in `data/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5200.0`, 68 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung9_multilink/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -993,19 +993,20 @@ $$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} 
 ```yaml
 Generator_p_ramp_limit_up_com_initial:
   description: >-
-    `Generator-p-ramp_limit_up` — the first snapshot ramps against the
-    status the unit brought in and an output of nothing
+    `Generator-p-ramp_limit_up` — a unit that was off ramps its first
+    snapshot from an output of nothing; one already on brought an unknown
+    output, so it carries no row
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND not Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     Generator_p <=
     Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
     + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
 ```
 
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathrm{u}^{0}_{g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathrm{u}^{0}_{g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$p_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathrm{u}^{0}_{g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathrm{u}^{0}_{g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_down`
 
@@ -1035,19 +1036,19 @@ $$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} 
 ```yaml
 Generator_p_ramp_limit_down_com_initial:
   description: >-
-    `Generator-p-ramp_limit_down` — the first snapshot ramps down from an
-    output of nothing against the status the unit brought in
+    `Generator-p-ramp_limit_down` — a unit that was off ramps its first
+    snapshot down from an output of nothing; one already on carries no row
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND not Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     -Generator_p <=
     Generator_ramp_limit_down * Generator_p_nom * Generator_status
     + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
 ```
 
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_up-run-bigM`
 
@@ -1075,18 +1076,18 @@ $$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \math
 
 ```yaml
 Generator_p_ramp_limit_up_run_big_m_initial:
-  description: "`Generator-p-ramp_limit_up-run-bigM` — the first snapshot reads the status the unit brought in"
+  description: "`Generator-p-ramp_limit_up-run-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     Generator_p <=
     Generator_ramp_limit_up * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_status_initial
 ```
 
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$p_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_up-start-bigM`
 
@@ -1114,18 +1115,18 @@ $$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{
 
 ```yaml
 Generator_p_ramp_limit_up_start_big_m_initial:
-  description: "`Generator-p-ramp_limit_up-start-bigM` — the first snapshot ramps up from an output of nothing"
+  description: "`Generator-p-ramp_limit_up-start-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     Generator_p <=
     Generator_ramp_limit_start_up * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_start_up
 ```
 
-$$p_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$p_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_down-run-bigM`
 
@@ -1153,18 +1154,18 @@ $$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \math
 
 ```yaml
 Generator_p_ramp_limit_down_run_big_m_initial:
-  description: "`Generator-p-ramp_limit_down-run-bigM` — the first snapshot ramps down from an output of nothing"
+  description: "`Generator-p-ramp_limit_down-run-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     -Generator_p <=
     Generator_ramp_limit_down * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_status
 ```
 
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$-p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p-ramp_limit_down-shut-bigM`
 
@@ -1192,18 +1193,18 @@ $$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{
 
 ```yaml
 Generator_p_ramp_limit_down_shut_big_m_initial:
-  description: "`Generator-p-ramp_limit_down-shut-bigM` — the first snapshot ramps down from an output of nothing"
+  description: "`Generator-p-ramp_limit_down-shut-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
   foreach: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
   expression: >-
     -Generator_p <=
     Generator_ramp_limit_shut_down * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_shut_down
 ```
 
-$$-p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0$$
+$$-p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
 ### `Generator-p_nom_modularity`
 

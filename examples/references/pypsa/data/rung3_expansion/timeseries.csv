@@ -1,0 +1,9 @@
+component,name,attribute,snapshot,value
+Generator,wind,p_max_pu,0,0.3
+Generator,wind,p_max_pu,1,0.8
+Generator,wind,p_max_pu,2,0.5
+Generator,wind,p_max_pu,3,0.9
+Generator,solar,p_max_pu,0,0.5
+Generator,solar,p_max_pu,1,0.6
+Generator,solar,p_max_pu,2,0.4
+Generator,solar,p_max_pu,3,0.2

@@ -1,0 +1,4 @@
+name,bus,p_nom_extendable,capital_cost,p_nom_min,p_nom_max,marginal_cost,e_sum_min,p_nom_set,p_nom,e_sum_max
+wind,north,True,50.0,5.0,80.0,0.0,40.0,,,
+solar,north,True,60.0,,40.0,0.0,,15.0,,
+diesel,island,,,,,40.0,,,60.0,70.0

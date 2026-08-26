@@ -22,8 +22,9 @@
 For each rung, the reference network is built twice from its own script: one
 copy goes through `n.optimize(solver_name='highs')`, the other through
 `prep.sources` into `lps.solve('examples/pypsa.yaml', …)` — the same HiGHS,
-two model builders, one file — and both networks come from the same corpus
-tables under `data/`, which `instances.build` reads. Each rung's outcome is stamped into
+two model builders, one file — and both networks come from `data/`: the
+shared spine in `base/` plus the rung's own folder, which `instances.build`
+overlays. Each rung's outcome is stamped into
 `references.json` under ``parity``, matched or not, and the run fails if any
 rung differs. Run out of band, with the pins above: lpspec is pinned to a
 commit because it has no release yet, and it carries its own math-spec.

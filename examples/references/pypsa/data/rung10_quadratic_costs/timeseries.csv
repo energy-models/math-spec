@@ -1,0 +1,5 @@
+component,name,attribute,snapshot,value
+Load,extra10,p_set,0,30.0
+Load,extra10,p_set,1,50.0
+Load,extra10,p_set,2,40.0
+Load,extra10,p_set,3,60.0

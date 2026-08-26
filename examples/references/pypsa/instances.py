@@ -2,13 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The instances: every rung's network, built from the corpus tables in `data/`.
+"""The instances: every rung's network is the shared spine plus its own folder.
 
-One wide CSV per component type for all rungs at once, a `rung` column picking
-the instance, a blank cell meaning PyPSA's own default, and one long
-`timeseries.csv` for everything that varies — eleven files for the whole
-ladder. `build(rung)` reads them back through `n.add`, so the tables are the
-single home of the instance data and the scripts keep only their narrative.
+`data/base/` is rung 1's transport spine, the network every rung starts from;
+`data/<rung>/` holds only what that rung adds — its components as wide CSVs in
+PyPSA's vocabulary (a blank cell is PyPSA's default) and a `timeseries.csv`
+for what varies, which may also put a schedule on a base component. The
+rung's folder therefore *is* its construct, in data form, and no table
+carries a rung column.
 """
 
 from __future__ import annotations
@@ -35,12 +36,17 @@ TABLES = {
 }
 
 
-def _rows(table: str, rung: str) -> list[dict[str, str]]:
-    with (DATA / table).open() as handle:
-        return [row for row in csv.DictReader(handle) if row['rung'] == rung]
+def _rows(folders: list[Path], table: str) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for folder in folders:
+        path = folder / table
+        if path.exists():
+            with path.open() as handle:
+                rows.extend(csv.DictReader(handle))
+    return rows
 
 
-def _parsed(component: str, attrs, column: str, cell: str) -> object:
+def _parsed(attrs, column: str, cell: str) -> object:
     kind = str(attrs.at[column, 'type']) if column in attrs.index else ''
     if kind.startswith('boolean') or cell in ('True', 'False'):
         return cell == 'True'
@@ -57,15 +63,16 @@ def _parsed(component: str, attrs, column: str, cell: str) -> object:
 
 
 def build(rung: str) -> pypsa.Network:
-    """The rung's network, exactly as its rows in `data/` state it."""
+    """The rung's network: the spine, plus exactly what the rung's folder adds."""
+    folders = [DATA / 'base', DATA / rung]
     n = pypsa.Network()
-    snapshots = _rows('snapshots.csv', rung)
+    snapshots = _rows([DATA / 'base'], 'snapshots.csv')
     n.set_snapshots([int(row['snapshot']) for row in snapshots])
     for column in ('objective', 'stores', 'generators'):
         n.snapshot_weightings[column] = [float(row[column]) for row in snapshots]
 
     varying: dict[tuple[str, str], dict[str, dict[int, float]]] = {}
-    for row in _rows('timeseries.csv', rung):
+    for row in _rows(folders, 'timeseries.csv'):
         cell = row['value']
         value = float(cell) if cell else math.nan
         varying.setdefault((row['component'], row['name']), {}).setdefault(row['attribute'], {})[
@@ -74,11 +81,9 @@ def build(rung: str) -> pypsa.Network:
 
     for component, table in TABLES.items():
         attrs = n.components[component]['attrs']
-        for row in _rows(table, rung):
+        for row in _rows(folders, table):
             kwargs: dict[str, object] = {
-                column: _parsed(component, attrs, column, cell)
-                for column, cell in row.items()
-                if column not in ('rung', 'name') and cell != ''
+                column: _parsed(attrs, column, cell) for column, cell in row.items() if column != 'name' and cell != ''
             }
             for attribute, points in varying.get((component, row['name']), {}).items():
                 kwargs[attribute] = [points.get(int(t['snapshot']), math.nan) for t in snapshots]

@@ -1,4 +1,0 @@
-rung,name,bus,p_nom,marginal_cost,cyclic_state_of_charge,max_hours,efficiency_store,efficiency_dispatch,standing_loss,spill_cost,marginal_cost_storage,state_of_charge_initial,p_nom_extendable,p_nom_max,p_nom_set,capital_cost
-rung2_storage,battery,grid,20.0,0.5,True,4.0,0.95,0.9,0.01,,,,,,,
-rung2_storage,reservoir,grid,10.0,,,2.0,,,,2.0,0.1,5.0,,,,
-rung3_expansion,pump,grid,,,True,4.0,0.9,0.9,,,,,True,30.0,20.0,15.0

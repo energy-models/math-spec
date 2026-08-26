@@ -746,12 +746,13 @@ constraints:
       * (Generator_status - shift(Generator_status, over=snapshot, offset=1))
   Generator_p_ramp_limit_up_com_initial:
     description: >-
-      `Generator-p-ramp_limit_up` — the first snapshot ramps against the
-      status the unit brought in and an output of nothing
+      `Generator-p-ramp_limit_up` — a unit that was off ramps its first
+      snapshot from an output of nothing; one already on brought an unknown
+      output, so it carries no row
     foreach: [snapshot, generator]
     where: >-
       Generator_committable AND not Generator_p_nom_extendable
-      AND Generator_ramp_limit_up AND position(snapshot) == 0
+      AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
     expression: >-
       Generator_p <=
       Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
@@ -770,12 +771,12 @@ constraints:
       * (shift(Generator_status, over=snapshot, offset=1) - Generator_status)
   Generator_p_ramp_limit_down_com_initial:
     description: >-
-      `Generator-p-ramp_limit_down` — the first snapshot ramps down from an
-      output of nothing against the status the unit brought in
+      `Generator-p-ramp_limit_down` — a unit that was off ramps its first
+      snapshot down from an output of nothing; one already on carries no row
     foreach: [snapshot, generator]
     where: >-
       Generator_committable AND not Generator_p_nom_extendable
-      AND Generator_ramp_limit_down AND position(snapshot) == 0
+      AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
     expression: >-
       -Generator_p <=
       Generator_ramp_limit_down * Generator_p_nom * Generator_status
@@ -792,11 +793,11 @@ constraints:
       Generator_ramp_limit_up * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * shift(Generator_status, over=snapshot, offset=1)
   Generator_p_ramp_limit_up_run_big_m_initial:
-    description: "`Generator-p-ramp_limit_up-run-bigM` — the first snapshot reads the status the unit brought in"
+    description: "`Generator-p-ramp_limit_up-run-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
     foreach: [snapshot, generator]
     where: >-
       Generator_committable AND Generator_p_nom_extendable
-      AND Generator_ramp_limit_up AND position(snapshot) == 0
+      AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
     expression: >-
       Generator_p <=
       Generator_ramp_limit_up * Generator_p_nom_ext
@@ -813,11 +814,11 @@ constraints:
       Generator_ramp_limit_start_up * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_start_up
   Generator_p_ramp_limit_up_start_big_m_initial:
-    description: "`Generator-p-ramp_limit_up-start-bigM` — the first snapshot ramps up from an output of nothing"
+    description: "`Generator-p-ramp_limit_up-start-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
     foreach: [snapshot, generator]
     where: >-
       Generator_committable AND Generator_p_nom_extendable
-      AND Generator_ramp_limit_up AND position(snapshot) == 0
+      AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
     expression: >-
       Generator_p <=
       Generator_ramp_limit_start_up * Generator_p_nom_ext
@@ -834,11 +835,11 @@ constraints:
       Generator_ramp_limit_down * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_status
   Generator_p_ramp_limit_down_run_big_m_initial:
-    description: "`Generator-p-ramp_limit_down-run-bigM` — the first snapshot ramps down from an output of nothing"
+    description: "`Generator-p-ramp_limit_down-run-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
     foreach: [snapshot, generator]
     where: >-
       Generator_committable AND Generator_p_nom_extendable
-      AND Generator_ramp_limit_down AND position(snapshot) == 0
+      AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
     expression: >-
       -Generator_p <=
       Generator_ramp_limit_down * Generator_p_nom_ext
@@ -855,11 +856,11 @@ constraints:
       Generator_ramp_limit_shut_down * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_shut_down
   Generator_p_ramp_limit_down_shut_big_m_initial:
-    description: "`Generator-p-ramp_limit_down-shut-bigM` — the first snapshot ramps down from an output of nothing"
+    description: "`Generator-p-ramp_limit_down-shut-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
     foreach: [snapshot, generator]
     where: >-
       Generator_committable AND Generator_p_nom_extendable
-      AND Generator_ramp_limit_down AND position(snapshot) == 0
+      AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
     expression: >-
       -Generator_p <=
       Generator_ramp_limit_shut_down * Generator_p_nom_ext

@@ -56,13 +56,10 @@ def test_every_rung_has_its_marker_pair_on_exactly_one_declared_page(script: Pat
 
 
 @pytest.mark.parametrize('script', SCRIPTS, ids=[script.stem for script in SCRIPTS])
-def test_every_rung_has_rows_in_the_corpus_tables(script: Path):
-    """`instances.build` reads the networks from `data/`, so a rung with no rows there has no instance."""
-    import csv
-
-    with (REFERENCES / 'data' / 'buses.csv').open() as handle:
-        rungs = {row['rung'] for row in csv.DictReader(handle)}
-    assert script.stem in rungs, 'no corpus rows — add the instance to data/*.csv, where every rung lives'
+def test_every_rung_is_the_spine_plus_its_own_folder(script: Path):
+    """`instances.build` reads `data/base/` plus `data/<rung>/`, so a rung without a folder adds nothing."""
+    folder = REFERENCES / 'data' / script.stem
+    assert any(folder.glob('*.csv')), 'no addition tables — the rung folder is where its construct lives, as data'
 
 
 def test_every_reference_script_has_a_recorded_solve():
