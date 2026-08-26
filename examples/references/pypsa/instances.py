@@ -21,7 +21,18 @@ and writes what it saw into `references.json`. The engines' side of that
 file — the parity and model-for-model stamps — is written by lpspec's
 differential runner (`differential/pypsa/parity.py` there), run against this
 checkout whenever the corpus changes; nothing in this repository builds or
-solves the models it states.
+solves the models it states. To refresh the certificate after a corpus
+change, run that runner from a clone of lpspec and commit the rewritten
+`references.json` with the change::
+
+    git clone https://github.com/fluxopt/lpspec ../lpspec
+    uv run --with-editable '../lpspec[linopy]' \\
+        --with 'pypsa==1.3.0' --with 'highspy==1.15.1' --with 'polars>=1.30' \\
+        python ../lpspec/differential/pypsa/parity.py .
+
+The advisory `PyPSA parity` workflow runs the same command with a pinned
+lpspec, so a corpus change that breaks parity shows on the PR without
+gating it.
 """
 
 from __future__ import annotations

@@ -220,7 +220,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 7182.222222222221,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -236,7 +236,7 @@
       "Link-p_set": 1
     },
     "structural": {
-      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "error": "ValueError: cannot reshape array of size 0 into shape (4,0,newaxis)",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
@@ -501,7 +501,7 @@
         "storage_unit": 2,
         "store": 1
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 4456.659315422355,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -528,7 +528,7 @@
       "Store-fix-e-upper": 4
     },
     "structural": {
-      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "error": "ValueError: cannot reshape array of size 0 into shape (4,0,newaxis)",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
@@ -850,7 +850,7 @@
         "storage_unit": 2,
         "store": 2
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 7633.908502024291,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -912,7 +912,7 @@
       "Store-fix-e-upper": 4
     },
     "structural": {
-      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "error": "ValueError: cannot reshape array of size 0 into shape (4,0,newaxis)",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
@@ -1145,7 +1145,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 8785.0,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -1163,7 +1163,7 @@
       "Link-p-ramp_limit_up": 3
     },
     "structural": {
-      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "error": "ValueError: cannot reshape array of size 0 into shape (4,0,newaxis)",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
@@ -1459,7 +1459,7 @@
         "storage_unit": 1,
         "store": 1
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 10282.833333333334,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -1489,7 +1489,7 @@
       "Store-fix-e-upper": 4
     },
     "structural": {
-      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "error": "ValueError: cannot reshape array of size 0 into shape (4,0,newaxis)",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
@@ -1773,7 +1773,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 23962.0,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -1801,7 +1801,7 @@
       "Link-fix-p-upper": 4
     },
     "structural": {
-      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "error": "ValueError: cannot reshape array of size 0 into shape (0,5,newaxis)",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
@@ -2030,7 +2030,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 7775.0,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -2293,7 +2293,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 19712.5,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -2330,7 +2330,7 @@
       "Link-fix-p-upper": 4
     },
     "structural": {
-      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "error": "ValueError: cannot reshape array of size 0 into shape (4,0,newaxis)",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
@@ -2573,7 +2573,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 11700.0,
       "matches": true,
       "model": "examples/pypsa.yaml"
@@ -2587,7 +2587,7 @@
       "Link-fix-p-upper": 8
     },
     "structural": {
-      "error": "TypeError: reduce() of empty iterable with no initial value",
+      "error": "ValueError: cannot reshape array of size 0 into shape (4,0,newaxis)",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
   },
@@ -2662,7 +2662,7 @@
         "load": 4,
         "snapshot": 4
       },
-      "lpspec": "0.0.1.dev3+g3d05a57f1",
+      "lpspec": "0.0.1a264.dev7+g00a4eaf86",
       "lpspec_objective": 12587.437500000098,
       "matches": true,
       "model": "examples/pypsa_quadratic.yaml"

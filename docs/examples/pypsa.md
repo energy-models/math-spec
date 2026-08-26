@@ -103,7 +103,7 @@ snapshot,objective,stores,generators
 | `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested (#123) |
 
 <!-- reference:rung_01_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7182.222222222223`, 45 rows — recorded by `examples/references/pypsa/rung_01_transport.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7182.222222222223`, 45 rows — recorded by `examples/references/pypsa/rung_01_transport.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -148,7 +148,7 @@ Link,wire,p_set,0,10.0
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung_02_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `4456.659315422356`, 103 rows — recorded by `examples/references/pypsa/rung_02_storage.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `4456.659315422356`, 103 rows — recorded by `examples/references/pypsa/rung_02_storage.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -207,7 +207,7 @@ Store,cavern,e_set,3,20.0
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7633.908502024292`, 184 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7633.908502024292`, 184 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -315,7 +315,7 @@ Generator,solar,p_max_pu,3,0.2
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | split | fix, ext and first-snapshot blocks, fused by #70; com is rung 7's, big-M rung 8's |
 
 <!-- reference:rung_04_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8785.0`, 64 rows — recorded by `examples/references/pypsa/rung_04_ramps.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8785.0`, 64 rows — recorded by `examples/references/pypsa/rung_04_ramps.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -388,7 +388,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10282.833333333334`, 102 rows — recorded by `examples/references/pypsa/rung_05_global_constraints.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10282.833333333334`, 102 rows — recorded by `examples/references/pypsa/rung_05_global_constraints.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -461,7 +461,7 @@ tank5,north,coalc,40.0,25.0
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung_06_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `23962.0`, 123 rows — recorded by `examples/references/pypsa/rung_06_kvl.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `23962.0`, 123 rows — recorded by `examples/references/pypsa/rung_06_kvl.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -542,7 +542,7 @@ Line,bc,s_set,0,16.0
 | `{c}-com-p-before/-current/-partly-*`        | out    | only under `linearized_unit_commitment`                       |
 
 <!-- reference:rung_07_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7775.0`, 116 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `7775.0`, 116 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -595,7 +595,7 @@ Load,swing7,p_set,3,10.0
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | split | run and start rows up, run and shut rows down, each with an initial block #70 fuses |
 
 <!-- reference:rung_08_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `19712.5`, 155 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `19712.5`, 155 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -651,7 +651,7 @@ Load,mill_load,p_set,3,60.0
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung_09_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `11700.0`, 68 rows — recorded by `examples/references/pypsa/rung_09_multilink.py`. `lpspec 0.0.1.dev3+g3d05a57f1` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `11700.0`, 68 rows — recorded by `examples/references/pypsa/rung_09_multilink.py`. `lpspec 0.0.1a264.dev7+g00a4eaf86` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>

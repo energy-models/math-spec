@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+name: PyPSA parity
+
+# The advisory side of the parity contract. The corpus lives here as documents
+# only — no engine runs in the required CI gate — and lpspec's differential
+# runner (`differential/pypsa/parity.py` there) is what certifies it, normally
+# run by whoever changes the corpus, committing the rewritten
+# `examples/references/pypsa/references.json` alongside. This job automates
+# that duty's check: it installs the pinned lpspec exactly as released — with
+# lpspec's own pinned math-spec, never this tree, because the pinned engine
+# speaks the language version it was built against — and runs its runner over
+# this checkout.
+#
+# Advisory means the branch ruleset does not require this check, and must not:
+# red here can be a legitimate wait-state — the corpus moved past the language
+# the pinned lpspec understands, resolved only by lpspec bumping its pin. What
+# red otherwise means: a corpus change broke objective parity with PyPSA, or
+# turned a proven model-for-model rung into a mismatch. The diff step below
+# shows what a re-certification would rewrite in the committed record.
+#
+# The `ref` under the lpspec checkout is the certifying engine — the same
+# lpspec the committed stamps name. lpspec's own PyPSA-parity workflow pins
+# this corpus by SHA in return; the two pins advance together, and each bump
+# is a certification event.
+
+on:
+  pull_request:
+    paths:
+      - examples/**
+      - .github/workflows/pypsa-parity.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    name: PyPSA parity (advisory)
+    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the corpus
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out the certifying lpspec
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: fluxopt/lpspec
+          # The head of fluxopt/lpspec#1310, where the differential suite
+          # lives until it merges; then this moves to a release tag.
+          ref: 00a4eaf8635f6248a2ec109a3a0f8711933aaa33
+          path: lpspec
+          persist-credentials: false
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
+        with:
+          run-install: false
+      - name: Run every rung against pypsa, with the pinned lpspec
+        working-directory: lpspec
+        run: >
+          pixi exec -s uv uv run
+          --with-editable ".[linopy]"
+          --with "pypsa==1.3.0" --with "highspy==1.15.1" --with "polars>=1.30"
+          python differential/pypsa/parity.py "$GITHUB_WORKSPACE"
+      - name: Show what a re-certification would rewrite
+        run: git diff --stat -- examples/references/pypsa/references.json
