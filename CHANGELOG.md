@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.22](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.21...v0.0.0-alpha.22) (2026-08-26)
+
+
+### Features
+
+* a piecewise method answers which curvature it is exact for ([#135](https://github.com/energy-models/math-spec/issues/135)) ([6f0fff1](https://github.com/energy-models/math-spec/commit/6f0fff1bc29fe0a958999579b08a5d0ca4a42848))
+
 ## [0.0.0-alpha.21](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.20...v0.0.0-alpha.21) (2026-08-26)
 
 
