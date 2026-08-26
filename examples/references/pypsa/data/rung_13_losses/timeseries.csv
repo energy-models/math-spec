@@ -1,0 +1,5 @@
+component,name,attribute,snapshot,value
+Load,town13,p_set,0,45.0
+Load,town13,p_set,1,70.0
+Load,town13,p_set,2,20.0
+Load,town13,p_set,3,55.0

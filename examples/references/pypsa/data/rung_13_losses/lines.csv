@@ -1,0 +1,4 @@
+name,bus0,bus1,carrier,x,r,s_nom,s_nom_extendable,s_nom_max,capital_cost
+ab13,a,b,AC,0.1,0.0005,60.0,,,
+bc13,b,c,AC,0.2,0.0008,60.0,,,
+ca13,c,a,AC,0.15,0.0005,40.0,True,90.0,4.0

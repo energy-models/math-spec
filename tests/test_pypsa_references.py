@@ -138,7 +138,7 @@ def test_the_stamps_are_from_the_pinned_lpspec(stem: str):
     """A blocker is a claim about one lpspec commit; the workflow pins that commit, and the stamp names it."""
     pinned = re.search(r'ref: ([0-9a-f]{40})', PARITY_WORKFLOW.read_text())
     assert pinned is not None, 'pypsa-parity.yml pins the certifying lpspec by SHA'
-    certified = re.search(r'\+g([0-9a-f]{7,})', RECORDED[stem]['parity']['lpspec'])
+    certified = re.search(r'g([0-9a-f]{7,})', RECORDED[stem]['parity']['lpspec'])
     assert certified is not None, 'the lpspec version stamp carries the commit it was built from'
     assert pinned.group(1).startswith(certified.group(1)), (
         f'stamped at lpspec {certified.group(1)}, workflow pins {pinned.group(1)[:9]} — re-run the runner at the pin'
@@ -168,14 +168,19 @@ def test_every_declared_variable_is_built_by_some_reference():
     assert not unbuilt, f'no reference network builds these declared variables — extend a fixture: {sorted(unbuilt)}'
 
 
+def _stated(name: str, row: str) -> bool:
+    """A declared name carries `{k}` where PyPSA numbers a family of rows, one per segment."""
+    return re.fullmatch(re.escape(name).replace(r'\{k\}', r'\d+'), row) is not None
+
+
 def test_pypsa_builds_no_row_the_files_do_not_declare():
     named = {row for row in RECORDED_ROWS if not row.startswith('GlobalConstraint-')}
-    unmatched = named - ROWS_DECLARED
+    unmatched = {row for row in named if not any(_stated(name, row) for name in ROWS_DECLARED)}
     assert not unmatched, f'pypsa builds these and the files declare nothing that stands for them: {sorted(unmatched)}'
 
 
 def test_every_declared_row_is_built_by_some_reference():
-    unbuilt = ROWS_DECLARED - GC_TYPES - RECORDED_ROWS
+    unbuilt = {name for name in ROWS_DECLARED - GC_TYPES if not any(_stated(name, row) for row in RECORDED_ROWS)}
     assert not unbuilt, f'no reference network builds these declared rows — extend a fixture: {sorted(unbuilt)}'
 
 

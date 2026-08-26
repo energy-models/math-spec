@@ -33,6 +33,7 @@ nav:
       - PyPSA in one file: examples/pypsa.md
       - PyPSA, the quadratic class: examples/pypsa_quadratic.md
       - PyPSA, the relaxed commitment: examples/pypsa_linearized_uc.md
+      - PyPSA, the lossy lines: examples/pypsa_losses.md
   - Reference:
       - Language:
           - reference/language/index.md
