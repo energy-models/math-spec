@@ -18,22 +18,10 @@ and PyPSA supplies its default, exactly as for an unpassed keyword.
 `reference.py` beside this file runs out of band — PyPSA is not a dependency
 of this project, and the script pins the versions the recorded numbers are
 from. It calls `stamp`, which solves a network through PyPSA's own linopy
-model and writes what it saw into `references.json`. The engines' side of that
-file — the parity and model-for-model stamps — is written by lpspec's
-differential runner (`differential/pypsa/parity.py` there), run against this
-checkout whenever the corpus changes; nothing in this repository builds or
-solves the models it states. To refresh the certificate after a corpus
-change, run that runner from a clone of lpspec and commit the rewritten
-`references.json` with the change::
-
-    git clone https://github.com/fluxopt/lpspec ../lpspec
-    uv run --with-editable '../lpspec[linopy]' \\
-        --with 'pypsa==1.3.0' --with 'highspy==1.15.1' --with 'polars>=1.30' \\
-        python ../lpspec/differential/pypsa/parity.py .
-
-The advisory `PyPSA parity` workflow runs the same command with a pinned
-lpspec, so a corpus change that breaks parity shows on the PR without
-gating it.
+model and writes what it saw into `references.json`. Nothing in this
+repository builds or solves the models it states; an engine that certifies
+itself against these rungs keeps its own record (lpspec does, under
+`differential/pypsa/`).
 """
 
 from __future__ import annotations
