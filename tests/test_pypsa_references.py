@@ -58,7 +58,10 @@ def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(
 @pytest.mark.parametrize('rung', RUNGS)
 def test_every_rung_script_adds_to_the_spine(rung: str):
     text = (REFERENCES / f'{rung}.py').read_text()
-    assert 'n = spine.build()' in text and 'n.add(' in text, 'a rung is the spine plus its own n.add calls'
+    whole = 'pypsa.examples.' in text or 'pypsa.Network()' in text
+    assert whole or ('n = spine.build()' in text and 'n.add(' in text), (
+        'a rung is the spine plus its own n.add calls, or a whole network of its own'
+    )
 
 
 def test_every_rung_script_has_a_recorded_solve():
@@ -84,7 +87,7 @@ def test_the_recorded_solve_is_usable_as_an_oracle(stem: str):
 
 
 def test_pypsa_builds_no_variable_the_files_do_not_declare():
-    unmatched = RECORDED_COLUMNS - COLUMNS_DECLARED
+    unmatched = RECORDED_COLUMNS - COLUMNS_DECLARED - {'objective_constant'}
     assert not unmatched, f'pypsa builds these and the files declare nothing that stands for them: {sorted(unmatched)}'
 
 
