@@ -24,12 +24,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-
-def rungs() -> list[str]:
-    """Every rung there is, in ladder order — the folders beside the spine."""
-    return sorted(path.name for path in instances.DATA.iterdir() if path.is_dir() and path.name != 'base')
-
-
 if __name__ == '__main__':
-    for rung in sys.argv[1:] or rungs():
+    for rung in sys.argv[1:] or instances.rungs():
         instances.stamp(rung, instances.build(rung))

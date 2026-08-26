@@ -88,6 +88,11 @@ def _parsed(attrs, column: str, cell: str) -> object:
         return cell
 
 
+def rungs() -> list[str]:
+    """Every rung, in ladder order — the folders beside the spine."""
+    return sorted(path.name for path in DATA.iterdir() if path.is_dir() and path.name != 'base')
+
+
 def build(rung: str) -> pypsa.Network:
     """The rung's network: the spine, plus exactly what the rung's folder adds."""
     folders = [DATA / 'base', DATA / rung]
