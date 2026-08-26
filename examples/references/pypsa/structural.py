@@ -35,6 +35,14 @@ option to ``v1``, and PyPSA speaks ``legacy``, so the option is reset around
 each PyPSA build. Run out of band with the pins above; linopy is pinned to a
 master commit because `lpspec.linopy` needs the ``semantics`` option no
 release carries yet.
+
+The comparison reads linopy's own ``.flat`` export but does not call
+``linopy.testing``: those asserts hold the raw datasets equal, and two
+builders lay the same model out differently — PyPSA pads absent ``_term``
+slots with NaN where lpspec writes -0.0, and term order within a row is the
+builder's own — so ``assert_conequal`` fails a pair this gate proves
+identical label for label. A canonicalizing ``assert`` upstream would let
+this file shrink to the name mapping and one call.
 """
 
 from __future__ import annotations
