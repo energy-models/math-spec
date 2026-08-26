@@ -4,23 +4,17 @@
 
 """Typst. The format that compiles without a toolchain.
 
-Here to keep :mod:`math_spec.typesetting.format` honest: a seam with one
-implementation behind it is a shape, not an abstraction. Typst's syntax differs
-from LaTeX's in every respect that matters — ``sum_(…)``, ``cal(T)``,
-function-call grouping instead of brace groups, a term list instead of a
-``description`` environment — so if the walk needed changing to accommodate it,
-the split was in the wrong place.
-
-Practically: the compiler is one self-contained binary (a pip wheel, so the
-suite compiles every example without apt), and multi-letter identifiers in math
-are upright by default, which is why names go through ``italic("…")``.
+The compiler is one self-contained binary (a pip wheel, so the suite compiles
+every example without apt), and multi-letter identifiers in math are upright
+by default, which is why names go through ``italic("…")``.
 """
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, ClassVar
 
-from math_spec.typesetting.format import TYPST_OPERATORS
+from math_spec.typesetting.format import OPERATOR_SPELLINGS
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -34,8 +28,11 @@ _PREAMBLE = """#set page(margin: 2.5cm)
 
 #: What Typst reads as markup in text mode, each escaped by a leading
 #: backslash. They are not LaTeX's: ``%`` and ``&`` are ordinary characters
-#: here, while ``*``, ``@`` and ``<`` are not.
-_SPECIALS = frozenset('\\#$*_@`<>~')
+#: here, while ``*``, ``@``, ``<``, ``/`` and the square brackets are not.
+_SPECIALS = frozenset('\\#$*_@`<>~/[]')
+
+#: A list or heading marker is markup only at the start of a line.
+_LEADING_MARKER = re.compile(r'(^|\n)([-+=])(?= )')
 
 
 def _quote(text: str) -> str:
@@ -44,7 +41,8 @@ def _quote(text: str) -> str:
 
 
 def _escape(text: str) -> str:
-    return ''.join(f'\\{c}' if c in _SPECIALS else c for c in text)
+    escaped = ''.join(f'\\{c}' if c in _SPECIALS else c for c in text)
+    return _LEADING_MARKER.sub(r'\1\\\2', escaped)
 
 
 def _raw(text: str) -> str:
@@ -64,7 +62,7 @@ class TypstFormat:
     #: Typst applies the same substitution TeX does.
     dash: ClassVar[str] = '---'
 
-    operators: ClassVar[Mapping[str, str]] = TYPST_OPERATORS
+    operators: ClassVar[Mapping[str, str]] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
 
     # -- atoms -------------------------------------------------------------
 
@@ -113,11 +111,6 @@ class TypstFormat:
         return f'sum_({domain}) {body}'
 
     def apply(self, function: str, argument: str) -> str:
-        """``f(x)`` in Typst math is a call on ``f``.
-
-        With an ``upright("bus")`` head that is exactly the notation wanted,
-        and it needs no thin space.
-        """
         return f'{function}({argument})'
 
     def joined(self, parts: list[str], operator: str) -> str:
@@ -126,12 +119,7 @@ class TypstFormat:
     # -- document ----------------------------------------------------------
 
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
-        """A block equation, aligned on ``&``.
-
-        Typst aligns on ``&`` inside a block equation exactly as amsmath
-        does, so the :class:`Line` split carries over unchanged — which is
-        the point.
-        """
+        """A block equation, aligned on ``&`` as amsmath does."""
         rows = [
             f'{self.prose(line.label) if line.label else ""} & {line.left} & {line.right} & {line.condition}'.rstrip(
                 ' &'
@@ -143,7 +131,7 @@ class TypstFormat:
         return f'{numbering}$ {body} $'
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
-        rows = '\n'.join(f'/ {self.math(e.symbol)}: {e.meaning(self.dash)}' for e in entries)
+        rows = '\n'.join(f'/ {self.math(e.symbol)}: {e.meaning}' for e in entries)
         return f'== {title}\n{rows}'
 
     def section(self, title: str, body: str) -> str:
@@ -153,9 +141,6 @@ class TypstFormat:
         return text
 
     def document(self, blocks: list[str], *, standalone: bool) -> str:
-        """Join the blocks; ``standalone`` only decides whether page setup is emitted.
-
-        Typst has no preamble/body split — a bare fragment is already a document.
-        """
+        """No preamble/body split: ``standalone`` only adds the page setup."""
         body = '\n\n'.join(blocks) + '\n'
         return f'{_PREAMBLE}\n{body}' if standalone else body

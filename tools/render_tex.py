@@ -6,13 +6,9 @@
 
     pixi run python -m tools.render_tex build/tex
 
-This is half the gate. ``tools/compile_tex.py`` is the other half, and
-``pixi run compile-tex`` runs both — it depends on ``render-tex``, so the
-output of this script is what it compiles.
-
-One interpreter for every model rather than one each: upstream measured the
-process starts at three quarters of the step's wall clock, against every
-engine invocation put together.
+``tools/compile_tex.py`` is the other half, and ``pixi run compile-tex`` runs
+both. One interpreter for every model rather than one each: the process starts
+were measured at three quarters of the step's wall clock.
 """
 
 from __future__ import annotations
@@ -21,18 +17,12 @@ import sys
 from pathlib import Path
 
 from math_spec.__main__ import main as render
+from tools._page import ROOT, sidecar_for
 
-ROOT = Path(__file__).resolve().parent.parent
-
-# Every model the repository has, not a sample. `examples/*.yaml` is not
-# recursive and would cover none of these; a glob that silently narrows is how
-# a gate stops testing what it claims to.
+#: Every model the repository has; `examples/*.yaml` is not recursive, and a glob that narrows is a gate that stops testing.
 CORPUS = ('examples/**/*.yaml', 'tests/typesetting/golden/*.yaml')
 
-# `examples/symbols/` sits inside that recursive glob and holds symbol tables,
-# which are not models and do not validate against the schema. Excluded by
-# directory rather than by trying to sniff the contents: the directory is what
-# `main` already looks a sidecar up by, so the two agree by construction.
+#: Inside that glob and not models: the symbol tables `sidecar_for` looks up.
 NOT_MODELS = ('examples/symbols',)
 
 
@@ -58,12 +48,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     for model in found:
-        # A sidecar symbol table is used when one sits beside the model under
-        # `examples/symbols/`. None exist yet; the hook is here so adding one
-        # does not silently go unrendered.
         args = ['latex', str(model), '--standalone', '-o', str(out / f'{model.stem}.tex')]
-        symbols = ROOT / 'examples' / 'symbols' / f'{model.stem}.yaml'
-        if symbols.is_file():
+        if symbols := sidecar_for(model):
             args += ['--symbols', str(symbols)]
         render(args)
 

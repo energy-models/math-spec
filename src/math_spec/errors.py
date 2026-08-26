@@ -8,10 +8,6 @@
 accept — decidable at load time, with no data bound. :class:`MathSpecError`
 is the root a consumer's own errors may derive from, so one ``except`` covers
 the package.
-
-``model.py``'s field validators raise plain ``ValueError``, since pydantic
-collects those into its own ``ValidationError`` and a custom class does not
-survive the trip; :func:`schema_error` turns one back at the API boundary.
 """
 
 from __future__ import annotations

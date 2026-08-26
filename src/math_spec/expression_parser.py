@@ -10,11 +10,7 @@ parameters.
 
 ``ArithmeticNode`` is the arithmetic-only union: every nested expression
 position (operands, args, kwargs) accepts it and nothing else, and
-``ComparisonNode`` appears only at the top of a parsed expression. The node
-dataclasses reference the union in their annotations before it is defined,
-which works only because ``from __future__ import annotations`` makes
-annotations strings — removing that future-import requires reordering the
-definitions.
+``ComparisonNode`` appears only at the top of a parsed expression.
 """
 
 from __future__ import annotations
@@ -80,10 +76,7 @@ class DimensionNode:
 class NameListNode:
     """A bracketed list of names in a kwarg value — ``sum(x, by=[a, b])``.
 
-    Unresolved on purpose, and unresolvable here: which kind of name a kwarg
-    admits is the operator's business. Like :class:`NameNode` this never
-    reaches a backend — ``resolution.py`` rewrites it into the one typed node
-    its kwarg wants, so a pass that meets one ran before resolution.
+    Unresolved: which kind of name the kwarg admits is the operator's business.
     """
 
     names: tuple[str, ...]
@@ -91,24 +84,16 @@ class NameListNode:
     @property
     def shown(self) -> str:
         """The kwarg value as the author wrote it, for an error message."""
-        return f'[{", ".join(self.names)}]'
+        return shown(self.names)
 
 
 @dataclass
 class LookupNode:
-    """A resolved reference to one or more declared lookups.
+    """A resolved reference to one or more declared lookups, legal only in a kwarg value.
 
-    Only legal in operator kwarg *values* (``sum(x, by=to)``). Like
-    :class:`DimensionNode` this names structure, not data. The lookups carry
-    their own dimensions: ``dimension`` is the one they are all over — what
-    ``sum`` consumes and ``at`` produces — and ``into`` the ones their values
-    are labels of, one per name and in the order written, all copied off the
-    declarations once here so no backend has to re-derive them.
-
-    Plural because grouping through several lookups at once is one grouping,
-    not a composition of two: ``sum(x, by=[gen_bus, gen_tech])`` consumes
-    ``generator`` once and produces both targets. The one-name case is the
-    same node with one-element tuples, so no consumer branches on arity.
+    ``dimension`` is the one every lookup is over — what ``sum`` consumes and
+    ``at`` produces — and ``into`` the targets, one per name in the order
+    written; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
     """
 
     names: tuple[str, ...]
@@ -118,17 +103,14 @@ class LookupNode:
     @property
     def shown(self) -> str:
         """The kwarg value as the author wrote it, for an error message."""
-        return self.names[0] if len(self.names) == 1 else f'[{", ".join(self.names)}]'
+        return shown(self.names)
 
 
 @dataclass
 class KeywordNode:
     """A quoted closed keyword in a kwarg value — ``shift(..., edge='wrap')``.
 
-    Unresolved on purpose: which keywords a kwarg accepts is the operator's
-    business, so this only records *that* the author wrote a literal rather
-    than a name. ``resolution.py`` turns it into the typed node the kwarg
-    wants, or reports it as not one of that kwarg's keywords.
+    Unresolved: which keywords the kwarg accepts is the operator's business.
     """
 
     value: str
@@ -136,15 +118,10 @@ class KeywordNode:
 
 @dataclass
 class EdgeNode:
-    """A resolved edge policy for ``shift(x, over=d, offset=n, edge='wrap')``.
+    """A resolved edge policy, legal only as an ``edge=`` value.
 
-    Only legal as the value of ``shift``'s ``edge=`` kwarg. Like
-    :class:`DimensionNode` and :class:`LookupNode` this names neither data
-    nor a coordinate — it is a closed keyword, and the only one the language
-    has. A *number* in the same position stays an ordinary
-    :class:`NumberNode`, the value the vacated positions contribute, so one
-    kwarg carries all three edge policies and no second kwarg can contradict
-    it.
+    A *number* in the same position stays a :class:`NumberNode`: the value the
+    vacated positions contribute.
     """
 
     policy: str
@@ -195,21 +172,13 @@ class ComparisonNode:
 
 ExpressionNode = ArithmeticNode | ComparisonNode
 
-# ---------------------------------------------------------------------------
-# The groups a pass asks about
-#
-# Every pass over the AST asks the same three questions — is this a leaf, does
-# it carry sub-expressions, did resolution miss it — and each used to spell the
-# answer as a tuple of class names at the point of asking. Six modules listing
-# the same six or nine classes is six places to forget one when a node kind is
-# added, and a forgotten class does not fail: it falls through to whatever
-# branch comes next. Named here instead, once, so a new node joins a group and
-# every pass follows.
-#
-# `isinstance` narrows through these exactly as it does through a written-out
-# tuple, so the `assert_never` at the end of each walk still proves the union
-# is exhausted.
-# ---------------------------------------------------------------------------
+
+def shown(names: tuple[str, ...]) -> str:
+    """Names as a kwarg value is written: bare when one, bracketed when several."""
+    return names[0] if len(names) == 1 else f'[{", ".join(names)}]'
+
+
+# Node groups
 
 #: A resolved reference the language admits only as an operator kwarg *value*:
 #: ``sum(x, over=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
@@ -256,30 +225,19 @@ def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
 
 
 def _build_grammar() -> pp.ParserElement:
-    """Build and return the pyparsing grammar for math expressions.
+    """Build the pyparsing grammar for math expressions.
 
-    Every numeric literal is stored as ``float``, since ``NumberNode.value``
-    is declared ``float``. ``inf`` is a ``pp.Keyword``, not a ``pp.Literal``:
-    a ``Literal`` matches a prefix, so it would eat the first three characters
-    of ``inflow`` and leave the parser meeting ``low`` where it expects the
-    end of the expression.
-
-    A quoted value is a **closed keyword**, never a model name — the same
-    rule a ``where`` uses, where quoting says "literal, not something to
-    resolve" — and the grammar admits it only in a kwarg value: a string has
-    no meaning in arithmetic, so allowing it there would only create an error
-    to report later. A bracketed list of names is admitted in the same
-    position and for the same reason. A comparison appears at most once, and
-    only at the top.
+    ``inf`` is a ``pp.Keyword``, not a ``pp.Literal``: a ``Literal`` matches a
+    prefix, so it would eat the first three characters of ``inflow`` and leave
+    the parser meeting ``low`` where it expects the end of the expression. A
+    quoted value or a bracketed list of names is admitted only in a kwarg
+    value; a comparison appears at most once, and only at the top.
     """
     arith = pp.Forward()
 
-    # pyrefly: ignore[implicit-any-lambda]
-    integer = pp.Regex(r'-?\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
-    # pyrefly: ignore[implicit-any-lambda]
-    real = pp.Regex(r'\d+\.\d*([eE][+-]?\d+)?').set_parse_action(lambda t: NumberNode(float(t[0])))
     inf_literal = (pp.Keyword('.inf') | pp.Keyword('inf')).set_parse_action(lambda: NumberNode(float('inf')))
-    number = real | inf_literal | integer
+    # pyrefly: ignore[implicit-any-lambda]
+    number = inf_literal | pp.Regex(rf'{REAL}|\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
 
     name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
 
@@ -296,13 +254,12 @@ def _build_grammar() -> pp.ParserElement:
     name_node = name.copy().set_parse_action(lambda t: NameNode(t[0]))
     atom = func_call | number | name_node | (pp.Suppress('(') + arith + pp.Suppress(')'))
 
+    unary = pp.Forward()
+    power = (atom + pp.Optional(pp.Literal('**') + unary)).set_parse_action(_make_power)
     # pyrefly: ignore[implicit-any-lambda]
-    unary = (pp.one_of('+ -') + atom).set_parse_action(lambda t: UnaryOperatorNode(t[0], t[1])) | atom
+    unary <<= (pp.one_of('+ -') + unary).set_parse_action(lambda t: UnaryOperatorNode(t[0], t[1])) | power
 
-    power = unary + pp.ZeroOrMore(pp.Literal('**') + unary)
-    power.set_parse_action(_make_right_assoc)
-
-    mul_div = power + pp.ZeroOrMore(pp.one_of('* /') + power)
+    mul_div = unary + pp.ZeroOrMore(pp.one_of('* /') + unary)
     mul_div.set_parse_action(_make_left_assoc)
 
     add_sub = mul_div + pp.ZeroOrMore(pp.one_of('+ -') + mul_div)
@@ -328,6 +285,9 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
     for item in tokens[1:]:
         if isinstance(item, tuple) and len(item) == 2:
             k, v = item
+            if k in kwargs:
+                msg = f'{name}({k}=) is given twice. A keyword names one value; drop one of them.'
+                raise SchemaError(msg)
             kwargs[k] = v
         else:
             args.append(item)
@@ -335,35 +295,21 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
 
 
 def _make_left_assoc(tokens: pp.ParseResults) -> Any:
-    """Fold tokens into left-associative BinaryOperatorNode chain."""
-    items = list(tokens)
-    result = items[0]
-    i = 1
-    while i < len(items):
-        op = items[i]
-        right = items[i + 1]
+    """Fold tokens into a left-associative BinaryOperatorNode chain."""
+    result, *rest = tokens
+    for op, right in zip(rest[::2], rest[1::2], strict=True):
         result = BinaryOperatorNode(op, result, right)
-        i += 2
     return result
 
 
-def _make_right_assoc(tokens: pp.ParseResults) -> Any:
-    """Fold tokens into right-associative BinaryOperatorNode chain (for **).
-
-    Right-associative: ``a ** b ** c`` is ``a ** (b ** c)``.
-    """
+def _make_power(tokens: pp.ParseResults) -> Any:
+    """A base and at most one exponent — right-associative, since the exponent is itself a ``unary``."""
     items = list(tokens)
-    if len(items) == 1:
-        return items[0]
-    result = items[-1]
-    i = len(items) - 3
-    while i >= 0:
-        op = items[i + 1]
-        left = items[i]
-        result = BinaryOperatorNode(op, left, result)
-        i -= 2
-    return result
+    return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
+
+#: A float — a fractional part or an exponent. A sign is the unary operator's.
+REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
 
 _GRAMMAR = _build_grammar()
 
@@ -371,12 +317,8 @@ _GRAMMAR = _build_grammar()
 def parse_expression(text: str) -> ExpressionNode:
     """Parse a math expression string into an AST.
 
-    With ``parse_all`` and a single top-level alternative, element 0 of the
-    parse result is the root node.
-
-    Returns:
-        One of ``NumberNode``, ``NameNode``, ``UnaryOperatorNode``,
-        ``BinaryOperatorNode``, ``ComparisonNode`` or ``FunctionCallNode``.
+    Raises:
+        SchemaError: If *text* is not an expression of the language.
     """
     try:
         result = _GRAMMAR.parse_string(text, parse_all=True)

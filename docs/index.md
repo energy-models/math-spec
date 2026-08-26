@@ -140,20 +140,20 @@ Only the notation is a choice, and **How** shows the one that was made here.
 
     \paragraph{Sets}
     \begin{description}
-    \item[$\mathcal{S}$] index $s$ --- \texttt{snapshot} --- dispatch periods
-    \item[$\mathcal{G}$] index $g$ --- \texttt{generator} --- generating units
+    \item[{$\mathcal{S}$}] index $s$ --- \texttt{snapshot} --- dispatch periods
+    \item[{$\mathcal{G}$}] index $g$ --- \texttt{generator} --- generating units
     \end{description}
 
     \paragraph{Parameters}
     \begin{description}
-    \item[$\bar p$] \texttt{p\_max} over $\mathcal{G}$ --- installed capacity
-    \item[$\ell$] \texttt{load} over $\mathcal{S}$ --- demand to be met
-    \item[$c$] \texttt{cost} over $\mathcal{G}$ --- marginal cost
+    \item[{$\bar p$}] \texttt{p\_max} over $\mathcal{G}$ --- installed capacity
+    \item[{$\ell$}] \texttt{load} over $\mathcal{S}$ --- demand to be met
+    \item[{$c$}] \texttt{cost} over $\mathcal{G}$ --- marginal cost
     \end{description}
 
     \paragraph{Variables}
     \begin{description}
-    \item[$p$] \texttt{p} over $\mathcal{S} \times \mathcal{G}$ --- output of a generator in a snapshot
+    \item[{$p$}] \texttt{p} over $\mathcal{S} \times \mathcal{G}$ --- output of a generator in a snapshot
     \end{description}
 
     \paragraph{Objective}
