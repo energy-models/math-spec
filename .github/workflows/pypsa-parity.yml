@@ -40,7 +40,7 @@ jobs:
         with:
           repository: fluxopt/lpspec
           # fluxopt/lpspec#1327 head; a release tag once one exists.
-          ref: af9a9b91332bcd37bfd825bcf84a63baea3178d3
+          ref: a6a8176987262a16fc282f304a4525c10be20ba9
           path: lpspec
           persist-credentials: false
       - name: Install pixi

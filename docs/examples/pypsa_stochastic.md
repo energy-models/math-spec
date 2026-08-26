@@ -24,7 +24,7 @@ risk preference, and `timeseries.csv` carries a `scenario` column.
 | objective                                            | done   | capacity once; operation `(1 - omega)` in expectation, `omega` at the tail |
 
 <!-- reference:rung_14_stochastic:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `9267.386666666665`, 87 rows. `lpspec gaf9a9b913` binds `examples/pypsa_stochastic.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 16 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `9267.386666666665`, 87 rows. `lpspec ga6a817698` binds `examples/pypsa_stochastic.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 16 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>

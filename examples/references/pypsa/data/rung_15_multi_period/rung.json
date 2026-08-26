@@ -1,0 +1,6 @@
+{
+  "model": "examples/pypsa_multi_period.yaml",
+  "optimize": {
+    "multi_investment_periods": true
+  }
+}

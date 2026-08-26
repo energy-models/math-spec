@@ -5,7 +5,8 @@
 """The instances: every rung's network is the shared spine plus its own folder.
 
 `data/base/` is rung 1's transport spine, the network every rung starts from;
-a folder with its own `snapshots.csv` is a whole network instead.
+a folder with its own `snapshots.csv` is a whole network instead, and a
+`period` column there makes it a multi-period one, weighted by `periods.csv`.
 `data/<rung>/` otherwise holds only what that rung adds — its components as wide CSVs in
 PyPSA's vocabulary and a `timeseries.csv` for what varies, which may also put
 a schedule on a base component. The folders are the rungs: `reference.py`
@@ -44,6 +45,7 @@ import json
 import math
 from pathlib import Path
 
+import pandas as pd
 import pypsa
 
 DATA = Path(__file__).resolve().parent / 'data'
@@ -106,7 +108,14 @@ def build(rung: str) -> pypsa.Network:
     folders = [DATA / rung] if (DATA / rung / 'snapshots.csv').exists() else [DATA / 'base', DATA / rung]
     n = pypsa.Network()
     snapshots = _rows(folders[:1], 'snapshots.csv')
-    n.set_snapshots([int(row['snapshot']) for row in snapshots])
+    if snapshots and 'period' in snapshots[0]:
+        n.snapshots = pd.MultiIndex.from_tuples([(int(row['period']), int(row['snapshot'])) for row in snapshots])
+        n.investment_periods = sorted({int(row['period']) for row in snapshots})
+        for row in _rows(folders[:1], 'periods.csv'):
+            for column in ('objective', 'years'):
+                n.investment_period_weightings.loc[int(row['period']), column] = float(row[column])
+    else:
+        n.set_snapshots([int(row['snapshot']) for row in snapshots])
     for column in ('objective', 'stores', 'generators'):
         n.snapshot_weightings[column] = [float(row[column]) for row in snapshots]
 
