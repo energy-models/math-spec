@@ -153,8 +153,7 @@ def _above_the_ceiling_message(where: str, degree: int) -> str:
     """About the product's own degree, since ``p * p * p`` is two admissible products nested."""
     return (
         f'{where}this product is degree {degree}. The language takes degree 2, in the '
-        f'**objective and constraints** and nowhere else: a sink takes a quadratic form and none takes a '
-        f'cubic one.\n'
+        f'**objective and constraints** and nowhere else, and nothing above it.\n'
         f'Multiply by a parameter instead, or give the inner product a name — a variable '
         f'constrained to equal it is degree 1 wherever it is used.'
     )

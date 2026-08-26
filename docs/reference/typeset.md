@@ -15,11 +15,11 @@ Every construct the language has, beside the math it prints, is one page:
 question is whether the notation is right, rather than how to print it.
 
 ```python
-import math_spec as lps
+import math_spec as ms
 
-print(lps.to_latex('model.yaml'))  # amsmath align
-print(lps.to_typst('model.yaml'))  # compiles without a TeX toolchain
-print(lps.to_markdown('model.yaml'))  # renders as-is on GitHub
+print(ms.to_latex('model.yaml'))  # amsmath align
+print(ms.to_typst('model.yaml'))  # compiles without a TeX toolchain
+print(ms.to_markdown('model.yaml'))  # renders as-is on GitHub
 ```
 
 Or from a shell, where this belongs in a Makefile next to `pdflatex`:
@@ -77,10 +77,10 @@ symbols = {
     },
 }
 
-lps.to_latex('dispatch.yaml', symbols=symbols)
+ms.to_latex('dispatch.yaml', symbols=symbols)
 ```
 
-A dict, a YAML path, or a `lps.SymbolTable`. As a sidecar file:
+A dict, a YAML path, or a `ms.SymbolTable`. As a sidecar file:
 
 <!-- doctest: skip -->
 

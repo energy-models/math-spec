@@ -93,7 +93,7 @@ ObjectiveSense = Literal['minimize', 'maximize']
 #: The relation a link may pin its expression to the curve with.
 LinkSign = Literal['==', '<=', '>=']
 
-#: The order of special ordered set a sink carries.
+#: The order of special ordered set.
 SosType = Literal[1, 2]
 
 #: How a ``piecewise:`` block restricts its interpolation weights. Kept in step
@@ -387,7 +387,7 @@ class PiecewiseLink(_StrictBlock):
 #: breakpoint.
 PIECEWISE_METHODS = {
     'adjacency': 'a binary per segment, and a row making the two nonzero weights neighbours',
-    'sos2': 'the same weights, restricted by a set the sink branches on (the sos rules)',
+    'sos2': 'the same weights, restricted by a set the solver branches on (the sos rules)',
     'convex': 'nothing — the weights range over the hull, which is a pure LP',
     'lp': 'no weights at all — one row per segment line, plus the two rows holding the domain',
 }
@@ -477,8 +477,8 @@ class PiecewiseBlock(_StrictBlock):
         return v
 
 
-#: The orders of special ordered set a sink carries — nothing else is a
-#: construct solvers have.
+#: The orders of special ordered set — nothing else is a construct solvers
+#: have.
 SOS_TYPES = frozenset(get_args(SosType))
 
 
@@ -487,13 +487,13 @@ class SosBlock(_StrictBlock):
 
     One set per coordinate of the variable's ``foreach`` minus ``over``; the
     members are the variable's *existing* coordinates along ``over``, in that
-    dimension's declared order, and ``big_m`` is the optional cap a
-    reformulating sink puts on its linking rows.
+    dimension's declared order, and ``big_m`` is the optional cap a consumer
+    that reformulates the set puts on its linking rows.
 
     ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
     and those two consecutive. Unlike every other block this one declares no
-    math a sink can read off ``A``: it is a *set*, carried to the sink that
-    has the concept and reformulated for the sink that does not.
+    math to read off ``A``: it is a *set*, carried to a consumer that has the
+    concept and reformulated for one that does not.
     """
 
     _label: ClassVar[str] = 'a sos declaration'
