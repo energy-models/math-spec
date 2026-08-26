@@ -34,7 +34,7 @@ RUNG = 'rung1_transport'
 
 
 def build() -> pypsa.Network:
-    """Rung 1's transport spine: two buses, a lossy link, a cheap and a dear generator.
+    """Rung 1's transport: the spine as it stands, plus a must-run its schedule pins.
 
     Coal in the north is cheap and the wire loses a tenth on the way south, so
     the south's load splits between imports, a small must-run pinned by its

@@ -22,14 +22,65 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 ## Index
 
 A row is **done** and links once it is in the file. Under each rung's table
-sits its reference network — PyPSA's own statements, solved out of band by the
-pinned scripts in `examples/references/pypsa/` — with the objective and row
-counts a parity gate will compare, so the YAML and the PyPSA it stands for
-read side by side. A blank status is a row
+sits its reference network — the shared spine below plus the rung's own
+folder of additions under `examples/references/pypsa/data/`, solved out of
+band by the pinned scripts beside it — with the objective and row counts a
+parity gate will compare, so the YAML and the data it binds read side by
+side. A blank status is a row
 expected to state one-to-one; a word is the catch: **prep** needs a parameter computed in
 data prep · **split** one PyPSA row is several `where:` blocks · **not** a
 PyPSA workaround not reproduced · **flag** only under an `n.optimize()`
 keyword · **scope** multi-period or stochastic · **open** not stateable yet.
+
+<!-- reference:spine:begin -->
+> Every rung's network is the spine below plus the rung's own folder of additions, read by `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`, so no table is column-joined and no empty cells are invented — a blank cell is an attribute the row does not set, PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.
+
+<details markdown="1">
+<summary>The shared spine, <code>data/base/</code></summary>
+
+`data/base/buses.csv`
+
+```csv
+name
+north
+south
+```
+
+`data/base/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost
+coal,north,100.0,10.0
+gas,south,100.0,30.0
+```
+
+`data/base/links.csv`
+
+```csv
+name,bus0,bus1,p_nom,p_min_pu,efficiency
+wire,north,south,40.0,-1.0,0.9
+```
+
+`data/base/loads.csv`
+
+```csv
+name,bus,p_set
+north_load,north,30.0
+south_load,south,40.0
+```
+
+`data/base/snapshots.csv`
+
+```csv
+snapshot,objective,stores,generators
+0,1.0,1.0,1.0
+1,1.0,1.0,1.0
+2,1.0,1.0,1.0
+3,1.0,1.0,1.0
+```
+
+</details>
+<!-- reference:spine:end -->
 
 ### Rung 1 — transport
 
@@ -50,17 +101,30 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung1_transport/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 1's transport spine: two buses, a lossy link, a cheap and a dear generator.
+Rung 1's transport: the spine as it stands, plus a must-run its schedule pins.
 
-    Coal in the north is cheap and the wire loses a tenth on the way south, so
-    the south's load splits between imports, a small must-run pinned by its
-    given schedule, and its own gas at the link's rating.
-    """
-    return instances.build(RUNG)
+Coal in the north is cheap and the wire loses a tenth on the way south, so
+the south's load splits between imports, a small must-run pinned by its
+given schedule, and its own gas at the link's rating.
+
+`data/rung1_transport/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost
+must_run,south,10.0,0.0
+```
+
+`data/rung1_transport/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Generator,must_run,p_set,0,5.0
+Generator,must_run,p_set,1,5.0
+Generator,must_run,p_set,2,5.0
+Generator,must_run,p_set,3,5.0
+Link,wire,p_set,0,10.0
 ```
 
 </details>
@@ -82,18 +146,45 @@ def build() -> pypsa.Network:
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2488.903629000791`, 103 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung2_storage/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
+Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
 
-    The generator is cheap for two snapshots and dear for two, so the battery
-    buys low and sells high and its horizon closes on itself; the reservoir
-    opens on a given charge and spills the inflow it cannot hold; the cavern
-    drains from its initial fill.
-    """
-    return instances.build(RUNG)
+The generator is cheap for two snapshots and dear for two, so the battery
+buys low and sells high and its horizon closes on itself; the reservoir
+opens on a given charge and spills the inflow it cannot hold; the cavern
+drains from its initial fill.
+
+`data/rung2_storage/storage_units.csv`
+
+```csv
+name,bus,p_nom,max_hours,efficiency_store,efficiency_dispatch,standing_loss,cyclic_state_of_charge,marginal_cost,spill_cost,state_of_charge_initial,marginal_cost_storage
+battery,south,20.0,4.0,0.95,0.9,0.01,True,0.5,,,
+reservoir,south,10.0,2.0,,,,,,2.0,5.0,0.1
+```
+
+`data/rung2_storage/stores.csv`
+
+```csv
+name,bus,e_nom,e_initial,standing_loss,marginal_cost
+cavern,south,40.0,25.0,0.005,0.2
+```
+
+`data/rung2_storage/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Generator,gas,marginal_cost,0,15.0
+Generator,gas,marginal_cost,1,15.0
+Generator,gas,marginal_cost,2,60.0
+Generator,gas,marginal_cost,3,60.0
+StorageUnit,battery,p_set,0,0.0
+StorageUnit,reservoir,inflow,0,12.0
+StorageUnit,reservoir,inflow,1,12.0
+StorageUnit,reservoir,inflow,2,12.0
+StorageUnit,reservoir,inflow,3,12.0
+StorageUnit,reservoir,state_of_charge_set,3,10.0
+Store,cavern,e_set,3,20.0
 ```
 
 </details>
@@ -114,19 +205,72 @@ def build() -> pypsa.Network:
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5646.0526315789475`, 124 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung3_expansion/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
+Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
 
-    Wind is free to run but costs capacity, its availability varies, and its
-    build is floored and capped; gas is fixed, dear, and budgeted in energy
-    over the horizon, so the optimum has to buy some wind — at least the
-    energy floor it also carries. The cable to the island is the extendable
-    link, and the pump and tank are the extendable storage.
-    """
-    return instances.build(RUNG)
+Wind is free to run but costs capacity, its availability varies, and its
+build is floored and capped; gas is fixed, dear, and budgeted in energy
+over the horizon, so the optimum has to buy some wind — at least the
+energy floor it also carries. The cable to the island is the extendable
+link, and the pump and tank are the extendable storage.
+
+`data/rung3_expansion/buses.csv`
+
+```csv
+name
+island
+```
+
+`data/rung3_expansion/generators.csv`
+
+```csv
+name,bus,p_nom_extendable,capital_cost,p_nom_min,p_nom_max,marginal_cost,e_sum_min,p_nom_set,p_nom,e_sum_max
+wind,north,True,50.0,5.0,80.0,0.0,40.0,,,
+solar,north,True,60.0,,40.0,0.0,,15.0,,
+diesel,island,,,,,40.0,,,60.0,70.0
+```
+
+`data/rung3_expansion/links.csv`
+
+```csv
+name,bus0,bus1,p_nom_extendable,capital_cost,p_nom_max,efficiency,p_nom_set
+cable,north,island,True,20.0,30.0,0.95,25.0
+```
+
+`data/rung3_expansion/loads.csv`
+
+```csv
+name,bus,p_set
+island_load,island,10.0
+```
+
+`data/rung3_expansion/storage_units.csv`
+
+```csv
+name,bus,p_nom_extendable,capital_cost,p_nom_max,max_hours,efficiency_store,efficiency_dispatch,cyclic_state_of_charge,p_nom_set
+pump,north,True,15.0,30.0,4.0,0.9,0.9,True,20.0
+```
+
+`data/rung3_expansion/stores.csv`
+
+```csv
+name,bus,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set
+tank,north,True,2.0,80.0,True,50.0
+```
+
+`data/rung3_expansion/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Generator,wind,p_max_pu,0,0.3
+Generator,wind,p_max_pu,1,0.8
+Generator,wind,p_max_pu,2,0.5
+Generator,wind,p_max_pu,3,0.9
+Generator,solar,p_max_pu,0,0.5
+Generator,solar,p_max_pu,1,0.6
+Generator,solar,p_max_pu,2,0.4
+Generator,solar,p_max_pu,3,0.2
 ```
 
 </details>
@@ -142,16 +286,54 @@ def build() -> pypsa.Network:
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3950.0`, 64 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung4_ramps/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
+Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
 
-    Coal may move a fifth of its capacity per snapshot, so the swings belong
-    to the peaker however dear it is; the tie line east ramps too.
-    """
-    return instances.build(RUNG)
+Coal may move a fifth of its capacity per snapshot, so the swings belong
+to the peaker however dear it is; the tie line east ramps too.
+
+`data/rung4_ramps/buses.csv`
+
+```csv
+name
+east
+```
+
+`data/rung4_ramps/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost,ramp_limit_up,ramp_limit_down
+coal_slow,north,80.0,8.0,0.2,0.2
+```
+
+`data/rung4_ramps/links.csv`
+
+```csv
+name,bus0,bus1,p_nom,efficiency,ramp_limit_up,ramp_limit_down
+tie,north,east,50.0,1.0,0.4,0.4
+```
+
+`data/rung4_ramps/loads.csv`
+
+```csv
+name,bus
+east_load,east
+swing,north
+```
+
+`data/rung4_ramps/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Load,east_load,p_set,0,5.0
+Load,east_load,p_set,1,20.0
+Load,east_load,p_set,2,25.0
+Load,east_load,p_set,3,10.0
+Load,swing,p_set,0,0.0
+Load,swing,p_set,1,25.0
+Load,swing,p_set,2,45.0
+Load,swing,p_set,3,0.0
 ```
 
 </details>
@@ -177,17 +359,44 @@ each type is three blocks by sense.
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5590.0`, 57 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung5_global_constraints/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
+Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
 
-    Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
-    run here; the cap decides the mix, and its shadow price is the carbon
-    price.
-    """
-    return instances.build(RUNG)
+Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
+run here; the cap decides the mix, and its shadow price is the carbon
+price.
+
+`data/rung5_global_constraints/carriers.csv`
+
+```csv
+name,co2_emissions
+coalc,0.9
+gasc,0.4
+windc,
+```
+
+`data/rung5_global_constraints/generators.csv`
+
+```csv
+name,bus,carrier,p_nom,marginal_cost,efficiency
+coal5,north,coalc,60.0,9.0,0.35
+gas5,north,gasc,60.0,25.0,0.5
+wind5,north,windc,60.0,40.0,
+```
+
+`data/rung5_global_constraints/global_constraints.csv`
+
+```csv
+name,type,carrier_attribute,sense,constant
+co2_cap,primary_energy,co2_emissions,<=,150.0
+```
+
+`data/rung5_global_constraints/loads.csv`
+
+```csv
+name,bus,p_set
+extra5,north,50.0
 ```
 
 </details>
@@ -204,17 +413,53 @@ def build() -> pypsa.Network:
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5740.0`, 104 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung6_kvl/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 6's voltage law: three buses in a triangle of lines.
+Rung 6's voltage law: three buses in a triangle of lines.
 
-    Two generators and one load; with a cycle in the graph the flows split by
-    impedance rather than by cost, which is what the KVL row enforces; one
-    line is extendable, so its rating is a decision.
-    """
-    return instances.build(RUNG)
+Two generators and one load; with a cycle in the graph the flows split by
+impedance rather than by cost, which is what the KVL row enforces; one
+line is extendable, so its rating is a decision.
+
+`data/rung6_kvl/buses.csv`
+
+```csv
+name
+a
+b
+c
+```
+
+`data/rung6_kvl/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost
+hydro,a,80.0,10.0
+diesel6,b,80.0,50.0
+```
+
+`data/rung6_kvl/lines.csv`
+
+```csv
+name,bus0,bus1,x,r,s_nom,s_nom_extendable,capital_cost,s_nom_max,s_nom_set
+ab,a,b,0.1,0.01,60.0,,,,
+bc,b,c,0.2,0.01,60.0,,,,
+ca,c,a,0.1,0.01,60.0,,,,
+ca2,c,a,0.15,0.01,,True,10.0,40.0,30.0
+```
+
+`data/rung6_kvl/loads.csv`
+
+```csv
+name,bus,p_set
+town,c,45.0
+```
+
+`data/rung6_kvl/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Line,bc,s_set,0,10.0
 ```
 
 </details>
@@ -237,18 +482,37 @@ def build() -> pypsa.Network:
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3550.0`, 74 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung7_commitment/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 7's commitment: a unit that pays to start, to stop, and to idle.
+Rung 7's commitment: a unit that pays to start, to stop, and to idle.
 
-    The base unit may not run below forty percent, was already on with two
-    snapshots of its minimum up time left to serve, pays for each start, and
-    ramps against its previous status — so the swing between it and the
-    peaker is a schedule, not a dispatch.
-    """
-    return instances.build(RUNG)
+The base unit may not run below forty percent, was already on with two
+snapshots of its minimum up time left to serve, pays for each start, and
+ramps against its previous status — so the swing between it and the
+peaker is a schedule, not a dispatch.
+
+`data/rung7_commitment/generators.csv`
+
+```csv
+name,bus,committable,p_nom,marginal_cost,p_min_pu,min_up_time,min_down_time,up_time_before,ramp_limit_up,ramp_limit_down,ramp_limit_start_up,ramp_limit_shut_down,start_up_cost,shut_down_cost,stand_by_cost
+uc,north,True,50.0,5.0,0.4,3,2,1,0.5,0.5,0.6,0.6,100.0,50.0,5.0
+```
+
+`data/rung7_commitment/loads.csv`
+
+```csv
+name,bus
+swing7,north
+```
+
+`data/rung7_commitment/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Load,swing7,p_set,0,25.0
+Load,swing7,p_set,1,45.0
+Load,swing7,p_set,2,45.0
+Load,swing7,p_set,3,10.0
 ```
 
 </details>
@@ -270,18 +534,46 @@ def build() -> pypsa.Network:
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `12005.0`, 129 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung8_modular_big_m/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
+Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
 
-    The block plant is bought twenty-five megawatts at a time and gated by a
-    status, so its bounds are one module's share; the flexible plant is
-    extendable and committable with ramps, which is the pairing PyPSA's big-M
-    rows linearize.
-    """
-    return instances.build(RUNG)
+The block plant is bought twenty-five megawatts at a time and gated by a
+status, so its bounds are one module's share; the flexible plant is
+extendable and committable with ramps, which is the pairing PyPSA's big-M
+rows linearize.
+
+`data/rung8_modular_big_m/buses.csv`
+
+```csv
+name
+mill
+```
+
+`data/rung8_modular_big_m/generators.csv`
+
+```csv
+name,bus,p_nom_extendable,committable,p_nom_mod,p_nom_max,capital_cost,marginal_cost,p_min_pu,up_time_before,ramp_limit_up,ramp_limit_down,p_nom
+block,mill,True,True,25.0,100.0,30.0,20.0,0.2,0,,,
+flex,mill,True,True,,80.0,50.0,10.0,0.3,0,0.25,0.25,
+backstop,mill,,,,,,300.0,,,,,200.0
+```
+
+`data/rung8_modular_big_m/loads.csv`
+
+```csv
+name,bus
+mill_load,mill
+```
+
+`data/rung8_modular_big_m/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Load,mill_load,p_set,0,40.0
+Load,mill_load,p_set,1,80.0
+Load,mill_load,p_set,2,120.0
+Load,mill_load,p_set,3,60.0
 ```
 
 </details>
@@ -298,17 +590,44 @@ def build() -> pypsa.Network:
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5200.0`, 68 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung9_multilink/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 9's multi-link: one gas flow delivering power and heat at two ports.
+Rung 9's multi-link: one gas flow delivering power and heat at two ports.
 
-    The CHP link withdraws gas at its first bus and injects at the other two
-    by its two efficiencies; the heat bus has no other supply, so the link
-    runs and the power bus tops up from imports.
-    """
-    return instances.build(RUNG)
+The CHP link withdraws gas at its first bus and injects at the other two
+by its two efficiencies; the heat bus has no other supply, so the link
+runs and the power bus tops up from imports.
+
+`data/rung9_multilink/buses.csv`
+
+```csv
+name
+gasb
+power
+heat
+```
+
+`data/rung9_multilink/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost
+well,gasb,100.0,5.0
+grid_import,power,50.0,60.0
+```
+
+`data/rung9_multilink/links.csv`
+
+```csv
+name,bus0,bus1,bus2,efficiency,efficiency2,p_nom,marginal_cost
+chp,gasb,power,heat,0.4,0.45,60.0,1.0
+```
+
+`data/rung9_multilink/loads.csv`
+
+```csv
+name,bus,p_set
+homes,power,20.0
+district,heat,18.0
 ```
 
 </details>

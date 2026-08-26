@@ -6,10 +6,15 @@
 
 `data/base/` is rung 1's transport spine, the network every rung starts from;
 `data/<rung>/` holds only what that rung adds — its components as wide CSVs in
-PyPSA's vocabulary (a blank cell is PyPSA's default) and a `timeseries.csv`
-for what varies, which may also put a schedule on a base component. The
-rung's folder therefore *is* its construct, in data form, and no table
-carries a rung column.
+PyPSA's vocabulary and a `timeseries.csv` for what varies, which may also put
+a schedule on a base component. The rung's folder therefore *is* its
+construct, in data form, and no table carries a rung column.
+
+Folders combine by appending rows, table by table — never by replacing a
+table and never by a column-wise join. Each row keeps its own file's columns
+and becomes one ``n.add``, so two files of different widths invent no empty
+cells in each other; a blank cell is an attribute the row does not set, and
+PyPSA supplies its default, exactly as for an unpassed keyword.
 """
 
 from __future__ import annotations

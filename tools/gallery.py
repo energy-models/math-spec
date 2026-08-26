@@ -13,6 +13,7 @@ math below it are written from here.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import textwrap
@@ -52,8 +53,9 @@ DECLARED = {
 
 #: One PyPSA reference network per rung of the declared page, run out of band
 #: with the versions each script pins; `references.json` beside them holds
-#: what each solve recorded. The page shows each rung's `build()` under its
-#: table, so the YAML and the PyPSA statements it stands for sit side by side.
+#: what each solve recorded. The page shows the shared spine once and, under
+#: each rung's table, the data the rung's own folder adds — the YAML and the
+#: instance it binds, side by side.
 REFERENCES = ROOT / 'examples' / 'references' / 'pypsa'
 
 
@@ -129,16 +131,27 @@ def declared_block(path: Path, symbols: Path) -> str:
     return '\n\n'.join(parts)
 
 
-def _build_source(script: Path) -> str:
-    """The ``build()`` half of a reference script — the PyPSA statements alone."""
-    lines = script.read_text().splitlines()
-    i = next(k for k, line in enumerate(lines) if line.startswith('def build('))
-    j = next(k for k in range(i + 1, len(lines)) if lines[k].startswith('def '))
-    return '\n'.join(lines[i:j]).rstrip()
+def _story(script: Path) -> str:
+    """The fixture's narrative — ``build()``'s docstring, as prose."""
+    tree = ast.parse(script.read_text())
+    build = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'build')
+    story = ast.get_docstring(build)
+    if story is None:
+        msg = f"{script.name}: build() carries the fixture's story in its docstring, and the page shows it"
+        raise ValueError(msg)
+    return story
+
+
+def _folder(name: str) -> str:
+    """Every table in ``data/<name>/``, verbatim — the file is the artifact under review."""
+    return '\n\n'.join(
+        f'`data/{name}/{path.name}`\n\n```csv\n{path.read_text().strip()}\n```'
+        for path in sorted((REFERENCES / 'data' / name).glob('*.csv'))
+    )
 
 
 def reference_block(stem: str) -> str:
-    """A rung's oracle: the recorded solve, then the network as PyPSA states it."""
+    """A rung's oracle: the recorded solve, then the data its folder adds to the spine."""
     recorded = json.loads((REFERENCES / 'references.json').read_text())[stem]
     rows = sum(recorded['rows'].values())
     parity = recorded.get('parity', {})
@@ -155,9 +168,29 @@ def reference_block(stem: str) -> str:
         f'{f" Its instance is `data/base/` plus `data/{stem}/`." if agreement else ""}\n'
         '\n'
         '<details markdown="1">\n'
-        "<summary>The reference network, in PyPSA's own statements</summary>\n"
+        '<summary>What this rung adds, as data</summary>\n'
         '\n'
-        f'```python\n{_build_source(REFERENCES / f"{stem}.py")}\n```\n'
+        f'{_story(REFERENCES / f"{stem}.py")}\n'
+        '\n'
+        f'{_folder(stem)}\n'
+        '\n'
+        '</details>'
+    )
+
+
+def spine_block() -> str:
+    """The shared spine, shown once, under the one sentence of how folders combine."""
+    return (
+        "> Every rung's network is the spine below plus the rung's own folder of additions, read by"
+        ' `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row'
+        " keeps its own file's columns and becomes one `n.add`, so no table is column-joined and no empty cells"
+        " are invented — a blank cell is an attribute the row does not set, PyPSA's default. The one"
+        ' cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.\n'
+        '\n'
+        '<details markdown="1">\n'
+        '<summary>The shared spine, <code>data/base/</code></summary>\n'
+        '\n'
+        f'{_folder("base")}\n'
         '\n'
         '</details>'
     )
@@ -168,8 +201,12 @@ def with_references(page: str, text: str) -> str:
 
     A rung's marker lives on whichever declared page carries its section, so a
     stem absent here is another page's; a stem on no page at all is what
-    ``tests/test_pypsa_references.py`` says out loud.
+    ``tests/test_pypsa_references.py`` says out loud. The spine's own marker
+    pair lives on the page that carries the rung ladder.
     """
+    begin, end = '<!-- reference:spine:begin -->', '<!-- reference:spine:end -->'
+    if begin in text and end in text:
+        text = splice(text, begin, end, spine_block())
     for script in sorted(REFERENCES.glob('rung*.py')):
         begin, end = f'<!-- reference:{script.stem}:begin -->', f'<!-- reference:{script.stem}:end -->'
         if begin in text and end in text:

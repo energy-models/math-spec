@@ -12,7 +12,9 @@ data's, so one model carrying a quadratic objective beside commitment's
 integer variables has no HiGHS lane on either side: lpspec refuses the pair
 for that sink at load, and PyPSA fails at solve time the moment both are
 nonzero. The class a free solver takes as a QP lives here;
-`examples/pypsa.yaml` stays the mixed-integer one.
+`examples/pypsa.yaml` stays the mixed-integer one. Its reference network
+starts from the same shared spine, `data/base/`, shown once on
+[the rung ladder's page](pypsa.md#index).
 
 ## Rung 10 — quadratic costs
 
@@ -24,17 +26,52 @@ nonzero. The class a free solver takes as a QP lives here;
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5544.416666666888`, 60 rows — recorded by `examples/references/pypsa/rung10_quadratic_costs.py`. `lpspec 0.0.1a259` binds `examples/pypsa_quadratic.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung10_quadratic_costs/`.
 
 <details markdown="1">
-<summary>The reference network, in PyPSA's own statements</summary>
+<summary>What this rung adds, as data</summary>
 
-```python
-def build() -> pypsa.Network:
-    """Rung 10's quadratic costs: two generators splitting a load by their marginal slopes.
+Rung 10's quadratic costs: two generators splitting a load by their marginal slopes.
 
-    Steam is cheap to start and steepens fast, the engine is dear but flat, so
-    the optimum is an interior split only a quadratic objective produces; the
-    lossy link carries its own quadratic cost.
-    """
-    return instances.build(RUNG)
+Steam is cheap to start and steepens fast, the engine is dear but flat, so
+the optimum is an interior split only a quadratic objective produces; the
+lossy link carries its own quadratic cost.
+
+`data/rung10_quadratic_costs/buses.csv`
+
+```csv
+name
+village
+```
+
+`data/rung10_quadratic_costs/generators.csv`
+
+```csv
+name,bus,p_nom,marginal_cost,marginal_cost_quadratic
+steam,north,80.0,5.0,0.08
+engine,north,80.0,20.0,0.01
+```
+
+`data/rung10_quadratic_costs/links.csv`
+
+```csv
+name,bus0,bus1,p_nom,p_min_pu,efficiency,marginal_cost,marginal_cost_quadratic
+wire2,north,village,40.0,-1.0,0.9,1.0,0.02
+```
+
+`data/rung10_quadratic_costs/loads.csv`
+
+```csv
+name,bus,p_set
+village_load,village,15.0
+extra10,north,
+```
+
+`data/rung10_quadratic_costs/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Load,extra10,p_set,0,30.0
+Load,extra10,p_set,1,50.0
+Load,extra10,p_set,2,40.0
+Load,extra10,p_set,3,60.0
 ```
 
 </details>
