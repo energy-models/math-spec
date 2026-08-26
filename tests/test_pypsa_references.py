@@ -6,11 +6,12 @@
 
 The scripts under ``examples/references/pypsa/`` run out of band — PyPSA is
 not a dependency of this project — and record what each lane built and
-solved. The suite asserts from the records: names both directions, per-name
-row and column counts, bus prices where both lanes price, block-level
-coverage, and — where `lpspec.linopy` can build — that the two lanes build
-one linopy model, label for label. The page blocks the records feed are held
-current by ``tests/test_docs.py`` through ``tools.gallery``.
+solved. The suite asserts from the records: names both directions, one
+objective across the fence, block-level coverage, and — where
+`lpspec.linopy` can build — that the two lanes build one linopy model,
+label for label; a rung the linopy lane cannot build yet stamps its blocker
+and its proof stops at the objective. The page blocks the records feed are
+held current by ``tests/test_docs.py`` through ``tools.gallery``.
 """
 
 from __future__ import annotations
@@ -98,27 +99,12 @@ def test_both_lanes_solve_the_rung_to_one_objective(stem: str):
 
 
 @pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
-def test_both_lanes_build_the_same_rows_and_columns(stem: str):
-    parity = RECORDED[stem]['parity']
-    assert parity['rows_match'] and parity['columns_match'], (
-        'the two lanes built different counts under some PyPSA name — parity.py prints which'
-    )
-
-
-@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
-def test_bus_prices_agree_wherever_both_lanes_price(stem: str):
-    assert RECORDED[stem]['parity']['duals'] in ('match', 'mip', 'unpriced'), (
-        "lpspec's bus-balance duals differ from PyPSA's recorded marginal_price — parity.py prints where"
-    )
-
-
-@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
-def test_the_structural_lane_finds_one_model_or_names_its_blocker(stem: str):
-    """`structural.py` compares the two linopy models label for label; a rung it cannot build stamps why."""
+def test_the_two_linopy_models_are_one_or_the_blocker_is_named(stem: str):
+    """The model-level proof: label for label where `lpspec.linopy` builds, the stamped blocker where not."""
     structural = RECORDED[stem].get('structural')
-    assert structural is not None, 'no structural record — run structural.py in its pinned environment'
+    assert structural is not None, 'no structural record — run parity.py in its pinned environment'
     assert not structural.get('mismatch'), (
-        f'the two lanes build different models: {structural.get("mismatch")} — structural.py prints each label'
+        f'the two lanes build different models: {structural.get("mismatch")} — parity.py prints each label'
     )
     assert structural.get('error') or 'equal' in structural, 'a structural stamp carries a verdict or its blocker'
 

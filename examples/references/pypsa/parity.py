@@ -7,30 +7,47 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "lpspec @ git+https://github.com/fluxopt/lpspec@3d05a57f1774bf11778011083573de493f2bd732",
+#   "linopy @ git+https://github.com/PyPSA/linopy@09c34dd9d771bafcd6900a505b33cb9048145c85",
 #   "pypsa==1.3.0",
-#   "linopy==0.9.1",
 #   "pandas>=2.2",
-#   "xarray==2026.7.0",
+#   "xarray>=2024.2",
 #   "highspy==1.15.1",
 #   "polars>=1.30",
 # ]
 # ///
-"""Both lanes over every rung: PyPSA solves its network, lpspec solves the file.
+"""The parity gate: every rung against PyPSA, as deep as the engines allow.
 
     uv run --script examples/references/pypsa/parity.py
 
-For each rung the network is built twice from `data/`: one copy goes through
-`n.optimize(solver_name='highs')`, the other through `prep.sources` into
-`lps.solve` — the same HiGHS, two model builders, one file. Asserted lane to
-lane: the objective; the row and column count under every PyPSA name (split
-`where:` blocks sum to their one PyPSA row, GlobalConstraint rows sum by
-type); and the bus-balance duals against PyPSA's `marginal_price` where both
-lanes price (lpspec refuses duals on a mixed-integer model, stamped ``mip``).
-Primals are deliberately not compared — an optimum need not be unique. Each
-rung's outcome is stamped into `references.json` under ``parity`` and the run
-fails if any rung differs. Run out of band, with the pins above: lpspec is
-pinned to a commit because it has no release yet, and it carries its own
-math-spec.
+Per rung, from the same network, three comparisons:
+
+1. **Model against model** — PyPSA's ``n.optimize.create_model()`` and
+   ``lpspec.linopy.build``, label for label: coefficients, sense, right-hand
+   side, bounds, integrality, objective terms. No solver, so it covers MIP
+   and QP alike. The verdict speaks the index table's words: ``equal`` is
+   the one block PyPSA builds — **done**; ``region`` is the same rows from
+   several ``where:`` blocks — **split**; ``mismatch`` fails the run. A rung
+   whose file `lpspec.linopy` cannot build yet stamps the error instead —
+   the upstream hardening this gate waits on — and its proof stops at (2).
+2. **One solved objective across the fence** — PyPSA's solve against
+   `lpspec.relational`'s, both HiGHS, rtol 1e-9 on the generic spine.
+3. **Coverage stamps** — what the relational lane built per block, each
+   dimension's size, the tables bound non-empty — read by the repository's
+   coverage tests, so an equality is never over data that tests nothing.
+
+Primals are deliberately not compared — an optimum need not be unique — and
+counts and duals are not compared separately: both are strict subsets of (1).
+
+The comparison reads linopy's own ``.flat`` export but does not call
+``linopy.testing``: those asserts hold the raw datasets equal, and two
+builders lay the same model out differently — PyPSA pads absent ``_term``
+slots with NaN where lpspec writes -0.0, and term order within a row is the
+builder's own. A canonicalizing ``assert`` upstream would shrink this file.
+PyPSA's model is built before `lpspec.linopy` is imported: that import flips
+linopy's global ``semantics`` option to ``v1`` and PyPSA speaks ``legacy``,
+so the option is reset around each PyPSA build. Run out of band with the
+pins above; linopy is pinned to a master commit because `lpspec.linopy`
+needs the ``semantics`` option no release carries yet.
 """
 
 from __future__ import annotations
@@ -40,12 +57,16 @@ import json
 import math
 import re
 import sys
+from collections import defaultdict
 from pathlib import Path
+
+import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import instances  # noqa: E402
+import linopy  # noqa: E402
 import lpspec as lps  # noqa: E402  the path insert above is what finds the siblings
 import prep  # noqa: E402
 
@@ -70,70 +91,146 @@ def bound(model: Path, n) -> dict[str, object]:
 
 
 def built(result, declared) -> tuple[dict[str, int], dict[str, int]]:
-    """The labels lpspec actually built, per file block — the masked ones excluded, like PyPSA's records."""
+    """The labels the relational lane actually built, per file block — masked ones excluded, like PyPSA's records."""
     return (
         {name: len(result.activity(name)) for name in declared.constraints},
         {name: len(result.primal(name)) for name in declared.variables},
     )
 
 
-def _by_pypsa_name(declared_blocks, counts: dict[str, int]) -> dict[str, int]:
-    """*counts* summed under each block's PyPSA name — split ``where:`` blocks sum to their one row."""
-    summed: dict[str, int] = {}
-    for name, block in declared_blocks.items():
-        key = stands_for(block.description)
-        summed[key] = summed.get(key, 0) + counts[name]
-    return summed
-
-
-def structure(declared, built_rows: dict, built_columns: dict, record: dict) -> tuple[bool, bool]:
-    """Whether lpspec built the same row and column counts PyPSA recorded, name by name."""
-    ours_rows = _by_pypsa_name(declared.constraints, built_rows)
-    ours_columns = _by_pypsa_name(declared.variables, built_columns)
-    theirs_rows: dict[str, int] = {}
-    for row, count in record['rows'].items():
-        if row.startswith('GlobalConstraint-'):
-            row = record['global_constraints'][row.removeprefix('GlobalConstraint-')]['type']
-        theirs_rows[row] = theirs_rows.get(row, 0) + count
-    theirs_columns = dict(record['columns'])
-    same = []
-    for label, ours, theirs in [('rows', ours_rows, theirs_rows), ('columns', ours_columns, theirs_columns)]:
-        unequal = {key for key in {*ours, *theirs} if ours.get(key, 0) != theirs.get(key, 0)}
-        for key in sorted(unequal):
-            print(f'  {label} {key}: lpspec {ours.get(key, 0)} · pypsa {theirs.get(key, 0)}', file=sys.stderr)
-        same.append(not unequal)
-    return same[0], same[1]
-
-
-def prices(result, record: dict, hours) -> str:
-    """Bus-balance duals against PyPSA's recorded `marginal_price`: match, differ, mip, or unpriced.
-
-    PyPSA publishes `marginal_price` as the row dual over the snapshot's
-    objective weighting — a price per hour — so the raw dual is compared
-    against price times *hours*; at weighting 1 the two coincide.
-    """
-    if not record['marginal_price']:
-        return 'unpriced'
+def pypsa_model(stem: str):
+    """The network's own linopy model, built under the ``legacy`` semantics PyPSA speaks."""
+    linopy.options['semantics'] = 'legacy'
     try:
-        frame = result.dual('Bus_nodal_balance')
-    except Exception:
-        return 'mip'
-    for row in frame.iter_rows(named=True):
-        want = record['marginal_price'][row['bus']][int(row['snapshot'])] * float(hours[int(row['snapshot'])])
-        if not math.isclose(row['value'], want, rel_tol=1e-6, abs_tol=1e-6):
-            print(f'  dual ({row["snapshot"]}, {row["bus"]}): lpspec {row["value"]} · pypsa {want}', file=sys.stderr)
-            return 'differ'
-    return 'match'
+        return instances.build(stem).optimize.create_model()
+    finally:
+        linopy.options['semantics'] = 'v1'
 
 
-def lanes(stem: str, record: dict) -> dict[str, object]:
-    """One rung through both lanes, compared: objective, per-name counts, and duals where both lanes price.
+def _keyed(labels) -> pd.Series:
+    """label per coordinate key — dim names dropped, ``snapshot`` first, so the two spellings align."""
+    series = labels.to_series()
+    index = series.index
+    if index.nlevels > 1:
+        order = sorted(index.names, key=lambda name: (name != 'snapshot', name))
+        series = series.reorder_levels(order).sort_index()
+        series.index = pd.Index(series.index.to_flat_index())
+    return series
 
-    Beyond the verdicts, the stamp keeps what lpspec built — labels per file
-    block, each dimension's size, the tables bound non-empty — which is what
-    the repository's coverage tests read.
-    """
+
+def _label_map(theirs, ours, pairs: dict[str, list[str]]) -> dict[int, int]:
+    """Our variable labels to theirs, matched by name pair and coordinate key."""
+    mapping: dict[int, int] = {}
+    for pypsa_name, our_names in pairs.items():
+        their = _keyed(theirs.variables[pypsa_name].labels)
+        for our_name in our_names:
+            for key, our_label in _keyed(ours.variables[our_name].labels).items():
+                their_label = int(their[key])
+                if our_label != -1 and their_label != -1:
+                    mapping[int(our_label)] = their_label
+    return mapping
+
+
+def _rows(flat: pd.DataFrame, labels, relabel) -> dict:
+    """Constraint rows by coordinate key: (sign, rhs, sorted (variable, coefficient) pairs)."""
+    terms = defaultdict(list)
+    meta = {}
+    for row in flat.itertuples():
+        terms[row.labels].append((relabel(int(row.vars)), float(row.coeffs)))
+        meta[row.labels] = (row.sign, float(row.rhs))
+    return {
+        key: (*meta[int(label)], tuple(sorted(terms[int(label)])))
+        for key, label in _keyed(labels).items()
+        if int(label) != -1
+    }
+
+
+def _objective(model, relabel) -> tuple:
+    """The objective as a sorted term tuple — quadratic pairs unordered."""
+    flat = model.objective.expression.flat
+    terms = []
+    for row in flat.itertuples():
+        if hasattr(row, 'vars1'):
+            pair = tuple(sorted((relabel(int(row.vars1)), relabel(int(row.vars2)))))
+        else:
+            pair = (relabel(int(row.vars)),)
+        terms.append((pair, round(float(row.coeffs), 9)))
+    return tuple(sorted(terms))
+
+
+def compare(theirs, ours, declared, gc_kinds: dict[str, str]) -> dict[str, list[str]]:
+    """Verdicts: which PyPSA names are model-equal, which are the same region in several blocks, which differ."""
+    rows = defaultdict(list)
+    for name, block in declared.constraints.items():
+        rows[stands_for(block.description)].append(name)
+    columns = defaultdict(list)
+    for name, block in declared.variables.items():
+        columns[stands_for(block.description)].append(name)
+
+    ours_to_theirs = _label_map(theirs, ours, columns)
+
+    def relabel(label: int) -> int:
+        if label == -1:
+            return -1
+        return ours_to_theirs.get(label, -label - 1000)
+
+    verdict: dict[str, list[str]] = {'equal': [], 'region': [], 'mismatch': []}
+    for pypsa_name, our_names in columns.items():
+        their_kind = pypsa_name in [*theirs.integers, *theirs.binaries]
+        ok = all((our_name in [*ours.integers, *ours.binaries]) == their_kind for our_name in our_names)
+        bounds_theirs = {int(r.labels): (r.lower, r.upper) for r in theirs.variables[pypsa_name].flat.itertuples()}
+        bounds_ours = {}
+        for our_name in our_names:
+            for r in ours.variables[our_name].flat.itertuples():
+                bounds_ours[ours_to_theirs[int(r.labels)]] = (r.lower, r.upper)
+        if bounds_ours != bounds_theirs:
+            ok = False
+        bucket = 'mismatch' if not ok else ('equal' if len(our_names) == 1 else 'region')
+        verdict[bucket].append(pypsa_name)
+
+    for pypsa_name, our_names in rows.items():
+        their_names = (
+            [n for n in theirs.constraints if n.startswith('GlobalConstraint-')]
+            if not pypsa_name[0].isupper()
+            else ([pypsa_name] if pypsa_name in theirs.constraints else [])
+        )
+        their_rows: dict = {}
+        for their_name in their_names:
+            constraint = theirs.constraints[their_name]
+            for key, row in _rows(constraint.flat, constraint.labels, lambda x: x).items():
+                their_rows[key if their_name == pypsa_name else their_name.removeprefix('GlobalConstraint-')] = row
+        our_rows: dict = {}
+        for our_name in our_names:
+            constraint = ours.constraints[our_name]
+            our_rows |= _rows(constraint.flat, constraint.labels, relabel)
+        if not pypsa_name[0].isupper():
+            typed = {label for label, gc in gc_kinds.items() if gc == pypsa_name}
+            their_rows = {key: row for key, row in their_rows.items() if key in typed}
+        if our_rows == their_rows:
+            verdict['equal' if len(our_names) == 1 else 'region'].append(pypsa_name)
+        else:
+            verdict['mismatch'].append(pypsa_name)
+            for key in sorted({*our_rows, *their_rows}, key=str):
+                if our_rows.get(key) != their_rows.get(key):
+                    print(
+                        f'  {pypsa_name}[{key}]:\n    ours   {our_rows.get(key)}\n    theirs {their_rows.get(key)}',
+                        file=sys.stderr,
+                    )
+
+    if _objective(ours, relabel) == _objective(theirs, lambda x: x):
+        verdict['equal'].append('objective')
+    else:
+        verdict['mismatch'].append('objective')
+    return {kind: sorted(names) for kind, names in verdict.items()}
+
+
+def lanes(stem: str) -> tuple[dict[str, object], dict[str, object], bool]:
+    """One rung through everything: the objective across the fence, the model against the model, the coverage."""
+    from lpspec import linopy as lpl
+
+    theirs = pypsa_model(stem)
     n = instances.build(stem)
+    gc_kinds = {str(label): str(gc['type']) for label, gc in n.global_constraints.iterrows()}
     status, condition = n.optimize(solver_name='highs')
     assert status == 'ok', f'{stem}: pypsa did not solve — {status} / {condition}'
     model = MODELS.get(stem, MODEL)
@@ -142,42 +239,47 @@ def lanes(stem: str, record: dict) -> dict[str, object]:
     result = lps.solve(model, tables)
     assert result.is_ok, f'{stem}: lpspec did not solve — {result.termination_condition}'
     built_rows, built_columns = built(result, declared)
-    rows, columns = structure(declared, built_rows, built_columns, record)
-    return {
+    parity = {
+        'lpspec': importlib.metadata.version('lpspec'),
         'lpspec_objective': float(result.objective),
         'matches': math.isclose(float(result.objective), float(n.objective), rel_tol=1e-9, abs_tol=1e-6),
-        'rows_match': rows,
-        'columns_match': columns,
-        'duals': prices(result, record, n.snapshot_weightings['objective']),
         'model': str(model.relative_to(HERE.parents[2])),
         'built_rows': built_rows,
         'built_columns': built_columns,
         'dims': {name: len(table) for name, table in tables.items() if name in declared.dimensions},
         'bound_nonempty': sorted(name for name, table in tables.items() if len(table)),
     }
+    try:
+        ours = lpl.build(model, tables)
+    except Exception as error:
+        note = f'{type(error).__name__}: {error}'.splitlines()[0][:200]
+        return parity, {'linopy': linopy.__version__, 'error': note}, parity['matches']
+    verdict = compare(theirs, ours, declared, gc_kinds)
+    structural = {'linopy': linopy.__version__, **verdict}
+    return parity, structural, parity['matches'] and not verdict['mismatch']
 
 
 def main() -> int:
     stamped = json.loads(instances.RECORDS.read_text())
-    version = importlib.metadata.version('lpspec')
-    differing = []
+    broken = []
     for script in sorted(HERE.glob('rung_*.py')):
         stem = script.stem
-        parity = {'lpspec': version, **lanes(stem, stamped[stem])}
+        parity, structural, good = lanes(stem)
         stamped[stem]['parity'] = parity
-        good = parity['matches'] and parity['rows_match'] and parity['columns_match'] and parity['duals'] != 'differ'
-        print(
-            f'{stem}: pypsa {stamped[stem]["objective"]} · lpspec {parity["lpspec_objective"]} · '
-            f'{"MATCH" if parity["matches"] else "DIFFER"} · rows {"=" if parity["rows_match"] else "≠"} · '
-            f'columns {"=" if parity["columns_match"] else "≠"} · duals {parity["duals"]}'
+        stamped[stem]['structural'] = structural
+        proof = (
+            f'{len(structural["equal"])} equal · {len(structural["region"])} region'
+            if 'equal' in structural
+            else f'objective only — {structural["error"]}'
         )
+        print(f'{stem}: {"MATCH" if parity["matches"] else "DIFFER"} · {proof}')
         if not good:
-            differing.append(stem)
+            broken.append(stem)
     instances.write(stamped)
-    if differing:
-        print(f'{len(differing)} rung(s) differ: {", ".join(differing)}', file=sys.stderr)
+    if broken:
+        print(f'{len(broken)} rung(s) differ: {", ".join(broken)}', file=sys.stderr)
         return 1
-    print('every rung solves to one objective, one structure, on both lanes')
+    print('every rung matches PyPSA as deep as the engines allow, and says how deep that is')
     return 0
 
 

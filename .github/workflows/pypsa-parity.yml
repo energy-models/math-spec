@@ -20,10 +20,10 @@ name: PyPSA parity
 on:
   pull_request:
     paths:
-      - 'examples/pypsa*.yaml'
-      - 'examples/symbols/pypsa*.yaml'
-      - 'examples/references/pypsa/**'
-      - 'src/**'
+      - "examples/pypsa*.yaml"
+      - "examples/symbols/pypsa*.yaml"
+      - "examples/references/pypsa/**"
+      - "src/**"
   workflow_dispatch:
 
 concurrency:
@@ -58,14 +58,11 @@ jobs:
             'pypsa==1.3.0' 'highspy==1.15.1' 'polars>=1.30' 'pandas>=2.2' 'xarray==2026.7.0'
           .venv/bin/pip install --quiet -e .
 
-      # The scripts' exit codes are the verdict; the stamps they rewrite in
+      # The script's exit code is the verdict; the stamps it rewrites in
       # the workspace are diffed only as information, because solver floats
       # may move in the last digit across machines.
-      - name: Solve every rung on both lanes
+      - name: Every rung against PyPSA, as deep as the engines allow
         run: .venv/bin/python examples/references/pypsa/parity.py
-
-      - name: Compare the two linopy models
-        run: .venv/bin/python examples/references/pypsa/structural.py
 
       - name: Show stamp drift, informationally
         if: always()
