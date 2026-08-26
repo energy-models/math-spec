@@ -834,7 +834,7 @@ def build():
 
 | PyPSA                          | status | note                                 |
 | ------------------------------ | ------ | ------------------------------------ |
-| `{c}-loss*`                    | out    | only under `transmission_losses`     |
+| [`{c}-loss*`](pypsa_losses.md) | done   | rung 13, a file of its own; tangent form |
 | `CVaR-*`                       | out    | stochastic                           |
 
 ## Refusals

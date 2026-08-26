@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# How `examples/pypsa_losses.yaml` prints — the line symbols of `pypsa.yaml`, plus the loss and its fan.
+notation: latex
+dimensions:
+  link: { index: l, set: '\mathcal{L}' }
+  snapshot: { index: t, set: '\mathcal{T}' }
+  bus: { index: n, set: '\mathcal{N}' }
+  generator: { index: g, set: '\mathcal{G}' }
+  load: { index: d, set: '\mathcal{D}' }
+  line: { index: k, set: '\mathcal{K}' }
+  cycle: { index: c, set: '\mathcal{C}' }
+  segment: { index: k, set: '\mathcal{K}' }
+names:
+  Link_p: f
+  Link_p_nom: '\mathrm{f}^{\mathrm{nom}}'
+  Link_p_min_pu: '\underline{\mathrm{f}}'
+  Link_p_max_pu: '\overline{\mathrm{f}}'
+  Link_efficiency: '\eta'
+  Link_marginal_cost: '\mathrm{c}^{f}'
+  snapshot_weightings_objective: '\mathrm{w}'
+  Generator_p: p
+  Generator_p_nom: '\mathrm{p}^{\mathrm{nom}}'
+  Generator_p_min_pu: '\underline{\mathrm{p}}'
+  Generator_p_max_pu: '\overline{\mathrm{p}}'
+  Generator_marginal_cost: '\mathrm{c}'
+  Load_p_set: '\mathrm{load}'
+  Line_s: s
+  Line_s_nom_ext: S
+  Line_s_nom: '\mathrm{s}^{\mathrm{nom}}'
+  Line_s_nom_extendable: '\mathrm{ext}^{s}'
+  Line_s_max_pu: '\overline{\mathrm{s}}'
+  Line_s_nom_min: '\underline{\mathrm{s}}^{\mathrm{nom}}'
+  Line_s_nom_max: '\overline{\mathrm{s}}^{\mathrm{nom}}'
+  Line_capital_cost: '\mathrm{c}^{\mathrm{cap},s}'
+  Line_cycle_weight: '\mathrm{x}'
+  Line_loss: '\ell'
+  Line_loss_max: '\overline{\ell}'
+  Line_loss_slope: '\mathrm{a}'
+  Line_loss_offset: '\mathrm{b}'
