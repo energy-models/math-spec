@@ -32,6 +32,7 @@ nav:
       - One construct per model: examples/operators.md
       - PyPSA in one file: examples/pypsa.md
       - PyPSA, the quadratic class: examples/pypsa_quadratic.md
+      - PyPSA, the relaxed commitment: examples/pypsa_linearized_uc.md
   - Reference:
       - Language:
           - reference/language/index.md

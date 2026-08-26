@@ -89,6 +89,13 @@ def _parsed(attrs, column: str, cell: str) -> object:
         return cell
 
 
+def settings(rung: str) -> dict[str, object]:
+    """The rung's `rung.json`: the model file it binds and the keywords its `n.optimize` takes; both default."""
+    path = DATA / rung / 'rung.json'
+    given = json.loads(path.read_text()) if path.exists() else {}
+    return {'model': 'examples/pypsa.yaml', 'optimize': {}, **given}
+
+
 def rungs() -> list[str]:
     """Every rung, in ladder order — the folders beside the spine."""
     return sorted(path.name for path in DATA.iterdir() if path.is_dir() and path.name != 'base')
@@ -153,7 +160,7 @@ def write(stamped: dict[str, object]) -> None:
 
 def stamp(rung: str, n: pypsa.Network) -> None:
     """Solve *n* through PyPSA's own linopy model with HiGHS and record what it saw."""
-    status, condition = n.optimize(solver_name='highs')
+    status, condition = n.optimize(solver_name='highs', **settings(rung)['optimize'])
     assert status == 'ok', f'HiGHS did not solve: {status} / {condition}'
     stamped = json.loads(RECORDS.read_text()) if RECORDS.exists() else {}
     stamped[rung] = record(n)
