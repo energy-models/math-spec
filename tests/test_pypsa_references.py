@@ -47,7 +47,7 @@ GC_RECORDED: dict[str, dict] = {
 }
 
 
-@pytest.mark.parametrize('key', ['spine', 'binding', *RUNGS])
+@pytest.mark.parametrize('key', ['spine', *RUNGS])
 def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(key: str):
     carrying = sum(f'<!-- reference:{key}:begin -->' in text for text in PAGE_TEXTS)
     assert carrying == 1, (

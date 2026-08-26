@@ -143,8 +143,8 @@ def spine_block() -> str:
     """The shared spine, shown once."""
     return (
         "> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not"
-        " passed is PyPSA's default. A banner states what PyPSA solved the rung to; what an engine makes of the"
-        " rung is that engine's own record.\n"
+        " passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to"
+        " the file, and what it makes of it, is that engine's own record.\n"
         '\n'
         '<details markdown="1">\n'
         '<summary>The shared spine, <code>spine.py</code></summary>\n'
@@ -155,26 +155,10 @@ def spine_block() -> str:
     )
 
 
-def binding_block() -> str:
-    """The binding script, shown once: how a network becomes the tables the file declares."""
-    return (
-        '> A network becomes the tables the file declares through `prep.py`: plain renames, and every parameter the'
-        ' file marks "data prep" computed where it says so.\n'
-        '\n'
-        '<details markdown="1">\n'
-        '<summary>The binding, <code>prep.py</code></summary>\n'
-        '\n'
-        f'{_script("prep")}\n'
-        '\n'
-        '</details>'
-    )
-
-
 def with_references(text: str) -> str:
     """Every reference block whose marker pair is on this page; a stem on no page at all is the test's business."""
     blocks = {
         'spine': spine_block,
-        'binding': binding_block,
         **{stem: partial(reference_block, stem) for stem in sorted(RECORDED)},
     }
     for key, block in blocks.items():
