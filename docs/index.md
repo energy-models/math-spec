@@ -28,54 +28,59 @@ data — and the file prints as the math it stands for.
 
 <div class="grid cards" markdown>
 
+<!-- A card is a list item whose body is indented four spaces: python-markdown
+     needs that much to read it as the item's content, and prettier would
+     realign it to two, which splits every card into a stray rule and a
+     paragraph outside the list. -->
+<!-- prettier-ignore -->
 - :material-file-document-outline: **Declarative math**
 
-  ***
+    ***
 
-  One file declares the axes, the data, the decisions and the rules.
-  Readable without knowing any implementation, and self-contained: no Python
-  state changes what it means. It diffs cleanly in review and travels as a
-  research artefact.
+    One file declares the axes, the data, the decisions and the rules.
+    Readable without knowing any implementation, and self-contained: no Python
+    state changes what it means. It diffs cleanly in review and travels as a
+    research artefact.
 
 - :material-shield-check-outline: **Decided before the data**
 
-  ***
+    ***
 
-  Every expression, every `where` string and even an _uncalled_ macro
-  template is parsed and name-checked at load. A repository of models
-  compiles in CI with nothing bound to any of them.
+    Every expression, every `where` string and even an _uncalled_ macro
+    template is parsed and name-checked at load. A repository of models
+    compiles in CI with nothing bound to any of them.
 
 - :material-alert-octagon-outline: **Fail early, fail loud**
 
-  ***
+    ***
 
-  Nothing is guessed and nothing falls back silently. Where a file does not
-  determine the answer, loading fails and the message names the construct
-  _and_ its rewrite.
+    Nothing is guessed and nothing falls back silently. Where a file does not
+    determine the answer, loading fails and the message names the construct
+    _and_ its rewrite.
 
 - :material-fence: **A finite language, with a priced way out**
 
-  ***
+    ***
 
-  The ceiling is a closure — relational ∩ local — not a feature race.
-  Genuinely unsayable math goes in an `escape:` island: visible in the file,
-  billed before it runs.
+    The ceiling is a closure — relational ∩ local — not a feature race.
+    Genuinely unsayable math goes in an `escape:` island: visible in the file,
+    billed before it runs.
 
 - :material-function-variant: **The file is the document**
 
-  ***
+    ***
 
-  LaTeX, Typst or Markdown, printed from the file alone. No data, no solver,
-  no second source of truth — the cheapest review tool there is for _does
-  this YAML say what I meant_.
+    LaTeX, Typst or Markdown, printed from the file alone. No data, no solver,
+    no second source of truth — the cheapest review tool there is for _does
+    this YAML say what I meant_.
 
 - :material-source-branch: **One rule per question**
 
-  ***
+    ***
 
-  A rule is language iff two consumers answering it separately would be a
-  bug. That test is what decides who owns a question — the language, or the
-  engine reading it.
+    A rule is language iff two consumers answering it separately would be a
+    bug. That test is what decides who owns a question — the language, or the
+    engine reading it.
 
 </div>
 
@@ -226,60 +231,61 @@ changes what the file means.
 
 <div class="grid cards" markdown>
 
+<!-- prettier-ignore -->
 - :material-book-open-page-variant: **The language**
 
-  ***
+    ***
 
-  What a YAML file may contain, and what it means — ten rules, ten
-  declaration keys, one closed set of operators.
+    What a YAML file may contain, and what it means — ten rules, ten
+    declaration keys, one closed set of operators.
 
-  [:octicons-arrow-right-24: The language](reference/language/index.md)
+    [:octicons-arrow-right-24: The language](reference/language/index.md)
 
 - :material-sigma: **Every construct, as math**
 
-  ***
+    ***
 
-  All of it at once, beside the notation the typesetter gives it — so the
-  notation can be read as the one system it has to be.
+    All of it at once, beside the notation the typesetter gives it — so the
+    notation can be read as the one system it has to be.
 
-  [:octicons-arrow-right-24: The notation](reference/notation.md)
+    [:octicons-arrow-right-24: The notation](reference/notation.md)
 
 - :material-format-text: **Typeset the math**
 
-  ***
+    ***
 
-  LaTeX, Typst and Markdown, the options each takes, and how a symbol table
-  turns derived symbols into conventional ones.
+    LaTeX, Typst and Markdown, the options each takes, and how a symbol table
+    turns derived symbols into conventional ones.
 
-  [:octicons-arrow-right-24: Typeset](reference/typeset.md)
+    [:octicons-arrow-right-24: Typeset](reference/typeset.md)
 
 - :material-code-braces: **Reading a loaded model**
 
-  ***
+    ***
 
-  The contract between the language and anything that reads the AST — a
-  solver backend, a renderer, a second front end.
+    The contract between the language and anything that reads the AST — a
+    solver backend, a renderer, a second front end.
 
-  [:octicons-arrow-right-24: The seam](reference/language/reading.md) ·
-  [Python API](reference/math_spec/validation.md)
+    [:octicons-arrow-right-24: The seam](reference/language/reading.md) ·
+    [Python API](reference/math_spec/validation.md)
 
 - :material-fence: **What may enter the language**
 
-  ***
+    ***
 
-  The test a candidate primitive has to pass, why capability is a second
-  axis, and what has been refused and why.
+    The test a candidate primitive has to pass, why capability is a second
+    axis, and what has been refused and why.
 
-  [:octicons-arrow-right-24: The ceiling](about/ceiling.md)
+    [:octicons-arrow-right-24: The ceiling](about/ceiling.md)
 
 - :material-scale-balance: **Who owns a rule**
 
-  ***
+    ***
 
-  A rule is language iff two consumers answering it separately would be a
-  bug — and the sharp edge that keeps that from swallowing everything.
+    A rule is language iff two consumers answering it separately would be a
+    bug — and the sharp edge that keeps that from swallowing everything.
 
-  [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)
+    [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)
 
 </div>
 
