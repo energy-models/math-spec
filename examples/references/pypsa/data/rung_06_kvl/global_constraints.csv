@@ -1,0 +1,6 @@
+name,type,carrier_attribute,sense,constant
+vol_ac,transmission_volume_expansion_limit,AC,==,2300.0
+vol_ac_floor,transmission_volume_expansion_limit,AC,>=,1000.0
+cost_ac,transmission_expansion_cost_limit,AC,<=,500.0
+cost_ac_floor,transmission_expansion_cost_limit,AC,>=,100.0
+tech_ac,tech_capacity_expansion_limit,AC,<=,60.0

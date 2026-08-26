@@ -72,20 +72,66 @@ def _cycle_weights(n: pypsa.Network) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=['line', 'cycle', 'value']).astype({'value': float})
 
 
-def _primary_energy_weights(n: pypsa.Network) -> pd.DataFrame:
-    """Tonnes of the constrained attribute per unit of bus energy, per row and generator."""
+def _weights(gcs: pd.DataFrame, components: pd.DataFrame, dim: str, value) -> pd.DataFrame:
+    """One row per (global constraint, member): *value* returns the weight, or 0/None outside the row's set."""
+    rows = [
+        {'global_constraint': str(label), dim: str(name), 'value': float(v)}
+        for label, gc in gcs.iterrows()
+        for name, component in components.iterrows()
+        if (v := value(gc, component))
+    ]
+    return pd.DataFrame(rows, columns=['global_constraint', dim, 'value']).astype({'value': float})
+
+
+def _typed(n: pypsa.Network, kind: str) -> pd.DataFrame:
+    return n.global_constraints[n.global_constraints['type'] == kind]
+
+
+def _emissions(n: pypsa.Network, gc: pd.Series) -> pd.Series:
+    """The nonzero values of the carrier attribute a `primary_energy` row weighs."""
+    values = n.carriers[gc['carrier_attribute']]
+    return values[values != 0]
+
+
+def _carrier_list(gc: pd.Series) -> list[str]:
+    return [c.strip().strip('[]()') for c in str(gc['carrier_attribute']).split(',')]
+
+
+def _in_tech_set(gc: pd.Series, component: pd.Series, nominal: str, bus: str) -> bool:
+    """PyPSA's membership for a `tech_capacity_expansion_limit` row: extendable, the carrier, and the bus if named."""
+    at_bus = not gc.get('bus') or str(component[bus]) == str(gc['bus'])
+    return bool(component[f'{nominal}_extendable'] and component['carrier'] == gc['carrier_attribute'] and at_bus)
+
+
+def _gc_constants(n: pypsa.Network) -> pd.DataFrame:
+    """Each row's constant, net of the initial charge PyPSA folds into its side of the row.
+
+    A `primary_energy` or `operational_limit` row counts what its non-cyclic
+    storage draws down, so PyPSA adds the initial charge as a constant on the
+    variable side; the file keeps the variables and moves it here.
+    """
     rows = []
     for label, gc in n.global_constraints.iterrows():
-        if gc['type'] != 'primary_energy':
-            continue
-        emissions = n.carriers[gc['carrier_attribute']]
-        for name, generator in n.generators.iterrows():
-            weight = emissions.get(generator['carrier'], 0.0)
-            if weight:
-                rows.append(
-                    {'global_constraint': str(label), 'generator': str(name), 'value': weight / generator['efficiency']}
-                )
-    return pd.DataFrame(rows, columns=['global_constraint', 'generator', 'value']).astype({'value': float})
+        constant = float(gc['constant'])
+        if gc['type'] == 'primary_energy':
+            emissions = _emissions(n, gc)
+            sus = n.storage_units
+            member = sus['carrier'].isin(emissions.index) & ~sus['cyclic_state_of_charge']
+            constant -= float(
+                (sus.loc[member, 'carrier'].map(emissions) * sus.loc[member, 'state_of_charge_initial']).sum()
+            )
+            stores = n.stores
+            member = stores['carrier'].isin(emissions.index) & ~stores['e_cyclic']
+            constant -= float((stores.loc[member, 'carrier'].map(emissions) * stores.loc[member, 'e_initial']).sum())
+        if gc['type'] == 'operational_limit':
+            sus = n.storage_units
+            member = (sus['carrier'] == gc['carrier_attribute']) & ~sus['cyclic_state_of_charge']
+            constant -= float(sus.loc[member, 'state_of_charge_initial'].sum())
+            stores = n.stores
+            member = (stores['carrier'] == gc['carrier_attribute']) & ~stores['e_cyclic']
+            constant -= float(stores.loc[member, 'e_initial'].sum())
+        rows.append({'global_constraint': str(label), 'value': constant})
+    return pd.DataFrame(rows, columns=['global_constraint', 'value']).astype({'value': float})
 
 
 def _must_stay_up(n: pypsa.Network) -> pd.DataFrame:
@@ -104,7 +150,6 @@ def sources(n: pypsa.Network) -> dict[str, object]:
     """Every table the example models bind, from one PyPSA network."""
     generators, links, loads = n.generators, n.links, n.loads
     storage_units, stores, lines = n.storage_units, n.stores, n.lines
-    committable_ext = generators['committable'] & generators['p_nom_extendable']
     big_m = generators['p_nom_max'] * get_switchable_as_dense(n, 'Generator', 'p_max_pu').max().clip(lower=1.0)
 
     tables: dict[str, object] = {
@@ -166,8 +211,11 @@ def sources(n: pypsa.Network) -> dict[str, object]:
         'Generator_stand_by_cost': _varying(n, 'Generator', 'stand_by_cost', 'generator'),
         'Generator_p_nom_mod': _static(generators[generators['p_nom_mod'] > 0], 'p_nom_mod', 'generator'),
         'Generator_big_m': pd.DataFrame({'generator': generators.index.astype(str), 'value': big_m.to_numpy()}),
-        'Generator_p_min_pu_nonneg': bool(
-            (get_switchable_as_dense(n, 'Generator', 'p_min_pu').loc[:, committable_ext] >= 0).all().all()
+        'Generator_p_min_pu_nonneg': pd.DataFrame(
+            {
+                'generator': generators.index.astype(str),
+                'value': (get_switchable_as_dense(n, 'Generator', 'p_min_pu') >= 0).all().to_numpy(),
+            }
         ),
         'Link_p_nom': _static(links, 'p_nom', 'link'),
         'Link_p_nom_extendable': _static(links, 'p_nom_extendable', 'link'),
@@ -229,15 +277,87 @@ def sources(n: pypsa.Network) -> dict[str, object]:
         'Line_cycle_weight': _cycle_weights(n),
         'GlobalConstraint_type': _static(n.global_constraints, 'type', 'global_constraint').astype({'value': str}),
         'GlobalConstraint_sense': _static(n.global_constraints, 'sense', 'global_constraint').astype({'value': str}),
-        'GlobalConstraint_constant': _static(n.global_constraints, 'constant', 'global_constraint').astype(
-            {'value': float}
-        ),
+        'GlobalConstraint_constant': _gc_constants(n),
         'snapshot_is_last': pd.DataFrame(
             {'snapshot': n.snapshots, 'value': [0] * (len(n.snapshots) - 1) + [1] if len(n.snapshots) else []}
         ),
-        'Generator_primary_energy_weight': _primary_energy_weights(n),
         'Generator_marginal_cost_quadratic': _varying(n, 'Generator', 'marginal_cost_quadratic', 'generator'),
         'Link_marginal_cost_quadratic': _varying(n, 'Link', 'marginal_cost_quadratic', 'link'),
+    }
+
+    primary, operational = _typed(n, 'primary_energy'), _typed(n, 'operational_limit')
+    volume, expansion_cost = (
+        _typed(n, 'transmission_volume_expansion_limit'),
+        _typed(n, 'transmission_expansion_cost_limit'),
+    )
+    tech = _typed(n, 'tech_capacity_expansion_limit')
+    tables |= {
+        'Generator_primary_energy_weight': _weights(
+            primary, generators, 'generator', lambda gc, g: _emissions(n, gc).get(g['carrier'], 0.0) / g['efficiency']
+        ),
+        'StorageUnit_primary_energy_weight': _weights(
+            primary,
+            storage_units,
+            'storage_unit',
+            lambda gc, s: 0.0 if s['cyclic_state_of_charge'] else _emissions(n, gc).get(s['carrier'], 0.0),
+        ),
+        'Store_primary_energy_weight': _weights(
+            primary, stores, 'store', lambda gc, s: 0.0 if s['e_cyclic'] else _emissions(n, gc).get(s['carrier'], 0.0)
+        ),
+        'Generator_operational_limit_weight': _weights(
+            operational, generators, 'generator', lambda gc, g: float(g['carrier'] == gc['carrier_attribute'])
+        ),
+        'StorageUnit_operational_limit_weight': _weights(
+            operational,
+            storage_units,
+            'storage_unit',
+            lambda gc, s: float(s['carrier'] == gc['carrier_attribute'] and not s['cyclic_state_of_charge']),
+        ),
+        'Store_operational_limit_weight': _weights(
+            operational,
+            stores,
+            'store',
+            lambda gc, s: float(s['carrier'] == gc['carrier_attribute'] and not s['e_cyclic']),
+        ),
+        'Line_volume_weight': _weights(
+            volume,
+            lines,
+            'line',
+            lambda gc, c: c['length'] if c['s_nom_extendable'] and c['carrier'] in _carrier_list(gc) else 0.0,
+        ),
+        'Link_volume_weight': _weights(
+            volume,
+            links,
+            'link',
+            lambda gc, c: c['length'] if c['p_nom_extendable'] and c['carrier'] in _carrier_list(gc) else 0.0,
+        ),
+        'Line_expansion_cost_weight': _weights(
+            expansion_cost,
+            lines,
+            'line',
+            lambda gc, c: c['capital_cost'] if c['s_nom_extendable'] and c['carrier'] in _carrier_list(gc) else 0.0,
+        ),
+        'Link_expansion_cost_weight': _weights(
+            expansion_cost,
+            links,
+            'link',
+            lambda gc, c: c['capital_cost'] if c['p_nom_extendable'] and c['carrier'] in _carrier_list(gc) else 0.0,
+        ),
+        'Generator_tech_capacity_weight': _weights(
+            tech, generators, 'generator', lambda gc, c: float(_in_tech_set(gc, c, 'p_nom', 'bus'))
+        ),
+        'Link_tech_capacity_weight': _weights(
+            tech, links, 'link', lambda gc, c: float(_in_tech_set(gc, c, 'p_nom', 'bus0'))
+        ),
+        'Line_tech_capacity_weight': _weights(
+            tech, lines, 'line', lambda gc, c: float(_in_tech_set(gc, c, 's_nom', 'bus0'))
+        ),
+        'StorageUnit_tech_capacity_weight': _weights(
+            tech, storage_units, 'storage_unit', lambda gc, c: float(_in_tech_set(gc, c, 'p_nom', 'bus'))
+        ),
+        'Store_tech_capacity_weight': _weights(
+            tech, stores, 'store', lambda gc, c: float(_in_tech_set(gc, c, 'e_nom', 'bus'))
+        ),
     }
 
     tables['cycle'] = pl.Series('cycle', list(pd.unique(tables['Line_cycle_weight']['cycle'])), dtype=pl.String)
@@ -245,23 +365,6 @@ def sources(n: pypsa.Network) -> dict[str, object]:
         links = links.assign(bus2='', efficiency2=1.0)
     tables['Link_bus2'] = _lookup(links, 'bus2', 'link', 'bus')
     tables['Link_efficiency2'] = _static(links[links['bus2'] != ''], 'efficiency2', 'link')
-
-    for name, dim in [
-        ('StorageUnit_primary_energy_weight', 'storage_unit'),
-        ('Store_primary_energy_weight', 'store'),
-        ('Generator_operational_limit_weight', 'generator'),
-        ('StorageUnit_operational_limit_weight', 'storage_unit'),
-        ('Store_operational_limit_weight', 'store'),
-        ('Line_volume_weight', 'line'),
-        ('Link_volume_weight', 'link'),
-        ('Line_expansion_cost_weight', 'line'),
-        ('Link_expansion_cost_weight', 'link'),
-        ('Generator_tech_capacity_weight', 'generator'),
-        ('Link_tech_capacity_weight', 'link'),
-        ('StorageUnit_tech_capacity_weight', 'storage_unit'),
-        ('Store_tech_capacity_weight', 'store'),
-    ]:
-        tables[name] = pl.DataFrame(schema={'global_constraint': pl.String, dim: pl.String, 'value': pl.Float64})
 
     for name, table in tables.items():
         if isinstance(table, pd.DataFrame):

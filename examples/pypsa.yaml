@@ -107,10 +107,9 @@ parameters:
     dims: [generator]
   Generator_p_min_pu_nonneg:
     description: >-
-      true where no committable extendable generator's minimum-per-unit is
-      negative — PyPSA's `(p_min_pu >= 0).all()`, data prep, one answer for
-      the whole network
-    dims: []
+      true where none of the generator's own minimums-per-unit is negative —
+      PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
+    dims: [generator]
     dtype: bool
   Link_ramp_limit_up:
     description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
@@ -384,6 +383,9 @@ parameters:
   Link_tech_capacity_weight:
     description: one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row
     dims: [global_constraint, link]
+  Line_tech_capacity_weight:
+    description: one where the line is in the row's carrier-and-bus set — data prep; one outside it has no row
+    dims: [global_constraint, line]
   StorageUnit_tech_capacity_weight:
     description: one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row
     dims: [global_constraint, storage_unit]
@@ -545,11 +547,14 @@ expressions:
       - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
       - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, over=snapshot), over=store)
   operational_limit:
-    description: what an `operational_limit` row totals — the energy delivered by the row's set over the horizon
+    description: >-
+      what an `operational_limit` row totals — the weighted energy its
+      generators deliver, plus what its non-cyclic storage draws down; the
+      initial charge it draws from is folded into the row's constant
     expression: >-
       sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, over=snapshot), over=generator)
-      + sum(sum(StorageUnit_p_dispatch * snapshot_weightings_generators * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
-      + sum(sum(Store_p * snapshot_weightings_generators * Store_operational_limit_weight, over=snapshot), over=store)
+      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+      - sum(sum(Store_e * snapshot_is_last * Store_operational_limit_weight, over=snapshot), over=store)
   transmission_volume_expansion:
     description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
     expression: >-
@@ -565,6 +570,7 @@ expressions:
     expression: >-
       sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
       + sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
+      + sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
       + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
       + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
 

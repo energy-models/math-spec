@@ -69,20 +69,27 @@ def bound(model: Path, n) -> dict[str, object]:
     return {name: table for name, table in prep.sources(n).items() if name in names}
 
 
-def _by_pypsa_name(declared_blocks, count) -> dict[str, int]:
-    """*count* summed under each block's PyPSA name — split ``where:`` blocks sum to their one row."""
-    counts: dict[str, int] = {}
+def built(result, declared) -> tuple[dict[str, int], dict[str, int]]:
+    """The labels lpspec actually built, per file block — the masked ones excluded, like PyPSA's records."""
+    return (
+        {name: len(result.activity(name)) for name in declared.constraints},
+        {name: len(result.primal(name)) for name in declared.variables},
+    )
+
+
+def _by_pypsa_name(declared_blocks, counts: dict[str, int]) -> dict[str, int]:
+    """*counts* summed under each block's PyPSA name — split ``where:`` blocks sum to their one row."""
+    summed: dict[str, int] = {}
     for name, block in declared_blocks.items():
         key = stands_for(block.description)
-        counts[key] = counts.get(key, 0) + count(name)
-    return counts
+        summed[key] = summed.get(key, 0) + counts[name]
+    return summed
 
 
-def structure(result, model: Path, record: dict) -> tuple[bool, bool]:
+def structure(declared, built_rows: dict, built_columns: dict, record: dict) -> tuple[bool, bool]:
     """Whether lpspec built the same row and column counts PyPSA recorded, name by name."""
-    declared = math_spec.load_model(model)
-    ours_rows = _by_pypsa_name(declared.constraints, lambda name: len(result.activity(name)))
-    ours_columns = _by_pypsa_name(declared.variables, lambda name: len(result.primal(name)))
+    ours_rows = _by_pypsa_name(declared.constraints, built_rows)
+    ours_columns = _by_pypsa_name(declared.variables, built_columns)
     theirs_rows: dict[str, int] = {}
     for row, count in record['rows'].items():
         if row.startswith('GlobalConstraint-'):
@@ -98,8 +105,13 @@ def structure(result, model: Path, record: dict) -> tuple[bool, bool]:
     return same[0], same[1]
 
 
-def prices(result, record: dict) -> str:
-    """Bus-balance duals against PyPSA's recorded `marginal_price`: match, differ, mip, or unpriced."""
+def prices(result, record: dict, hours) -> str:
+    """Bus-balance duals against PyPSA's recorded `marginal_price`: match, differ, mip, or unpriced.
+
+    PyPSA publishes `marginal_price` as the row dual over the snapshot's
+    objective weighting — a price per hour — so the raw dual is compared
+    against price times *hours*; at weighting 1 the two coincide.
+    """
     if not record['marginal_price']:
         return 'unpriced'
     try:
@@ -107,7 +119,7 @@ def prices(result, record: dict) -> str:
     except Exception:
         return 'mip'
     for row in frame.iter_rows(named=True):
-        want = record['marginal_price'][row['bus']][int(row['snapshot'])]
+        want = record['marginal_price'][row['bus']][int(row['snapshot'])] * float(hours[int(row['snapshot'])])
         if not math.isclose(row['value'], want, rel_tol=1e-6, abs_tol=1e-6):
             print(f'  dual ({row["snapshot"]}, {row["bus"]}): lpspec {row["value"]} · pypsa {want}', file=sys.stderr)
             return 'differ'
@@ -115,21 +127,33 @@ def prices(result, record: dict) -> str:
 
 
 def lanes(stem: str, record: dict) -> dict[str, object]:
-    """One rung through both lanes, compared: objective, per-name counts, and duals where both lanes price."""
+    """One rung through both lanes, compared: objective, per-name counts, and duals where both lanes price.
+
+    Beyond the verdicts, the stamp keeps what lpspec built — labels per file
+    block, each dimension's size, the tables bound non-empty — which is what
+    the repository's coverage tests read.
+    """
     n = instances.build(stem)
     status, condition = n.optimize(solver_name='highs')
     assert status == 'ok', f'{stem}: pypsa did not solve — {status} / {condition}'
     model = MODELS.get(stem, MODEL)
-    result = lps.solve(model, bound(model, instances.build(stem)))
+    declared = math_spec.load_model(model)
+    tables = bound(model, instances.build(stem))
+    result = lps.solve(model, tables)
     assert result.is_ok, f'{stem}: lpspec did not solve — {result.termination_condition}'
-    rows, columns = structure(result, model, record)
+    built_rows, built_columns = built(result, declared)
+    rows, columns = structure(declared, built_rows, built_columns, record)
     return {
         'lpspec_objective': float(result.objective),
         'matches': math.isclose(float(result.objective), float(n.objective), rel_tol=1e-9, abs_tol=1e-6),
         'rows_match': rows,
         'columns_match': columns,
-        'duals': prices(result, record),
+        'duals': prices(result, record, n.snapshot_weightings['objective']),
         'model': str(model.relative_to(HERE.parents[2])),
+        'built_rows': built_rows,
+        'built_columns': built_columns,
+        'dims': {name: len(table) for name, table in tables.items() if name in declared.dimensions},
+        'bound_nonempty': sorted(name for name, table in tables.items() if len(table)),
     }
 
 
