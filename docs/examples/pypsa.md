@@ -20,11 +20,13 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 
 ## Index
 
-A row is **done** and links once it is in the file — on this branch, as it
-stands; a fix still on its way stays not-done, its PR or issue in the note.
-Any other word is the catch: **not** a PyPSA workaround not reproduced ·
-**flag** only under an `n.optimize()` keyword · **scope** multi-period or
-stochastic · **open** not stateable yet. Under each rung's table sits its
+A row is **done** and links once the file states it as the one block PyPSA
+builds — on this branch, as it stands; a fix still on its way stays
+not-done, its PR or issue in the note. Any other word is the catch:
+**split** the same rows under several `where:` blocks — the optimum
+matches, the model is not yet block-for-block · **not** a PyPSA workaround
+not reproduced · **flag** only under an `n.optimize()` keyword · **scope**
+multi-period or stochastic · **open** not stateable yet. Under each rung's table sits its
 reference network, solved out of band by the pinned scripts beside it, and
 `parity.py` holds both lanes to one objective, one row and column count
 under every PyPSA name, and one set of bus prices.
@@ -134,8 +136,8 @@ Link,wire,p_set,0,10.0
 | [`StorageUnit-p_dispatch`, `-p_store`, `-state_of_charge`, `Store-e`, `Store-p`](#variable-domains) | done |                                 |
 | [`StorageUnit-spill`](#variable-domains)              | done   | `where: inflow > 0`, `absence: zero`; bounds on the variable, as PyPSA's |
 | [`StorageUnit-fix-*`](#storageunit-fix-p_dispatch-lower), [`Store-fix-e-*`](#store-fix-e-lower) | done |                                 |
-| [`StorageUnit-energy_balance`](#storageunit-energy_balance) | done | three blocks: carried / initial / cyclic; `(1-loss)**eh` is prep |
-| [`Store-energy_balance`](#store-energy_balance)       | done   | same                                                          |
+| [`StorageUnit-energy_balance`](#storageunit-energy_balance) | split | three blocks: carried / initial / cyclic, fused by #70; `(1-loss)**eh` is prep |
+| [`Store-energy_balance`](#store-energy_balance)       | split  | same                                                          |
 | [`StorageUnit-p_set`](#storageunit-p_set), [`{c}-{attr}_set`](#generator-p_set) | done | `Generator-p_set`, `Link-p_set`, `StorageUnit-state_of_charge_set`, `Store-e_set`, `Line-s_set` |
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
@@ -304,7 +306,7 @@ Generator,solar,p_max_pu,3,0.2
 
 | PyPSA                          | status | note                                                       |
 | ------------------------------ | ------ | ---------------------------------------------------------- |
-| [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | fix and ext blocks; com is rung 7's, big-M rung 8's; the first snapshot's row is rolling horizon's, a flag |
+| [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | split | fix, ext and first-snapshot blocks, fused by #70; com is rung 7's, big-M rung 8's |
 
 <!-- reference:rung_04_ramps:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8785.0`, 64 rows — recorded by `examples/references/pypsa/rung_04_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
@@ -370,11 +372,11 @@ each type is three blocks by sense.
 
 | PyPSA type                            | status      | note                                              |
 | ------------------------------------- | ----------- | ------------------------------------------------- |
-| [`primary_energy`](#primary_energy)   | done        | carrier weights and the horizon-end charge read are prep |
-| [`operational_limit`](#operational_limit) | done    |                                                   |
-| [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) | done | membership from PyPSA's carrier string is prep |
-| [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | done |                                       |
-| [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | done |                                               |
+| [`primary_energy`](#primary_energy)   | split       | a block per sense — sense as data is beyond #70; carrier weights and the horizon-end charge read are prep |
+| [`operational_limit`](#operational_limit) | split   | a block per sense                                 |
+| [`transmission_volume_expansion_limit`](#transmission_volume_expansion_limit) | split | a block per sense; membership from PyPSA's carrier string is prep |
+| [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | split | a block per sense                     |
+| [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | split | a block per sense                             |
 | `Bus-nom_min/max_{carrier}`           | not         | deprecated in PyPSA                               |
 | `Carrier-growth_limit`                | scope       | multi-period                                      |
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
@@ -527,7 +529,7 @@ Line,bc,s_set,0,16.0
 | [`{c}-status`, `-start_up`, `-shut_down`](#variable-domains) | done | Generator; a committable link is not taken up here |
 | [`{c}-com-p-lower/upper`](#generator-com-p-lower) | done |                                                          |
 | [`{c}-*-p-fixed-upper`](#generator-status-p-fixed-upper) | done | status, start and stop each at most one, as explicit rows |
-| [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | first snapshot carries the initial status |
+| [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | split | a first-snapshot block carries the initial status, fused by #70 |
 | [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(within=min_up_time)`                    |
 | [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal, not a parameter |
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
@@ -584,7 +586,7 @@ Load,swing7,p_set,3,10.0
 | [`{c}-com-mod-p-lower/upper`](#generator-com-mod-p-lower) | done | one module's share, times the status          |
 | [`{c}-com-ext-p-*` (big-M)](#generator-com-ext-p-upper-cap) | done | a cap row beside a big-M row; `M` is the build cap at full availability, data prep |
 | [`{c}-com-ext-p-lower-nonneg`](#generator-com-ext-p-lower-nonneg) | done | `(p_min_pu >= 0).all()` is prep        |
-| [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down, each with its initial block |
+| [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | split | run and start rows up, run and shut rows down, each with an initial block #70 fuses |
 
 <!-- reference:rung_08_modular_big_m:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `19712.5`, 155 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name (`parity.py`).
