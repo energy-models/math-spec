@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 9 of `examples/pypsa.yaml` — a multi-link delivering at two ports.
+"""Reference for rung 5 of `examples/pypsa.yaml` — a CO2 cap priced through the carrier map.
 
-    uv run --script examples/references/pypsa/rung9_multilink.py
+    uv run --script examples/references/pypsa/rung_05_global_constraints.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -30,15 +30,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-RUNG = 'rung9_multilink'
+RUNG = 'rung_05_global_constraints'
 
 
 def build() -> pypsa.Network:
-    """Rung 9's multi-link: one gas flow delivering power and heat at two ports.
+    """Rung 5's global constraint: a primary-energy CO2 cap over three carriers.
 
-    The CHP link withdraws gas at its first bus and injects at the other two
-    by its two efficiencies; the heat bus has no other supply, so the link
-    runs and the power bus tops up from imports.
+    Coal is cheap and dirty, gas dearer and cleaner, wind clean and dearest to
+    run here; the cap decides the mix, and its shadow price is the carbon
+    price.
     """
     return instances.build(RUNG)
 

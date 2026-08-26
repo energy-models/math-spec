@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 10 of `examples/pypsa_quadratic.yaml` — quadratic costs.
+"""Reference for rung 8 of `examples/pypsa.yaml` — modular builds and big M.
 
-    uv run --script examples/references/pypsa/rung10_quadratic_costs.py
+    uv run --script examples/references/pypsa/rung_08_modular_big_m.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -30,15 +30,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-RUNG = 'rung10_quadratic_costs'
+RUNG = 'rung_08_modular_big_m'
 
 
 def build() -> pypsa.Network:
-    """Rung 10's quadratic costs: two generators splitting a load by their marginal slopes.
+    """Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
 
-    Steam is cheap to start and steepens fast, the engine is dear but flat, so
-    the optimum is an interior split only a quadratic objective produces; the
-    lossy link carries its own quadratic cost.
+    The block plant is bought twenty-five megawatts at a time and gated by a
+    status, so its bounds are one module's share; the flexible plant is
+    extendable and committable with ramps, which is the pairing PyPSA's big-M
+    rows linearize.
     """
     return instances.build(RUNG)
 

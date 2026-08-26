@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 3 of `examples/pypsa.yaml` — capacity expansion.
+"""Reference for rung 1 of `examples/pypsa.yaml` — transport.
 
-    uv run --script examples/references/pypsa/rung3_expansion.py
+    uv run --script examples/references/pypsa/rung_01_transport.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -30,17 +30,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-RUNG = 'rung3_expansion'
+RUNG = 'rung_01_transport'
 
 
 def build() -> pypsa.Network:
-    """Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
+    """Rung 1's transport: the spine as it stands, plus a must-run its schedule pins.
 
-    Wind is free to run but costs capacity, its availability varies, and its
-    build is floored and capped; gas is fixed, dear, and budgeted in energy
-    over the horizon, so the optimum has to buy some wind — at least the
-    energy floor it also carries. The cable to the island is the extendable
-    link, and the pump and tank are the extendable storage.
+    Coal in the north is cheap and the wire loses a tenth on the way south, so
+    the south's load splits between imports, a small must-run pinned by its
+    given schedule, and its own gas at the link's rating.
     """
     return instances.build(RUNG)
 

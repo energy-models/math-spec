@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 8 of `examples/pypsa.yaml` — modular builds and big M.
+"""Reference for rung 6 of `examples/pypsa.yaml` — passive lines and the voltage law.
 
-    uv run --script examples/references/pypsa/rung8_modular_big_m.py
+    uv run --script examples/references/pypsa/rung_06_kvl.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -30,16 +30,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-RUNG = 'rung8_modular_big_m'
+RUNG = 'rung_06_kvl'
 
 
 def build() -> pypsa.Network:
-    """Rung 8's modular and big-M builds: whole modules, and a build gated by a status.
+    """Rung 6's voltage law: three buses in a triangle of lines.
 
-    The block plant is bought twenty-five megawatts at a time and gated by a
-    status, so its bounds are one module's share; the flexible plant is
-    extendable and committable with ramps, which is the pairing PyPSA's big-M
-    rows linearize.
+    Two generators and one load; with a cycle in the graph the flows split by
+    impedance rather than by cost, which is what the KVL row enforces; one
+    line is extendable, so its rating is a decision.
     """
     return instances.build(RUNG)
 

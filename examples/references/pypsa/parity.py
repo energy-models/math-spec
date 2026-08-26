@@ -49,7 +49,7 @@ MODEL = HERE.parents[1] / 'pypsa.yaml'
 
 #: A rung that states a different file says so here, with the prep function
 #: that builds exactly that file's tables; every other rung binds the one file.
-MODELS = {'rung10_quadratic_costs': (HERE.parents[1] / 'pypsa_quadratic.yaml', 'quadratic_sources')}
+MODELS = {'rung_10_quadratic_costs': (HERE.parents[1] / 'pypsa_quadratic.yaml', 'quadratic_sources')}
 
 
 def network(script: Path):

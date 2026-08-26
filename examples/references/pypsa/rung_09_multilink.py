@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 2 of `examples/pypsa.yaml` — storage units and stores.
+"""Reference for rung 9 of `examples/pypsa.yaml` — a multi-link delivering at two ports.
 
-    uv run --script examples/references/pypsa/rung2_storage.py
+    uv run --script examples/references/pypsa/rung_09_multilink.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -30,16 +30,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-RUNG = 'rung2_storage'
+RUNG = 'rung_09_multilink'
 
 
 def build() -> pypsa.Network:
-    """Rung 2's storage: a cyclic battery, a reservoir that can spill, a cavern store.
+    """Rung 9's multi-link: one gas flow delivering power and heat at two ports.
 
-    The generator is cheap for two snapshots and dear for two, so the battery
-    buys low and sells high and its horizon closes on itself; the reservoir
-    opens on a given charge and spills the inflow it cannot hold; the cavern
-    drains from its initial fill.
+    The CHP link withdraws gas at its first bus and injects at the other two
+    by its two efficiencies; the heat bus has no other supply, so the link
+    runs and the power bus tops up from imports.
     """
     return instances.build(RUNG)
 

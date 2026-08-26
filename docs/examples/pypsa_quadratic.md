@@ -22,8 +22,8 @@ starts from the same shared spine, `data/base/`, shown once on
 | --------------------------------------- | ------ | -------------------------------------------------------------------------- |
 | [`marginal_cost_quadratic`](#objective) | done   | degree 2 in the objective; Generator and Link here — PyPSA also carries it on storage units and stores, one more term each of the same shape |
 
-<!-- reference:rung10_quadratic_costs:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5544.416666666888`, 60 rows — recorded by `examples/references/pypsa/rung10_quadratic_costs.py`. `lpspec 0.0.1a259` binds `examples/pypsa_quadratic.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung10_quadratic_costs/`.
+<!-- reference:rung_10_quadratic_costs:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5544.416666666888`, 60 rows — recorded by `examples/references/pypsa/rung_10_quadratic_costs.py`. `lpspec 0.0.1a259` binds `examples/pypsa_quadratic.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_10_quadratic_costs/`.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -34,14 +34,14 @@ Steam is cheap to start and steepens fast, the engine is dear but flat, so
 the optimum is an interior split only a quadratic objective produces; the
 lossy link carries its own quadratic cost.
 
-`data/rung10_quadratic_costs/buses.csv`
+`data/rung_10_quadratic_costs/buses.csv`
 
 ```csv
 name
 village
 ```
 
-`data/rung10_quadratic_costs/generators.csv`
+`data/rung_10_quadratic_costs/generators.csv`
 
 ```csv
 name,bus,p_nom,marginal_cost,marginal_cost_quadratic
@@ -49,14 +49,14 @@ steam,north,80.0,5.0,0.08
 engine,north,80.0,20.0,0.01
 ```
 
-`data/rung10_quadratic_costs/links.csv`
+`data/rung_10_quadratic_costs/links.csv`
 
 ```csv
 name,bus0,bus1,p_nom,p_min_pu,efficiency,marginal_cost,marginal_cost_quadratic
 wire2,north,village,40.0,-1.0,0.9,1.0,0.02
 ```
 
-`data/rung10_quadratic_costs/loads.csv`
+`data/rung_10_quadratic_costs/loads.csv`
 
 ```csv
 name,bus,p_set
@@ -64,7 +64,7 @@ village_load,village,15.0
 extra10,north,
 ```
 
-`data/rung10_quadratic_costs/timeseries.csv`
+`data/rung_10_quadratic_costs/timeseries.csv`
 
 ```csv
 component,name,attribute,snapshot,value
@@ -75,7 +75,7 @@ Load,extra10,p_set,3,60.0
 ```
 
 </details>
-<!-- reference:rung10_quadratic_costs:end -->
+<!-- reference:rung_10_quadratic_costs:end -->
 
 ## The file
 

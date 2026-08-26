@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 6 of `examples/pypsa.yaml` — passive lines and the voltage law.
+"""Reference for rung 3 of `examples/pypsa.yaml` — capacity expansion.
 
-    uv run --script examples/references/pypsa/rung6_kvl.py
+    uv run --script examples/references/pypsa/rung_03_expansion.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -30,15 +30,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-RUNG = 'rung6_kvl'
+RUNG = 'rung_03_expansion'
 
 
 def build() -> pypsa.Network:
-    """Rung 6's voltage law: three buses in a triangle of lines.
+    """Rung 3's expansion: a wind build decided by the solver against a fixed gas fleet.
 
-    Two generators and one load; with a cycle in the graph the flows split by
-    impedance rather than by cost, which is what the KVL row enforces; one
-    line is extendable, so its rating is a decision.
+    Wind is free to run but costs capacity, its availability varies, and its
+    build is floored and capped; gas is fixed, dear, and budgeted in energy
+    over the horizon, so the optimum has to buy some wind — at least the
+    energy floor it also carries. The cable to the island is the extendable
+    link, and the pump and tank are the extendable storage.
     """
     return instances.build(RUNG)
 

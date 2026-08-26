@@ -1,5 +1,5 @@
 {
-  "rung10_quadratic_costs": {
+  "rung_10_quadratic_costs": {
     "columns": {
       "Generator-p": 16,
       "Link-p": 8
@@ -42,7 +42,7 @@
       "Link-fix-p-upper": 8
     }
   },
-  "rung1_transport": {
+  "rung_01_transport": {
     "columns": {
       "Generator-p": 12,
       "Link-p": 4
@@ -81,7 +81,7 @@
       "Link-p_set": 1
     }
   },
-  "rung2_storage": {
+  "rung_02_storage": {
     "columns": {
       "Generator-p": 8,
       "Link-p": 4,
@@ -137,7 +137,7 @@
       "Store-fix-e-upper": 4
     }
   },
-  "rung3_expansion": {
+  "rung_03_expansion": {
     "columns": {
       "Generator-p": 20,
       "Generator-p_nom": 2,
@@ -217,7 +217,7 @@
       "Store-ext-e_nom-upper": 1
     }
   },
-  "rung4_ramps": {
+  "rung_04_ramps": {
     "columns": {
       "Generator-p": 12,
       "Link-p": 8
@@ -264,7 +264,7 @@
       "Link-p-ramp_limit_up": 3
     }
   },
-  "rung5_global_constraints": {
+  "rung_05_global_constraints": {
     "columns": {
       "Generator-p": 20,
       "Link-p": 4
@@ -307,7 +307,7 @@
       "Link-fix-p-upper": 4
     }
   },
-  "rung6_kvl": {
+  "rung_06_kvl": {
     "columns": {
       "Generator-p": 16,
       "Line-s": 16,
@@ -373,7 +373,7 @@
       "Link-fix-p-upper": 4
     }
   },
-  "rung7_commitment": {
+  "rung_07_commitment": {
     "columns": {
       "Generator-p": 12,
       "Generator-shut_down": 4,
@@ -425,7 +425,7 @@
       "Link-fix-p-upper": 4
     }
   },
-  "rung8_modular_big_m": {
+  "rung_08_modular_big_m": {
     "columns": {
       "Generator-n_mod": 1,
       "Generator-p": 20,
@@ -496,7 +496,7 @@
       "Link-fix-p-upper": 4
     }
   },
-  "rung9_multilink": {
+  "rung_09_multilink": {
     "columns": {
       "Generator-p": 16,
       "Link-p": 8

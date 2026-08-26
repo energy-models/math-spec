@@ -7,9 +7,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
-"""Reference for rung 4 of `examples/pypsa.yaml` — ramp limits.
+"""Reference for rung 10 of `examples/pypsa_quadratic.yaml` — quadratic costs.
 
-    uv run --script examples/references/pypsa/rung4_ramps.py
+    uv run --script examples/references/pypsa/rung_10_quadratic_costs.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -30,14 +30,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-RUNG = 'rung4_ramps'
+RUNG = 'rung_10_quadratic_costs'
 
 
 def build() -> pypsa.Network:
-    """Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
+    """Rung 10's quadratic costs: two generators splitting a load by their marginal slopes.
 
-    Coal may move a fifth of its capacity per snapshot, so the swings belong
-    to the peaker however dear it is; the tie line east ramps too.
+    Steam is cheap to start and steepens fast, the engine is dear but flat, so
+    the optimum is an interior split only a quadratic objective produces; the
+    lossy link carries its own quadratic cost.
     """
     return instances.build(RUNG)
 

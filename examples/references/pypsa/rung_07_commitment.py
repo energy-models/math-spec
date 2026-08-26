@@ -9,7 +9,7 @@
 # ///
 """Reference for rung 7 of `examples/pypsa.yaml` — unit commitment.
 
-    uv run --script examples/references/pypsa/rung7_commitment.py
+    uv run --script examples/references/pypsa/rung_07_commitment.py
 
 Builds the smallest network that puts this rung's rows in front of a solver,
 solves it through PyPSA's own linopy model with HiGHS, and stamps what it saw
@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import instances
 
-RUNG = 'rung7_commitment'
+RUNG = 'rung_07_commitment'
 
 
 def build() -> pypsa.Network:
