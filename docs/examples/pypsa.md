@@ -89,10 +89,10 @@ snapshot,objective,stores,generators
 | [`Link-fix-p-lower`](#link-fix-p-lower)             | done   |                                                            |
 | [`Link-fix-p-upper`](#link-fix-p-upper)             | done   |                                                            |
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
-| `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here                         |
+| `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here — no fixture triggers the split, so the row-for-row dual carry-over is unproven |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
 | [`marginal_cost_quadratic`](pypsa_quadratic.md)     | done   | rung 10, a file of its own                                 |
-| `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
+| `objective_constant`                                | not    | compare objectives net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested; a constant moves no dual |
 
 <!-- reference:rung_01_transport:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung_01_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective, the same row and column count under every PyPSA name, and the same bus prices (`parity.py`).
@@ -521,7 +521,7 @@ Load,swing7,p_set,3,10.0
 | --------------------------------------------- | ------ | ---------------------------------------------------------- |
 | [`{c}-n_mod`, `{c}-p_nom_modularity`](#generator-p_nom_modularity) | done |                                       |
 | [`{c}-*-p_nom-variable-upper`](#generator-status-p_nom-variable-upper) | done | a modular unit is on only where a module is built |
-| `{c}-*-p-fixed-upper`, modular                | not    | a fixed modular build is floored in data prep, see X1; its rows are the ordinary fix rows |
+| `{c}-*-p-fixed-upper`, modular                | not    | a fixed modular build is floored in data prep, see X1; its rows are the ordinary fix rows — no fixture fixes a modular build, so the floor's dual equality is unproven |
 | [`{c}-com-mod-p-lower/upper`](#generator-com-mod-p-lower) | done | one module's share, times the status          |
 | [`{c}-com-ext-p-*` (big-M)](#generator-com-ext-p-upper-cap) | done | a cap row beside a big-M row; `M` is the build cap at full availability, data prep |
 | [`{c}-com-ext-p-lower-nonneg`](#generator-com-ext-p-lower-nonneg) | done | `(p_min_pu >= 0).all()` is prep        |
