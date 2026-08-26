@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.23](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.22...v0.0.0-alpha.23) (2026-08-26)
+
+
+### Bug Fixes
+
+* **docs:** the homepage feature cards render as cards rather than as loose rules and paragraphs ([#145](https://github.com/energy-models/math-spec/issues/145)) ([b88e5dc](https://github.com/energy-models/math-spec/commit/b88e5dc8883f0bc6bc0f5809c688139055715f57))
+
 ## [0.0.0-alpha.22](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.21...v0.0.0-alpha.22) (2026-08-26)
 
 
