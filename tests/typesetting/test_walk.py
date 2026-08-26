@@ -685,3 +685,21 @@ def test_a_sign_beside_an_operator_is_bracketed_or_folded(expression, expected, 
 )
 def test_a_float_prints_as_a_number_not_as_python(literal, expected):
     assert expected in _row(f'p == {literal} * q')
+
+
+@EVERY_FORMAT
+def test_a_string_value_in_a_where_prints_as_a_quoted_label(fmt: Format):
+    """`fuel == 'gas_ccgt'` rendered the label in text mode, where MathJax
+    prints the underscore's escape as a literal backslash — and an
+    operator-valued label such as `'>='` read as `= >=`, an equals against a
+    bare glyph. Quoted, with the word upright in math mode, both read as the
+    file spells them."""
+    model = {
+        'dimensions': {'plant': {'dtype': 'str'}},
+        'parameters': {'fuel': {'dims': ['plant'], 'dtype': 'str'}, 'cost': {'dims': ['plant']}},
+        'variables': {'p': {'foreach': ['plant'], 'where': "fuel == 'gas_ccgt'"}},
+        'objective': {'expression': 'sum(p * cost)'},
+    }
+    text = typeset(model, fmt, legend=False)
+    assert fmt.quoted('gas_ccgt') in text, 'a string value prints through the quoted seam'
+    assert fmt.prose('gas_ccgt') not in text, 'a string value is data, never words inside math'

@@ -81,6 +81,10 @@ class TypstFormat:
     def prose(self, text: str) -> str:
         return f'upright({_quote(text)})'
 
+    def quoted(self, label: str) -> str:
+        in_quotes = f"'{label}'"
+        return f'upright({_quote(in_quotes)})'
+
     def mono(self, text: str) -> str:
         return _raw(text)
 

@@ -73,6 +73,16 @@ class LatexFormat:
     def prose(self, text: str) -> str:
         return rf'\text{{{_escape(text)}}}'
 
+    def quoted(self, label: str) -> str:
+        r"""The quotes in text mode, the label itself upright in math mode.
+
+        Not one ``\text{'label'}``: MathJax renders ``\_`` inside ``\text``
+        as a literal backslash, and this format is what `to_markdown` inherits
+        — in math mode the escape works everywhere, which is how every name
+        already prints.
+        """
+        return rf"\text{{'}}{self.upright(label)}\text{{'}}"
+
     def mono(self, text: str) -> str:
         return rf'\texttt{{{_escape(text)}}}'
 
