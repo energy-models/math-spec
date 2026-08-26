@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from math_spec.typesetting.format import LATEX_OPERATORS
+from math_spec.typesetting.format import OPERATOR_SPELLINGS
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -54,7 +54,7 @@ class LatexFormat:
     #: TeX's own em-dash ligature.
     dash: ClassVar[str] = '---'
 
-    operators: ClassVar[Mapping[str, str]] = LATEX_OPERATORS
+    operators: ClassVar[Mapping[str, str]] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
 
     # -- atoms -------------------------------------------------------------
 
@@ -122,7 +122,7 @@ class LatexFormat:
         return f'\\begin{{{environment}}}\n{body}\n\\end{{{environment}}}'
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
-        rows = '\n'.join(rf'\item[{{{self.math(e.symbol)}}}] {e.meaning(self.dash)}' for e in entries)
+        rows = '\n'.join(rf'\item[{{{self.math(e.symbol)}}}] {e.meaning}' for e in entries)
         return f'\\paragraph{{{title}}}\n\\begin{{description}}\n{rows}\n\\end{{description}}'
 
     def section(self, title: str, body: str) -> str:

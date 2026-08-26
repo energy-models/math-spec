@@ -77,12 +77,8 @@ by every format.
    syntax decision it should not, or the seam is missing a method — fix that
    rather than special-casing.
 
-`markdown.py` is the cheap case worth knowing about: Markdown has no math of
-its own, so it _forwards_ every math method to `LatexFormat` and writes only
-the document layer. Forwarding, not subclassing — inheritance would silently
-absorb any method later added to `LatexFormat`, and since the two differ
-exactly in the document methods, the silent case is a `\paragraph` in a
-Markdown file.
+`markdown.py` is the cheap case: Markdown has no math of its own, so it
+subclasses `LatexFormat` and overrides only the document layer.
 
 `tests/typesetting/test_typeset.py` runs the shared expectations against **every** entry in
 `FORMATS`, so a new format inherits the suite. Two of them are the point: every
