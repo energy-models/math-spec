@@ -93,6 +93,21 @@ def test_both_lanes_solve_the_rung_to_one_objective(stem: str):
     )
 
 
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_both_lanes_build_the_same_rows_and_columns(stem: str):
+    parity = RECORDED[stem]['parity']
+    assert parity['rows_match'] and parity['columns_match'], (
+        'the two lanes built different counts under some PyPSA name — parity.py prints which'
+    )
+
+
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_bus_prices_agree_wherever_both_lanes_price(stem: str):
+    assert RECORDED[stem]['parity']['duals'] in ('match', 'mip', 'unpriced'), (
+        "lpspec's bus-balance duals differ from PyPSA's recorded marginal_price — parity.py prints where"
+    )
+
+
 def test_pypsa_builds_no_variable_the_files_do_not_declare():
     unmatched = RECORDED_COLUMNS - COLUMNS_DECLARED
     assert not unmatched, f'pypsa builds these and the files declare nothing that stands for them: {sorted(unmatched)}'
