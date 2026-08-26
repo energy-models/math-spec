@@ -23,9 +23,10 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 A row is **done** and links once the file states it as the one block PyPSA
 builds — on this branch, as it stands; a fix still on its way stays
 not-done, its PR or issue in the note. Any other word is the catch:
-**split** the same rows under several `where:` blocks — the optimum
-matches, the model is not yet block-for-block · **not** a PyPSA workaround
-not reproduced · **flag** only under an `n.optimize()` keyword · **scope**
+**split** the same rows under several `where:` blocks — the feasible
+region and the optimum are PyPSA's own, held by the gates; only the
+block-for-block shape is missing · **not** a PyPSA workaround not
+reproduced · **flag** only under an `n.optimize()` keyword · **scope**
 multi-period or stochastic · **open** not stateable yet. Under each rung's table sits its
 reference network, solved out of band by the pinned scripts beside it, and
 `parity.py` holds both lanes to one objective, one row and column count
