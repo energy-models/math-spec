@@ -13,14 +13,13 @@ from __future__ import annotations
 import pytest
 
 from math_spec import expand_piecewise, unbounded_notes
-from tests.fixtures import override, schema_of
+from tests.fixtures import SMALL_MODEL, override, schema_of
 
-BASE = {
-    'dimensions': {'g': {'values': ['a', 'b']}},
-    'parameters': {'c': {'dims': ['g']}, 'cap': {'dims': ['g']}},
-    'variables': {'v': {'foreach': ['g']}, 'w': {'foreach': ['g']}},
-    'objective': {'sense': 'minimize', 'expression': 'sum(v, over=g)'},
-}
+BASE = override(
+    SMALL_MODEL,
+    variables={'v': {'foreach': ['g']}, 'w': {'foreach': ['g']}},
+    objective={'sense': 'minimize', 'expression': 'sum(v, over=g)'},
+)
 
 
 def _notes(**patch) -> list[str]:
@@ -44,6 +43,11 @@ def _notes(**patch) -> list[str]:
             'lower',
             id='an-operator-argument-keeps-it',
         ),
+        pytest.param(
+            {'objective.expression': '-sum(v, over=g)', 'variables.v.bounds': {'lower': 0}},
+            'upper',
+            id='a-bound-on-the-side-it-runs-away-from-is-beside-the-point',
+        ),
     ],
 )
 def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch, side):
@@ -57,25 +61,23 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
     'patch',
     [
         pytest.param({'variables.v.bounds': {'lower': 0}}, id='bounded-on-the-improving-side'),
-        pytest.param({'variables.v.bounds': {'lower': 'cap'}}, id='a-parameter-bound-is-data'),
+        pytest.param({'variables.v.bounds': {'lower': 'c'}}, id='a-parameter-bound-is-data'),
         pytest.param({'variables.v.domain': 'binary'}, id='a-binary-is-bounded-by-its-domain'),
-        pytest.param({'constraints': {'k': {'foreach': ['g'], 'expression': 'v >= cap'}}}, id='named-by-a-constraint'),
+        pytest.param({'constraints': {'k': {'foreach': ['g'], 'expression': 'v >= c'}}}, id='named-by-a-constraint'),
         pytest.param({'sos': {'s': {'variable': 'v', 'over': 'g', 'type': 1}}}, id='carried-by-a-set'),
         pytest.param({'objective.expression': 'sum(c * v, over=g)'}, id='a-parameter-coefficient-may-be-zero'),
         pytest.param({'objective.expression': 'sum(v - v, over=g)'}, id='both-signs-may-cancel'),
         pytest.param({'objective.expression': 'sum(v * v, over=g)'}, id='a-degree-two-term-carries-no-sign'),
         pytest.param({'objective.expression': 'sum(0 * v, over=g)'}, id='a-zero-coefficient-is-not-a-term'),
         pytest.param({'objective': None}, id='no-objective'),
+        pytest.param(
+            {'objective.expression': '-sum(v, over=g)', 'variables.v.bounds': {'upper': 10}},
+            id='bounded-on-the-improving-side-running-up',
+        ),
     ],
 )
 def test_nothing_is_claimed_where_the_file_does_not_decide_it(patch):
     assert _notes(**patch) == [], 'a note here would be a false proof'
-
-
-def test_a_variable_the_objective_improves_the_other_way_is_bounded_by_its_own_bound():
-    """`v` runs up under `-v`; an upper bound stops it and a lower bound is beside the point."""
-    assert _notes(**{'objective.expression': '-sum(v, over=g)', 'variables.v.bounds': {'upper': 10}}) == []
-    assert len(_notes(**{'objective.expression': '-sum(v, over=g)', 'variables.v.bounds': {'lower': 0}})) == 1
 
 
 def test_every_unopposed_variable_is_named():

@@ -22,15 +22,9 @@ from math_spec import (
     is_quadratic,
 )
 from math_spec.degree import check_expression
-from tests.fixtures import schema_of
+from tests.fixtures import SMALL_MODEL, schema_of
 
-SCHEMA = schema_of(
-    {
-        'dimensions': {'g': {'values': ['a', 'b']}},
-        'parameters': {'c': {'dims': ['g']}, 'k': {'dims': []}},
-        'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g']}},
-    }
-)
+SCHEMA = schema_of(SMALL_MODEL)
 
 
 def _ast(text: str):
