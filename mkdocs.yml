@@ -35,6 +35,7 @@ nav:
       - PyPSA, the relaxed commitment: examples/pypsa_linearized_uc.md
       - PyPSA, the lossy lines: examples/pypsa_losses.md
       - PyPSA, the two-stage class: examples/pypsa_stochastic.md
+      - PyPSA, the multi-period class: examples/pypsa_multi_period.md
   - Reference:
       - Language:
           - reference/language/index.md
