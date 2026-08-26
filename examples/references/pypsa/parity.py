@@ -98,8 +98,13 @@ def structure(result, model: Path, record: dict) -> tuple[bool, bool]:
     return same[0], same[1]
 
 
-def prices(result, record: dict) -> str:
-    """Bus-balance duals against PyPSA's recorded `marginal_price`: match, differ, mip, or unpriced."""
+def prices(result, record: dict, hours) -> str:
+    """Bus-balance duals against PyPSA's recorded `marginal_price`: match, differ, mip, or unpriced.
+
+    PyPSA publishes `marginal_price` as the row dual over the snapshot's
+    objective weighting — a price per hour — so the raw dual is compared
+    against price times *hours*; at weighting 1 the two coincide.
+    """
     if not record['marginal_price']:
         return 'unpriced'
     try:
@@ -107,7 +112,7 @@ def prices(result, record: dict) -> str:
     except Exception:
         return 'mip'
     for row in frame.iter_rows(named=True):
-        want = record['marginal_price'][row['bus']][int(row['snapshot'])]
+        want = record['marginal_price'][row['bus']][int(row['snapshot'])] * float(hours[int(row['snapshot'])])
         if not math.isclose(row['value'], want, rel_tol=1e-6, abs_tol=1e-6):
             print(f'  dual ({row["snapshot"]}, {row["bus"]}): lpspec {row["value"]} · pypsa {want}', file=sys.stderr)
             return 'differ'
@@ -128,7 +133,7 @@ def lanes(stem: str, record: dict) -> dict[str, object]:
         'matches': math.isclose(float(result.objective), float(n.objective), rel_tol=1e-9, abs_tol=1e-6),
         'rows_match': rows,
         'columns_match': columns,
-        'duals': prices(result, record),
+        'duals': prices(result, record, n.snapshot_weightings['objective']),
         'model': str(model.relative_to(HERE.parents[2])),
     }
 

@@ -14,18 +14,18 @@
       ],
       "south": [
         30.0,
+        11.111111111111112,
         11.11111111111111,
-        11.11111111111111,
-        11.11111111111111
+        11.111111111111112
       ]
     },
-    "objective": 3246.666666666667,
+    "objective": 7182.222222222223,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "match",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 3246.666666666667,
+      "lpspec_objective": 7182.222222222221,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -62,18 +62,18 @@
       ],
       "south": [
         11.11111111111111,
-        11.165940815187046,
-        11.221046045414116,
-        11.276428186345846
+        15.0,
+        11.11111111111111,
+        15.545420021161021
       ]
     },
-    "objective": 2488.903629000791,
+    "objective": 4456.659315422356,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "match",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 2488.903629000791,
+      "lpspec_objective": 4456.659315422355,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -117,15 +117,15 @@
     "global_constraints": {},
     "marginal_price": {
       "island": [
+        3.1578947368421053,
         10.526315789473685,
-        10.526315789473683,
-        10.526315789473685,
-        10.526315789473683
+        7.74736842105263,
+        10.526315789473685
       ],
       "north": [
+        3.0,
         10.0,
-        10.0,
-        10.0,
+        7.359999999999999,
         10.0
       ],
       "south": [
@@ -135,13 +135,13 @@
         30.0
       ]
     },
-    "objective": 5646.0526315789475,
+    "objective": 7752.992982456141,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "match",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 5646.0526315789475,
+      "lpspec_objective": 7752.99298245614,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -209,13 +209,13 @@
         30.0
       ]
     },
-    "objective": 3950.0,
+    "objective": 8785.0,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "match",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 3950.0,
+      "lpspec_objective": 8785.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -247,9 +247,9 @@
     "marginal_price": {
       "north": [
         27.0,
+        17.0,
         27.0,
-        27.0,
-        27.0
+        25.0
       ],
       "south": [
         30.0,
@@ -258,13 +258,13 @@
         30.0
       ]
     },
-    "objective": 5590.0,
+    "objective": 13120.0,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "match",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 5590.0,
+      "lpspec_objective": 13120.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -296,15 +296,15 @@
       ],
       "b": [
         50.0,
-        9.999999999999998,
-        9.999999999999998,
-        9.999999999999998
+        10.0,
+        10.0,
+        10.0
       ],
       "c": [
         -14.0,
-        9.999999999999998,
-        9.999999999999998,
-        9.999999999999998
+        10.0,
+        10.0,
+        10.0
       ],
       "north": [
         10.0,
@@ -319,13 +319,13 @@
         30.0
       ]
     },
-    "objective": 5740.0,
+    "objective": 12450.0,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "match",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 5740.0,
+      "lpspec_objective": 12450.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -371,13 +371,13 @@
         0.0
       ]
     },
-    "objective": 3550.0,
+    "objective": 7775.0,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "mip",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 3550.0,
+      "lpspec_objective": 7775.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -434,13 +434,13 @@
         0.0
       ]
     },
-    "objective": 12005.0,
+    "objective": 20767.5,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "mip",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 12005.0,
+      "lpspec_objective": 20767.5,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -515,13 +515,13 @@
         30.0
       ]
     },
-    "objective": 5200.0,
+    "objective": 11700.0,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "match",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 5200.0,
+      "lpspec_objective": 11700.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "rows_match": true
@@ -543,31 +543,31 @@
     "global_constraints": {},
     "marginal_price": {
       "north": [
-        10.000008541663282,
-        10.866670333333335,
-        10.000009541662656,
-        12.466671333333332
+        10.000004270832488,
+        10.866669111111113,
+        10.000003816666027,
+        12.466668222222223
       ],
       "south": [
-        30.0000004,
-        30.0000004,
-        30.0000004,
-        30.0000004
+        30.0000002,
+        30.000000266666664,
+        30.000000159999995,
+        30.000000133333334
       ],
       "village": [
-        12.962974305551796,
-        13.925931851851853,
-        12.96297541666221,
-        15.703710740740739
+        12.962968634258319,
+        13.925929876543213,
+        12.962967944443733,
+        15.703706049382715
       ]
     },
-    "objective": 5544.416666666888,
+    "objective": 12587.437500000098,
     "objective_constant": 0.0,
     "parity": {
       "columns_match": true,
       "duals": "match",
       "lpspec": "0.0.1a259",
-      "lpspec_objective": 5544.416666666888,
+      "lpspec_objective": 12587.437500000098,
       "matches": true,
       "model": "examples/pypsa_quadratic.yaml",
       "rows_match": true
