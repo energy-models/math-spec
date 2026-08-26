@@ -8,9 +8,9 @@ description: >-
   stands for, and each constraint's description opens with the linopy name
   PyPSA gives that row, so the two can be read side by side. PyPSA's regimes
   — extendable, committable — are data columns and become `where:` masks.
-  Rung 1, transport: generator dispatch, controllable links, a nodal balance,
-  a linear cost. Bounds are the explicit rows PyPSA writes, so their duals are
-  row duals.
+  Bounds are the explicit rows PyPSA writes, so their duals are row duals.
+  Parameters no PyPSA table carries verbatim are computed in data prep and say
+  so in their description.
 
 dimensions:
   snapshot:
@@ -24,6 +24,16 @@ dimensions:
     description: controllable connections, each from one bus to another
   load:
     description: demands, each on one bus
+  storage_unit:
+    description: storage units, dispatch and store behind one bus connection
+  store:
+    description: pure energy stores, each on one bus
+  line:
+    description: passive branches, each between two buses, their flow set by impedance
+  cycle:
+    description: independent cycles of the passive network graph — the cycle basis, data prep
+  global_constraint:
+    description: PyPSA's `GlobalConstraint` rows, one label per declared limit
 
 parameters:
   snapshot_weightings_objective:
@@ -33,7 +43,7 @@ parameters:
     description: nominal power
     dims: [generator]
   Generator_p_nom_extendable:
-    description: whether the nominal power is a decision; false on this rung
+    description: whether the nominal power is a decision
     dims: [generator]
     dtype: bool
   Generator_p_min_pu:
@@ -45,11 +55,77 @@ parameters:
   Generator_marginal_cost:
     description: cost of one unit of output
     dims: [snapshot, generator]
+  Generator_marginal_cost_quadratic:
+    description: cost of the square of one unit of output; a generator with none has no row here
+    dims: [snapshot, generator]
+  Generator_committable:
+    description: whether output is gated by an on/off status decision
+    dims: [generator]
+    dtype: bool
+  Generator_ramp_limit_up:
+    description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit
+    dims: [generator]
+  Generator_ramp_limit_down:
+    description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit
+    dims: [generator]
+  Generator_ramp_limit_start_up:
+    description: most output in the snapshot a unit starts, per unit of nominal power
+    dims: [generator]
+  Generator_ramp_limit_shut_down:
+    description: most output in the snapshot before a unit stops, per unit of nominal power
+    dims: [generator]
+  Generator_min_up_time:
+    description: least snapshots a unit stays on once started
+    dims: [generator]
+    dtype: int
+  Generator_min_down_time:
+    description: least snapshots a unit stays off once stopped
+    dims: [generator]
+    dtype: int
+  Generator_status_initial:
+    description: one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep
+    dims: [generator]
+    dtype: int
+  Generator_must_stay_up:
+    description: >-
+      true while the up time a unit brought into the horizon still binds —
+      data prep, since `position()` compares against a literal rather than a
+      parameter
+    dims: [snapshot, generator]
+    dtype: bool
+  Generator_start_up_cost:
+    description: cost of one start
+    dims: [generator]
+  Generator_shut_down_cost:
+    description: cost of one stop
+    dims: [generator]
+  Generator_stand_by_cost:
+    description: cost of one snapshot spent on
+    dims: [snapshot, generator]
+  Generator_p_nom_mod:
+    description: the module size a build comes in whole numbers of; no value means the build is continuous
+    dims: [generator]
+  Generator_big_m:
+    description: a bound safely above any feasible output — the build cap at full availability, data prep
+    dims: [generator]
+  Generator_p_min_pu_nonneg:
+    description: >-
+      true where no committable extendable generator's minimum-per-unit is
+      negative — PyPSA's `(p_min_pu >= 0).all()`, data prep, one answer for
+      the whole network
+    dims: []
+    dtype: bool
+  Link_ramp_limit_up:
+    description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
+    dims: [link]
+  Link_ramp_limit_down:
+    description: most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit
+    dims: [link]
   Link_p_nom:
     description: nominal power
     dims: [link]
   Link_p_nom_extendable:
-    description: whether the nominal power is a decision; false on this rung
+    description: whether the nominal power is a decision
     dims: [link]
     dtype: bool
   Link_p_min_pu:
@@ -61,12 +137,265 @@ parameters:
   Link_efficiency:
     description: share of the flow that arrives at the link's `Link_bus1` end
     dims: [link]
+  Link_efficiency2:
+    description: share of the flow that arrives at the link's `Link_bus2` end — negative where that port consumes
+    dims: [link]
   Link_marginal_cost:
     description: cost of one unit of flow
+    dims: [snapshot, link]
+  Link_marginal_cost_quadratic:
+    description: cost of the square of one unit of flow; a link with none has no row here
     dims: [snapshot, link]
   Load_p_set:
     description: demand
     dims: [snapshot, load]
+  Generator_p_set:
+    description: a given output schedule; a generator without one has no row here
+    dims: [snapshot, generator]
+  Link_p_set:
+    description: a given flow schedule; a link without one has no row here
+    dims: [snapshot, link]
+  snapshot_weightings_stores:
+    description: PyPSA's `snapshot_weightings.stores` — hours a snapshot stands for in a storage balance
+    dims: [snapshot]
+  snapshot_weightings_generators:
+    description: PyPSA's `snapshot_weightings.generators` — hours a snapshot stands for in an energy total
+    dims: [snapshot]
+  Generator_p_nom_min:
+    description: least nominal power an extendable generator may be built at
+    dims: [generator]
+  Generator_p_nom_max:
+    description: most nominal power an extendable generator may be built at
+    dims: [generator]
+  Generator_capital_cost:
+    description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [generator]
+  Generator_p_nom_set:
+    description: a given nominal power for an extendable generator; one without a value has no row here
+    dims: [generator]
+  Generator_e_sum_min:
+    description: least energy over the horizon; minus infinity where no floor is meant
+    dims: [generator]
+  Generator_e_sum_max:
+    description: most energy over the horizon — a fuel or emission budget in energy terms; infinity where no cap is meant
+    dims: [generator]
+  Link_p_nom_min:
+    description: least nominal power an extendable link may be built at
+    dims: [link]
+  Link_p_nom_max:
+    description: most nominal power an extendable link may be built at
+    dims: [link]
+  Link_capital_cost:
+    description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [link]
+  Link_p_nom_set:
+    description: a given nominal power for an extendable link; one without a value has no row here
+    dims: [link]
+  StorageUnit_p_nom_min:
+    description: least nominal power an extendable storage unit may be built at
+    dims: [storage_unit]
+  StorageUnit_p_nom_max:
+    description: most nominal power an extendable storage unit may be built at
+    dims: [storage_unit]
+  StorageUnit_capital_cost:
+    description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [storage_unit]
+  StorageUnit_p_nom_set:
+    description: a given nominal power for an extendable storage unit; one without a value has no row here
+    dims: [storage_unit]
+  Store_e_nom_min:
+    description: least nominal capacity an extendable store may be built at
+    dims: [store]
+  Store_e_nom_max:
+    description: most nominal capacity an extendable store may be built at
+    dims: [store]
+  Store_capital_cost:
+    description: cost of one unit of nominal capacity — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [store]
+  Store_e_nom_set:
+    description: a given nominal capacity for an extendable store; one without a value has no row here
+    dims: [store]
+  StorageUnit_p_nom:
+    description: nominal power
+    dims: [storage_unit]
+  StorageUnit_p_nom_extendable:
+    description: whether the nominal power is a decision
+    dims: [storage_unit]
+    dtype: bool
+  StorageUnit_p_min_pu:
+    description: most storing, per unit of nominal power and negated
+    dims: [snapshot, storage_unit]
+  StorageUnit_p_max_pu:
+    description: most dispatch, per unit of nominal power
+    dims: [snapshot, storage_unit]
+  StorageUnit_max_hours:
+    description: energy capacity, as hours of dispatch at nominal power
+    dims: [storage_unit]
+  StorageUnit_efficiency_store:
+    description: share of the power drawn from the bus that becomes charge
+    dims: [storage_unit]
+  StorageUnit_efficiency_dispatch:
+    description: share of the charge drawn down that reaches the bus
+    dims: [storage_unit]
+  StorageUnit_retention:
+    description: share of charge kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep
+    dims: [snapshot, storage_unit]
+  StorageUnit_inflow:
+    description: energy arriving per hour, a river into a reservoir
+    dims: [snapshot, storage_unit]
+  StorageUnit_state_of_charge_initial:
+    description: charge held before the first snapshot
+    dims: [storage_unit]
+  StorageUnit_cyclic_state_of_charge:
+    description: whether the horizon closes on itself instead of opening on the initial charge
+    dims: [storage_unit]
+    dtype: bool
+  StorageUnit_marginal_cost:
+    description: cost of one unit of dispatch
+    dims: [snapshot, storage_unit]
+  StorageUnit_marginal_cost_storage:
+    description: cost of one unit of charge held over one snapshot
+    dims: [snapshot, storage_unit]
+  StorageUnit_spill_cost:
+    description: cost of one unit of inflow passed on unused
+    dims: [snapshot, storage_unit]
+  StorageUnit_p_set:
+    description: a given net dispatch schedule; a unit without one has no row here
+    dims: [snapshot, storage_unit]
+  StorageUnit_state_of_charge_set:
+    description: a given charge schedule; a unit without one has no row here
+    dims: [snapshot, storage_unit]
+  Store_e_nom:
+    description: nominal energy capacity
+    dims: [store]
+  Store_e_nom_extendable:
+    description: whether the nominal energy capacity is a decision
+    dims: [store]
+    dtype: bool
+  Store_e_min_pu:
+    description: least energy held, per unit of nominal capacity — negative for a store that may go short
+    dims: [snapshot, store]
+  Store_e_max_pu:
+    description: most energy held, per unit of nominal capacity
+    dims: [snapshot, store]
+  Store_retention:
+    description: share of energy kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep
+    dims: [snapshot, store]
+  Store_e_initial:
+    description: energy held before the first snapshot
+    dims: [store]
+  Store_e_cyclic:
+    description: whether the horizon closes on itself instead of opening on the initial energy
+    dims: [store]
+    dtype: bool
+  Store_marginal_cost:
+    description: cost of one unit of power delivered
+    dims: [snapshot, store]
+  Store_marginal_cost_storage:
+    description: cost of one unit of energy held over one snapshot
+    dims: [snapshot, store]
+  Store_e_set:
+    description: a given energy schedule; a store without one has no row here
+    dims: [snapshot, store]
+  Line_s_nom:
+    description: nominal apparent power
+    dims: [line]
+  Line_s_nom_extendable:
+    description: whether the nominal apparent power is a decision
+    dims: [line]
+    dtype: bool
+  Line_s_max_pu:
+    description: most flow either way, per unit of nominal apparent power
+    dims: [snapshot, line]
+  Line_s_nom_min:
+    description: least nominal apparent power an extendable line may be built at
+    dims: [line]
+  Line_s_nom_max:
+    description: most nominal apparent power an extendable line may be built at
+    dims: [line]
+  Line_capital_cost:
+    description: cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [line]
+  Line_s_nom_set:
+    description: a given nominal apparent power for an extendable line; one without a value has no row here
+    dims: [line]
+  Line_s_set:
+    description: a given flow schedule; a line without one has no row here
+    dims: [snapshot, line]
+  Line_cycle_weight:
+    description: >-
+      the line's series impedance, signed by its orientation in the cycle —
+      the cycle basis, data prep; a line in no cycle has no row
+    dims: [line, cycle]
+  GlobalConstraint_type:
+    description: >-
+      which formula the row takes — `primary_energy`, `operational_limit`,
+      `transmission_volume_expansion_limit`,
+      `transmission_expansion_cost_limit` or
+      `tech_capacity_expansion_limit`
+    dims: [global_constraint]
+    dtype: str
+  GlobalConstraint_sense:
+    description: which way the row binds — `<=`, `>=` or `==`
+    dims: [global_constraint]
+    dtype: str
+  GlobalConstraint_constant:
+    description: >-
+      the constant the total is held against; what a variable cannot carry —
+      an initial charge, a non-extendable build — is folded in here by data
+      prep
+    dims: [global_constraint]
+  snapshot_is_last:
+    description: one at the horizon's last snapshot, zero elsewhere — data prep, how an expression reads a final level
+    dims: [snapshot]
+    dtype: int
+  Generator_primary_energy_weight:
+    description: >-
+      the constrained attribute per unit of energy at the bus — the carrier's
+      `co2_emissions` over the generator's efficiency, data prep; a generator
+      of an unweighted carrier has no row
+    dims: [global_constraint, generator]
+  StorageUnit_primary_energy_weight:
+    description: the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row
+    dims: [global_constraint, storage_unit]
+  Store_primary_energy_weight:
+    description: the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row
+    dims: [global_constraint, store]
+  Generator_operational_limit_weight:
+    description: one where the generator is in the row's set — data prep; one outside it has no row
+    dims: [global_constraint, generator]
+  StorageUnit_operational_limit_weight:
+    description: one where the storage unit is in the row's set — data prep; one outside it has no row
+    dims: [global_constraint, storage_unit]
+  Store_operational_limit_weight:
+    description: one where the store is in the row's set — data prep; one outside it has no row
+    dims: [global_constraint, store]
+  Line_volume_weight:
+    description: the line's length where its carrier is in the row's set — data prep; a line outside it has no row
+    dims: [global_constraint, line]
+  Link_volume_weight:
+    description: the link's length where its carrier is in the row's set — data prep; a link outside it has no row
+    dims: [global_constraint, link]
+  Line_expansion_cost_weight:
+    description: the line's capital cost where its carrier is in the row's set — data prep; a line outside it has no row
+    dims: [global_constraint, line]
+  Link_expansion_cost_weight:
+    description: the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row
+    dims: [global_constraint, link]
+  Generator_tech_capacity_weight:
+    description: >-
+      one where the generator is in the row's carrier-and-bus set — data
+      prep; one outside it has no row
+    dims: [global_constraint, generator]
+  Link_tech_capacity_weight:
+    description: one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row
+    dims: [global_constraint, link]
+  StorageUnit_tech_capacity_weight:
+    description: one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row
+    dims: [global_constraint, storage_unit]
+  Store_tech_capacity_weight:
+    description: one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row
+    dims: [global_constraint, store]
 
 lookups:
   Generator_bus:
@@ -81,9 +410,32 @@ lookups:
     description: the bus a link arrives at
     over: link
     into: bus
+  Link_bus2:
+    description: >-
+      a multi-link's second delivery bus. The map is partial — a two-port
+      link has no entry and contributes nothing there — and each further
+      port is one more lookup and one more balance term of this shape
+    over: link
+    into: bus
   Load_bus:
     description: the bus a load sits on
     over: load
+    into: bus
+  StorageUnit_bus:
+    description: the bus a storage unit sits on
+    over: storage_unit
+    into: bus
+  Line_bus0:
+    description: the bus a line's flow is measured at
+    over: line
+    into: bus
+  Line_bus1:
+    description: the bus at a line's other end
+    over: line
+    into: bus
+  Store_bus:
+    description: the bus a store sits on
+    over: store
     into: bus
 
 variables:
@@ -95,6 +447,123 @@ variables:
       `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a
       positive value withdraws there and injects at `Link_bus1`
     foreach: [snapshot, link]
+  StorageUnit_p_dispatch:
+    description: "`StorageUnit-p_dispatch` — power delivered to the bus"
+    foreach: [snapshot, storage_unit]
+  StorageUnit_p_store:
+    description: "`StorageUnit-p_store` — power drawn from the bus into charge"
+    foreach: [snapshot, storage_unit]
+  StorageUnit_state_of_charge:
+    description: "`StorageUnit-state_of_charge` — energy held at the end of a snapshot"
+    foreach: [snapshot, storage_unit]
+  StorageUnit_spill:
+    description: >-
+      `StorageUnit-spill` — inflow passed on unused. Zero where there is no
+      inflow, so the balance keeps its row there; the bounds are PyPSA's, on
+      the variable rather than as rows
+    foreach: [snapshot, storage_unit]
+    where: "StorageUnit_inflow > 0"
+    absence: zero
+    bounds:
+      lower: 0
+      upper: StorageUnit_inflow
+  Store_e:
+    description: "`Store-e` — energy held at the end of a snapshot"
+    foreach: [snapshot, store]
+  Store_p:
+    description: "`Store-p` — power delivered to the bus; charging is negative"
+    foreach: [snapshot, store]
+  Generator_n_mod:
+    description: "`Generator-n_mod` — how many modules of an extendable modular build"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    domain: integer
+    bounds:
+      lower: 0
+  Generator_status:
+    description: "`Generator-status` — whether a committable unit is on"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    domain: binary
+  Generator_start_up:
+    description: "`Generator-start_up` — whether a committable unit turns on this snapshot"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    domain: binary
+  Generator_shut_down:
+    description: "`Generator-shut_down` — whether a committable unit turns off this snapshot"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    domain: binary
+  Line_s:
+    description: >-
+      `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a
+      positive value withdraws there and injects at `Line_bus1`, lossless
+    foreach: [snapshot, line]
+  Line_s_nom_ext:
+    description: >-
+      `Line-s_nom` — nominal apparent power where it is a decision; the
+      parameter of the same PyPSA name carries the fixed regime
+    foreach: [line]
+    where: Line_s_nom_extendable
+  Generator_p_nom_ext:
+    description: >-
+      `Generator-p_nom` — nominal power where it is a decision; the parameter
+      of the same PyPSA name carries the fixed regime
+    foreach: [generator]
+    where: Generator_p_nom_extendable
+  Link_p_nom_ext:
+    description: >-
+      `Link-p_nom` — nominal power where it is a decision; the parameter of
+      the same PyPSA name carries the fixed regime
+    foreach: [link]
+    where: Link_p_nom_extendable
+  StorageUnit_p_nom_ext:
+    description: >-
+      `StorageUnit-p_nom` — nominal power where it is a decision; the
+      parameter of the same PyPSA name carries the fixed regime
+    foreach: [storage_unit]
+    where: StorageUnit_p_nom_extendable
+  Store_e_nom_ext:
+    description: >-
+      `Store-e_nom` — nominal capacity where it is a decision; the parameter
+      of the same PyPSA name carries the fixed regime
+    foreach: [store]
+    where: Store_e_nom_extendable
+
+expressions:
+  primary_energy:
+    description: >-
+      what a `primary_energy` row totals — weighted generator energy, less
+      the charge left in weighted storage at the horizon's end; the initial
+      charge it is compared against is folded into the row's constant
+    expression: >-
+      sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, over=snapshot), over=generator)
+      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+      - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, over=snapshot), over=store)
+  operational_limit:
+    description: what an `operational_limit` row totals — the energy delivered by the row's set over the horizon
+    expression: >-
+      sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, over=snapshot), over=generator)
+      + sum(sum(StorageUnit_p_dispatch * snapshot_weightings_generators * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+      + sum(sum(Store_p * snapshot_weightings_generators * Store_operational_limit_weight, over=snapshot), over=store)
+  transmission_volume_expansion:
+    description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
+    expression: >-
+      sum(Line_s_nom_ext * Line_volume_weight, over=line)
+      + sum(Link_p_nom_ext * Link_volume_weight, over=link)
+  transmission_expansion_cost:
+    description: what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches
+    expression: >-
+      sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
+      + sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+  tech_capacity_expansion:
+    description: what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set
+    expression: >-
+      sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
+      + sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
+      + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
+      + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
 
 constraints:
   Generator_fix_p_lower:
@@ -117,17 +586,709 @@ constraints:
     foreach: [snapshot, link]
     where: not Link_p_nom_extendable
     expression: Link_p <= Link_p_max_pu * Link_p_nom
+  Generator_ext_p_lower:
+    description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
+  Generator_ext_p_upper:
+    description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+  Generator_ext_p_nom_lower:
+    description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
+    foreach: [generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p_nom_ext >= Generator_p_nom_min
+  Generator_ext_p_nom_upper:
+    description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_max
+    expression: Generator_p_nom_ext <= Generator_p_nom_max
+  Generator_p_nom_set:
+    description: "`Generator-p_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_set
+    expression: Generator_p_nom_ext == Generator_p_nom_set
+  Generator_e_sum_min:
+    description: "`Generator-e_sum_min` — energy over the horizon is at least its floor; a floor of minus infinity is no row"
+    foreach: [generator]
+    where: Generator_e_sum_min
+    expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) >= Generator_e_sum_min
+  Generator_e_sum_max:
+    description: "`Generator-e_sum_max` — energy over the horizon is at most its budget; a budget of infinity is no row"
+    foreach: [generator]
+    where: Generator_e_sum_max
+    expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) <= Generator_e_sum_max
+  Link_ext_p_lower:
+    description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
+    foreach: [snapshot, link]
+    where: Link_p_nom_extendable
+    expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
+  Link_ext_p_upper:
+    description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
+    foreach: [snapshot, link]
+    where: Link_p_nom_extendable
+    expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
+  Link_ext_p_nom_lower:
+    description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
+    foreach: [link]
+    where: Link_p_nom_extendable
+    expression: Link_p_nom_ext >= Link_p_nom_min
+  Link_ext_p_nom_upper:
+    description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [link]
+    where: Link_p_nom_extendable AND Link_p_nom_max
+    expression: Link_p_nom_ext <= Link_p_nom_max
+  Link_p_nom_set:
+    description: "`Link-p_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [link]
+    where: Link_p_nom_extendable AND Link_p_nom_set
+    expression: Link_p_nom_ext == Link_p_nom_set
+  StorageUnit_fix_p_dispatch_lower:
+    description: "`StorageUnit-fix-p_dispatch-lower` — dispatch is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: not StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_dispatch >= 0
+  StorageUnit_fix_p_dispatch_upper:
+    description: "`StorageUnit-fix-p_dispatch-upper` — a fixed unit dispatches at most its nominal power"
+    foreach: [snapshot, storage_unit]
+    where: not StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom
+  StorageUnit_fix_p_store_lower:
+    description: "`StorageUnit-fix-p_store-lower` — storing is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: not StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_store >= 0
+  StorageUnit_fix_p_store_upper:
+    description: >-
+      `StorageUnit-fix-p_store-upper` — a fixed unit stores at most its
+      nominal power, the minimum-per-unit column carrying that cap negated
+    foreach: [snapshot, storage_unit]
+    where: not StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom
+  StorageUnit_fix_state_of_charge_lower:
+    description: "`StorageUnit-fix-state_of_charge-lower` — charge is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: not StorageUnit_p_nom_extendable
+    expression: StorageUnit_state_of_charge >= 0
+  StorageUnit_fix_state_of_charge_upper:
+    description: "`StorageUnit-fix-state_of_charge-upper` — a fixed unit holds at most its hours at nominal power"
+    foreach: [snapshot, storage_unit]
+    where: not StorageUnit_p_nom_extendable
+    expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom
+  Generator_com_p_lower:
+    description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND not Generator_p_nom_extendable
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
+  Generator_com_p_upper:
+    description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND not Generator_p_nom_extendable
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
+  Generator_com_transition_start_up:
+    description: >-
+      `Generator-com-transition-start-up` — turning on is a start. The
+      translated term vacates the first snapshot; the initial block below
+      compares it against the given status instead
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
+  Generator_com_transition_start_up_initial:
+    description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND position(snapshot) == 0
+    expression: Generator_start_up >= Generator_status - Generator_status_initial
+  Generator_com_transition_shut_down:
+    description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
+  Generator_com_transition_shut_down_initial:
+    description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND position(snapshot) == 0
+    expression: Generator_shut_down >= Generator_status_initial - Generator_status
+  Generator_com_up_time:
+    description: >-
+      `Generator-com-up-time` — a unit started within its own minimum up time
+      is still on. The first snapshot's share of the window is the brought-in
+      up time's, which the must-stay-up mask carries
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
+    expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
+  Generator_com_down_time:
+    description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
+    expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
+  Generator_com_status_must_stay_up:
+    description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_must_stay_up
+    expression: Generator_status == 1
+  Generator_p_ramp_limit_up_com:
+    description: >-
+      `Generator-p-ramp_limit_up` — a committed unit raises output no faster
+      than its limit while it was already on, and no further than its
+      start-up ramp in the snapshot it turns on
+    foreach: [snapshot, generator]
+    where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_up
+    expression: >-
+      Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
+      Generator_ramp_limit_up * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+      + Generator_ramp_limit_start_up * Generator_p_nom
+      * (Generator_status - shift(Generator_status, over=snapshot, offset=1))
+  Generator_p_ramp_limit_up_com_initial:
+    description: >-
+      `Generator-p-ramp_limit_up` — the first snapshot ramps against the
+      status the unit brought in and an output of nothing
+    foreach: [snapshot, generator]
+    where: >-
+      Generator_committable AND not Generator_p_nom_extendable
+      AND Generator_ramp_limit_up AND position(snapshot) == 0
+    expression: >-
+      Generator_p <=
+      Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
+      + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
+  Generator_p_ramp_limit_down_com:
+    description: >-
+      `Generator-p-ramp_limit_down` — a committed unit lowers output no
+      faster than its limit while it stays on, and no further than its
+      shut-down ramp in the snapshot it turns off
+    foreach: [snapshot, generator]
+    where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_down
+    expression: >-
+      shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
+      Generator_ramp_limit_down * Generator_p_nom * Generator_status
+      + Generator_ramp_limit_shut_down * Generator_p_nom
+      * (shift(Generator_status, over=snapshot, offset=1) - Generator_status)
+  Generator_p_ramp_limit_down_com_initial:
+    description: >-
+      `Generator-p-ramp_limit_down` — the first snapshot ramps down from an
+      output of nothing against the status the unit brought in
+    foreach: [snapshot, generator]
+    where: >-
+      Generator_committable AND not Generator_p_nom_extendable
+      AND Generator_ramp_limit_down AND position(snapshot) == 0
+    expression: >-
+      -Generator_p <=
+      Generator_ramp_limit_down * Generator_p_nom * Generator_status
+      + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
+  Generator_p_ramp_limit_up_run_big_m:
+    description: >-
+      `Generator-p-ramp_limit_up-run-bigM` — a committed extendable unit
+      raises output no faster than its limit of the chosen build; the big M
+      releases the row in the snapshot it turns on
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+    expression: >-
+      Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
+      Generator_ramp_limit_up * Generator_p_nom_ext
+      + Generator_big_m - Generator_big_m * shift(Generator_status, over=snapshot, offset=1)
+  Generator_p_ramp_limit_up_run_big_m_initial:
+    description: "`Generator-p-ramp_limit_up-run-bigM` — the first snapshot reads the status the unit brought in"
+    foreach: [snapshot, generator]
+    where: >-
+      Generator_committable AND Generator_p_nom_extendable
+      AND Generator_ramp_limit_up AND position(snapshot) == 0
+    expression: >-
+      Generator_p <=
+      Generator_ramp_limit_up * Generator_p_nom_ext
+      + Generator_big_m - Generator_big_m * Generator_status_initial
+  Generator_p_ramp_limit_up_start_big_m:
+    description: >-
+      `Generator-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
+      committed extendable unit ramps no further than its start-up ramp of
+      the chosen build; the big M releases the row everywhere else
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+    expression: >-
+      Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
+      Generator_ramp_limit_start_up * Generator_p_nom_ext
+      + Generator_big_m - Generator_big_m * Generator_start_up
+  Generator_p_ramp_limit_up_start_big_m_initial:
+    description: "`Generator-p-ramp_limit_up-start-bigM` — the first snapshot ramps up from an output of nothing"
+    foreach: [snapshot, generator]
+    where: >-
+      Generator_committable AND Generator_p_nom_extendable
+      AND Generator_ramp_limit_up AND position(snapshot) == 0
+    expression: >-
+      Generator_p <=
+      Generator_ramp_limit_start_up * Generator_p_nom_ext
+      + Generator_big_m - Generator_big_m * Generator_start_up
+  Generator_p_ramp_limit_down_run_big_m:
+    description: >-
+      `Generator-p-ramp_limit_down-run-bigM` — a committed extendable unit
+      lowers output no faster than its limit of the chosen build; the big M
+      releases the row in the snapshot it turns off
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+    expression: >-
+      shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
+      Generator_ramp_limit_down * Generator_p_nom_ext
+      + Generator_big_m - Generator_big_m * Generator_status
+  Generator_p_ramp_limit_down_run_big_m_initial:
+    description: "`Generator-p-ramp_limit_down-run-bigM` — the first snapshot ramps down from an output of nothing"
+    foreach: [snapshot, generator]
+    where: >-
+      Generator_committable AND Generator_p_nom_extendable
+      AND Generator_ramp_limit_down AND position(snapshot) == 0
+    expression: >-
+      -Generator_p <=
+      Generator_ramp_limit_down * Generator_p_nom_ext
+      + Generator_big_m - Generator_big_m * Generator_status
+  Generator_p_ramp_limit_down_shut_big_m:
+    description: >-
+      `Generator-p-ramp_limit_down-shut-bigM` — in the snapshot it turns off,
+      a committed extendable unit ramps no further than its shut-down ramp of
+      the chosen build; the big M releases the row everywhere else
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+    expression: >-
+      shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
+      Generator_ramp_limit_shut_down * Generator_p_nom_ext
+      + Generator_big_m - Generator_big_m * Generator_shut_down
+  Generator_p_ramp_limit_down_shut_big_m_initial:
+    description: "`Generator-p-ramp_limit_down-shut-bigM` — the first snapshot ramps down from an output of nothing"
+    foreach: [snapshot, generator]
+    where: >-
+      Generator_committable AND Generator_p_nom_extendable
+      AND Generator_ramp_limit_down AND position(snapshot) == 0
+    expression: >-
+      -Generator_p <=
+      Generator_ramp_limit_shut_down * Generator_p_nom_ext
+      + Generator_big_m - Generator_big_m * Generator_shut_down
+  Generator_p_nom_modularity:
+    description: "`Generator-p_nom_modularity` — the chosen build is a whole number of modules"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    expression: Generator_p_nom_ext == Generator_p_nom_mod * Generator_n_mod
+  Generator_com_ext_p_upper_cap:
+    description: >-
+      `Generator-com-ext-p-upper-cap` — a committed extendable unit outputs
+      at most what is available of the chosen build, whatever its status
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+  Generator_com_ext_p_upper_big_m:
+    description: "`Generator-com-ext-p-upper-bigM` — off, a unit outputs nothing; on, the big M is no bound"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+    expression: Generator_p <= Generator_big_m * Generator_status
+  Generator_com_ext_p_lower:
+    description: >-
+      `Generator-com-ext-p-lower` — a committed extendable unit outputs at
+      least its minimum of the chosen build; off, the big M releases the row
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+    expression: >-
+      Generator_p >=
+      Generator_p_min_pu * Generator_p_nom_ext
+      + Generator_big_m * Generator_status - Generator_big_m
+  Generator_com_ext_p_lower_nonneg:
+    description: >-
+      `Generator-com-ext-p-lower-nonneg` — where no minimum-per-unit is
+      negative, output is also plainly non-negative, a row the big-M lower
+      cannot assert while the unit is off
+    foreach: [snapshot, generator]
+    where: >-
+      Generator_committable AND Generator_p_nom_extendable
+      AND Generator_p_min_pu_nonneg AND NOT (Generator_p_nom_mod > 0)
+    expression: Generator_p >= 0
+  Generator_com_mod_p_lower:
+    description: "`Generator-com-mod-p-lower` — a committed modular unit outputs at least its minimum of one module"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_mod * Generator_status
+  Generator_com_mod_p_upper:
+    description: "`Generator-com-mod-p-upper` — a committed modular unit outputs at most one module's share"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_mod * Generator_status
+  Generator_status_p_fixed_upper:
+    description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+    expression: Generator_status <= 1
+  Generator_start_up_p_fixed_upper:
+    description: "`Generator-start_up-p-fixed-upper` — a start is at most one, an explicit row as PyPSA writes it"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+    expression: Generator_start_up <= 1
+  Generator_shut_down_p_fixed_upper:
+    description: "`Generator-shut_down-p-fixed-upper` — a stop is at most one, an explicit row as PyPSA writes it"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+    expression: Generator_shut_down <= 1
+  Generator_status_p_nom_variable_upper:
+    description: "`Generator-status-p_nom-variable-upper` — a modular unit is on only where a module is built"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    expression: Generator_status <= Generator_n_mod
+  Generator_start_up_p_nom_variable_upper:
+    description: "`Generator-start_up-p_nom-variable-upper` — a modular unit starts only where a module is built"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    expression: Generator_start_up <= Generator_n_mod
+  Generator_shut_down_p_nom_variable_upper:
+    description: "`Generator-shut_down-p_nom-variable-upper` — a modular unit stops only where a module is built"
+    foreach: [snapshot, generator]
+    where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    expression: Generator_shut_down <= Generator_n_mod
+  Line_fix_s_lower:
+    description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
+    foreach: [snapshot, line]
+    where: not Line_s_nom_extendable
+    expression: Line_s >= -Line_s_max_pu * Line_s_nom
+  Line_fix_s_upper:
+    description: "`Line-fix-s-upper` — a fixed line carries at most its rating"
+    foreach: [snapshot, line]
+    where: not Line_s_nom_extendable
+    expression: Line_s <= Line_s_max_pu * Line_s_nom
+  Line_ext_s_lower:
+    description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
+    foreach: [snapshot, line]
+    where: Line_s_nom_extendable
+    expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
+  Line_ext_s_upper:
+    description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
+    foreach: [snapshot, line]
+    where: Line_s_nom_extendable
+    expression: Line_s <= Line_s_max_pu * Line_s_nom_ext
+  Line_ext_s_nom_lower:
+    description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
+    foreach: [line]
+    where: Line_s_nom_extendable
+    expression: Line_s_nom_ext >= Line_s_nom_min
+  Line_ext_s_nom_upper:
+    description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [line]
+    where: Line_s_nom_extendable AND Line_s_nom_max
+    expression: Line_s_nom_ext <= Line_s_nom_max
+  Line_s_nom_set:
+    description: "`Line-s_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [line]
+    where: Line_s_nom_extendable AND Line_s_nom_set
+    expression: Line_s_nom_ext == Line_s_nom_set
+  Line_s_set:
+    description: "`Line-s_set` — flow pinned to the given schedule, wherever one is given"
+    foreach: [snapshot, line]
+    where: Line_s_set
+    expression: Line_s == Line_s_set
+  Kirchhoff_Voltage_Law:
+    description: >-
+      `Kirchhoff-Voltage-Law` — around every independent cycle the
+      impedance-weighted flows sum to nothing, which is what makes the linear
+      power flow physical rather than transport
+    foreach: [snapshot, cycle]
+    expression: sum(Line_s * Line_cycle_weight, over=line) == 0
+  Generator_p_ramp_limit_up_fix:
+    description: >-
+      `Generator-p-ramp_limit_up` — a fixed generator raises output no faster
+      than its limit. The translated term vacates the first snapshot, where a
+      plain optimize builds no row either
+    foreach: [snapshot, generator]
+    where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
+    expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom
+  Generator_p_ramp_limit_down_fix:
+    description: "`Generator-p-ramp_limit_down` — a fixed generator lowers output no faster than its limit"
+    foreach: [snapshot, generator]
+    where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
+    expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom
+  Generator_p_ramp_limit_up_ext:
+    description: "`Generator-p-ramp_limit_up` — an extendable generator raises output no faster than its limit of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
+    expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom_ext
+  Generator_p_ramp_limit_down_ext:
+    description: "`Generator-p-ramp_limit_down` — an extendable generator lowers output no faster than its limit of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
+    expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom_ext
+  Link_p_ramp_limit_up_fix:
+    description: "`Link-p-ramp_limit_up` — a fixed link raises flow no faster than its limit"
+    foreach: [snapshot, link]
+    where: not Link_p_nom_extendable AND Link_ramp_limit_up
+    expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom
+  Link_p_ramp_limit_down_fix:
+    description: "`Link-p-ramp_limit_down` — a fixed link lowers flow no faster than its limit"
+    foreach: [snapshot, link]
+    where: not Link_p_nom_extendable AND Link_ramp_limit_down
+    expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom
+  Link_p_ramp_limit_up_ext:
+    description: "`Link-p-ramp_limit_up` — an extendable link raises flow no faster than its limit of the chosen build"
+    foreach: [snapshot, link]
+    where: Link_p_nom_extendable AND Link_ramp_limit_up
+    expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_ext
+  Link_p_ramp_limit_down_ext:
+    description: "`Link-p-ramp_limit_down` — an extendable link lowers flow no faster than its limit of the chosen build"
+    foreach: [snapshot, link]
+    where: Link_p_nom_extendable AND Link_ramp_limit_down
+    expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_ext
+  StorageUnit_ext_p_dispatch_lower:
+    description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_dispatch >= 0
+  StorageUnit_ext_p_dispatch_upper:
+    description: "`StorageUnit-ext-p_dispatch-upper` — an extendable unit dispatches at most the chosen build"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom_ext
+  StorageUnit_ext_p_store_lower:
+    description: "`StorageUnit-ext-p_store-lower` — storing is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_store >= 0
+  StorageUnit_ext_p_store_upper:
+    description: >-
+      `StorageUnit-ext-p_store-upper` — an extendable unit stores at most the
+      chosen build, the minimum-per-unit column carrying that cap negated
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom_ext
+  StorageUnit_ext_state_of_charge_lower:
+    description: "`StorageUnit-ext-state_of_charge-lower` — charge is non-negative"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_state_of_charge >= 0
+  StorageUnit_ext_state_of_charge_upper:
+    description: "`StorageUnit-ext-state_of_charge-upper` — an extendable unit holds at most its hours at the chosen build"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom_ext
+  StorageUnit_ext_p_nom_lower:
+    description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor"
+    foreach: [storage_unit]
+    where: StorageUnit_p_nom_extendable
+    expression: StorageUnit_p_nom_ext >= StorageUnit_p_nom_min
+  StorageUnit_ext_p_nom_upper:
+    description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [storage_unit]
+    where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_max
+    expression: StorageUnit_p_nom_ext <= StorageUnit_p_nom_max
+  StorageUnit_p_nom_set:
+    description: "`StorageUnit-p_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [storage_unit]
+    where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_set
+    expression: StorageUnit_p_nom_ext == StorageUnit_p_nom_set
+  StorageUnit_energy_balance:
+    description: >-
+      `StorageUnit-energy_balance` — charge carried over less standing loss,
+      plus what is stored after its efficiency, less what dispatch draws down
+      before its own, plus inflow not spilled. The translated term vacates the
+      first snapshot, so this block builds every row but that one; the initial
+      block below is the boundary
+    foreach: [snapshot, storage_unit]
+    where: not StorageUnit_cyclic_state_of_charge
+    expression: >-
+      StorageUnit_state_of_charge ==
+      StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
+      + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
+      - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
+      + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
+  StorageUnit_energy_balance_initial:
+    description: "`StorageUnit-energy_balance` — the first snapshot opens on the given initial charge"
+    foreach: [snapshot, storage_unit]
+    where: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
+    expression: >-
+      StorageUnit_state_of_charge ==
+      StorageUnit_retention * StorageUnit_state_of_charge_initial
+      + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
+      - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
+      + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
+  StorageUnit_energy_balance_cyclic:
+    description: "`StorageUnit-energy_balance` — a cyclic unit's first snapshot carries over from its last"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_cyclic_state_of_charge
+    expression: >-
+      StorageUnit_state_of_charge ==
+      StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+      + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
+      - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
+      + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
+  Store_fix_e_lower:
+    description: "`Store-fix-e-lower` — a fixed store holds at least its floor"
+    foreach: [snapshot, store]
+    where: not Store_e_nom_extendable
+    expression: Store_e >= Store_e_min_pu * Store_e_nom
+  Store_fix_e_upper:
+    description: "`Store-fix-e-upper` — a fixed store holds at most its nominal capacity"
+    foreach: [snapshot, store]
+    where: not Store_e_nom_extendable
+    expression: Store_e <= Store_e_max_pu * Store_e_nom
+  Store_ext_e_lower:
+    description: "`Store-ext-e-lower` — an extendable store holds at least its floor of the chosen build"
+    foreach: [snapshot, store]
+    where: Store_e_nom_extendable
+    expression: Store_e >= Store_e_min_pu * Store_e_nom_ext
+  Store_ext_e_upper:
+    description: "`Store-ext-e-upper` — an extendable store holds at most the chosen build"
+    foreach: [snapshot, store]
+    where: Store_e_nom_extendable
+    expression: Store_e <= Store_e_max_pu * Store_e_nom_ext
+  Store_ext_e_nom_lower:
+    description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor"
+    foreach: [store]
+    where: Store_e_nom_extendable
+    expression: Store_e_nom_ext >= Store_e_nom_min
+  Store_ext_e_nom_upper:
+    description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [store]
+    where: Store_e_nom_extendable AND Store_e_nom_max
+    expression: Store_e_nom_ext <= Store_e_nom_max
+  Store_e_nom_set:
+    description: "`Store-e_nom_set` — the chosen build pinned, wherever a value is given"
+    foreach: [store]
+    where: Store_e_nom_extendable AND Store_e_nom_set
+    expression: Store_e_nom_ext == Store_e_nom_set
+  Store_energy_balance:
+    description: >-
+      `Store-energy_balance` — energy carried over less standing loss, less
+      what is delivered to the bus. The translated term vacates the first
+      snapshot; the initial block below is the boundary
+    foreach: [snapshot, store]
+    where: not Store_e_cyclic
+    expression: >-
+      Store_e ==
+      Store_retention * shift(Store_e, over=snapshot, offset=1)
+      - Store_p * snapshot_weightings_stores
+  Store_energy_balance_initial:
+    description: "`Store-energy_balance` — the first snapshot opens on the given initial energy"
+    foreach: [snapshot, store]
+    where: not Store_e_cyclic AND position(snapshot) == 0
+    expression: >-
+      Store_e ==
+      Store_retention * Store_e_initial
+      - Store_p * snapshot_weightings_stores
+  Store_energy_balance_cyclic:
+    description: "`Store-energy_balance` — a cyclic store's first snapshot carries over from its last"
+    foreach: [snapshot, store]
+    where: Store_e_cyclic
+    expression: >-
+      Store_e ==
+      Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
+      - Store_p * snapshot_weightings_stores
+  Generator_p_set:
+    description: "`Generator-p_set` — output pinned to the given schedule, wherever one is given"
+    foreach: [snapshot, generator]
+    where: Generator_p_set
+    expression: Generator_p == Generator_p_set
+  Link_p_set:
+    description: "`Link-p_set` — flow pinned to the given schedule, wherever one is given"
+    foreach: [snapshot, link]
+    where: Link_p_set
+    expression: Link_p == Link_p_set
+  StorageUnit_p_set:
+    description: "`StorageUnit-p_set` — net dispatch pinned to the given schedule, wherever one is given"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_p_set
+    expression: StorageUnit_p_dispatch - StorageUnit_p_store == StorageUnit_p_set
+  StorageUnit_state_of_charge_set:
+    description: "`StorageUnit-state_of_charge_set` — charge pinned to the given schedule, wherever one is given"
+    foreach: [snapshot, storage_unit]
+    where: StorageUnit_state_of_charge_set
+    expression: StorageUnit_state_of_charge == StorageUnit_state_of_charge_set
+  Store_e_set:
+    description: "`Store-e_set` — energy pinned to the given schedule, wherever one is given"
+    foreach: [snapshot, store]
+    where: Store_e_set
+    expression: Store_e == Store_e_set
+  GlobalConstraint_primary_energy_ub:
+    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
+    expression: primary_energy <= GlobalConstraint_constant
+  GlobalConstraint_primary_energy_lb:
+    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
+    expression: primary_energy >= GlobalConstraint_constant
+  GlobalConstraint_primary_energy_eq:
+    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
+    expression: primary_energy == GlobalConstraint_constant
+  GlobalConstraint_operational_limit_ub:
+    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
+    expression: operational_limit <= GlobalConstraint_constant
+  GlobalConstraint_operational_limit_lb:
+    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
+    expression: operational_limit >= GlobalConstraint_constant
+  GlobalConstraint_operational_limit_eq:
+    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
+    expression: operational_limit == GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_ub:
+    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
+    expression: transmission_volume_expansion <= GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_lb:
+    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
+    expression: transmission_volume_expansion >= GlobalConstraint_constant
+  GlobalConstraint_transmission_volume_expansion_limit_eq:
+    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
+    expression: transmission_volume_expansion == GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_ub:
+    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
+    expression: transmission_expansion_cost <= GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_lb:
+    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
+    expression: transmission_expansion_cost >= GlobalConstraint_constant
+  GlobalConstraint_transmission_expansion_cost_limit_eq:
+    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
+    expression: transmission_expansion_cost == GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_ub:
+    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
+    expression: tech_capacity_expansion <= GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_lb:
+    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
+    expression: tech_capacity_expansion >= GlobalConstraint_constant
+  GlobalConstraint_tech_capacity_expansion_limit_eq:
+    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    foreach: [global_constraint]
+    where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
+    expression: tech_capacity_expansion == GlobalConstraint_constant
   Bus_nodal_balance:
     description: >-
-      `Bus-nodal_balance` — what is generated at a bus, less what the links
-      take away, plus what arrives over them after losses, meets the load
-      there. A bus nothing is attached to has no row; PyPSA refuses one that
+      `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
+      stores included, less what the links take away, plus what arrives over
+      them after losses at every port they deliver to, meets the load there.
+      A bus nothing is attached to has no row; PyPSA refuses one that
       carries load, and this file does not yet.
     foreach: [snapshot, bus]
     expression: >-
       sum(Generator_p, by=Generator_bus)
+      + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus)
+      + sum(Store_p, by=Store_bus)
       - sum(Link_p, by=Link_bus0)
       + sum(Link_p * Link_efficiency, by=Link_bus1)
+      + sum(Link_p * Link_efficiency2, by=Link_bus2)
+      - sum(Line_s, by=Line_bus0)
+      + sum(Line_s, by=Line_bus1)
       == sum(Load_p_set, by=Load_bus)
 
 objective:
@@ -136,3 +1297,18 @@ objective:
   expression: >-
     sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)
     + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective)
+    + sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective)
+    + sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective)
+    + sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective)
+    + sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective)
+    + sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective)
+    + sum(Store_p * Store_marginal_cost * snapshot_weightings_objective)
+    + sum(Store_e * Store_marginal_cost_storage * snapshot_weightings_objective)
+    + sum(Generator_p_nom_ext * Generator_capital_cost)
+    + sum(Link_p_nom_ext * Link_capital_cost)
+    + sum(StorageUnit_p_nom_ext * StorageUnit_capital_cost)
+    + sum(Store_e_nom_ext * Store_capital_cost)
+    + sum(Line_s_nom_ext * Line_capital_cost)
+    + sum(Generator_status * Generator_stand_by_cost * snapshot_weightings_objective)
+    + sum(Generator_start_up * Generator_start_up_cost)
+    + sum(Generator_shut_down * Generator_shut_down_cost)
