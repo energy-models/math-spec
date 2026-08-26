@@ -103,7 +103,7 @@ snapshot,objective,stores,generators
 | `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested (#123) |
 
 <!-- reference:rung_01_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7182.222222222223`, 45 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7182.222222222223`, 45 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -142,7 +142,7 @@ Link,wire,p_set,0,10.0
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung_02_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `4456.659315422356`, 103 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `4456.659315422356`, 103 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -194,7 +194,7 @@ Store,cavern,e_set,3,20.0
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7633.908502024292`, 184 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7633.908502024292`, 184 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -294,7 +294,7 @@ Generator,solar,p_max_pu,3,0.2
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | split | fix, ext and first-snapshot blocks, fused by #70; com is rung 7's, big-M rung 8's |
 
 <!-- reference:rung_04_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `8785.0`, 64 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `8785.0`, 64 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -362,7 +362,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `10282.833333333334`, 102 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `10282.833333333334`, 102 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -429,7 +429,7 @@ tank5,north,coalc,40.0,25.0
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung_06_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `23962.0`, 123 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `23962.0`, 123 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -504,7 +504,7 @@ Line,bc,s_set,0,16.0
 | `{c}-com-p-before/-current/-partly-*`        | out    | only under `linearized_unit_commitment`                       |
 
 <!-- reference:rung_07_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7775.0`, 116 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7775.0`, 116 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -550,7 +550,7 @@ Load,swing7,p_set,3,10.0
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | split | run and start rows up, run and shut rows down, each with an initial block #70 fuses |
 
 <!-- reference:rung_08_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `19712.5`, 155 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `19712.5`, 155 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -599,7 +599,7 @@ Load,mill_load,p_set,3,60.0
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung_09_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `11700.0`, 68 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `11700.0`, 68 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -638,6 +638,214 @@ district,heat,18.0
 
 </details>
 <!-- reference:rung_09_multilink:end -->
+
+### Rung 11 — ac-dc-meshed
+
+PyPSA's `ac_dc_meshed` example, whole: meshed AC and DC, extendable lines,
+links and generators, carriers, a CO2 budget. Every statement above,
+composed. Its folder is the network, not spine plus additions.
+
+<!-- reference:rung_11_ac_dc_meshed:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `-3474256.0405499246`, 468 rows. `lpspec 0.0.1.dev4+ga35244bdf` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 90 rows.
+
+<details markdown="1">
+<summary>What this rung adds, as data</summary>
+
+`data/rung_11_ac_dc_meshed/buses.csv`
+
+```csv
+name,carrier
+London,AC
+Norwich,AC
+Norwich DC,DC
+Manchester,AC
+Bremen,AC
+Bremen DC,DC
+Frankfurt,AC
+Norway,AC
+Norway DC,DC
+```
+
+`data/rung_11_ac_dc_meshed/carriers.csv`
+
+```csv
+name,co2_emissions
+gas,0.24
+wind,0.0
+battery,0.0
+load,0.0
+AC,0.0
+DC,0.0
+```
+
+`data/rung_11_ac_dc_meshed/generators.csv`
+
+```csv
+name,bus,p_nom,p_nom_extendable,p_nom_min,carrier,marginal_cost,capital_cost,efficiency
+Manchester Wind,Manchester,80.0,True,100.0,wind,0.11,2793.6516029328,1.0
+Manchester Gas,Manchester,50000.0,True,0.0,gas,4.5323676307,196.6151679691,0.3500264336
+Norway Wind,Norway,100.0,True,100.0,wind,0.09,2184.3747960912,1.0
+Norway Gas,Norway,20000.0,True,0.0,gas,5.8928445406,158.2512497168,0.3568363832
+Frankfurt Wind,Frankfurt,110.0,True,100.0,wind,0.1,2129.4561224763,1.0
+Frankfurt Gas,Frankfurt,80000.0,True,0.0,gas,4.0863219899,102.6769530076,0.3516658529
+```
+
+`data/rung_11_ac_dc_meshed/global_constraints.csv`
+
+```csv
+name,sense,constant
+co2_limit,<=,1000.0
+```
+
+`data/rung_11_ac_dc_meshed/lines.csv`
+
+```csv
+name,bus0,bus1,x,r,s_nom,s_nom_extendable,capital_cost,carrier
+0,London,Manchester,0.7968782824,0.0,40000.0,True,0.1367157553,AC
+1,Manchester,Norwich,0.3915599178,0.0,40000.0,True,0.1334916779,AC
+2,Bremen DC,Norwich DC,0.0,0.2126041927,40000.0,True,0.0086734246,AC
+3,Norwich DC,Norway DC,0.0,0.4861637504,40000.0,True,0.1291260515,AC
+4,Norway DC,Bremen DC,0.0,0.4287266497,40000.0,True,0.0624298729,AC
+5,Norwich,London,0.2388003463,0.0,40000.0,True,0.0218524519,AC
+6,Bremen,Frankfurt,0.4,0.0,40000.0,True,0.2,AC
+```
+
+`data/rung_11_ac_dc_meshed/links.csv`
+
+```csv
+name,bus0,bus1,carrier,p_nom,p_nom_extendable,p_min_pu,p_max_pu,capital_cost
+Norwich Converter,Norwich,Norwich DC,DC,1000.0,True,-0.9,0.9,0.21
+Norway Converter,Norway,Norway DC,DC,1000.0,True,-0.9,0.9,0.2
+Bremen Converter,Bremen,Bremen DC,DC,1000.0,True,-0.9,0.9,0.19
+DC link,London,Bremen,DC,1000.0,True,-0.9,0.9,0.8765342
+```
+
+`data/rung_11_ac_dc_meshed/loads.csv`
+
+```csv
+name,bus,carrier
+London,London,load
+Frankfurt,Frankfurt,load
+Norway,Norway,load
+Norwich,Norwich,load
+Bremen,Bremen,load
+Manchester,Manchester,load
+```
+
+`data/rung_11_ac_dc_meshed/snapshots.csv`
+
+```csv
+snapshot,objective,stores,generators
+0,1.0,1.0,1.0
+1,1.0,1.0,1.0
+2,1.0,1.0,1.0
+3,1.0,1.0,1.0
+4,1.0,1.0,1.0
+5,1.0,1.0,1.0
+6,1.0,1.0,1.0
+7,1.0,1.0,1.0
+8,1.0,1.0,1.0
+9,1.0,1.0,1.0
+```
+
+`data/rung_11_ac_dc_meshed/timeseries.csv`
+
+```csv
+component,name,attribute,snapshot,value
+Generator,Manchester Wind,p_max_pu,0,0.930019875
+Generator,Manchester Wind,p_max_pu,1,0.4857475804
+Generator,Manchester Wind,p_max_pu,2,0.2336917351
+Generator,Manchester Wind,p_max_pu,3,0.2576042221
+Generator,Manchester Wind,p_max_pu,4,0.6269055694
+Generator,Manchester Wind,p_max_pu,5,0.6035984088
+Generator,Manchester Wind,p_max_pu,6,0.6789075462
+Generator,Manchester Wind,p_max_pu,7,0.3613026112
+Generator,Manchester Wind,p_max_pu,8,0.6216040549
+Generator,Manchester Wind,p_max_pu,9,0.5215183715
+Generator,Frankfurt Wind,p_max_pu,0,0.5590784039
+Generator,Frankfurt Wind,p_max_pu,1,0.7529103711
+Generator,Frankfurt Wind,p_max_pu,2,0.1234650887
+Generator,Frankfurt Wind,p_max_pu,3,0.9666766524
+Generator,Frankfurt Wind,p_max_pu,4,0.8590078044
+Generator,Frankfurt Wind,p_max_pu,5,0.5261537924
+Generator,Frankfurt Wind,p_max_pu,6,0.077893008
+Generator,Frankfurt Wind,p_max_pu,7,0.0590234716
+Generator,Frankfurt Wind,p_max_pu,8,0.2485544952
+Generator,Frankfurt Wind,p_max_pu,9,0.1080601728
+Generator,Norway Wind,p_max_pu,0,0.9745832033
+Generator,Norway Wind,p_max_pu,1,0.4812903778
+Generator,Norway Wind,p_max_pu,2,0.4072258018
+Generator,Norway Wind,p_max_pu,3,0.5999649628
+Generator,Norway Wind,p_max_pu,4,0.524468219
+Generator,Norway Wind,p_max_pu,5,0.0096927054
+Generator,Norway Wind,p_max_pu,6,0.2204533621
+Generator,Norway Wind,p_max_pu,7,0.8239185004
+Generator,Norway Wind,p_max_pu,8,0.5562297265
+Generator,Norway Wind,p_max_pu,9,0.4394160378
+Load,London,p_set,0,35.7962441027
+Load,London,p_set,1,976.8245614698
+Load,London,p_set,2,250.5873120464
+Load,London,p_set,3,130.7531445827
+Load,London,p_set,4,151.1001686
+Load,London,p_set,5,931.857051942
+Load,London,p_set,6,289.8482871447
+Load,London,p_set,7,864.3433217147
+Load,London,p_set,8,689.5772637703
+Load,London,p_set,9,627.8789859434
+Load,Norwich,p_set,0,415.4625642653
+Load,Norwich,p_set,1,262.6061464526
+Load,Norwich,p_set,2,418.4763531902
+Load,Norwich,p_set,3,552.9595393098
+Load,Norwich,p_set,4,218.159858091
+Load,Norwich,p_set,5,791.9762655836
+Load,Norwich,p_set,6,531.8706808219
+Load,Norwich,p_set,7,23.5134667186
+Load,Norwich,p_set,8,970.0590684572
+Load,Norwich,p_set,9,0.9248336907
+Load,Frankfurt,p_set,0,398.0478469638
+Load,Frankfurt,p_set,1,432.4361062425
+Load,Frankfurt,p_set,2,379.8039282662
+Load,Frankfurt,p_set,3,868.3617642835
+Load,Frankfurt,p_set,4,548.7707546221
+Load,Frankfurt,p_set,5,828.6652426012
+Load,Frankfurt,p_set,6,449.2907519075
+Load,Frankfurt,p_set,7,699.1637663734
+Load,Frankfurt,p_set,8,915.8667802518
+Load,Frankfurt,p_set,9,414.8876464034
+Load,Bremen,p_set,0,640.0863775411
+Load,Bremen,p_set,1,703.554333706
+Load,Bremen,p_set,2,440.8361303183
+Load,Bremen,p_set,3,612.5763056818
+Load,Bremen,p_set,4,803.4367808051
+Load,Bremen,p_set,5,605.4006873582
+Load,Bremen,p_set,6,641.0905902397
+Load,Bremen,p_set,7,408.0085411725
+Load,Bremen,p_set,8,912.2477761646
+Load,Bremen,p_set,9,898.0530916423
+Load,Norway,p_set,0,820.035835936
+Load,Norway,p_set,1,854.8340468618
+Load,Norway,p_set,2,42.550744351
+Load,Norway,p_set,3,647.5482327851
+Load,Norway,p_set,4,884.0738733306
+Load,Norway,p_set,5,509.0624485516
+Load,Norway,p_set,6,595.6079648147
+Load,Norway,p_set,7,291.6424496984
+Load,Norway,p_set,8,2.1534925491
+Load,Norway,p_set,9,760.7401765038
+Load,Manchester,p_set,0,857.5514402011
+Load,Manchester,p_set,1,750.5996237166
+Load,Manchester,p_set,2,156.5648760141
+Load,Manchester,p_set,3,527.8708221189
+Load,Manchester,p_set,4,83.8977589634
+Load,Manchester,p_set,5,676.6233193474
+Load,Manchester,p_set,6,731.1371004827
+Load,Manchester,p_set,7,553.3448891847
+Load,Manchester,p_set,8,298.338082262
+Load,Manchester,p_set,9,768.2905859888
+```
+
+</details>
+<!-- reference:rung_11_ac_dc_meshed:end -->
 
 ### Not on a rung
 
