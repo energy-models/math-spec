@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+name: PyPSA parity
+
+# Advisory, deliberately not in the required checks. The division of labour:
+# this repository gets the YAML right and renders it; the engines interpret
+# and solve it, so parity is certified by the differential harness, which
+# needs lpspec and PyPSA installed — dependencies the language repo does not
+# carry. This job installs the pinned engines and then swaps lpspec's pinned
+# math-spec for the working tree, so a red here tells one of exactly two
+# stories: the change broke parity, or the language moved ahead of what the
+# pinned lpspec speaks. The second is not fixable on this side — the corpus
+# waits for an lpspec pin bump, and the affected rows stay not-done — which
+# is why the check advises rather than gates. lpspec's own CI is the required
+# side of the same contract, running this harness against the corpus tag it
+# certifies.
+
+on:
+  pull_request:
+    paths:
+      - 'examples/pypsa*.yaml'
+      - 'examples/symbols/pypsa*.yaml'
+      - 'examples/references/pypsa/**'
+      - 'src/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    name: PyPSA parity (advisory)
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # hatch-vcs derives the working tree's version from `git describe`.
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The engines at the pins the reference scripts carry, then the working
+      # tree's math_spec over lpspec's pinned one — one environment resolves
+      # one math_spec, so the harness runs on this tree's language.
+      - name: Install the engines, then this tree's language
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet \
+            'lpspec @ git+https://github.com/fluxopt/lpspec@3d05a57f1774bf11778011083573de493f2bd732' \
+            'linopy @ git+https://github.com/PyPSA/linopy@09c34dd9d771bafcd6900a505b33cb9048145c85' \
+            'pypsa==1.3.0' 'highspy==1.15.1' 'polars>=1.30' 'pandas>=2.2' 'xarray==2026.7.0'
+          .venv/bin/pip install --quiet -e .
+
+      # The scripts' exit codes are the verdict; the stamps they rewrite in
+      # the workspace are diffed only as information, because solver floats
+      # may move in the last digit across machines.
+      - name: Solve every rung on both lanes
+        run: .venv/bin/python examples/references/pypsa/parity.py
+
+      - name: Compare the two linopy models
+        run: .venv/bin/python examples/references/pypsa/structural.py
+
+      - name: Show stamp drift, informationally
+        if: always()
+        run: git diff --stat examples/references/pypsa/references.json || true
