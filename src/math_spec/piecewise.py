@@ -62,6 +62,32 @@ def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
     return f'{block}_points' if pw.points in {link.values for link in pw.links} else pw.points
 
 
+def curvature_required(pw: PiecewiseBlock) -> str | None:
+    """The curvature *pw*'s method is only exact for, or ``None`` if any shape works.
+
+    ``convex`` relaxes the weights onto the hull, which cuts the corners of a
+    *mixed* curve and nothing else, so it answers ``'either'``. ``lp`` states
+    one side of the curve as its segment lines and the bounded link's sign says
+    which side, so the opposite bend is silently wrong rather than merely loose.
+
+    The breakpoints decide whether a model meets the condition, and they arrive
+    with the data rather than with the schema — so this names what to check,
+    and the caller holding the numbers does the checking.
+
+    Args:
+        pw: The block whose method is in question.
+
+    Returns:
+        ``'convex'``, ``'concave'``, ``'either'`` for a method that constrains
+        the shape, or ``None`` for one that does not.
+    """
+    if pw.method == 'convex':
+        return 'either'
+    if pw.method != 'lp':
+        return None
+    return 'convex' if pw.curve[1].sign == '>=' else 'concave'
+
+
 def _gate_rows(schema: Model, pw: PiecewiseBlock) -> tuple[tuple[str, str | None, str], ...]:
     """What the weights sum to, as ``(name suffix, where, right-hand side)``.
 

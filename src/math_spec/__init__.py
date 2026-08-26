@@ -55,7 +55,7 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
-from math_spec.piecewise import expand_piecewise, mask_of
+from math_spec.piecewise import curvature_required, expand_piecewise, mask_of
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import load_model
 from math_spec.where_parser import (
@@ -152,6 +152,7 @@ __all__ = [
     'carries_variable',
     'check_binary',
     'children',
+    'curvature_required',
     'did_you_mean',
     'dims_of',
     'edge_error',

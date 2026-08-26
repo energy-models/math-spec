@@ -42,6 +42,7 @@ SURFACE = frozenset(
         # the passes a consumer asks for a verdict rather than re-deriving
         'Namespace', 'expression_of', 'where_of', 'dims_of', 'check_binary',
         'carries_variable', 'is_quadratic', 'unbounded_notes', 'mask_of',
+        'curvature_required',
         # the closed operator set, and the wording of its refusals
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',
