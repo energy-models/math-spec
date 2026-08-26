@@ -1,0 +1,94 @@
+{
+  "Generator_bus": {
+    "bus": "String",
+    "generator": "String"
+  },
+  "Generator_marginal_cost": {
+    "generator": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "Generator_marginal_cost_quadratic": {
+    "generator": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "Generator_p_max_pu": {
+    "generator": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "Generator_p_min_pu": {
+    "generator": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "Generator_p_nom": {
+    "generator": "String",
+    "value": "Float64"
+  },
+  "Link_bus0": {
+    "bus": "String",
+    "link": "String"
+  },
+  "Link_bus1": {
+    "bus": "String",
+    "link": "String"
+  },
+  "Link_efficiency": {
+    "link": "String",
+    "value": "Float64"
+  },
+  "Link_marginal_cost": {
+    "link": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "Link_marginal_cost_quadratic": {
+    "link": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "Link_p_max_pu": {
+    "link": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "Link_p_min_pu": {
+    "link": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "Link_p_nom": {
+    "link": "String",
+    "value": "Float64"
+  },
+  "Load_bus": {
+    "bus": "String",
+    "load": "String"
+  },
+  "Load_p_set": {
+    "load": "String",
+    "snapshot": "Int64",
+    "value": "Float64"
+  },
+  "bus": {
+    "bus": "String"
+  },
+  "generator": {
+    "generator": "String"
+  },
+  "link": {
+    "link": "String"
+  },
+  "load": {
+    "load": "String"
+  },
+  "snapshot": {
+    "snapshot": "Int64"
+  },
+  "snapshot_weightings_objective": {
+    "snapshot": "Int64",
+    "value": "Float64"
+  }
+}

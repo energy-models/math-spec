@@ -55,6 +55,14 @@ def test_every_rung_has_its_marker_pair_on_exactly_one_declared_page(script: Pat
     )
 
 
+@pytest.mark.parametrize('script', SCRIPTS, ids=[script.stem for script in SCRIPTS])
+def test_the_tables_a_rung_was_passed_are_committed(script: Path):
+    """`parity.py` solves from the dumped files, so the committed `data/` folder is the hand-over itself."""
+    schema = REFERENCES / 'data' / script.stem / 'schema.json'
+    assert schema.is_file(), 'no dumped tables — run parity.py, which writes data/<rung>/ before it solves'
+    assert json.loads(schema.read_text()), 'an empty schema hands nothing over'
+
+
 def test_every_reference_script_has_a_recorded_solve():
     assert {script.stem for script in SCRIPTS} == set(RECORDED), (
         'a reference script without a record, or a record without a script — run the scripts, or delete the orphan'

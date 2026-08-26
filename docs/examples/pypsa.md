@@ -47,7 +47,7 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 <!-- reference:rung1_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung1_transport/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -97,7 +97,7 @@ def build() -> pypsa.Network:
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung2_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `975.711471`, 83 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `975.711471`, 83 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung2_storage/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -169,7 +169,7 @@ def build() -> pypsa.Network:
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung3_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5332.105263157895`, 96 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5332.105263157895`, 96 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung3_expansion/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -261,7 +261,7 @@ def build() -> pypsa.Network:
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | fix and ext blocks; com is rung 7's, big-M rung 8's; the first snapshot's row is rolling horizon's, a flag |
 
 <!-- reference:rung4_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10420.0`, 44 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10420.0`, 44 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung4_ramps/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -314,7 +314,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung5_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5187.5`, 29 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5187.5`, 29 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung5_global_constraints/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -359,7 +359,7 @@ def build() -> pypsa.Network:
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung6_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2460.0`, 72 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2460.0`, 72 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung6_kvl/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -422,7 +422,7 @@ def build() -> pypsa.Network:
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
 <!-- reference:rung7_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3065.0`, 54 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3065.0`, 54 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung7_commitment/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -479,7 +479,7 @@ def build() -> pypsa.Network:
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down, each with its initial block |
 
 <!-- reference:rung8_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8725.0`, 97 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8725.0`, 97 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung8_modular_big_m/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -539,7 +539,7 @@ def build() -> pypsa.Network:
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung9_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `1920.0`, 36 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `1920.0`, 36 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung9_multilink/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>

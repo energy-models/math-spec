@@ -18,6 +18,7 @@ their empty rows instead of shipping fills.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -25,6 +26,8 @@ import polars as pl
 from pypsa.descriptors import get_switchable_as_dense
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pypsa
 
 
@@ -308,4 +311,43 @@ def quadratic_sources(n: pypsa.Network) -> dict[str, object]:
         _varying(n, 'Generator', 'marginal_cost_quadratic', 'generator')
     )
     tables['Link_marginal_cost_quadratic'] = pl.from_pandas(_varying(n, 'Link', 'marginal_cost_quadratic', 'link'))
+    return tables
+
+
+def dump(tables: dict[str, object], folder: Path) -> None:
+    """The tables as files: one CSV per non-empty table, `schema.json` for every shape.
+
+    What lands here is exactly what a solve was passed — the reviewable form
+    of the hand-over. An empty table writes no CSV; its schema entry is what
+    lets `read_sources` reconstruct it, and a scalar lives in the schema
+    entry itself.
+    """
+    folder.mkdir(parents=True, exist_ok=True)
+    for stale in folder.glob('*.csv'):
+        stale.unlink()
+    schema: dict[str, object] = {}
+    for name, table in tables.items():
+        if isinstance(table, pl.Series):
+            table = table.to_frame()
+        if isinstance(table, pl.DataFrame):
+            schema[name] = {column: str(dtype) for column, dtype in table.schema.items()}
+            if len(table):
+                table.write_csv(folder / f'{name}.csv')
+        else:
+            schema[name] = {'scalar': table}
+    (folder / 'schema.json').write_text(json.dumps(schema, indent=2, sort_keys=True) + '\n')
+
+
+def read_sources(folder: Path) -> dict[str, object]:
+    """The tables back from `dump`'s files — what `lps.solve` binds, started from CSV."""
+    schema = json.loads((folder / 'schema.json').read_text())
+    tables: dict[str, object] = {}
+    for name, columns in schema.items():
+        if 'scalar' in columns:
+            tables[name] = columns['scalar']
+            continue
+        dtypes = {column: getattr(pl, dtype) for column, dtype in columns.items()}
+        path = folder / f'{name}.csv'
+        frame = pl.read_csv(path, schema_overrides=dtypes) if path.exists() else pl.DataFrame(schema=dtypes)
+        tables[name] = frame.to_series() if len(frame.columns) == 1 and name == frame.columns[0] else frame
     return tables

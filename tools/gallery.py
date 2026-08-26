@@ -151,7 +151,8 @@ def reference_block(stem: str) -> str:
     return (
         f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network through its own linopy model "
         f'at objective `{recorded["objective"]}`, {rows} rows — recorded by '
-        f'`examples/references/pypsa/{stem}.py`.{agreement}\n'
+        f'`examples/references/pypsa/{stem}.py`.{agreement}'
+        f'{f" The tables it was passed are `data/{stem}/`." if agreement else ""}\n'
         '\n'
         '<details markdown="1">\n'
         "<summary>The reference network, in PyPSA's own statements</summary>\n"

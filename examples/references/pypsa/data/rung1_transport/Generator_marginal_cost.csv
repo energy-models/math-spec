@@ -1,0 +1,13 @@
+snapshot,generator,value
+0,coal,10.0
+1,coal,10.0
+2,coal,10.0
+3,coal,10.0
+0,gas,30.0
+1,gas,30.0
+2,gas,30.0
+3,gas,30.0
+0,must_run,0.0
+1,must_run,0.0
+2,must_run,0.0
+3,must_run,0.0

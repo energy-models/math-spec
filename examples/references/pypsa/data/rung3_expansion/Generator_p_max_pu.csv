@@ -1,0 +1,13 @@
+snapshot,generator,value
+0,wind,0.3
+1,wind,0.8
+2,wind,0.5
+3,wind,0.9
+0,gas,1.0
+1,gas,1.0
+2,gas,1.0
+3,gas,1.0
+0,solar,0.5
+1,solar,0.6
+2,solar,0.4
+3,solar,0.2

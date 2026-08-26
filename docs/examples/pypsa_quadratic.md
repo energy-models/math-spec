@@ -21,7 +21,7 @@ nonzero. The class a free solver takes as a QP lives here;
 | [`marginal_cost_quadratic`](#objective) | done   | degree 2 in the objective; Generator and Link here — PyPSA also carries it on storage units and stores, one more term each of the same shape |
 
 <!-- reference:rung10_quadratic_costs:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2579.111111111112`, 32 rows — recorded by `examples/references/pypsa/rung10_quadratic_costs.py`. `lpspec 0.0.1a259` binds `examples/pypsa_quadratic.yaml` against the same network and lands on the same objective (`parity.py`).
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2579.111111111112`, 32 rows — recorded by `examples/references/pypsa/rung10_quadratic_costs.py`. `lpspec 0.0.1a259` binds `examples/pypsa_quadratic.yaml` against the same network and lands on the same objective (`parity.py`). The tables it was passed are `data/rung10_quadratic_costs/`.
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>

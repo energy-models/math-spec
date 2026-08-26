@@ -1,0 +1,6 @@
+line,cycle,value
+ab,0-c0,0.1
+bc,0-c0,0.2
+ca,0-c0,0.1
+ca,0-c1,0.1
+ca2,0-c1,-0.15

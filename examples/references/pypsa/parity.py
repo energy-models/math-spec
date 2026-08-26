@@ -22,7 +22,9 @@
 For each rung, the reference network is built twice from its own script: one
 copy goes through `n.optimize(solver_name='highs')`, the other through
 `prep.sources` into `lps.solve('examples/pypsa.yaml', …)` — the same HiGHS,
-two model builders, one file. Each rung's outcome is stamped into
+two model builders, one file. What lpspec is passed is not handed over in
+memory: it is dumped to `data/<rung>/` and read back from those files for the
+solve, so the committed CSVs are the data that actually solved. Each rung's outcome is stamped into
 `references.json` under ``parity``, matched or not, and the run fails if any
 rung differs. Run out of band, with the pins above: lpspec is pinned to a
 commit because it has no release yet, and it carries its own math-spec.
@@ -64,7 +66,8 @@ def lanes(script: Path) -> tuple[float, float, str]:
     status, condition = n.optimize(solver_name='highs')
     assert status == 'ok', f'{script.stem}: pypsa did not solve — {status} / {condition}'
     model, tables = MODELS.get(script.stem, (MODEL, 'sources'))
-    result = lps.solve(model, getattr(prep, tables)(build()))
+    prep.dump(getattr(prep, tables)(build()), HERE / 'data' / script.stem)
+    result = lps.solve(model, prep.read_sources(HERE / 'data' / script.stem))
     assert result.is_ok, f'{script.stem}: lpspec did not solve — {result.termination_condition}'
     return float(n.objective), float(result.objective), str(model.relative_to(HERE.parents[2]))
 
