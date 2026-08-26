@@ -13,6 +13,8 @@ index below lists every row PyPSA emits (PyPSA `1.3.0`,
 there. The blocks are generated, so a row that stops loading or changes its
 math fails CI.
 
+One file per PyPSA formulation: whatever a data column switches — extendable, committable, cyclic — stays here as a `where:` mask, and a rung whose `optimize` keyword changes the rows or the objective gets a file of its own, as [the quadratic class](pypsa_quadratic.md) does. Each rung below shows the blocks it is the first on the ladder to build, so the file is read a rung at a time; what no rung builds is under [The file](#the-file).
+
 Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
 their duals are row duals. Regimes are data columns and `where:` masks, never
 file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
@@ -118,6 +120,117 @@ def build():
 ```
 
 </details>
+
+### `Generator-fix-p-lower`
+
+`Generator_fix_p_lower`
+
+```yaml
+Generator_fix_p_lower:
+  description: "`Generator-fix-p-lower` — a fixed generator outputs at least its minimum"
+  foreach: [snapshot, generator]
+  where: not Generator_p_nom_extendable AND not Generator_committable
+  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
+```
+
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
+
+### `Generator-fix-p-upper`
+
+`Generator_fix_p_upper`
+
+```yaml
+Generator_fix_p_upper:
+  description: "`Generator-fix-p-upper` — a fixed generator outputs at most what is available"
+  foreach: [snapshot, generator]
+  where: not Generator_p_nom_extendable AND not Generator_committable
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
+```
+
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
+
+### `Link-fix-p-lower`
+
+`Link_fix_p_lower`
+
+```yaml
+Link_fix_p_lower:
+  description: "`Link-fix-p-lower` — a fixed link carries at least its minimum, negative for the other way"
+  foreach: [snapshot, link]
+  where: not Link_p_nom_extendable
+  expression: Link_p >= Link_p_min_pu * Link_p_nom
+```
+
+$$f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l}$$
+
+### `Link-fix-p-upper`
+
+`Link_fix_p_upper`
+
+```yaml
+Link_fix_p_upper:
+  description: "`Link-fix-p-upper` — a fixed link carries at most its nominal power"
+  foreach: [snapshot, link]
+  where: not Link_p_nom_extendable
+  expression: Link_p <= Link_p_max_pu * Link_p_nom
+```
+
+$$f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l}$$
+
+### `Generator-p_set`
+
+`Generator_p_set`
+
+```yaml
+Generator_p_set:
+  description: "`Generator-p_set` — output pinned to the given schedule, wherever one is given"
+  foreach: [snapshot, generator]
+  where: Generator_p_set
+  expression: Generator_p == Generator_p_set
+```
+
+$$p_{t,g} = \mathrm{p}^{\mathrm{set}}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{p}^{\mathrm{set}}_{t,g} \text{ is defined}$$
+
+### `Link-p_set`
+
+`Link_p_set`
+
+```yaml
+Link_p_set:
+  description: "`Link-p_set` — flow pinned to the given schedule, wherever one is given"
+  foreach: [snapshot, link]
+  where: Link_p_set
+  expression: Link_p == Link_p_set
+```
+
+$$f_{t,l} = \mathrm{f}^{\mathrm{set}}_{t,l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{f}^{\mathrm{set}}_{t,l} \text{ is defined}$$
+
+### `Bus-nodal_balance`
+
+`Bus_nodal_balance`
+
+```yaml
+Bus_nodal_balance:
+  description: >-
+    `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
+    stores included, less what the links take away, plus what arrives over
+    them after losses at every port they deliver to, meets the load there.
+    A bus nothing is attached to has no row; PyPSA refuses one that
+    carries load, and this file does not yet.
+  foreach: [snapshot, bus]
+  expression: >-
+    sum(Generator_p, by=Generator_bus)
+    + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus)
+    + sum(Store_p, by=Store_bus)
+    - sum(Link_p, by=Link_bus0)
+    + sum(Link_p * Link_efficiency, by=Link_bus1)
+    + sum(Link_p * Link_efficiency2, by=Link_bus2)
+    - sum(Line_s, by=Line_bus0)
+    + sum(Line_s, by=Line_bus1)
+    == sum(Load_p_set, by=Load_bus)
+```
+
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{Generator\_bus}(g) = n} p_{t,g} + \sum_{s \in \mathcal{S} \thinspace:\thinspace \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{t,s} - h^{-}_{t,s} \right) + \sum_{v \in \mathcal{V} \thinspace:\thinspace \mathrm{Store\_bus}(v) = n} q_{t,v} - \left( \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus0}(l) = n} f_{t,l} \right) + \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus1}(l) = n} f_{t,l} \cdot \eta_{l} + \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus2}(l) = n} f_{t,l} \cdot \eta^{2}_{l} - \left( \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus0}(k) = n} s_{t,k} \right) + \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus1}(k) = n} s_{t,k} = \sum_{d \in \mathcal{D} \thinspace:\thinspace \mathrm{Load\_bus}(d) = n} \mathrm{load}_{t,d} \qquad \forall\thinspace t \in \mathcal{T},\enspace n \in \mathcal{N}$$
 <!-- reference:rung_01_transport:end -->
 
 ### Rung 2 — storage
@@ -193,6 +306,278 @@ def build():
 ```
 
 </details>
+
+### `StorageUnit-fix-p_dispatch-lower`
+
+`StorageUnit_fix_p_dispatch_lower`
+
+```yaml
+StorageUnit_fix_p_dispatch_lower:
+  description: "`StorageUnit-fix-p_dispatch-lower` — dispatch is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_dispatch >= 0
+```
+
+$$h^{+}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-fix-p_dispatch-upper`
+
+`StorageUnit_fix_p_dispatch_upper`
+
+```yaml
+StorageUnit_fix_p_dispatch_upper:
+  description: "`StorageUnit-fix-p_dispatch-upper` — a fixed unit dispatches at most its nominal power"
+  foreach: [snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom
+```
+
+$$h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-fix-p_store-lower`
+
+`StorageUnit_fix_p_store_lower`
+
+```yaml
+StorageUnit_fix_p_store_lower:
+  description: "`StorageUnit-fix-p_store-lower` — storing is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_store >= 0
+```
+
+$$h^{-}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-fix-p_store-upper`
+
+`StorageUnit_fix_p_store_upper`
+
+```yaml
+StorageUnit_fix_p_store_upper:
+  description: >-
+    `StorageUnit-fix-p_store-upper` — a fixed unit stores at most its
+    nominal power, the minimum-per-unit column carrying that cap negated
+  foreach: [snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom
+```
+
+$$h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-fix-state_of_charge-lower`
+
+`StorageUnit_fix_state_of_charge_lower`
+
+```yaml
+StorageUnit_fix_state_of_charge_lower:
+  description: "`StorageUnit-fix-state_of_charge-lower` — charge is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable
+  expression: StorageUnit_state_of_charge >= 0
+```
+
+$$\mathit{soc}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-fix-state_of_charge-upper`
+
+`StorageUnit_fix_state_of_charge_upper`
+
+```yaml
+StorageUnit_fix_state_of_charge_upper:
+  description: "`StorageUnit-fix-state_of_charge-upper` — a fixed unit holds at most its hours at nominal power"
+  foreach: [snapshot, storage_unit]
+  where: not StorageUnit_p_nom_extendable
+  expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom
+```
+
+$$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-energy_balance`
+
+`StorageUnit_energy_balance`
+
+```yaml
+StorageUnit_energy_balance:
+  description: >-
+    `StorageUnit-energy_balance` — charge carried over less standing loss,
+    plus what is stored after its efficiency, less what dispatch draws down
+    before its own, plus inflow not spilled. The translated term vacates the
+    first snapshot, so this block builds every row but that one; the initial
+    block below is the boundary
+  foreach: [snapshot, storage_unit]
+  where: not StorageUnit_cyclic_state_of_charge
+  expression: >-
+    StorageUnit_state_of_charge ==
+    StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
+    + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
+    - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
+    + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
+```
+
+$$\mathit{soc}_{t,s} = \rho_{t,s} \cdot \mathit{soc}_{t - 1,s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{cyc}_{s}$$
+
+### `StorageUnit-energy_balance`
+
+`StorageUnit_energy_balance_initial`
+
+```yaml
+StorageUnit_energy_balance_initial:
+  description: "`StorageUnit-energy_balance` — the first snapshot opens on the given initial charge, which no standing loss has touched yet"
+  foreach: [snapshot, storage_unit]
+  where: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
+  expression: >-
+    StorageUnit_state_of_charge ==
+    StorageUnit_state_of_charge_initial
+    + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
+    - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
+    + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
+```
+
+$$\mathit{soc}_{t,s} = \mathrm{soc}^{0}_{s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0$$
+
+### `StorageUnit-energy_balance`
+
+`StorageUnit_energy_balance_cyclic`
+
+```yaml
+StorageUnit_energy_balance_cyclic:
+  description: "`StorageUnit-energy_balance` — a cyclic unit's first snapshot carries over from its last"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_cyclic_state_of_charge
+  expression: >-
+    StorageUnit_state_of_charge ==
+    StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+    + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
+    - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
+    + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
+```
+
+$$\mathit{soc}_{t,s} = \rho_{t,s} \cdot \mathit{soc}_{t \ominus 1,s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{cyc}_{s}$$
+
+### `Store-fix-e-lower`
+
+`Store_fix_e_lower`
+
+```yaml
+Store_fix_e_lower:
+  description: "`Store-fix-e-lower` — a fixed store holds at least its floor"
+  foreach: [snapshot, store]
+  where: not Store_e_nom_extendable
+  expression: Store_e >= Store_e_min_pu * Store_e_nom
+```
+
+$$e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{ext}^{e}_{v}$$
+
+### `Store-fix-e-upper`
+
+`Store_fix_e_upper`
+
+```yaml
+Store_fix_e_upper:
+  description: "`Store-fix-e-upper` — a fixed store holds at most its nominal capacity"
+  foreach: [snapshot, store]
+  where: not Store_e_nom_extendable
+  expression: Store_e <= Store_e_max_pu * Store_e_nom
+```
+
+$$e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{ext}^{e}_{v}$$
+
+### `Store-energy_balance`
+
+`Store_energy_balance`
+
+```yaml
+Store_energy_balance:
+  description: >-
+    `Store-energy_balance` — energy carried over less standing loss, less
+    what is delivered to the bus. The translated term vacates the first
+    snapshot; the initial block below is the boundary
+  foreach: [snapshot, store]
+  where: not Store_e_cyclic
+  expression: >-
+    Store_e ==
+    Store_retention * shift(Store_e, over=snapshot, offset=1)
+    - Store_p * snapshot_weightings_stores
+```
+
+$$e_{t,v} = \rho^{e}_{t,v} \cdot e_{t - 1,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{cyc}^{e}_{v}$$
+
+### `Store-energy_balance`
+
+`Store_energy_balance_initial`
+
+```yaml
+Store_energy_balance_initial:
+  description: "`Store-energy_balance` — the first snapshot opens on the given initial energy, which no standing loss has touched yet"
+  foreach: [snapshot, store]
+  where: not Store_e_cyclic AND position(snapshot) == 0
+  expression: >-
+    Store_e ==
+    Store_e_initial
+    - Store_p * snapshot_weightings_stores
+```
+
+$$e_{t,v} = \mathrm{e}^{0}_{v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0$$
+
+### `Store-energy_balance`
+
+`Store_energy_balance_cyclic`
+
+```yaml
+Store_energy_balance_cyclic:
+  description: "`Store-energy_balance` — a cyclic store's first snapshot carries over from its last"
+  foreach: [snapshot, store]
+  where: Store_e_cyclic
+  expression: >-
+    Store_e ==
+    Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
+    - Store_p * snapshot_weightings_stores
+```
+
+$$e_{t,v} = \rho^{e}_{t,v} \cdot e_{t \ominus 1,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{cyc}^{e}_{v}$$
+
+### `StorageUnit-p_set`
+
+`StorageUnit_p_set`
+
+```yaml
+StorageUnit_p_set:
+  description: "`StorageUnit-p_set` — net dispatch pinned to the given schedule, wherever one is given"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_set
+  expression: StorageUnit_p_dispatch - StorageUnit_p_store == StorageUnit_p_set
+```
+
+$$h^{+}_{t,s} - h^{-}_{t,s} = \mathrm{h}^{\mathrm{set}}_{t,s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{h}^{\mathrm{set}}_{t,s} \text{ is defined}$$
+
+### `StorageUnit-state_of_charge_set`
+
+`StorageUnit_state_of_charge_set`
+
+```yaml
+StorageUnit_state_of_charge_set:
+  description: "`StorageUnit-state_of_charge_set` — charge pinned to the given schedule, wherever one is given"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_state_of_charge_set
+  expression: StorageUnit_state_of_charge == StorageUnit_state_of_charge_set
+```
+
+$$\mathit{soc}_{t,s} = \mathrm{soc}^{\mathrm{set}}_{t,s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{soc}^{\mathrm{set}}_{t,s} \text{ is defined}$$
+
+### `Store-e_set`
+
+`Store_e_set`
+
+```yaml
+Store_e_set:
+  description: "`Store-e_set` — energy pinned to the given schedule, wherever one is given"
+  foreach: [snapshot, store]
+  where: Store_e_set
+  expression: Store_e == Store_e_set
+```
+
+$$e_{t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{e}^{\mathrm{set}}_{t,v} \text{ is defined}$$
 <!-- reference:rung_02_storage:end -->
 
 ### Rung 3 — expansion
@@ -370,6 +755,656 @@ def build():
 ```
 
 </details>
+
+### `Generator-ext-p-lower`
+
+`Generator_ext_p_lower`
+
+```yaml
+Generator_ext_p_lower:
+  description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
+  foreach: [snapshot, generator]
+  where: Generator_p_nom_extendable AND not Generator_committable
+  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
+```
+
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
+
+### `Generator-ext-p-upper`
+
+`Generator_ext_p_upper`
+
+```yaml
+Generator_ext_p_upper:
+  description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
+  foreach: [snapshot, generator]
+  where: Generator_p_nom_extendable AND not Generator_committable
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+```
+
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
+
+### `Generator-ext-p_nom-lower`
+
+`Generator_ext_p_nom_lower`
+
+```yaml
+Generator_ext_p_nom_lower:
+  description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
+  foreach: [generator]
+  where: Generator_p_nom_extendable
+  expression: Generator_p_nom_ext >= Generator_p_nom_min
+```
+
+$$P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+
+### `Generator-ext-p_nom-upper`
+
+`Generator_ext_p_nom_upper`
+
+```yaml
+Generator_ext_p_nom_upper:
+  description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [generator]
+  where: Generator_p_nom_extendable AND Generator_p_nom_max
+  expression: Generator_p_nom_ext <= Generator_p_nom_max
+```
+
+$$P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \text{ is defined}$$
+
+### `Generator-p_nom_set`
+
+`Generator_p_nom_set`
+
+```yaml
+Generator_p_nom_set:
+  description: "`Generator-p_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [generator]
+  where: Generator_p_nom_extendable AND Generator_p_nom_set
+  expression: Generator_p_nom_ext == Generator_p_nom_set
+```
+
+$$P_{g} = \mathrm{p}^{\mathrm{nom,set}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{nom,set}}_{g} \text{ is defined}$$
+
+### `Generator-e_sum_min`
+
+`Generator_e_sum_min`
+
+```yaml
+Generator_e_sum_min:
+  description: "`Generator-e_sum_min` — energy over the horizon is at least its floor; a floor of minus infinity is no row"
+  foreach: [generator]
+  where: Generator_e_sum_min
+  expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) >= Generator_e_sum_min
+```
+
+$$\sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \ge \underline{\mathrm{E}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \underline{\mathrm{E}}_{g} \text{ is defined}$$
+
+### `Generator-e_sum_max`
+
+`Generator_e_sum_max`
+
+```yaml
+Generator_e_sum_max:
+  description: "`Generator-e_sum_max` — energy over the horizon is at most its budget; a budget of infinity is no row"
+  foreach: [generator]
+  where: Generator_e_sum_max
+  expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) <= Generator_e_sum_max
+```
+
+$$\sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \le \overline{\mathrm{E}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \overline{\mathrm{E}}_{g} \text{ is defined}$$
+
+### `Link-ext-p-lower`
+
+`Link_ext_p_lower`
+
+```yaml
+Link_ext_p_lower:
+  description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
+  foreach: [snapshot, link]
+  where: Link_p_nom_extendable
+  expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
+```
+
+$$f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
+
+### `Link-ext-p-upper`
+
+`Link_ext_p_upper`
+
+```yaml
+Link_ext_p_upper:
+  description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
+  foreach: [snapshot, link]
+  where: Link_p_nom_extendable
+  expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
+```
+
+$$f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
+
+### `Link-ext-p_nom-lower`
+
+`Link_ext_p_nom_lower`
+
+```yaml
+Link_ext_p_nom_lower:
+  description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
+  foreach: [link]
+  where: Link_p_nom_extendable
+  expression: Link_p_nom_ext >= Link_p_nom_min
+```
+
+$$F_{l} \ge \underline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
+
+### `Link-ext-p_nom-upper`
+
+`Link_ext_p_nom_upper`
+
+```yaml
+Link_ext_p_nom_upper:
+  description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [link]
+  where: Link_p_nom_extendable AND Link_p_nom_max
+  expression: Link_p_nom_ext <= Link_p_nom_max
+```
+
+$$F_{l} \le \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \text{ is defined}$$
+
+### `Link-p_nom_set`
+
+`Link_p_nom_set`
+
+```yaml
+Link_p_nom_set:
+  description: "`Link-p_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [link]
+  where: Link_p_nom_extendable AND Link_p_nom_set
+  expression: Link_p_nom_ext == Link_p_nom_set
+```
+
+$$F_{l} = \mathrm{f}^{\mathrm{nom,set}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{nom,set}}_{l} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_up`
+
+`Generator_p_ramp_limit_up_com`
+
+```yaml
+Generator_p_ramp_limit_up_com:
+  description: >-
+    `Generator-p-ramp_limit_up` — a committed unit raises output no faster
+    than its limit while it was already on, and no further than its
+    start-up ramp in the snapshot it turns on
+  foreach: [snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_up
+  expression: >-
+    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
+    Generator_ramp_limit_up * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+    + Generator_ramp_limit_start_up * Generator_p_nom
+    * (Generator_status - shift(Generator_status, over=snapshot, offset=1))
+```
+
+$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t - 1,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - u_{t - 1,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_up`
+
+`Generator_p_ramp_limit_up_com_initial`
+
+```yaml
+Generator_p_ramp_limit_up_com_initial:
+  description: >-
+    `Generator-p-ramp_limit_up` — a unit that was off ramps its first
+    snapshot from an output of nothing; one already on brought an unknown
+    output, so it carries no row
+  foreach: [snapshot, generator]
+  where: >-
+    Generator_committable AND not Generator_p_nom_extendable
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+  expression: >-
+    Generator_p <=
+    Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
+    + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
+```
+
+$$p_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathrm{u}^{0}_{g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathrm{u}^{0}_{g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+
+### `Generator-p-ramp_limit_down`
+
+`Generator_p_ramp_limit_down_com`
+
+```yaml
+Generator_p_ramp_limit_down_com:
+  description: >-
+    `Generator-p-ramp_limit_down` — a committed unit lowers output no
+    faster than its limit while it stays on, and no further than its
+    shut-down ramp in the snapshot it turns off
+  foreach: [snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_down
+  expression: >-
+    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
+    Generator_ramp_limit_down * Generator_p_nom * Generator_status
+    + Generator_ramp_limit_shut_down * Generator_p_nom
+    * (shift(Generator_status, over=snapshot, offset=1) - Generator_status)
+```
+
+$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t - 1,g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_down`
+
+`Generator_p_ramp_limit_down_com_initial`
+
+```yaml
+Generator_p_ramp_limit_down_com_initial:
+  description: >-
+    `Generator-p-ramp_limit_down` — a unit that was off ramps its first
+    snapshot down from an output of nothing; one already on carries no row
+  foreach: [snapshot, generator]
+  where: >-
+    Generator_committable AND not Generator_p_nom_extendable
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+  expression: >-
+    -Generator_p <=
+    Generator_ramp_limit_down * Generator_p_nom * Generator_status
+    + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
+```
+
+$$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+
+### `Generator-p-ramp_limit_up`
+
+`Generator_p_ramp_limit_up_fix`
+
+```yaml
+Generator_p_ramp_limit_up_fix:
+  description: >-
+    `Generator-p-ramp_limit_up` — a fixed generator raises output no faster
+    than its limit. The translated term vacates the first snapshot, where a
+    plain optimize builds no row either
+  foreach: [snapshot, generator]
+  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
+  expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom
+```
+
+$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_down`
+
+`Generator_p_ramp_limit_down_fix`
+
+```yaml
+Generator_p_ramp_limit_down_fix:
+  description: "`Generator-p-ramp_limit_down` — a fixed generator lowers output no faster than its limit"
+  foreach: [snapshot, generator]
+  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
+  expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom
+```
+
+$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_up`
+
+`Generator_p_ramp_limit_up_ext`
+
+```yaml
+Generator_p_ramp_limit_up_ext:
+  description: "`Generator-p-ramp_limit_up` — an extendable generator raises output no faster than its limit of the chosen build"
+  foreach: [snapshot, generator]
+  where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
+  expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom_ext
+```
+
+$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_down`
+
+`Generator_p_ramp_limit_down_ext`
+
+```yaml
+Generator_p_ramp_limit_down_ext:
+  description: "`Generator-p-ramp_limit_down` — an extendable generator lowers output no faster than its limit of the chosen build"
+  foreach: [snapshot, generator]
+  where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
+  expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom_ext
+```
+
+$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+
+### `Link-p-ramp_limit_up`
+
+`Link_p_ramp_limit_up_fix`
+
+```yaml
+Link_p_ramp_limit_up_fix:
+  description: "`Link-p-ramp_limit_up` — a fixed link raises flow no faster than its limit"
+  foreach: [snapshot, link]
+  where: not Link_p_nom_extendable AND Link_ramp_limit_up
+  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom
+```
+
+$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined}$$
+
+### `Link-p-ramp_limit_down`
+
+`Link_p_ramp_limit_down_fix`
+
+```yaml
+Link_p_ramp_limit_down_fix:
+  description: "`Link-p-ramp_limit_down` — a fixed link lowers flow no faster than its limit"
+  foreach: [snapshot, link]
+  where: not Link_p_nom_extendable AND Link_ramp_limit_down
+  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom
+```
+
+$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined}$$
+
+### `Link-p-ramp_limit_up`
+
+`Link_p_ramp_limit_up_ext`
+
+```yaml
+Link_p_ramp_limit_up_ext:
+  description: "`Link-p-ramp_limit_up` — an extendable link raises flow no faster than its limit of the chosen build"
+  foreach: [snapshot, link]
+  where: Link_p_nom_extendable AND Link_ramp_limit_up
+  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_ext
+```
+
+$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined}$$
+
+### `Link-p-ramp_limit_down`
+
+`Link_p_ramp_limit_down_ext`
+
+```yaml
+Link_p_ramp_limit_down_ext:
+  description: "`Link-p-ramp_limit_down` — an extendable link lowers flow no faster than its limit of the chosen build"
+  foreach: [snapshot, link]
+  where: Link_p_nom_extendable AND Link_ramp_limit_down
+  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_ext
+```
+
+$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined}$$
+
+### `StorageUnit-ext-p_dispatch-lower`
+
+`StorageUnit_ext_p_dispatch_lower`
+
+```yaml
+StorageUnit_ext_p_dispatch_lower:
+  description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_dispatch >= 0
+```
+
+$$h^{+}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_dispatch-upper`
+
+`StorageUnit_ext_p_dispatch_upper`
+
+```yaml
+StorageUnit_ext_p_dispatch_upper:
+  description: "`StorageUnit-ext-p_dispatch-upper` — an extendable unit dispatches at most the chosen build"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom_ext
+```
+
+$$h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_store-lower`
+
+`StorageUnit_ext_p_store_lower`
+
+```yaml
+StorageUnit_ext_p_store_lower:
+  description: "`StorageUnit-ext-p_store-lower` — storing is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_store >= 0
+```
+
+$$h^{-}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_store-upper`
+
+`StorageUnit_ext_p_store_upper`
+
+```yaml
+StorageUnit_ext_p_store_upper:
+  description: >-
+    `StorageUnit-ext-p_store-upper` — an extendable unit stores at most the
+    chosen build, the minimum-per-unit column carrying that cap negated
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom_ext
+```
+
+$$h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-state_of_charge-lower`
+
+`StorageUnit_ext_state_of_charge_lower`
+
+```yaml
+StorageUnit_ext_state_of_charge_lower:
+  description: "`StorageUnit-ext-state_of_charge-lower` — charge is non-negative"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_state_of_charge >= 0
+```
+
+$$\mathit{soc}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-state_of_charge-upper`
+
+`StorageUnit_ext_state_of_charge_upper`
+
+```yaml
+StorageUnit_ext_state_of_charge_upper:
+  description: "`StorageUnit-ext-state_of_charge-upper` — an extendable unit holds at most its hours at the chosen build"
+  foreach: [snapshot, storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom_ext
+```
+
+$$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_nom-lower`
+
+`StorageUnit_ext_p_nom_lower`
+
+```yaml
+StorageUnit_ext_p_nom_lower:
+  description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor"
+  foreach: [storage_unit]
+  where: StorageUnit_p_nom_extendable
+  expression: StorageUnit_p_nom_ext >= StorageUnit_p_nom_min
+```
+
+$$H_{s} \ge \underline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+
+### `StorageUnit-ext-p_nom-upper`
+
+`StorageUnit_ext_p_nom_upper`
+
+```yaml
+StorageUnit_ext_p_nom_upper:
+  description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_max
+  expression: StorageUnit_p_nom_ext <= StorageUnit_p_nom_max
+```
+
+$$H_{s} \le \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s} \wedge \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \text{ is defined}$$
+
+### `StorageUnit-p_nom_set`
+
+`StorageUnit_p_nom_set`
+
+```yaml
+StorageUnit_p_nom_set:
+  description: "`StorageUnit-p_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [storage_unit]
+  where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_set
+  expression: StorageUnit_p_nom_ext == StorageUnit_p_nom_set
+```
+
+$$H_{s} = \mathrm{h}^{\mathrm{nom,set}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s} \wedge \mathrm{h}^{\mathrm{nom,set}}_{s} \text{ is defined}$$
+
+### `Store-ext-e-lower`
+
+`Store_ext_e_lower`
+
+```yaml
+Store_ext_e_lower:
+  description: "`Store-ext-e-lower` — an extendable store holds at least its floor of the chosen build"
+  foreach: [snapshot, store]
+  where: Store_e_nom_extendable
+  expression: Store_e >= Store_e_min_pu * Store_e_nom_ext
+```
+
+$$e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
+
+### `Store-ext-e-upper`
+
+`Store_ext_e_upper`
+
+```yaml
+Store_ext_e_upper:
+  description: "`Store-ext-e-upper` — an extendable store holds at most the chosen build"
+  foreach: [snapshot, store]
+  where: Store_e_nom_extendable
+  expression: Store_e <= Store_e_max_pu * Store_e_nom_ext
+```
+
+$$e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
+
+### `Store-ext-e_nom-lower`
+
+`Store_ext_e_nom_lower`
+
+```yaml
+Store_ext_e_nom_lower:
+  description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor"
+  foreach: [store]
+  where: Store_e_nom_extendable
+  expression: Store_e_nom_ext >= Store_e_nom_min
+```
+
+$$E_{v} \ge \underline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
+
+### `Store-ext-e_nom-upper`
+
+`Store_ext_e_nom_upper`
+
+```yaml
+Store_ext_e_nom_upper:
+  description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [store]
+  where: Store_e_nom_extendable AND Store_e_nom_max
+  expression: Store_e_nom_ext <= Store_e_nom_max
+```
+
+$$E_{v} \le \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v} \wedge \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \text{ is defined}$$
+
+### `Store-e_nom_set`
+
+`Store_e_nom_set`
+
+```yaml
+Store_e_nom_set:
+  description: "`Store-e_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [store]
+  where: Store_e_nom_extendable AND Store_e_nom_set
+  expression: Store_e_nom_ext == Store_e_nom_set
+```
+
+$$E_{v} = \mathrm{e}^{\mathrm{nom,set}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v} \wedge \mathrm{e}^{\mathrm{nom,set}}_{v} \text{ is defined}$$
+
+### `transmission_volume_expansion_limit`
+
+`GlobalConstraint_transmission_volume_expansion_limit_ub`
+
+```yaml
+GlobalConstraint_transmission_volume_expansion_limit_ub:
+  description: "`transmission_volume_expansion_limit` — its total, at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
+  expression: transmission_volume_expansion <= GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
+
+### `transmission_expansion_cost_limit`
+
+`GlobalConstraint_transmission_expansion_cost_limit_lb`
+
+```yaml
+GlobalConstraint_transmission_expansion_cost_limit_lb:
+  description: "`transmission_expansion_cost_limit` — its total, at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
+  expression: transmission_expansion_cost >= GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
+
+### `transmission_expansion_cost_limit`
+
+`GlobalConstraint_transmission_expansion_cost_limit_eq`
+
+```yaml
+GlobalConstraint_transmission_expansion_cost_limit_eq:
+  description: "`transmission_expansion_cost_limit` — its total, at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
+  expression: transmission_expansion_cost == GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
+
+### `tech_capacity_expansion_limit`
+
+`GlobalConstraint_tech_capacity_expansion_limit_ub`
+
+```yaml
+GlobalConstraint_tech_capacity_expansion_limit_ub:
+  description: "`tech_capacity_expansion_limit` — its total, at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
+  expression: tech_capacity_expansion <= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
+
+### `tech_capacity_expansion_limit`
+
+`GlobalConstraint_tech_capacity_expansion_limit_lb`
+
+```yaml
+GlobalConstraint_tech_capacity_expansion_limit_lb:
+  description: "`tech_capacity_expansion_limit` — its total, at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
+  expression: tech_capacity_expansion >= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
+
+### `tech_capacity_expansion_limit`
+
+`GlobalConstraint_tech_capacity_expansion_limit_eq`
+
+```yaml
+GlobalConstraint_tech_capacity_expansion_limit_eq:
+  description: "`tech_capacity_expansion_limit` — its total, at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
+  expression: tech_capacity_expansion == GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 <!-- reference:rung_03_expansion:end -->
 
 ### Rung 4 — ramps
@@ -483,6 +1518,90 @@ def build():
 ```
 
 </details>
+
+### `primary_energy`
+
+`GlobalConstraint_primary_energy_ub`
+
+```yaml
+GlobalConstraint_primary_energy_ub:
+  description: "`primary_energy` — its total, at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
+  expression: primary_energy <= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
+
+### `primary_energy`
+
+`GlobalConstraint_primary_energy_lb`
+
+```yaml
+GlobalConstraint_primary_energy_lb:
+  description: "`primary_energy` — its total, at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
+  expression: primary_energy >= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
+
+### `primary_energy`
+
+`GlobalConstraint_primary_energy_eq`
+
+```yaml
+GlobalConstraint_primary_energy_eq:
+  description: "`primary_energy` — its total, at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
+  expression: primary_energy == GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
+
+### `operational_limit`
+
+`GlobalConstraint_operational_limit_ub`
+
+```yaml
+GlobalConstraint_operational_limit_ub:
+  description: "`operational_limit` — its total, at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
+  expression: operational_limit <= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
+
+### `operational_limit`
+
+`GlobalConstraint_operational_limit_lb`
+
+```yaml
+GlobalConstraint_operational_limit_lb:
+  description: "`operational_limit` — its total, at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
+  expression: operational_limit >= GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
+
+### `operational_limit`
+
+`GlobalConstraint_operational_limit_eq`
+
+```yaml
+GlobalConstraint_operational_limit_eq:
+  description: "`operational_limit` — its total, at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
+  expression: operational_limit == GlobalConstraint_constant
+```
+
+$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
 <!-- reference:rung_05_global_constraints:end -->
 
 ### Rung 6 — KVL
@@ -593,6 +1712,176 @@ def build():
 ```
 
 </details>
+
+### `Line-fix-s-lower`
+
+`Line_fix_s_lower`
+
+```yaml
+Line_fix_s_lower:
+  description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
+  foreach: [snapshot, line]
+  where: not Line_s_nom_extendable
+  expression: Line_s >= -Line_s_max_pu * Line_s_nom
+```
+
+$$s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \neg \mathrm{ext}^{s}_{k}$$
+
+### `Line-fix-s-upper`
+
+`Line_fix_s_upper`
+
+```yaml
+Line_fix_s_upper:
+  description: "`Line-fix-s-upper` — a fixed line carries at most its rating"
+  foreach: [snapshot, line]
+  where: not Line_s_nom_extendable
+  expression: Line_s <= Line_s_max_pu * Line_s_nom
+```
+
+$$s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \neg \mathrm{ext}^{s}_{k}$$
+
+### `Line-ext-s-lower`
+
+`Line_ext_s_lower`
+
+```yaml
+Line_ext_s_lower:
+  description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
+  foreach: [snapshot, line]
+  where: Line_s_nom_extendable
+  expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
+```
+
+$$s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
+
+### `Line-ext-s-upper`
+
+`Line_ext_s_upper`
+
+```yaml
+Line_ext_s_upper:
+  description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
+  foreach: [snapshot, line]
+  where: Line_s_nom_extendable
+  expression: Line_s <= Line_s_max_pu * Line_s_nom_ext
+```
+
+$$s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
+
+### `Line-ext-s_nom-lower`
+
+`Line_ext_s_nom_lower`
+
+```yaml
+Line_ext_s_nom_lower:
+  description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
+  foreach: [line]
+  where: Line_s_nom_extendable
+  expression: Line_s_nom_ext >= Line_s_nom_min
+```
+
+$$S_{k} \ge \underline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
+
+### `Line-ext-s_nom-upper`
+
+`Line_ext_s_nom_upper`
+
+```yaml
+Line_ext_s_nom_upper:
+  description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+  foreach: [line]
+  where: Line_s_nom_extendable AND Line_s_nom_max
+  expression: Line_s_nom_ext <= Line_s_nom_max
+```
+
+$$S_{k} \le \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k} \wedge \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \text{ is defined}$$
+
+### `Line-s_nom_set`
+
+`Line_s_nom_set`
+
+```yaml
+Line_s_nom_set:
+  description: "`Line-s_nom_set` — the chosen build pinned, wherever a value is given"
+  foreach: [line]
+  where: Line_s_nom_extendable AND Line_s_nom_set
+  expression: Line_s_nom_ext == Line_s_nom_set
+```
+
+$$S_{k} = \mathrm{s}^{\mathrm{nom,set}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k} \wedge \mathrm{s}^{\mathrm{nom,set}}_{k} \text{ is defined}$$
+
+### `Line-s_set`
+
+`Line_s_set`
+
+```yaml
+Line_s_set:
+  description: "`Line-s_set` — flow pinned to the given schedule, wherever one is given"
+  foreach: [snapshot, line]
+  where: Line_s_set
+  expression: Line_s == Line_s_set
+```
+
+$$s_{t,k} = \mathrm{s}^{\mathrm{set}}_{t,k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{s}^{\mathrm{set}}_{t,k} \text{ is defined}$$
+
+### `Kirchhoff-Voltage-Law`
+
+`Kirchhoff_Voltage_Law`
+
+```yaml
+Kirchhoff_Voltage_Law:
+  description: >-
+    `Kirchhoff-Voltage-Law` — around every independent cycle the
+    impedance-weighted flows sum to nothing, which is what makes the linear
+    power flow physical rather than transport
+  foreach: [snapshot, cycle]
+  expression: sum(Line_s * Line_cycle_weight, over=line) == 0
+```
+
+$$\sum_{k \in \mathcal{K}} s_{t,k} \cdot \mathrm{x}_{k,c} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace c \in \mathcal{C}$$
+
+### `transmission_volume_expansion_limit`
+
+`GlobalConstraint_transmission_volume_expansion_limit_lb`
+
+```yaml
+GlobalConstraint_transmission_volume_expansion_limit_lb:
+  description: "`transmission_volume_expansion_limit` — its total, at least its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
+  expression: transmission_volume_expansion >= GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
+
+### `transmission_volume_expansion_limit`
+
+`GlobalConstraint_transmission_volume_expansion_limit_eq`
+
+```yaml
+GlobalConstraint_transmission_volume_expansion_limit_eq:
+  description: "`transmission_volume_expansion_limit` — its total, at its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
+  expression: transmission_volume_expansion == GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
+
+### `transmission_expansion_cost_limit`
+
+`GlobalConstraint_transmission_expansion_cost_limit_ub`
+
+```yaml
+GlobalConstraint_transmission_expansion_cost_limit_ub:
+  description: "`transmission_expansion_cost_limit` — its total, at most its constant"
+  foreach: [global_constraint]
+  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
+  expression: transmission_expansion_cost <= GlobalConstraint_constant
+```
+
+$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
 <!-- reference:rung_06_kvl:end -->
 
 ### Rung 7 — commitment
@@ -666,6 +1955,180 @@ def build():
 ```
 
 </details>
+
+### `Generator-com-p-lower`
+
+`Generator_com_p_lower`
+
+```yaml
+Generator_com_p_lower:
+  description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable
+  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
+```
+
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g}$$
+
+### `Generator-com-p-upper`
+
+`Generator_com_p_upper`
+
+```yaml
+Generator_com_p_upper:
+  description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND not Generator_p_nom_extendable
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
+```
+
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g}$$
+
+### `Generator-com-transition-start-up`
+
+`Generator_com_transition_start_up`
+
+```yaml
+Generator_com_transition_start_up:
+  description: >-
+    `Generator-com-transition-start-up` — turning on is a start. The
+    translated term vacates the first snapshot; the initial block below
+    compares it against the given status instead
+  foreach: [snapshot, generator]
+  where: Generator_committable
+  expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
+```
+
+$$\mathit{up}_{t,g} \ge u_{t,g} - u_{t - 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
+### `Generator-com-transition-start-up`
+
+`Generator_com_transition_start_up_initial`
+
+```yaml
+Generator_com_transition_start_up_initial:
+  description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND position(snapshot) == 0
+  expression: Generator_start_up >= Generator_status - Generator_status_initial
+```
+
+$$\mathit{up}_{t,g} \ge u_{t,g} - \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
+
+### `Generator-com-transition-shut-down`
+
+`Generator_com_transition_shut_down`
+
+```yaml
+Generator_com_transition_shut_down:
+  description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
+  foreach: [snapshot, generator]
+  where: Generator_committable
+  expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
+```
+
+$$\mathit{dn}_{t,g} \ge u_{t - 1,g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
+### `Generator-com-transition-shut-down`
+
+`Generator_com_transition_shut_down_initial`
+
+```yaml
+Generator_com_transition_shut_down_initial:
+  description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND position(snapshot) == 0
+  expression: Generator_shut_down >= Generator_status_initial - Generator_status
+```
+
+$$\mathit{dn}_{t,g} \ge \mathrm{u}^{0}_{g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
+
+### `Generator-com-up-time`
+
+`Generator_com_up_time`
+
+```yaml
+Generator_com_up_time:
+  description: >-
+    `Generator-com-up-time` — a unit started within its own minimum up time
+    is still on. The first snapshot's share of the window is the brought-in
+    up time's, which the must-stay-up mask carries
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
+  expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < \mathrm{UT}} \mathit{up}_{t',g} \le u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{UT}_{g} > 0 \wedge \mathrm{pos}(t) > 0$$
+
+### `Generator-com-down-time`
+
+`Generator_com_down_time`
+
+```yaml
+Generator_com_down_time:
+  description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
+  expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < \mathrm{DT}} \mathit{dn}_{t',g} \le 1 - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{DT}_{g} > 0 \wedge \mathrm{pos}(t) > 0$$
+
+### `Generator-com-status-min_up_time_must_stay_up`
+
+`Generator_com_status_must_stay_up`
+
+```yaml
+Generator_com_status_must_stay_up:
+  description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_must_stay_up
+  expression: Generator_status == 1
+```
+
+$$u_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g}$$
+
+### `Generator-status-p-fixed-upper`
+
+`Generator_status_p_fixed_upper`
+
+```yaml
+Generator_status_p_fixed_upper:
+  description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+  expression: Generator_status <= 1
+```
+
+$$u_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+
+### `Generator-start_up-p-fixed-upper`
+
+`Generator_start_up_p_fixed_upper`
+
+```yaml
+Generator_start_up_p_fixed_upper:
+  description: "`Generator-start_up-p-fixed-upper` — a start is at most one, an explicit row as PyPSA writes it"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+  expression: Generator_start_up <= 1
+```
+
+$$\mathit{up}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+
+### `Generator-shut_down-p-fixed-upper`
+
+`Generator_shut_down_p_fixed_upper`
+
+```yaml
+Generator_shut_down_p_fixed_upper:
+  description: "`Generator-shut_down-p-fixed-upper` — a stop is at most one, an explicit row as PyPSA writes it"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
+  expression: Generator_shut_down <= 1
+```
+
+$$\mathit{dn}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 <!-- reference:rung_07_commitment:end -->
 
 ### Rung 8 — modular and big-M
@@ -744,6 +2207,314 @@ def build():
 ```
 
 </details>
+
+### `Generator-p-ramp_limit_up-run-bigM`
+
+`Generator_p_ramp_limit_up_run_big_m`
+
+```yaml
+Generator_p_ramp_limit_up_run_big_m:
+  description: >-
+    `Generator-p-ramp_limit_up-run-bigM` — a committed extendable unit
+    raises output no faster than its limit of the chosen build; the big M
+    releases the row in the snapshot it turns on
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+  expression: >-
+    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
+    Generator_ramp_limit_up * Generator_p_nom_ext
+    + Generator_big_m - Generator_big_m * shift(Generator_status, over=snapshot, offset=1)
+```
+
+$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t - 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_up-run-bigM`
+
+`Generator_p_ramp_limit_up_run_big_m_initial`
+
+```yaml
+Generator_p_ramp_limit_up_run_big_m_initial:
+  description: "`Generator-p-ramp_limit_up-run-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
+  foreach: [snapshot, generator]
+  where: >-
+    Generator_committable AND Generator_p_nom_extendable
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+  expression: >-
+    Generator_p <=
+    Generator_ramp_limit_up * Generator_p_nom_ext
+    + Generator_big_m - Generator_big_m * Generator_status_initial
+```
+
+$$p_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+
+### `Generator-p-ramp_limit_up-start-bigM`
+
+`Generator_p_ramp_limit_up_start_big_m`
+
+```yaml
+Generator_p_ramp_limit_up_start_big_m:
+  description: >-
+    `Generator-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
+    committed extendable unit ramps no further than its start-up ramp of
+    the chosen build; the big M releases the row everywhere else
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+  expression: >-
+    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
+    Generator_ramp_limit_start_up * Generator_p_nom_ext
+    + Generator_big_m - Generator_big_m * Generator_start_up
+```
+
+$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_up-start-bigM`
+
+`Generator_p_ramp_limit_up_start_big_m_initial`
+
+```yaml
+Generator_p_ramp_limit_up_start_big_m_initial:
+  description: "`Generator-p-ramp_limit_up-start-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
+  foreach: [snapshot, generator]
+  where: >-
+    Generator_committable AND Generator_p_nom_extendable
+    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+  expression: >-
+    Generator_p <=
+    Generator_ramp_limit_start_up * Generator_p_nom_ext
+    + Generator_big_m - Generator_big_m * Generator_start_up
+```
+
+$$p_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+
+### `Generator-p-ramp_limit_down-run-bigM`
+
+`Generator_p_ramp_limit_down_run_big_m`
+
+```yaml
+Generator_p_ramp_limit_down_run_big_m:
+  description: >-
+    `Generator-p-ramp_limit_down-run-bigM` — a committed extendable unit
+    lowers output no faster than its limit of the chosen build; the big M
+    releases the row in the snapshot it turns off
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+  expression: >-
+    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
+    Generator_ramp_limit_down * Generator_p_nom_ext
+    + Generator_big_m - Generator_big_m * Generator_status
+```
+
+$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_down-run-bigM`
+
+`Generator_p_ramp_limit_down_run_big_m_initial`
+
+```yaml
+Generator_p_ramp_limit_down_run_big_m_initial:
+  description: "`Generator-p-ramp_limit_down-run-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
+  foreach: [snapshot, generator]
+  where: >-
+    Generator_committable AND Generator_p_nom_extendable
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+  expression: >-
+    -Generator_p <=
+    Generator_ramp_limit_down * Generator_p_nom_ext
+    + Generator_big_m - Generator_big_m * Generator_status
+```
+
+$$-p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+
+### `Generator-p-ramp_limit_down-shut-bigM`
+
+`Generator_p_ramp_limit_down_shut_big_m`
+
+```yaml
+Generator_p_ramp_limit_down_shut_big_m:
+  description: >-
+    `Generator-p-ramp_limit_down-shut-bigM` — in the snapshot it turns off,
+    a committed extendable unit ramps no further than its shut-down ramp of
+    the chosen build; the big M releases the row everywhere else
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+  expression: >-
+    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
+    Generator_ramp_limit_shut_down * Generator_p_nom_ext
+    + Generator_big_m - Generator_big_m * Generator_shut_down
+```
+
+$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+
+### `Generator-p-ramp_limit_down-shut-bigM`
+
+`Generator_p_ramp_limit_down_shut_big_m_initial`
+
+```yaml
+Generator_p_ramp_limit_down_shut_big_m_initial:
+  description: "`Generator-p-ramp_limit_down-shut-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
+  foreach: [snapshot, generator]
+  where: >-
+    Generator_committable AND Generator_p_nom_extendable
+    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+  expression: >-
+    -Generator_p <=
+    Generator_ramp_limit_shut_down * Generator_p_nom_ext
+    + Generator_big_m - Generator_big_m * Generator_shut_down
+```
+
+$$-p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+
+### `Generator-p_nom_modularity`
+
+`Generator_p_nom_modularity`
+
+```yaml
+Generator_p_nom_modularity:
+  description: "`Generator-p_nom_modularity` — the chosen build is a whole number of modules"
+  foreach: [generator]
+  where: Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  expression: Generator_p_nom_ext == Generator_p_nom_mod * Generator_n_mod
+```
+
+$$P_{g} = \mathrm{p}^{\mathrm{mod}}_{g} \cdot N_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+
+### `Generator-com-ext-p-upper-cap`
+
+`Generator_com_ext_p_upper_cap`
+
+```yaml
+Generator_com_ext_p_upper_cap:
+  description: >-
+    `Generator-com-ext-p-upper-cap` — a committed extendable unit outputs
+    at most what is available of the chosen build, whatever its status
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+```
+
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+
+### `Generator-com-ext-p-upper-bigM`
+
+`Generator_com_ext_p_upper_big_m`
+
+```yaml
+Generator_com_ext_p_upper_big_m:
+  description: "`Generator-com-ext-p-upper-bigM` — off, a unit outputs nothing; on, the big M is no bound"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+  expression: Generator_p <= Generator_big_m * Generator_status
+```
+
+$$p_{t,g} \le \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+
+### `Generator-com-ext-p-lower`
+
+`Generator_com_ext_p_lower`
+
+```yaml
+Generator_com_ext_p_lower:
+  description: >-
+    `Generator-com-ext-p-lower` — a committed extendable unit outputs at
+    least its minimum of the chosen build; off, the big M releases the row
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
+  expression: >-
+    Generator_p >=
+    Generator_p_min_pu * Generator_p_nom_ext
+    + Generator_big_m * Generator_status - Generator_big_m
+```
+
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} + \mathrm{M}_{g} \cdot u_{t,g} - \mathrm{M}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+
+### `Generator-com-ext-p-lower-nonneg`
+
+`Generator_com_ext_p_lower_nonneg`
+
+```yaml
+Generator_com_ext_p_lower_nonneg:
+  description: >-
+    `Generator-com-ext-p-lower-nonneg` — where no minimum-per-unit is
+    negative, output is also plainly non-negative, a row the big-M lower
+    cannot assert while the unit is off
+  foreach: [snapshot, generator]
+  where: >-
+    Generator_committable AND Generator_p_nom_extendable
+    AND Generator_p_min_pu_nonneg AND NOT (Generator_p_nom_mod > 0)
+  expression: Generator_p >= 0
+```
+
+$$p_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+
+### `Generator-com-mod-p-lower`
+
+`Generator_com_mod_p_lower`
+
+```yaml
+Generator_com_mod_p_lower:
+  description: "`Generator-com-mod-p-lower` — a committed modular unit outputs at least its minimum of one module"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_mod * Generator_status
+```
+
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+
+### `Generator-com-mod-p-upper`
+
+`Generator_com_mod_p_upper`
+
+```yaml
+Generator_com_mod_p_upper:
+  description: "`Generator-com-mod-p-upper` — a committed modular unit outputs at most one module's share"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_mod * Generator_status
+```
+
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+
+### `Generator-status-p_nom-variable-upper`
+
+`Generator_status_p_nom_variable_upper`
+
+```yaml
+Generator_status_p_nom_variable_upper:
+  description: "`Generator-status-p_nom-variable-upper` — a modular unit is on only where a module is built"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  expression: Generator_status <= Generator_n_mod
+```
+
+$$u_{t,g} \le N_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+
+### `Generator-start_up-p_nom-variable-upper`
+
+`Generator_start_up_p_nom_variable_upper`
+
+```yaml
+Generator_start_up_p_nom_variable_upper:
+  description: "`Generator-start_up-p_nom-variable-upper` — a modular unit starts only where a module is built"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  expression: Generator_start_up <= Generator_n_mod
+```
+
+$$\mathit{up}_{t,g} \le N_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+
+### `Generator-shut_down-p_nom-variable-upper`
+
+`Generator_shut_down_p_nom_variable_upper`
+
+```yaml
+Generator_shut_down_p_nom_variable_upper:
+  description: "`Generator-shut_down-p_nom-variable-upper` — a modular unit stops only where a module is built"
+  foreach: [snapshot, generator]
+  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  expression: Generator_shut_down <= Generator_n_mod
+```
+
+$$\mathit{dn}_{t,g} \le N_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
 <!-- reference:rung_08_modular_big_m:end -->
 
 ### Rung 9 — multi-link and delay
@@ -1398,1774 +3169,7 @@ objective:
 
 $$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} u_{t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{up}_{t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{dn}_{t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g}$$
 
-### `Generator-fix-p-lower`
-
-`Generator_fix_p_lower`
-
-```yaml
-Generator_fix_p_lower:
-  description: "`Generator-fix-p-lower` — a fixed generator outputs at least its minimum"
-  foreach: [snapshot, generator]
-  where: not Generator_p_nom_extendable AND not Generator_committable
-  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
-```
-
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
-
-### `Generator-fix-p-upper`
-
-`Generator_fix_p_upper`
-
-```yaml
-Generator_fix_p_upper:
-  description: "`Generator-fix-p-upper` — a fixed generator outputs at most what is available"
-  foreach: [snapshot, generator]
-  where: not Generator_p_nom_extendable AND not Generator_committable
-  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
-```
-
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
-
-### `Link-fix-p-lower`
-
-`Link_fix_p_lower`
-
-```yaml
-Link_fix_p_lower:
-  description: "`Link-fix-p-lower` — a fixed link carries at least its minimum, negative for the other way"
-  foreach: [snapshot, link]
-  where: not Link_p_nom_extendable
-  expression: Link_p >= Link_p_min_pu * Link_p_nom
-```
-
-$$f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l}$$
-
-### `Link-fix-p-upper`
-
-`Link_fix_p_upper`
-
-```yaml
-Link_fix_p_upper:
-  description: "`Link-fix-p-upper` — a fixed link carries at most its nominal power"
-  foreach: [snapshot, link]
-  where: not Link_p_nom_extendable
-  expression: Link_p <= Link_p_max_pu * Link_p_nom
-```
-
-$$f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l}$$
-
-### `Generator-ext-p-lower`
-
-`Generator_ext_p_lower`
-
-```yaml
-Generator_ext_p_lower:
-  description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
-  foreach: [snapshot, generator]
-  where: Generator_p_nom_extendable AND not Generator_committable
-  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
-```
-
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
-
-### `Generator-ext-p-upper`
-
-`Generator_ext_p_upper`
-
-```yaml
-Generator_ext_p_upper:
-  description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
-  foreach: [snapshot, generator]
-  where: Generator_p_nom_extendable AND not Generator_committable
-  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
-```
-
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
-
-### `Generator-ext-p_nom-lower`
-
-`Generator_ext_p_nom_lower`
-
-```yaml
-Generator_ext_p_nom_lower:
-  description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
-  foreach: [generator]
-  where: Generator_p_nom_extendable
-  expression: Generator_p_nom_ext >= Generator_p_nom_min
-```
-
-$$P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
-
-### `Generator-ext-p_nom-upper`
-
-`Generator_ext_p_nom_upper`
-
-```yaml
-Generator_ext_p_nom_upper:
-  description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  foreach: [generator]
-  where: Generator_p_nom_extendable AND Generator_p_nom_max
-  expression: Generator_p_nom_ext <= Generator_p_nom_max
-```
-
-$$P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \text{ is defined}$$
-
-### `Generator-p_nom_set`
-
-`Generator_p_nom_set`
-
-```yaml
-Generator_p_nom_set:
-  description: "`Generator-p_nom_set` — the chosen build pinned, wherever a value is given"
-  foreach: [generator]
-  where: Generator_p_nom_extendable AND Generator_p_nom_set
-  expression: Generator_p_nom_ext == Generator_p_nom_set
-```
-
-$$P_{g} = \mathrm{p}^{\mathrm{nom,set}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{nom,set}}_{g} \text{ is defined}$$
-
-### `Generator-e_sum_min`
-
-`Generator_e_sum_min`
-
-```yaml
-Generator_e_sum_min:
-  description: "`Generator-e_sum_min` — energy over the horizon is at least its floor; a floor of minus infinity is no row"
-  foreach: [generator]
-  where: Generator_e_sum_min
-  expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) >= Generator_e_sum_min
-```
-
-$$\sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \ge \underline{\mathrm{E}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \underline{\mathrm{E}}_{g} \text{ is defined}$$
-
-### `Generator-e_sum_max`
-
-`Generator_e_sum_max`
-
-```yaml
-Generator_e_sum_max:
-  description: "`Generator-e_sum_max` — energy over the horizon is at most its budget; a budget of infinity is no row"
-  foreach: [generator]
-  where: Generator_e_sum_max
-  expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) <= Generator_e_sum_max
-```
-
-$$\sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \le \overline{\mathrm{E}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \overline{\mathrm{E}}_{g} \text{ is defined}$$
-
-### `Link-ext-p-lower`
-
-`Link_ext_p_lower`
-
-```yaml
-Link_ext_p_lower:
-  description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
-  foreach: [snapshot, link]
-  where: Link_p_nom_extendable
-  expression: Link_p >= Link_p_min_pu * Link_p_nom_ext
-```
-
-$$f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
-
-### `Link-ext-p-upper`
-
-`Link_ext_p_upper`
-
-```yaml
-Link_ext_p_upper:
-  description: "`Link-ext-p-upper` — an extendable link carries at most the chosen build"
-  foreach: [snapshot, link]
-  where: Link_p_nom_extendable
-  expression: Link_p <= Link_p_max_pu * Link_p_nom_ext
-```
-
-$$f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
-
-### `Link-ext-p_nom-lower`
-
-`Link_ext_p_nom_lower`
-
-```yaml
-Link_ext_p_nom_lower:
-  description: "`Link-ext-p_nom-lower` — the chosen build is at least its floor"
-  foreach: [link]
-  where: Link_p_nom_extendable
-  expression: Link_p_nom_ext >= Link_p_nom_min
-```
-
-$$F_{l} \ge \underline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l}$$
-
-### `Link-ext-p_nom-upper`
-
-`Link_ext_p_nom_upper`
-
-```yaml
-Link_ext_p_nom_upper:
-  description: "`Link-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  foreach: [link]
-  where: Link_p_nom_extendable AND Link_p_nom_max
-  expression: Link_p_nom_ext <= Link_p_nom_max
-```
-
-$$F_{l} \le \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \overline{\mathrm{f}}^{\mathrm{nom}}_{l} \text{ is defined}$$
-
-### `Link-p_nom_set`
-
-`Link_p_nom_set`
-
-```yaml
-Link_p_nom_set:
-  description: "`Link-p_nom_set` — the chosen build pinned, wherever a value is given"
-  foreach: [link]
-  where: Link_p_nom_extendable AND Link_p_nom_set
-  expression: Link_p_nom_ext == Link_p_nom_set
-```
-
-$$F_{l} = \mathrm{f}^{\mathrm{nom,set}}_{l} \qquad \forall\thinspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{f}^{\mathrm{nom,set}}_{l} \text{ is defined}$$
-
-### `StorageUnit-fix-p_dispatch-lower`
-
-`StorageUnit_fix_p_dispatch_lower`
-
-```yaml
-StorageUnit_fix_p_dispatch_lower:
-  description: "`StorageUnit-fix-p_dispatch-lower` — dispatch is non-negative"
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_dispatch >= 0
-```
-
-$$h^{+}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-fix-p_dispatch-upper`
-
-`StorageUnit_fix_p_dispatch_upper`
-
-```yaml
-StorageUnit_fix_p_dispatch_upper:
-  description: "`StorageUnit-fix-p_dispatch-upper` — a fixed unit dispatches at most its nominal power"
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom
-```
-
-$$h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-fix-p_store-lower`
-
-`StorageUnit_fix_p_store_lower`
-
-```yaml
-StorageUnit_fix_p_store_lower:
-  description: "`StorageUnit-fix-p_store-lower` — storing is non-negative"
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_store >= 0
-```
-
-$$h^{-}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-fix-p_store-upper`
-
-`StorageUnit_fix_p_store_upper`
-
-```yaml
-StorageUnit_fix_p_store_upper:
-  description: >-
-    `StorageUnit-fix-p_store-upper` — a fixed unit stores at most its
-    nominal power, the minimum-per-unit column carrying that cap negated
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom
-```
-
-$$h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-fix-state_of_charge-lower`
-
-`StorageUnit_fix_state_of_charge_lower`
-
-```yaml
-StorageUnit_fix_state_of_charge_lower:
-  description: "`StorageUnit-fix-state_of_charge-lower` — charge is non-negative"
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
-  expression: StorageUnit_state_of_charge >= 0
-```
-
-$$\mathit{soc}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-fix-state_of_charge-upper`
-
-`StorageUnit_fix_state_of_charge_upper`
-
-```yaml
-StorageUnit_fix_state_of_charge_upper:
-  description: "`StorageUnit-fix-state_of_charge-upper` — a fixed unit holds at most its hours at nominal power"
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_p_nom_extendable
-  expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom
-```
-
-$$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
-
-### `Generator-com-p-lower`
-
-`Generator_com_p_lower`
-
-```yaml
-Generator_com_p_lower:
-  description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND not Generator_p_nom_extendable
-  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
-```
-
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g}$$
-
-### `Generator-com-p-upper`
-
-`Generator_com_p_upper`
-
-```yaml
-Generator_com_p_upper:
-  description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND not Generator_p_nom_extendable
-  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
-```
-
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g}$$
-
-### `Generator-com-transition-start-up`
-
-`Generator_com_transition_start_up`
-
-```yaml
-Generator_com_transition_start_up:
-  description: >-
-    `Generator-com-transition-start-up` — turning on is a start. The
-    translated term vacates the first snapshot; the initial block below
-    compares it against the given status instead
-  foreach: [snapshot, generator]
-  where: Generator_committable
-  expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
-```
-
-$$\mathit{up}_{t,g} \ge u_{t,g} - u_{t - 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
-
-### `Generator-com-transition-start-up`
-
-`Generator_com_transition_start_up_initial`
-
-```yaml
-Generator_com_transition_start_up_initial:
-  description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND position(snapshot) == 0
-  expression: Generator_start_up >= Generator_status - Generator_status_initial
-```
-
-$$\mathit{up}_{t,g} \ge u_{t,g} - \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
-
-### `Generator-com-transition-shut-down`
-
-`Generator_com_transition_shut_down`
-
-```yaml
-Generator_com_transition_shut_down:
-  description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
-  foreach: [snapshot, generator]
-  where: Generator_committable
-  expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
-```
-
-$$\mathit{dn}_{t,g} \ge u_{t - 1,g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
-
-### `Generator-com-transition-shut-down`
-
-`Generator_com_transition_shut_down_initial`
-
-```yaml
-Generator_com_transition_shut_down_initial:
-  description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND position(snapshot) == 0
-  expression: Generator_shut_down >= Generator_status_initial - Generator_status
-```
-
-$$\mathit{dn}_{t,g} \ge \mathrm{u}^{0}_{g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
-
-### `Generator-com-up-time`
-
-`Generator_com_up_time`
-
-```yaml
-Generator_com_up_time:
-  description: >-
-    `Generator-com-up-time` — a unit started within its own minimum up time
-    is still on. The first snapshot's share of the window is the brought-in
-    up time's, which the must-stay-up mask carries
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
-```
-
-$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < \mathrm{UT}} \mathit{up}_{t',g} \le u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{UT}_{g} > 0 \wedge \mathrm{pos}(t) > 0$$
-
-### `Generator-com-down-time`
-
-`Generator_com_down_time`
-
-```yaml
-Generator_com_down_time:
-  description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
-```
-
-$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t - t' < \mathrm{DT}} \mathit{dn}_{t',g} \le 1 - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{DT}_{g} > 0 \wedge \mathrm{pos}(t) > 0$$
-
-### `Generator-com-status-min_up_time_must_stay_up`
-
-`Generator_com_status_must_stay_up`
-
-```yaml
-Generator_com_status_must_stay_up:
-  description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_must_stay_up
-  expression: Generator_status == 1
-```
-
-$$u_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g}$$
-
-### `Generator-p-ramp_limit_up`
-
-`Generator_p_ramp_limit_up_com`
-
-```yaml
-Generator_p_ramp_limit_up_com:
-  description: >-
-    `Generator-p-ramp_limit_up` — a committed unit raises output no faster
-    than its limit while it was already on, and no further than its
-    start-up ramp in the snapshot it turns on
-  foreach: [snapshot, generator]
-  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_up
-  expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-    Generator_ramp_limit_up * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
-    + Generator_ramp_limit_start_up * Generator_p_nom
-    * (Generator_status - shift(Generator_status, over=snapshot, offset=1))
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t - 1,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - u_{t - 1,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up`
-
-`Generator_p_ramp_limit_up_com_initial`
-
-```yaml
-Generator_p_ramp_limit_up_com_initial:
-  description: >-
-    `Generator-p-ramp_limit_up` — a unit that was off ramps its first
-    snapshot from an output of nothing; one already on brought an unknown
-    output, so it carries no row
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND not Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
-  expression: >-
-    Generator_p <=
-    Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
-    + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
-```
-
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathrm{u}^{0}_{g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathrm{u}^{0}_{g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
-
-### `Generator-p-ramp_limit_down`
-
-`Generator_p_ramp_limit_down_com`
-
-```yaml
-Generator_p_ramp_limit_down_com:
-  description: >-
-    `Generator-p-ramp_limit_down` — a committed unit lowers output no
-    faster than its limit while it stays on, and no further than its
-    shut-down ramp in the snapshot it turns off
-  foreach: [snapshot, generator]
-  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_down
-  expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom * Generator_status
-    + Generator_ramp_limit_shut_down * Generator_p_nom
-    * (shift(Generator_status, over=snapshot, offset=1) - Generator_status)
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t - 1,g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down`
-
-`Generator_p_ramp_limit_down_com_initial`
-
-```yaml
-Generator_p_ramp_limit_down_com_initial:
-  description: >-
-    `Generator-p-ramp_limit_down` — a unit that was off ramps its first
-    snapshot down from an output of nothing; one already on carries no row
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND not Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
-  expression: >-
-    -Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom * Generator_status
-    + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
-```
-
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
-
-### `Generator-p-ramp_limit_up-run-bigM`
-
-`Generator_p_ramp_limit_up_run_big_m`
-
-```yaml
-Generator_p_ramp_limit_up_run_big_m:
-  description: >-
-    `Generator-p-ramp_limit_up-run-bigM` — a committed extendable unit
-    raises output no faster than its limit of the chosen build; the big M
-    releases the row in the snapshot it turns on
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
-  expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-    Generator_ramp_limit_up * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * shift(Generator_status, over=snapshot, offset=1)
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t - 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up-run-bigM`
-
-`Generator_p_ramp_limit_up_run_big_m_initial`
-
-```yaml
-Generator_p_ramp_limit_up_run_big_m_initial:
-  description: "`Generator-p-ramp_limit_up-run-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
-  expression: >-
-    Generator_p <=
-    Generator_ramp_limit_up * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_status_initial
-```
-
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
-
-### `Generator-p-ramp_limit_up-start-bigM`
-
-`Generator_p_ramp_limit_up_start_big_m`
-
-```yaml
-Generator_p_ramp_limit_up_start_big_m:
-  description: >-
-    `Generator-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
-    committed extendable unit ramps no further than its start-up ramp of
-    the chosen build; the big M releases the row everywhere else
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
-  expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-    Generator_ramp_limit_start_up * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_start_up
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up-start-bigM`
-
-`Generator_p_ramp_limit_up_start_big_m_initial`
-
-```yaml
-Generator_p_ramp_limit_up_start_big_m_initial:
-  description: "`Generator-p-ramp_limit_up-start-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
-  expression: >-
-    Generator_p <=
-    Generator_ramp_limit_start_up * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_start_up
-```
-
-$$p_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
-
-### `Generator-p-ramp_limit_down-run-bigM`
-
-`Generator_p_ramp_limit_down_run_big_m`
-
-```yaml
-Generator_p_ramp_limit_down_run_big_m:
-  description: >-
-    `Generator-p-ramp_limit_down-run-bigM` — a committed extendable unit
-    lowers output no faster than its limit of the chosen build; the big M
-    releases the row in the snapshot it turns off
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
-  expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_status
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down-run-bigM`
-
-`Generator_p_ramp_limit_down_run_big_m_initial`
-
-```yaml
-Generator_p_ramp_limit_down_run_big_m_initial:
-  description: "`Generator-p-ramp_limit_down-run-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
-  expression: >-
-    -Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_status
-```
-
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
-
-### `Generator-p-ramp_limit_down-shut-bigM`
-
-`Generator_p_ramp_limit_down_shut_big_m`
-
-```yaml
-Generator_p_ramp_limit_down_shut_big_m:
-  description: >-
-    `Generator-p-ramp_limit_down-shut-bigM` — in the snapshot it turns off,
-    a committed extendable unit ramps no further than its shut-down ramp of
-    the chosen build; the big M releases the row everywhere else
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
-  expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-    Generator_ramp_limit_shut_down * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_shut_down
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down-shut-bigM`
-
-`Generator_p_ramp_limit_down_shut_big_m_initial`
-
-```yaml
-Generator_p_ramp_limit_down_shut_big_m_initial:
-  description: "`Generator-p-ramp_limit_down-shut-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
-  expression: >-
-    -Generator_p <=
-    Generator_ramp_limit_shut_down * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_shut_down
-```
-
-$$-p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
-
-### `Generator-p_nom_modularity`
-
-`Generator_p_nom_modularity`
-
-```yaml
-Generator_p_nom_modularity:
-  description: "`Generator-p_nom_modularity` — the chosen build is a whole number of modules"
-  foreach: [generator]
-  where: Generator_p_nom_extendable AND Generator_p_nom_mod > 0
-  expression: Generator_p_nom_ext == Generator_p_nom_mod * Generator_n_mod
-```
-
-$$P_{g} = \mathrm{p}^{\mathrm{mod}}_{g} \cdot N_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
-
-### `Generator-com-ext-p-upper-cap`
-
-`Generator_com_ext_p_upper_cap`
-
-```yaml
-Generator_com_ext_p_upper_cap:
-  description: >-
-    `Generator-com-ext-p-upper-cap` — a committed extendable unit outputs
-    at most what is available of the chosen build, whatever its status
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
-  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
-```
-
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
-
-### `Generator-com-ext-p-upper-bigM`
-
-`Generator_com_ext_p_upper_big_m`
-
-```yaml
-Generator_com_ext_p_upper_big_m:
-  description: "`Generator-com-ext-p-upper-bigM` — off, a unit outputs nothing; on, the big M is no bound"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
-  expression: Generator_p <= Generator_big_m * Generator_status
-```
-
-$$p_{t,g} \le \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
-
-### `Generator-com-ext-p-lower`
-
-`Generator_com_ext_p_lower`
-
-```yaml
-Generator_com_ext_p_lower:
-  description: >-
-    `Generator-com-ext-p-lower` — a committed extendable unit outputs at
-    least its minimum of the chosen build; off, the big M releases the row
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND NOT (Generator_p_nom_mod > 0)
-  expression: >-
-    Generator_p >=
-    Generator_p_min_pu * Generator_p_nom_ext
-    + Generator_big_m * Generator_status - Generator_big_m
-```
-
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} + \mathrm{M}_{g} \cdot u_{t,g} - \mathrm{M}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
-
-### `Generator-com-ext-p-lower-nonneg`
-
-`Generator_com_ext_p_lower_nonneg`
-
-```yaml
-Generator_com_ext_p_lower_nonneg:
-  description: >-
-    `Generator-com-ext-p-lower-nonneg` — where no minimum-per-unit is
-    negative, output is also plainly non-negative, a row the big-M lower
-    cannot assert while the unit is off
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_p_min_pu_nonneg AND NOT (Generator_p_nom_mod > 0)
-  expression: Generator_p >= 0
-```
-
-$$p_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
-
-### `Generator-com-mod-p-lower`
-
-`Generator_com_mod_p_lower`
-
-```yaml
-Generator_com_mod_p_lower:
-  description: "`Generator-com-mod-p-lower` — a committed modular unit outputs at least its minimum of one module"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
-  expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_mod * Generator_status
-```
-
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
-
-### `Generator-com-mod-p-upper`
-
-`Generator_com_mod_p_upper`
-
-```yaml
-Generator_com_mod_p_upper:
-  description: "`Generator-com-mod-p-upper` — a committed modular unit outputs at most one module's share"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
-  expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_mod * Generator_status
-```
-
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
-
-### `Generator-status-p-fixed-upper`
-
-`Generator_status_p_fixed_upper`
-
-```yaml
-Generator_status_p_fixed_upper:
-  description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-  expression: Generator_status <= 1
-```
-
-$$u_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
-
-### `Generator-start_up-p-fixed-upper`
-
-`Generator_start_up_p_fixed_upper`
-
-```yaml
-Generator_start_up_p_fixed_upper:
-  description: "`Generator-start_up-p-fixed-upper` — a start is at most one, an explicit row as PyPSA writes it"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-  expression: Generator_start_up <= 1
-```
-
-$$\mathit{up}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
-
-### `Generator-shut_down-p-fixed-upper`
-
-`Generator_shut_down_p_fixed_upper`
-
-```yaml
-Generator_shut_down_p_fixed_upper:
-  description: "`Generator-shut_down-p-fixed-upper` — a stop is at most one, an explicit row as PyPSA writes it"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-  expression: Generator_shut_down <= 1
-```
-
-$$\mathit{dn}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
-
-### `Generator-status-p_nom-variable-upper`
-
-`Generator_status_p_nom_variable_upper`
-
-```yaml
-Generator_status_p_nom_variable_upper:
-  description: "`Generator-status-p_nom-variable-upper` — a modular unit is on only where a module is built"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
-  expression: Generator_status <= Generator_n_mod
-```
-
-$$u_{t,g} \le N_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
-
-### `Generator-start_up-p_nom-variable-upper`
-
-`Generator_start_up_p_nom_variable_upper`
-
-```yaml
-Generator_start_up_p_nom_variable_upper:
-  description: "`Generator-start_up-p_nom-variable-upper` — a modular unit starts only where a module is built"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
-  expression: Generator_start_up <= Generator_n_mod
-```
-
-$$\mathit{up}_{t,g} \le N_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
-
-### `Generator-shut_down-p_nom-variable-upper`
-
-`Generator_shut_down_p_nom_variable_upper`
-
-```yaml
-Generator_shut_down_p_nom_variable_upper:
-  description: "`Generator-shut_down-p_nom-variable-upper` — a modular unit stops only where a module is built"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
-  expression: Generator_shut_down <= Generator_n_mod
-```
-
-$$\mathit{dn}_{t,g} \le N_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
-
-### `Line-fix-s-lower`
-
-`Line_fix_s_lower`
-
-```yaml
-Line_fix_s_lower:
-  description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating"
-  foreach: [snapshot, line]
-  where: not Line_s_nom_extendable
-  expression: Line_s >= -Line_s_max_pu * Line_s_nom
-```
-
-$$s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \neg \mathrm{ext}^{s}_{k}$$
-
-### `Line-fix-s-upper`
-
-`Line_fix_s_upper`
-
-```yaml
-Line_fix_s_upper:
-  description: "`Line-fix-s-upper` — a fixed line carries at most its rating"
-  foreach: [snapshot, line]
-  where: not Line_s_nom_extendable
-  expression: Line_s <= Line_s_max_pu * Line_s_nom
-```
-
-$$s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \neg \mathrm{ext}^{s}_{k}$$
-
-### `Line-ext-s-lower`
-
-`Line_ext_s_lower`
-
-```yaml
-Line_ext_s_lower:
-  description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
-  foreach: [snapshot, line]
-  where: Line_s_nom_extendable
-  expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
-```
-
-$$s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
-
-### `Line-ext-s-upper`
-
-`Line_ext_s_upper`
-
-```yaml
-Line_ext_s_upper:
-  description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
-  foreach: [snapshot, line]
-  where: Line_s_nom_extendable
-  expression: Line_s <= Line_s_max_pu * Line_s_nom_ext
-```
-
-$$s_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
-
-### `Line-ext-s_nom-lower`
-
-`Line_ext_s_nom_lower`
-
-```yaml
-Line_ext_s_nom_lower:
-  description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
-  foreach: [line]
-  where: Line_s_nom_extendable
-  expression: Line_s_nom_ext >= Line_s_nom_min
-```
-
-$$S_{k} \ge \underline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
-
-### `Line-ext-s_nom-upper`
-
-`Line_ext_s_nom_upper`
-
-```yaml
-Line_ext_s_nom_upper:
-  description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  foreach: [line]
-  where: Line_s_nom_extendable AND Line_s_nom_max
-  expression: Line_s_nom_ext <= Line_s_nom_max
-```
-
-$$S_{k} \le \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k} \wedge \overline{\mathrm{s}}^{\mathrm{nom}}_{k} \text{ is defined}$$
-
-### `Line-s_nom_set`
-
-`Line_s_nom_set`
-
-```yaml
-Line_s_nom_set:
-  description: "`Line-s_nom_set` — the chosen build pinned, wherever a value is given"
-  foreach: [line]
-  where: Line_s_nom_extendable AND Line_s_nom_set
-  expression: Line_s_nom_ext == Line_s_nom_set
-```
-
-$$S_{k} = \mathrm{s}^{\mathrm{nom,set}}_{k} \qquad \forall\thinspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k} \wedge \mathrm{s}^{\mathrm{nom,set}}_{k} \text{ is defined}$$
-
-### `Line-s_set`
-
-`Line_s_set`
-
-```yaml
-Line_s_set:
-  description: "`Line-s_set` — flow pinned to the given schedule, wherever one is given"
-  foreach: [snapshot, line]
-  where: Line_s_set
-  expression: Line_s == Line_s_set
-```
-
-$$s_{t,k} = \mathrm{s}^{\mathrm{set}}_{t,k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{s}^{\mathrm{set}}_{t,k} \text{ is defined}$$
-
-### `Kirchhoff-Voltage-Law`
-
-`Kirchhoff_Voltage_Law`
-
-```yaml
-Kirchhoff_Voltage_Law:
-  description: >-
-    `Kirchhoff-Voltage-Law` — around every independent cycle the
-    impedance-weighted flows sum to nothing, which is what makes the linear
-    power flow physical rather than transport
-  foreach: [snapshot, cycle]
-  expression: sum(Line_s * Line_cycle_weight, over=line) == 0
-```
-
-$$\sum_{k \in \mathcal{K}} s_{t,k} \cdot \mathrm{x}_{k,c} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace c \in \mathcal{C}$$
-
-### `Generator-p-ramp_limit_up`
-
-`Generator_p_ramp_limit_up_fix`
-
-```yaml
-Generator_p_ramp_limit_up_fix:
-  description: >-
-    `Generator-p-ramp_limit_up` — a fixed generator raises output no faster
-    than its limit. The translated term vacates the first snapshot, where a
-    plain optimize builds no row either
-  foreach: [snapshot, generator]
-  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
-  expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down`
-
-`Generator_p_ramp_limit_down_fix`
-
-```yaml
-Generator_p_ramp_limit_down_fix:
-  description: "`Generator-p-ramp_limit_down` — a fixed generator lowers output no faster than its limit"
-  foreach: [snapshot, generator]
-  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
-  expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up`
-
-`Generator_p_ramp_limit_up_ext`
-
-```yaml
-Generator_p_ramp_limit_up_ext:
-  description: "`Generator-p-ramp_limit_up` — an extendable generator raises output no faster than its limit of the chosen build"
-  foreach: [snapshot, generator]
-  where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
-  expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom_ext
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down`
-
-`Generator_p_ramp_limit_down_ext`
-
-```yaml
-Generator_p_ramp_limit_down_ext:
-  description: "`Generator-p-ramp_limit_down` — an extendable generator lowers output no faster than its limit of the chosen build"
-  foreach: [snapshot, generator]
-  where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
-  expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom_ext
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Link-p-ramp_limit_up`
-
-`Link_p_ramp_limit_up_fix`
-
-```yaml
-Link_p_ramp_limit_up_fix:
-  description: "`Link-p-ramp_limit_up` — a fixed link raises flow no faster than its limit"
-  foreach: [snapshot, link]
-  where: not Link_p_nom_extendable AND Link_ramp_limit_up
-  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom
-```
-
-$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined}$$
-
-### `Link-p-ramp_limit_down`
-
-`Link_p_ramp_limit_down_fix`
-
-```yaml
-Link_p_ramp_limit_down_fix:
-  description: "`Link-p-ramp_limit_down` — a fixed link lowers flow no faster than its limit"
-  foreach: [snapshot, link]
-  where: not Link_p_nom_extendable AND Link_ramp_limit_down
-  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom
-```
-
-$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined}$$
-
-### `Link-p-ramp_limit_up`
-
-`Link_p_ramp_limit_up_ext`
-
-```yaml
-Link_p_ramp_limit_up_ext:
-  description: "`Link-p-ramp_limit_up` — an extendable link raises flow no faster than its limit of the chosen build"
-  foreach: [snapshot, link]
-  where: Link_p_nom_extendable AND Link_ramp_limit_up
-  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_ext
-```
-
-$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined}$$
-
-### `Link-p-ramp_limit_down`
-
-`Link_p_ramp_limit_down_ext`
-
-```yaml
-Link_p_ramp_limit_down_ext:
-  description: "`Link-p-ramp_limit_down` — an extendable link lowers flow no faster than its limit of the chosen build"
-  foreach: [snapshot, link]
-  where: Link_p_nom_extendable AND Link_ramp_limit_down
-  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_ext
-```
-
-$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined}$$
-
-### `StorageUnit-ext-p_dispatch-lower`
-
-`StorageUnit_ext_p_dispatch_lower`
-
-```yaml
-StorageUnit_ext_p_dispatch_lower:
-  description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_dispatch >= 0
-```
-
-$$h^{+}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-ext-p_dispatch-upper`
-
-`StorageUnit_ext_p_dispatch_upper`
-
-```yaml
-StorageUnit_ext_p_dispatch_upper:
-  description: "`StorageUnit-ext-p_dispatch-upper` — an extendable unit dispatches at most the chosen build"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_dispatch <= StorageUnit_p_max_pu * StorageUnit_p_nom_ext
-```
-
-$$h^{+}_{t,s} \le \overline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-ext-p_store-lower`
-
-`StorageUnit_ext_p_store_lower`
-
-```yaml
-StorageUnit_ext_p_store_lower:
-  description: "`StorageUnit-ext-p_store-lower` — storing is non-negative"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_store >= 0
-```
-
-$$h^{-}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-ext-p_store-upper`
-
-`StorageUnit_ext_p_store_upper`
-
-```yaml
-StorageUnit_ext_p_store_upper:
-  description: >-
-    `StorageUnit-ext-p_store-upper` — an extendable unit stores at most the
-    chosen build, the minimum-per-unit column carrying that cap negated
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom_ext
-```
-
-$$h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-ext-state_of_charge-lower`
-
-`StorageUnit_ext_state_of_charge_lower`
-
-```yaml
-StorageUnit_ext_state_of_charge_lower:
-  description: "`StorageUnit-ext-state_of_charge-lower` — charge is non-negative"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
-  expression: StorageUnit_state_of_charge >= 0
-```
-
-$$\mathit{soc}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-ext-state_of_charge-upper`
-
-`StorageUnit_ext_state_of_charge_upper`
-
-```yaml
-StorageUnit_ext_state_of_charge_upper:
-  description: "`StorageUnit-ext-state_of_charge-upper` — an extendable unit holds at most its hours at the chosen build"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_p_nom_extendable
-  expression: StorageUnit_state_of_charge <= StorageUnit_max_hours * StorageUnit_p_nom_ext
-```
-
-$$\mathit{soc}_{t,s} \le \mathrm{T}^{h}_{s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-ext-p_nom-lower`
-
-`StorageUnit_ext_p_nom_lower`
-
-```yaml
-StorageUnit_ext_p_nom_lower:
-  description: "`StorageUnit-ext-p_nom-lower` — the chosen build is at least its floor"
-  foreach: [storage_unit]
-  where: StorageUnit_p_nom_extendable
-  expression: StorageUnit_p_nom_ext >= StorageUnit_p_nom_min
-```
-
-$$H_{s} \ge \underline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
-
-### `StorageUnit-ext-p_nom-upper`
-
-`StorageUnit_ext_p_nom_upper`
-
-```yaml
-StorageUnit_ext_p_nom_upper:
-  description: "`StorageUnit-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  foreach: [storage_unit]
-  where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_max
-  expression: StorageUnit_p_nom_ext <= StorageUnit_p_nom_max
-```
-
-$$H_{s} \le \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s} \wedge \overline{\mathrm{h}}^{\mathrm{nom}}_{s} \text{ is defined}$$
-
-### `StorageUnit-p_nom_set`
-
-`StorageUnit_p_nom_set`
-
-```yaml
-StorageUnit_p_nom_set:
-  description: "`StorageUnit-p_nom_set` — the chosen build pinned, wherever a value is given"
-  foreach: [storage_unit]
-  where: StorageUnit_p_nom_extendable AND StorageUnit_p_nom_set
-  expression: StorageUnit_p_nom_ext == StorageUnit_p_nom_set
-```
-
-$$H_{s} = \mathrm{h}^{\mathrm{nom,set}}_{s} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s} \wedge \mathrm{h}^{\mathrm{nom,set}}_{s} \text{ is defined}$$
-
-### `StorageUnit-energy_balance`
-
-`StorageUnit_energy_balance`
-
-```yaml
-StorageUnit_energy_balance:
-  description: >-
-    `StorageUnit-energy_balance` — charge carried over less standing loss,
-    plus what is stored after its efficiency, less what dispatch draws down
-    before its own, plus inflow not spilled. The translated term vacates the
-    first snapshot, so this block builds every row but that one; the initial
-    block below is the boundary
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_cyclic_state_of_charge
-  expression: >-
-    StorageUnit_state_of_charge ==
-    StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
-    + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
-    - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
-    + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
-```
-
-$$\mathit{soc}_{t,s} = \rho_{t,s} \cdot \mathit{soc}_{t - 1,s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{cyc}_{s}$$
-
-### `StorageUnit-energy_balance`
-
-`StorageUnit_energy_balance_initial`
-
-```yaml
-StorageUnit_energy_balance_initial:
-  description: "`StorageUnit-energy_balance` — the first snapshot opens on the given initial charge, which no standing loss has touched yet"
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
-  expression: >-
-    StorageUnit_state_of_charge ==
-    StorageUnit_state_of_charge_initial
-    + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
-    - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
-    + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
-```
-
-$$\mathit{soc}_{t,s} = \mathrm{soc}^{0}_{s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0$$
-
-### `StorageUnit-energy_balance`
-
-`StorageUnit_energy_balance_cyclic`
-
-```yaml
-StorageUnit_energy_balance_cyclic:
-  description: "`StorageUnit-energy_balance` — a cyclic unit's first snapshot carries over from its last"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_cyclic_state_of_charge
-  expression: >-
-    StorageUnit_state_of_charge ==
-    StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
-    + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
-    - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
-    + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
-```
-
-$$\mathit{soc}_{t,s} = \rho_{t,s} \cdot \mathit{soc}_{t \ominus 1,s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{cyc}_{s}$$
-
-### `Store-fix-e-lower`
-
-`Store_fix_e_lower`
-
-```yaml
-Store_fix_e_lower:
-  description: "`Store-fix-e-lower` — a fixed store holds at least its floor"
-  foreach: [snapshot, store]
-  where: not Store_e_nom_extendable
-  expression: Store_e >= Store_e_min_pu * Store_e_nom
-```
-
-$$e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{ext}^{e}_{v}$$
-
-### `Store-fix-e-upper`
-
-`Store_fix_e_upper`
-
-```yaml
-Store_fix_e_upper:
-  description: "`Store-fix-e-upper` — a fixed store holds at most its nominal capacity"
-  foreach: [snapshot, store]
-  where: not Store_e_nom_extendable
-  expression: Store_e <= Store_e_max_pu * Store_e_nom
-```
-
-$$e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot \mathrm{e}^{\mathrm{nom}}_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{ext}^{e}_{v}$$
-
-### `Store-ext-e-lower`
-
-`Store_ext_e_lower`
-
-```yaml
-Store_ext_e_lower:
-  description: "`Store-ext-e-lower` — an extendable store holds at least its floor of the chosen build"
-  foreach: [snapshot, store]
-  where: Store_e_nom_extendable
-  expression: Store_e >= Store_e_min_pu * Store_e_nom_ext
-```
-
-$$e_{t,v} \ge \underline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
-
-### `Store-ext-e-upper`
-
-`Store_ext_e_upper`
-
-```yaml
-Store_ext_e_upper:
-  description: "`Store-ext-e-upper` — an extendable store holds at most the chosen build"
-  foreach: [snapshot, store]
-  where: Store_e_nom_extendable
-  expression: Store_e <= Store_e_max_pu * Store_e_nom_ext
-```
-
-$$e_{t,v} \le \overline{\mathrm{e}}_{t,v} \cdot E_{v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
-
-### `Store-ext-e_nom-lower`
-
-`Store_ext_e_nom_lower`
-
-```yaml
-Store_ext_e_nom_lower:
-  description: "`Store-ext-e_nom-lower` — the chosen build is at least its floor"
-  foreach: [store]
-  where: Store_e_nom_extendable
-  expression: Store_e_nom_ext >= Store_e_nom_min
-```
-
-$$E_{v} \ge \underline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
-
-### `Store-ext-e_nom-upper`
-
-`Store_ext_e_nom_upper`
-
-```yaml
-Store_ext_e_nom_upper:
-  description: "`Store-ext-e_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  foreach: [store]
-  where: Store_e_nom_extendable AND Store_e_nom_max
-  expression: Store_e_nom_ext <= Store_e_nom_max
-```
-
-$$E_{v} \le \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v} \wedge \overline{\mathrm{e}}^{\mathrm{nom}}_{v} \text{ is defined}$$
-
-### `Store-e_nom_set`
-
-`Store_e_nom_set`
-
-```yaml
-Store_e_nom_set:
-  description: "`Store-e_nom_set` — the chosen build pinned, wherever a value is given"
-  foreach: [store]
-  where: Store_e_nom_extendable AND Store_e_nom_set
-  expression: Store_e_nom_ext == Store_e_nom_set
-```
-
-$$E_{v} = \mathrm{e}^{\mathrm{nom,set}}_{v} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v} \wedge \mathrm{e}^{\mathrm{nom,set}}_{v} \text{ is defined}$$
-
-### `Store-energy_balance`
-
-`Store_energy_balance`
-
-```yaml
-Store_energy_balance:
-  description: >-
-    `Store-energy_balance` — energy carried over less standing loss, less
-    what is delivered to the bus. The translated term vacates the first
-    snapshot; the initial block below is the boundary
-  foreach: [snapshot, store]
-  where: not Store_e_cyclic
-  expression: >-
-    Store_e ==
-    Store_retention * shift(Store_e, over=snapshot, offset=1)
-    - Store_p * snapshot_weightings_stores
-```
-
-$$e_{t,v} = \rho^{e}_{t,v} \cdot e_{t - 1,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{cyc}^{e}_{v}$$
-
-### `Store-energy_balance`
-
-`Store_energy_balance_initial`
-
-```yaml
-Store_energy_balance_initial:
-  description: "`Store-energy_balance` — the first snapshot opens on the given initial energy, which no standing loss has touched yet"
-  foreach: [snapshot, store]
-  where: not Store_e_cyclic AND position(snapshot) == 0
-  expression: >-
-    Store_e ==
-    Store_e_initial
-    - Store_p * snapshot_weightings_stores
-```
-
-$$e_{t,v} = \mathrm{e}^{0}_{v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0$$
-
-### `Store-energy_balance`
-
-`Store_energy_balance_cyclic`
-
-```yaml
-Store_energy_balance_cyclic:
-  description: "`Store-energy_balance` — a cyclic store's first snapshot carries over from its last"
-  foreach: [snapshot, store]
-  where: Store_e_cyclic
-  expression: >-
-    Store_e ==
-    Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
-    - Store_p * snapshot_weightings_stores
-```
-
-$$e_{t,v} = \rho^{e}_{t,v} \cdot e_{t \ominus 1,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{cyc}^{e}_{v}$$
-
-### `Generator-p_set`
-
-`Generator_p_set`
-
-```yaml
-Generator_p_set:
-  description: "`Generator-p_set` — output pinned to the given schedule, wherever one is given"
-  foreach: [snapshot, generator]
-  where: Generator_p_set
-  expression: Generator_p == Generator_p_set
-```
-
-$$p_{t,g} = \mathrm{p}^{\mathrm{set}}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{p}^{\mathrm{set}}_{t,g} \text{ is defined}$$
-
-### `Link-p_set`
-
-`Link_p_set`
-
-```yaml
-Link_p_set:
-  description: "`Link-p_set` — flow pinned to the given schedule, wherever one is given"
-  foreach: [snapshot, link]
-  where: Link_p_set
-  expression: Link_p == Link_p_set
-```
-
-$$f_{t,l} = \mathrm{f}^{\mathrm{set}}_{t,l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{f}^{\mathrm{set}}_{t,l} \text{ is defined}$$
-
-### `StorageUnit-p_set`
-
-`StorageUnit_p_set`
-
-```yaml
-StorageUnit_p_set:
-  description: "`StorageUnit-p_set` — net dispatch pinned to the given schedule, wherever one is given"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_p_set
-  expression: StorageUnit_p_dispatch - StorageUnit_p_store == StorageUnit_p_set
-```
-
-$$h^{+}_{t,s} - h^{-}_{t,s} = \mathrm{h}^{\mathrm{set}}_{t,s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{h}^{\mathrm{set}}_{t,s} \text{ is defined}$$
-
-### `StorageUnit-state_of_charge_set`
-
-`StorageUnit_state_of_charge_set`
-
-```yaml
-StorageUnit_state_of_charge_set:
-  description: "`StorageUnit-state_of_charge_set` — charge pinned to the given schedule, wherever one is given"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_state_of_charge_set
-  expression: StorageUnit_state_of_charge == StorageUnit_state_of_charge_set
-```
-
-$$\mathit{soc}_{t,s} = \mathrm{soc}^{\mathrm{set}}_{t,s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{soc}^{\mathrm{set}}_{t,s} \text{ is defined}$$
-
-### `Store-e_set`
-
-`Store_e_set`
-
-```yaml
-Store_e_set:
-  description: "`Store-e_set` — energy pinned to the given schedule, wherever one is given"
-  foreach: [snapshot, store]
-  where: Store_e_set
-  expression: Store_e == Store_e_set
-```
-
-$$e_{t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{e}^{\mathrm{set}}_{t,v} \text{ is defined}$$
-
-### `primary_energy`
-
-`GlobalConstraint_primary_energy_ub`
-
-```yaml
-GlobalConstraint_primary_energy_ub:
-  description: "`primary_energy` — its total, at most its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
-  expression: primary_energy <= GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
-
-### `primary_energy`
-
-`GlobalConstraint_primary_energy_lb`
-
-```yaml
-GlobalConstraint_primary_energy_lb:
-  description: "`primary_energy` — its total, at least its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
-  expression: primary_energy >= GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
-
-### `primary_energy`
-
-`GlobalConstraint_primary_energy_eq`
-
-```yaml
-GlobalConstraint_primary_energy_eq:
-  description: "`primary_energy` — its total, at its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
-  expression: primary_energy == GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{o,v} \right) = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
-
-### `operational_limit`
-
-`GlobalConstraint_operational_limit_ub`
-
-```yaml
-GlobalConstraint_operational_limit_ub:
-  description: "`operational_limit` — its total, at most its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
-  expression: operational_limit <= GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
-
-### `operational_limit`
-
-`GlobalConstraint_operational_limit_lb`
-
-```yaml
-GlobalConstraint_operational_limit_lb:
-  description: "`operational_limit` — its total, at least its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
-  expression: operational_limit >= GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
-
-### `operational_limit`
-
-`GlobalConstraint_operational_limit_eq`
-
-```yaml
-GlobalConstraint_operational_limit_eq:
-  description: "`operational_limit` — its total, at its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
-  expression: operational_limit == GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{o,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{o,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{o,v} \right) = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
-
-### `transmission_volume_expansion_limit`
-
-`GlobalConstraint_transmission_volume_expansion_limit_ub`
-
-```yaml
-GlobalConstraint_transmission_volume_expansion_limit_ub:
-  description: "`transmission_volume_expansion_limit` — its total, at most its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
-  expression: transmission_volume_expansion <= GlobalConstraint_constant
-```
-
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
-
-### `transmission_volume_expansion_limit`
-
-`GlobalConstraint_transmission_volume_expansion_limit_lb`
-
-```yaml
-GlobalConstraint_transmission_volume_expansion_limit_lb:
-  description: "`transmission_volume_expansion_limit` — its total, at least its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
-  expression: transmission_volume_expansion >= GlobalConstraint_constant
-```
-
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
-
-### `transmission_volume_expansion_limit`
-
-`GlobalConstraint_transmission_volume_expansion_limit_eq`
-
-```yaml
-GlobalConstraint_transmission_volume_expansion_limit_eq:
-  description: "`transmission_volume_expansion_limit` — its total, at its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
-  expression: transmission_volume_expansion == GlobalConstraint_constant
-```
-
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
-
-### `transmission_expansion_cost_limit`
-
-`GlobalConstraint_transmission_expansion_cost_limit_ub`
-
-```yaml
-GlobalConstraint_transmission_expansion_cost_limit_ub:
-  description: "`transmission_expansion_cost_limit` — its total, at most its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
-  expression: transmission_expansion_cost <= GlobalConstraint_constant
-```
-
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
-
-### `transmission_expansion_cost_limit`
-
-`GlobalConstraint_transmission_expansion_cost_limit_lb`
-
-```yaml
-GlobalConstraint_transmission_expansion_cost_limit_lb:
-  description: "`transmission_expansion_cost_limit` — its total, at least its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
-  expression: transmission_expansion_cost >= GlobalConstraint_constant
-```
-
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
-
-### `transmission_expansion_cost_limit`
-
-`GlobalConstraint_transmission_expansion_cost_limit_eq`
-
-```yaml
-GlobalConstraint_transmission_expansion_cost_limit_eq:
-  description: "`transmission_expansion_cost_limit` — its total, at its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
-  expression: transmission_expansion_cost == GlobalConstraint_constant
-```
-
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{o,l} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
-
-### `tech_capacity_expansion_limit`
-
-`GlobalConstraint_tech_capacity_expansion_limit_ub`
-
-```yaml
-GlobalConstraint_tech_capacity_expansion_limit_ub:
-  description: "`tech_capacity_expansion_limit` — its total, at most its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
-  expression: tech_capacity_expansion <= GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \le \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{<=}\text{'}$$
-
-### `tech_capacity_expansion_limit`
-
-`GlobalConstraint_tech_capacity_expansion_limit_lb`
-
-```yaml
-GlobalConstraint_tech_capacity_expansion_limit_lb:
-  description: "`tech_capacity_expansion_limit` — its total, at least its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
-  expression: tech_capacity_expansion >= GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} \ge \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{>=}\text{'}$$
-
-### `tech_capacity_expansion_limit`
-
-`GlobalConstraint_tech_capacity_expansion_limit_eq`
-
-```yaml
-GlobalConstraint_tech_capacity_expansion_limit_eq:
-  description: "`tech_capacity_expansion_limit` — its total, at its constant"
-  foreach: [global_constraint]
-  where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
-  expression: tech_capacity_expansion == GlobalConstraint_constant
-```
-
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{o,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{o,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{o,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{o,v} = \mathrm{K}_{o} \qquad \forall\thinspace o \in \mathcal{O} \thinspace:\thinspace \mathrm{type}_{o} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{o} = \text{'}\mathrm{==}\text{'}$$
-
-### `Bus-nodal_balance`
-
-`Bus_nodal_balance`
-
-```yaml
-Bus_nodal_balance:
-  description: >-
-    `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
-    stores included, less what the links take away, plus what arrives over
-    them after losses at every port they deliver to, meets the load there.
-    A bus nothing is attached to has no row; PyPSA refuses one that
-    carries load, and this file does not yet.
-  foreach: [snapshot, bus]
-  expression: >-
-    sum(Generator_p, by=Generator_bus)
-    + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus)
-    + sum(Store_p, by=Store_bus)
-    - sum(Link_p, by=Link_bus0)
-    + sum(Link_p * Link_efficiency, by=Link_bus1)
-    + sum(Link_p * Link_efficiency2, by=Link_bus2)
-    - sum(Line_s, by=Line_bus0)
-    + sum(Line_s, by=Line_bus1)
-    == sum(Load_p_set, by=Load_bus)
-```
-
-$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{Generator\_bus}(g) = n} p_{t,g} + \sum_{s \in \mathcal{S} \thinspace:\thinspace \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{t,s} - h^{-}_{t,s} \right) + \sum_{v \in \mathcal{V} \thinspace:\thinspace \mathrm{Store\_bus}(v) = n} q_{t,v} - \left( \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus0}(l) = n} f_{t,l} \right) + \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus1}(l) = n} f_{t,l} \cdot \eta_{l} + \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus2}(l) = n} f_{t,l} \cdot \eta^{2}_{l} - \left( \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus0}(k) = n} s_{t,k} \right) + \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus1}(k) = n} s_{t,k} = \sum_{d \in \mathcal{D} \thinspace:\thinspace \mathrm{Load\_bus}(d) = n} \mathrm{load}_{t,d} \qquad \forall\thinspace t \in \mathcal{T},\enspace n \in \mathcal{N}$$
+Every block sits under the rung that first builds its row.
 
 #### Variable domains
 

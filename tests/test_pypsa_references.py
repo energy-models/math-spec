@@ -83,6 +83,15 @@ def test_the_recorded_solve_is_usable_as_an_oracle(stem: str):
     assert recorded['rows'], 'an oracle needs the row counts an engine would compare'
 
 
+@pytest.mark.parametrize('page', sorted(DECLARED), ids=sorted(DECLARED))
+def test_every_constraint_block_is_rendered_once_on_its_page(page: str):
+    """A block shows under the first rung that builds its row, or under The file — never twice, never nowhere."""
+    text = (gallery.PAGES / page).read_text()
+    for name in load_model(DECLARED[page]).constraints:
+        shown = sum(line.strip() == f'`{name}`' for line in text.splitlines())
+        assert shown == 1, f'{name} is rendered {shown} times on {page}'
+
+
 def test_pypsa_builds_no_variable_the_files_do_not_declare():
     unmatched = RECORDED_COLUMNS - COLUMNS_DECLARED
     assert not unmatched, f'pypsa builds these and the files declare nothing that stands for them: {sorted(unmatched)}'
