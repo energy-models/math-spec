@@ -1,0 +1,202 @@
+{
+  "rung1_transport": {
+    "columns": {
+      "Generator-p": 8,
+      "Link-p": 4
+    },
+    "objective": 3280.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 8,
+      "Generator-fix-p-lower": 8,
+      "Generator-fix-p-upper": 8,
+      "Link-fix-p-lower": 4,
+      "Link-fix-p-upper": 4
+    }
+  },
+  "rung2_storage": {
+    "columns": {
+      "Generator-p": 4,
+      "StorageUnit-p_dispatch": 8,
+      "StorageUnit-p_store": 8,
+      "StorageUnit-spill": 4,
+      "StorageUnit-state_of_charge": 8,
+      "Store-e": 4,
+      "Store-p": 4
+    },
+    "objective": 562.8853015312845,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 4,
+      "Generator-fix-p-lower": 4,
+      "Generator-fix-p-upper": 4,
+      "StorageUnit-energy_balance": 8,
+      "StorageUnit-fix-p_dispatch-lower": 8,
+      "StorageUnit-fix-p_dispatch-upper": 8,
+      "StorageUnit-fix-p_store-lower": 8,
+      "StorageUnit-fix-p_store-upper": 8,
+      "StorageUnit-fix-state_of_charge-lower": 8,
+      "StorageUnit-fix-state_of_charge-upper": 8,
+      "Store-energy_balance": 4,
+      "Store-fix-e-lower": 4,
+      "Store-fix-e-upper": 4
+    }
+  },
+  "rung3_expansion": {
+    "columns": {
+      "Generator-p": 8,
+      "Generator-p_nom": 1,
+      "Link-p": 4,
+      "Link-p_nom": 1
+    },
+    "objective": 5389.473684210526,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 8,
+      "Generator-e_sum_max": 1,
+      "Generator-ext-p-lower": 4,
+      "Generator-ext-p-upper": 4,
+      "Generator-ext-p_nom-lower": 1,
+      "Generator-ext-p_nom-upper": 1,
+      "Generator-fix-p-lower": 4,
+      "Generator-fix-p-upper": 4,
+      "Link-ext-p-lower": 4,
+      "Link-ext-p-upper": 4,
+      "Link-ext-p_nom-lower": 1,
+      "Link-ext-p_nom-upper": 1
+    }
+  },
+  "rung4_ramps": {
+    "columns": {
+      "Generator-p": 8
+    },
+    "objective": 7120.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 4,
+      "Generator-fix-p-lower": 8,
+      "Generator-fix-p-upper": 8,
+      "Generator-p-ramp_limit_down": 3,
+      "Generator-p-ramp_limit_up": 3
+    }
+  },
+  "rung5_global_constraints": {
+    "columns": {
+      "Generator-p": 12
+    },
+    "objective": 5187.5,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 4,
+      "Generator-fix-p-lower": 12,
+      "Generator-fix-p-upper": 12,
+      "GlobalConstraint-co2_cap": 1
+    }
+  },
+  "rung6_kvl": {
+    "columns": {
+      "Generator-p": 8,
+      "Line-s": 12
+    },
+    "objective": 1800.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 12,
+      "Generator-fix-p-lower": 8,
+      "Generator-fix-p-upper": 8,
+      "Kirchhoff-Voltage-Law": 4,
+      "Line-fix-s-lower": 12,
+      "Line-fix-s-upper": 12
+    }
+  },
+  "rung7_commitment": {
+    "columns": {
+      "Generator-p": 8,
+      "Generator-shut_down": 4,
+      "Generator-start_up": 4,
+      "Generator-status": 4
+    },
+    "objective": 5460.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 4,
+      "Generator-com-down-time": 3,
+      "Generator-com-p-lower": 4,
+      "Generator-com-p-upper": 4,
+      "Generator-com-transition-shut-down": 4,
+      "Generator-com-transition-start-up": 4,
+      "Generator-com-up-time": 3,
+      "Generator-fix-p-lower": 4,
+      "Generator-fix-p-upper": 4,
+      "Generator-p-ramp_limit_down": 4,
+      "Generator-p-ramp_limit_up": 4,
+      "Generator-shut_down-p-fixed-upper": 4,
+      "Generator-start_up-p-fixed-upper": 4,
+      "Generator-status-p-fixed-upper": 4
+    }
+  },
+  "rung8_modular_big_m": {
+    "columns": {
+      "Generator-n_mod": 1,
+      "Generator-p": 12,
+      "Generator-p_nom": 2,
+      "Generator-shut_down": 8,
+      "Generator-start_up": 8,
+      "Generator-status": 8
+    },
+    "objective": 8725.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 4,
+      "Generator-com-ext-p-lower": 4,
+      "Generator-com-ext-p-lower-nonneg": 4,
+      "Generator-com-ext-p-upper-bigM": 4,
+      "Generator-com-ext-p-upper-cap": 4,
+      "Generator-com-mod-p-lower": 4,
+      "Generator-com-mod-p-upper": 4,
+      "Generator-com-transition-shut-down": 8,
+      "Generator-com-transition-start-up": 8,
+      "Generator-ext-p_nom-lower": 2,
+      "Generator-ext-p_nom-upper": 2,
+      "Generator-fix-p-lower": 4,
+      "Generator-fix-p-upper": 4,
+      "Generator-p-ramp_limit_down": 0,
+      "Generator-p-ramp_limit_down-run-bigM": 4,
+      "Generator-p-ramp_limit_down-shut-bigM": 4,
+      "Generator-p-ramp_limit_up": 0,
+      "Generator-p-ramp_limit_up-run-bigM": 4,
+      "Generator-p-ramp_limit_up-start-bigM": 4,
+      "Generator-p_nom_modularity": 1,
+      "Generator-shut_down-p-fixed-upper": 4,
+      "Generator-shut_down-p_nom-variable-upper": 4,
+      "Generator-start_up-p-fixed-upper": 4,
+      "Generator-start_up-p_nom-variable-upper": 4,
+      "Generator-status-p-fixed-upper": 4,
+      "Generator-status-p_nom-variable-upper": 4
+    }
+  },
+  "rung9_multilink": {
+    "columns": {
+      "Generator-p": 8,
+      "Link-p": 4
+    },
+    "objective": 1920.0,
+    "objective_constant": 0.0,
+    "pypsa": "1.2.4",
+    "rows": {
+      "Bus-nodal_balance": 12,
+      "Generator-fix-p-lower": 8,
+      "Generator-fix-p-upper": 8,
+      "Link-fix-p-lower": 4,
+      "Link-fix-p-upper": 4
+    }
+  }
+}
