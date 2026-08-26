@@ -107,10 +107,9 @@ parameters:
     dims: [generator]
   Generator_p_min_pu_nonneg:
     description: >-
-      true where no committable extendable generator's minimum-per-unit is
-      negative — PyPSA's `(p_min_pu >= 0).all()`, data prep, one answer for
-      the whole network
-    dims: []
+      true where none of the generator's own minimums-per-unit is negative —
+      PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep
+    dims: [generator]
     dtype: bool
   Link_ramp_limit_up:
     description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit

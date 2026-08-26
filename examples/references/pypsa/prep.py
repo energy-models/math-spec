@@ -150,7 +150,6 @@ def sources(n: pypsa.Network) -> dict[str, object]:
     """Every table the example models bind, from one PyPSA network."""
     generators, links, loads = n.generators, n.links, n.loads
     storage_units, stores, lines = n.storage_units, n.stores, n.lines
-    committable_ext = generators['committable'] & generators['p_nom_extendable']
     big_m = generators['p_nom_max'] * get_switchable_as_dense(n, 'Generator', 'p_max_pu').max().clip(lower=1.0)
 
     tables: dict[str, object] = {
@@ -212,8 +211,11 @@ def sources(n: pypsa.Network) -> dict[str, object]:
         'Generator_stand_by_cost': _varying(n, 'Generator', 'stand_by_cost', 'generator'),
         'Generator_p_nom_mod': _static(generators[generators['p_nom_mod'] > 0], 'p_nom_mod', 'generator'),
         'Generator_big_m': pd.DataFrame({'generator': generators.index.astype(str), 'value': big_m.to_numpy()}),
-        'Generator_p_min_pu_nonneg': bool(
-            (get_switchable_as_dense(n, 'Generator', 'p_min_pu').loc[:, committable_ext] >= 0).all().all()
+        'Generator_p_min_pu_nonneg': pd.DataFrame(
+            {
+                'generator': generators.index.astype(str),
+                'value': (get_switchable_as_dense(n, 'Generator', 'p_min_pu') >= 0).all().to_numpy(),
+            }
         ),
         'Link_p_nom': _static(links, 'p_nom', 'link'),
         'Link_p_nom_extendable': _static(links, 'p_nom_extendable', 'link'),
