@@ -103,7 +103,7 @@ snapshot,objective,stores,generators
 | `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested (#123) |
 
 <!-- reference:rung_01_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7182.222222222223`, 45 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7182.222222222223`, 45 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -142,7 +142,7 @@ Link,wire,p_set,0,10.0
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung_02_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `4456.659315422356`, 103 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `4456.659315422356`, 103 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -194,7 +194,7 @@ Store,cavern,e_set,3,20.0
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7633.908502024292`, 184 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7633.908502024292`, 184 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -294,7 +294,7 @@ Generator,solar,p_max_pu,3,0.2
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | split | fix, ext and first-snapshot blocks, fused by #70; com is rung 7's, big-M rung 8's |
 
 <!-- reference:rung_04_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `8785.0`, 64 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `8785.0`, 64 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -362,7 +362,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `10282.833333333334`, 102 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `10282.833333333334`, 102 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -429,7 +429,7 @@ tank5,north,coalc,40.0,25.0
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung_06_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `23962.0`, 123 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `23962.0`, 123 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -504,7 +504,7 @@ Line,bc,s_set,0,16.0
 | [`{c}-com-p-before/-current/-partly-*`](pypsa_linearized_uc.md) | done | rung 12, a file of its own                          |
 
 <!-- reference:rung_07_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7775.0`, 116 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7775.0`, 116 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -550,7 +550,7 @@ Load,swing7,p_set,3,10.0
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | split | run and start rows up, run and shut rows down, each with an initial block #70 fuses |
 
 <!-- reference:rung_08_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `19712.5`, 155 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `19712.5`, 155 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -599,7 +599,7 @@ Load,mill_load,p_set,3,60.0
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung_09_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `11700.0`, 68 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `11700.0`, 68 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -646,7 +646,7 @@ links and generators, carriers, a CO2 budget. Every statement above,
 composed. Its folder is the network, not spine plus additions.
 
 <!-- reference:rung_11_ac_dc_meshed:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `-3474256.0405499246`, 468 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 90 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `-3474256.0405499246`, 468 rows. `lpspec g8b61da742` binds `examples/pypsa.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 90 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>

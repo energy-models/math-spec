@@ -138,7 +138,7 @@ def test_the_stamps_are_from_the_pinned_lpspec(stem: str):
     """A blocker is a claim about one lpspec commit; the workflow pins that commit, and the stamp names it."""
     pinned = re.search(r'ref: ([0-9a-f]{40})', PARITY_WORKFLOW.read_text())
     assert pinned is not None, 'pypsa-parity.yml pins the certifying lpspec by SHA'
-    certified = re.search(r'\+g([0-9a-f]{7,})', RECORDED[stem]['parity']['lpspec'])
+    certified = re.search(r'g([0-9a-f]{7,})', RECORDED[stem]['parity']['lpspec'])
     assert certified is not None, 'the lpspec version stamp carries the commit it was built from'
     assert pinned.group(1).startswith(certified.group(1)), (
         f'stamped at lpspec {certified.group(1)}, workflow pins {pinned.group(1)[:9]} — re-run the runner at the pin'

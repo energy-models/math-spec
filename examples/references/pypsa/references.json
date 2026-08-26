@@ -220,8 +220,8 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
-      "lpspec_objective": 7182.222222222221,
+      "lpspec": "g8b61da742",
+      "lpspec_objective": 7182.222222,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "prices": {
@@ -506,8 +506,8 @@
         "storage_unit": 2,
         "store": 1
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
-      "lpspec_objective": 4456.659315422355,
+      "lpspec": "g8b61da742",
+      "lpspec_objective": 4456.659315,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "prices": {
@@ -860,14 +860,14 @@
         "storage_unit": 2,
         "store": 2
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
-      "lpspec_objective": 7633.908502024291,
+      "lpspec": "g8b61da742",
+      "lpspec_objective": 7633.908502,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "prices": {
         "compared": 12,
         "matches": true,
-        "max_abs_diff": 3.552713678800501e-15
+        "max_abs_diff": 0.0
       }
     },
     "pypsa": "1.3.0",
@@ -1160,7 +1160,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
+      "lpspec": "g8b61da742",
       "lpspec_objective": 8785.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
@@ -1479,8 +1479,8 @@
         "storage_unit": 1,
         "store": 1
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
-      "lpspec_objective": 10282.833333333332,
+      "lpspec": "g8b61da742",
+      "lpspec_objective": 10282.833333,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "prices": {
@@ -1798,14 +1798,14 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
+      "lpspec": "g8b61da742",
       "lpspec_objective": 23962.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "prices": {
         "compared": 20,
         "matches": true,
-        "max_abs_diff": 8.881784197001252e-16
+        "max_abs_diff": 0.0
       }
     },
     "pypsa": "1.3.0",
@@ -2060,7 +2060,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
+      "lpspec": "g8b61da742",
       "lpspec_objective": 7775.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
@@ -2327,7 +2327,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
+      "lpspec": "g8b61da742",
       "lpspec_objective": 19712.5,
       "matches": true,
       "model": "examples/pypsa.yaml",
@@ -2611,7 +2611,7 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
+      "lpspec": "g8b61da742",
       "lpspec_objective": 11700.0,
       "matches": true,
       "model": "examples/pypsa.yaml",
@@ -2705,8 +2705,8 @@
         "load": 4,
         "snapshot": 4
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
-      "lpspec_objective": 12587.437500000098,
+      "lpspec": "g8b61da742",
+      "lpspec_objective": 12587.4375,
       "matches": true,
       "model": "examples/pypsa_quadratic.yaml",
       "prices": {
@@ -3080,14 +3080,14 @@
         "storage_unit": 0,
         "store": 0
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
-      "lpspec_objective": 18441021.477729212,
+      "lpspec": "g8b61da742",
+      "lpspec_objective": 18441021.477729,
       "matches": true,
       "model": "examples/pypsa.yaml",
       "prices": {
         "compared": 90,
         "matches": true,
-        "max_abs_diff": 1.4779288903810084e-12
+        "max_abs_diff": 0.0
       }
     },
     "pypsa": "1.3.0",
@@ -3209,7 +3209,7 @@
         "load": 3,
         "snapshot": 4
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
+      "lpspec": "g8b61da742",
       "lpspec_objective": 7775.0,
       "matches": true,
       "model": "examples/pypsa_linearized_uc.yaml",
@@ -3364,14 +3364,14 @@
         "segment": 2,
         "snapshot": 4
       },
-      "lpspec": "0.0.1.dev5+g2efce5295",
-      "lpspec_objective": 11734.914894161273,
+      "lpspec": "g8b61da742",
+      "lpspec_objective": 11734.914894,
       "matches": true,
       "model": "examples/pypsa_losses.yaml",
       "prices": {
         "compared": 20,
         "matches": true,
-        "max_abs_diff": 1.7763568394002505e-15
+        "max_abs_diff": 0.0
       }
     },
     "pypsa": "1.3.0",

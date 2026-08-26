@@ -23,7 +23,7 @@ folder below; `rung.json` there names the file and the keyword.
 | `Line-loss_secants-*`                                              | out    | the secant mode solves for its segment count                |
 
 <!-- reference:rung_13_losses:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `11574.914894161273`, 150 rows. `lpspec 0.0.1.dev5+g2efce5295` binds `examples/pypsa_losses.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `11574.914894161273`, 150 rows. `lpspec g8b61da742` binds `examples/pypsa_losses.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 20 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
