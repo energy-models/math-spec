@@ -155,17 +155,12 @@ def _parse_cased(name: str, block: ExpressionBlock, context: str) -> CasesNode:
     carry unresolved ``when`` masks — expansion runs before resolution, so
     :mod:`math_spec.resolution` types those along with everything else.
     """
-    return CasesNode(
-        name,
-        tuple(
-            CaseArm(
-                label,
-                None if case.when is None else parse_where(case.when),
-                _parse_body(case.expression, f"named expression '{name}', case '{label}'", context),
-            )
-            for label, case in block.cases.items()
-        ),
-    )
+    arms = []
+    for label, case in block.cases.items():
+        when = None if case.when is None else parse_where(case.when)
+        value = _parse_body(case.expression, f"named expression '{name}', case '{label}'", context)
+        arms.append(CaseArm(label, when, value))
+    return CasesNode(name, tuple(arms))
 
 
 def _parse_body(text: str, subject: str, context: str) -> ArithmeticNode:

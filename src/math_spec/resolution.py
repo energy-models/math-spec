@@ -331,15 +331,12 @@ def _resolve_arith(
         return node
 
     if isinstance(node, CasesNode):
-        arms = tuple(
-            CaseArm(
-                arm.label,
-                None if arm.when is None else _resolve_where(arm.when, ns, f"{context}, case '{arm.label}'", errors),
-                _resolve_arith(arm.value, ns, f"{context}, case '{arm.label}'", errors),
-            )
-            for arm in node.arms
-        )
-        return CasesNode(node.name, arms)
+        arms = []
+        for arm in node.arms:
+            arm_context = f"{context}, case '{arm.label}'"
+            when = None if arm.when is None else _resolve_where(arm.when, ns, arm_context, errors)
+            arms.append(CaseArm(arm.label, when, _resolve_arith(arm.value, ns, arm_context, errors)))
+        return CasesNode(node.name, tuple(arms))
 
     assert_never(node)
 

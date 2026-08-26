@@ -126,7 +126,8 @@ class Symbols:
             raise SchemaError(msg)
         printed = printed_expressions(schema)
         chosen = frozenset(schema.variables) | chosen_expressions(schema)
-        declared = frozenset({*schema.parameters, *schema.variables, *printed})
+        names = (*schema.parameters, *schema.variables, *printed)
+        declared = frozenset(names)
 
         #: Names whose symbol came from the table rather than the derivation;
         #: the convention note quotes only the others, a table being free to
@@ -136,7 +137,7 @@ class Symbols:
             name: table.names[name]
             if name in table.names
             else _derive_name_symbol(name, declared, fmt, given=name not in chosen)
-            for name in (*schema.parameters, *schema.variables, *printed)
+            for name in names
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}
 
