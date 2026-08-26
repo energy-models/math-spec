@@ -129,23 +129,9 @@ def reference_block(stem: str) -> str:
     """A rung's oracle: the recorded solve, then the data its folder adds to the spine."""
     recorded = RECORDED[stem]
     rows = sum(recorded['rows'].values())
-    parity = recorded.get('parity', {})
-    structural = recorded.get('structural', {})
-    agreement = (
-        f' `lpspec {parity["lpspec"]}` binds `{parity["model"]}` against the same network and lands on the'
-        " same objective (lpspec's parity gate)."
-        if parity.get('matches')
-        else ''
-    )
-    prices = parity.get('prices', {})
-    if agreement and prices.get('compared'):
-        agreement += f' Nodal prices agree on {prices["compared"]} rows.'
-    if agreement and 'equal' in structural and not structural.get('mismatch'):
-        splits = f' up to {len(structural["region"])} documented splits' if structural.get('region') else ''
-        agreement += f' **Model-for-model**: the two lanes build one linopy model, label for label{splits}.'
     return (
         f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network at objective "
-        f'`{recorded["objective"]}`, {rows} rows.{agreement}\n'
+        f'`{recorded["objective"]}`, {rows} rows.\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>What this rung adds, as data</summary>\n'
@@ -160,8 +146,8 @@ def spine_block() -> str:
     """The shared spine, shown once, under the one sentence of how folders combine."""
     return (
         "> A rung's network is `data/base/` plus `data/<rung>/`, rows appended table by table; a blank cell is"
-        " PyPSA's default. A banner states PyPSA's objective, lpspec's parity where its gate agrees, and the"
-        ' model-for-model line where `lpspec.linopy` builds the rung.\n'
+        " PyPSA's default. A banner states PyPSA's objective and row count; what an engine makes of the rung is"
+        " that engine's own record.\n"
         '\n'
         '<details markdown="1">\n'
         '<summary>The shared spine, <code>data/base/</code></summary>\n'

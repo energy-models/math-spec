@@ -17,7 +17,7 @@ spine, `data/base/`, shown once on [the rung ladder's page](pypsa.md#index).
 | [`marginal_cost_quadratic`](#objective) | done   | degree 2 in the objective; Generator and Link here — PyPSA also carries it on storage units and stores, one more term each of the same shape |
 
 <!-- reference:rung_10_quadratic_costs:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `12587.437500000098`, 60 rows. `lpspec 0.0.1.dev3+g6f2cbbc64` binds `examples/pypsa_quadratic.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 12 rows. **Model-for-model**: the two lanes build one linopy model, label for label.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `12587.437500000098`, 60 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
