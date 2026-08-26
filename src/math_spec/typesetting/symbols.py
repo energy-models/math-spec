@@ -4,15 +4,11 @@
 
 """Which symbol each declared name prints as — and the sidecar that overrides it.
 
-Derivation aims at *unambiguous*, not beautiful: it runs with no setup, so it
-has to be right rather than elegant. :class:`SymbolTable` is where a reader
-makes it conventional, in a file of its own — presentation is not language, so
-it never becomes keys on ``Model``. What a declaration *is* travels the other
-way: ``description:`` is a key on the declaration, because it is the model
-talking about itself rather than a reader choosing notation.
-
-This module decides *which* symbol a name gets; a
-:class:`~math_spec.typesetting.format.Format` decides how it is written.
+Derivation aims at *unambiguous*, not beautiful, so a model prints with no
+setup; :class:`SymbolTable` is where a reader makes it conventional, in a file
+of its own, since presentation is not language. What a declaration *is* stays
+``description:`` on the declaration. This module decides *which* symbol a name
+gets; a :class:`~math_spec.typesetting.format.Format` decides how it is written.
 """
 
 from __future__ import annotations
@@ -32,18 +28,14 @@ if TYPE_CHECKING:
 
 __all__ = ['SymbolTable', 'Symbols']
 
-#: Dimensions whose conventional index letter is not their own first letter.
-#: Small on purpose — a lookup table of everybody's naming habits is a
-#: maintenance sink; anything unlisted falls back to its own initial.
+#: Dimensions whose conventional index letter is not their own initial, which
+#: is what anything unlisted falls back to.
 _INDEX_ALIASES = {'snapshot': 't', 'snapshots': 't', 'time': 't', 'timestep': 't', 'timesteps': 't'}
 
 
-#: Names that are a Greek letter written out. A variable called ``theta``
-#: printed as the italic word *theta* is the one derived symbol a paper would
-#: never accept, and the fix is the same shape as ``_INDEX_ALIASES``: a small
-#: curated map, with ``--symbols`` for anything it does not know. Lower case
-#: only — every one of these has a letter in LaTeX and in Typst, which the
-#: capitals do not, and ``omicron`` is left out because LaTeX spells it ``o``.
+#: Names that are a Greek letter written out. Lower case only — every one has
+#: a letter in LaTeX and in Typst, which the capitals do not — and ``omicron``
+#: is left out because LaTeX spells it ``o``.
 _GREEK = frozenset(
     {
         'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta',
@@ -54,26 +46,12 @@ _GREEK = frozenset(
 
 
 def _word(name: str, fmt: Format, *, given: bool) -> str:
-    r"""One name as one symbol, upright where it is *given*.
+    r"""One name as one symbol: upright where *given*, italic where chosen.
 
-    **Upright is what the data supplies; italic is what the solver chooses.**
-    Which of the two a symbol is, is the distinction a linear model cannot
-    afford to leave to a legend — quote one equation on a slide and a reader
-    has to know which side of it the solver is on — and it completes a system
-    the page was already three-quarters of the way through: script for index
-    sets, upright for the maps and qualifiers a model is handed, italic for
-    quantities. The cut this adds is *inside* italic.
-
-    A name that *is* a Greek letter is set as the letter **where it is
-    chosen**, which is what the author meant by writing it out. Where it is
-    given, the rule wins and the name prints upright as the word: LaTeX has no
-    upright lower-case Greek without ``upgreek``, and taking that dependency
-    would break two things this repository holds — a preamble installable from
-    a two-package TeX, and `to_markdown` output that renders the same on GitHub
-    as on the docs site, GitHub's MathJax being unconfigurable. An italic
-    ``\eta`` that might be either is worse than an upright ``\mathrm{eta}``
-    that is one; a table entry is how an author whose own preamble loads
-    ``upgreek`` writes ``\upeta`` instead.
+    A Greek name is set as the letter only where chosen. Upright lower-case
+    Greek needs ``upgreek``, which the two-package preamble and GitHub's
+    MathJax both lack, so a given ``eta`` prints as ``\mathrm{eta}``; a table
+    entry is how an author who loads ``upgreek`` writes ``\upeta``.
     """
     if given:
         return fmt.upright(name)
@@ -85,20 +63,10 @@ def _word(name: str, fmt: Format, *, given: bool) -> str:
 def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, given: bool = False) -> str:
     r"""``p`` → ``p``; ``load`` → ``\mathit{load}``; ``p_max`` → ``p^{\mathrm{max}}``.
 
-    An underscore is a **qualifier** only when what precedes it is a symbol in
-    its own right — a single letter (``p_max``), a Greek letter written out
-    (``theta_max``), or another declared **quantity** (``soc_max``).
-    Everywhere else it is word separation, where splitting produces nonsense:
-    ``marginal_cost`` is not *marginal* raised to *cost*.
-
-    A quantity, not a dimension: ``zone_cap`` is a capacity *indexed by* zone,
-    not a zone qualified by cap, and reading the axis as the head made a
-    parameter's symbol depend on whether some unrelated dimension happened to
-    share its prefix.
-    The fallback therefore prints the name as written, underscore and all,
-    which is plain rather than beautiful; ``--symbols`` is what makes it
-    pretty. A qualifier lands in the superscript, the subscript slot being
-    spoken for by the dimensions.
+    An underscore is a qualifier, landing in the superscript, only where its
+    head is a symbol in its own right — a single letter, a Greek letter, or a
+    declared parameter or variable. A dimension is not a head: ``zone_cap`` is
+    a capacity *indexed by* zone. Anywhere else the name prints as written.
     """
     head, _, tail = name.partition('_')
     if tail and (len(head) == 1 or head in _GREEK or head in declared):
@@ -109,17 +77,10 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, giv
 class Symbols:
     r"""How every declared name prints: overrides first, derivation for the rest.
 
-    Assignment order is load-bearing. Name symbols settle *before* dimension
-    indices, so an index can be kept off a letter a variable owns — derived
-    independently, a model with a dimension ``plant`` and a variable ``p``
-    renders ``p_{t,p}`` and no reader can tell which ``p`` is which. Only
-    single-letter name symbols are kept off the index letters, a
-    ``\mathit{load}`` never colliding with a ``t``.
-
-    Which now means **variables**, since a parameter is upright: a dimension
-    may take ``p`` beside a parameter ``p``, because ``\mathrm{p}`` and ``p``
-    are not the same symbol on the page. The guard shrank to exactly the
-    collisions that are still collisions.
+    Name symbols settle *before* dimension indices, so an index is kept off a
+    single letter a variable owns — a dimension ``plant`` beside a variable
+    ``p`` would otherwise render ``p_{t,p}``. A parameter is upright, so
+    ``\mathrm{p}`` beside an index ``p`` is not a collision.
 
     Raises:
         SchemaError: If *table* is written in a notation *fmt* does not read.
@@ -132,16 +93,11 @@ class Symbols:
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        # quantities only — see `_derive_name_symbol` for why an axis is not a
-        # head a qualifier may hang off
         declared = frozenset({*schema.parameters, *schema.variables})
 
-        #: Names whose symbol came from the table rather than the derivation.
-        #: The convention note quotes only the others: a table is printed
-        #: verbatim and is the author's to write, so a symbol it supplies is
-        #: not one the note governs — the homepage's own table maps two
-        #: parameters to italic symbols, and the note quoting one of those
-        #: contradicted itself on the page.
+        #: Names whose symbol came from the table rather than the derivation;
+        #: the convention note quotes only the others, a table being free to
+        #: map a parameter to an italic symbol.
         self.overridden = frozenset(table.names) & {*schema.parameters, *schema.variables}
         self.name: dict[str, str] = {
             name: table.names[name]
@@ -187,16 +143,10 @@ def _first_free(candidates: list[str], taken: set[str]) -> str:
 
 @dataclass(frozen=True)
 class SymbolTable:
-    r"""How a *reader* wants the model to print — kept out of the model.
+    r"""How a *reader* wants the model to print — notation only, kept out of the model.
 
-    Presentation is not language: nothing here changes what the file means, no
-    lane reads it, and a model with no table still renders. *Notation* is all it
-    carries — what a declaration **is** is the model's own ``description:``,
-    which travels with the declaration and reaches every consumer.
-
-    Every entry is a spelling, printed verbatim — nothing parses or translates
-    notation. ``notation:`` says which language they are written in, and a
-    render in the other one refuses::
+    Every entry is a spelling, printed verbatim. ``notation:`` says which
+    language they are written in, and a render in the other one refuses::
 
         notation: latex
         dimensions:
@@ -205,9 +155,7 @@ class SymbolTable:
         names:
           marginal_cost: "c^{\\mathrm{marg}}"
 
-    Deliberately strict — an unrecognised name is an error naming the near
-    miss, the failure mode of a silent typo being a symbol that never applies
-    and a reader who never finds out.
+    An entry naming nothing in the model is an error naming the near miss.
 
     Attributes:
         notation: The language the entries are written in, ``latex`` or

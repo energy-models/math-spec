@@ -110,7 +110,6 @@ parameters:
 | $\mathit{spare}$ | `spare` over $\mathcal{G}$ |
 | $\mathit{reserve}$ | `reserve` (scalar) |
 | $\mathit{headroom}$ | `headroom` (scalar) |
-| $\mathit{void}$ | `void` over $\mathcal{B}$ |
 | $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
 Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
@@ -338,18 +337,17 @@ $$\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_t
 
 #### `arithmetic`
 
-division, both unary signs, nested reduction, bracketing
+division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
 
 ```yaml
 arithmetic:
-  # No `**`: the walk renders it, but `lower_program` rejects it, so a model
-  # using it would not be a model. Format.power stays exercised by unit
-  # tests rather than from here.
   foreach: [snapshot]
-  expression: sum(p / 2 + -cost, over=generator) >= -sum(+p, over=generator) * 3
+  expression: >-
+    sum(p / 2 + -cost - -1e-5 * p + 2.5e-7 * cost + 0.5 * p, over=generator)
+    >= -sum(+p, over=generator) * -3
 ```
 
-$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} \right) \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
+$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} + 10^{-5} \cdot p_{t,g} + 2.5 \times 10^{-7} \cdot \mathrm{cost}_{g} + 0.5 \cdot p_{t,g} \right) \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot \left( -3 \right) \qquad \forall\thinspace t \in \mathcal{T}$$
 
 #### `total`
 
@@ -400,7 +398,7 @@ first:
   expression: on == 1
 ```
 
-$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = 0 \right)$$
+$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{pos}(t) = 0 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = 0$$
 
 #### `last`
 
@@ -413,7 +411,7 @@ last:
   expression: on == 0
 ```
 
-$$\mathit{on}_{t,g} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{pos}(t) = \lvert \mathcal{T} \rvert - 1 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = \lvert \mathcal{T}_{\mathrm{season\_of}(t)} \rvert - 1 \right)$$
+$$\mathit{on}_{t,g} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{pos}(t) = \lvert \mathcal{T} \rvert - 1 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = \lvert \mathcal{T}_{\mathrm{season\_of}(t)} \rvert - 1$$
 
 #### `northern`
 
@@ -439,6 +437,18 @@ efficiency:
 ```
 
 $$p_{t,g} \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+#### `ceiling`
+
+the infinity literal, which is the one way infinity prints
+
+```yaml
+ceiling:
+  foreach: [bus]
+  expression: theta <= inf
+```
+
+$$\theta_{b} \le \infty \qquad \forall\thinspace b \in \mathcal{B}$$
 
 #### `always`
 
@@ -492,7 +502,7 @@ p:
   bounds: { lower: p_min, upper: p_max }
 ```
 
-$$\mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0 \right)$$
+$$\mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0$$
 
 #### `spill`
 
@@ -590,18 +600,6 @@ headroom:
 ```
 
 $$\mathit{headroom} \ge 0 \qquad \text{where } \mathrm{budget} \text{ is defined}$$
-
-#### `void`
-
-a bound on the wrong side of the line: the one way infinity prints
-
-```yaml
-void:
-  foreach: [bus]
-  bounds: { lower: .inf, upper: -.inf }
-```
-
-$$\infty \le \mathit{void}_{b} \le -\infty \qquad \forall\thinspace b \in \mathcal{B}$$
 
 #### `weight`
 

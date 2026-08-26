@@ -4,17 +4,15 @@
 
 """The closed set of built-in operators and their call shapes.
 
-Closed: there is no Python registry, so both lanes accept exactly the same
-language and the differential tests are a meaningful oracle (hard rule 3).
-Compositions belong in ``macros:``; math the language cannot say belongs in a
+Closed: there is no Python registry, so every consumer accepts exactly the
+same language. Compositions belong in ``macros:``; math the language cannot say belongs in a
 declared ``escape:`` island (#38), not in an operator that reads like a built-in.
 
 The *language* side of an operator — its name and signature, nothing else. The
-signature lives here because four passes need it (resolution types the
-dimension arguments, validation name-checks macro bodies, lowering and the
-eager builder consume the call), and an arity spelled out once per pass is one
-the passes can disagree about. Imported by the linopy-free lane, so it stays
-dependency-free: counts and keyword names, no AST.
+signature lives here because more than one pass needs it (resolution types
+the dimension arguments, validation name-checks macro bodies, a consumer builds
+the call), and an arity spelled out once per pass is one the passes can
+disagree about. Dependency-free on purpose: counts and keyword names, no AST.
 """
 
 from __future__ import annotations
@@ -40,7 +38,7 @@ class Builtin:
 
     Every dimension or lookup an operator names arrives in a kwarg *value*,
     which is what lets a macro pass one as a formal. ``usage`` is the wording
-    every lane quotes back.
+    every refusal quotes back.
     """
 
     positional: int
@@ -133,13 +131,7 @@ def edge_error(name: str, given: str) -> str:
 
 
 def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str | None:
-    """Why a call to *name* does not fit its signature; ``None`` if it fits.
-
-    Arity is a language rule, so it is checked in resolution — the pass every
-    consumer goes through — and the same wording is available to any lane that
-    wants to state it again. A retired kwarg speaks before the generic
-    mismatch: naming the rewrite is the migration story.
-    """
+    """Why a call to *name* does not fit its signature; ``None`` if it fits."""
     builtin = BUILTINS[name]
     keys = set(kwargs)
     if len(keys & set(builtin.at_most_one_of)) > 1:
@@ -154,7 +146,7 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
 
 
 def unknown_operator_message(name: str) -> str:
-    """The one wording for "that is not an operator", shared by both lanes."""
+    """The one wording for "that is not an operator"."""
     return (
         f"Unknown operator '{name}'.\n"
         f'Available: {sorted(BUILTIN_NAMES)}\n'

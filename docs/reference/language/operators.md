@@ -123,7 +123,8 @@ constraints:
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-`within=` may name an **integer parameter** instead of a number, and then each
+`within=` may name an **integer parameter** instead of a number — those two
+and nothing else, never an expression — and then each
 entity gets a window of its own length — which is the case with no workaround.
 A fixed width can be written as a run of `shift`s; a width that is a column
 cannot, and the alternative is an incidence table over the dimension twice,

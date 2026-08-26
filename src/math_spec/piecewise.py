@@ -27,14 +27,10 @@ with F = the union of the links' dims, it emits:
       curve_link0(F):         (power) == sum(curve_lam * power_bp, over=bp)
       curve_link1(F):         (fuel * eff) <= sum(curve_lam * fuel_bp, over=bp)
 
-**Only the restriction on λ varies** (:data:`~math_spec.model.PIECEWISE_METHODS`):
-every method emits the weights, the convexity row and the links; ``adjacency``
-adds the binaries above, ``sos2`` states the same restriction as a ``sos:``
-block, ``convex`` adds nothing and leaves λ over the hull.
-
-A link expression is judged against the language before expansion, so ``p * p``
-is named against the link the user wrote rather than ``curve_link0``.
-Curvature is a property of the breakpoint *values*, so it is not decided here.
+Only the restriction on λ varies (:data:`~math_spec.model.PIECEWISE_METHODS`);
+``lp`` emits no weights at all. A link expression is judged before expansion,
+so ``p * p`` is refused against the link the user wrote rather than
+``curve_link0``.
 """
 
 from __future__ import annotations
@@ -44,8 +40,9 @@ from typing import TYPE_CHECKING, Any
 from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
-from math_spec.expression_parser import ComparisonNode, parse_expression
-from math_spec.model import Buildable, Model, PiecewiseBlock
+from math_spec.expansion import parse_and_expand
+from math_spec.expression_parser import ComparisonNode
+from math_spec.model import Buildable, Model, PiecewiseBlock, undeclared_dimension
 from math_spec.resolution import Namespace, resolve_expression
 
 if TYPE_CHECKING:
@@ -90,24 +87,13 @@ def _gate_rows(schema: Model, pw: PiecewiseBlock) -> tuple[tuple[str, str | None
 def expand_piecewise(schema: Model) -> Buildable:
     """Return *schema* as a :class:`Buildable` — every ``piecewise:`` block expanded away.
 
-    The adjacency constraint shifts with ``edge=0`` rather than a bare
-    ``shift``: at the first breakpoint the vacated term must contribute zero,
-    giving ``lam <= seg``. Left absent it would propagate and drop that row,
-    leaving the first lambda unconstrained by segment selection — a wrong MILP
-    with no error, which is why #289 kept the escape hatch.
-
-    ``points:`` masks the *declarations* — the weights and the segment binaries
-    — and no constraint. Every emitted row either reduces over the breakpoint
-    axis, where absence does not spread, or carries a masked weight, which
-    takes the row with it: a second ``where:`` on the adjacency row builds the
-    same model down to the column.
-
-    Building the expanded model validates it, so the result is memoised on
-    *schema* — a validated schema already carries the expansion its own
-    validation built (:class:`Model` expands as a check on the way in), and
-    asking again returns it rather than validating a second copy. Idempotent:
-    a :class:`Buildable` is its own expansion and comes straight back, so a
-    consumer unsure whether it has expanded yet can simply ask.
+    The adjacency row shifts with ``edge=0``: a bare ``shift`` would drop the
+    first breakpoint's row and leave its weight unconstrained, a wrong MILP
+    with no error (#289). ``points:`` masks the weights and the segment
+    binaries and no constraint — every emitted row reduces over the breakpoint
+    axis or carries a masked weight. The result is memoised on *schema*, and a
+    :class:`Buildable` comes straight back; a model with no ``piecewise:`` is
+    retyped with ``model_construct``, its validation already done on the way in.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
@@ -118,7 +104,7 @@ def expand_piecewise(schema: Model) -> Buildable:
     if schema._expansion is not None:
         return schema._expansion
     if not schema.piecewise:
-        schema._expansion = _retyped(schema)
+        schema._expansion = Buildable.model_construct(**dict(schema))
         return schema._expansion
 
     raw = schema.model_dump()
@@ -127,7 +113,7 @@ def expand_piecewise(schema: Model) -> Buildable:
     for name, pw in schema.piecewise.items():
         frame = _validate_block(schema, name, pw)
         mask, nominated = mask_of(name, pw), pw.points
-        if mask is not None and nominated is not None and mask != nominated:
+        if nominated is not None and mask != nominated:
             raw.setdefault('parameters', {})[mask] = {
                 'dims': list(schema.parameters[nominated].dims),
                 'dtype': 'bool',
@@ -136,7 +122,7 @@ def expand_piecewise(schema: Model) -> Buildable:
         if pw.method == 'lp':
             _expand_lp(raw, name, pw, frame, mask, schema.parameters[pw.points].dims if pw.points else ())
             continue
-        lam, seg = f'{name}_lam', f'{name}_seg'
+        lam = f'{name}_lam'
 
         raw['variables'][lam] = {
             'foreach': [*frame, pw.over],
@@ -159,6 +145,7 @@ def expand_piecewise(schema: Model) -> Buildable:
         if pw.method == 'sos2':
             raw.setdefault('sos', {})[name] = {'variable': lam, 'over': pw.over, 'type': 2}
         elif pw.method == 'adjacency':
+            seg = f'{name}_seg'
             raw['variables'][seg] = {
                 'foreach': [*frame, pw.over],
                 **({'where': mask} if mask else {}),
@@ -182,17 +169,6 @@ def expand_piecewise(schema: Model) -> Buildable:
     return expanded
 
 
-def _retyped(schema: Model) -> Buildable:
-    """*schema* as the type of a model with nothing to expand, unvalidated.
-
-    Reached only where ``piecewise:`` is already empty, which is the whole of
-    what :class:`Buildable` promises — the fields are the ones a validating
-    construction would arrive at, so a second pass over them would buy the
-    caller nothing and cost every curve-free model a copy of its own checks.
-    """
-    return Buildable.model_construct(**dict(schema))
-
-
 def _expand_lp(
     raw: dict[str, Any],
     name: str,
@@ -203,30 +179,15 @@ def _expand_lp(
 ) -> None:
     """Emit the segment-line form: a row per segment, and the two domain rows.
 
-    Three things a change here could break unknowingly:
-
-    The chord is written at the *later* of the two breakpoints it joins, so the
-    first has no predecessor and its row must not exist. The ``where:`` and
-    ``edge=0`` travel together — without the exclusion the vacated position
-    reads as a zero, which is a spurious line through the origin. Under a mask
-    the first is the *curve's*, not the axis', which is what the derived
-    ``_starts`` flag names: a curve may sit anywhere along the breakpoints as
-    long as it sits on consecutive ones.
-
-    The row is multiplied through by the run rather than written as
-    ``rise / run``: the sense survives only because the run is positive, which
-    is the strict monotonicity the method already requires of its breakpoints,
-    and a difference is outside the plan's divisor rule anyway.
-
-    A segment line does not stop where its segment does, so the two domain rows
-    are what keeps the formulation inside the curve's own range. They are
-    ``linopy``'s ``_add_lp`` rows under its own names.
-
-    Under ``points:`` the upper one moves off the breakpoint axis: the last
-    breakpoint is then each curve's own, and ``where:`` takes no operators to
-    find it with. ``points - shift(points, offset=-1)`` is 1 exactly where a
-    curve ends, so the bound is read as a sum over the axis instead of a row
-    sitting on one coordinate of it — which is why the mask has to be a prefix.
+    The chord sits at the later breakpoint, so the first has none and its
+    ``where:`` and ``edge=0`` travel together — without the exclusion the
+    vacated position is a spurious line through the origin; under a mask the
+    first breakpoint is the curve's own, which is what ``_starts`` names. The
+    row is multiplied through by the run rather than dividing, which keeps its
+    sense only because the breakpoints are strictly monotone. The domain rows
+    are ``linopy``'s ``_add_lp`` rows under its names; under ``points:`` they
+    sit on the derived ``_starts``/``_ends`` flags, which is why the mask has to
+    be a prefix.
     """
     x_link, y_link = pw.curve
     d = pw.over
@@ -260,21 +221,14 @@ def _expand_lp(
 def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
     """Check references and infer the frame (union of the links' dims).
 
-    Every name the expansion will emit is checked against what the file
-    already declares — one list per kind rather than one loop per name family,
-    so a new emitted declaration is a name here, not a fourth loop to
-    remember.
-
-    A values parameter is checked against the frame in a **second pass**, since
-    any link's expression may be the one that carries the dim, and the last of
-    them widens the frame as readily as the first. Left to the emitted
-    declarations the same file is still refused, but by a dimension error
-    naming ``<block>_chord`` or ``<block>_link0`` — a constraint the author
-    never wrote, and a different one per method.
+    A values parameter is checked against the frame in a second pass, since
+    the last link's expression widens the frame as readily as the first; left
+    to the emitted declarations the refusal would name ``<block>_link0``, a
+    constraint the author never wrote.
     """
     ctx = f"piecewise '{name}'"
     if pw.over not in schema.dimensions:
-        raise PiecewiseExpansionError(f"{ctx}: over references undeclared dimension '{pw.over}'")
+        raise PiecewiseExpansionError(undeclared_dimension('piecewise', name, pw.over))
 
     frame: list[str] = []
     for i, link in enumerate(pw.links):
@@ -297,9 +251,8 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
     if pw.activity is not None:
         if pw.activity not in schema.variables:
             raise PiecewiseExpansionError(
-                f"{ctx}: activity '{pw.activity}' is not a declared variable. A gate is a variable or it is "
-                f'nothing — with no `activity:` at all the weights sum to 1, so what a gate adds is a column '
-                f'the solver decides, and only a declaration says what its absence means.'
+                f"{ctx}: activity '{pw.activity}' is not a declared variable. A gate is a binary variable; "
+                f'declare it, or drop activity: for weights that sum to 1.'
             )
         if schema.variables[pw.activity].domain != 'binary':
             raise PiecewiseExpansionError(f"{ctx}: activity variable '{pw.activity}' must be binary")
@@ -318,14 +271,14 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
                 f"it, or drop it from '{link.values}'."
             )
 
-    if pw.points is not None and mask_of(name, pw) != pw.points:
-        if f'{name}_points' in schema.parameters:
-            raise PiecewiseExpansionError(
-                f"{ctx}: emitted parameter '{name}_points' collides with a declared parameter"
-            )
-    elif pw.points is not None:
+    if pw.points is not None and mask_of(name, pw) == pw.points:
         if pw.points not in schema.parameters:
             raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
+        if (dtype := schema.parameters[pw.points].dtype) != 'bool':
+            raise PiecewiseExpansionError(
+                f"{ctx}: points parameter '{pw.points}' is {dtype}, and a mask is a bool parameter — one "
+                f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
+            )
         mask = schema.parameters[pw.points].dims
         if pw.over not in mask:
             raise PiecewiseExpansionError(
@@ -349,9 +302,10 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
         f'{name}_domain_hi',
         *(f'{name}_link{i}' for i in range(len(pw.links))),
     )
+    derived = (f'{name}_points',) if mask_of(name, pw) != pw.points else ()
     for kind, emitted, declared in (
         ('variable', (f'{name}_lam', f'{name}_seg'), schema.variables),
-        ('parameter', (f'{name}_starts', f'{name}_ends'), schema.parameters),
+        ('parameter', (f'{name}_starts', f'{name}_ends', *derived), schema.parameters),
         ('constraint', emitted_constraints, schema.constraints),
         ('sos', (name,), schema.sos),
     ):
@@ -362,29 +316,13 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
 
 
 def _declared_order(schema: Model, dims: frozenset[str]) -> list[str]:
-    """*dims* in the order the file declares them.
-
-    An emitted ``foreach`` is a *language* object and inherits the label
-    contract in ARCHITECTURE — row-major over the coordinate product, the same
-    run to run. Iterating the dim *set* instead spends string hashing, which is
-    randomised per process, so the emitted order and every solver column index
-    behind it varied between builds of the same model. Declaration order is
-    what a hand-written ``foreach`` gets, so it is what an emitted one gets.
-    """
+    """*dims* in declaration order — iterating the set varies the emitted ``foreach``, and every column index behind it, per process."""
     return [d for d in schema.dimensions if d in dims]
 
 
 def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:
-    """Dims of an affine link expression.
-
-    The frame a block is emitted over is the union of its links' dims, so the
-    dim set has to be known *here*, before any declaration exists to carry it.
-    ``dimensions`` is the one implementation of that question, and asking it
-    is the whole of what this needs: whether the engine has a plan node for
-    the expression is a different question, asked later by whichever lane
-    builds a plan.
-    """
-    ast = parse_expression(text)
+    """Dims of an affine link expression, asked of ``dimensions`` before any declaration exists to carry it."""
+    ast = parse_and_expand(text, schema, ctx)
     if isinstance(ast, ComparisonNode):
         raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
     errors: list[str] = []

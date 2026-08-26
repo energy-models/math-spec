@@ -21,6 +21,7 @@ from pydantic import (
     ConfigDict,
     PrivateAttr,
     ValidationError,
+    ValidationInfo,
     ValidatorFunctionWrapHandler,
     field_validator,
     model_serializer,
@@ -31,7 +32,7 @@ from math_spec.errors import did_you_mean, schema_error
 from math_spec.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Iterable
 
     from pydantic import GetJsonSchemaHandler
     from pydantic.json_schema import JsonSchemaValue
@@ -64,13 +65,13 @@ class _StrictBlock(BaseModel):
         known = set(cls.model_fields)
         unknown = [k for k in data if isinstance(k, str) and k not in known]
         if unknown:
-            raise ValueError('\n'.join(cls._unknown_key_error(k, known) for k in unknown))
+            label = cls._label or cls.__name__
+            raise ValueError(
+                '\n'.join(
+                    f"unknown key '{k}' in {label}. {did_you_mean(k, known, label='Valid keys')}" for k in unknown
+                )
+            )
         return data
-
-    @classmethod
-    def _unknown_key_error(cls, key: str, known: set[str]) -> str:
-        label = cls._label or cls.__name__
-        return f"unknown key '{key}' in {label}. {did_you_mean(key, known, label='Valid keys')}"
 
 
 #: The dtype a dimension index may declare (the declaration rules).
@@ -100,10 +101,12 @@ SosType = Literal[1, 2]
 #: ``tests/test_schema.py``.
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
-# The set form of each vocabulary above, for callers that want membership.
-
+#: The set form of each vocabulary above, for callers that want membership.
 DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
+#: The parameter dtypes that stand where a number belongs — a coefficient, a
+#: term, a divisor, a bound. A label selects and a flag masks; neither is one.
+NUMERIC_DTYPES = frozenset({'float', 'int'})
 VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
 VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
 
@@ -130,30 +133,16 @@ def _also_written_as(
 class LookupBlock(_StrictBlock):
     """A named single-valued map out of a dimension (the declaration rules).
 
-    Two kinds, told apart by which field is set:
+    Exactly one of ``into:`` (a groupable map onto that dimension, what
+    ``sum(by=)`` lands terms on) or ``dtype:`` (its own label space, selection
+    only)::
 
-    - ``into:`` names the dimension the values are labels of — the *groupable*
-      kind, what ``sum(by=)`` lands terms on and ``at(by=)`` reads through,
-      checked for containment once data is bound rather than joined blind::
+        lookups:
+          bus_of: {over: generator, into: bus}
+          period: {over: snapshot, dtype: int}
 
-          lookups:
-            bus_of: {over: generator, into: bus}
-            send:   {over: line, into: bus}
-
-    - ``dtype:`` declares an inline label space — the *selection-only* kind,
-      owning its values and targeting nothing, so no axis exists for terms to
-      land on. Grouping into one is refused with the promotion rewrite
-      (:func:`math_spec.resolution._ungroupable`)::
-
-          lookups:
-            period: {over: snapshot, dtype: int}
-
-    ``values:`` gives the map in the file — ``{label of over: value}`` — for a
-    relation small enough to read, the way a dimension's own ``values:`` does.
-    A label it omits is unmapped, which is the partial case a lookup already
-    allows. Without it the map is supplied at bind time under the lookup's own
-    source key, as a ``(over, label space)`` relation of the rows it has (the
-    data-binding rules). One of the two, and never neither.
+    ``values:`` gives the map in the file as ``{label of over: value}``; a label
+    it omits is unmapped. Without it the map is supplied at bind time.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
@@ -199,11 +188,6 @@ class ParameterBlock(_StrictBlock):
     dtype: ParameterDtype = 'float'
     description: str | None = None
 
-    @property
-    def referenced_dims(self) -> list[str]:
-        """The dimensions this block names — `dims` here, `foreach` on the rest."""
-        return self.dims
-
 
 class BoundsBlock(_StrictBlock):
     """Variable bounds — each side is a number or parameter name.
@@ -218,6 +202,28 @@ class BoundsBlock(_StrictBlock):
     lower: float | str = float('-inf')
     upper: float | str = float('inf')
 
+    @field_validator('lower', 'upper', mode='before')
+    @classmethod
+    def _a_number_or_a_name(cls, v: Any, info: ValidationInfo) -> Any:
+        if isinstance(v, bool):
+            msg = f'bounds.{info.field_name} is a boolean, and a bound is a number or a parameter name.'
+            raise ValueError(msg)
+        if isinstance(v, float) and math.isnan(v):
+            msg = f'bounds.{info.field_name} is nan, which no value compares to. Write a number, or omit the bound.'
+            raise ValueError(msg)
+        return v
+
+    @model_validator(mode='after')
+    def _literals_do_not_cross(self) -> BoundsBlock:
+        """Two numbers that leave no value between them are refused; a named bound is data."""
+        if isinstance(self.lower, float) and isinstance(self.upper, float) and self.lower > self.upper:
+            msg = (
+                f'bounds.lower {self.lower} is above bounds.upper {self.upper}, so no value satisfies them. '
+                f'Swap them, or drop one.'
+            )
+            raise ValueError(msg)
+        return self
+
 
 class VariableBlock(_StrictBlock):
     """A declared decision variable."""
@@ -230,10 +236,6 @@ class VariableBlock(_StrictBlock):
     domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
     description: str | None = None
-
-    @property
-    def referenced_dims(self) -> list[str]:
-        return self.foreach
 
     @model_validator(mode='after')
     def _absence_needs_a_mask(self) -> VariableBlock:
@@ -263,10 +265,6 @@ class ConstraintBlock(_StrictBlock):
     where: str | None = None
     expression: str
     description: str | None = None
-
-    @property
-    def referenced_dims(self) -> list[str]:
-        return self.foreach
 
 
 class ObjectiveBlock(_StrictBlock):
@@ -315,11 +313,6 @@ class ExpressionBlock(_StrictBlock):
           emissions:
             expression: sum(p * rate, over=generator)
             description: CO2 released, the quantity the cap bounds
-
-    The description matters more here than anywhere else: a named expression is
-    expanded away before the typeset walk, so its whole surface is
-    ``result.expression(name)`` after a solve — a name arriving in a summary
-    with nothing else to say what it counts.
     """
 
     _label: ClassVar[str] = 'a named expression'
@@ -429,16 +422,6 @@ class PiecewiseBlock(_StrictBlock):
     description: str | None = None
 
     @property
-    def convex(self) -> bool:
-        """Whether this block relaxes to the hull, which needs no binaries.
-
-        The curvature guard and the expansion both ask this rather than
-        comparing against the method name, since what they act on is the
-        absence of a restriction and not which word was written.
-        """
-        return self.method == 'convex'
-
-    @property
     def curve(self) -> tuple[PiecewiseLink, PiecewiseLink]:
         """The two links as ``(x, y)``, the bounded one last.
 
@@ -448,21 +431,6 @@ class PiecewiseBlock(_StrictBlock):
         """
         x, y = self.links
         return (y, x) if x.sign != '==' else (x, y)
-
-    @property
-    def curvature_required(self) -> str | None:
-        """The curvature this block's method is only exact for, if any.
-
-        ``'either'`` is the hull's condition — it cuts corners on a *mixed*
-        curve and nothing else. ``lp`` states one side of the curve and its
-        sign says which, so the opposite bend is silently wrong rather than
-        merely loose.
-        """
-        if self.method == 'convex':
-            return 'either'
-        if self.method != 'lp':
-            return None
-        return 'convex' if self.curve[1].sign == '>=' else 'concave'
 
     @field_validator('method', mode='wrap')
     @classmethod
@@ -476,7 +444,7 @@ class PiecewiseBlock(_StrictBlock):
 
     @model_validator(mode='after')
     def _check_method_shape(self) -> PiecewiseBlock:
-        if self.convex and len(self.links) != 2:
+        if self.method == 'convex' and len(self.links) != 2:
             msg = (
                 'method: convex requires exactly two links (the hull relaxation '
                 'is only well-defined for a single y=f(x) curve).'
@@ -517,12 +485,10 @@ SOS_TYPES = frozenset(get_args(SosType))
 class SosBlock(_StrictBlock):
     """A special-ordered set over one dimension of one variable.
 
-    Mirrors ``linopy.Model.add_sos_constraints``, whose decomposition this
-    copies: a variable, the dimension the set runs along, the type, and the
-    optional big-M a reformulating sink caps its linking rows with. One set
-    per coordinate of the variable's ``foreach`` minus ``over``; the members
-    are the variable's *existing* coordinates along ``over``, and their order
-    is that dimension's declared one — what ``shift`` walks.
+    One set per coordinate of the variable's ``foreach`` minus ``over``; the
+    members are the variable's *existing* coordinates along ``over``, in that
+    dimension's declared order, and ``big_m`` is the optional cap a
+    reformulating sink puts on its linking rows.
 
     ``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,
     and those two consecutive. Unlike every other block this one declares no
@@ -541,7 +507,7 @@ class SosBlock(_StrictBlock):
     @field_validator('type', mode='before')
     @classmethod
     def _check_type(cls, v: Any) -> Any:
-        if v not in SOS_TYPES:
+        if type(v) is not int or v not in SOS_TYPES:
             orders = ' or '.join(str(t) for t in sorted(SOS_TYPES))
             msg = f'sos type must be {orders}, got {v!r}. A set of any other order is not a construct solvers carry.'
             raise ValueError(msg)
@@ -564,50 +530,38 @@ class SosBlock(_StrictBlock):
 SUPPORTED_VERSIONS: tuple[int, ...] = (0,)
 
 
+def undeclared_dimension(kind: str, name: str, dimension: str) -> str:
+    """The one wording for a declaration naming a dimension the file does not declare."""
+    return f"{kind} '{name}' references undeclared dimension '{dimension}'. Declare it under 'dimensions:'."
+
+
+def _repeated(items: Iterable[Any]) -> list[Any]:
+    """Each value that appears more than once, once, in first-repeat order — for labels that may be unhashable."""
+    seen: list[Any] = []
+    repeats: list[Any] = []
+    for item in items:
+        if item in seen and item not in repeats:
+            repeats.append(item)
+        seen.append(item)
+    return repeats
+
+
 def _without_absence(value: Any) -> Any:
-    """Strip what is absent — a null, an infinite bound, or an empty mapping.
-
-    An empty **list** is kept: a list carries *cardinality* here and zero is
-    one of its values, ``foreach: []`` being a scalar declaration. Nothing else
-    is judged — a value that is there is written, default or not.
-    """
-    if isinstance(value, dict):
-        pruned = {k: _without_absence(v) for k, v in value.items()}
-        return {k: v for k, v in pruned.items() if not _is_absent(v)}
-    return value
-
-
-def _in_our_tree(validate: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-    """Run *validate*, raising this package's exception tree.
-
-    Pydantic's ``ValidationError`` carries an ``input_value=`` dump and a link
-    to its own docs, neither of which is the type ``docs/reference/api.md`` tells a
-    caller to catch. Both of :class:`Model`'s validating doors go through here
-    so they cannot answer differently.
-
-    ``__init__`` is deliberately *not* wrapped: defining one makes pydantic
-    route validation through it, so every after-validator runs twice, and this
-    model's validate every expression in the file. The constructor keeps
-    pydantic's error; ``load_model`` is the documented door and comes
-    through here.
-    """
-    try:
-        return validate(*args, **kwargs)
-    except ValidationError as exc:
-        raise schema_error(exc) from None
+    """*value* with every absent entry stripped, recursively — see :meth:`Model._drop_absence`."""
+    if not isinstance(value, dict):
+        return value
+    kept = {}
+    for key, before in value.items():
+        after = _without_absence(before)
+        emptied = after == {} and before != {}
+        if not _is_absent(after) and not emptied:
+            kept[key] = after
+    return kept
 
 
 def _is_absent(value: Any) -> bool:
-    """Whether a serialised value says *nothing is here*.
-
-    ``inf`` is included because an infinite bound is not a bound — it is the
-    unbounded side, which is what omitting the bound already means. Stripping
-    it is what makes JSON lossless as well: JSON has no infinity, so anything
-    that reached ``model_dump_json`` as ``inf`` came back as ``null`` and read
-    as absent anyway. Removing it here means the two agree instead of one being
-    quietly wrong.
-    """
-    if value is None or value == {}:
+    """Whether *value* is a null or an infinite bound."""
+    if value is None:
         return True
     return isinstance(value, float) and math.isinf(value)
 
@@ -675,7 +629,7 @@ class Model(_StrictBlock):
         errors = []
         over = self.dimensions.get(lookup.over)
         if over is not None and over.values is not None:
-            strangers = [k for k in lookup.values if k not in set(over.values)]
+            strangers = [k for k in lookup.values if k not in over.values]
             if strangers:
                 errors.append(
                     f"Lookup '{name}' declares values for {strangers!r}, which are not "
@@ -684,8 +638,7 @@ class Model(_StrictBlock):
                 )
         target = self.dimensions.get(lookup.into) if lookup.into is not None else None
         if target is not None and target.values is not None:
-            known = set(target.values)
-            strangers = sorted({repr(v) for v in lookup.values.values() if v is not None and v not in known})
+            strangers = sorted({repr(v) for v in lookup.values.values() if v is not None and v not in target.values})
             if strangers:
                 errors.append(
                     f"Lookup '{name}' maps to {', '.join(strangers)}, which are not labels of "
@@ -697,14 +650,15 @@ class Model(_StrictBlock):
     @classmethod
     @override
     def model_validate(cls, *args: Any, **kwargs: Any) -> Self:
-        """Validate a mapping — see :func:`_in_our_tree` for what it raises."""
-        return _in_our_tree(super().model_validate, *args, **kwargs)
+        """Validate a mapping, raising this package's exception tree rather than pydantic's.
 
-    @classmethod
-    @override
-    def model_validate_json(cls, *args: Any, **kwargs: Any) -> Self:
-        """The same door, for JSON."""
-        return _in_our_tree(super().model_validate_json, *args, **kwargs)
+        ``__init__`` is not wrapped the same way, because defining one makes
+        pydantic run every after-validator twice.
+        """
+        try:
+            return super().model_validate(*args, **kwargs)
+        except ValidationError as exc:
+            raise schema_error(exc) from None
 
     @field_validator('version')
     @classmethod
@@ -723,14 +677,15 @@ class Model(_StrictBlock):
 
     @model_serializer(mode='wrap')
     def _drop_absence(self, handler: Any) -> dict[str, Any]:
-        """Absence is not serialised — a null, or a mapping declaring nothing.
+        """Absence is not serialised: a null, an infinite bound, a mapping that stripping emptied, a section declaring nothing.
 
-        On the *serializer* rather than beside it so ``model_dump``,
-        ``model_dump_json``, :meth:`to_dict` and :meth:`to_yaml` give the same
-        content; a helper next to them would leave pydantic's own methods
-        disagreeing with the file. See :func:`_without_absence` for what stays.
+        A mapping *declared* empty stays (``values: {}`` is a map with nothing
+        in it), and so does an empty list (``foreach: []`` is a scalar). On the
+        serializer so that ``model_dump``, :meth:`to_dict` and :meth:`to_yaml`
+        agree.
         """
-        return _without_absence(handler(self))
+        written = _without_absence(handler(self))
+        return {k: v for k, v in written.items() if v != {}}
 
     def to_dict(self) -> dict[str, Any]:
         """The model as plain data. ``load_model(m.to_dict())`` reproduces it."""
@@ -739,10 +694,8 @@ class Model(_StrictBlock):
     def to_yaml(self) -> str:
         """The file a reviewer reads — including for a model that never had one.
 
-        Hard rule 5 is that the model is the file you review and diff; a model
-        a framework emitted as a dict has no such file. Generated rather than
-        authored, so length costs a reader nothing and being unambiguous saves
-        them knowing this package's defaults at all.
+        Generated rather than authored, so length costs a reader nothing and
+        being unambiguous saves them knowing this package's defaults at all.
         """
         import yaml
 
@@ -784,30 +737,31 @@ class Model(_StrictBlock):
                 if name in seen:
                     errors.append(
                         f"{kind.capitalize()} '{name}' collides with the {seen[name]} of "
-                        f'the same name. Names share one flat namespace — rename one of '
-                        f'them, so that every name in an expression or where string has '
-                        f'exactly one meaning.'
+                        f'the same name. Names share one flat namespace — rename one of them.'
                     )
                 else:
                     seen[name] = kind
 
-        errors.extend(
-            f"{kind} '{name}' references undeclared dimension '{d}'. Declare it under 'dimensions:'."
-            for kind, group in (
-                ('Parameter', self.parameters),
-                ('Variable', self.variables),
-                ('Constraint', self.constraints),
+        frames = [
+            *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
+            *(('Variable', name, v.foreach) for name, v in self.variables.items()),
+            *(('Constraint', name, c.foreach) for name, c in self.constraints.items()),
+        ]
+        for kind, name, dims in frames:
+            errors.extend(undeclared_dimension(kind, name, d) for d in dims if d not in self.dimensions)
+            errors.extend(
+                f"{kind} '{name}' names dimension '{d}' twice. A frame is a product of distinct dimensions."
+                for d in _repeated(dims)
             )
-            for name, item in group.items()
-            for d in item.referenced_dims
-            if d not in self.dimensions
-        )
+        for dname, ddef in self.dimensions.items():
+            errors.extend(
+                f"Dimension '{dname}' declares label {label!r} twice. A label is one coordinate; drop the repeat."
+                for label in _repeated(ddef.values or [])
+            )
 
         for lname, lk in self.lookups.items():
             if lk.over not in self.dimensions:
-                errors.append(
-                    f"Lookup '{lname}' is over undeclared dimension '{lk.over}'. Declare it under 'dimensions:'."
-                )
+                errors.append(undeclared_dimension('Lookup', lname, lk.over))
             if lk.into is not None:
                 if lk.into not in self.dimensions:
                     errors.append(
@@ -824,15 +778,49 @@ class Model(_StrictBlock):
         for vname, vdef in self.variables.items():
             for side in ('lower', 'upper'):
                 val = getattr(vdef.bounds, side)
-                if isinstance(val, str) and val not in self.parameters:
-                    looks_like_expression = not val.isidentifier()
-                    detail = (
-                        f'bounds accept a parameter name or a number, not an expression '
-                        f'(got {val!r}). Precompute it as a parameter'
-                        if looks_like_expression
-                        else f"'{val}' is not a declared parameter"
-                    )
-                    errors.append(f"Variable '{vname}' bounds.{side}: {detail}.")
+                if not isinstance(val, str):
+                    continue
+                if val in self.parameters:
+                    dtype = self.parameters[val].dtype
+                    if dtype not in NUMERIC_DTYPES:
+                        errors.append(
+                            f"Variable '{vname}' bounds.{side}: '{val}' is a {dtype} parameter, and a bound "
+                            f'is a number. Declare it dtype: float or int, or bound the variable by another.'
+                        )
+                    continue
+                detail = (
+                    f"'{val}' is not a declared parameter"
+                    if val.isidentifier()
+                    else f'bounds accept a parameter name or a number, not an expression (got {val!r}). '
+                    f'Precompute it as a parameter'
+                )
+                errors.append(f"Variable '{vname}' bounds.{side}: {detail}.")
+
+        claimed: dict[str, str] = {}
+        for sname, block in self.sos.items():
+            context = f"Sos '{sname}'"
+            if block.over not in self.dimensions:
+                errors.append(undeclared_dimension('Sos', sname, block.over))
+            elif block.variable not in self.variables:
+                errors.append(
+                    f"{context}: '{block.variable}' is not a declared variable.\n"
+                    f'  Variables: {sorted(self.variables)}\n'
+                    f'A set is over one variable, so a parameter or an expression cannot carry one.'
+                )
+            elif block.over not in self.variables[block.variable].foreach:
+                errors.append(
+                    f"{context}: over '{block.over}' is not a dim of variable "
+                    f"'{block.variable}' (foreach {self.variables[block.variable].foreach}). The set runs "
+                    f"along one of the variable's own dims — one set per coordinate of the rest."
+                )
+            elif block.variable in claimed:
+                errors.append(
+                    f"{context}: variable '{block.variable}' already carries the set declared by "
+                    f"'{claimed[block.variable]}'. A variable holds one set — declare a second "
+                    f'variable, or state the other restriction as a constraint.'
+                )
+            else:
+                claimed[block.variable] = sname
 
         if errors:
             raise ValueError('\n'.join(errors))
@@ -841,13 +829,12 @@ class Model(_StrictBlock):
 
     @model_validator(mode='after')
     def _validate_expressions(self) -> Model:
-        """Every expression and where string, checked here rather than beside.
+        """Every expression and where string — after expansion, whose emitted declarations are language too.
 
-        The checkers are a layer above this one, so the imports are local and
-        declared in ``DELIBERATE_LAZY_IMPORTS``. Expansion runs first — a
-        formulation emits declarations that are language too — and the
-        :class:`Buildable` it builds validates itself on the way out, so a file
-        with curves is checked there rather than checked twice here.
+        The :class:`Buildable` expansion builds runs every validator of its own,
+        so a file with ``piecewise:`` has its references checked twice and its
+        expressions once, there. The checkers import this module, so the
+        imports are local.
         """
         from math_spec.piecewise import expand_piecewise
         from math_spec.validation import validate_expressions
@@ -862,22 +849,10 @@ class Model(_StrictBlock):
 class Buildable(Model):
     """A model with nothing left to expand — what rows are built from.
 
-    A :class:`Model` is the file as written, and a file may carry a
-    ``piecewise:`` block whose variables and constraints do not exist until
-    :func:`~math_spec.piecewise.expand_piecewise` emits them. This is the
-    model after that pass, and it guarantees the one thing a builder needs:
-    ``variables:`` and ``constraints:`` hold the whole model, so the rows built
-    from it are the rows the file asked for.
-
-    Taking one is how a consumer says it *builds* rather than *reads*, and
-    passing a :class:`Model` where one is wanted is a type error rather than a
-    model quietly missing declarations. Whatever reads the file as written
-    takes a :class:`Model` and accepts either.
-
-    The guarantee is about *declarations*, and deliberately says nothing about
-    the expression strings inside them: ``macros:`` and ``expressions:`` are
-    substituted per read, because an expression is needed only when someone
-    reads it where the set of declarations is needed before anything can be.
+    :func:`~math_spec.piecewise.expand_piecewise` produces one, and
+    ``variables:`` and ``constraints:`` then hold the whole model. A consumer
+    that builds takes this type; one that reads takes :class:`Model` and
+    accepts either.
     """
 
     @model_validator(mode='after')

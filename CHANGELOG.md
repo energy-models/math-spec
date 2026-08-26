@@ -17,6 +17,32 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.18](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.17...v0.0.0-alpha.18) (2026-08-26)
+
+
+### Refactoring
+
+* **parser:** one number rule, one amount table, and a namespace nothing builds by hand ([#106](https://github.com/energy-models/math-spec/issues/106)) ([f775a07](https://github.com/energy-models/math-spec/commit/f775a07cf8f5159dd8df973f995b8dad87fd01ef))
+* **schema:** one wording for an undeclared dimension, and the front door validates once ([#105](https://github.com/energy-models/math-spec/issues/105)) ([69e42db](https://github.com/energy-models/math-spec/commit/69e42db6f453b9caff349ddf109ee77aed3617fa))
+* the stack's own additions say less and repeat nothing ([#102](https://github.com/energy-models/math-spec/issues/102)) ([119e588](https://github.com/energy-models/math-spec/commit/119e5884a576264c38c8455c625908ee09d057c9))
+* **typeset:** Markdown is LaTeX's math with its own document layer, and a step merges itself ([#107](https://github.com/energy-models/math-spec/issues/107)) ([1ca9178](https://github.com/energy-models/math-spec/commit/1ca9178b82f629bd39170e884b82265c7935b8de))
+
+## [0.0.0-alpha.17](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.16...v0.0.0-alpha.17) (2026-08-25)
+
+
+### Bug Fixes
+
+* **language:** a link takes any affine expression, an uncalled template hides no typo, and degree is decided at load ([#91](https://github.com/energy-models/math-spec/issues/91)) ([a653056](https://github.com/energy-models/math-spec/commit/a6530562d59b4ac134ef4fd051ae1c9aea5f1b2c))
+* **parser:** a negation is over a power, a keyword is given once, and an amount is a number or a name ([#88](https://github.com/energy-models/math-spec/issues/88)) ([4bf994c](https://github.com/energy-models/math-spec/commit/4bf994ce4700b634e970b49e8e10e705c479a65f))
+* **schema:** every refusal of a malformed file is a SchemaError, and an empty declared map survives a round trip ([#89](https://github.com/energy-models/math-spec/issues/89)) ([ee07736](https://github.com/energy-models/math-spec/commit/ee07736babd79b2d0f5f99f6c9d7c25a2c98dc9f))
+* **schema:** two literal bounds that cross are refused at load ([#97](https://github.com/energy-models/math-spec/issues/97)) ([30589ba](https://github.com/energy-models/math-spec/commit/30589ba4bf61e640c8f3778e34d5bd768e807e2c))
+* **typeset:** a sum under its own dimension takes a fresh index, and prose escapes its markup ([#92](https://github.com/energy-models/math-spec/issues/92)) ([20c7076](https://github.com/energy-models/math-spec/commit/20c7076511c5a3ef74dc06fe0d11888f292f1b2d))
+
+
+### Refactoring
+
+* the tree describes this package, not the project it was cut from ([#94](https://github.com/energy-models/math-spec/issues/94)) ([9673f9a](https://github.com/energy-models/math-spec/commit/9673f9aef6bc7902439d7842c83a3fd95c29895e))
+
 ## [0.0.0-alpha.16](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.15...v0.0.0-alpha.16) (2026-08-25)
 
 
