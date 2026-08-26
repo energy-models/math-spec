@@ -80,7 +80,7 @@ def write(n: pypsa.Network, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     snaps = list(n.snapshots)
     with (out / 'snapshots.csv').open('w', newline='') as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator='\n')
         w.writerow(['snapshot', 'objective', 'stores', 'generators'])
         for i, t in enumerate(snaps):
             w.writerow([i, *(float(n.snapshot_weightings.at[t, c]) for c in ('objective', 'stores', 'generators'))])
@@ -106,12 +106,12 @@ def write(n: pypsa.Network, out: Path) -> None:
             if attr in cols and all(name in frame.columns for name in static.index):
                 cols.remove(attr)
         with (out / table).open('w', newline='') as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator='\n')
             w.writerow(['name', *cols])
             for name, row in static.iterrows():
                 w.writerow([name, *(_cell(row[c]) for c in cols)])
     with (out / 'timeseries.csv').open('w', newline='') as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator='\n')
         w.writerow(['component', 'name', 'attribute', 'snapshot', 'value'])
         w.writerows(series)
 
