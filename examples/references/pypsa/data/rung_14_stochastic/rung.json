@@ -1,0 +1,11 @@
+{
+  "model": "examples/pypsa_stochastic.yaml",
+  "scenarios": {
+    "calm": 0.6,
+    "stormy": 0.4
+  },
+  "risk_preference": {
+    "alpha": 0.5,
+    "omega": 0.3
+  }
+}

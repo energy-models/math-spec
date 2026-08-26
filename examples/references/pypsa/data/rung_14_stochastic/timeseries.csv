@@ -1,0 +1,17 @@
+component,name,attribute,snapshot,value,scenario
+Load,port14,p_set,0,10,calm
+Load,port14,p_set,1,20,calm
+Load,port14,p_set,2,15,calm
+Load,port14,p_set,3,10,calm
+Generator,wind14,p_max_pu,0,0.9,calm
+Generator,wind14,p_max_pu,1,0.7,calm
+Generator,wind14,p_max_pu,2,0.8,calm
+Generator,wind14,p_max_pu,3,0.6,calm
+Load,port14,p_set,0,40,stormy
+Load,port14,p_set,1,60,stormy
+Load,port14,p_set,2,50,stormy
+Load,port14,p_set,3,30,stormy
+Generator,wind14,p_max_pu,0,0.3,stormy
+Generator,wind14,p_max_pu,1,0.2,stormy
+Generator,wind14,p_max_pu,2,0.4,stormy
+Generator,wind14,p_max_pu,3,0.1,stormy

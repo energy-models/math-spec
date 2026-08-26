@@ -90,7 +90,7 @@ def _parsed(attrs, column: str, cell: str) -> object:
 
 
 def settings(rung: str) -> dict[str, object]:
-    """The rung's `rung.json`: the model file it binds and the keywords its `n.optimize` takes; both default."""
+    """The rung's `rung.json`: the model file it binds, the keywords its `n.optimize` takes, its scenarios and risk preference if any."""
     path = DATA / rung / 'rung.json'
     given = json.loads(path.read_text()) if path.exists() else {}
     return {'model': 'examples/pypsa.yaml', 'optimize': {}, **given}
@@ -112,7 +112,7 @@ def build(rung: str) -> pypsa.Network:
 
     varying: dict[tuple[str, str], dict[str, dict[int, float]]] = {}
     for row in _rows(folders, 'timeseries.csv'):
-        if not row['value']:
+        if not row['value'] or row.get('scenario'):
             continue
         varying.setdefault((row['component'], row['name']), {}).setdefault(row['attribute'], {})[
             int(row['snapshot'])
@@ -127,6 +127,15 @@ def build(rung: str) -> pypsa.Network:
             for attribute, points in varying.get((component, row['name']), {}).items():
                 kwargs[attribute] = [points.get(int(t['snapshot']), math.nan) for t in snapshots]
             n.add(component, row['name'], **kwargs)
+    given = settings(rung)
+    if given.get('scenarios'):
+        n.set_scenarios(given['scenarios'])
+        for row in _rows(folders, 'timeseries.csv'):
+            if row.get('scenario') and row['value']:
+                frame = n.dynamic(row['component'])[row['attribute']]
+                frame.loc[frame.index[int(row['snapshot'])], (row['scenario'], row['name'])] = float(row['value'])
+        if given.get('risk_preference'):
+            n.set_risk_preference(**given['risk_preference'])
     return n
 
 
@@ -147,7 +156,10 @@ def record(n: pypsa.Network) -> dict[str, object]:
             str(label): {'type': row['type'], 'sense': row['sense']} for label, row in n.global_constraints.iterrows()
         },
         'marginal_price': {
-            str(bus): [float(x) for x in n.buses_t.marginal_price[bus]] for bus in n.buses_t.marginal_price.columns
+            '/'.join(map(str, bus)) if isinstance(bus, tuple) else str(bus): [
+                float(x) for x in n.buses_t.marginal_price[bus]
+            ]
+            for bus in n.buses_t.marginal_price.columns
         }
         if not n.buses_t.marginal_price.empty and bool(n.buses_t.marginal_price.notna().all().all())
         else {},

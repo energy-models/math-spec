@@ -22,7 +22,7 @@ keyword.
 | [`Generator-com-partly-shut-down`](#generator-com-partly-shut-down) | done |                                                |
 
 <!-- reference:rung_12_linearized_uc:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7775.0`, 128 rows. `lpspec g8b61da742` binds `examples/pypsa_linearized_uc.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
+> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7775.0`, 128 rows. `lpspec gaf9a9b913` binds `examples/pypsa_linearized_uc.yaml` against the same network and lands on the same objective (lpspec's parity gate). Nodal prices agree on 8 rows.
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>

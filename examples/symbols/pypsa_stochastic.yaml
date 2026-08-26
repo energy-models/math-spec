@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# How `examples/pypsa_stochastic.yaml` prints — the transport and expansion symbols of `pypsa.yaml`, a scenario, and the tail.
+notation: latex
+dimensions:
+  snapshot: { index: t, set: '\mathcal{T}' }
+  bus: { index: n, set: '\mathcal{N}' }
+  generator: { index: g, set: '\mathcal{G}' }
+  link: { index: l, set: '\mathcal{L}' }
+  load: { index: d, set: '\mathcal{D}' }
+  scenario: { index: s, set: '\mathcal{S}' }
+names:
+  snapshot_weightings_objective: '\mathrm{w}'
+  Generator_p: p
+  Generator_p_nom: '\mathrm{p}^{\mathrm{nom}}'
+  Generator_p_nom_extendable: '\mathrm{ext}'
+  Generator_p_min_pu: '\underline{\mathrm{p}}'
+  Generator_p_max_pu: '\overline{\mathrm{p}}'
+  Generator_marginal_cost: '\mathrm{c}'
+  Link_p: f
+  Link_p_nom: '\mathrm{f}^{\mathrm{nom}}'
+  Link_p_min_pu: '\underline{\mathrm{f}}'
+  Link_p_max_pu: '\overline{\mathrm{f}}'
+  Link_efficiency: '\eta'
+  Link_marginal_cost: '\mathrm{c}^{f}'
+  Load_p_set: '\mathrm{load}'
+  Generator_p_nom_ext: P
+  Generator_p_nom_min: '\underline{\mathrm{p}}^{\mathrm{nom}}'
+  Generator_p_nom_max: '\overline{\mathrm{p}}^{\mathrm{nom}}'
+  Generator_capital_cost: '\mathrm{c}^{\mathrm{cap}}'
+  scenario_weight: '\pi'
+  CVaR_omega: '\omega'
+  CVaR_inv_tail: '\mathrm{v}'
+  CVaR_a: a
+  CVaR_theta: '\theta'
+  CVaR: 'CVaR'

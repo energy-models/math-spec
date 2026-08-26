@@ -1,0 +1,2 @@
+name,bus,p_nom,p_nom_extendable,p_nom_max,marginal_cost,capital_cost
+wind14,south,0.0,True,100.0,1.0,20.0
