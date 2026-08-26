@@ -13,6 +13,7 @@ math below it are written from here.
 
 from __future__ import annotations
 
+import json
 import re
 import textwrap
 from functools import partial
@@ -44,6 +45,12 @@ MODELS = {
 DECLARED = {
     'pypsa.md': (ROOT / 'examples' / 'pypsa.yaml', ROOT / 'examples' / 'symbols' / 'pypsa.yaml'),
 }
+
+#: One PyPSA reference network per rung of the declared page, run out of band
+#: with the versions each script pins; `references.json` beside them holds
+#: what each solve recorded. The page shows each rung's `build()` under its
+#: table, so the YAML and the PyPSA statements it stands for sit side by side.
+REFERENCES = ROOT / 'examples' / 'references' / 'pypsa'
 
 
 def model_block(path: Path) -> str:
@@ -118,6 +125,43 @@ def declared_block(path: Path, symbols: Path) -> str:
     return '\n\n'.join(parts)
 
 
+def _build_source(script: Path) -> str:
+    """The ``build()`` half of a reference script — the PyPSA statements alone."""
+    lines = script.read_text().splitlines()
+    i = next(k for k, line in enumerate(lines) if line.startswith('def build('))
+    j = next(k for k in range(i + 1, len(lines)) if lines[k].startswith('def '))
+    return '\n'.join(lines[i:j]).rstrip()
+
+
+def reference_block(stem: str) -> str:
+    """A rung's oracle: the recorded solve, then the network as PyPSA states it."""
+    recorded = json.loads((REFERENCES / 'references.json').read_text())[stem]
+    rows = sum(recorded['rows'].values())
+    return (
+        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network through its own linopy model "
+        f'at objective `{recorded["objective"]}`, {rows} rows — recorded by '
+        f'`examples/references/pypsa/{stem}.py`.\n'
+        '\n'
+        '<details markdown="1">\n'
+        "<summary>The reference network, in PyPSA's own statements</summary>\n"
+        '\n'
+        f'```python\n{_build_source(REFERENCES / f"{stem}.py")}\n```\n'
+        '\n'
+        '</details>'
+    )
+
+
+def with_references(page: str, text: str) -> str:
+    """Every reference script's block, between its own marker pair on the page."""
+    for script in sorted(REFERENCES.glob('rung*.py')):
+        begin, end = f'<!-- reference:{script.stem}:begin -->', f'<!-- reference:{script.stem}:end -->'
+        if begin not in text or end not in text:
+            msg = f"{page}: no marker pair for {script.stem} — add {begin} and {end} where the rung's table ends"
+            raise ValueError(msg)
+        text = splice(text, begin, end, reference_block(script.stem))
+    return text
+
+
 def block(page: str) -> str:
     if page == 'operators.md':
         return probe_block()
@@ -127,7 +171,10 @@ def block(page: str) -> str:
 
 
 def rendered(page: str, text: str) -> str:
-    return splice(text, BEGIN, END, block(page))
+    text = splice(text, BEGIN, END, block(page))
+    if page in DECLARED:
+        text = with_references(page, text)
+    return text
 
 
 def pages() -> list[str]:

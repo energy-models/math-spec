@@ -24,6 +24,10 @@ docs/examples/dispatch.md
 docs/examples/operators.md
 docs/examples/pypsa.md
 
+# The PyPSA reference scripts write this file; prettier would reformat what
+# they stamp, and the two would fight over it exactly as above.
+examples/references/pypsa/references.json
+
 # `tools/notation.py` writes this page's block, and it is the same trap: the
 # legend tables it emits are the same unpadded ones. The page was not listed
 # when the rule was written, so every regeneration since has been padded back
