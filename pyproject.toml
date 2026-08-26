@@ -179,6 +179,11 @@ testpaths = ["tests"]
 branch = true
 source = ["src/"]
 
+[tool.typos.files]
+# release-please writes CHANGELOG.md, and its abbreviated commit hashes are not
+# words: `30589ba` was read as `ba`, a misspelling of `by`.
+extend-exclude = ["CHANGELOG.md"]
+
 [tool.typos.default.extend-words]
 # Each of these is deliberate, and none is reachable by fixing a spelling.
 #

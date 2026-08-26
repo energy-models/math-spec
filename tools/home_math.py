@@ -7,36 +7,23 @@
     pixi run python -m tools.home_math           # rewrite both blocks
     pixi run python -m tools.home_math --check   # fail if either has drifted
 
-The homepage claims that a file says exactly this, with no data and no solver
-in between. A block typed by hand would be that claim asserted; this one is the
-claim executed — every symbol on the page came out of ``examples/dispatch.yaml``
-and ``examples/symbols/dispatch.yaml`` on the commit being built, through the
-same two functions the docs tell a reader to call.
-
-Two files carry it, because the model has to be readable in both renderings:
-``README.md`` holds the YAML, which the site pulls in as a snippet, and
-``docs/index.md`` holds the math, which is a tabbed block and would be raw
-markup on GitHub. Writing both from here is what stops the model shown from
-drifting away from the model rendered.
-
-The third tab is not rendered output but the call that produced the other two,
-so the page never shows math without showing where it came from.
+Two files carry it: ``README.md`` holds the YAML, which the site pulls in as a
+snippet, and ``docs/index.md`` holds the math, which is a tabbed block and
+would be raw markup on GitHub. The third tab is the call that produced the
+other two.
 """
 
 from __future__ import annotations
 
-import argparse
-import sys
 import textwrap
-from pathlib import Path
 
 from math_spec.typesetting import to_latex, to_markdown
+from tools._page import ROOT, sidecar_for, splice, without_header
+from tools._page import main as page_main
 
-ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / 'docs' / 'index.md'
 README = ROOT / 'README.md'
 MODEL = ROOT / 'examples' / 'dispatch.yaml'
-SYMBOLS = ROOT / 'examples' / 'symbols' / 'dispatch.yaml'
 BEGIN, END = '<!-- home-math:begin -->', '<!-- home-math:end -->'
 #: The snippet markers `pymdownx.snippets` reads, which is how the same YAML
 #: reaches the site without being typed twice.
@@ -92,8 +79,9 @@ def tab(title: str, body: str) -> str:
 
 def block() -> str:
     """The three tabs, in the order a reader meets them."""
-    printed = to_markdown(MODEL, symbols=SYMBOLS, numbered=False)
-    latex = to_latex(MODEL, symbols=SYMBOLS, numbered=False)
+    symbols = sidecar_for(MODEL)
+    printed = to_markdown(MODEL, symbols=symbols, numbered=False)
+    latex = to_latex(MODEL, symbols=symbols, numbered=False)
     return '\n\n'.join(
         (
             tab('The math', printed.strip()),
@@ -103,50 +91,18 @@ def block() -> str:
     )
 
 
-def model_block() -> str:
-    """The model as the README shows it: the file, without its licence header.
-
-    The header is the repository's, not the model's, and a reader meeting the
-    language for the first time should not have to read past it.
-    """
-    lines = MODEL.read_text().splitlines()
-    start = next(i for i, line in enumerate(lines) if line.strip() and not line.startswith('#'))
-    return '```yaml title="{}"\n{}\n```'.format(MODEL.name, '\n'.join(lines[start:]).strip())
-
-
 def rendered_readme(readme: str) -> str:
-    i, j = readme.index(MODEL_BEGIN) + len(MODEL_BEGIN), readme.index(MODEL_END)
-    return readme[:i] + '\n\n' + model_block() + '\n\n' + readme[j:]
+    """Prettier wants a blank line on each side of the markers, so the block carries them."""
+    return splice(readme, MODEL_BEGIN, MODEL_END, f'\n```yaml title="{MODEL.name}"\n{without_header(MODEL)}\n```\n')
 
 
 def rendered_page(page: str) -> str:
-    i, j = page.index(BEGIN) + len(BEGIN), page.index(END)
-    # Prettier formats every page in `docs/`, and it wants a blank line on each
-    # side of the markers. Emitting them here is what keeps `--check` and the
-    # formatter from undoing each other on every commit.
-    return page[:i] + '\n\n' + block() + '\n\n' + page[j:]
+    """Prettier wants a blank line on each side of the markers, so the block carries them."""
+    return splice(page, BEGIN, END, f'\n{block()}\n')
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--check', action='store_true', help='fail if the committed block has drifted')
-    opts = ap.parse_args(argv)
-
-    written = {PAGE: rendered_page(PAGE.read_text()), README: rendered_readme(README.read_text())}
-    stale = [path for path, updated in written.items() if updated != path.read_text()]
-
-    if opts.check:
-        for path in stale:
-            print(f'{path.relative_to(ROOT)} is stale — run `pixi run python -m tools.home_math`', file=sys.stderr)
-        if stale:
-            return 1
-        print(f'{PAGE.relative_to(ROOT)} and {README.relative_to(ROOT)} match the model')
-        return 0
-
-    for path in stale:
-        path.write_text(written[path])
-        print(f'wrote {path.relative_to(ROOT)}')
-    return 0
+    return page_main(argv, {PAGE: rendered_page, README: rendered_readme}, 'home_math')
 
 
 if __name__ == '__main__':

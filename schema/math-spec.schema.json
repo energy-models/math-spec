@@ -125,7 +125,7 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Model.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nThe description matters more here than anywhere else: a named expression is\nexpanded away before the typeset walk, so its whole surface is\n``result.expression(name)`` after a solve \u2014 a name arriving in a summary\nwith nothing else to say what it counts.",
+          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Model.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds",
           "properties": {
             "description": {
               "anyOf": [
@@ -157,7 +157,7 @@
     },
     "LookupBlock": {
       "additionalProperties": false,
-      "description": "A named single-valued map out of a dimension (the declaration rules).\n\nTwo kinds, told apart by which field is set:\n\n- ``into:`` names the dimension the values are labels of \u2014 the *groupable*\n  kind, what ``sum(by=)`` lands terms on and ``at(by=)`` reads through,\n  checked for containment once data is bound rather than joined blind::\n\n      lookups:\n        bus_of: {over: generator, into: bus}\n        send:   {over: line, into: bus}\n\n- ``dtype:`` declares an inline label space \u2014 the *selection-only* kind,\n  owning its values and targeting nothing, so no axis exists for terms to\n  land on. Grouping into one is refused with the promotion rewrite\n  (:func:`math_spec.resolution._ungroupable`)::\n\n      lookups:\n        period: {over: snapshot, dtype: int}\n\n``values:`` gives the map in the file \u2014 ``{label of over: value}`` \u2014 for a\nrelation small enough to read, the way a dimension's own ``values:`` does.\nA label it omits is unmapped, which is the partial case a lookup already\nallows. Without it the map is supplied at bind time under the lookup's own\nsource key, as a ``(over, label space)`` relation of the rows it has (the\ndata-binding rules). One of the two, and never neither.",
+      "description": "A named single-valued map out of a dimension (the declaration rules).\n\nExactly one of ``into:`` (a groupable map onto that dimension, what\n``sum(by=)`` lands terms on) or ``dtype:`` (its own label space, selection\nonly)::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n      period: {over: snapshot, dtype: int}\n\n``values:`` gives the map in the file as ``{label of over: value}``; a label\nit omits is unmapped. Without it the map is supplied at bind time.",
       "properties": {
         "description": {
           "anyOf": [
@@ -458,7 +458,7 @@
     },
     "SosBlock": {
       "additionalProperties": false,
-      "description": "A special-ordered set over one dimension of one variable.\n\nMirrors ``linopy.Model.add_sos_constraints``, whose decomposition this\ncopies: a variable, the dimension the set runs along, the type, and the\noptional big-M a reformulating sink caps its linking rows with. One set\nper coordinate of the variable's ``foreach`` minus ``over``; the members\nare the variable's *existing* coordinates along ``over``, and their order\nis that dimension's declared one \u2014 what ``shift`` walks.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath a sink can read off ``A``: it is a *set*, carried to the sink that\nhas the concept and reformulated for the sink that does not.",
+      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``foreach`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order, and ``big_m`` is the optional cap a\nreformulating sink puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath a sink can read off ``A``: it is a *set*, carried to the sink that\nhas the concept and reformulated for the sink that does not.",
       "properties": {
         "big_m": {
           "anyOf": [

@@ -52,18 +52,33 @@ def test_an_expression_parses_to_its_node(text, node_type, attrs):
         assert getattr(node, attr) == expected
 
 
-def test_multiplication_binds_tighter_than_addition():
-    node = parse_expression('a + b * c')
-    assert node.op == '+'
-    assert isinstance(node.right, BinaryOperatorNode)
-    assert node.right.op == '*'
-
-
-def test_parentheses_override_precedence():
-    node = parse_expression('(a + b) * c')
-    assert node.op == '*'
-    assert isinstance(node.left, BinaryOperatorNode)
-    assert node.left.op == '+'
+@pytest.mark.parametrize(
+    ('text', 'tree'),
+    [
+        pytest.param(
+            'a + b * c',
+            BinaryOperatorNode('+', NameNode('a'), BinaryOperatorNode('*', NameNode('b'), NameNode('c'))),
+            id='multiplication-binds-tighter-than-addition',
+        ),
+        pytest.param(
+            '(a + b) * c',
+            BinaryOperatorNode('*', BinaryOperatorNode('+', NameNode('a'), NameNode('b')), NameNode('c')),
+            id='parentheses-override-precedence',
+        ),
+        pytest.param(
+            '-a ** 2',
+            UnaryOperatorNode('-', BinaryOperatorNode('**', NameNode('a'), NumberNode(2))),
+            id='a-negation-is-over-the-power-not-under-it',
+        ),
+        pytest.param(
+            '-a * b',
+            BinaryOperatorNode('*', UnaryOperatorNode('-', NameNode('a')), NameNode('b')),
+            id='a-negation-binds-tighter-than-a-product',
+        ),
+    ],
+)
+def test_precedence(text, tree):
+    assert parse_expression(text) == tree
 
 
 def test_a_call_carries_its_positional_and_keyword_arguments():
@@ -74,8 +89,27 @@ def test_a_call_carries_its_positional_and_keyword_arguments():
 
 
 def test_an_unparseable_expression_is_an_error():
-    with pytest.raises(ValueError, match='Failed to parse'):
+    with pytest.raises(SchemaError, match='Failed to parse'):
         parse_expression('a +')
+
+
+def test_an_exponent_may_be_negated_and_a_negation_stacked():
+    assert parse_expression('2 ** -1').right == UnaryOperatorNode('-', NumberNode(1))
+    assert parse_expression('--x') == UnaryOperatorNode('-', UnaryOperatorNode('-', NameNode('x')))
+
+
+def test_a_keyword_given_twice_is_refused_not_overwritten():
+    with pytest.raises(SchemaError, match='sum\\(over=\\) is given twice'):
+        parse_expression('sum(p, over=snapshot, over=generator)')
+
+
+@pytest.mark.parametrize(
+    ('text', 'value'),
+    [('1e5', 1e5), ('2.5E-3', 2.5e-3), ('1e+3', 1e3), ('7.e2', 700.0)],
+)
+def test_scientific_notation_is_a_number(text, value):
+    assert parse_expression(text) == NumberNode(value)
+    assert parse_where(f'p > {text}').value == value
 
 
 @pytest.mark.parametrize('spelling', ['inf', '.inf'])
@@ -86,10 +120,7 @@ def test_inf_is_a_literal(spelling):
 
 @pytest.mark.parametrize('name', ['inflow', 'influx', 'infeed', 'infrastructure', 'inf_max'])
 def test_a_name_may_begin_with_inf(name):
-    """`Literal('inf')` matched a prefix, so `inflow` parsed as `inf` and then
-    failed on `low` — reported as "Expected end of text", which names neither
-    the literal nor the real problem. `inflow` is the archetype: hydro models
-    have one, and nothing in the corpus did."""
+    """`Literal('inf')` matched a prefix, so `inflow` parsed as `inf` and failed on `low`."""
     assert parse_expression(f'a + {name}').right == NameNode(name)
 
 
@@ -114,9 +145,9 @@ def test_a_where_string_parses_to_its_node(text, node_type, attrs):
 
 
 def test_and_binds_tighter_than_or():
-    node = parse_where('a OR b AND c')
-    assert isinstance(node, OrNode)
-    assert isinstance(node.right, AndNode)
+    assert parse_where('a OR b AND c') == OrNode(
+        UnresolvedNameNode('a'), AndNode(UnresolvedNameNode('b'), UnresolvedNameNode('c'))
+    )
 
 
 @pytest.mark.parametrize(
@@ -133,15 +164,8 @@ def test_and_binds_tighter_than_or():
     ids=['single', 'double', 'hyphen', 'space', 'date', 'escaped quote', 'bare'],
 )
 def test_a_quoted_right_hand_side_is_a_label(text, value, quoted):
-    """Quoting marks a label. A bare word still parses, and still means
-    "resolve me" rather than "label".
-
-    Without quoting, any label carrying a hyphen, space or colon was
-    unsayable — `combined-cycle`, `IT-north`, `CCGT 400MW` (#460).
-
-    The flag is the whole point: a bare word may name a declaration and is
-    refused for that ambiguity, so quoting is what says "label, not name".
-    """
+    """Quoting says "label, not name" (#460): unquoted, `combined-cycle` or `CCGT 400MW` was
+    unsayable, and a bare word may name a declaration."""
     node = parse_where(text)
     assert isinstance(node, UnresolvedComparisonNode)
     assert node.value == value
@@ -175,15 +199,8 @@ def test_a_position_is_not_confused_with_a_name():
     assert isinstance(parse_where('position(t) == 0 AND p_max > 0'), AndNode)
 
 
-def test_a_coordinate_comparison_is_still_a_value_comparison():
-    """The other half of #32: comparing the dimension itself is unchanged."""
-    node = parse_where("snapshot > '2030-01-01'")
-    assert isinstance(node, UnresolvedComparisonNode)
-    assert node.value == '2030-01-01'
-
-
 def test_the_old_index_spelling_names_its_rewrite():
-    """`index(dim, i)` is what every model wrote before #32, so this failure is read most."""
+    """`index(dim, i)` is what every model wrote before #32."""
     with pytest.raises(SchemaError) as excinfo:
         parse_where('snapshot == index(snapshot, 0)')
     assert 'index() is now position()' in str(excinfo.value)

@@ -1069,7 +1069,7 @@ StorageUnit_fix_p_store_upper:
   expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom
 ```
 
-$$h^{-}_{t,s} \le \left( -\underline{\mathrm{h}}_{t,s} \right) \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
+$$h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot \mathrm{h}^{\mathrm{nom}}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{ext}^{h}_{s}$$
 
 ### `StorageUnit-fix-state_of_charge-lower`
 
@@ -1499,7 +1499,7 @@ Generator_com_ext_p_upper_cap:
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
 ```
 
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 
 ### `Generator-com-ext-p-upper-bigM`
 
@@ -1513,7 +1513,7 @@ Generator_com_ext_p_upper_big_m:
   expression: Generator_p <= Generator_big_m * Generator_status
 ```
 
-$$p_{t,g} \le \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+$$p_{t,g} \le \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 
 ### `Generator-com-ext-p-lower`
 
@@ -1532,7 +1532,7 @@ Generator_com_ext_p_lower:
     + Generator_big_m * Generator_status - Generator_big_m
 ```
 
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} + \mathrm{M}_{g} \cdot u_{t,g} - \mathrm{M}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} + \mathrm{M}_{g} \cdot u_{t,g} - \mathrm{M}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 
 ### `Generator-com-ext-p-lower-nonneg`
 
@@ -1551,7 +1551,7 @@ Generator_com_ext_p_lower_nonneg:
   expression: Generator_p >= 0
 ```
 
-$$p_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg} \wedge \neg \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+$$p_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{nonneg} \wedge \neg \left( \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 
 ### `Generator-com-mod-p-lower`
 
@@ -1677,7 +1677,7 @@ Line_fix_s_lower:
   expression: Line_s >= -Line_s_max_pu * Line_s_nom
 ```
 
-$$s_{t,k} \ge \left( -\overline{\mathrm{s}}_{t,k} \right) \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \neg \mathrm{ext}^{s}_{k}$$
+$$s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{nom}}_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \neg \mathrm{ext}^{s}_{k}$$
 
 ### `Line-fix-s-upper`
 
@@ -1705,7 +1705,7 @@ Line_ext_s_lower:
   expression: Line_s >= -Line_s_max_pu * Line_s_nom_ext
 ```
 
-$$s_{t,k} \ge \left( -\overline{\mathrm{s}}_{t,k} \right) \cdot S_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
+$$s_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\thinspace t \in \mathcal{T},\enspace k \in \mathcal{K} \thinspace:\thinspace \mathrm{ext}^{s}_{k}$$
 
 ### `Line-ext-s-upper`
 
@@ -1964,7 +1964,7 @@ StorageUnit_ext_p_store_upper:
   expression: StorageUnit_p_store <= -StorageUnit_p_min_pu * StorageUnit_p_nom_ext
 ```
 
-$$h^{-}_{t,s} \le \left( -\underline{\mathrm{h}}_{t,s} \right) \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
+$$h^{-}_{t,s} \le -\underline{\mathrm{h}}_{t,s} \cdot H_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{ext}^{h}_{s}$$
 
 ### `StorageUnit-ext-state_of_charge-lower`
 

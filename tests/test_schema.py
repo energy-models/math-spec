@@ -42,21 +42,12 @@ def test_the_json_schema_admits_what_the_loader_admits():
 
 
 def test_no_definition_refers_only_to_itself():
-    """A widened block must inline its mapping form, not point back at its own entry.
-
-    `handler()` inside a `__get_pydantic_json_schema__` override returns a
-    `$ref` on some pydantic versions and the definition itself on others. Wrap
-    the ref and the entry becomes `{anyOf: [{$ref: itself}, ...]}` — a loop
-    that leaves the mapping form unreachable, which is a broken artefact rather
-    than a drifted one. Rendered here, not read from the file, so it fails on
-    whichever pydantic is installed.
-    """
+    """`handler()` inside a `__get_pydantic_json_schema__` override returns a `$ref` on some
+    pydantic versions; wrapped, the entry loops on itself and the mapping form is unreachable.
+    Rendered rather than read from the file, so it fails on whichever pydantic is installed."""
     doc = json.loads(schema.rendered())
     for name, entry in doc['$defs'].items():
-        branches = entry.get('anyOf', [])
-        assert {'$ref': f'#/$defs/{name}'} not in branches, (
-            f'{name} lists a $ref to itself as an anyOf branch, so the form it widens is unreachable'
-        )
+        assert {'$ref': f'#/$defs/{name}'} not in entry.get('anyOf', []), name
 
 
 @pytest.mark.parametrize(
@@ -73,11 +64,7 @@ def test_no_definition_refers_only_to_itself():
     ],
 )
 def test_a_closed_vocabulary_is_published_as_an_enum(block, field, alias):
-    """The completion an editor offers is the annotation's own vocabulary.
-
-    Read off the `Literal` rather than restated, so widening one is a one-line
-    change and a field that quietly stops publishing is a failure here.
-    """
+    """Read off the `Literal` rather than restated, so widening one is a one-line change."""
     published = json.loads(schema.PATH.read_text())['$defs'][block]['properties'][field]
     enum = published.get('enum') or next(
         (branch['enum'] for branch in published.get('anyOf', []) if 'enum' in branch), None
@@ -86,9 +73,5 @@ def test_a_closed_vocabulary_is_published_as_an_enum(block, field, alias):
 
 
 def test_the_piecewise_method_vocabulary_has_one_home():
-    """`PiecewiseMethod` types the field and `PIECEWISE_METHODS` says what each
-    one emits, so the two spell the same set or the error message offers a
-    method the annotation refuses."""
-    assert set(get_args(model.PiecewiseMethod)) == set(model.PIECEWISE_METHODS), (
-        'the piecewise method annotation and the table of what each emits disagree'
-    )
+    """`PiecewiseMethod` types the field and `PIECEWISE_METHODS` says what each emits."""
+    assert set(get_args(model.PiecewiseMethod)) == set(model.PIECEWISE_METHODS)

@@ -43,7 +43,6 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 | $\mathit{spare}$ | `spare` over $\mathcal{G}$ |
 | $\mathit{reserve}$ | `reserve` (scalar) |
 | $\mathit{headroom}$ | `headroom` (scalar) |
-| $\mathit{void}$ | `void` over $\mathcal{B}$ |
 | $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
 Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
@@ -132,7 +131,7 @@ $$\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_t
 
 **`arithmetic`**
 
-$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} \right) \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 \qquad \forall\thinspace t \in \mathcal{T}$$
+$$\sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} + 10^{-5} \cdot p_{t,g} + 2.5 \times 10^{-7} \cdot \mathrm{cost}_{g} + 0.5 \cdot p_{t,g} \right) \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot \left( -3 \right) \qquad \forall\thinspace t \in \mathcal{T}$$
 
 **`total`**
 
@@ -148,11 +147,11 @@ $$\theta_{b} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},
 
 **`first`**
 
-$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = 0 \right)$$
+$$\mathit{on}_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{pos}(t) = 0 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = 0$$
 
 **`last`**
 
-$$\mathit{on}_{t,g} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{pos}(t) = \lvert \mathcal{T} \rvert - 1 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = \lvert \mathcal{T}_{\mathrm{season\_of}(t)} \rvert - 1 \right)$$
+$$\mathit{on}_{t,g} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{pos}(t) = \lvert \mathcal{T} \rvert - 1 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = \lvert \mathcal{T}_{\mathrm{season\_of}(t)} \rvert - 1$$
 
 **`northern`**
 
@@ -161,6 +160,10 @@ $$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mat
 **`efficiency`**
 
 $$p_{t,g} \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`ceiling`**
+
+$$\theta_{b} \le \infty \qquad \forall\thinspace b \in \mathcal{B}$$
 
 **`always`**
 
@@ -178,7 +181,7 @@ $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace
 
 **`p`**
 
-$$\mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \left( \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0 \right)$$
+$$\mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0$$
 
 **`spill`**
 
@@ -211,10 +214,6 @@ $$\mathit{reserve} \ge 0$$
 **`headroom`**
 
 $$\mathit{headroom} \ge 0 \qquad \text{where } \mathrm{budget} \text{ is defined}$$
-
-**`void`**
-
-$$\infty \le \mathit{void}_{b} \le -\infty \qquad \forall\thinspace b \in \mathcal{B}$$
 
 **`weight`**
 

@@ -9,43 +9,42 @@
 
 \paragraph{Sets}
 \begin{description}
-\item[$\mathcal{T}$] index $t$ --- \texttt{snapshot} (\texttt{int} coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$
-\item[$\mathcal{G}$] index $g$ --- \texttt{generator} with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$
-\item[$\mathcal{B}$] index $b$ --- \texttt{bus} with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$
-\item[$\mathcal{Z}$] index $z$ --- \texttt{zone}
-\item[$\mathcal{S}$] index $s$ --- \texttt{season}
-\item[$\mathcal{E}$] index $e$ --- \texttt{technology}
+\item[{$\mathcal{T}$}] index $t$ --- \texttt{snapshot} (\texttt{int} coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$
+\item[{$\mathcal{G}$}] index $g$ --- \texttt{generator} with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$
+\item[{$\mathcal{B}$}] index $b$ --- \texttt{bus} with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$
+\item[{$\mathcal{Z}$}] index $z$ --- \texttt{zone}
+\item[{$\mathcal{S}$}] index $s$ --- \texttt{season}
+\item[{$\mathcal{E}$}] index $e$ --- \texttt{technology}
 \end{description}
 
 \paragraph{Parameters}
 \begin{description}
-\item[$\mathrm{p}^{\mathrm{max}}$] \texttt{p\_max} over $\mathcal{G}$
-\item[$\mathrm{p}^{\mathrm{min}}$] \texttt{p\_min} over $\mathcal{G}$
-\item[$\mathrm{cost}$] \texttt{cost} over $\mathcal{G}$
-\item[$\mathrm{load}$] \texttt{load} over $\mathcal{T} \times \mathcal{B}$
-\item[$\mathrm{is\_flexible}$] \texttt{is\_flexible} over $\mathcal{G}$
-\item[$\mathrm{zone\_cap}$] \texttt{zone\_cap} over $\mathcal{Z}$
-\item[$\mathrm{tech\_cap}$] \texttt{tech\_cap} over $\mathcal{B} \times \mathcal{E}$
-\item[$\mathrm{min\_up}$] \texttt{min\_up} over $\mathcal{G}$
-\item[$\mathrm{eta}$] \texttt{eta} over $\mathcal{G}$
-\item[$\mathrm{lead}$] \texttt{lead} over $\mathcal{G}$
-\item[$\mathrm{budget}$] \texttt{budget} (scalar)
-\item[$\mathrm{growth}$] \texttt{growth} (scalar)
+\item[{$\mathrm{p}^{\mathrm{max}}$}] \texttt{p\_max} over $\mathcal{G}$
+\item[{$\mathrm{p}^{\mathrm{min}}$}] \texttt{p\_min} over $\mathcal{G}$
+\item[{$\mathrm{cost}$}] \texttt{cost} over $\mathcal{G}$
+\item[{$\mathrm{load}$}] \texttt{load} over $\mathcal{T} \times \mathcal{B}$
+\item[{$\mathrm{is\_flexible}$}] \texttt{is\_flexible} over $\mathcal{G}$
+\item[{$\mathrm{zone\_cap}$}] \texttt{zone\_cap} over $\mathcal{Z}$
+\item[{$\mathrm{tech\_cap}$}] \texttt{tech\_cap} over $\mathcal{B} \times \mathcal{E}$
+\item[{$\mathrm{min\_up}$}] \texttt{min\_up} over $\mathcal{G}$
+\item[{$\mathrm{eta}$}] \texttt{eta} over $\mathcal{G}$
+\item[{$\mathrm{lead}$}] \texttt{lead} over $\mathcal{G}$
+\item[{$\mathrm{budget}$}] \texttt{budget} (scalar)
+\item[{$\mathrm{growth}$}] \texttt{growth} (scalar)
 \end{description}
 
 \paragraph{Variables}
 \begin{description}
-\item[$p$] \texttt{p} over $\mathcal{T} \times \mathcal{G}$
-\item[$\mathit{spill}$] \texttt{spill} over $\mathcal{T}$
-\item[$\mathit{slack}$] \texttt{slack} over $\mathcal{T}$
-\item[$\theta$] \texttt{theta} over $\mathcal{B}$
-\item[$\mathit{on}$] \texttt{on} over $\mathcal{T} \times \mathcal{G}$
-\item[$\mathit{units}$] \texttt{units} over $\mathcal{G}$
-\item[$\mathit{spare}$] \texttt{spare} over $\mathcal{G}$
-\item[$\mathit{reserve}$] \texttt{reserve} (scalar)
-\item[$\mathit{headroom}$] \texttt{headroom} (scalar)
-\item[$\mathit{void}$] \texttt{void} over $\mathcal{B}$
-\item[$\mathit{weight}$] \texttt{weight} over $\mathcal{T} \times \mathcal{G}$
+\item[{$p$}] \texttt{p} over $\mathcal{T} \times \mathcal{G}$
+\item[{$\mathit{spill}$}] \texttt{spill} over $\mathcal{T}$
+\item[{$\mathit{slack}$}] \texttt{slack} over $\mathcal{T}$
+\item[{$\theta$}] \texttt{theta} over $\mathcal{B}$
+\item[{$\mathit{on}$}] \texttt{on} over $\mathcal{T} \times \mathcal{G}$
+\item[{$\mathit{units}$}] \texttt{units} over $\mathcal{G}$
+\item[{$\mathit{spare}$}] \texttt{spare} over $\mathcal{G}$
+\item[{$\mathit{reserve}$}] \texttt{reserve} (scalar)
+\item[{$\mathit{headroom}$}] \texttt{headroom} (scalar)
+\item[{$\mathit{weight}$}] \texttt{weight} over $\mathcal{T} \times \mathcal{G}$
 \end{description}
 
 \noindent Upright is what the model is given --- a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label --- and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
@@ -85,14 +84,15 @@
 \text{pullback} && \mathit{spill}_{t} & \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
 \text{grouped\_twice} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} & \le \mathrm{tech\_cap}_{b,e} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E} \\
 \text{pulled\_back\_twice} && \mathit{units}_{g} & \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} && \forall\, g \in \mathcal{G} \\
-\text{arithmetic} && \sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} \right) & \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot 3 && \forall\, t \in \mathcal{T} \\
+\text{arithmetic} && \sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} + 10^{-5} \cdot p_{t,g} + 2.5 \times 10^{-7} \cdot \mathrm{cost}_{g} + 0.5 \cdot p_{t,g} \right) & \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot \left( -3 \right) && \forall\, t \in \mathcal{T} \\
 \text{total} && \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} & \le \mathrm{budget} \\
 \text{scalar} && \mathit{units}_{g} & \le \mathrm{budget} && \forall\, g \in \mathcal{G} \,:\, \mathrm{cost}_{g} \text{ is defined} \\
 \text{running} && \theta_{b} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \theta_{b} \text{ exists} \wedge t \ge 3 \\
-\text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{pos}(t) = 0 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = 0 \right) \\
-\text{last} && \mathit{on}_{t,g} & = 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{pos}(t) = \lvert \mathcal{T} \rvert - 1 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = \lvert \mathcal{T}_{\mathrm{season\_of}(t)} \rvert - 1 \right) \\
+\text{first} && \mathit{on}_{t,g} & = 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{pos}(t) = 0 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = 0 \\
+\text{last} && \mathit{on}_{t,g} & = 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{pos}(t) = \lvert \mathcal{T} \rvert - 1 \vee \mathrm{pos}_{\mathrm{season\_of}(t)}(t) = \lvert \mathcal{T}_{\mathrm{season\_of}(t)} \rvert - 1 \\
 \text{northern} && \mathit{slack}_{t} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{zone\_of}(b) = \text{north} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined} \\
 \text{efficiency} && p_{t,g} & \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{ceiling} && \theta_{b} & \le \infty && \forall\, b \in \mathcal{B} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \top \wedge \mathit{spill}_{t} \text{ exists} \\
 \text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot
@@ -100,7 +100,7 @@
 
 \paragraph{Variable domains}
 \begin{align}
-\text{p} && \mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \left( \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0 \right) \\
+\text{p} && \mathrm{p}^{\mathrm{min}}_{g} \le p_{t,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \neg \mathrm{is\_flexible}_{g} \vee \mathrm{p}^{\mathrm{min}}_{g} > 0 \\
 \text{spill} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{slack} && \mathit{slack}_{t} & \le 100 && \forall\, t \in \mathcal{T} \\
 \text{theta} && \theta_{b} & \in \mathbb{R} && \forall\, b \in \mathcal{B} \\
@@ -109,7 +109,6 @@
 \text{spare} && \mathit{spare}_{g} & \in \mathbb{Z} && \forall\, g \in \mathcal{G} \\
 \text{reserve} && \mathit{reserve} & \ge 0 \\
 \text{headroom} && \mathit{headroom} & \ge 0 && \text{where } \mathrm{budget} \text{ is defined} \\
-\text{void} && \infty \le \mathit{void}_{b} & \le -\infty && \forall\, b \in \mathcal{B} \\
 \text{weight} && 0 \le \mathit{weight}_{t,g} & \le 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{weight sos} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T}
 \end{align}

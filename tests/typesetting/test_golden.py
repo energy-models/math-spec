@@ -46,7 +46,7 @@ def test_the_output_matches_the_committed_golden_file(name: str):
     expected = golden.path_for(name)
     actual = typeset(golden.MODEL, FORMATS[name], standalone=True)
     assert actual == expected.read_text(), (
-        f'{expected.relative_to(Path.cwd())} is stale.\n'
+        f'tests/typesetting/golden/{expected.name} is stale.\n'
         f'If the change was intended: `pixi run python -m tests.typesetting.golden`, then read the diff.'
     )
 
@@ -110,14 +110,13 @@ def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells():
     )
 
 
-def _kinds(node: object, found: set[str]) -> set[str]:
-    """Every node type in *node*'s tree, by class name, including the leaves."""
-    found.add(type(node).__name__)
-    for value in vars(node).values():
+def _nodes(tree: object) -> Iterator[object]:
+    """Every dataclass node in *tree*, the root first, through fields holding one, a list or a dict of them."""
+    yield tree
+    for value in vars(tree).values():
         for child in value.values() if isinstance(value, dict) else value if isinstance(value, list) else [value]:
             if is_dataclass(child):
-                _kinds(child, found)
-    return found
+                yield from _nodes(child)
 
 
 def _rendered_trees() -> Iterator[object]:
@@ -156,9 +155,7 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     differently — ``at`` and ``sum(by=)`` both print a coordinate map — so a
     walk arm no fixture reaches is one whose output nobody has ever read.
     """
-    kinds: set[str] = set()
-    for tree in _rendered_trees():
-        _kinds(tree, kinds)
+    kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)}
     declared = {node.__name__ for node in (*get_args(WhereNode), *get_args(ArithmeticNode), ComparisonNode)}
     assert kinds == declared - UNRESOLVED, (
         f'tests/typesetting/golden/model.yaml reaches {sorted(kinds - declared)} and misses '
@@ -169,20 +166,11 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
 
 def test_the_golden_model_calls_every_operator_in_the_language():
     """``BUILTINS`` is the closed set, so a new operator lands with its case here."""
-    calls = {call.name for tree in _rendered_trees() for call in _calls(tree)}
+    calls = {node.name for tree in _rendered_trees() for node in _nodes(tree) if isinstance(node, FunctionCallNode)}
     assert calls == BUILTIN_NAMES, (
         f'tests/typesetting/golden/model.yaml never calls {sorted(BUILTIN_NAMES - calls)}. '
         f'An operator with no case here renders untested.'
     )
-
-
-def _calls(node: object) -> Iterator[FunctionCallNode]:
-    if isinstance(node, FunctionCallNode):
-        yield node
-    for value in vars(node).values():
-        for child in value.values() if isinstance(value, dict) else value if isinstance(value, list) else [value]:
-            if is_dataclass(child):
-                yield from _calls(child)
 
 
 #: What the fixture cannot reach, by the source text of the line, in two
@@ -232,7 +220,15 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
     render = tmp_path / 'render.py'
     render.write_text(f'from math_spec import to_latex\nto_latex({str(golden.MODEL)!r})\n')
     subprocess.run(
-        [sys.executable, '-m', 'coverage', 'run', f'--data-file={data}', '--include=*/typeset/walk.py', str(render)],
+        [
+            sys.executable,
+            '-m',
+            'coverage',
+            'run',
+            f'--data-file={data}',
+            f'--source={Path(walk.__file__).parent}',
+            str(render),
+        ],
         check=True,
     )
     measured = coverage.Coverage(data_file=str(data))
@@ -255,5 +251,5 @@ def test_a_model_with_no_objective_prints_the_rest():
         'constraints': {'cap': {'foreach': ['t'], 'expression': 'x <= 1'}},
     }
     rendered = to_latex(model)
-    assert 'Objective' not in rendered, 'a model with no objective prints no objective section'
-    assert 'Subject to' in rendered, 'the rest of a model with no objective still prints'
+    assert 'Objective' not in rendered
+    assert 'Subject to' in rendered

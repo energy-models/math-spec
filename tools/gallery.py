@@ -7,35 +7,27 @@
     pixi run python -m tools.gallery           # rewrite the pages' blocks
     pixi run python -m tools.gallery --check   # fail if one has drifted
 
-The reference pages show what a *construct* prints; nothing showed a **model**.
-A reader could see the equation `sum(by=)` renders as and never see a file that
-declares one, which is the wrong way round for a language whose pitch is that
-the file and the math are the same thing.
-
-So each page is one model, in full, followed by the document the typesetter
-prints from it. Generated for the reason the other two blocks are: math typed
-into a page is math nothing checks, and this project has the renderer that
-would have caught it.
-
-The prose above each block is the page's own — what the model is for, and which
-construct it is here to show. Only the fenced model and the math below it are
-written from here.
+The prose above each block is the page's own. Only the fenced model and the
+math below it are written from here.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
-import sys
 import textwrap
-from pathlib import Path
+from functools import partial
+from typing import TYPE_CHECKING
 
 from math_spec import load_model
 from math_spec.typesetting import to_markdown
-from tools.spec_math import OPERATORS, _section, rendered_probe
+from tools._page import ROOT, splice, without_header
+from tools._page import main as page_main
+from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
 
-ROOT = Path(__file__).resolve().parent.parent
+if TYPE_CHECKING:
+    from pathlib import Path
+
 PAGES = ROOT / 'docs' / 'examples'
 BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 
@@ -54,11 +46,6 @@ DECLARED = {
     'pypsa.md': (ROOT / 'examples' / 'pypsa.yaml', ROOT / 'examples' / 'symbols' / 'pypsa.yaml'),
 }
 
-#: The probe page shows every model under `examples/operators/`, keyed by the
-#: signature it demonstrates — :data:`tools.spec_math.OPERATORS` is that map,
-#: and reusing it is what keeps the two pages naming the same probes.
-PROBES = ROOT / 'examples' / 'operators'
-
 #: One PyPSA reference network per rung of the declared page, run out of band
 #: with the versions each script pins; `references.json` beside them holds
 #: what each solve recorded. The page shows each rung's `build()` under its
@@ -66,14 +53,9 @@ PROBES = ROOT / 'examples' / 'operators'
 REFERENCES = ROOT / 'examples' / 'references' / 'pypsa'
 
 
-def source(path: Path) -> str:
-    """The model as written, without the licence header a reader did not ask for."""
-    return re.sub(r'\A(#[^\n]*\n)+\n', '', path.read_text()).strip()
-
-
 def model_block(path: Path) -> str:
     """One model, then the whole document the typesetter prints from it."""
-    return f'```yaml\n{source(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
+    return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
 
 
 def probe_block() -> str:
@@ -84,7 +66,7 @@ def probe_block() -> str:
         parts.append(
             f'### `{signature}`\n\n'
             f'`examples/operators/{name}.yaml`\n\n'
-            f'```yaml\n{source(PROBES / f"{name}.yaml")}\n```\n\n'
+            f'```yaml\n{without_header(PROBES / f"{name}.yaml")}\n```\n\n'
             f'{equation}'
         )
     return '\n\n'.join(parts)
@@ -122,7 +104,7 @@ def _stands_for(name: str, description: str | None) -> str:
 
 def declared_block(path: Path, symbols: Path) -> str:
     """The legend, the objective, then every constraint as YAML beside its equation."""
-    text = source(path)
+    text = without_header(path)
     page = to_markdown(path, symbols=symbols, numbered=False)
     legend = page[: page.index('#### Objective')].strip()
     objective = _section(page, 'Objective').strip()
@@ -176,8 +158,7 @@ def with_references(page: str, text: str) -> str:
         if begin not in text or end not in text:
             msg = f"{page}: no marker pair for {script.stem} — add {begin} and {end} where the rung's table ends"
             raise ValueError(msg)
-        i, j = text.index(begin) + len(begin), text.index(end)
-        text = text[:i] + '\n' + reference_block(script.stem) + '\n' + text[j:]
+        text = splice(text, begin, end, reference_block(script.stem))
     return text
 
 
@@ -190,8 +171,7 @@ def block(page: str) -> str:
 
 
 def rendered(page: str, text: str) -> str:
-    i, j = text.index(BEGIN) + len(BEGIN), text.index(END)
-    text = text[:i] + '\n' + block(page) + '\n' + text[j:]
+    text = splice(text, BEGIN, END, block(page))
     if page in DECLARED:
         text = with_references(page, text)
     return text
@@ -202,29 +182,7 @@ def pages() -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--check', action='store_true', help='fail if a committed block has drifted')
-    opts = ap.parse_args(argv)
-
-    stale = []
-    for page in pages():
-        path = PAGES / page
-        text = path.read_text()
-        updated = rendered(page, text)
-        if opts.check:
-            if updated != text:
-                stale.append(page)
-            continue
-        path.write_text(updated)
-        print(f'wrote {path.relative_to(ROOT)}')
-
-    if stale:
-        names = ', '.join(stale)
-        print(f'{names} stale — run `pixi run python -m tools.gallery`', file=sys.stderr)
-        return 1
-    if opts.check:
-        print(f'{len(pages())} page(s) match their models')
-    return 0
+    return page_main(argv, {PAGES / page: partial(rendered, page) for page in pages()}, 'gallery')
 
 
 if __name__ == '__main__':
