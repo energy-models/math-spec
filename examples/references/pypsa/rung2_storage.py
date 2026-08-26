@@ -5,7 +5,7 @@
 #
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["pypsa==1.2.4", "linopy==0.9.0", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
+# dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
 """Reference for rung 2 of `examples/pypsa.yaml` — storage units and stores.
 
@@ -52,6 +52,7 @@ def build() -> pypsa.Network:
         standing_loss=0.01,
         cyclic_state_of_charge=True,
         marginal_cost=0.5,
+        p_set=[0.0, float('nan'), float('nan'), float('nan')],
     )
     n.add(
         'StorageUnit',
@@ -63,8 +64,18 @@ def build() -> pypsa.Network:
         spill_cost=2.0,
         state_of_charge_initial=5.0,
         marginal_cost_storage=0.1,
+        state_of_charge_set=[float('nan'), float('nan'), float('nan'), 10.0],
     )
-    n.add('Store', 'cavern', bus='grid', e_nom=40.0, e_initial=25.0, standing_loss=0.005, marginal_cost=0.2)
+    n.add(
+        'Store',
+        'cavern',
+        bus='grid',
+        e_nom=40.0,
+        e_initial=25.0,
+        standing_loss=0.005,
+        marginal_cost=0.2,
+        e_set=[float('nan'), float('nan'), float('nan'), 20.0],
+    )
     return n
 
 
@@ -81,6 +92,14 @@ def record(n: pypsa.Network) -> dict[str, object]:
         'objective_constant': float(n.objective_constant),
         'columns': {name: int((m.variables[name].labels != -1).sum()) for name in m.variables},
         'rows': {name: int((m.constraints[name].labels != -1).sum()) for name in m.constraints},
+        'global_constraints': {
+            str(label): {'type': row['type'], 'sense': row['sense']} for label, row in n.global_constraints.iterrows()
+        },
+        'marginal_price': {
+            str(bus): [float(x) for x in n.buses_t.marginal_price[bus]] for bus in n.buses_t.marginal_price.columns
+        }
+        if not n.buses_t.marginal_price.empty and bool(n.buses_t.marginal_price.notna().all().all())
+        else {},
     }
 
 

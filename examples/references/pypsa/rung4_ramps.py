@@ -5,7 +5,7 @@
 #
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["pypsa==1.2.4", "linopy==0.9.0", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
+# dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
 """Reference for rung 4 of `examples/pypsa.yaml` — ramp limits.
 
@@ -32,7 +32,7 @@ def build() -> pypsa.Network:
     """Rung 4's ramps: a slow cheap unit against a fast dear one, chasing a swinging load.
 
     Coal may move a fifth of its capacity per snapshot, so the swings belong
-    to the peaker however dear it is.
+    to the peaker however dear it is; the tie line east ramps too.
     """
     n = pypsa.Network()
     n.set_snapshots(range(4))
@@ -40,6 +40,18 @@ def build() -> pypsa.Network:
     n.add('Generator', 'coal', bus='grid', p_nom=80.0, marginal_cost=10.0, ramp_limit_up=0.2, ramp_limit_down=0.2)
     n.add('Generator', 'peaker', bus='grid', p_nom=100.0, marginal_cost=100.0)
     n.add('Load', 'town', bus='grid', p_set=[20.0, 60.0, 80.0, 30.0])
+    n.add('Bus', 'east')
+    n.add(
+        'Link',
+        'tie',
+        bus0='grid',
+        bus1='east',
+        p_nom=50.0,
+        efficiency=1.0,
+        ramp_limit_up=0.4,
+        ramp_limit_down=0.4,
+    )
+    n.add('Load', 'east_load', bus='east', p_set=[5.0, 20.0, 25.0, 10.0])
     return n
 
 
@@ -56,6 +68,14 @@ def record(n: pypsa.Network) -> dict[str, object]:
         'objective_constant': float(n.objective_constant),
         'columns': {name: int((m.variables[name].labels != -1).sum()) for name in m.variables},
         'rows': {name: int((m.constraints[name].labels != -1).sum()) for name in m.constraints},
+        'global_constraints': {
+            str(label): {'type': row['type'], 'sense': row['sense']} for label, row in n.global_constraints.iterrows()
+        },
+        'marginal_price': {
+            str(bus): [float(x) for x in n.buses_t.marginal_price[bus]] for bus in n.buses_t.marginal_price.columns
+        }
+        if not n.buses_t.marginal_price.empty and bool(n.buses_t.marginal_price.notna().all().all())
+        else {},
     }
 
 

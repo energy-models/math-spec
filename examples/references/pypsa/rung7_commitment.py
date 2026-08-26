@@ -5,7 +5,7 @@
 #
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["pypsa==1.2.4", "linopy==0.9.0", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
+# dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
 """Reference for rung 7 of `examples/pypsa.yaml` — unit commitment.
 
@@ -31,10 +31,10 @@ RUNG = 'rung7_commitment'
 def build() -> pypsa.Network:
     """Rung 7's commitment: a unit that pays to start, to stop, and to idle.
 
-    The base unit may not run below forty percent, must stay up and down two
-    snapshots at a time, pays for each start, and ramps against its previous
-    status — so the swing between it and the peaker is a schedule, not a
-    dispatch.
+    The base unit may not run below forty percent, was already on with two
+    snapshots of its minimum up time left to serve, pays for each start, and
+    ramps against its previous status — so the swing between it and the
+    peaker is a schedule, not a dispatch.
     """
     n = pypsa.Network()
     n.set_snapshots(range(4))
@@ -47,19 +47,19 @@ def build() -> pypsa.Network:
         p_nom=50.0,
         marginal_cost=10.0,
         p_min_pu=0.4,
-        min_up_time=2,
+        min_up_time=3,
         min_down_time=2,
-        up_time_before=0,
-        ramp_limit_up=0.3,
-        ramp_limit_down=0.3,
-        ramp_limit_start_up=0.5,
-        ramp_limit_shut_down=0.5,
+        up_time_before=1,
+        ramp_limit_up=0.5,
+        ramp_limit_down=0.5,
+        ramp_limit_start_up=0.6,
+        ramp_limit_shut_down=0.6,
         start_up_cost=100.0,
         shut_down_cost=50.0,
         stand_by_cost=5.0,
     )
     n.add('Generator', 'peaker', bus='grid', p_nom=100.0, marginal_cost=80.0)
-    n.add('Load', 'town', bus='grid', p_set=[10.0, 45.0, 45.0, 10.0])
+    n.add('Load', 'town', bus='grid', p_set=[25.0, 45.0, 45.0, 10.0])
     return n
 
 
@@ -76,6 +76,14 @@ def record(n: pypsa.Network) -> dict[str, object]:
         'objective_constant': float(n.objective_constant),
         'columns': {name: int((m.variables[name].labels != -1).sum()) for name in m.variables},
         'rows': {name: int((m.constraints[name].labels != -1).sum()) for name in m.constraints},
+        'global_constraints': {
+            str(label): {'type': row['type'], 'sense': row['sense']} for label, row in n.global_constraints.iterrows()
+        },
+        'marginal_price': {
+            str(bus): [float(x) for x in n.buses_t.marginal_price[bus]] for bus in n.buses_t.marginal_price.columns
+        }
+        if not n.buses_t.marginal_price.empty and bool(n.buses_t.marginal_price.notna().all().all())
+        else {},
     }
 
 

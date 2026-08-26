@@ -1,18 +1,35 @@
 {
   "rung1_transport": {
     "columns": {
-      "Generator-p": 8,
+      "Generator-p": 12,
       "Link-p": 4
     },
-    "objective": 3280.0,
+    "global_constraints": {},
+    "marginal_price": {
+      "north": [
+        10.0,
+        10.0,
+        10.0,
+        10.0
+      ],
+      "south": [
+        30.0,
+        11.11111111111111,
+        11.11111111111111,
+        11.11111111111111
+      ]
+    },
+    "objective": 3246.666666666667,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
       "Bus-nodal_balance": 8,
-      "Generator-fix-p-lower": 8,
-      "Generator-fix-p-upper": 8,
+      "Generator-fix-p-lower": 12,
+      "Generator-fix-p-upper": 12,
+      "Generator-p_set": 4,
       "Link-fix-p-lower": 4,
-      "Link-fix-p-upper": 4
+      "Link-fix-p-upper": 4,
+      "Link-p_set": 1
     }
   },
   "rung2_storage": {
@@ -25,9 +42,18 @@
       "Store-e": 4,
       "Store-p": 4
     },
-    "objective": 562.8853015312845,
+    "global_constraints": {},
+    "marginal_price": {
+      "grid": [
+        9.951,
+        10.0,
+        59.701,
+        60.0
+      ]
+    },
+    "objective": 975.711471,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
       "Bus-nodal_balance": 4,
       "Generator-fix-p-lower": 4,
@@ -39,6 +65,9 @@
       "StorageUnit-fix-p_store-upper": 8,
       "StorageUnit-fix-state_of_charge-lower": 8,
       "StorageUnit-fix-state_of_charge-upper": 8,
+      "StorageUnit-p_set": 1,
+      "StorageUnit-state_of_charge_set": 1,
+      "Store-e_set": 1,
       "Store-energy_balance": 4,
       "Store-fix-e-lower": 4,
       "Store-fix-e-upper": 4
@@ -46,51 +75,126 @@
   },
   "rung3_expansion": {
     "columns": {
-      "Generator-p": 8,
-      "Generator-p_nom": 1,
+      "Generator-p": 12,
+      "Generator-p_nom": 2,
       "Link-p": 4,
-      "Link-p_nom": 1
+      "Link-p_nom": 1,
+      "StorageUnit-p_dispatch": 4,
+      "StorageUnit-p_nom": 1,
+      "StorageUnit-p_store": 4,
+      "StorageUnit-state_of_charge": 4,
+      "Store-e": 4,
+      "Store-e_nom": 1,
+      "Store-p": 4
     },
-    "objective": 5389.473684210526,
+    "global_constraints": {},
+    "marginal_price": {
+      "grid": [
+        20.0,
+        20.0,
+        20.0,
+        20.0
+      ],
+      "island": [
+        21.052631578947366,
+        21.052631578947366,
+        21.052631578947366,
+        21.052631578947366
+      ]
+    },
+    "objective": 5332.105263157895,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
       "Bus-nodal_balance": 8,
       "Generator-e_sum_max": 1,
-      "Generator-ext-p-lower": 4,
-      "Generator-ext-p-upper": 4,
-      "Generator-ext-p_nom-lower": 1,
-      "Generator-ext-p_nom-upper": 1,
+      "Generator-e_sum_min": 1,
+      "Generator-ext-p-lower": 8,
+      "Generator-ext-p-upper": 8,
+      "Generator-ext-p_nom-lower": 2,
+      "Generator-ext-p_nom-upper": 2,
       "Generator-fix-p-lower": 4,
       "Generator-fix-p-upper": 4,
+      "Generator-p_nom_set": 1,
       "Link-ext-p-lower": 4,
       "Link-ext-p-upper": 4,
       "Link-ext-p_nom-lower": 1,
-      "Link-ext-p_nom-upper": 1
+      "Link-ext-p_nom-upper": 1,
+      "Link-p_nom_set": 1,
+      "StorageUnit-energy_balance": 4,
+      "StorageUnit-ext-p_dispatch-lower": 4,
+      "StorageUnit-ext-p_dispatch-upper": 4,
+      "StorageUnit-ext-p_nom-lower": 1,
+      "StorageUnit-ext-p_nom-upper": 1,
+      "StorageUnit-ext-p_store-lower": 4,
+      "StorageUnit-ext-p_store-upper": 4,
+      "StorageUnit-ext-state_of_charge-lower": 4,
+      "StorageUnit-ext-state_of_charge-upper": 4,
+      "StorageUnit-p_nom_set": 1,
+      "Store-e_nom_set": 1,
+      "Store-energy_balance": 4,
+      "Store-ext-e-lower": 4,
+      "Store-ext-e-upper": 4,
+      "Store-ext-e_nom-lower": 1,
+      "Store-ext-e_nom-upper": 1
     }
   },
   "rung4_ramps": {
     "columns": {
-      "Generator-p": 8
+      "Generator-p": 8,
+      "Link-p": 4
     },
-    "objective": 7120.0,
+    "global_constraints": {},
+    "marginal_price": {
+      "east": [
+        -80.0,
+        100.0,
+        100.0,
+        -80.0
+      ],
+      "grid": [
+        -80.0,
+        100.0,
+        100.0,
+        -80.0
+      ]
+    },
+    "objective": 10420.0,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
-      "Bus-nodal_balance": 4,
+      "Bus-nodal_balance": 8,
       "Generator-fix-p-lower": 8,
       "Generator-fix-p-upper": 8,
       "Generator-p-ramp_limit_down": 3,
-      "Generator-p-ramp_limit_up": 3
+      "Generator-p-ramp_limit_up": 3,
+      "Link-fix-p-lower": 4,
+      "Link-fix-p-upper": 4,
+      "Link-p-ramp_limit_down": 3,
+      "Link-p-ramp_limit_up": 3
     }
   },
   "rung5_global_constraints": {
     "columns": {
       "Generator-p": 12
     },
+    "global_constraints": {
+      "co2_cap": {
+        "sense": "<=",
+        "type": "primary_energy"
+      }
+    },
+    "marginal_price": {
+      "grid": [
+        40.0,
+        40.0,
+        40.0,
+        40.0
+      ]
+    },
     "objective": 5187.5,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
       "Bus-nodal_balance": 4,
       "Generator-fix-p-lower": 12,
@@ -101,18 +205,46 @@
   "rung6_kvl": {
     "columns": {
       "Generator-p": 8,
-      "Line-s": 12
+      "Line-s": 16,
+      "Line-s_nom": 1
     },
-    "objective": 1800.0,
+    "global_constraints": {},
+    "marginal_price": {
+      "a": [
+        10.0,
+        10.0,
+        10.0,
+        10.0
+      ],
+      "b": [
+        50.0,
+        9.999999999999998,
+        9.999999999999998,
+        9.999999999999998
+      ],
+      "c": [
+        -14.0,
+        9.999999999999998,
+        9.999999999999998,
+        9.999999999999998
+      ]
+    },
+    "objective": 2460.0,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
       "Bus-nodal_balance": 12,
       "Generator-fix-p-lower": 8,
       "Generator-fix-p-upper": 8,
-      "Kirchhoff-Voltage-Law": 4,
+      "Kirchhoff-Voltage-Law": 8,
+      "Line-ext-s-lower": 4,
+      "Line-ext-s-upper": 4,
+      "Line-ext-s_nom-lower": 1,
+      "Line-ext-s_nom-upper": 1,
       "Line-fix-s-lower": 12,
-      "Line-fix-s-upper": 12
+      "Line-fix-s-upper": 12,
+      "Line-s_nom_set": 1,
+      "Line-s_set": 1
     }
   },
   "rung7_commitment": {
@@ -122,21 +254,31 @@
       "Generator-start_up": 4,
       "Generator-status": 4
     },
-    "objective": 5460.0,
+    "global_constraints": {},
+    "marginal_price": {
+      "grid": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "objective": 3065.0,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
       "Bus-nodal_balance": 4,
       "Generator-com-down-time": 3,
       "Generator-com-p-lower": 4,
       "Generator-com-p-upper": 4,
+      "Generator-com-status-min_up_time_must_stay_up": 2,
       "Generator-com-transition-shut-down": 4,
       "Generator-com-transition-start-up": 4,
       "Generator-com-up-time": 3,
       "Generator-fix-p-lower": 4,
       "Generator-fix-p-upper": 4,
-      "Generator-p-ramp_limit_down": 4,
-      "Generator-p-ramp_limit_up": 4,
+      "Generator-p-ramp_limit_down": 3,
+      "Generator-p-ramp_limit_up": 3,
       "Generator-shut_down-p-fixed-upper": 4,
       "Generator-start_up-p-fixed-upper": 4,
       "Generator-status-p-fixed-upper": 4
@@ -151,9 +293,18 @@
       "Generator-start_up": 8,
       "Generator-status": 8
     },
+    "global_constraints": {},
+    "marginal_price": {
+      "grid": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
     "objective": 8725.0,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
       "Bus-nodal_balance": 4,
       "Generator-com-ext-p-lower": 4,
@@ -188,9 +339,30 @@
       "Generator-p": 8,
       "Link-p": 4
     },
+    "global_constraints": {},
+    "marginal_price": {
+      "gas": [
+        5.0,
+        5.0,
+        5.0,
+        5.0
+      ],
+      "heat": [
+        -40.0,
+        -40.0,
+        -40.0,
+        -40.0
+      ],
+      "power": [
+        60.0,
+        60.0,
+        60.0,
+        60.0
+      ]
+    },
     "objective": 1920.0,
     "objective_constant": 0.0,
-    "pypsa": "1.2.4",
+    "pypsa": "1.3.0",
     "rows": {
       "Bus-nodal_balance": 12,
       "Generator-fix-p-lower": 8,

@@ -5,7 +5,7 @@
 #
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["pypsa==1.2.4", "linopy==0.9.0", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
+# dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
 """Reference for rung 5 of `examples/pypsa.yaml` — a CO2 cap priced through the carrier map.
 
@@ -69,6 +69,14 @@ def record(n: pypsa.Network) -> dict[str, object]:
         'objective_constant': float(n.objective_constant),
         'columns': {name: int((m.variables[name].labels != -1).sum()) for name in m.variables},
         'rows': {name: int((m.constraints[name].labels != -1).sum()) for name in m.constraints},
+        'global_constraints': {
+            str(label): {'type': row['type'], 'sense': row['sense']} for label, row in n.global_constraints.iterrows()
+        },
+        'marginal_price': {
+            str(bus): [float(x) for x in n.buses_t.marginal_price[bus]] for bus in n.buses_t.marginal_price.columns
+        }
+        if not n.buses_t.marginal_price.empty and bool(n.buses_t.marginal_price.notna().all().all())
+        else {},
     }
 
 

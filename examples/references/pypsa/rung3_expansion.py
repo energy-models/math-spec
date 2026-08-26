@@ -5,7 +5,7 @@
 #
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["pypsa==1.2.4", "linopy==0.9.0", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
+# dependencies = ["pypsa==1.3.0", "linopy==0.9.1", "pandas>=2.2", "xarray==2026.7.0", "highspy==1.15.1"]
 # ///
 """Reference for rung 3 of `examples/pypsa.yaml` — capacity expansion.
 
@@ -33,8 +33,9 @@ def build() -> pypsa.Network:
 
     Wind is free to run but costs capacity, its availability varies, and its
     build is floored and capped; gas is fixed, dear, and budgeted in energy
-    over the horizon, so the optimum has to buy some wind. The cable to the
-    island is the extendable link.
+    over the horizon, so the optimum has to buy some wind — at least the
+    energy floor it also carries. The cable to the island is the extendable
+    link, and the pump and tank are the extendable storage.
     """
     n = pypsa.Network()
     n.set_snapshots(range(4))
@@ -49,8 +50,43 @@ def build() -> pypsa.Network:
         p_nom_max=80.0,
         p_max_pu=[0.3, 0.8, 0.5, 0.9],
         marginal_cost=0.0,
+        e_sum_min=40.0,
     )
     n.add('Generator', 'gas', bus='grid', p_nom=60.0, marginal_cost=40.0, e_sum_max=70.0)
+    n.add(
+        'StorageUnit',
+        'pump',
+        bus='grid',
+        p_nom_extendable=True,
+        capital_cost=15.0,
+        p_nom_max=30.0,
+        max_hours=4.0,
+        efficiency_store=0.9,
+        efficiency_dispatch=0.9,
+        cyclic_state_of_charge=True,
+        p_nom_set=20.0,
+    )
+    n.add(
+        'Store',
+        'tank',
+        bus='grid',
+        e_nom_extendable=True,
+        capital_cost=2.0,
+        e_nom_max=80.0,
+        e_cyclic=True,
+        e_nom_set=50.0,
+    )
+    n.add(
+        'Generator',
+        'solar',
+        bus='grid',
+        p_nom_extendable=True,
+        capital_cost=60.0,
+        p_max_pu=[0.5, 0.6, 0.4, 0.2],
+        p_nom_max=40.0,
+        p_nom_set=15.0,
+        marginal_cost=0.0,
+    )
     n.add('Load', 'town', bus='grid', p_set=40.0)
     n.add('Bus', 'island')
     n.add('Load', 'island_load', bus='island', p_set=10.0)
@@ -63,6 +99,7 @@ def build() -> pypsa.Network:
         capital_cost=20.0,
         p_nom_max=30.0,
         efficiency=0.95,
+        p_nom_set=25.0,
     )
     return n
 
@@ -80,6 +117,14 @@ def record(n: pypsa.Network) -> dict[str, object]:
         'objective_constant': float(n.objective_constant),
         'columns': {name: int((m.variables[name].labels != -1).sum()) for name in m.variables},
         'rows': {name: int((m.constraints[name].labels != -1).sum()) for name in m.constraints},
+        'global_constraints': {
+            str(label): {'type': row['type'], 'sense': row['sense']} for label, row in n.global_constraints.iterrows()
+        },
+        'marginal_price': {
+            str(bus): [float(x) for x in n.buses_t.marginal_price[bus]] for bus in n.buses_t.marginal_price.columns
+        }
+        if not n.buses_t.marginal_price.empty and bool(n.buses_t.marginal_price.notna().all().all())
+        else {},
     }
 
 
