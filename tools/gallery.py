@@ -96,23 +96,78 @@ def _stands_for(name: str, description: str | None) -> str:
     return found.group(1)
 
 
-def declared_block(path: Path) -> str:
-    """The legend, the objective, then every constraint as YAML beside its equation."""
+def _typeset(path: Path) -> tuple[str, dict[str, str], str, str, str]:
+    """The file's text, its constraints' equations by name, and the legend, objective and domains prose."""
     text = without_header(path)
-    model = load_model(path)
-    page = to_markdown(model, symbols=sidecar_for(path), numbered=False)
+    page = to_markdown(load_model(path), symbols=sidecar_for(path), numbered=False)
     legend = page[: page.index('#### Objective')].strip()
     objective = _section(page, 'Objective').strip().removeprefix('#### Objective').strip()
     equation = equations(_section(page, 'Subject to'))
     domains = _section(page, 'Variable domains').strip()
+    return text, equation, legend, objective, domains
+
+
+def _constraint_block(name: str, block, text: str, equation: dict[str, str]) -> str:
+    """One constraint as YAML beside its equation, headed by the PyPSA row it stands for."""
+    return (
+        f'### `{_stands_for(name, block.description)}`\n\n'
+        f'`{name}`\n\n'
+        f'```yaml\n{declaration(text, "constraints", name)}\n```\n\n'
+        f'{equation[name]}'
+    )
+
+
+def turned_on(path: Path) -> dict[str, list[str]]:
+    """Rung -> the constraint blocks whose PyPSA rows that rung is the first on the ladder to build.
+
+    A block stands for the row its description opens with; a global-constraint
+    row, which PyPSA names after its label, is matched through the recorded
+    type and sense the block's ``where:`` selects. Rungs are read in ladder
+    order, so a row two rungs build — or one block two labels select — is
+    shown under the lower one.
+    """
+    model = load_model(path)
+    stems = [stem for stem in sorted(RECORDED) if REFERENCES.joinpath(f'{stem}.py').exists() and _binds(stem) == path]
+    seen: set[str] = set()
+    taken: set[str] = set()
+    claimed: dict[str, list[str]] = {stem: [] for stem in stems}
+    for stem in stems:
+        record = RECORDED[stem]
+        rows = set(record['rows']) - seen
+        seen |= set(record['rows'])
+        gcs = [
+            record['global_constraints'][row.removeprefix('GlobalConstraint-')]
+            for row in rows
+            if row.startswith('GlobalConstraint-')
+        ]
+        for name, block in model.constraints.items():
+            stands = _stands_for(name, block.description)
+            if name in taken:
+                continue
+            if stands in rows or any(stands == gc['type'] and f"'{gc['sense']}'" in (block.where or '') for gc in gcs):
+                claimed[stem].append(name)
+                taken.add(name)
+    return claimed
+
+
+def _binds(stem: str) -> Path:
+    """The file a rung binds: ``MODEL`` in its script where it names one, ``pypsa.yaml`` otherwise."""
+    found = re.search(r"^MODEL = '([^']+)'", (REFERENCES / f'{stem}.py').read_text(), flags=re.MULTILINE)
+    return ROOT / 'examples' / (found.group(1) if found else 'pypsa.yaml')
+
+
+def declared_block(path: Path) -> str:
+    """The legend, the objective, the constraints no rung turns on, and the domains."""
+    text, equation, legend, objective, domains = _typeset(path)
+    model = load_model(path)
+    shown = {name for names in turned_on(path).values() for name in names}
     parts = [legend, f'### Objective\n\n```yaml\n{declaration(text, "objective")}\n```\n\n{objective}']
-    for name, block in model.constraints.items():
-        parts.append(
-            f'### `{_stands_for(name, block.description)}`\n\n'
-            f'`{name}`\n\n'
-            f'```yaml\n{declaration(text, "constraints", name)}\n```\n\n'
-            f'{equation[name]}'
-        )
+    rest = [name for name in model.constraints if name not in shown]
+    if rest:
+        parts.append('Every other block sits under the rung that first builds its row; these none does:')
+        parts.extend(_constraint_block(name, model.constraints[name], text, equation) for name in rest)
+    else:
+        parts.append('Every block sits under the rung that first builds its row.')
     parts.append(domains)
     return '\n\n'.join(parts)
 
@@ -123,10 +178,14 @@ def _script(name: str) -> str:
 
 
 def reference_block(stem: str) -> str:
-    """A rung's oracle: the recorded solve, then the PyPSA script that builds its network."""
+    """A rung's oracle, the PyPSA script that builds its network, then the blocks it is the first to turn on."""
     recorded = RECORDED[stem]
     rows = sum(recorded['rows'].values())
-    return (
+    path = _binds(stem)
+    text, equation, *_ = _typeset(path)
+    model = load_model(path)
+    blocks = turned_on(path).get(stem, [])
+    parts = [
         f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's network at objective "
         f'`{recorded["objective"]}`, {rows} rows.\n'
         '\n'
@@ -135,8 +194,10 @@ def reference_block(stem: str) -> str:
         '\n'
         f'{_script(stem)}\n'
         '\n'
-        '</details>'
-    )
+        '</details>',
+        *(_constraint_block(name, model.constraints[name], text, equation) for name in blocks),
+    ]
+    return '\n\n'.join(parts)
 
 
 def spine_block() -> str:
