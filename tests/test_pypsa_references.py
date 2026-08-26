@@ -66,6 +66,16 @@ def test_the_recorded_solve_is_usable_as_an_oracle(stem: str):
     assert recorded['rows'], 'an oracle needs the row counts a parity gate would compare'
 
 
+@pytest.mark.parametrize('stem', sorted(RECORDED), ids=sorted(RECORDED))
+def test_both_lanes_solve_the_rung_to_one_objective(stem: str):
+    parity = RECORDED[stem].get('parity')
+    assert parity is not None, 'the rung has no cross-lane record — run parity.py in its pinned environment'
+    assert parity['matches'], (
+        f'lpspec and pypsa disagree: {parity["lpspec_objective"]} against {RECORDED[stem]["objective"]} '
+        f'— re-run parity.py and read its per-rung report'
+    )
+
+
 def test_pypsa_builds_no_variable_the_file_does_not_declare():
     unmatched = RECORDED_COLUMNS - COLUMNS_DECLARED
     assert not unmatched, f'pypsa builds these and the file declares nothing that stands for them: {sorted(unmatched)}'

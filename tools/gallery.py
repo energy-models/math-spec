@@ -137,10 +137,17 @@ def reference_block(stem: str) -> str:
     """A rung's oracle: the recorded solve, then the network as PyPSA states it."""
     recorded = json.loads((REFERENCES / 'references.json').read_text())[stem]
     rows = sum(recorded['rows'].values())
+    parity = recorded.get('parity', {})
+    agreement = (
+        f' `lpspec {parity["lpspec"]}` binds `examples/pypsa.yaml` against the same network and lands on the'
+        ' same objective (`parity.py`).'
+        if parity.get('matches')
+        else ''
+    )
     return (
         f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network through its own linopy model "
         f'at objective `{recorded["objective"]}`, {rows} rows — recorded by '
-        f'`examples/references/pypsa/{stem}.py`.\n'
+        f'`examples/references/pypsa/{stem}.py`.{agreement}\n'
         '\n'
         '<details markdown="1">\n'
         "<summary>The reference network, in PyPSA's own statements</summary>\n"

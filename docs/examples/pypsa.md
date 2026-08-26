@@ -43,11 +43,11 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
 | `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here                         |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
-| [`marginal_cost_quadratic`](#objective)             | done   | degree 2 in the objective; Generator and Link here         |
+| `marginal_cost_quadratic`                           | open   | sayable as degree 2, but one file cannot carry it beside rung 7's binaries for the HiGHS lane |
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 <!-- reference:rung1_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung1_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -97,7 +97,7 @@ def build() -> pypsa.Network:
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung2_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `975.711471`, 83 rows — recorded by `examples/references/pypsa/rung2_storage.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `975.711471`, 83 rows — recorded by `examples/references/pypsa/rung2_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -169,7 +169,7 @@ def build() -> pypsa.Network:
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung3_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5332.105263157895`, 96 rows — recorded by `examples/references/pypsa/rung3_expansion.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5332.105263157895`, 96 rows — recorded by `examples/references/pypsa/rung3_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -261,7 +261,7 @@ def build() -> pypsa.Network:
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | fix and ext blocks; com is rung 7's, big-M rung 8's; the first snapshot's row is rolling horizon's, a flag |
 
 <!-- reference:rung4_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10420.0`, 44 rows — recorded by `examples/references/pypsa/rung4_ramps.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `10420.0`, 44 rows — recorded by `examples/references/pypsa/rung4_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -314,7 +314,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung5_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5187.5`, 29 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5187.5`, 29 rows — recorded by `examples/references/pypsa/rung5_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -359,7 +359,7 @@ def build() -> pypsa.Network:
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung6_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2460.0`, 72 rows — recorded by `examples/references/pypsa/rung6_kvl.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2460.0`, 72 rows — recorded by `examples/references/pypsa/rung6_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -422,7 +422,7 @@ def build() -> pypsa.Network:
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
 <!-- reference:rung7_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3065.0`, 54 rows — recorded by `examples/references/pypsa/rung7_commitment.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3065.0`, 54 rows — recorded by `examples/references/pypsa/rung7_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -479,7 +479,7 @@ def build() -> pypsa.Network:
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down, each with its initial block |
 
 <!-- reference:rung8_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8725.0`, 97 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `8725.0`, 97 rows — recorded by `examples/references/pypsa/rung8_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -539,7 +539,7 @@ def build() -> pypsa.Network:
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung9_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `1920.0`, 36 rows — recorded by `examples/references/pypsa/rung9_multilink.py`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `1920.0`, 36 rows — recorded by `examples/references/pypsa/rung9_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>The reference network, in PyPSA's own statements</summary>
@@ -631,7 +631,6 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
 | $\overline{\mathrm{p}}$ | `Generator_p_max_pu` over $\mathcal{T} \times \mathcal{G}$ — most output, per unit of nominal power — an availability profile |
 | $\mathrm{c}$ | `Generator_marginal_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one unit of output |
-| $\mathrm{c}^{(2)}$ | `Generator_marginal_cost_quadratic` over $\mathcal{T} \times \mathcal{G}$ — cost of the square of one unit of output; a generator with none has no row here |
 | $\mathrm{com}$ | `Generator_committable` over $\mathcal{G}$ — whether output is gated by an on/off status decision |
 | $\mathrm{ru}$ | `Generator_ramp_limit_up` over $\mathcal{G}$ — most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{rd}$ | `Generator_ramp_limit_down` over $\mathcal{G}$ — most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit |
@@ -656,7 +655,6 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\eta$ | `Link_efficiency` over $\mathcal{L}$ — share of the flow that arrives at the link's `Link_bus1` end |
 | $\eta^{2}$ | `Link_efficiency2` over $\mathcal{L}$ — share of the flow that arrives at the link's `Link_bus2` end — negative where that port consumes |
 | $\mathrm{c}^{f}$ | `Link_marginal_cost` over $\mathcal{T} \times \mathcal{L}$ — cost of one unit of flow |
-| $\mathrm{c}^{f,(2)}$ | `Link_marginal_cost_quadratic` over $\mathcal{T} \times \mathcal{L}$ — cost of the square of one unit of flow; a link with none has no row here |
 | $\mathrm{load}$ | `Load_p_set` over $\mathcal{T} \times \mathcal{D}$ — demand |
 | $\mathrm{p}^{\mathrm{set}}$ | `Generator_p_set` over $\mathcal{T} \times \mathcal{G}$ — a given output schedule; a generator without one has no row here |
 | $\mathrm{f}^{\mathrm{set}}$ | `Link_p_set` over $\mathcal{T} \times \mathcal{L}$ — a given flow schedule; a link without one has no row here |
@@ -747,9 +745,9 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $e$ | `Store_e` over $\mathcal{T} \times \mathcal{V}$ — `Store-e` — energy held at the end of a snapshot |
 | $q$ | `Store_p` over $\mathcal{T} \times \mathcal{V}$ — `Store-p` — power delivered to the bus; charging is negative |
 | $N$ | `Generator_n_mod` over $\mathcal{G}$ — `Generator-n_mod` — how many modules of an extendable modular build |
-| $u$ | `Generator_status` over $\mathcal{T} \times \mathcal{G}$ — `Generator-status` — whether a committable unit is on |
-| $\mathit{up}$ | `Generator_start_up` over $\mathcal{T} \times \mathcal{G}$ — `Generator-start_up` — whether a committable unit turns on this snapshot |
-| $\mathit{dn}$ | `Generator_shut_down` over $\mathcal{T} \times \mathcal{G}$ — `Generator-shut_down` — whether a committable unit turns off this snapshot |
+| $u$ | `Generator_status` over $\mathcal{T} \times \mathcal{G}$ — `Generator-status` — how much of a committable unit is on: an integer the rows below cap at one, or at the module count where the build is modular |
+| $\mathit{up}$ | `Generator_start_up` over $\mathcal{T} \times \mathcal{G}$ — `Generator-start_up` — how much of a committable unit turns on this snapshot, capped as the status is |
+| $\mathit{dn}$ | `Generator_shut_down` over $\mathcal{T} \times \mathcal{G}$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot, capped as the status is |
 | $s$ | `Line_s` over $\mathcal{T} \times \mathcal{K}$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
 | $S$ | `Line_s_nom_ext` over $\mathcal{K}$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
@@ -770,8 +768,6 @@ objective:
   expression: >-
     sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)
     + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective)
-    + sum(Generator_p * Generator_p * Generator_marginal_cost_quadratic * snapshot_weightings_objective)
-    + sum(Link_p * Link_p * Link_marginal_cost_quadratic * snapshot_weightings_objective)
     + sum(StorageUnit_p_dispatch * StorageUnit_marginal_cost * snapshot_weightings_objective)
     + sum(StorageUnit_state_of_charge * StorageUnit_marginal_cost_storage * snapshot_weightings_objective)
     + sum(StorageUnit_spill * StorageUnit_spill_cost * snapshot_weightings_objective)
@@ -787,7 +783,7 @@ objective:
     + sum(Generator_shut_down * Generator_shut_down_cost)
 ```
 
-$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathrm{c}^{(2)}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot f_{t,l} \cdot \mathrm{c}^{f,(2)}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} u_{t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{up}_{t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{dn}_{t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g}$$
+$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace l \in \mathcal{L}} f_{t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} h^{+}_{t,s} \cdot \mathrm{c}^{h}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{soc}_{t,s} \cdot \mathrm{c}^{\mathrm{soc}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{spill}_{t,s} \cdot \mathrm{c}^{\mathrm{spill}}_{t,s} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} q_{t,v} \cdot \mathrm{c}^{q}_{t,v} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace v \in \mathcal{V}} e_{t,v} \cdot \mathrm{c}^{e}_{t,v} \cdot \mathrm{w}_{t} + \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{c}^{\mathrm{cap},f}_{l} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{c}^{\mathrm{cap},h}_{s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{c}^{\mathrm{cap},e}_{v} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{c}^{\mathrm{cap},s}_{k} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} u_{t,g} \cdot \mathrm{c}^{\mathrm{on}}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{up}_{t,g} \cdot \mathrm{c}^{\mathrm{up}}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{dn}_{t,g} \cdot \mathrm{c}^{\mathrm{dn}}_{g}$$
 
 ### `Generator-fix-p-lower`
 
@@ -797,11 +793,11 @@ $$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm
 Generator_fix_p_lower:
   description: "`Generator-fix-p-lower` — a fixed generator outputs at least its minimum"
   foreach: [snapshot, generator]
-  where: not Generator_p_nom_extendable
+  where: not Generator_p_nom_extendable AND not Generator_committable
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
 ```
 
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g}$$
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
 
 ### `Generator-fix-p-upper`
 
@@ -811,11 +807,11 @@ $$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \
 Generator_fix_p_upper:
   description: "`Generator-fix-p-upper` — a fixed generator outputs at most what is available"
   foreach: [snapshot, generator]
-  where: not Generator_p_nom_extendable
+  where: not Generator_p_nom_extendable AND not Generator_committable
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
 ```
 
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g}$$
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
 
 ### `Link-fix-p-lower`
 
@@ -853,11 +849,11 @@ $$f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \q
 Generator_ext_p_lower:
   description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
   foreach: [snapshot, generator]
-  where: Generator_p_nom_extendable
+  where: Generator_p_nom_extendable AND not Generator_committable
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
 ```
 
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
 
 ### `Generator-ext-p-upper`
 
@@ -867,11 +863,11 @@ $$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace 
 Generator_ext_p_upper:
   description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
   foreach: [snapshot, generator]
-  where: Generator_p_nom_extendable
+  where: Generator_p_nom_extendable AND not Generator_committable
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
 ```
 
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g}$$
 
 ### `Generator-ext-p_nom-lower`
 
@@ -2066,18 +2062,18 @@ $$\mathit{soc}_{t,s} = \rho_{t,s} \cdot \mathit{soc}_{t - 1,s} + \eta^{-}_{s} \c
 
 ```yaml
 StorageUnit_energy_balance_initial:
-  description: "`StorageUnit-energy_balance` — the first snapshot opens on the given initial charge"
+  description: "`StorageUnit-energy_balance` — the first snapshot opens on the given initial charge, which no standing loss has touched yet"
   foreach: [snapshot, storage_unit]
   where: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
   expression: >-
     StorageUnit_state_of_charge ==
-    StorageUnit_retention * StorageUnit_state_of_charge_initial
+    StorageUnit_state_of_charge_initial
     + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
     - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
     + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
 ```
 
-$$\mathit{soc}_{t,s} = \rho_{t,s} \cdot \mathrm{soc}^{0}_{s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0$$
+$$\mathit{soc}_{t,s} = \mathrm{soc}^{0}_{s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0$$
 
 ### `StorageUnit-energy_balance`
 
@@ -2222,16 +2218,16 @@ $$e_{t,v} = \rho^{e}_{t,v} \cdot e_{t - 1,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm
 
 ```yaml
 Store_energy_balance_initial:
-  description: "`Store-energy_balance` — the first snapshot opens on the given initial energy"
+  description: "`Store-energy_balance` — the first snapshot opens on the given initial energy, which no standing loss has touched yet"
   foreach: [snapshot, store]
   where: not Store_e_cyclic AND position(snapshot) == 0
   expression: >-
     Store_e ==
-    Store_retention * Store_e_initial
+    Store_e_initial
     - Store_p * snapshot_weightings_stores
 ```
 
-$$e_{t,v} = \rho^{e}_{t,v} \cdot \mathrm{e}^{0}_{v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0$$
+$$e_{t,v} = \mathrm{e}^{0}_{v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0$$
 
 ### `Store-energy_balance`
 
@@ -2597,15 +2593,15 @@ $$N_{g} \ge 0, N_{g} \in \mathbb{Z} \qquad \forall\thinspace g \in \mathcal{G} \
 
 **`Generator_status`**
 
-$$u_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+$$u_{t,g} \ge 0, u_{t,g} \in \mathbb{Z} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 **`Generator_start_up`**
 
-$$\mathit{up}_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+$$\mathit{up}_{t,g} \ge 0, \mathit{up}_{t,g} \in \mathbb{Z} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 **`Generator_shut_down`**
 
-$$\mathit{dn}_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+$$\mathit{dn}_{t,g} \ge 0, \mathit{dn}_{t,g} \in \mathbb{Z} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 **`Line_s`**
 
