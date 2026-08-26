@@ -3247,5 +3247,156 @@
       "error": "KeyError: 'key of type tuple not found and not a MultiIndex'",
       "linopy": "0.9.1.post1.dev3+g09c34dd9d"
     }
+  },
+  "rung_13_losses": {
+    "columns": {
+      "Generator-p": 16,
+      "Line-loss": 12,
+      "Line-s": 12,
+      "Line-s_nom": 1,
+      "Link-p": 4,
+      "objective_constant": 1
+    },
+    "global_constraints": {},
+    "marginal_price": {
+      "a": [
+        10.0,
+        10.0,
+        10.0,
+        10.0
+      ],
+      "b": [
+        10.227918075846796,
+        10.850483651602984,
+        10.0,
+        10.227918075846796
+      ],
+      "c": [
+        10.576215900702158,
+        12.486012349282104,
+        10.0,
+        10.576215900702158
+      ],
+      "north": [
+        10.0,
+        10.0,
+        10.0,
+        10.0
+      ],
+      "south": [
+        30.0,
+        30.0,
+        30.0,
+        30.0
+      ]
+    },
+    "objective": 11574.914894161273,
+    "objective_constant": 160.0,
+    "parity": {
+      "bound_nonempty": [
+        "Generator_bus",
+        "Generator_marginal_cost",
+        "Generator_p_max_pu",
+        "Generator_p_min_pu",
+        "Generator_p_nom",
+        "Line_bus0",
+        "Line_bus1",
+        "Line_capital_cost",
+        "Line_cycle_weight",
+        "Line_loss_max",
+        "Line_loss_offset",
+        "Line_loss_slope",
+        "Line_s_max_pu",
+        "Line_s_nom",
+        "Line_s_nom_extendable",
+        "Line_s_nom_max",
+        "Line_s_nom_min",
+        "Link_bus0",
+        "Link_bus1",
+        "Link_efficiency",
+        "Link_marginal_cost",
+        "Link_p_max_pu",
+        "Link_p_min_pu",
+        "Link_p_nom",
+        "Load_bus",
+        "Load_p_set",
+        "bus",
+        "cycle",
+        "generator",
+        "line",
+        "link",
+        "load",
+        "segment",
+        "snapshot",
+        "snapshot_weightings_objective"
+      ],
+      "built_columns": {
+        "Generator_p": 16,
+        "Line_loss": 12,
+        "Line_s": 12,
+        "Line_s_nom_ext": 1,
+        "Link_p": 4
+      },
+      "built_rows": {
+        "Bus_nodal_balance": 20,
+        "Generator_fix_p_lower": 16,
+        "Generator_fix_p_upper": 16,
+        "Kirchhoff_Voltage_Law": 4,
+        "Line_ext_s_lower": 4,
+        "Line_ext_s_nom_lower": 1,
+        "Line_ext_s_nom_upper": 1,
+        "Line_ext_s_upper": 4,
+        "Line_fix_s_lower": 8,
+        "Line_fix_s_upper": 8,
+        "Line_loss_tangents_forward": 24,
+        "Line_loss_tangents_reverse": 24,
+        "Line_loss_upper": 12,
+        "Link_fix_p_lower": 4,
+        "Link_fix_p_upper": 4
+      },
+      "dims": {
+        "bus": 5,
+        "cycle": 1,
+        "generator": 4,
+        "line": 3,
+        "link": 1,
+        "load": 3,
+        "segment": 2,
+        "snapshot": 4
+      },
+      "lpspec": "0.0.1.dev5+g2efce5295",
+      "lpspec_objective": 11734.914894161273,
+      "matches": true,
+      "model": "examples/pypsa_losses.yaml",
+      "prices": {
+        "compared": 20,
+        "matches": true,
+        "max_abs_diff": 1.7763568394002505e-15
+      }
+    },
+    "pypsa": "1.3.0",
+    "rows": {
+      "Bus-nodal_balance": 20,
+      "Generator-fix-p-lower": 16,
+      "Generator-fix-p-upper": 16,
+      "Kirchhoff-Voltage-Law": 4,
+      "Line-ext-s-lower": 4,
+      "Line-ext-s-upper": 4,
+      "Line-ext-s_nom-lower": 1,
+      "Line-ext-s_nom-upper": 1,
+      "Line-fix-s-lower": 8,
+      "Line-fix-s-upper": 8,
+      "Line-loss_tangents-1--1": 12,
+      "Line-loss_tangents-1-1": 12,
+      "Line-loss_tangents-2--1": 12,
+      "Line-loss_tangents-2-1": 12,
+      "Line-loss_upper": 12,
+      "Link-fix-p-lower": 4,
+      "Link-fix-p-upper": 4
+    },
+    "structural": {
+      "error": "KeyError: 'ab13'",
+      "linopy": "0.9.1.post1.dev3+g09c34dd9d"
+    }
   }
 }

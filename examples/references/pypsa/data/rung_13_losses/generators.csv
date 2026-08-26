@@ -1,0 +1,3 @@
+name,bus,p_nom,marginal_cost
+hydro13,a,80.0,10.0
+diesel13,b,80.0,50.0

@@ -1,0 +1,9 @@
+{
+  "model": "examples/pypsa_losses.yaml",
+  "optimize": {
+    "transmission_losses": {
+      "mode": "tangents",
+      "segments": 2
+    }
+  }
+}
