@@ -137,6 +137,9 @@ def reference_block(stem: str) -> str:
         if parity.get('matches')
         else ''
     )
+    prices = parity.get('prices', {})
+    if agreement and prices.get('compared'):
+        agreement += f' Nodal prices agree on {prices["compared"]} rows.'
     if agreement and 'equal' in structural and not structural.get('mismatch'):
         splits = f' up to {len(structural["region"])} documented splits' if structural.get('region') else ''
         agreement += f' **Model-for-model**: the two lanes build one linopy model, label for label{splits}.'
