@@ -7,25 +7,30 @@
 `data/base/` is rung 1's transport spine, the network every rung starts from;
 `data/<rung>/` holds only what that rung adds — its components as wide CSVs in
 PyPSA's vocabulary and a `timeseries.csv` for what varies, which may also put
-a schedule on a base component. The rung's folder therefore *is* its
-construct, in data form, and no table carries a rung column.
+a schedule on a base component.
 
 Folders combine by appending rows, table by table — never by replacing a
 table and never by a column-wise join. Each row keeps its own file's columns
-and becomes one ``n.add``, so two files of different widths invent no empty
-cells in each other; a blank cell is an attribute the row does not set, and
-PyPSA supplies its default, exactly as for an unpassed keyword.
+and becomes one ``n.add``; a blank cell is an attribute the row does not set,
+and PyPSA supplies its default, exactly as for an unpassed keyword.
+
+The rung scripts beside this file run out of band — PyPSA is not a dependency
+of this project, and each pins the versions its recorded numbers are from.
+They share `stamp`, which solves a network through PyPSA's own linopy model
+and writes what it saw into `references.json`.
 """
 
 from __future__ import annotations
 
 import csv
+import json
 import math
 from pathlib import Path
 
 import pypsa
 
 DATA = Path(__file__).resolve().parent / 'data'
+RECORDS = Path(__file__).resolve().parent / 'references.json'
 
 #: Component -> its table, in the order dependencies load (buses before what sits on them).
 TABLES = {
@@ -78,11 +83,11 @@ def build(rung: str) -> pypsa.Network:
 
     varying: dict[tuple[str, str], dict[str, dict[int, float]]] = {}
     for row in _rows(folders, 'timeseries.csv'):
-        cell = row['value']
-        value = float(cell) if cell else math.nan
+        if not row['value']:
+            continue
         varying.setdefault((row['component'], row['name']), {}).setdefault(row['attribute'], {})[
             int(row['snapshot'])
-        ] = value
+        ] = float(row['value'])
 
     for component, table in TABLES.items():
         attrs = n.components[component]['attrs']
@@ -94,3 +99,41 @@ def build(rung: str) -> pypsa.Network:
                 kwargs[attribute] = [points.get(int(t['snapshot']), math.nan) for t in snapshots]
             n.add(component, row['name'], **kwargs)
     return n
+
+
+def record(n: pypsa.Network) -> dict[str, object]:
+    """What a solve saw, in the shape `references.json` holds.
+
+    Row and column counts skip masked labels, so they count what a solver was
+    handed rather than the coordinate product.
+    """
+    m = n.model
+    return {
+        'pypsa': pypsa.__version__,
+        'objective': float(n.objective),
+        'objective_constant': float(n.objective_constant),
+        'columns': {name: int((m.variables[name].labels != -1).sum()) for name in m.variables},
+        'rows': {name: int((m.constraints[name].labels != -1).sum()) for name in m.constraints},
+        'global_constraints': {
+            str(label): {'type': row['type'], 'sense': row['sense']} for label, row in n.global_constraints.iterrows()
+        },
+        'marginal_price': {
+            str(bus): [float(x) for x in n.buses_t.marginal_price[bus]] for bus in n.buses_t.marginal_price.columns
+        }
+        if not n.buses_t.marginal_price.empty and bool(n.buses_t.marginal_price.notna().all().all())
+        else {},
+    }
+
+
+def write(stamped: dict[str, object]) -> None:
+    RECORDS.write_text(json.dumps(stamped, indent=2, sort_keys=True) + '\n')
+
+
+def stamp(rung: str, n: pypsa.Network) -> None:
+    """Solve *n* through PyPSA's own linopy model with HiGHS and record what it saw."""
+    status, condition = n.optimize(solver_name='highs')
+    assert status == 'ok', f'HiGHS did not solve: {status} / {condition}'
+    stamped = json.loads(RECORDS.read_text()) if RECORDS.exists() else {}
+    stamped[rung] = record(n)
+    write(stamped)
+    print(f'{rung}: objective {n.objective}')

@@ -22,8 +22,9 @@ from typing import TYPE_CHECKING
 
 from math_spec import load_model
 from math_spec.typesetting import to_markdown
-from tools._page import ROOT, splice, without_header
+from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
+from tools.notation import equations
 from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
 
 if TYPE_CHECKING:
@@ -38,25 +39,19 @@ MODELS = {
     'dispatch.md': ROOT / 'examples' / 'dispatch.yaml',
 }
 
-#: Page -> (the model, how it prints), shown a **declaration** at a time: the
-#: YAML of one constraint, then the equation it renders. For a model that
-#: states someone else's — PyPSA's — the question a reader brings is "where is
-#: *this* row", so each block is headed by the name the other side gives it,
-#: read from the declaration's own description.
+#: Page -> the model it shows one declaration at a time — its YAML, then the
+#: equation it renders, headed by the name the other side gives it, read from
+#: the declaration's own description.
 DECLARED = {
-    'pypsa.md': (ROOT / 'examples' / 'pypsa.yaml', ROOT / 'examples' / 'symbols' / 'pypsa.yaml'),
-    'pypsa_quadratic.md': (
-        ROOT / 'examples' / 'pypsa_quadratic.yaml',
-        ROOT / 'examples' / 'symbols' / 'pypsa_quadratic.yaml',
-    ),
+    'pypsa.md': ROOT / 'examples' / 'pypsa.yaml',
+    'pypsa_quadratic.md': ROOT / 'examples' / 'pypsa_quadratic.yaml',
 }
 
-#: One PyPSA reference network per rung of the declared page, run out of band
-#: with the versions each script pins; `references.json` beside them holds
-#: what each solve recorded. The page shows the shared spine once and, under
-#: each rung's table, the data the rung's own folder adds — the YAML and the
-#: instance it binds, side by side.
+#: One PyPSA reference network per rung, run out of band with the versions
+#: each script pins; `references.json` beside them holds what each solve
+#: recorded.
 REFERENCES = ROOT / 'examples' / 'references' / 'pypsa'
+RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 
 
 def model_block(path: Path) -> str:
@@ -91,12 +86,6 @@ def declaration(text: str, section: str, name: str | None = None) -> str:
     return textwrap.dedent('\n'.join(lines[i:j])).rstrip()
 
 
-def _equation(subject: str, name: str) -> str:
-    """The display equation the typesetter printed for constraint *name*."""
-    body = subject[subject.index(f'**`{name}`**') :]
-    return next(line for line in body.splitlines() if line.startswith('$$'))
-
-
 def _stands_for(name: str, description: str | None) -> str:
     """The other side's name for a declaration — the backticked opening of its description."""
     found = re.match(r'`([^`]+)`', description or '')
@@ -108,24 +97,22 @@ def _stands_for(name: str, description: str | None) -> str:
     return found.group(1)
 
 
-def declared_block(path: Path, symbols: Path) -> str:
+def declared_block(path: Path) -> str:
     """The legend, the objective, then every constraint as YAML beside its equation."""
     text = without_header(path)
-    page = to_markdown(path, symbols=symbols, numbered=False)
+    model = load_model(path)
+    page = to_markdown(model, symbols=sidecar_for(path), numbered=False)
     legend = page[: page.index('#### Objective')].strip()
-    objective = _section(page, 'Objective').strip()
-    subject = _section(page, 'Subject to')
+    objective = _section(page, 'Objective').strip().removeprefix('#### Objective').strip()
+    equation = equations(_section(page, 'Subject to'))
     domains = _section(page, 'Variable domains').strip()
-    parts = [
-        legend,
-        f'### Objective\n\n```yaml\n{declaration(text, "objective")}\n```\n\n{objective.removeprefix("#### Objective").strip()}',
-    ]
-    for name, block in load_model(path).constraints.items():
+    parts = [legend, f'### Objective\n\n```yaml\n{declaration(text, "objective")}\n```\n\n{objective}']
+    for name, block in model.constraints.items():
         parts.append(
             f'### `{_stands_for(name, block.description)}`\n\n'
             f'`{name}`\n\n'
             f'```yaml\n{declaration(text, "constraints", name)}\n```\n\n'
-            f'{_equation(subject, name)}'
+            f'{equation[name]}'
         )
     parts.append(domains)
     return '\n\n'.join(parts)
@@ -152,7 +139,7 @@ def _folder(name: str) -> str:
 
 def reference_block(stem: str) -> str:
     """A rung's oracle: the recorded solve, then the data its folder adds to the spine."""
-    recorded = json.loads((REFERENCES / 'references.json').read_text())[stem]
+    recorded = RECORDED[stem]
     rows = sum(recorded['rows'].values())
     parity = recorded.get('parity', {})
     agreement = (
@@ -164,8 +151,7 @@ def reference_block(stem: str) -> str:
     return (
         f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network through its own linopy model "
         f'at objective `{recorded["objective"]}`, {rows} rows — recorded by '
-        f'`examples/references/pypsa/{stem}.py`.{agreement}'
-        f'{f" Its instance is `data/base/` plus `data/{stem}/`." if agreement else ""}\n'
+        f'`examples/references/pypsa/{stem}.py`.{agreement}\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>What this rung adds, as data</summary>\n'
@@ -183,9 +169,9 @@ def spine_block() -> str:
     return (
         "> Every rung's network is the spine below plus the rung's own folder of additions, read by"
         ' `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row'
-        " keeps its own file's columns and becomes one `n.add`, so no table is column-joined and no empty cells"
-        " are invented — a blank cell is an attribute the row does not set, PyPSA's default. The one"
-        ' cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.\n'
+        " keeps its own file's columns and becomes one `n.add`. A blank cell is an attribute the row does not"
+        " set — PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a"
+        ' spine component.\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>The shared spine, <code>data/base/</code></summary>\n'
@@ -196,21 +182,13 @@ def spine_block() -> str:
     )
 
 
-def with_references(page: str, text: str) -> str:
-    """Every reference script's block whose marker pair is on this page.
-
-    A rung's marker lives on whichever declared page carries its section, so a
-    stem absent here is another page's; a stem on no page at all is what
-    ``tests/test_pypsa_references.py`` says out loud. The spine's own marker
-    pair lives on the page that carries the rung ladder.
-    """
-    begin, end = '<!-- reference:spine:begin -->', '<!-- reference:spine:end -->'
-    if begin in text and end in text:
-        text = splice(text, begin, end, spine_block())
-    for script in sorted(REFERENCES.glob('rung*.py')):
-        begin, end = f'<!-- reference:{script.stem}:begin -->', f'<!-- reference:{script.stem}:end -->'
+def with_references(text: str) -> str:
+    """Every reference block whose marker pair is on this page; a stem on no page at all is the test's business."""
+    blocks = {'spine': spine_block, **{stem: partial(reference_block, stem) for stem in sorted(RECORDED)}}
+    for key, block in blocks.items():
+        begin, end = f'<!-- reference:{key}:begin -->', f'<!-- reference:{key}:end -->'
         if begin in text and end in text:
-            text = splice(text, begin, end, reference_block(script.stem))
+            text = splice(text, begin, end, block())
     return text
 
 
@@ -218,14 +196,14 @@ def block(page: str) -> str:
     if page == 'operators.md':
         return probe_block()
     if page in DECLARED:
-        return declared_block(*DECLARED[page])
+        return declared_block(DECLARED[page])
     return model_block(MODELS[page])
 
 
 def rendered(page: str, text: str) -> str:
     text = splice(text, BEGIN, END, block(page))
     if page in DECLARED:
-        text = with_references(page, text)
+        text = with_references(text)
     return text
 
 

@@ -10,9 +10,8 @@ at a time towards
 [milestone 1](https://github.com/energy-models/math-spec/milestone/1). The
 index below lists every row PyPSA emits (PyPSA `1.3.0`,
 `pypsa/optimization/`) and links each to its block in the file once it is
-there. The blocks are the file — PyPSA's name for the row, the YAML, the
-equation the typesetter prints — and are generated, so a row that stops
-loading or changes its math fails CI.
+there. The blocks are generated, so a row that stops loading or changes its
+math fails CI.
 
 Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
 their duals are row duals. Regimes are data columns and `where:` masks, never
@@ -22,18 +21,15 @@ file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
 ## Index
 
 A row is **done** and links once it is in the file. Under each rung's table
-sits its reference network — the shared spine below plus the rung's own
-folder of additions under `examples/references/pypsa/data/`, solved out of
-band by the pinned scripts beside it — with the objective and row counts a
-parity gate will compare, so the YAML and the data it binds read side by
-side. A blank status is a row
+sits its reference network, solved out of band by the pinned scripts beside
+it, with the objective and row counts a parity gate will compare. A blank status is a row
 expected to state one-to-one; a word is the catch: **prep** needs a parameter computed in
 data prep · **split** one PyPSA row is several `where:` blocks · **not** a
 PyPSA workaround not reproduced · **flag** only under an `n.optimize()`
 keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 
 <!-- reference:spine:begin -->
-> Every rung's network is the spine below plus the rung's own folder of additions, read by `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`, so no table is column-joined and no empty cells are invented — a blank cell is an attribute the row does not set, PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.
+> Every rung's network is the spine below plus the rung's own folder of additions, read by `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`. A blank cell is an attribute the row does not set — PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a spine component.
 
 <details markdown="1">
 <summary>The shared spine, <code>data/base/</code></summary>
@@ -94,11 +90,11 @@ snapshot,objective,stores,generators
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
 | `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here                         |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
-| [`marginal_cost_quadratic`](pypsa_quadratic.md)     | done   | rung 10, a file of its own — one model cannot carry a quadratic objective beside rung 7's integers and keep a HiGHS lane |
+| [`marginal_cost_quadratic`](pypsa_quadratic.md)     | done   | rung 10, a file of its own                                 |
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 <!-- reference:rung_01_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung_01_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_01_transport/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3246.666666666667`, 45 rows — recorded by `examples/references/pypsa/rung_01_transport.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -143,7 +139,7 @@ Link,wire,p_set,0,10.0
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung_02_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2488.903629000791`, 103 rows — recorded by `examples/references/pypsa/rung_02_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_02_storage/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `2488.903629000791`, 103 rows — recorded by `examples/references/pypsa/rung_02_storage.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -196,13 +192,13 @@ Store,cavern,e_set,3,20.0
 | -------------------------------- | ------ | ------------------------------------------- |
 | [`{c}-p_nom`, `-s_nom`, `-e_nom`](#variable-domains) | done | `{c}_p_nom_ext` here — the fixed regime keeps the parameter |
 | [`{c}-ext-{attr}-lower/upper`](#generator-ext-p-lower) | done |                                           |
-| [`{c}-ext-p_nom-lower/upper`](#generator-ext-p_nom-lower) | done | a cap of infinity is no row            |
+| [`{c}-ext-p_nom-lower/upper`](#generator-ext-p_nom-lower) | done |                                        |
 | [`{c}-p_nom_set`](#generator-p_nom_set) | done |                                                      |
-| [`Generator-e_sum_min/max`](#generator-e_sum_min) | done | no row where the bound is not finite       |
+| [`Generator-e_sum_min/max`](#generator-e_sum_min) | done |                                            |
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5646.0526315789475`, 124 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_03_expansion/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5646.0526315789475`, 124 rows — recorded by `examples/references/pypsa/rung_03_expansion.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -283,7 +279,7 @@ Generator,solar,p_max_pu,3,0.2
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | fix and ext blocks; com is rung 7's, big-M rung 8's; the first snapshot's row is rolling horizon's, a flag |
 
 <!-- reference:rung_04_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3950.0`, 64 rows — recorded by `examples/references/pypsa/rung_04_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_04_ramps/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3950.0`, 64 rows — recorded by `examples/references/pypsa/rung_04_ramps.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -356,7 +352,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5590.0`, 57 rows — recorded by `examples/references/pypsa/rung_05_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_05_global_constraints/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5590.0`, 57 rows — recorded by `examples/references/pypsa/rung_05_global_constraints.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -410,7 +406,7 @@ extra5,north,50.0
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung_06_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5740.0`, 104 rows — recorded by `examples/references/pypsa/rung_06_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_06_kvl/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5740.0`, 104 rows — recorded by `examples/references/pypsa/rung_06_kvl.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -479,7 +475,7 @@ Line,bc,s_set,0,10.0
 | `{c}-com-p-before/-current/-partly-*`        | flag   | `linearized_unit_commitment`                                  |
 
 <!-- reference:rung_07_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3550.0`, 74 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_07_commitment/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `3550.0`, 74 rows — recorded by `examples/references/pypsa/rung_07_commitment.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -531,7 +527,7 @@ Load,swing7,p_set,3,10.0
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down, each with its initial block |
 
 <!-- reference:rung_08_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `12005.0`, 129 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_08_modular_big_m/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `12005.0`, 129 rows — recorded by `examples/references/pypsa/rung_08_modular_big_m.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -587,7 +583,7 @@ Load,mill_load,p_set,3,60.0
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung_09_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5200.0`, 68 rows — recorded by `examples/references/pypsa/rung_09_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_09_multilink/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5200.0`, 68 rows — recorded by `examples/references/pypsa/rung_09_multilink.py`. `lpspec 0.0.1a259` binds `examples/pypsa.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>
@@ -2380,7 +2376,7 @@ $$e_{t,v} = \mathrm{e}^{\mathrm{set}}_{t,v} \qquad \forall\thinspace t \in \math
 
 ```yaml
 GlobalConstraint_primary_energy_ub:
-  description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  description: "`primary_energy` — its total, at most its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
   expression: primary_energy <= GlobalConstraint_constant
@@ -2394,7 +2390,7 @@ $$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\m
 
 ```yaml
 GlobalConstraint_primary_energy_lb:
-  description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  description: "`primary_energy` — its total, at least its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
   expression: primary_energy >= GlobalConstraint_constant
@@ -2408,7 +2404,7 @@ $$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\m
 
 ```yaml
 GlobalConstraint_primary_energy_eq:
-  description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  description: "`primary_energy` — its total, at its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
   expression: primary_energy == GlobalConstraint_constant
@@ -2422,7 +2418,7 @@ $$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\m
 
 ```yaml
 GlobalConstraint_operational_limit_ub:
-  description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  description: "`operational_limit` — its total, at most its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
   expression: operational_limit <= GlobalConstraint_constant
@@ -2436,7 +2432,7 @@ $$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\m
 
 ```yaml
 GlobalConstraint_operational_limit_lb:
-  description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  description: "`operational_limit` — its total, at least its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
   expression: operational_limit >= GlobalConstraint_constant
@@ -2450,7 +2446,7 @@ $$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\m
 
 ```yaml
 GlobalConstraint_operational_limit_eq:
-  description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  description: "`operational_limit` — its total, at its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
   expression: operational_limit == GlobalConstraint_constant
@@ -2464,7 +2460,7 @@ $$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\m
 
 ```yaml
 GlobalConstraint_transmission_volume_expansion_limit_ub:
-  description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  description: "`transmission_volume_expansion_limit` — its total, at most its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
   expression: transmission_volume_expansion <= GlobalConstraint_constant
@@ -2478,7 +2474,7 @@ $$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal
 
 ```yaml
 GlobalConstraint_transmission_volume_expansion_limit_lb:
-  description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  description: "`transmission_volume_expansion_limit` — its total, at least its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
   expression: transmission_volume_expansion >= GlobalConstraint_constant
@@ -2492,7 +2488,7 @@ $$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal
 
 ```yaml
 GlobalConstraint_transmission_volume_expansion_limit_eq:
-  description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  description: "`transmission_volume_expansion_limit` — its total, at its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
   expression: transmission_volume_expansion == GlobalConstraint_constant
@@ -2506,7 +2502,7 @@ $$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{o,k} + \sum_{l \in \mathcal
 
 ```yaml
 GlobalConstraint_transmission_expansion_cost_limit_ub:
-  description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  description: "`transmission_expansion_cost_limit` — its total, at most its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
   expression: transmission_expansion_cost <= GlobalConstraint_constant
@@ -2520,7 +2516,7 @@ $$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{
 
 ```yaml
 GlobalConstraint_transmission_expansion_cost_limit_lb:
-  description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  description: "`transmission_expansion_cost_limit` — its total, at least its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
   expression: transmission_expansion_cost >= GlobalConstraint_constant
@@ -2534,7 +2530,7 @@ $$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{
 
 ```yaml
 GlobalConstraint_transmission_expansion_cost_limit_eq:
-  description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  description: "`transmission_expansion_cost_limit` — its total, at its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
   expression: transmission_expansion_cost == GlobalConstraint_constant
@@ -2548,7 +2544,7 @@ $$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{o,k} + \sum_{l \in \mathcal{
 
 ```yaml
 GlobalConstraint_tech_capacity_expansion_limit_ub:
-  description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+  description: "`tech_capacity_expansion_limit` — its total, at most its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
   expression: tech_capacity_expansion <= GlobalConstraint_constant
@@ -2562,7 +2558,7 @@ $$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L
 
 ```yaml
 GlobalConstraint_tech_capacity_expansion_limit_lb:
-  description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+  description: "`tech_capacity_expansion_limit` — its total, at least its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
   expression: tech_capacity_expansion >= GlobalConstraint_constant
@@ -2576,7 +2572,7 @@ $$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{o,g} + \sum_{l \in \mathcal{L
 
 ```yaml
 GlobalConstraint_tech_capacity_expansion_limit_eq:
-  description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+  description: "`tech_capacity_expansion_limit` — its total, at its constant"
   foreach: [global_constraint]
   where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
   expression: tech_capacity_expansion == GlobalConstraint_constant

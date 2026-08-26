@@ -7,8 +7,8 @@
 The scripts under ``examples/references/pypsa/`` run out of band — PyPSA is
 not a dependency of this project — and record the variables and constraints
 PyPSA actually built. That makes the *names* assertable in both directions
-today: PyPSA builds nothing the file does not stand for, and everything the
-file declares is built by some reference network. Row **counts** and the
+today: PyPSA builds nothing the files do not stand for, and everything the
+files declare is built by some reference network. Row **counts** and the
 recorded duals stay recorded rather than asserted — comparing those takes the
 build engine the parity harness is waiting on. The page blocks the records
 feed are held current by ``tests/test_docs.py`` through ``tools.gallery``.
@@ -16,23 +16,25 @@ feed are held current by ``tests/test_docs.py`` through ``tools.gallery``.
 
 from __future__ import annotations
 
-import json
 import math
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from math_spec import load_model
-from tools.gallery import _stands_for
+from tools import gallery
+from tools.gallery import DECLARED, RECORDED, REFERENCES, _stands_for
 
-REFERENCES = Path(__file__).resolve().parent.parent / 'examples' / 'references' / 'pypsa'
-SCRIPTS = sorted(REFERENCES.glob('rung*.py'))
-RECORDED: dict[str, dict] = json.loads((REFERENCES / 'references.json').read_text())
+if TYPE_CHECKING:
+    from pathlib import Path
 
-MODEL = load_model(REFERENCES.parents[1] / 'pypsa.yaml')
-ROWS_DECLARED = {_stands_for(name, block.description) for name, block in MODEL.constraints.items()}
-COLUMNS_DECLARED = {_stands_for(name, block.description) for name, block in MODEL.variables.items()}
+SCRIPTS = sorted(REFERENCES.glob('rung_*.py'))
+PAGE_TEXTS = [(gallery.PAGES / page).read_text() for page in DECLARED]
+
+MODELS = [load_model(path) for path in DECLARED.values()]
+ROWS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.constraints.items()}
+COLUMNS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.variables.items()}
 #: The five GlobalConstraint formulas open with their *type* — PyPSA names
 #: those rows after each row's own label, so they are matched through the
 #: recorded type and sense instead of by name.
@@ -44,25 +46,11 @@ GC_RECORDED: dict[str, dict] = {
 }
 
 
-@pytest.mark.parametrize('script', SCRIPTS, ids=[script.stem for script in SCRIPTS])
-def test_every_rung_has_its_marker_pair_on_exactly_one_declared_page(script: Path):
-    from tools import gallery
-
-    pages = [(gallery.PAGES / page).read_text() for page in gallery.DECLARED]
-    carrying = sum(f'<!-- reference:{script.stem}:begin -->' in text for text in pages)
+@pytest.mark.parametrize('key', ['spine', *(script.stem for script in SCRIPTS)])
+def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(key: str):
+    carrying = sum(f'<!-- reference:{key}:begin -->' in text for text in PAGE_TEXTS)
     assert carrying == 1, (
-        'a rung shows its reference on one declared page — the generator skips a page without the marker'
-    )
-
-
-def test_the_spine_shows_on_exactly_one_declared_page():
-    """`with_references` fills only markers a page carries, so a dropped pair silently loses the block."""
-    from tools import gallery
-
-    pages = [(gallery.PAGES / page).read_text() for page in gallery.DECLARED]
-    carrying = sum('<!-- reference:spine:begin -->' in text for text in pages)
-    assert carrying == 1, (
-        'the shared spine and the rule for how folders combine show once, on the page carrying the rung ladder'
+        'a reference block shows on one declared page — the generator skips a page without the marker pair'
     )
 
 
@@ -105,9 +93,9 @@ def test_both_lanes_solve_the_rung_to_one_objective(stem: str):
     )
 
 
-def test_pypsa_builds_no_variable_the_file_does_not_declare():
+def test_pypsa_builds_no_variable_the_files_do_not_declare():
     unmatched = RECORDED_COLUMNS - COLUMNS_DECLARED
-    assert not unmatched, f'pypsa builds these and the file declares nothing that stands for them: {sorted(unmatched)}'
+    assert not unmatched, f'pypsa builds these and the files declare nothing that stands for them: {sorted(unmatched)}'
 
 
 def test_every_declared_variable_is_built_by_some_reference():
@@ -115,10 +103,10 @@ def test_every_declared_variable_is_built_by_some_reference():
     assert not unbuilt, f'no reference network builds these declared variables — extend a fixture: {sorted(unbuilt)}'
 
 
-def test_pypsa_builds_no_row_the_file_does_not_declare():
+def test_pypsa_builds_no_row_the_files_do_not_declare():
     named = {row for row in RECORDED_ROWS if not row.startswith('GlobalConstraint-')}
     unmatched = named - ROWS_DECLARED
-    assert not unmatched, f'pypsa builds these and the file declares nothing that stands for them: {sorted(unmatched)}'
+    assert not unmatched, f'pypsa builds these and the files declare nothing that stands for them: {sorted(unmatched)}'
 
 
 def test_every_declared_row_is_built_by_some_reference():
@@ -131,7 +119,8 @@ def test_a_global_constraint_row_has_a_block_of_its_recorded_type_and_sense(row:
     gc = GC_RECORDED[row.removeprefix('GlobalConstraint-')]
     matching = [
         name
-        for name, block in MODEL.constraints.items()
+        for m in MODELS
+        for name, block in m.constraints.items()
         if _stands_for(name, block.description) == gc['type'] and f"'{gc['sense']}'" in (block.where or '')
     ]
     assert matching, f'no declared block takes a {gc["type"]} row of sense {gc["sense"]}'

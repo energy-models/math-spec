@@ -1202,77 +1202,77 @@ constraints:
     where: Store_e_set
     expression: Store_e == Store_e_set
   GlobalConstraint_primary_energy_ub:
-    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    description: "`primary_energy` — its total, at most its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '<='
     expression: primary_energy <= GlobalConstraint_constant
   GlobalConstraint_primary_energy_lb:
-    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    description: "`primary_energy` — its total, at least its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '>='
     expression: primary_energy >= GlobalConstraint_constant
   GlobalConstraint_primary_energy_eq:
-    description: "`primary_energy` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    description: "`primary_energy` — its total, at its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'primary_energy' AND GlobalConstraint_sense == '=='
     expression: primary_energy == GlobalConstraint_constant
   GlobalConstraint_operational_limit_ub:
-    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    description: "`operational_limit` — its total, at most its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '<='
     expression: operational_limit <= GlobalConstraint_constant
   GlobalConstraint_operational_limit_lb:
-    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    description: "`operational_limit` — its total, at least its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '>='
     expression: operational_limit >= GlobalConstraint_constant
   GlobalConstraint_operational_limit_eq:
-    description: "`operational_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    description: "`operational_limit` — its total, at its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'operational_limit' AND GlobalConstraint_sense == '=='
     expression: operational_limit == GlobalConstraint_constant
   GlobalConstraint_transmission_volume_expansion_limit_ub:
-    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    description: "`transmission_volume_expansion_limit` — its total, at most its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '<='
     expression: transmission_volume_expansion <= GlobalConstraint_constant
   GlobalConstraint_transmission_volume_expansion_limit_lb:
-    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    description: "`transmission_volume_expansion_limit` — its total, at least its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '>='
     expression: transmission_volume_expansion >= GlobalConstraint_constant
   GlobalConstraint_transmission_volume_expansion_limit_eq:
-    description: "`transmission_volume_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    description: "`transmission_volume_expansion_limit` — its total, at its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'transmission_volume_expansion_limit' AND GlobalConstraint_sense == '=='
     expression: transmission_volume_expansion == GlobalConstraint_constant
   GlobalConstraint_transmission_expansion_cost_limit_ub:
-    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    description: "`transmission_expansion_cost_limit` — its total, at most its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '<='
     expression: transmission_expansion_cost <= GlobalConstraint_constant
   GlobalConstraint_transmission_expansion_cost_limit_lb:
-    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    description: "`transmission_expansion_cost_limit` — its total, at least its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '>='
     expression: transmission_expansion_cost >= GlobalConstraint_constant
   GlobalConstraint_transmission_expansion_cost_limit_eq:
-    description: "`transmission_expansion_cost_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    description: "`transmission_expansion_cost_limit` — its total, at its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'transmission_expansion_cost_limit' AND GlobalConstraint_sense == '=='
     expression: transmission_expansion_cost == GlobalConstraint_constant
   GlobalConstraint_tech_capacity_expansion_limit_ub:
-    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at most its constant"
+    description: "`tech_capacity_expansion_limit` — its total, at most its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '<='
     expression: tech_capacity_expansion <= GlobalConstraint_constant
   GlobalConstraint_tech_capacity_expansion_limit_lb:
-    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at least its constant"
+    description: "`tech_capacity_expansion_limit` — its total, at least its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '>='
     expression: tech_capacity_expansion >= GlobalConstraint_constant
   GlobalConstraint_tech_capacity_expansion_limit_eq:
-    description: "`tech_capacity_expansion_limit` — a `GlobalConstraint-{name}` row of this type holds its total at its constant"
+    description: "`tech_capacity_expansion_limit` — its total, at its constant"
     foreach: [global_constraint]
     where: GlobalConstraint_type == 'tech_capacity_expansion_limit' AND GlobalConstraint_sense == '=='
     expression: tech_capacity_expansion == GlobalConstraint_constant

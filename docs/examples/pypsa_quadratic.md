@@ -6,15 +6,9 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA, the quadratic class
 
 Rung 10 of [PyPSA in one file](pypsa.md): PyPSA's `marginal_cost_quadratic`,
-stated on rung 1's transport surface in a file of its own. It is a second file
-by necessity rather than taste — degree is the model's property, not the
-data's, so one model carrying a quadratic objective beside commitment's
-integer variables has no HiGHS lane on either side: lpspec refuses the pair
-for that sink at load, and PyPSA fails at solve time the moment both are
-nonzero. The class a free solver takes as a QP lives here;
-`examples/pypsa.yaml` stays the mixed-integer one. Its reference network
-starts from the same shared spine, `data/base/`, shown once on
-[the rung ladder's page](pypsa.md#index).
+stated on rung 1's transport surface in a file of its own — the model's
+description below says why. Its reference network starts from the same shared
+spine, `data/base/`, shown once on [the rung ladder's page](pypsa.md#index).
 
 ## Rung 10 — quadratic costs
 
@@ -23,7 +17,7 @@ starts from the same shared spine, `data/base/`, shown once on
 | [`marginal_cost_quadratic`](#objective) | done   | degree 2 in the objective; Generator and Link here — PyPSA also carries it on storage units and stores, one more term each of the same shape |
 
 <!-- reference:rung_10_quadratic_costs:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5544.416666666888`, 60 rows — recorded by `examples/references/pypsa/rung_10_quadratic_costs.py`. `lpspec 0.0.1a259` binds `examples/pypsa_quadratic.yaml` against the same network and lands on the same objective (`parity.py`). Its instance is `data/base/` plus `data/rung_10_quadratic_costs/`.
+> ✔ `pypsa 1.3.0` solves this rung's reference network through its own linopy model at objective `5544.416666666888`, 60 rows — recorded by `examples/references/pypsa/rung_10_quadratic_costs.py`. `lpspec 0.0.1a259` binds `examples/pypsa_quadratic.yaml` against the same network and lands on the same objective (`parity.py`).
 
 <details markdown="1">
 <summary>What this rung adds, as data</summary>

@@ -2,14 +2,12 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The prep layer: a PyPSA network as the tables `examples/pypsa.yaml` binds.
+"""The prep layer: a PyPSA network as the tables the example models bind.
 
-Every parameter the file marks "data prep" is computed here, once — the
-retention shares, the carrier weights, the cycle basis (PyPSA's own, via
-``sub_network.C``), the big M, the brought-in commitment state — beside the
-plain renames. `parity.py` is the caller; nothing here imports math_spec or
-lpspec — the mapping is pure PyPSA-and-pandas, handed over as polars frames
-at the boundary, which is the shape lpspec binds without inference.
+Every parameter the files mark "data prep" is computed here, beside the plain
+renames. `parity.py` is the caller and cuts the tables to what each model
+declares; nothing here imports math_spec or lpspec — the mapping is pure
+PyPSA-and-pandas, handed over as polars frames.
 
 Sparseness is meaning: a table row left out is an absent value on the other
 side, so the sparse tables here (`*_set` pins, ramp limits, weights) drop
@@ -33,10 +31,13 @@ def _static(component: pd.DataFrame, attr: str, dim: str, *, sparse: bool = Fals
     return table.dropna() if sparse else table
 
 
-def _varying(n: pypsa.Network, component: str, attr: str, dim: str, *, sparse: bool = False) -> pd.DataFrame:
-    dense = get_switchable_as_dense(n, component, attr)
+def _melt(dense: pd.DataFrame, dim: str) -> pd.DataFrame:
     table = dense.melt(ignore_index=False, var_name=dim).reset_index(names='snapshot')
-    table = table.astype({dim: str, 'value': float})
+    return table.astype({dim: str, 'value': float})
+
+
+def _varying(n: pypsa.Network, component: str, attr: str, dim: str, *, sparse: bool = False) -> pd.DataFrame:
+    table = _melt(get_switchable_as_dense(n, component, attr), dim)
     return table.dropna() if sparse else table
 
 
@@ -52,9 +53,7 @@ def _weighting(n: pypsa.Network, column: str) -> pd.DataFrame:
 def _retention(n: pypsa.Network, component: str, dim: str) -> pd.DataFrame:
     losses = n.static(component)['standing_loss']
     hours = n.snapshot_weightings['stores']
-    dense = pd.DataFrame({name: (1.0 - loss) ** hours for name, loss in losses.items()}, index=n.snapshots)
-    table = dense.melt(ignore_index=False, var_name=dim).reset_index(names='snapshot')
-    return table.astype({dim: str, 'value': float})
+    return _melt(pd.DataFrame({name: (1.0 - loss) ** hours for name, loss in losses.items()}, index=n.snapshots), dim)
 
 
 def _cycle_weights(n: pypsa.Network) -> pd.DataFrame:
@@ -102,10 +101,10 @@ def _must_stay_up(n: pypsa.Network) -> pd.DataFrame:
 
 
 def sources(n: pypsa.Network) -> dict[str, object]:
-    """Every table `examples/pypsa.yaml` binds, from one PyPSA network."""
+    """Every table the example models bind, from one PyPSA network."""
     generators, links, loads = n.generators, n.links, n.loads
     storage_units, stores, lines = n.storage_units, n.stores, n.lines
-    committable_ext = generators[generators['committable'] & generators['p_nom_extendable']]
+    committable_ext = generators['committable'] & generators['p_nom_extendable']
     big_m = generators['p_nom_max'] * get_switchable_as_dense(n, 'Generator', 'p_max_pu').max().clip(lower=1.0)
 
     tables: dict[str, object] = {
@@ -168,8 +167,7 @@ def sources(n: pypsa.Network) -> dict[str, object]:
         'Generator_p_nom_mod': _static(generators[generators['p_nom_mod'] > 0], 'p_nom_mod', 'generator'),
         'Generator_big_m': pd.DataFrame({'generator': generators.index.astype(str), 'value': big_m.to_numpy()}),
         'Generator_p_min_pu_nonneg': bool(
-            committable_ext.empty
-            or (get_switchable_as_dense(n, 'Generator', 'p_min_pu')[committable_ext.index] >= 0).all().all()
+            (get_switchable_as_dense(n, 'Generator', 'p_min_pu').loc[:, committable_ext] >= 0).all().all()
         ),
         'Link_p_nom': _static(links, 'p_nom', 'link'),
         'Link_p_nom_extendable': _static(links, 'p_nom_extendable', 'link'),
@@ -228,9 +226,7 @@ def sources(n: pypsa.Network) -> dict[str, object]:
         'Line_capital_cost': _static(lines, 'capital_cost', 'line'),
         'Line_s_nom_set': _static(lines, 's_nom_set', 'line', sparse=True),
         'Line_s_set': _varying(n, 'Line', 's_set', 'line', sparse=True),
-        'Line_cycle_weight': _cycle_weights(n)
-        if len(lines)
-        else pd.DataFrame(columns=['line', 'cycle', 'value']).astype({'value': float}),
+        'Line_cycle_weight': _cycle_weights(n),
         'GlobalConstraint_type': _static(n.global_constraints, 'type', 'global_constraint').astype({'value': str}),
         'GlobalConstraint_sense': _static(n.global_constraints, 'sense', 'global_constraint').astype({'value': str}),
         'GlobalConstraint_constant': _static(n.global_constraints, 'constant', 'global_constraint').astype(
@@ -240,15 +236,15 @@ def sources(n: pypsa.Network) -> dict[str, object]:
             {'snapshot': n.snapshots, 'value': [0] * (len(n.snapshots) - 1) + [1] if len(n.snapshots) else []}
         ),
         'Generator_primary_energy_weight': _primary_energy_weights(n),
+        'Generator_marginal_cost_quadratic': _varying(n, 'Generator', 'marginal_cost_quadratic', 'generator'),
+        'Link_marginal_cost_quadratic': _varying(n, 'Link', 'marginal_cost_quadratic', 'link'),
     }
 
     tables['cycle'] = pl.Series('cycle', list(pd.unique(tables['Line_cycle_weight']['cycle'])), dtype=pl.String)
-    if links.columns.isin(['bus2']).any():
-        tables['Link_bus2'] = _lookup(links, 'bus2', 'link', 'bus')
-        tables['Link_efficiency2'] = _static(links[links['bus2'] != ''], 'efficiency2', 'link')
-    else:
-        tables['Link_bus2'] = pd.DataFrame(columns=['link', 'bus']).astype(str)
-        tables['Link_efficiency2'] = pd.DataFrame(columns=['link', 'value']).astype({'link': str, 'value': float})
+    if 'bus2' not in links.columns:
+        links = links.assign(bus2='', efficiency2=1.0)
+    tables['Link_bus2'] = _lookup(links, 'bus2', 'link', 'bus')
+    tables['Link_efficiency2'] = _static(links[links['bus2'] != ''], 'efficiency2', 'link')
 
     for name, dim in [
         ('StorageUnit_primary_energy_weight', 'storage_unit'),
@@ -275,37 +271,4 @@ def sources(n: pypsa.Network) -> dict[str, object]:
                 if table[column].dtype == object
             }
             tables[name] = pl.from_pandas(table.astype(lost))
-    return tables
-
-
-def quadratic_sources(n: pypsa.Network) -> dict[str, object]:
-    """The tables `examples/pypsa_quadratic.yaml` binds — rung 1's surface plus the quadratic coefficients."""
-    everything = sources(n)
-    names = [
-        'snapshot',
-        'bus',
-        'generator',
-        'link',
-        'load',
-        'Generator_bus',
-        'Link_bus0',
-        'Link_bus1',
-        'Load_bus',
-        'snapshot_weightings_objective',
-        'Load_p_set',
-        'Generator_p_nom',
-        'Generator_p_min_pu',
-        'Generator_p_max_pu',
-        'Generator_marginal_cost',
-        'Link_p_nom',
-        'Link_p_min_pu',
-        'Link_p_max_pu',
-        'Link_efficiency',
-        'Link_marginal_cost',
-    ]
-    tables = {name: everything[name] for name in names}
-    tables['Generator_marginal_cost_quadratic'] = pl.from_pandas(
-        _varying(n, 'Generator', 'marginal_cost_quadratic', 'generator')
-    )
-    tables['Link_marginal_cost_quadratic'] = pl.from_pandas(_varying(n, 'Link', 'marginal_cost_quadratic', 'link'))
     return tables

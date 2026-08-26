@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-# How `examples/pypsa.yaml` prints. The names are PyPSA's, which is what makes the file
-# readable beside `n.model`; these symbols are what makes the math readable.
+# How `examples/pypsa.yaml` prints. The names are PyPSA's, so the file reads
+# beside `n.model`; these symbols make the math read as math.
 notation: latex
 dimensions:
   snapshot: { index: t, set: '\mathcal{T}' }
