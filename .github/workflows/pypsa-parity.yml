@@ -55,10 +55,11 @@ jobs:
           --with "pypsa==1.3.0" --with "highspy==1.15.1" --with "polars>=1.30"
           python differential/pypsa/parity.py "$GITHUB_WORKSPACE"
       - name: The committed stamps are what this lpspec certifies
-        # The stamped version string is reproducible only in its +g<sha>
-        # suffix — setuptools-scm's dev counter varies with checkout depth —
-        # and the test suite already holds that sha to the ref above, so the
-        # version line is ignored here.
+        # Two stamped fields are not bit-reproducible across environments and
+        # are ignored here: the version string (setuptools-scm's dev counter
+        # varies with checkout depth; the suite already holds its +g<sha> to
+        # the ref above) and the dual gap (machine-epsilon noise varies by
+        # build). The verdicts and objectives are what must reproduce.
         run: >-
-          git diff --exit-code -I'"lpspec": '
+          git diff --exit-code -I'"lpspec": ' -I'"max_abs_diff": '
           -- examples/references/pypsa/references.json
