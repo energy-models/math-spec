@@ -45,6 +45,10 @@ import prep  # noqa: E402
 
 MODEL = HERE.parents[1] / 'pypsa.yaml'
 
+#: A rung that states a different file says so here, with the prep function
+#: that builds exactly that file's tables; every other rung binds the one file.
+MODELS = {'rung10_quadratic_costs': (HERE.parents[1] / 'pypsa_quadratic.yaml', 'quadratic_sources')}
+
 
 def network(script: Path):
     spec = importlib.util.spec_from_file_location(script.stem, script)
@@ -53,15 +57,16 @@ def network(script: Path):
     return module.build
 
 
-def lanes(script: Path) -> tuple[float, float]:
-    """PyPSA's objective and lpspec's, each from its own copy of the rung's network."""
+def lanes(script: Path) -> tuple[float, float, str]:
+    """PyPSA's and lpspec's objectives and the file lpspec bound, each lane from its own copy of the network."""
     build = network(script)
     n = build()
     status, condition = n.optimize(solver_name='highs')
     assert status == 'ok', f'{script.stem}: pypsa did not solve — {status} / {condition}'
-    result = lps.solve(MODEL, prep.sources(build()))
+    model, tables = MODELS.get(script.stem, (MODEL, 'sources'))
+    result = lps.solve(model, getattr(prep, tables)(build()))
     assert result.is_ok, f'{script.stem}: lpspec did not solve — {result.termination_condition}'
-    return float(n.objective), float(result.objective)
+    return float(n.objective), float(result.objective), str(model.relative_to(HERE.parents[2]))
 
 
 def main() -> int:
@@ -70,9 +75,14 @@ def main() -> int:
     version = importlib.metadata.version('lpspec')
     differing = []
     for script in sorted(HERE.glob('rung*.py')):
-        theirs, ours = lanes(script)
+        theirs, ours, model = lanes(script)
         matches = math.isclose(ours, theirs, rel_tol=1e-9, abs_tol=1e-6)
-        stamped[script.stem]['parity'] = {'lpspec': version, 'lpspec_objective': ours, 'matches': matches}
+        stamped[script.stem]['parity'] = {
+            'lpspec': version,
+            'lpspec_objective': ours,
+            'matches': matches,
+            'model': model,
+        }
         print(f'{script.stem}: pypsa {theirs} · lpspec {ours} · {"MATCH" if matches else "DIFFER"}')
         if not matches:
             differing.append(script.stem)

@@ -43,7 +43,7 @@ keyword · **scope** multi-period or stochastic · **open** not stateable yet.
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
 | `Bus-meshed-*-nodal_balance`                        | not    | a linopy-speed split; one row here                         |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
-| `marginal_cost_quadratic`                           | open   | sayable as degree 2, but one file cannot carry it beside rung 7's binaries for the HiGHS lane |
+| [`marginal_cost_quadratic`](pypsa_quadratic.md)     | done   | rung 10, a file of its own — one model cannot carry a quadratic objective beside rung 7's integers and keep a HiGHS lane |
 | `objective_constant`                                | not    | compare objectives net of `n._objective_constant`          |
 
 <!-- reference:rung1_transport:begin -->
