@@ -2,40 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Named sub-expressions and expression macros — YAML-defined, schema-local.
-
-Both are expanded into the AST before anything reads the expression.
-
-Two mechanisms, one substitution engine, zero global state:
-
-- **Named sub-expressions**: the YAML ``expressions:`` block maps a name to
-  an expression string. Referencing the name splices in the parsed subtree.
-  Substitution is only half of what the block means, though: a named
-  expression has fixed dims and is readable after a solve (the rules for named expressions), which a
-  macro — parameterised, dimensionless until called — never is.
-
-- **Macros**: the YAML ``macros:`` block declares parameterised expression
-  templates — language, not code::
-
-      macros:
-        weighted_sum:
-          args: [array, weights]
-          kwargs: [over]
-          template: sum(array * weights, over=over)
-
-  Usage: ``weighted_sum(p, cost, over=generator)``. Formal names shadow
-  model names inside the body; everything else resolves against the model
-  namespace as usual.
-
-Because macros live in the schema, a YAML file is fully self-contained: its
-meaning never depends on Python-side registration state. This also makes
-load-time validation complete — every template can be name-checked against
-this schema (see ``validation.py``), used or not.
+"""Named sub-expressions and macros, both declared in the YAML and expanded into the AST before anything reads the expression.
 
 There is no Python operator registry: the built-in set is closed, macros cover
 composition, and math the language cannot say goes in a declared ``escape:``
-island (#38) — visible in the file and bounded by its ``where`` mask, rather
-than a registered function that reads like a built-in on the page.
+island (#38).
 """
 
 from __future__ import annotations
@@ -181,13 +152,7 @@ def _expand_macro(
     stack: tuple[str, ...],
     shadow: frozenset[str],
 ) -> ArithmeticNode:
-    """Expand one macro call to its substituted, fully expanded body.
-
-    Call-by-value: arguments are expanded before substitution, so they may
-    themselves use named expressions and macros. The substituted body is then
-    expanded again, since a template may reference named expressions or other
-    macros of its own.
-    """
+    """Call-by-value: arguments are expanded before substitution, and the substituted body is expanded again."""
     macro = schema.macros[call.name]
     signature = macro_signature(call.name, macro)
     if len(call.args) != len(macro.args):

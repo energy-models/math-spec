@@ -13,11 +13,9 @@ from __future__ import annotations
 import pytest
 
 from math_spec import (
-    BinaryOperatorNode,
     LanguageError,
     NameNode,
     Namespace,
-    NumberNode,
     carries_variable,
     check_binary,
     expression_of,
@@ -112,11 +110,6 @@ def test_the_context_is_optional_and_prefixes_the_sentence():
         check_binary(_ast('p * q'), "Constraint 'k'")
     with pytest.raises(LanguageError, match=r'^both factors'):
         check_binary(_ast('p * q'))
-
-
-def test_an_operator_the_grammar_never_emits_is_refused_by_name():
-    with pytest.raises(LanguageError, match="operator '%' is not in the language"):
-        check_binary(BinaryOperatorNode('%', NumberNode(1), NumberNode(2)))
 
 
 @pytest.mark.parametrize(

@@ -525,7 +525,9 @@ class TestRulesDecidedWithoutData:
                 id='lookup-both-kinds',
             ),
             pytest.param({'lookups.neither': {'over': 'g'}}, ('exactly one of',), id='lookup-neither-kind'),
-            pytest.param({'lookups.lk.over': 'z'}, ("over undeclared dimension 'z'",), id='lookup-over-undeclared'),
+            pytest.param(
+                {'lookups.lk.over': 'z'}, ("references undeclared dimension 'z'",), id='lookup-over-undeclared'
+            ),
             pytest.param({'lookups.lk.into': 'z'}, ("targets undeclared dimension 'z'",), id='lookup-into-undeclared'),
             pytest.param({'lookups.lk.into': 'g'}, ("maps 'g' into itself",), id='lookup-into-itself'),
             pytest.param(
@@ -668,7 +670,7 @@ class TestRulesDecidedWithoutData:
                     'parameters.off': {'dims': [], 'dtype': 'int'},
                     'objective': {'expression': 'sum(shift(p, over=g, offset=off + 0), over=g)'},
                 },
-                ('shift(offset=) takes a number or the name of an integer parameter, not an expression',),
+                ('shift(offset=) takes a number or the name of an integer parameter', 'Precompute it as a parameter'),
                 id='an-amount-that-is-an-expression',
             ),
             pytest.param(

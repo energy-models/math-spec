@@ -2,19 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The language: what a YAML file may say, and what it means.
-
-Everything from the bytes on disk to a fully typed, dim-checked AST — the
-file reader, the schema, the two grammars, expansion, resolution, the dim
-rules, and the load-time pass that runs them all — plus the typesetters that
-print the result.
-
-``__all__`` is the public surface; ``tests/test_public_surface.py`` pins it. A
-rule is stated once — ``dims_of`` and ``check_binary`` are asked for a
-verdict, never re-derived — and the error text for a language rule is
-exported (``call_shape_error`` and friends) so two consumers cannot word the
-same refusal differently.
-"""
+"""The language: what a YAML file may say, and what it means. ``__all__`` is the public surface, pinned by ``tests/test_public_surface.py``."""
 
 from math_spec._yaml import parse_yaml, read_yaml
 from math_spec.boundedness import unbounded_notes

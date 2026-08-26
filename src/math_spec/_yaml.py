@@ -47,21 +47,13 @@ class _StrictLoader(yaml.SafeLoader):
     """SafeLoader with 1.2 booleans. Duplicate keys are checked on the nodes."""
 
 
-def _install_bool_resolver(loader: type[yaml.SafeLoader]) -> None:
-    """Give *loader* the 1.2 boolean set in place of 1.1's.
-
-    The table is rebuilt rather than edited: a subclass inherits
-    ``yaml_implicit_resolvers`` from ``SafeLoader``, so mutating it in place
-    would reconfigure PyYAML for the whole process.
-    """
-    loader.yaml_implicit_resolvers = {
-        ch: [(tag, rx) for tag, rx in pairs if tag != 'tag:yaml.org,2002:bool']
-        for ch, pairs in yaml.SafeLoader.yaml_implicit_resolvers.items()
-    }
-    loader.add_implicit_resolver('tag:yaml.org,2002:bool', _BOOL_1_2, list('tTfF'))
-
-
-_install_bool_resolver(_StrictLoader)
+#: The resolver table is rebuilt, not edited in place: it is inherited from
+#: ``SafeLoader``, and mutating it would reconfigure PyYAML for the whole process.
+_StrictLoader.yaml_implicit_resolvers = {
+    ch: [(tag, rx) for tag, rx in pairs if tag != 'tag:yaml.org,2002:bool']
+    for ch, pairs in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_StrictLoader.add_implicit_resolver('tag:yaml.org,2002:bool', _BOOL_1_2, list('tTfF'))
 
 
 #: PyYAML's tag for ``<<:``, the one key a mapping may carry more than once.
@@ -115,11 +107,7 @@ def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
 
     Args:
         text: The YAML source.
-        origin: What a load error should call this source. The two errors
-            raised here — a duplicate key and a document that is not a
-            mapping — name their location, and a caller that read a file
-            passes its path. The default is Python's own name for source
-            that never was a file.
+        origin: What a load error calls this source — a file's path, or the default for text that never was one.
     """
     loader = _StrictLoader(text)
     try:
@@ -130,7 +118,7 @@ def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
         data = loader.construct_document(node)
     finally:
         loader.dispose()
-    if data is None:
+    if not data:
         return {}
     if not isinstance(data, dict):
         msg = f'{origin}: a model file must be a mapping of sections (dimensions:, variables:, …), got {type(data).__name__}.'
