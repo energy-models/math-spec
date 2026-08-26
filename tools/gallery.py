@@ -13,7 +13,6 @@ math below it are written from here.
 
 from __future__ import annotations
 
-import ast
 import json
 import re
 import textwrap
@@ -118,15 +117,13 @@ def declared_block(path: Path) -> str:
     return '\n\n'.join(parts)
 
 
-def _story(script: Path) -> str:
-    """The fixture's narrative — ``build()``'s docstring, as prose."""
-    tree = ast.parse(script.read_text())
-    build = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'build')
-    story = ast.get_docstring(build)
-    if story is None:
-        msg = f"{script.name}: build() carries the fixture's story in its docstring, and the page shows it"
-        raise ValueError(msg)
-    return story
+def _story(stem: str) -> str:
+    """The fixture's narrative — the rung folder's ``README.md``, as prose."""
+    readme = REFERENCES / 'data' / stem / 'README.md'
+    if not readme.is_file():
+        msg = f'data/{stem}/README.md tells what the fixture is for, and the page shows it'
+        raise FileNotFoundError(msg)
+    return readme.read_text().strip()
 
 
 def _folder(name: str) -> str:
@@ -151,23 +148,15 @@ def reference_block(stem: str) -> str:
     )
     if agreement and 'equal' in structural and not structural.get('mismatch'):
         splits = f' up to {len(structural["region"])} documented splits' if structural.get('region') else ''
-        agreement += (
-            f' **Proven model-for-model**: `lpspec.linopy` builds the very linopy model PyPSA builds, label for'
-            f' label{splits}.'
-        )
-    elif agreement and structural.get('error'):
-        agreement += (
-            ' The model-for-model proof waits on `lpspec.linopy` — the blocker is stamped in `references.json`.'
-        )
+        agreement += f' **Model-for-model**: the two lanes build one linopy model, label for label{splits}.'
     return (
-        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network through its own linopy model "
-        f'at objective `{recorded["objective"]}`, {rows} rows — recorded by '
-        f'`examples/references/pypsa/{stem}.py`.{agreement}\n'
+        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network at objective "
+        f'`{recorded["objective"]}`, {rows} rows.{agreement}\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>What this rung adds, as data</summary>\n'
         '\n'
-        f'{_story(REFERENCES / f"{stem}.py")}\n'
+        f'{_story(stem)}\n'
         '\n'
         f'{_folder(stem)}\n'
         '\n'
@@ -179,10 +168,16 @@ def spine_block() -> str:
     """The shared spine, shown once, under the one sentence of how folders combine."""
     return (
         "> Every rung's network is the spine below plus the rung's own folder of additions, read by"
-        ' `examples/references/pypsa/instances.py`. Folders combine by appending rows, table by table: each row'
-        " keeps its own file's columns and becomes one `n.add`. A blank cell is an attribute the row does not"
-        " set — PyPSA's default. The one cross-folder touch is `timeseries.csv`, which may put a schedule on a"
-        ' spine component.\n'
+        ' `examples/references/pypsa/instances.py` and solved by `reference.py` beside it. Folders combine by'
+        " appending rows, table by table: each row keeps its own file's columns and becomes one `n.add`. A blank"
+        " cell is an attribute the row does not set — PyPSA's default. The one cross-folder touch is"
+        ' `timeseries.csv`, which may put a schedule on a spine component.\n'
+        '>\n'
+        "> Each rung's banner says what its record holds: PyPSA's objective, and where lpspec's parity gate"
+        ' agrees, that lpspec binds the file against the same network to the same objective. Where'
+        ' `lpspec.linopy` can build the rung, the banner also says the two lanes build one model label for'
+        ' label; where it cannot yet, the blocker is stamped in `references.json` and the banner says nothing'
+        ' more.\n'
         '\n'
         '<details markdown="1">\n'
         '<summary>The shared spine, <code>data/base/</code></summary>\n'
