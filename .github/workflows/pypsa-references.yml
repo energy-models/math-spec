@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # The PyPSA references: every rung's network, solved through PyPSA itself, lands
 # on the objective and row set recorded in examples/references/pypsa/references.json.
 # PyPSA is not a dependency of this project and nothing here builds or solves
