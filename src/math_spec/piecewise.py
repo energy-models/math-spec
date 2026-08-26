@@ -42,7 +42,7 @@ from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
 from math_spec.expression_parser import ComparisonNode
-from math_spec.model import Buildable, Model, PiecewiseBlock, undeclared_dimension
+from math_spec.model import Buildable, Curvature, Model, PiecewiseBlock, undeclared_dimension
 from math_spec.resolution import Namespace, resolve_expression
 
 if TYPE_CHECKING:
@@ -62,7 +62,7 @@ def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
     return f'{block}_points' if pw.points in {link.values for link in pw.links} else pw.points
 
 
-def curvature_required(pw: PiecewiseBlock) -> str | None:
+def curvature_required(pw: PiecewiseBlock) -> Curvature | None:
     """The curvature *pw*'s method is only exact for, or ``None`` if any shape works.
 
     ``convex`` relaxes the weights onto the hull, which cuts the corners of a
@@ -78,7 +78,7 @@ def curvature_required(pw: PiecewiseBlock) -> str | None:
         pw: The block whose method is in question.
 
     Returns:
-        ``'convex'``, ``'concave'``, ``'either'`` for a method that constrains
+        One of :data:`~math_spec.model.CURVATURES` for a method that constrains
         the shape, or ``None`` for one that does not.
     """
     if pw.method == 'convex':

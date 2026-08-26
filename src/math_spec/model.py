@@ -101,6 +101,12 @@ SosType = Literal[1, 2]
 #: ``tests/test_schema.py``.
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
+#: The shape a method needs a curve to have to be exact on it, answered by
+#: :func:`~math_spec.piecewise.curvature_required`. ``convex`` and ``concave``
+#: name one bend; ``either`` is the hull's weaker condition — any single bend
+#: will do, and only a *mixed* curve fails it.
+Curvature = Literal['convex', 'concave', 'either']
+
 #: The set form of each vocabulary above, for callers that want membership.
 DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
@@ -109,6 +115,7 @@ PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
 NUMERIC_DTYPES = frozenset({'float', 'int'})
 VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
 VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
+CURVATURES = frozenset(get_args(Curvature))
 
 
 def _also_written_as(

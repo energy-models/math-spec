@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec import Buildable, curvature_required, expand_piecewise
+from math_spec import CURVATURES, Buildable, curvature_required, expand_piecewise
 from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
 from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
 
@@ -281,17 +281,33 @@ LP_CONCAVE = override(
 CONVEX = override(raw_of(NONCONVEX_YAML), **{'piecewise.cost_curve.method': 'convex'})
 
 
-@pytest.mark.parametrize(
-    ('raw', 'expected'),
-    [
-        pytest.param(raw_of(NONCONVEX_YAML), None, id='adjacency-takes-any-shape'),
-        pytest.param(CONVEX, 'either', id='convex-cuts-corners-off-a-mixed-curve'),
-        pytest.param(LP, 'convex', id='lp-bounded-above-states-a-convex-curve'),
-        pytest.param(LP_CONCAVE, 'concave', id='lp-bounded-below-states-a-concave-curve'),
-    ],
-)
+#: Named so the completeness check below can read the answers back off them.
+_CURVATURE_CASES = [
+    pytest.param(raw_of(NONCONVEX_YAML), None, id='adjacency-takes-any-shape'),
+    pytest.param(CONVEX, 'either', id='convex-cuts-corners-off-a-mixed-curve'),
+    pytest.param(LP, 'convex', id='lp-bounded-above-states-a-convex-curve'),
+    pytest.param(LP_CONCAVE, 'concave', id='lp-bounded-below-states-a-concave-curve'),
+]
+
+
+@pytest.mark.parametrize(('raw', 'expected'), _CURVATURE_CASES)
 def test_a_method_names_the_curvature_it_is_exact_for(raw, expected):
     """The consumer holding the breakpoints checks the shape; this says what to
     check for. It is the block's own semantics, so it is answered here rather
     than re-derived by every repository that binds data to a curve."""
-    assert curvature_required(schema_of(raw).piecewise['cost_curve']) == expected
+    answer = curvature_required(schema_of(raw).piecewise['cost_curve'])
+    assert answer == expected
+    assert answer is None or answer in CURVATURES, (
+        f'{answer!r} is not one of the curvatures the package publishes, so a consumer '
+        f'pinning its table against CURVATURES would never match it'
+    )
+
+
+def test_every_published_curvature_is_one_a_method_can_ask_for():
+    """`CURVATURES` is what a consumer pins its own table against, so a name in
+    it that nothing returns is a branch they write and never reach."""
+    answered = {case.values[1] for case in _CURVATURE_CASES} - {None}
+    assert answered == set(CURVATURES), (
+        f'the cases above answer {sorted(answered)} but the package publishes '
+        f'{sorted(CURVATURES)} — one of the two is out of date'
+    )

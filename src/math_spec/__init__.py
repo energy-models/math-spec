@@ -40,6 +40,7 @@ from math_spec.expression_parser import (
     children,
 )
 from math_spec.model import (
+    CURVATURES,
     DIMENSION_DTYPES,
     PARAMETER_DTYPES,
     VARIABLE_ABSENCE,
@@ -94,6 +95,7 @@ from math_spec.typesetting import (
 
 __all__ = [
     'BUILTIN_NAMES',
+    'CURVATURES',
     'DIMENSION_DTYPES',
     'EDGE_WRAP',
     'FORMATS',
