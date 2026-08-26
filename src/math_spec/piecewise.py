@@ -42,7 +42,7 @@ from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
 from math_spec.expression_parser import ComparisonNode
-from math_spec.model import Buildable, Model, PiecewiseBlock, undeclared_dimension
+from math_spec.model import Buildable, Curvature, Model, PiecewiseBlock, undeclared_dimension
 from math_spec.resolution import Namespace, resolve_expression
 
 if TYPE_CHECKING:
@@ -60,6 +60,32 @@ def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
     if pw.points is None:
         return None
     return f'{block}_points' if pw.points in {link.values for link in pw.links} else pw.points
+
+
+def curvature_required(pw: PiecewiseBlock) -> Curvature | None:
+    """The curvature *pw*'s method is only exact for, or ``None`` if any shape works.
+
+    ``convex`` relaxes the weights onto the hull, which cuts the corners of a
+    *mixed* curve and nothing else, so it answers ``'either'``. ``lp`` states
+    one side of the curve as its segment lines and the bounded link's sign says
+    which side, so the opposite bend is silently wrong rather than merely loose.
+
+    The breakpoints decide whether a model meets the condition, and they arrive
+    with the data rather than with the schema — so this names what to check,
+    and the caller holding the numbers does the checking.
+
+    Args:
+        pw: The block whose method is in question.
+
+    Returns:
+        One of :data:`~math_spec.model.CURVATURES` for a method that constrains
+        the shape, or ``None`` for one that does not.
+    """
+    if pw.method == 'convex':
+        return 'either'
+    if pw.method != 'lp':
+        return None
+    return 'convex' if pw.curve[1].sign == '>=' else 'concave'
 
 
 def _gate_rows(schema: Model, pw: PiecewiseBlock) -> tuple[tuple[str, str | None, str], ...]:

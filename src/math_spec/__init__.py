@@ -40,6 +40,7 @@ from math_spec.expression_parser import (
     children,
 )
 from math_spec.model import (
+    CURVATURES,
     DIMENSION_DTYPES,
     PARAMETER_DTYPES,
     VARIABLE_ABSENCE,
@@ -55,7 +56,7 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
-from math_spec.piecewise import expand_piecewise, mask_of
+from math_spec.piecewise import curvature_required, expand_piecewise, mask_of
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import load_model
 from math_spec.where_parser import (
@@ -94,6 +95,7 @@ from math_spec.typesetting import (
 
 __all__ = [
     'BUILTIN_NAMES',
+    'CURVATURES',
     'DIMENSION_DTYPES',
     'EDGE_WRAP',
     'FORMATS',
@@ -152,6 +154,7 @@ __all__ = [
     'carries_variable',
     'check_binary',
     'children',
+    'curvature_required',
     'did_you_mean',
     'dims_of',
     'edge_error',
