@@ -1,7 +1,0 @@
-name,type,carrier_attribute,sense,constant
-co2_cap,primary_energy,co2_emissions,<=,150.0
-co2_floor,primary_energy,co2_emissions,>=,20.0
-co2_exact,primary_energy,co2_emissions,==,120.0
-op_wind,operational_limit,windc,==,30.0
-op_coal,operational_limit,coalc,<=,200.0
-op_gas,operational_limit,gasc,>=,10.0

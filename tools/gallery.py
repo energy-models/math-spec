@@ -117,42 +117,54 @@ def declared_block(path: Path) -> str:
     return '\n\n'.join(parts)
 
 
-def _folder(name: str) -> str:
-    """Every table in ``data/<name>/``, verbatim — the file is the artifact under review."""
-    return '\n\n'.join(
-        f'`data/{name}/{path.name}`\n\n```csv\n{path.read_text().strip()}\n```'
-        for path in sorted((REFERENCES / 'data' / name).glob('*.csv'))
-    )
+def _script(name: str) -> str:
+    """A rung's PyPSA script, verbatim — the model under review is the code itself."""
+    return f'`{name}.py`\n\n```python\n{(REFERENCES / f"{name}.py").read_text().strip()}\n```'
 
 
 def reference_block(stem: str) -> str:
-    """A rung's oracle: the recorded solve, then the data its folder adds to the spine."""
+    """A rung's oracle: the recorded solve, then the PyPSA script that builds its network."""
     recorded = RECORDED[stem]
     rows = sum(recorded['rows'].values())
     return (
-        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's reference network at objective "
+        f"> ✔ `pypsa {recorded['pypsa']}` solves this rung's network at objective "
         f'`{recorded["objective"]}`, {rows} rows.\n'
         '\n'
         '<details markdown="1">\n'
-        '<summary>What this rung adds, as data</summary>\n'
+        '<summary>The network, as PyPSA code</summary>\n'
         '\n'
-        f'{_folder(stem)}\n'
+        f'{_script(stem)}\n'
         '\n'
         '</details>'
     )
 
 
 def spine_block() -> str:
-    """The shared spine, shown once, under the one sentence of how folders combine."""
+    """The shared spine, shown once."""
     return (
-        "> A rung's network is `data/base/` plus `data/<rung>/`, rows appended table by table; a blank cell is"
-        " PyPSA's default. A banner states PyPSA's objective and row count; what an engine makes of the rung is"
-        " that engine's own record.\n"
+        "> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not"
+        " passed is PyPSA's default. A banner states what PyPSA solved the rung to; what an engine makes of the"
+        " rung is that engine's own record.\n"
         '\n'
         '<details markdown="1">\n'
-        '<summary>The shared spine, <code>data/base/</code></summary>\n'
+        '<summary>The shared spine, <code>spine.py</code></summary>\n'
         '\n'
-        f'{_folder("base")}\n'
+        f'{_script("spine")}\n'
+        '\n'
+        '</details>'
+    )
+
+
+def binding_block() -> str:
+    """The binding script, shown once: how a network becomes the tables the file declares."""
+    return (
+        '> A network becomes the tables the file declares through `prep.py`: plain renames, and every parameter the'
+        ' file marks "data prep" computed where it says so.\n'
+        '\n'
+        '<details markdown="1">\n'
+        '<summary>The binding, <code>prep.py</code></summary>\n'
+        '\n'
+        f'{_script("prep")}\n'
         '\n'
         '</details>'
     )
@@ -160,7 +172,11 @@ def spine_block() -> str:
 
 def with_references(text: str) -> str:
     """Every reference block whose marker pair is on this page; a stem on no page at all is the test's business."""
-    blocks = {'spine': spine_block, **{stem: partial(reference_block, stem) for stem in sorted(RECORDED)}}
+    blocks = {
+        'spine': spine_block,
+        'binding': binding_block,
+        **{stem: partial(reference_block, stem) for stem in sorted(RECORDED)},
+    }
     for key, block in blocks.items():
         begin, end = f'<!-- reference:{key}:begin -->', f'<!-- reference:{key}:end -->'
         if begin in text and end in text:

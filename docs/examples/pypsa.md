@@ -35,50 +35,42 @@ record: lpspec certifies itself against these rungs under
 `differential/pypsa/` in its own tree.
 
 <!-- reference:spine:begin -->
-> A rung's network is `data/base/` plus `data/<rung>/`, rows appended table by table; a blank cell is PyPSA's default. A banner states PyPSA's objective and row count; what an engine makes of the rung is that engine's own record.
+> Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; what an engine makes of the rung is that engine's own record.
 
 <details markdown="1">
-<summary>The shared spine, <code>data/base/</code></summary>
+<summary>The shared spine, <code>spine.py</code></summary>
 
-`data/base/buses.csv`
+`spine.py`
 
-```csv
-name
-north
-south
-```
+```python
+"""The spine every rung starts from: two buses, a coal and a gas unit, one link, two loads.
 
-`data/base/generators.csv`
+Four snapshots with three different weighting columns, none of them constant
+and none 1.0, so a factor a formula drops or swaps cannot pass as identity.
+"""
 
-```csv
-name,bus,p_nom,marginal_cost
-coal,north,100.0,10.0
-gas,south,100.0,30.0
-```
+from __future__ import annotations
 
-`data/base/links.csv`
+SNAPSHOTS = [0, 1, 2, 3]
+WEIGHTINGS = {'objective': [2.0, 1.5, 2.5, 3.0], 'stores': [0.5, 2.0, 1.5, 2.5], 'generators': [1.5, 0.5, 3.0, 2.0]}
 
-```csv
-name,bus0,bus1,p_nom,p_min_pu,efficiency
-wire,north,south,40.0,-1.0,0.9
-```
 
-`data/base/loads.csv`
+def build():
+    """The spine as a fresh ``pypsa.Network``; each rung adds to what this returns."""
+    import pypsa
 
-```csv
-name,bus,p_set
-north_load,north,30.0
-south_load,south,40.0
-```
-
-`data/base/snapshots.csv`
-
-```csv
-snapshot,objective,stores,generators
-0,2.0,0.5,1.5
-1,1.5,2.0,0.5
-2,2.5,1.5,3.0
-3,3.0,2.5,2.0
+    n = pypsa.Network()
+    n.set_snapshots(SNAPSHOTS)
+    for column, values in WEIGHTINGS.items():
+        n.snapshot_weightings[column] = values
+    n.add('Bus', 'north')
+    n.add('Bus', 'south')
+    n.add('Generator', 'coal', bus='north', p_nom=100, marginal_cost=10)
+    n.add('Generator', 'gas', bus='south', p_nom=100, marginal_cost=30)
+    n.add('Link', 'wire', bus0='north', bus1='south', p_nom=40, p_min_pu=-1, efficiency=0.9)
+    n.add('Load', 'north_load', bus='north', p_set=30)
+    n.add('Load', 'south_load', bus='south', p_set=40)
+    return n
 ```
 
 </details>
@@ -100,27 +92,29 @@ snapshot,objective,stores,generators
 | `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested (#123) |
 
 <!-- reference:rung_01_transport:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7182.222222222223`, 45 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7182.222222222223`, 45 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_01_transport/generators.csv`
+`rung_01_transport.py`
 
-```csv
-name,bus,p_nom,marginal_cost
-must_run,south,10.0,0.0
-```
+```python
+"""Rung 1: transport — two buses, two generators, one controllable link."""
 
-`data/rung_01_transport/timeseries.csv`
+from __future__ import annotations
 
-```csv
-component,name,attribute,snapshot,value
-Generator,must_run,p_set,0,5.0
-Generator,must_run,p_set,1,5.0
-Generator,must_run,p_set,2,5.0
-Generator,must_run,p_set,3,5.0
-Link,wire,p_set,0,10.0
+from math import nan
+
+import spine
+
+
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.links_t.p_set['wire'] = [10, nan, nan, nan]
+    n.add('Generator', 'must_run', bus='south', p_nom=10, marginal_cost=0, p_set=[5, 5, 5, 5])
+    return n
 ```
 
 </details>
@@ -139,41 +133,63 @@ Link,wire,p_set,0,10.0
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
 <!-- reference:rung_02_storage:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `4456.659315422356`, 103 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `4456.659315422356`, 103 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_02_storage/storage_units.csv`
+`rung_02_storage.py`
 
-```csv
-name,bus,p_nom,max_hours,efficiency_store,efficiency_dispatch,standing_loss,cyclic_state_of_charge,marginal_cost,spill_cost,state_of_charge_initial,marginal_cost_storage
-battery,south,20.0,4.0,0.95,0.9,0.01,True,0.5,,,
-reservoir,south,10.0,2.0,,,,,,2.0,5.0,0.1
-```
+```python
+"""Rung 2: storage — a cyclic battery, an inflow reservoir with a set state of charge, and a store."""
 
-`data/rung_02_storage/stores.csv`
+from __future__ import annotations
 
-```csv
-name,bus,e_nom,e_initial,standing_loss,marginal_cost
-cavern,south,40.0,25.0,0.005,0.2
-```
+from math import nan
 
-`data/rung_02_storage/timeseries.csv`
+import spine
 
-```csv
-component,name,attribute,snapshot,value
-Generator,gas,marginal_cost,0,15.0
-Generator,gas,marginal_cost,1,15.0
-Generator,gas,marginal_cost,2,60.0
-Generator,gas,marginal_cost,3,60.0
-StorageUnit,battery,p_set,0,0.0
-StorageUnit,reservoir,inflow,0,12.0
-StorageUnit,reservoir,inflow,1,12.0
-StorageUnit,reservoir,inflow,2,12.0
-StorageUnit,reservoir,inflow,3,12.0
-StorageUnit,reservoir,state_of_charge_set,3,10.0
-Store,cavern,e_set,3,20.0
+
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.generators_t.marginal_cost['gas'] = [15, 15, 60, 60]
+    n.add(
+        'StorageUnit',
+        'battery',
+        bus='south',
+        p_nom=20,
+        max_hours=4,
+        efficiency_store=0.95,
+        efficiency_dispatch=0.9,
+        standing_loss=0.01,
+        cyclic_state_of_charge=True,
+        marginal_cost=0.5,
+        p_set=[0, nan, nan, nan],
+    )
+    n.add(
+        'StorageUnit',
+        'reservoir',
+        bus='south',
+        p_nom=10,
+        max_hours=2,
+        spill_cost=2,
+        state_of_charge_initial=5,
+        marginal_cost_storage=0.1,
+        inflow=[12, 12, 12, 12],
+        state_of_charge_set=[nan, nan, nan, 10],
+    )
+    n.add(
+        'Store',
+        'cavern',
+        bus='south',
+        e_nom=40,
+        e_initial=25,
+        standing_loss=0.005,
+        marginal_cost=0.2,
+        e_set=[nan, nan, nan, 20],
+    )
+    return n
 ```
 
 </details>
@@ -191,94 +207,166 @@ Store,cavern,e_set,3,20.0
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7633.908502024292`, 184 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7633.908502024292`, 184 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_03_expansion/buses.csv`
+`rung_03_expansion.py`
 
-```csv
-name
-island
-```
+```python
+"""Rung 3: expansion — extendable capacity, energy-sum bounds, fixed and set nominal capacities."""
 
-`data/rung_03_expansion/carriers.csv`
+from __future__ import annotations
 
-```csv
-name
-onwind
-solarpv
-dc
-phs
-h2
-```
+import spine
 
-`data/rung_03_expansion/generators.csv`
 
-```csv
-name,bus,carrier,p_nom_extendable,capital_cost,p_nom_min,p_nom_max,marginal_cost,e_sum_min,p_nom_set,p_nom,e_sum_max,ramp_limit_up,ramp_limit_down
-wind,north,onwind,True,50.0,5.0,80.0,0.0,40.0,,,,0.4,0.4
-solar,north,solarpv,True,60.0,,40.0,0.0,,15.0,,,,
-diesel,island,,,,,,40.0,,,60.0,70.0,,
-```
-
-`data/rung_03_expansion/global_constraints.csv`
-
-```csv
-name,type,carrier_attribute,sense,constant
-tech_wind,tech_capacity_expansion_limit,onwind,==,50.0
-tech_solar,tech_capacity_expansion_limit,solarpv,>=,10.0
-tech_dc,tech_capacity_expansion_limit,dc,<=,28.0
-tech_phs,tech_capacity_expansion_limit,phs,<=,25.0
-tech_h2,tech_capacity_expansion_limit,h2,>=,30.0
-vol_dc,transmission_volume_expansion_limit,dc,<=,3500.0
-cost_dc,transmission_expansion_cost_limit,dc,>=,400.0
-cost_dc_exact,transmission_expansion_cost_limit,dc,==,500.0
-```
-
-`data/rung_03_expansion/links.csv`
-
-```csv
-name,bus0,bus1,carrier,length,p_nom_extendable,capital_cost,p_nom_max,efficiency,p_nom_set,ramp_limit_up,ramp_limit_down
-cable,north,island,dc,120.0,True,20.0,30.0,0.95,25.0,0.3,0.3
-```
-
-`data/rung_03_expansion/loads.csv`
-
-```csv
-name,bus,p_set
-island_load,island,10.0
-```
-
-`data/rung_03_expansion/storage_units.csv`
-
-```csv
-name,bus,carrier,p_nom_extendable,capital_cost,p_nom_max,max_hours,efficiency_store,efficiency_dispatch,cyclic_state_of_charge,p_nom_set,p_nom,state_of_charge_initial
-pump,north,phs,True,15.0,30.0,4.0,0.9,0.9,True,20.0,,
-ice,island,,,,,2.0,,,,,8.0,6.0
-```
-
-`data/rung_03_expansion/stores.csv`
-
-```csv
-name,bus,carrier,e_nom_extendable,capital_cost,e_nom_max,e_cyclic,e_nom_set,e_nom,e_initial
-tank,north,h2,True,2.0,80.0,True,50.0,,
-keg,island,,,,,,,15.0,5.0
-```
-
-`data/rung_03_expansion/timeseries.csv`
-
-```csv
-component,name,attribute,snapshot,value
-Generator,wind,p_max_pu,0,0.3
-Generator,wind,p_max_pu,1,0.8
-Generator,wind,p_max_pu,2,0.5
-Generator,wind,p_max_pu,3,0.9
-Generator,solar,p_max_pu,0,0.5
-Generator,solar,p_max_pu,1,0.6
-Generator,solar,p_max_pu,2,0.4
-Generator,solar,p_max_pu,3,0.2
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'island')
+    n.add('Carrier', 'onwind')
+    n.add('Carrier', 'solarpv')
+    n.add('Carrier', 'dc')
+    n.add('Carrier', 'phs')
+    n.add('Carrier', 'h2')
+    n.add(
+        'Generator',
+        'wind',
+        bus='north',
+        carrier='onwind',
+        p_nom_extendable=True,
+        capital_cost=50,
+        p_nom_min=5,
+        p_nom_max=80,
+        marginal_cost=0,
+        e_sum_min=40,
+        ramp_limit_up=0.4,
+        ramp_limit_down=0.4,
+        p_max_pu=[0.3, 0.8, 0.5, 0.9],
+    )
+    n.add(
+        'Generator',
+        'solar',
+        bus='north',
+        carrier='solarpv',
+        p_nom_extendable=True,
+        capital_cost=60,
+        p_nom_max=40,
+        marginal_cost=0,
+        p_nom_set=15,
+        p_max_pu=[0.5, 0.6, 0.4, 0.2],
+    )
+    n.add('Generator', 'diesel', bus='island', marginal_cost=40, p_nom=60, e_sum_max=70)
+    n.add(
+        'Link',
+        'cable',
+        bus0='north',
+        bus1='island',
+        carrier='dc',
+        length=120,
+        p_nom_extendable=True,
+        capital_cost=20,
+        p_nom_max=30,
+        efficiency=0.95,
+        p_nom_set=25,
+        ramp_limit_up=0.3,
+        ramp_limit_down=0.3,
+    )
+    n.add('Load', 'island_load', bus='island', p_set=10)
+    n.add(
+        'StorageUnit',
+        'pump',
+        bus='north',
+        carrier='phs',
+        p_nom_extendable=True,
+        capital_cost=15,
+        p_nom_max=30,
+        max_hours=4,
+        efficiency_store=0.9,
+        efficiency_dispatch=0.9,
+        cyclic_state_of_charge=True,
+        p_nom_set=20,
+    )
+    n.add('StorageUnit', 'ice', bus='island', max_hours=2, p_nom=8, state_of_charge_initial=6)
+    n.add(
+        'Store',
+        'tank',
+        bus='north',
+        carrier='h2',
+        e_nom_extendable=True,
+        capital_cost=2,
+        e_nom_max=80,
+        e_cyclic=True,
+        e_nom_set=50,
+    )
+    n.add('Store', 'keg', bus='island', e_nom=15, e_initial=5)
+    n.add(
+        'GlobalConstraint',
+        'tech_wind',
+        type='tech_capacity_expansion_limit',
+        carrier_attribute='onwind',
+        sense='==',
+        constant=50,
+    )
+    n.add(
+        'GlobalConstraint',
+        'tech_solar',
+        type='tech_capacity_expansion_limit',
+        carrier_attribute='solarpv',
+        sense='>=',
+        constant=10,
+    )
+    n.add(
+        'GlobalConstraint',
+        'tech_dc',
+        type='tech_capacity_expansion_limit',
+        carrier_attribute='dc',
+        sense='<=',
+        constant=28,
+    )
+    n.add(
+        'GlobalConstraint',
+        'tech_phs',
+        type='tech_capacity_expansion_limit',
+        carrier_attribute='phs',
+        sense='<=',
+        constant=25,
+    )
+    n.add(
+        'GlobalConstraint',
+        'tech_h2',
+        type='tech_capacity_expansion_limit',
+        carrier_attribute='h2',
+        sense='>=',
+        constant=30,
+    )
+    n.add(
+        'GlobalConstraint',
+        'vol_dc',
+        type='transmission_volume_expansion_limit',
+        carrier_attribute='dc',
+        sense='<=',
+        constant=3500,
+    )
+    n.add(
+        'GlobalConstraint',
+        'cost_dc',
+        type='transmission_expansion_cost_limit',
+        carrier_attribute='dc',
+        sense='>=',
+        constant=400,
+    )
+    n.add(
+        'GlobalConstraint',
+        'cost_dc_exact',
+        type='transmission_expansion_cost_limit',
+        carrier_attribute='dc',
+        sense='==',
+        constant=500,
+    )
+    return n
 ```
 
 </details>
@@ -291,52 +379,30 @@ Generator,solar,p_max_pu,3,0.2
 | [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | split | fix, ext and first-snapshot blocks, fused by #70; com is rung 7's, big-M rung 8's |
 
 <!-- reference:rung_04_ramps:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `8785.0`, 64 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `8785.0`, 64 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_04_ramps/buses.csv`
+`rung_04_ramps.py`
 
-```csv
-name
-east
-```
+```python
+"""Rung 4: ramps — ramp limits on fixed and extendable generators and links."""
 
-`data/rung_04_ramps/generators.csv`
+from __future__ import annotations
 
-```csv
-name,bus,p_nom,marginal_cost,ramp_limit_up,ramp_limit_down
-coal_slow,north,80.0,8.0,0.2,0.2
-```
+import spine
 
-`data/rung_04_ramps/links.csv`
 
-```csv
-name,bus0,bus1,p_nom,efficiency,ramp_limit_up,ramp_limit_down
-tie,north,east,50.0,1.0,0.4,0.4
-```
-
-`data/rung_04_ramps/loads.csv`
-
-```csv
-name,bus
-east_load,east
-swing,north
-```
-
-`data/rung_04_ramps/timeseries.csv`
-
-```csv
-component,name,attribute,snapshot,value
-Load,east_load,p_set,0,5.0
-Load,east_load,p_set,1,20.0
-Load,east_load,p_set,2,25.0
-Load,east_load,p_set,3,10.0
-Load,swing,p_set,0,0.0
-Load,swing,p_set,1,25.0
-Load,swing,p_set,2,45.0
-Load,swing,p_set,3,0.0
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'east')
+    n.add('Generator', 'coal_slow', bus='north', p_nom=80, marginal_cost=8, ramp_limit_up=0.2, ramp_limit_down=0.2)
+    n.add('Link', 'tie', bus0='north', bus1='east', p_nom=50, efficiency=1, ramp_limit_up=0.4, ramp_limit_down=0.4)
+    n.add('Load', 'east_load', bus='east', p_set=[5, 20, 25, 10])
+    n.add('Load', 'swing', bus='north', p_set=[0, 25, 45, 0])
+    return n
 ```
 
 </details>
@@ -359,60 +425,61 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `10282.833333333334`, 102 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `10282.833333333334`, 102 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_05_global_constraints/carriers.csv`
+`rung_05_global_constraints.py`
 
-```csv
-name,co2_emissions
-coalc,0.9
-gasc,0.4
-windc,
-```
+```python
+"""Rung 5: global constraints — one row per limit type and sense."""
 
-`data/rung_05_global_constraints/generators.csv`
+from __future__ import annotations
 
-```csv
-name,bus,carrier,p_nom,marginal_cost,efficiency
-coal5,north,coalc,60.0,9.0,0.35
-gas5,north,gasc,60.0,25.0,0.5
-wind5,north,windc,60.0,40.0,
-```
+import spine
 
-`data/rung_05_global_constraints/global_constraints.csv`
 
-```csv
-name,type,carrier_attribute,sense,constant
-co2_cap,primary_energy,co2_emissions,<=,150.0
-co2_floor,primary_energy,co2_emissions,>=,20.0
-co2_exact,primary_energy,co2_emissions,==,120.0
-op_wind,operational_limit,windc,==,30.0
-op_coal,operational_limit,coalc,<=,200.0
-op_gas,operational_limit,gasc,>=,10.0
-```
-
-`data/rung_05_global_constraints/loads.csv`
-
-```csv
-name,bus,p_set
-extra5,north,50.0
-```
-
-`data/rung_05_global_constraints/storage_units.csv`
-
-```csv
-name,bus,carrier,p_nom,max_hours,state_of_charge_initial
-res5,north,gasc,20.0,4.0,30.0
-```
-
-`data/rung_05_global_constraints/stores.csv`
-
-```csv
-name,bus,carrier,e_nom,e_initial
-tank5,north,coalc,40.0,25.0
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Carrier', 'coalc', co2_emissions=0.9)
+    n.add('Carrier', 'gasc', co2_emissions=0.4)
+    n.add('Carrier', 'windc')
+    n.add('Generator', 'coal5', bus='north', carrier='coalc', p_nom=60, marginal_cost=9, efficiency=0.35)
+    n.add('Generator', 'gas5', bus='north', carrier='gasc', p_nom=60, marginal_cost=25, efficiency=0.5)
+    n.add('Generator', 'wind5', bus='north', carrier='windc', p_nom=60, marginal_cost=40)
+    n.add('Load', 'extra5', bus='north', p_set=50)
+    n.add('StorageUnit', 'res5', bus='north', carrier='gasc', p_nom=20, max_hours=4, state_of_charge_initial=30)
+    n.add('Store', 'tank5', bus='north', carrier='coalc', e_nom=40, e_initial=25)
+    n.add(
+        'GlobalConstraint',
+        'co2_cap',
+        type='primary_energy',
+        carrier_attribute='co2_emissions',
+        sense='<=',
+        constant=150,
+    )
+    n.add(
+        'GlobalConstraint',
+        'co2_floor',
+        type='primary_energy',
+        carrier_attribute='co2_emissions',
+        sense='>=',
+        constant=20,
+    )
+    n.add(
+        'GlobalConstraint',
+        'co2_exact',
+        type='primary_energy',
+        carrier_attribute='co2_emissions',
+        sense='==',
+        constant=120,
+    )
+    n.add('GlobalConstraint', 'op_wind', type='operational_limit', carrier_attribute='windc', sense='==', constant=30)
+    n.add('GlobalConstraint', 'op_coal', type='operational_limit', carrier_attribute='coalc', sense='<=', constant=200)
+    n.add('GlobalConstraint', 'op_gas', type='operational_limit', carrier_attribute='gasc', sense='>=', constant=10)
+    return n
 ```
 
 </details>
@@ -426,62 +493,103 @@ tank5,north,coalc,40.0,25.0
 | [`Kirchhoff-Voltage-Law`](#kirchhoff-voltage-law) | done | the cycle basis is data prep      |
 
 <!-- reference:rung_06_kvl:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `23962.0`, 123 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `23962.0`, 123 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_06_kvl/buses.csv`
+`rung_06_kvl.py`
 
-```csv
-name
-a
-b
-c
-```
+```python
+"""Rung 6: KVL — passive lines under Kirchhoff's voltage law."""
 
-`data/rung_06_kvl/generators.csv`
+from __future__ import annotations
 
-```csv
-name,bus,p_nom,marginal_cost
-hydro,a,80.0,10.0
-diesel6,b,80.0,50.0
-```
+from math import nan
 
-`data/rung_06_kvl/global_constraints.csv`
+import spine
 
-```csv
-name,type,carrier_attribute,sense,constant
-vol_ac,transmission_volume_expansion_limit,AC,==,2300.0
-vol_ac_floor,transmission_volume_expansion_limit,AC,>=,1000.0
-cost_ac,transmission_expansion_cost_limit,AC,<=,500.0
-cost_ac_floor,transmission_expansion_cost_limit,AC,>=,100.0
-tech_ac,tech_capacity_expansion_limit,AC,<=,60.0
-```
 
-`data/rung_06_kvl/lines.csv`
-
-```csv
-name,bus0,bus1,carrier,length,x,r,s_nom,s_nom_extendable,capital_cost,s_nom_max,s_nom_set
-ab,a,b,AC,30.0,0.1,0.01,60.0,,,,
-bc,b,c,AC,40.0,0.2,0.01,60.0,,,,
-ca,c,a,AC,35.0,0.1,0.01,60.0,,,,
-ca2,c,a,AC,50.0,0.15,0.01,,True,10.0,40.0,30.0
-ca3,c,a,AC,80.0,0.12,0.01,,True,8.0,40.0,
-```
-
-`data/rung_06_kvl/loads.csv`
-
-```csv
-name,bus,p_set
-town,c,45.0
-```
-
-`data/rung_06_kvl/timeseries.csv`
-
-```csv
-component,name,attribute,snapshot,value
-Line,bc,s_set,0,16.0
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'a')
+    n.add('Bus', 'b')
+    n.add('Bus', 'c')
+    n.add('Generator', 'hydro', bus='a', p_nom=80, marginal_cost=10)
+    n.add('Generator', 'diesel6', bus='b', p_nom=80, marginal_cost=50)
+    n.add('Load', 'town', bus='c', p_set=45)
+    n.add('Line', 'ab', bus0='a', bus1='b', carrier='AC', length=30, x=0.1, r=0.01, s_nom=60)
+    n.add('Line', 'bc', bus0='b', bus1='c', carrier='AC', length=40, x=0.2, r=0.01, s_nom=60, s_set=[16, nan, nan, nan])
+    n.add('Line', 'ca', bus0='c', bus1='a', carrier='AC', length=35, x=0.1, r=0.01, s_nom=60)
+    n.add(
+        'Line',
+        'ca2',
+        bus0='c',
+        bus1='a',
+        carrier='AC',
+        length=50,
+        x=0.15,
+        r=0.01,
+        s_nom_extendable=True,
+        capital_cost=10,
+        s_nom_max=40,
+        s_nom_set=30,
+    )
+    n.add(
+        'Line',
+        'ca3',
+        bus0='c',
+        bus1='a',
+        carrier='AC',
+        length=80,
+        x=0.12,
+        r=0.01,
+        s_nom_extendable=True,
+        capital_cost=8,
+        s_nom_max=40,
+    )
+    n.add(
+        'GlobalConstraint',
+        'vol_ac',
+        type='transmission_volume_expansion_limit',
+        carrier_attribute='AC',
+        sense='==',
+        constant=2300,
+    )
+    n.add(
+        'GlobalConstraint',
+        'vol_ac_floor',
+        type='transmission_volume_expansion_limit',
+        carrier_attribute='AC',
+        sense='>=',
+        constant=1000,
+    )
+    n.add(
+        'GlobalConstraint',
+        'cost_ac',
+        type='transmission_expansion_cost_limit',
+        carrier_attribute='AC',
+        sense='<=',
+        constant=500,
+    )
+    n.add(
+        'GlobalConstraint',
+        'cost_ac_floor',
+        type='transmission_expansion_cost_limit',
+        carrier_attribute='AC',
+        sense='>=',
+        constant=100,
+    )
+    n.add(
+        'GlobalConstraint',
+        'tech_ac',
+        type='tech_capacity_expansion_limit',
+        carrier_attribute='AC',
+        sense='<=',
+        constant=60,
+    )
+    return n
 ```
 
 </details>
@@ -501,34 +609,60 @@ Line,bc,s_set,0,16.0
 | `{c}-com-p-before/-current/-partly-*`        | out    | only under `linearized_unit_commitment`                       |
 
 <!-- reference:rung_07_commitment:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `7775.0`, 116 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7775.0`, 116 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_07_commitment/generators.csv`
+`rung_07_commitment.py`
 
-```csv
-name,bus,committable,p_nom,marginal_cost,p_min_pu,min_up_time,min_down_time,up_time_before,ramp_limit_up,ramp_limit_down,ramp_limit_start_up,ramp_limit_shut_down,start_up_cost,shut_down_cost,stand_by_cost
-uc,north,True,50.0,5.0,0.4,3,2,1,0.5,0.5,0.6,0.6,100.0,50.0,5.0
-cold,south,True,30.0,60.0,0.3,2,1,0,0.5,0.5,,,80.0,,
-```
+```python
+"""Rung 7: commitment — committable units with up and down times and ramp limits at the transitions."""
 
-`data/rung_07_commitment/loads.csv`
+from __future__ import annotations
 
-```csv
-name,bus
-swing7,north
-```
+import spine
 
-`data/rung_07_commitment/timeseries.csv`
 
-```csv
-component,name,attribute,snapshot,value
-Load,swing7,p_set,0,25.0
-Load,swing7,p_set,1,45.0
-Load,swing7,p_set,2,45.0
-Load,swing7,p_set,3,10.0
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add(
+        'Generator',
+        'uc',
+        bus='north',
+        committable=True,
+        p_nom=50,
+        marginal_cost=5,
+        p_min_pu=0.4,
+        min_up_time=3,
+        min_down_time=2,
+        up_time_before=1,
+        ramp_limit_up=0.5,
+        ramp_limit_down=0.5,
+        ramp_limit_start_up=0.6,
+        ramp_limit_shut_down=0.6,
+        start_up_cost=100,
+        shut_down_cost=50,
+        stand_by_cost=5,
+    )
+    n.add(
+        'Generator',
+        'cold',
+        bus='south',
+        committable=True,
+        p_nom=30,
+        marginal_cost=60,
+        p_min_pu=0.3,
+        min_up_time=2,
+        min_down_time=1,
+        up_time_before=0,
+        ramp_limit_up=0.5,
+        ramp_limit_down=0.5,
+        start_up_cost=80,
+    )
+    n.add('Load', 'swing7', bus='north', p_set=[25, 45, 45, 10])
+    return n
 ```
 
 </details>
@@ -547,42 +681,66 @@ Load,swing7,p_set,3,10.0
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | split | run and start rows up, run and shut rows down, each with an initial block #70 fuses |
 
 <!-- reference:rung_08_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `19712.5`, 155 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `19712.5`, 155 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_08_modular_big_m/buses.csv`
+`rung_08_modular_big_m.py`
 
-```csv
-name
-mill
-```
+```python
+"""Rung 8: modular and big-M — capacity in whole modules, and a committable unit whose capacity is also built."""
 
-`data/rung_08_modular_big_m/generators.csv`
+from __future__ import annotations
 
-```csv
-name,bus,p_nom_extendable,committable,p_nom_mod,p_nom_max,capital_cost,marginal_cost,p_min_pu,up_time_before,ramp_limit_up,ramp_limit_down,p_nom
-block,mill,True,True,25.0,100.0,30.0,20.0,0.2,0,,,
-flex,mill,True,True,,80.0,50.0,10.0,0.3,0,0.25,0.25,
-sink,mill,True,True,,30.0,40.0,15.0,-0.2,0,,,
-```
+import spine
 
-`data/rung_08_modular_big_m/loads.csv`
 
-```csv
-name,bus
-mill_load,mill
-```
-
-`data/rung_08_modular_big_m/timeseries.csv`
-
-```csv
-component,name,attribute,snapshot,value
-Load,mill_load,p_set,0,40.0
-Load,mill_load,p_set,1,80.0
-Load,mill_load,p_set,2,120.0
-Load,mill_load,p_set,3,60.0
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'mill')
+    n.add(
+        'Generator',
+        'block',
+        bus='mill',
+        p_nom_extendable=True,
+        committable=True,
+        p_nom_mod=25,
+        p_nom_max=100,
+        capital_cost=30,
+        marginal_cost=20,
+        p_min_pu=0.2,
+        up_time_before=0,
+    )
+    n.add(
+        'Generator',
+        'flex',
+        bus='mill',
+        p_nom_extendable=True,
+        committable=True,
+        p_nom_max=80,
+        capital_cost=50,
+        marginal_cost=10,
+        p_min_pu=0.3,
+        up_time_before=0,
+        ramp_limit_up=0.25,
+        ramp_limit_down=0.25,
+    )
+    n.add(
+        'Generator',
+        'sink',
+        bus='mill',
+        p_nom_extendable=True,
+        committable=True,
+        p_nom_max=30,
+        capital_cost=40,
+        marginal_cost=15,
+        p_min_pu=-0.2,
+        up_time_before=0,
+    )
+    n.add('Load', 'mill_load', bus='mill', p_set=[40, 80, 120, 60])
+    return n
 ```
 
 </details>
@@ -596,41 +754,43 @@ Load,mill_load,p_set,3,60.0
 | nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung_09_multilink:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's reference network at objective `11700.0`, 68 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `11700.0`, 68 rows.
 
 <details markdown="1">
-<summary>What this rung adds, as data</summary>
+<summary>The network, as PyPSA code</summary>
 
-`data/rung_09_multilink/buses.csv`
+`rung_09_multilink.py`
 
-```csv
-name
-gasb
-power
-heat
-```
+```python
+"""Rung 9: multi-link and delay — one link with two output buses."""
 
-`data/rung_09_multilink/generators.csv`
+from __future__ import annotations
 
-```csv
-name,bus,p_nom,marginal_cost
-well,gasb,100.0,5.0
-grid_import,power,50.0,60.0
-```
+import spine
 
-`data/rung_09_multilink/links.csv`
 
-```csv
-name,bus0,bus1,bus2,efficiency,efficiency2,p_nom,marginal_cost
-chp,gasb,power,heat,0.4,0.45,60.0,1.0
-```
-
-`data/rung_09_multilink/loads.csv`
-
-```csv
-name,bus,p_set
-homes,power,20.0
-district,heat,18.0
+def build():
+    """The spine plus this rung's additions, as a ``pypsa.Network``."""
+    n = spine.build()
+    n.add('Bus', 'gasb')
+    n.add('Bus', 'power')
+    n.add('Bus', 'heat')
+    n.add('Generator', 'well', bus='gasb', p_nom=100, marginal_cost=5)
+    n.add('Generator', 'grid_import', bus='power', p_nom=50, marginal_cost=60)
+    n.add(
+        'Link',
+        'chp',
+        bus0='gasb',
+        bus1='power',
+        bus2='heat',
+        efficiency=0.4,
+        efficiency2=0.45,
+        p_nom=60,
+        marginal_cost=1,
+    )
+    n.add('Load', 'homes', bus='power', p_set=20)
+    n.add('Load', 'district', bus='heat', p_set=18)
+    return n
 ```
 
 </details>
@@ -660,6 +820,398 @@ data prep, or harness — is one open question.
 Duals and solutions are read back by the harness on the lpspec side:
 `marginal_price` is the balance dual over `w_objective`, `mu_upper` the
 concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
+
+## The binding
+
+<!-- reference:binding:begin -->
+> A network becomes the tables the file declares through `prep.py`: plain renames, and every parameter the file marks "data prep" computed where it says so.
+
+<details markdown="1">
+<summary>The binding, <code>prep.py</code></summary>
+
+`prep.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""The prep layer: a PyPSA network as the tables the example models bind.
+
+Every parameter the files mark "data prep" is computed here, beside the plain
+renames — the binding half of the statement, shown on the page beside the
+file. An engine calls `sources(n)` and cuts the tables to what each model
+declares; nothing here imports math_spec or any engine — the mapping is pure
+PyPSA-and-pandas, handed over as polars frames.
+
+Sparseness is meaning: a table row left out is an absent value on the other
+side, so the sparse tables here (`*_set` pins, ramp limits, weights) drop
+their empty rows instead of shipping fills.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import pandas as pd
+import polars as pl
+from pypsa.descriptors import get_switchable_as_dense
+
+if TYPE_CHECKING:
+    import pypsa
+
+
+def _static(component: pd.DataFrame, attr: str, dim: str, *, sparse: bool = False) -> pd.DataFrame:
+    table = pd.DataFrame({dim: component.index.astype(str), 'value': component[attr].to_numpy()})
+    return table.dropna() if sparse else table
+
+
+def _melt(dense: pd.DataFrame, dim: str) -> pd.DataFrame:
+    table = dense.melt(ignore_index=False, var_name=dim).reset_index(names='snapshot')
+    return table.astype({dim: str, 'value': float})
+
+
+def _varying(n: pypsa.Network, component: str, attr: str, dim: str, *, sparse: bool = False) -> pd.DataFrame:
+    table = _melt(get_switchable_as_dense(n, component, attr), dim)
+    return table.dropna() if sparse else table
+
+
+def _lookup(component: pd.DataFrame, attr: str, over: str, into: str) -> pd.DataFrame:
+    table = pd.DataFrame({over: component.index.astype(str), into: component[attr].astype(str)})
+    return table[table[into] != '']
+
+
+def _weighting(n: pypsa.Network, column: str) -> pd.DataFrame:
+    return pd.DataFrame({'snapshot': n.snapshots, 'value': n.snapshot_weightings[column].to_numpy()})
+
+
+def _retention(n: pypsa.Network, component: str, dim: str) -> pd.DataFrame:
+    losses = n.static(component)['standing_loss']
+    hours = n.snapshot_weightings['stores']
+    return _melt(pd.DataFrame({name: (1.0 - loss) ** hours for name, loss in losses.items()}, index=n.snapshots), dim)
+
+
+def _cycle_weights(n: pypsa.Network) -> pd.DataFrame:
+    """The KVL basis PyPSA itself solves with — ``n.cycle_matrix(apply_weights=True)``: reactance on AC, resistance on DC."""
+    n.determine_network_topology()
+    n.calculate_dependent_values()
+    cycles = n.cycle_matrix(apply_weights=True)
+    rows = [
+        {'line': str(name), 'cycle': str(cycle), 'value': float(weight)}
+        for (kind, name), weights in cycles.iterrows()
+        for cycle, weight in weights.items()
+        if kind == 'Line' and weight
+    ]
+    return pd.DataFrame(rows, columns=['line', 'cycle', 'value']).astype({'value': float})
+
+
+def _weights(gcs: pd.DataFrame, components: pd.DataFrame, dim: str, value) -> pd.DataFrame:
+    """One row per (global constraint, member): *value* returns the weight, or 0/None outside the row's set."""
+    rows = [
+        {'global_constraint': str(label), dim: str(name), 'value': float(v)}
+        for label, gc in gcs.iterrows()
+        for name, component in components.iterrows()
+        if (v := value(gc, component))
+    ]
+    return pd.DataFrame(rows, columns=['global_constraint', dim, 'value']).astype({'value': float})
+
+
+def _typed(n: pypsa.Network, kind: str) -> pd.DataFrame:
+    return n.global_constraints[n.global_constraints['type'] == kind]
+
+
+def _emissions(n: pypsa.Network, gc: pd.Series) -> pd.Series:
+    """The nonzero values of the carrier attribute a `primary_energy` row weighs."""
+    values = n.carriers[gc['carrier_attribute']]
+    return values[values != 0]
+
+
+def _carrier_list(gc: pd.Series) -> list[str]:
+    return [c.strip().strip('[]()') for c in str(gc['carrier_attribute']).split(',')]
+
+
+def _in_tech_set(gc: pd.Series, component: pd.Series, nominal: str, bus: str) -> bool:
+    """PyPSA's membership for a `tech_capacity_expansion_limit` row: extendable, the carrier, and the bus if named."""
+    at_bus = not gc.get('bus') or str(component[bus]) == str(gc['bus'])
+    return bool(component[f'{nominal}_extendable'] and component['carrier'] == gc['carrier_attribute'] and at_bus)
+
+
+def _gc_constants(n: pypsa.Network) -> pd.DataFrame:
+    """Each row's constant, net of the initial charge PyPSA folds into its side of the row.
+
+    A `primary_energy` or `operational_limit` row counts what its non-cyclic
+    storage draws down, so PyPSA adds the initial charge as a constant on the
+    variable side; the file keeps the variables and moves it here.
+    """
+    rows = []
+    for label, gc in n.global_constraints.iterrows():
+        constant = float(gc['constant'])
+        if gc['type'] == 'primary_energy':
+            emissions = _emissions(n, gc)
+            sus = n.storage_units
+            member = sus['carrier'].isin(emissions.index) & ~sus['cyclic_state_of_charge']
+            constant -= float(
+                (sus.loc[member, 'carrier'].map(emissions) * sus.loc[member, 'state_of_charge_initial']).sum()
+            )
+            stores = n.stores
+            member = stores['carrier'].isin(emissions.index) & ~stores['e_cyclic']
+            constant -= float((stores.loc[member, 'carrier'].map(emissions) * stores.loc[member, 'e_initial']).sum())
+        if gc['type'] == 'operational_limit':
+            sus = n.storage_units
+            member = (sus['carrier'] == gc['carrier_attribute']) & ~sus['cyclic_state_of_charge']
+            constant -= float(sus.loc[member, 'state_of_charge_initial'].sum())
+            stores = n.stores
+            member = (stores['carrier'] == gc['carrier_attribute']) & ~stores['e_cyclic']
+            constant -= float(stores.loc[member, 'e_initial'].sum())
+        rows.append({'global_constraint': str(label), 'value': constant})
+    return pd.DataFrame(rows, columns=['global_constraint', 'value']).astype({'value': float})
+
+
+def _must_stay_up(n: pypsa.Network) -> pd.DataFrame:
+    """True while the up time a unit brought into the horizon still binds."""
+    rows = []
+    for name, g in n.generators.iterrows():
+        if not g['committable'] or g['up_time_before'] <= 0:
+            continue
+        remaining = int(min(g['min_up_time'] - g['up_time_before'], len(n.snapshots)))
+        rows.extend({'snapshot': t, 'generator': str(name), 'value': True} for t in n.snapshots[: max(remaining, 0)])
+    table = pd.DataFrame(rows, columns=['snapshot', 'generator', 'value'])
+    return table.astype({'value': bool})
+
+
+def sources(n: pypsa.Network) -> dict[str, object]:
+    """Every table the example models bind, from one PyPSA network."""
+    generators, links, loads = n.generators, n.links, n.loads
+    storage_units, stores, lines = n.storage_units, n.stores, n.lines
+    big_m = generators['p_nom_max'] * get_switchable_as_dense(n, 'Generator', 'p_max_pu').max().clip(lower=1.0)
+
+    tables: dict[str, object] = {
+        'snapshot': pl.Series('snapshot', list(n.snapshots), dtype=pl.Int64),
+        'bus': pl.Series('bus', list(n.buses.index.astype(str)), dtype=pl.String),
+        'generator': pl.Series('generator', list(generators.index.astype(str)), dtype=pl.String),
+        'link': pl.Series('link', list(links.index.astype(str)), dtype=pl.String),
+        'load': pl.Series('load', list(loads.index.astype(str)), dtype=pl.String),
+        'storage_unit': pl.Series('storage_unit', list(storage_units.index.astype(str)), dtype=pl.String),
+        'store': pl.Series('store', list(stores.index.astype(str)), dtype=pl.String),
+        'line': pl.Series('line', list(lines.index.astype(str)), dtype=pl.String),
+        'global_constraint': pl.Series(
+            'global_constraint', list(n.global_constraints.index.astype(str)), dtype=pl.String
+        ),
+        'Generator_bus': _lookup(generators, 'bus', 'generator', 'bus'),
+        'Link_bus0': _lookup(links, 'bus0', 'link', 'bus'),
+        'Link_bus1': _lookup(links, 'bus1', 'link', 'bus'),
+        'Load_bus': _lookup(loads, 'bus', 'load', 'bus'),
+        'StorageUnit_bus': _lookup(storage_units, 'bus', 'storage_unit', 'bus'),
+        'Store_bus': _lookup(stores, 'bus', 'store', 'bus'),
+        'Line_bus0': _lookup(lines, 'bus0', 'line', 'bus'),
+        'Line_bus1': _lookup(lines, 'bus1', 'line', 'bus'),
+        'snapshot_weightings_objective': _weighting(n, 'objective'),
+        'snapshot_weightings_stores': _weighting(n, 'stores'),
+        'snapshot_weightings_generators': _weighting(n, 'generators'),
+        'Load_p_set': _varying(n, 'Load', 'p_set', 'load'),
+        'Generator_p_nom': _static(generators, 'p_nom', 'generator'),
+        'Generator_p_nom_extendable': _static(generators, 'p_nom_extendable', 'generator'),
+        'Generator_p_min_pu': _varying(n, 'Generator', 'p_min_pu', 'generator'),
+        'Generator_p_max_pu': _varying(n, 'Generator', 'p_max_pu', 'generator'),
+        'Generator_marginal_cost': _varying(n, 'Generator', 'marginal_cost', 'generator'),
+        'Generator_p_set': _varying(n, 'Generator', 'p_set', 'generator', sparse=True),
+        'Generator_p_nom_min': _static(generators, 'p_nom_min', 'generator'),
+        'Generator_p_nom_max': _static(generators, 'p_nom_max', 'generator'),
+        'Generator_capital_cost': _static(generators, 'capital_cost', 'generator'),
+        'Generator_p_nom_set': _static(generators, 'p_nom_set', 'generator', sparse=True),
+        'Generator_e_sum_min': _static(generators, 'e_sum_min', 'generator'),
+        'Generator_e_sum_max': _static(generators, 'e_sum_max', 'generator'),
+        'Generator_committable': _static(generators, 'committable', 'generator'),
+        'Generator_ramp_limit_up': _static(generators, 'ramp_limit_up', 'generator', sparse=True),
+        'Generator_ramp_limit_down': _static(generators, 'ramp_limit_down', 'generator', sparse=True),
+        'Generator_ramp_limit_start_up': _static(
+            generators.fillna({'ramp_limit_start_up': 1.0}), 'ramp_limit_start_up', 'generator'
+        ),
+        'Generator_ramp_limit_shut_down': _static(
+            generators.fillna({'ramp_limit_shut_down': 1.0}), 'ramp_limit_shut_down', 'generator'
+        ),
+        'Generator_min_up_time': _static(generators, 'min_up_time', 'generator'),
+        'Generator_min_down_time': _static(generators, 'min_down_time', 'generator'),
+        'Generator_status_initial': pd.DataFrame(
+            {
+                'generator': generators.index.astype(str),
+                'value': (generators['up_time_before'] > 0).astype(int).to_numpy(),
+            }
+        ),
+        'Generator_must_stay_up': _must_stay_up(n),
+        'Generator_start_up_cost': _static(generators, 'start_up_cost', 'generator'),
+        'Generator_shut_down_cost': _static(generators, 'shut_down_cost', 'generator'),
+        'Generator_stand_by_cost': _varying(n, 'Generator', 'stand_by_cost', 'generator'),
+        'Generator_p_nom_mod': _static(generators[generators['p_nom_mod'] > 0], 'p_nom_mod', 'generator'),
+        'Generator_big_m': pd.DataFrame({'generator': generators.index.astype(str), 'value': big_m.to_numpy()}),
+        'Generator_p_min_pu_nonneg': pd.DataFrame(
+            {
+                'generator': generators.index.astype(str),
+                'value': (get_switchable_as_dense(n, 'Generator', 'p_min_pu') >= 0).all().to_numpy(),
+            }
+        ),
+        'Link_p_nom': _static(links, 'p_nom', 'link'),
+        'Link_p_nom_extendable': _static(links, 'p_nom_extendable', 'link'),
+        'Link_p_min_pu': _varying(n, 'Link', 'p_min_pu', 'link'),
+        'Link_p_max_pu': _varying(n, 'Link', 'p_max_pu', 'link'),
+        'Link_efficiency': _static(links, 'efficiency', 'link'),
+        'Link_marginal_cost': _varying(n, 'Link', 'marginal_cost', 'link'),
+        'Link_p_set': _varying(n, 'Link', 'p_set', 'link', sparse=True),
+        'Link_p_nom_min': _static(links, 'p_nom_min', 'link'),
+        'Link_p_nom_max': _static(links, 'p_nom_max', 'link'),
+        'Link_capital_cost': _static(links, 'capital_cost', 'link'),
+        'Link_p_nom_set': _static(links, 'p_nom_set', 'link', sparse=True),
+        'Link_ramp_limit_up': _static(links, 'ramp_limit_up', 'link', sparse=True),
+        'Link_ramp_limit_down': _static(links, 'ramp_limit_down', 'link', sparse=True),
+        'StorageUnit_p_nom': _static(storage_units, 'p_nom', 'storage_unit'),
+        'StorageUnit_p_nom_extendable': _static(storage_units, 'p_nom_extendable', 'storage_unit'),
+        'StorageUnit_p_min_pu': _varying(n, 'StorageUnit', 'p_min_pu', 'storage_unit'),
+        'StorageUnit_p_max_pu': _varying(n, 'StorageUnit', 'p_max_pu', 'storage_unit'),
+        'StorageUnit_max_hours': _static(storage_units, 'max_hours', 'storage_unit'),
+        'StorageUnit_efficiency_store': _static(storage_units, 'efficiency_store', 'storage_unit'),
+        'StorageUnit_efficiency_dispatch': _static(storage_units, 'efficiency_dispatch', 'storage_unit'),
+        'StorageUnit_retention': _retention(n, 'StorageUnit', 'storage_unit'),
+        'StorageUnit_inflow': _varying(n, 'StorageUnit', 'inflow', 'storage_unit'),
+        'StorageUnit_state_of_charge_initial': _static(storage_units, 'state_of_charge_initial', 'storage_unit'),
+        'StorageUnit_cyclic_state_of_charge': _static(storage_units, 'cyclic_state_of_charge', 'storage_unit'),
+        'StorageUnit_marginal_cost': _varying(n, 'StorageUnit', 'marginal_cost', 'storage_unit'),
+        'StorageUnit_marginal_cost_storage': _varying(n, 'StorageUnit', 'marginal_cost_storage', 'storage_unit'),
+        'StorageUnit_spill_cost': _varying(n, 'StorageUnit', 'spill_cost', 'storage_unit'),
+        'StorageUnit_p_set': _varying(n, 'StorageUnit', 'p_set', 'storage_unit', sparse=True),
+        'StorageUnit_state_of_charge_set': _varying(
+            n, 'StorageUnit', 'state_of_charge_set', 'storage_unit', sparse=True
+        ),
+        'StorageUnit_p_nom_min': _static(storage_units, 'p_nom_min', 'storage_unit'),
+        'StorageUnit_p_nom_max': _static(storage_units, 'p_nom_max', 'storage_unit'),
+        'StorageUnit_capital_cost': _static(storage_units, 'capital_cost', 'storage_unit'),
+        'StorageUnit_p_nom_set': _static(storage_units, 'p_nom_set', 'storage_unit', sparse=True),
+        'Store_e_nom': _static(stores, 'e_nom', 'store'),
+        'Store_e_nom_extendable': _static(stores, 'e_nom_extendable', 'store'),
+        'Store_e_min_pu': _varying(n, 'Store', 'e_min_pu', 'store'),
+        'Store_e_max_pu': _varying(n, 'Store', 'e_max_pu', 'store'),
+        'Store_retention': _retention(n, 'Store', 'store'),
+        'Store_e_initial': _static(stores, 'e_initial', 'store'),
+        'Store_e_cyclic': _static(stores, 'e_cyclic', 'store'),
+        'Store_marginal_cost': _varying(n, 'Store', 'marginal_cost', 'store'),
+        'Store_marginal_cost_storage': _varying(n, 'Store', 'marginal_cost_storage', 'store'),
+        'Store_e_set': _varying(n, 'Store', 'e_set', 'store', sparse=True),
+        'Store_e_nom_min': _static(stores, 'e_nom_min', 'store'),
+        'Store_e_nom_max': _static(stores, 'e_nom_max', 'store'),
+        'Store_capital_cost': _static(stores, 'capital_cost', 'store'),
+        'Store_e_nom_set': _static(stores, 'e_nom_set', 'store', sparse=True),
+        'Line_s_nom': _static(lines, 's_nom', 'line'),
+        'Line_s_nom_extendable': _static(lines, 's_nom_extendable', 'line'),
+        'Line_s_max_pu': _varying(n, 'Line', 's_max_pu', 'line'),
+        'Line_s_nom_min': _static(lines, 's_nom_min', 'line'),
+        'Line_s_nom_max': _static(lines, 's_nom_max', 'line'),
+        'Line_capital_cost': _static(lines, 'capital_cost', 'line'),
+        'Line_s_nom_set': _static(lines, 's_nom_set', 'line', sparse=True),
+        'Line_s_set': _varying(n, 'Line', 's_set', 'line', sparse=True),
+        'Line_cycle_weight': _cycle_weights(n),
+        'GlobalConstraint_type': _static(n.global_constraints, 'type', 'global_constraint').astype({'value': str}),
+        'GlobalConstraint_sense': _static(n.global_constraints, 'sense', 'global_constraint').astype({'value': str}),
+        'GlobalConstraint_constant': _gc_constants(n),
+        'snapshot_is_last': pd.DataFrame(
+            {'snapshot': n.snapshots, 'value': [0] * (len(n.snapshots) - 1) + [1] if len(n.snapshots) else []}
+        ),
+        'Generator_marginal_cost_quadratic': _varying(n, 'Generator', 'marginal_cost_quadratic', 'generator'),
+        'Link_marginal_cost_quadratic': _varying(n, 'Link', 'marginal_cost_quadratic', 'link'),
+    }
+
+    primary, operational = _typed(n, 'primary_energy'), _typed(n, 'operational_limit')
+    volume, expansion_cost = (
+        _typed(n, 'transmission_volume_expansion_limit'),
+        _typed(n, 'transmission_expansion_cost_limit'),
+    )
+    tech = _typed(n, 'tech_capacity_expansion_limit')
+    tables |= {
+        'Generator_primary_energy_weight': _weights(
+            primary, generators, 'generator', lambda gc, g: _emissions(n, gc).get(g['carrier'], 0.0) / g['efficiency']
+        ),
+        'StorageUnit_primary_energy_weight': _weights(
+            primary,
+            storage_units,
+            'storage_unit',
+            lambda gc, s: 0.0 if s['cyclic_state_of_charge'] else _emissions(n, gc).get(s['carrier'], 0.0),
+        ),
+        'Store_primary_energy_weight': _weights(
+            primary, stores, 'store', lambda gc, s: 0.0 if s['e_cyclic'] else _emissions(n, gc).get(s['carrier'], 0.0)
+        ),
+        'Generator_operational_limit_weight': _weights(
+            operational, generators, 'generator', lambda gc, g: float(g['carrier'] == gc['carrier_attribute'])
+        ),
+        'StorageUnit_operational_limit_weight': _weights(
+            operational,
+            storage_units,
+            'storage_unit',
+            lambda gc, s: float(s['carrier'] == gc['carrier_attribute'] and not s['cyclic_state_of_charge']),
+        ),
+        'Store_operational_limit_weight': _weights(
+            operational,
+            stores,
+            'store',
+            lambda gc, s: float(s['carrier'] == gc['carrier_attribute'] and not s['e_cyclic']),
+        ),
+        'Line_volume_weight': _weights(
+            volume,
+            lines,
+            'line',
+            lambda gc, c: c['length'] if c['s_nom_extendable'] and c['carrier'] in _carrier_list(gc) else 0.0,
+        ),
+        'Link_volume_weight': _weights(
+            volume,
+            links,
+            'link',
+            lambda gc, c: c['length'] if c['p_nom_extendable'] and c['carrier'] in _carrier_list(gc) else 0.0,
+        ),
+        'Line_expansion_cost_weight': _weights(
+            expansion_cost,
+            lines,
+            'line',
+            lambda gc, c: c['capital_cost'] if c['s_nom_extendable'] and c['carrier'] in _carrier_list(gc) else 0.0,
+        ),
+        'Link_expansion_cost_weight': _weights(
+            expansion_cost,
+            links,
+            'link',
+            lambda gc, c: c['capital_cost'] if c['p_nom_extendable'] and c['carrier'] in _carrier_list(gc) else 0.0,
+        ),
+        'Generator_tech_capacity_weight': _weights(
+            tech, generators, 'generator', lambda gc, c: float(_in_tech_set(gc, c, 'p_nom', 'bus'))
+        ),
+        'Link_tech_capacity_weight': _weights(
+            tech, links, 'link', lambda gc, c: float(_in_tech_set(gc, c, 'p_nom', 'bus0'))
+        ),
+        'Line_tech_capacity_weight': _weights(
+            tech, lines, 'line', lambda gc, c: float(_in_tech_set(gc, c, 's_nom', 'bus0'))
+        ),
+        'StorageUnit_tech_capacity_weight': _weights(
+            tech, storage_units, 'storage_unit', lambda gc, c: float(_in_tech_set(gc, c, 'p_nom', 'bus'))
+        ),
+        'Store_tech_capacity_weight': _weights(
+            tech, stores, 'store', lambda gc, c: float(_in_tech_set(gc, c, 'e_nom', 'bus'))
+        ),
+    }
+
+    tables['cycle'] = pl.Series('cycle', list(pd.unique(tables['Line_cycle_weight']['cycle'])), dtype=pl.String)
+    if 'bus2' not in links.columns:
+        links = links.assign(bus2='', efficiency2=1.0)
+    tables['Link_bus2'] = _lookup(links, 'bus2', 'link', 'bus')
+    tables['Link_efficiency2'] = _static(links[links['bus2'] != ''], 'efficiency2', 'link')
+
+    for name, table in tables.items():
+        if isinstance(table, pd.DataFrame):
+            lost = {
+                column: 'int64' if column == 'snapshot' else 'string'
+                for column in table.columns
+                if table[column].dtype == object
+            }
+            tables[name] = pl.from_pandas(table.astype(lost))
+    return tables
+```
+
+</details>
+<!-- reference:binding:end -->
 
 ## The file
 

@@ -1,4 +1,0 @@
-name,bus,p_nom_extendable,committable,p_nom_mod,p_nom_max,capital_cost,marginal_cost,p_min_pu,up_time_before,ramp_limit_up,ramp_limit_down,p_nom
-block,mill,True,True,25.0,100.0,30.0,20.0,0.2,0,,,
-flex,mill,True,True,,80.0,50.0,10.0,0.3,0,0.25,0.25,
-sink,mill,True,True,,30.0,40.0,15.0,-0.2,0,,,
