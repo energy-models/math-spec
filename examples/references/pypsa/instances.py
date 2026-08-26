@@ -5,7 +5,8 @@
 """The instances: every rung's network is the shared spine plus its own folder.
 
 `data/base/` is rung 1's transport spine, the network every rung starts from;
-`data/<rung>/` holds only what that rung adds — its components as wide CSVs in
+a folder with its own `snapshots.csv` is a whole network instead.
+`data/<rung>/` otherwise holds only what that rung adds — its components as wide CSVs in
 PyPSA's vocabulary and a `timeseries.csv` for what varies, which may also put
 a schedule on a base component. The folders are the rungs: `reference.py`
 runs every one.
@@ -95,9 +96,9 @@ def rungs() -> list[str]:
 
 def build(rung: str) -> pypsa.Network:
     """The rung's network: the spine, plus exactly what the rung's folder adds."""
-    folders = [DATA / 'base', DATA / rung]
+    folders = [DATA / rung] if (DATA / rung / 'snapshots.csv').exists() else [DATA / 'base', DATA / rung]
     n = pypsa.Network()
-    snapshots = _rows([DATA / 'base'], 'snapshots.csv')
+    snapshots = _rows(folders[:1], 'snapshots.csv')
     n.set_snapshots([int(row['snapshot']) for row in snapshots])
     for column in ('objective', 'stores', 'generators'):
         n.snapshot_weightings[column] = [float(row[column]) for row in snapshots]

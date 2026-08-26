@@ -102,7 +102,8 @@ def test_both_lanes_solve_the_rung_to_one_objective(stem: str):
 def test_the_stamps_certify_this_record(stem: str):
     """A re-recorded fixture with unrefreshed stamps would certify another network — arithmetic on the file alone."""
     parity = RECORDED[stem]['parity']
-    assert math.isclose(parity['lpspec_objective'], RECORDED[stem]['objective'], rel_tol=1e-9, abs_tol=1e-6), (
+    cost = RECORDED[stem]['objective'] + RECORDED[stem]['objective_constant']
+    assert math.isclose(parity['lpspec_objective'], cost, rel_tol=1e-9, abs_tol=1e-6), (
         "the stamped lpspec objective is not this record's — re-run lpspec differential/pypsa/parity.py"
     )
 
@@ -158,7 +159,7 @@ def test_a_region_verdict_is_a_documented_split(stem: str):
 
 
 def test_pypsa_builds_no_variable_the_files_do_not_declare():
-    unmatched = RECORDED_COLUMNS - COLUMNS_DECLARED
+    unmatched = RECORDED_COLUMNS - COLUMNS_DECLARED - {'objective_constant'}
     assert not unmatched, f'pypsa builds these and the files declare nothing that stands for them: {sorted(unmatched)}'
 
 

@@ -39,8 +39,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: fluxopt/lpspec
-          # fluxopt/lpspec#1318 head; a release tag once one exists.
-          ref: 6f2cbbc64f6b3b420c273aaf21ce25a9be487f23
+          # fluxopt/lpspec#1322 head; a release tag once one exists.
+          ref: a35244bdf1f53d8fa599c976b5f3c7c45078c718
           path: lpspec
           persist-credentials: false
       - name: Install pixi
