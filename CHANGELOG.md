@@ -17,6 +17,17 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.25](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.24...v0.0.0-alpha.25) (2026-08-27)
+
+
+### Features
+
+* rung 11 — PyPSA's ac-dc-meshed example, whole ([#151](https://github.com/energy-models/math-spec/issues/151)) ([a133044](https://github.com/energy-models/math-spec/commit/a1330441ba7926aeedc086afa48f2efa8971fa10))
+* rung 12 — linearized unit commitment, a file of its own ([#152](https://github.com/energy-models/math-spec/issues/152)) ([69b926e](https://github.com/energy-models/math-spec/commit/69b926e64b2431ad723b92e614b4c43523525253))
+* rung 13 — transmission losses in tangent form, a file of its own ([#153](https://github.com/energy-models/math-spec/issues/153)) ([379ce23](https://github.com/energy-models/math-spec/commit/379ce2316b2146ca064bcc3bac0d3ea0bd995011))
+* rung 14 — two-stage stochastic with CVaR, a file of its own ([#154](https://github.com/energy-models/math-spec/issues/154)) ([41b427d](https://github.com/energy-models/math-spec/commit/41b427daa7525f7fd6368488e005e0a42983f3fd))
+* rung 15 — investment periods with a growth limit, a file of its own ([#155](https://github.com/energy-models/math-spec/issues/155)) ([285aac3](https://github.com/energy-models/math-spec/commit/285aac35bda2ee69a2872a6b20618f5827c3d19f))
+
 ## [0.0.0-alpha.24](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.23...v0.0.0-alpha.24) (2026-08-26)
 
 
