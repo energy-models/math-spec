@@ -19,7 +19,7 @@ file of its own — the model's description below says why. Its network is the s
 | [`Generator-com-partly-shut-down`](#generator-com-partly-shut-down) | done | |
 
 <!-- reference:rung_12_linearized_uc:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's network at objective `8543.888888888889`, 127 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7775.0`, 128 rows.
 
 <details markdown="1">
 <summary>The network, as PyPSA code</summary>
@@ -73,6 +73,7 @@ def build():
         p_min_pu=0.3,
         min_up_time=2,
         min_down_time=1,
+        up_time_before=0,
         ramp_limit_up=0.5,
         ramp_limit_down=0.5,
         ramp_limit_start_up=0.7,
@@ -450,6 +451,48 @@ Generator_p_ramp_limit_down_com_initial:
 
 $$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
 
+### `Generator-status-p-fixed-upper`
+
+`Generator_status_p_fixed_upper`
+
+```yaml
+Generator_status_p_fixed_upper:
+  description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
+  foreach: [snapshot, generator]
+  where: Generator_committable
+  expression: Generator_status <= 1
+```
+
+$$u_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
+### `Generator-start_up-p-fixed-upper`
+
+`Generator_start_up_p_fixed_upper`
+
+```yaml
+Generator_start_up_p_fixed_upper:
+  description: "`Generator-start_up-p-fixed-upper` — a start is at most one, an explicit row as PyPSA writes it"
+  foreach: [snapshot, generator]
+  where: Generator_committable
+  expression: Generator_start_up <= 1
+```
+
+$$\mathit{up}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
+### `Generator-shut_down-p-fixed-upper`
+
+`Generator_shut_down_p_fixed_upper`
+
+```yaml
+Generator_shut_down_p_fixed_upper:
+  description: "`Generator-shut_down-p-fixed-upper` — a stop is at most one, an explicit row as PyPSA writes it"
+  foreach: [snapshot, generator]
+  where: Generator_committable
+  expression: Generator_shut_down <= 1
+```
+
+$$\mathit{dn}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+
 ### `Generator-com-p-before`
 
 `Generator_com_p_before`
@@ -538,15 +581,15 @@ $$f_{t,l} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \
 
 **`Generator_status`**
 
-$$0 \le u_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+$$u_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 **`Generator_start_up`**
 
-$$0 \le \mathit{up}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+$$\mathit{up}_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 **`Generator_shut_down`**
 
-$$0 \le \mathit{dn}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
+$$\mathit{dn}_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.

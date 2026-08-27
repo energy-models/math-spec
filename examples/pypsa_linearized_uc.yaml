@@ -145,21 +145,18 @@ variables:
     where: Generator_committable
     bounds:
       lower: 0
-      upper: 1
   Generator_start_up:
     description: "`Generator-start_up` — how much of a committable unit turns on this snapshot"
     foreach: [snapshot, generator]
     where: Generator_committable
     bounds:
       lower: 0
-      upper: 1
   Generator_shut_down:
     description: "`Generator-shut_down` — how much of a committable unit turns off this snapshot"
     foreach: [snapshot, generator]
     where: Generator_committable
     bounds:
       lower: 0
-      upper: 1
 
 constraints:
   Generator_fix_p_lower:
@@ -291,6 +288,21 @@ constraints:
       -Generator_p <=
       Generator_ramp_limit_down * Generator_p_nom * Generator_status
       + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
+  Generator_status_p_fixed_upper:
+    description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    expression: Generator_status <= 1
+  Generator_start_up_p_fixed_upper:
+    description: "`Generator-start_up-p-fixed-upper` — a start is at most one, an explicit row as PyPSA writes it"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    expression: Generator_start_up <= 1
+  Generator_shut_down_p_fixed_upper:
+    description: "`Generator-shut_down-p-fixed-upper` — a stop is at most one, an explicit row as PyPSA writes it"
+    foreach: [snapshot, generator]
+    where: Generator_committable
+    expression: Generator_shut_down <= 1
   Generator_com_p_before:
     description: >-
       `Generator-com-p-before` — the output a unit had entering this snapshot

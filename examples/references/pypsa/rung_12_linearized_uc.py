@@ -44,6 +44,7 @@ def build():
         p_min_pu=0.3,
         min_up_time=2,
         min_down_time=1,
+        up_time_before=0,
         ramp_limit_up=0.5,
         ramp_limit_down=0.5,
         ramp_limit_start_up=0.7,
