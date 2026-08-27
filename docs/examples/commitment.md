@@ -11,9 +11,9 @@ exists for.
 
 Read `previous_status` and then `ramp_up`. The cases are read **in order**, and
 the last one carries no `when:` — so the first arm whose condition holds is the
-value, and the fallback covers every coordinate the others leave. Exactly one
-value at every coordinate, and a value at every one, which is what makes the
-quantity a quantity `ramp_up` can use the way it uses a parameter.
+value, and the fallback covers every coordinate the others leave. One value at
+every coordinate — never two, never none — is what lets `ramp_up` use the
+quantity the way it uses a parameter.
 
 It prints the way a paper writes it: `ramp_up` names the quantity, and the
 block itself prints once below, under **Definitions**.
@@ -24,8 +24,8 @@ description: >-
   Unit commitment with a start-up ramp, the formulation `cases:` exists for.
   The state a unit carries into a snapshot has three regimes — a unit that is
   never off, the first snapshot, and every later one — and writing them at the
-  constraint would fork `ramp_up` three ways. Named once, the inequality is
-  written once.
+  constraint would fork `ramp_up` three ways. With the regimes named once, the
+  inequality is written once.
 
 dimensions:
   snapshot: { dtype: int, description: dispatch periods }
@@ -91,7 +91,7 @@ objective:
   expression: sum(p * cost)
 ```
 
-Unit commitment with a start-up ramp, the formulation `cases:` exists for. The state a unit carries into a snapshot has three regimes — a unit that is never off, the first snapshot, and every later one — and writing them at the constraint would fork `ramp_up` three ways. Named once, the inequality is written once.
+Unit commitment with a start-up ramp, the formulation `cases:` exists for. The state a unit carries into a snapshot has three regimes — a unit that is never off, the first snapshot, and every later one — and writing them at the constraint would fork `ramp_up` three ways. With the regimes named once, the inequality is written once.
 
 #### Sets
 

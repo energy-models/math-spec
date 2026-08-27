@@ -338,8 +338,8 @@ reads none pays for none.
 Some quantities have no single expression. The commitment state a unit carries
 into a snapshot is `1` for a unit that is never switched off, an initial
 condition at the first snapshot, and last snapshot's status everywhere else —
-three regimes, one quantity. Written at the constraint they fork it three ways;
-named here, the inequality that uses it is written once:
+three regimes, one quantity. Written at the constraint, the regimes fork it
+three ways; named here, the inequality that uses the quantity is written once:
 
 ```yaml
 expressions:
@@ -356,17 +356,19 @@ expressions:
       interior:
         expression: shift(status, over=snapshot, offset=1)
 constraints:
-  no_restart:
+  ramp_up:
     foreach: [snapshot, generator]
-    expression: status - previous_status <= 1
+    expression: >-
+      p - shift(p, over=snapshot, offset=1, edge=0)
+      <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 ```
 
 **The cases are read in order, and the last one is the fallback.** The value at
 a coordinate is the first arm whose `when` holds there, and the last arm
 carries no `when` at all. So the arms cannot disagree — only the first to match
 is read — and none of them has to cover everything, because the fallback has no
-condition to fail. Both are properties of the block's shape rather than claims
-about the masks, so nothing has to decide what a predicate could be true of.
+condition to fail. Both guarantees come from the _shape_ of the block; nothing
+has to analyse the conditions to establish them.
 
 The fallback is required rather than optional because a gap would leave the
 quantity undefined there, and absence [spreads](absence.md) — every constraint
@@ -392,9 +394,10 @@ cases at least — one case is one value everywhere, which the plain form says.
 ### A cased expression is the one that keeps its name
 
 Every other named expression is substituted where it is used and prints nothing
-under its own name. A cased one is the exception: three arms are three rows
-tall, so inlined at the use site whatever follows sits beside the **middle**
-arm and reads as part of that arm's condition.
+under its own name. A cased one is the exception, because it cannot inline
+legibly: three arms are three rows tall, so inlined at the use site, whatever
+follows the name would sit beside the **middle** arm — and a quantity written
+once in the file would print once per use on the page.
 
 So a use prints the symbol, and the block prints once under a **Definitions**
 heading between `Subject to` and `Variable domains`, in declaration order,
@@ -410,8 +413,8 @@ uncased ones stay out, since a table entry for one would never apply.
 [The unit commitment example](../../examples/commitment.md) is the whole model
 this section is drawn from.
 
-**Cases in a `macros:` template are a follow-up.** The fallback would have to
-cover a frame the macro does not have until it is called.
+**`cases:` inside a `macros:` template is not supported.** The fallback would
+have to cover a frame the macro does not have until it is called.
 
 ## Macros
 
