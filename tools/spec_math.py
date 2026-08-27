@@ -39,6 +39,10 @@ OPERATORS = {
     'sum_back(array, over=dim, within=p)': 'sum_back_by_parameter',
     "sum_back(array, over=dim, within=p, edge='wrap')": 'sum_back_wrap',
     'sum_back(array, over=dim, within=n, by=lookup)': 'sum_back_partitioned',
+    'sum_forward(array, over=dim, within=n)': 'sum_forward',
+    'sum_forward(array, over=dim, within=p)': 'sum_forward_by_parameter',
+    "sum_forward(array, over=dim, within=p, edge='wrap')": 'sum_forward_wrap',
+    'sum_forward(array, over=dim, within=n, by=lookup)': 'sum_forward_partitioned',
 }
 
 

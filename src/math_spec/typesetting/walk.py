@@ -75,6 +75,12 @@ _TRANSLATIONS = {
     'edge': ('edge_minus', 'edge_plus'),
 }
 
+#: The window operators, and whether the row being written leads the difference
+#: their domain counts. That order is the whole of what separates them:
+#: ``sum_back`` counts ``t - t'``, outward from the row, and ``sum_forward``
+#: counts ``t' - t``, toward it.
+_WINDOWS = {'sum_back': True, 'sum_forward': False}
+
 
 PRIME = "'"
 
@@ -337,6 +343,10 @@ class Walk:
         operand, so the substitution shows at the leaves. A ``sum`` naming no
         dim binds every dim its operand carries, and the domain has to say
         which, since the call does not.
+
+        The two windows are one branch because they are one operator pointed
+        two ways: everything about them is shared, and only which side of the
+        subtraction carries the prime tells them apart.
         """
         if node.name == 'shift':
             dim = node.kwargs['over']
@@ -346,14 +356,16 @@ class Walk:
             step = replace(step, within=self._group(node.kwargs.get('by'), dim.name))
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 
-        if node.name == 'sum_back':
+        if node.name in _WINDOWS:
             over = node.kwargs['over']
             assert isinstance(over, DimensionNode)
             policy = 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain'
             step = _Step(1, policy, within=self._group(node.kwargs.get('by'), over.name))
             self.policies.add(step.policy)
             source, inner = ctx.reducing(over.name)
-            lag = f'{ctx.subscript(over.name)} {self.translation(step)} {source}'
+            written = ctx.subscript(over.name)
+            left, right = (written, source) if _WINDOWS[node.name] else (source, written)
+            lag = f'{left} {self.translation(step)} {right}'
             domain = (
                 f'{source} {self.op("in")} {self.symbols.set[over.name]} {self.op("such_that")} '
                 f'0 {self.op("le")} {lag} {self.op("lt")} {self._width(node.kwargs["within"])}'

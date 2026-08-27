@@ -14,7 +14,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec.dimensions import DimensionError, check_schema, dims_of
+from math_spec.dimensions import _AMOUNT_WORDING, DimensionError, check_schema, dims_of
+from math_spec.operators import BUILTINS
 from math_spec.resolution import Namespace, expression_of
 from tests.fixtures import OPERATOR_PROBES, schema_of
 
@@ -86,10 +87,16 @@ def _dims(expr: str) -> frozenset[str]:
         ("shift(p, over=snapshot, offset=1, edge='wrap')", {'snapshot', 'generator'}),
         ("shift(p, over=snapshot, offset=spinup, edge='wrap')", {'snapshot', 'generator'}),
         ('sum_back(p, over=snapshot, within=spinup)', {'snapshot', 'generator'}),
+        ('sum_forward(p, over=snapshot, within=spinup)', {'snapshot', 'generator'}),
         # the same offset a `by=` makes readable: one lag per group it maps into
         ("shift(p, over=snapshot, offset=bus_lead, edge='wrap', by=snap_bus)", {'snapshot', 'generator'}),
         ('sum_back(p, over=snapshot, within=bus_lead, by=snap_bus)', {'snapshot', 'generator'}),
         pytest.param('p + 1', {'snapshot', 'generator'}, id='a-scalar-broadcasts'),
+        pytest.param(
+            'sum_forward(p, over=snapshot, within=bus_lead, by=snap_bus)',
+            {'snapshot', 'generator'},
+            id='a-leading-window-partitioned-by-a-lookup',
+        ),
     ],
 )
 def test_dim_inference(expr, expected):
@@ -159,6 +166,17 @@ def test_dim_inference(expr, expected):
             r"varies over \['bus'\], which that coordinate does not carry",
             id='a-named-offset-is-read-where-the-expression-has-a-coordinate',
         ),
+        # its own wording, because the window it stops being is a different one
+        pytest.param(
+            'sum_forward(p, over=snapshot, within=horizon)',
+            r'no longer "the next n"',
+            id='a-named-forward-width-does-not-span-the-summed-axis',
+        ),
+        pytest.param(
+            'sum_forward(p, over=snapshot, within=-spinup)',
+            r"operator's own name rather than the sign of its width",
+            id='a-named-forward-width-has-no-direction-to-negate',
+        ),
     ],
 )
 def test_an_ill_dimensioned_expression_is_rejected(expr, match):
@@ -217,3 +235,18 @@ def test_an_ill_dimensioned_declaration_is_rejected(patch, match):
 @pytest.mark.parametrize('path', OPERATOR_PROBES, ids=lambda p: p.name)
 def test_every_operator_probe_typechecks(path):
     check_schema(schema_of(path))
+
+
+def test_every_operator_taking_a_named_amount_carries_its_wording():
+    """An operator with an amount lands with its rules, or this fails.
+
+    `sum_forward` was written on a branch beside the one that added these
+    tables, so each was right about the operators it knew and neither knew the
+    other's. Git merged them without a conflict --- the edits were in different
+    places --- both branches were green, and the result raised `KeyError` from
+    `_AMOUNT_WORDING[node.name]` on every model that used the new operator. A table
+    keyed by operator name is only as good as something asking whether it knows
+    them all.
+    """
+    takes_an_amount = {name for name, builtin in BUILTINS.items() if builtin.required_value_kwargs}
+    assert set(_AMOUNT_WORDING) == takes_an_amount

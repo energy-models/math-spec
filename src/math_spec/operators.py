@@ -76,10 +76,10 @@ class Builtin:
 #: and a lookup carries its own dimensions, so the sibling kwargs that used to
 #: restate them (``sum``'s ``over=`` beside ``group_by=``, ``at``'s ``onto=``)
 #: are gone — what the two-keyword spelling once said, the name's *kind* now
-#: says, checked at load. ``by=`` on ``shift`` and
-#: ``sum_back`` partitions the axis the operator walks, which is the same
-#: lookup in a different position: it says which rows are neighbours, not which
-#: group a term lands in.
+#: says, checked at load. ``by=`` on ``shift`` and on the two
+#: windows partitions the axis the operator walks, which is the same lookup in
+#: a different position: it says which rows are neighbours, not which group a
+#: term lands in.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
         1,
@@ -96,6 +96,15 @@ BUILTINS: dict[str, Builtin] = {
     'sum_back': Builtin(
         1,
         "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>])",
+        dimension_kwargs=('over',),
+        lookup_kwargs=('by',),
+        required_value_kwargs=('within',),
+        edge_kwargs=('edge',),
+        optional_kwargs=('by',),
+    ),
+    'sum_forward': Builtin(
+        1,
+        "sum_forward(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
         required_value_kwargs=('within',),

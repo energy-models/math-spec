@@ -188,7 +188,7 @@ def _dims_call(
             )
         return (inner - set(by.into)) | {by.dimension}
 
-    if node.name in ('shift', 'sum_back'):
+    if node.name in ('shift', 'sum_back', 'sum_forward'):
         inner = _dims(node.args[0], schema, context)
         over = node.kwargs['over']
         assert isinstance(over, DimensionNode)
@@ -236,7 +236,15 @@ _AMOUNT_WORDING = {
         "operator's own name rather than the sign of its width.",
         'a different window at every position, which is no longer "the last n"',
     ),
+    'sum_forward': (
+        'width',
+        'A width counts positions and so has no direction; which way a window reaches is the '
+        "operator's own name rather than the sign of its width.",
+        'a different window at every position, which is no longer "the next n"',
+    ),
 }
+#: The two windows differ only in which way they reach, which is what that
+#: wording already says, so they answer it identically.
 
 
 def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str], schema: Model, context: str) -> None:

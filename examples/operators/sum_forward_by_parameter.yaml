@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A leading window whose width is data — `within:` names an integer parameter,
+  so each unit runs for its *own* minimum time before it may stop.
+
+dimensions:
+  unit: { dtype: str }
+  hour: { dtype: int }
+
+parameters:
+  min_up: { dims: [unit], dtype: int }
+
+variables:
+  stopped:
+    foreach: [unit, hour]
+    domain: binary
+  on:
+    foreach: [unit, hour]
+    domain: binary
+
+constraints:
+  runs_before_it_stops:
+    foreach: [unit, hour]
+    expression: sum_forward(stopped, over=hour, within=min_up) <= on
+
+objective: { sense: minimize, expression: sum(on) }

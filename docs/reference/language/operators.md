@@ -25,6 +25,9 @@ Dimension arguments are name-checked at load time, so
 | `sum_back(array, over=dim, within=n)`              | the sum of the last `n` positions along `dim`, ending at _t_                                                                       |
 | `sum_back(array, over=dim, within=p)`              | `p` an integer parameter: each entity gets **its own** window length                                                               |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its start                                                         |
+| `sum_forward(array, over=dim, within=n)`           | the sum of the next `n` positions along `dim`, starting at _t_                                                                     |
+| `sum_forward(array, over=dim, within=p)`           | `p` an integer parameter: each entity gets **its own** window length                                                               |
+| `sum_forward(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its end                                                        |
 
 `array` is any expression of the right dim set, so these read a **parameter**
 as readily as a variable. Each row as the typesetter prints it is
@@ -145,6 +148,36 @@ own window, so no row is lost and there is nothing vacated to fill. A number
 there is a load error, because adding a constant is something the expression can
 say for itself. `edge='wrap'` makes the window reach around instead, which is
 what a representative period that repeats asks for.
+
+## `sum_forward`
+
+`sum_forward(x, over=d, within=n)` is [`sum_back`](#sum_back) the other way: the
+sum of the next `n` positions along `d`, **starting** at the one being written.
+Every rule above holds unchanged — the dimension survives, a width of `1` is `x`
+itself, `within=` may name an integer parameter under the same two conditions,
+and `edge=` takes `'wrap'` or nothing.
+
+Only the edge it runs off changes. A window that reaches past the *end* of the
+axis is short, not empty, so again no row is lost; `edge='wrap'` reaches around
+into the start instead.
+
+```yaml
+constraints:
+  runs_before_it_stops:
+    foreach: [unit, hour]
+    expression: sum_forward(stopped, over=hour, within=min_up) <= on
+```
+
+As math the two are transposes — the primed index moves to the other side of the
+subtraction, $0 \le t - t' < n$ becoming $0 \le t' - t < n$, and nothing else in
+the equation moves.
+
+A fixed width composes out of `shift` in either direction, but a forward window
+does not reduce to one: `shift` past the end **drops** the rows it vacates or
+fills them with a number, where a short window keeps them. And a width that is a
+parameter has no forward spelling at all, since it would need a negative named
+offset — which the language refuses, so that a translation's direction is never
+something the data decides ([`shift`](#shift)).
 
 ## `shift`
 
@@ -367,6 +400,10 @@ language is rendered the same way, on one page:
 | `sum_back(array, over=dim, within=p)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 | `sum_back(array, over=dim, within=n, by=lookup)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+| `sum_forward(array, over=dim, within=n)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' - h < 3} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+| `sum_forward(array, over=dim, within=p)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' - h < \mathrm{min\_up}} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+| `sum_forward(array, over=dim, within=p, edge='wrap')` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' \ominus h < \mathrm{min\_up}} \mathit{stopped}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
+| `sum_forward(array, over=dim, within=n, by=lookup)` | $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h' -^{\mathrm{day\_of}(h)} h < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$ |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
