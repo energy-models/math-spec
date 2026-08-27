@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from math_spec import expand_piecewise, unbounded_notes
+from math_spec.operators import BUILTIN_NAMES
 from tests.fixtures import SMALL_MODEL, override, schema_of
 
 BASE = override(
@@ -48,6 +49,7 @@ def _notes(**patch) -> list[str]:
             'upper',
             id='a-bound-on-the-side-it-runs-away-from-is-beside-the-point',
         ),
+        pytest.param({'variables.v.domain': 'integer'}, 'lower', id='an-integer-keeps-its-declared-bounds'),
     ],
 )
 def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch, side):
@@ -78,6 +80,37 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
 )
 def test_nothing_is_claimed_where_the_file_does_not_decide_it(patch):
     assert _notes(**patch) == [], 'a note here would be a false proof'
+
+
+#: One objective per built-in, each driving a free variable through that
+#: operator and nothing else. Keyed by name rather than listed, so a fifth
+#: built-in arrives with a case of its own.
+THROUGH_EACH_OPERATOR = {
+    'sum': {'objective.expression': 'sum(v, over=g)'},
+    'shift': {'objective.expression': 'sum(shift(v, over=g, offset=1), over=g)'},
+    'sum_back': {'objective.expression': 'sum(sum_back(v, over=g, within=2), over=g)'},
+    # `at` reads onto the lookup's source, so the variable it drives is on `h`
+    'at': {'variables.u': {'foreach': ['h']}, 'objective.expression': 'sum(at(u, by=lk), over=g)'},
+}
+
+
+@pytest.mark.parametrize('builtin', sorted(BUILTIN_NAMES))
+def test_every_operator_hands_its_sign_to_its_operand(builtin):
+    """`_walk` gives all four built-ins one arm, on a claim each of them has to keep.
+
+    The claim is that every operator sums its argument's terms with coefficient
+    1 — being a reduction, a re-index or a window — so the sign passes through
+    unchanged. An operator that negated, took a magnitude or reversed a sense
+    would break it, and would inherit sign-preservation in silence without a
+    case of its own here.
+    """
+    assert builtin in THROUGH_EACH_OPERATOR, (
+        f"the built-in '{builtin}' has no case here. Add the objective that drives a free variable "
+        f"through it — or, if it does not hand its sign to its operand, split `_walk`'s FunctionCallNode arm."
+    )
+    notes = _notes(**THROUGH_EACH_OPERATOR[builtin])
+    assert len(notes) == 1, 'one variable is driven and unopposed, so one note'
+    assert 'bounds.lower' in notes[0], 'a minimize objective over a +v term runs down, through the operator too'
 
 
 def test_every_unopposed_variable_is_named():

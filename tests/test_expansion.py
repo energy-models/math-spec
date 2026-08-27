@@ -158,6 +158,11 @@ def test_macro_arity_errors(call, match):
             "collides with the built-in operator 'sum'",
             id='a-built-in-operator-taken-by-a-dimension',
         ),
+        pytest.param(
+            {'macros': {'m': {'args': ['generator'], 'template': 'p * generator'}}},
+            "formal 'generator' collides with declared dimension 'generator'",
+            id='a-formal-named-after-a-dimension',
+        ),
     ],
 )
 def test_macro_collisions_rejected(patch, match):

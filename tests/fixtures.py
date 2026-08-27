@@ -36,12 +36,13 @@ DISPATCH_MODEL: dict[str, Any] = {
 
 #: Two dimensions, a groupable and a label-space lookup, a numeric, a scalar and
 #: a boolean parameter, a variable on each frame — one declaration of every kind
-#: a rule can name, and no objective, so a test adds what it judges.
+#: a rule can name, and no objective, so a test adds what it judges. `p` and `r`
+#: share no dimension, which is what a rule about *different* dims needs.
 SMALL_MODEL: dict[str, Any] = {
     'dimensions': {'g': {'values': ['a', 'b']}, 'h': {'values': ['x', 'y']}},
     'lookups': {'lk': {'over': 'g', 'into': 'h'}, 'tag': {'over': 'g', 'dtype': 'str'}},
     'parameters': {'c': {'dims': ['g']}, 'k': {'dims': []}, 'flag': {'dims': ['g'], 'dtype': 'bool'}},
-    'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}},
+    'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}, 'r': {'foreach': ['h']}},
 }
 
 
