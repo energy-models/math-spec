@@ -58,9 +58,23 @@ def test_every_reference_block_has_its_marker_pair_on_exactly_one_declared_page(
 @pytest.mark.parametrize('rung', RUNGS)
 def test_every_rung_script_adds_to_the_spine(rung: str):
     text = (REFERENCES / f'{rung}.py').read_text()
-    whole = 'pypsa.examples.' in text or 'pypsa.Network()' in text
-    assert whole or ('n = spine.build()' in text and 'n.add(' in text), (
+    assert 'pypsa.Network()' in text or ('n = spine.build()' in text and 'n.add(' in text), (
         'a rung is the spine plus its own n.add calls, or a whole network of its own'
+    )
+
+
+@pytest.mark.parametrize('rung', RUNGS)
+def test_no_rung_fetches_the_network_it_records(rung: str):
+    """`reference.py` reads the model under review off the script, which needs the data in it.
+
+    `pypsa.examples.*` downloads a netCDF instead: the network becomes a binary
+    nobody reading this repository can see, the recorded objective becomes an
+    oracle for whatever that host last served, and the reference run fails when
+    it does not answer — which it did, with a 500, on 2026-08-27.
+    """
+    text = (REFERENCES / f'{rung}.py').read_text()
+    assert 'pypsa.examples' not in text, (
+        'a rung states its network rather than downloading one — write out the n.add calls that build it'
     )
 
 
