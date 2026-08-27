@@ -46,6 +46,7 @@ DECLARED = {
     'pypsa_quadratic.md': ROOT / 'examples' / 'pypsa_quadratic.yaml',
     'pypsa_linearized_uc.md': ROOT / 'examples' / 'pypsa_linearized_uc.yaml',
     'pypsa_losses.md': ROOT / 'examples' / 'pypsa_losses.yaml',
+    'pypsa_stochastic.md': ROOT / 'examples' / 'pypsa_stochastic.yaml',
 }
 
 #: One PyPSA reference network per rung, run out of band with the versions
