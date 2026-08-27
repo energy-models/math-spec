@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.26](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.25...v0.0.0-alpha.26) (2026-08-27)
+
+
+### Features
+
+* a snapshot is a timestamp, in the file and in every rung's network ([#159](https://github.com/energy-models/math-spec/issues/159)) ([dd5122e](https://github.com/energy-models/math-spec/commit/dd5122ec2184bdaf3145e56949e42a6fa0612948))
+
 ## [0.0.0-alpha.25](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.24...v0.0.0-alpha.25) (2026-08-27)
 
 
