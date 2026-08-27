@@ -64,7 +64,7 @@ def test_a_where_lands_on_the_quantifier_not_in_the_equation(fmt: Format):
 def _masked(dtype: str) -> dict[str, object]:
     """One model per mask dtype: a bare parameter atom is the whole `where`."""
     return {
-        'dimensions': {'g': {'values': ['a', 'b']}},
+        'dimensions': {'g': {'dtype': 'str'}},
         'parameters': {'flag': {'dims': ['g'], 'dtype': dtype}},
         'variables': {
             'keep': {'foreach': ['g'], 'where': 'flag', 'bounds': {'lower': 0, 'upper': 1}},

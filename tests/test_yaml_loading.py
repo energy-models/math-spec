@@ -14,8 +14,8 @@ from math_spec.validation import load_model
 from tests.fixtures import raw_of
 
 MODEL = """dimensions:
-  snapshot: {dtype: int, values: [0, 1]}
-  generator: {values: [wind, gas]}
+  snapshot: {dtype: int}
+  generator: {dtype: str}
 parameters:
   cost: {dims: [generator]}
 variables:
@@ -38,20 +38,23 @@ def _write(tmp_path, text, name='m.yaml'):
     return path
 
 
-def test_only_true_and_false_are_booleans(tmp_path):
-    """YAML 1.1 resolved these to bools, so the rows they keyed silently vanished — ``no`` is Norway."""
-    path = _write(tmp_path, 'dimensions:\n  c: {dtype: str, values: [no, se, on, off, yes, n, y]}\n')
+_BOOLISH = ['no', 'se', 'on', 'off', 'yes', 'n', 'y']
+_BOOLISH_DIMS = 'dimensions:\n' + ''.join(f'  {name}: {{dtype: str}}\n' for name in _BOOLISH)
 
-    assert read_yaml(path)['dimensions']['c']['values'] == ['no', 'se', 'on', 'off', 'yes', 'n', 'y']
+
+def test_only_true_and_false_are_booleans(tmp_path):
+    """YAML 1.1 resolved these to bools, so the declaration the file names is not the one that reaches the schema — ``no`` is Norway."""
+    path = _write(tmp_path, _BOOLISH_DIMS)
+
+    assert list(read_yaml(path)['dimensions']) == _BOOLISH
 
 
 def test_the_harness_reads_a_model_the_way_the_product_does(tmp_path):
-    """``raw_of`` read YAML 1.1, so a ``no`` label reached a test's schema as ``False`` while ``load_model`` saw the string."""
-    text = 'dimensions:\n  country: {dtype: str, values: [uk, de, no]}\n'
-    path = _write(tmp_path, text)
+    """``raw_of`` read YAML 1.1, so a dimension named ``no`` reached a test's schema as ``False`` while ``load_model`` saw the string."""
+    path = _write(tmp_path, _BOOLISH_DIMS)
 
     assert raw_of(path) == read_yaml(path)
-    assert raw_of(text)['dimensions']['country']['values'] == ['uk', 'de', 'no']
+    assert list(raw_of(_BOOLISH_DIMS)['dimensions']) == _BOOLISH
 
 
 def test_real_booleans_still_parse(tmp_path):
@@ -67,9 +70,9 @@ def test_the_loader_yields_plain_types(tmp_path):
     assert type(raw) is dict
 
     schema = load_model(raw)
-    assert type(schema.dimensions['generator'].values) is list
-    assert all(type(v) is str for v in schema.dimensions['generator'].values)
+    assert all(type(name) is str for name in schema.dimensions), 'a declaration is keyed by a plain str'
     assert type(schema.variables['p'].foreach) is list
+    assert all(type(d) is str for d in schema.variables['p'].foreach)
 
 
 def test_duplicate_key_is_an_error_naming_both_lines(tmp_path):
@@ -95,7 +98,7 @@ def test_a_merge_key_override_is_not_a_duplicate(tmp_path):
     path = _write(
         tmp_path,
         'defaults: &d\n  foreach: [generator]\n'
-        'dimensions:\n  generator: {values: [wind]}\n'
+        'dimensions:\n  generator: {dtype: str}\n'
         'variables:\n  p:\n    <<: *d\n    foreach: [generator]\n',
     )
 
@@ -127,9 +130,7 @@ def test_two_merge_keys_accumulate(tmp_path):
     path = _write(
         tmp_path,
         'anchors:\n  a: &a {dtype: int}\n  b: &b {description: periods}\n'
-        + MODEL.replace(
-            'snapshot: {dtype: int, values: [0, 1]}', 'snapshot:\n    <<: *a\n    <<: *b\n    values: [0, 1]'
-        ),
+        + MODEL.replace('snapshot: {dtype: int}', 'snapshot:\n    <<: *a\n    <<: *b'),
     )
     with pytest.raises(SchemaError, match="unknown key 'anchors'"):
         load_model(path)

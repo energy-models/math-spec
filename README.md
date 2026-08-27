@@ -77,7 +77,7 @@ description: Least-cost dispatch of a generator fleet against an hourly load.
 
 dimensions:
   snapshot: { dtype: int, description: dispatch periods }
-  generator: { values: [wind, solar, gas], description: generating units }
+  generator: { description: generating units }
 
 parameters:
   p_max: { dims: [generator], description: installed capacity }

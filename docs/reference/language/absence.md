@@ -11,7 +11,7 @@ follows from that one fact.
 
 ```yaml
 dimensions:
-  g: { values: [wind, gas, old] }
+  g: { dtype: str }
 parameters:
   p_max: { dims: [g] }
 variables:

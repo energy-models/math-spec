@@ -23,7 +23,7 @@ OPERATOR_PROBES = sorted((Path(__file__).resolve().parent.parent / 'examples' / 
 #: The same math as ``examples/dispatch.yaml``, as a dict a test can vary with
 #: :func:`override`.
 DISPATCH_MODEL: dict[str, Any] = {
-    'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'values': ['wind', 'gas']}},
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
     'parameters': {
         'p_max': {'dims': ['generator']},
         'cost': {'dims': ['generator']},
@@ -39,7 +39,7 @@ DISPATCH_MODEL: dict[str, Any] = {
 #: a rule can name, and no objective, so a test adds what it judges. `p` and `r`
 #: share no dimension, which is what a rule about *different* dims needs.
 SMALL_MODEL: dict[str, Any] = {
-    'dimensions': {'g': {'values': ['a', 'b']}, 'h': {'values': ['x', 'y']}},
+    'dimensions': {'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}},
     'lookups': {'lk': {'over': 'g', 'into': 'h'}, 'tag': {'over': 'g', 'dtype': 'str'}},
     'parameters': {'c': {'dims': ['g']}, 'k': {'dims': []}, 'flag': {'dims': ['g'], 'dtype': 'bool'}},
     'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}, 'r': {'foreach': ['h']}},

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -117,8 +116,8 @@ class TestDimensionKwargs:
             {
                 'dimensions': {
                     'snapshot': {'dtype': 'int'},
-                    'bus': {'values': ['n']},
-                    'generator': {'values': ['wind']},
+                    'bus': {'dtype': 'str'},
+                    'generator': {'dtype': 'str'},
                 },
                 'lookups': {'zone': {'over': 'generator', 'into': 'bus'}},
                 'parameters': {'load': {'dims': ['snapshot']}},
@@ -178,32 +177,6 @@ class TestDimensionKwargs:
             },
             objective={'sense': 'minimize', 'expression': 'ws(p, c, over=g)'},
         )
-
-    @pytest.mark.parametrize(
-        ('dtype', 'values', 'match'),
-        [
-            ('str', [datetime.date(2024, 1, 1)], 'has type date'),
-            ('str', [750], 'has type int'),
-            ('int', ['alpha'], 'has type str'),
-            ('int', [True], 'has type bool'),
-        ],
-    )
-    def test_a_coordinate_must_be_its_declared_dtype(self, dtype, values, match):
-        """Unchecked, a coordinate of another type failed to join the data, and row absence is the structural zero."""
-        with pytest.raises(LanguageError, match=match):
-            _schema(**{'dimensions.g': {'dtype': dtype, 'values': values}})
-
-    @pytest.mark.parametrize(
-        ('dtype', 'values'),
-        [
-            ('str', ['no', 'se']),
-            ('datetime', [datetime.date(2024, 1, 1)]),
-            ('float', [1, 2.5]),
-            ('int', [0, 1]),
-        ],
-    )
-    def test_a_coordinate_of_the_declared_dtype_passes(self, dtype, values):
-        _schema(**{'dimensions.g': {'dtype': dtype, 'values': values}})
 
     @pytest.mark.parametrize(
         ('dtype', 'where', 'match'),
@@ -304,7 +277,7 @@ class TestVersion:
 #: `position(dim)` needs a lookup over *that* dimension, so one over it and one into it.
 POSITION_SCHEMA = load_model(
     {
-        'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int', 'values': [2030, 2040]}},
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int'}},
         'lookups': {
             'period_of': {'over': 'snapshot', 'into': 'period'},
             'starts_at': {'over': 'period', 'into': 'snapshot'},
@@ -418,19 +391,9 @@ class TestRulesDecidedWithoutData:
                 id='lookup-named-after-a-dimension',
             ),
             pytest.param(
-                {'lookups.lk.values': {'zz': 'x'}},
-                ("declares values for ['zz'], which are not labels of 'g'",),
-                id='lookup-map-from-a-stranger',
-            ),
-            pytest.param(
-                {'lookups.lk.values': {'a': 'zz'}},
-                ("maps to 'zz', which are not labels of 'h'",),
-                id='lookup-map-to-a-stranger',
-            ),
-            pytest.param(
-                {'lookups.tag.values': {'a': 7}},
-                ("Lookup 'tag': value 7 has type int, but dtype is 'str'",),
-                id='lookup-map-to-the-wrong-dtype',
+                {'lookups.lk.values': {'a': 'x'}},
+                ("unknown key 'values' in a lookup declaration", 'Valid keys'),
+                id='a-lookup-declaring-its-map',
             ),
             pytest.param(
                 {'variables.p.absence': 'zero'}, ('absence: zero needs a `where:`',), id='absence-without-a-mask'
@@ -471,19 +434,14 @@ class TestRulesDecidedWithoutData:
                 {'parameters.c.dims': ['g', 'g']}, ("Parameter 'c' names dimension 'g' twice",), id='dims-repeat-a-dim'
             ),
             pytest.param(
-                {'dimensions.g.values': ['a', 'b', 'a']},
-                ("Dimension 'g' declares label 'a' twice",),
-                id='values-repeat-a-label',
+                {'dimensions.g.values': ['a', 'b']},
+                ("unknown key 'values' in a dimension declaration", 'Valid keys'),
+                id='a-dimension-declaring-its-members',
             ),
             pytest.param(
                 {'variables.p.where': 'p'},
                 ('asks whether it exists in its own where',),
                 id='a-mask-naming-its-own-variable',
-            ),
-            pytest.param(
-                {'dimensions.g.values': [['a'], 'b'], 'lookups.lk.values': {'b': 'x'}},
-                ("Dimension 'g': value ['a'] has type list",),
-                id='an-unhashable-label-under-a-declared-map',
             ),
             pytest.param(
                 {'sos': {'s': {'variable': 'p', 'over': 'g', 'type': [1]}}},
@@ -620,12 +578,11 @@ class TestTheFrontDoor:
         model = load_model(DISPATCH_MODEL)
         assert load_model(parse_yaml(model.to_yaml())) == model
 
-    def test_a_declared_empty_map_survives_the_round_trip(self):
-        """`values: {}` is a map the file declares with nothing in it; `None` is a map supplied at bind time."""
-        model = _schema(**{'lookups.lk.values': {}})
-        assert model.lookups['lk'].values == {}
-        assert load_model(model.to_dict()).lookups['lk'].values == {}
-        assert 'values: {}' in model.to_yaml()
+    def test_an_empty_list_survives_the_round_trip(self):
+        """`foreach: []` is a scalar declaration, not an absence — stripping it would put the variable on every dim it names."""
+        model = _schema(**{'variables.p.foreach': []})
+        assert model.to_dict()['variables']['p']['foreach'] == []
+        assert load_model(model.to_dict()).variables['p'].foreach == []
 
     def test_an_empty_section_is_not_written(self):
         written = load_model(DISPATCH_MODEL).to_yaml()

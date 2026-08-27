@@ -148,8 +148,7 @@ class LookupBlock(_StrictBlock):
           bus_of: {over: generator, into: bus}
           period: {over: snapshot, dtype: int}
 
-    ``values:`` gives the map in the file as ``{label of over: value}``; a label
-    it omits is unmapped. Without it the map is supplied at bind time.
+    The map itself is data, and arrives at bind time under the lookup's name.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
@@ -157,7 +156,6 @@ class LookupBlock(_StrictBlock):
     over: str
     into: str | None = None
     dtype: DimensionDtype | None = None
-    values: dict[Any, Any] | None = None
     description: str | None = None
 
     @model_validator(mode='after')
@@ -172,9 +170,11 @@ class LookupBlock(_StrictBlock):
 
 
 class DimensionBlock(_StrictBlock):
-    """A declared dimension with optional dtype and values.
+    """A declared dimension, and the dtype its coordinates must be.
 
-    A dimension is an axis and nothing else. The maps its members carry — a
+    A dimension is an axis and nothing else: it declares that the axis exists
+    and what its coordinates are typed as, never which coordinates there are —
+    those are data, and arrive at bind time. The maps its members carry — a
     generator's bus, a snapshot's period — are top-level ``lookups:``
     (:class:`LookupBlock`), keyed by their own name.
     """
@@ -182,7 +182,6 @@ class DimensionBlock(_StrictBlock):
     _label: ClassVar[str] = 'a dimension declaration'
 
     dtype: DimensionDtype = 'str'
-    values: list[Any] | None = None
     description: str | None = None
 
 
@@ -560,8 +559,7 @@ def _without_absence(value: Any) -> Any:
     kept = {}
     for key, before in value.items():
         after = _without_absence(before)
-        emptied = after == {} and before != {}
-        if not _is_absent(after) and not emptied:
+        if not _is_absent(after) and after != {}:
             kept[key] = after
     return kept
 
@@ -623,37 +621,6 @@ class Model(_StrictBlock):
         """The label-space lookups over *dimension* — selection only, never an axis."""
         return {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.into is None}
 
-    def _declared_lookup_errors(self, name: str, lookup: LookupBlock) -> list[str]:
-        """What a lookup's inline ``values:`` can be wrong about, without data.
-
-        Law 2: both sides are in the file, so containment is decided here
-        rather than at bind time — which is the whole reason declaring the map
-        beats supplying it. Only checked against a target that declares its own
-        labels; against one bound at run time the check stays where it was.
-        """
-        if lookup.values is None:
-            return []
-        errors = []
-        over = self.dimensions.get(lookup.over)
-        if over is not None and over.values is not None:
-            strangers = [k for k in lookup.values if k not in over.values]
-            if strangers:
-                errors.append(
-                    f"Lookup '{name}' declares values for {strangers!r}, which are not "
-                    f"labels of '{lookup.over}' ({over.values!r}). A lookup maps the labels "
-                    f'its dimension has.'
-                )
-        target = self.dimensions.get(lookup.into) if lookup.into is not None else None
-        if target is not None and target.values is not None:
-            strangers = sorted({repr(v) for v in lookup.values.values() if v is not None and v not in target.values})
-            if strangers:
-                errors.append(
-                    f"Lookup '{name}' maps to {', '.join(strangers)}, which are not labels of "
-                    f"'{lookup.into}' ({target.values!r}). Every value must be a declared "
-                    f"'{lookup.into}' label — otherwise sum(by={name}) drops those terms."
-                )
-        return errors
-
     @classmethod
     @override
     def model_validate(cls, *args: Any, **kwargs: Any) -> Self:
@@ -686,13 +653,11 @@ class Model(_StrictBlock):
     def _drop_absence(self, handler: Any) -> dict[str, Any]:
         """Absence is not serialised: a null, an infinite bound, a mapping that stripping emptied, a section declaring nothing.
 
-        A mapping *declared* empty stays (``values: {}`` is a map with nothing
-        in it), and so does an empty list (``foreach: []`` is a scalar). On the
-        serializer so that ``model_dump``, :meth:`to_dict` and :meth:`to_yaml`
-        agree.
+        An empty list stays, being a value rather than an absence (``foreach:
+        []`` is a scalar). On the serializer so that ``model_dump``,
+        :meth:`to_dict` and :meth:`to_yaml` agree.
         """
-        written = _without_absence(handler(self))
-        return {k: v for k, v in written.items() if v != {}}
+        return _without_absence(handler(self))
 
     def to_dict(self) -> dict[str, Any]:
         """The model as plain data. ``load_model(m.to_dict())`` reproduces it."""
@@ -760,11 +725,6 @@ class Model(_StrictBlock):
                 f"{kind} '{name}' names dimension '{d}' twice. A frame is a product of distinct dimensions."
                 for d in _repeated(dims)
             )
-        for dname, ddef in self.dimensions.items():
-            errors.extend(
-                f"Dimension '{dname}' declares label {label!r} twice. A label is one coordinate; drop the repeat."
-                for label in _repeated(ddef.values or [])
-            )
 
         for lname, lk in self.lookups.items():
             if lk.over not in self.dimensions:
@@ -780,7 +740,6 @@ class Model(_StrictBlock):
                     errors.append(
                         f"Lookup '{lname}' maps '{lk.over}' into itself. A lookup maps into a different dimension."
                     )
-            errors.extend(self._declared_lookup_errors(lname, lk))
 
         for vname, vdef in self.variables.items():
             for side in ('lower', 'upper'):
