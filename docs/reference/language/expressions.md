@@ -376,17 +376,14 @@ referencing it would lose rows it never masked. It is not free: with no mask to
 narrow the frame, the last arm has to say what an absent parameter or an
 unnamed label gets.
 
-**`when:`, not `where:`.** A case selects which value a coordinate takes; it
-creates no absence and deletes no row, which is what `where` means on every
-other block. A cased expression has no `where` of its own.
-
 **`foreach:` is required with cases and refused without.** An uncased
 expression's dims fall out of its body; a cased one's cannot, since a case may
-be a scalar where its `when` is not — `always_on` above is exactly that. Each
-`when` is held to that frame the way a variable's or a constraint's mask is,
-and each case's value must sit inside it. **The dims of a reference are the
-declared `foreach`**, not the union of the arms: an arm narrower than the frame
-broadcasts, exactly as a parameter with fewer dims does.
+be a scalar while the condition selecting it is not — `always_on` above is
+exactly that. Each `when` is held to that frame the way a variable's or a
+constraint's mask is, and each case's value must sit inside it. **The dims of a
+reference are the declared `foreach`**, not the union of the arms: an arm
+narrower than the frame broadcasts, exactly as a parameter with fewer dims
+does.
 
 One `expression:` or a set of `cases:`, never both and never neither, and two
 cases at least — one case is one value everywhere, which the plain form says.
@@ -405,8 +402,7 @@ where a paper states a quantity defined by region:
 
 $$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
-The heading is _Definitions_ rather than the conventional _where_, which in
-this repo is a keyword and would read as the wrong thing. A cased expression
+A cased expression
 joins the symbol pool like any other quantity, so `--symbols` can rename one;
 uncased ones stay out, since a table entry for one would never apply.
 

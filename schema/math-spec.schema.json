@@ -188,7 +188,7 @@
     },
     "ExpressionCase": {
       "additionalProperties": false,
-      "description": "One case of a named expression: the value, and where it is the value.\n\n``when`` rather than ``where``: a case selects which value a coordinate\ntakes and creates no absence, which is what ``where`` means on every other\nblock (:doc:`absence </reference/language/absence>`). The **last** case\nomits ``when:`` and is the fallback, which is what makes the quantity total.",
+      "description": "One case of a named expression: the value, and when it is the value.",
       "properties": {
         "expression": {
           "anyOf": [

@@ -323,13 +323,7 @@ Expression = Annotated[str, BeforeValidator(_number_is_an_expression, json_schem
 
 
 class ExpressionCase(_StrictBlock):
-    """One case of a named expression: the value, and where it is the value.
-
-    ``when`` rather than ``where``: a case selects which value a coordinate
-    takes and creates no absence, which is what ``where`` means on every other
-    block (:doc:`absence </reference/language/absence>`). The **last** case
-    omits ``when:`` and is the fallback, which is what makes the quantity total.
-    """
+    """One case of a named expression: the value, and when it is the value."""
 
     _label: ClassVar[str] = 'an expression case'
 
@@ -400,7 +394,7 @@ class ExpressionBlock(_StrictBlock):
         if self.cases and self.foreach is None:
             msg = (
                 '`cases:` needs a `foreach:` — it is the frame the cases are read over, and no one '
-                "case's body gives it, since a case may be a scalar where its `when` is not."
+                "case's body gives it, since a case may be a scalar while the condition selecting it is not."
             )
             raise ValueError(msg)
         if self.foreach is not None and not self.cases:
