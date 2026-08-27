@@ -14,10 +14,11 @@ Nothing here has seen data.
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, override
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, get_args, override
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     PrivateAttr,
     ValidationError,
@@ -307,6 +308,19 @@ class MacroBlock(_StrictBlock):
         return self
 
 
+def _number_is_an_expression(value: Any) -> Any:
+    """``expression: 0`` is how a file writes a constant — YAML reads it as an int.
+
+    Booleans are left to fail: ``true`` is not arithmetic, and an error naming
+    the type reads better than one naming ``'True'``.
+    """
+    return str(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else value
+
+
+#: An expression string, or a number written as one.
+Expression = Annotated[str, BeforeValidator(_number_is_an_expression, json_schema_input_type=str | float)]
+
+
 class ExpressionBlock(_StrictBlock):
     """A named quantity: one arithmetic expression, readable after a solve.
 
@@ -323,7 +337,7 @@ class ExpressionBlock(_StrictBlock):
 
     _label: ClassVar[str] = 'a named expression'
 
-    expression: str
+    expression: Expression
     description: str | None = None
 
     @model_validator(mode='before')

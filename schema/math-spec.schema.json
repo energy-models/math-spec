@@ -127,8 +127,15 @@
               "title": "Description"
             },
             "expression": {
-              "title": "Expression",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "title": "Expression"
             }
           },
           "required": [
