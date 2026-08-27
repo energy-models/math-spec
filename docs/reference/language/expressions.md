@@ -407,6 +407,9 @@ this repo is a keyword and would read as the wrong thing. A cased expression
 joins the symbol pool like any other quantity, so `--symbols` can rename one;
 uncased ones stay out, since a table entry for one would never apply.
 
+[The unit commitment example](../../examples/commitment.md) is the whole model
+this section is drawn from.
+
 **Cases in a `macros:` template are a follow-up.** The fallback would have to
 cover a frame the macro does not have until it is called.
 

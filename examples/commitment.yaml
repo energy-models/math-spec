@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  Unit commitment with a start-up ramp, the formulation `cases:` exists for.
+  The state a unit carries into a snapshot has three regimes — a unit that is
+  never off, the first snapshot, and every later one — and writing them at the
+  constraint would fork `ramp_up` three ways. Named once, the inequality is
+  written once.
+
+dimensions:
+  snapshot: { dtype: int, description: dispatch periods }
+  generator: { values: [nuclear, gas, oil], description: generating units }
+
+parameters:
+  committable: { dims: [generator], dtype: bool, description: whether the unit may be switched off }
+  status_initial: { dims: [generator], description: whether the unit was running before the horizon }
+  p_max: { dims: [generator], description: installed capacity }
+  p_min: { dims: [generator], description: output floor while running }
+  ramp_limit: { dims: [generator], description: how far output may move between snapshots while running }
+  start_up_limit: { dims: [generator], description: how far it may move in the snapshot it starts in }
+  load: { dims: [snapshot], description: demand to be met }
+  cost: { dims: [generator], description: marginal cost }
+
+variables:
+  p:
+    description: output of a generator in a snapshot
+    foreach: [snapshot, generator]
+    bounds: { lower: 0, upper: p_max }
+  status:
+    description: whether the unit is running in a snapshot
+    foreach: [snapshot, generator]
+    domain: binary
+
+expressions:
+  previous_status:
+    description: the commitment state a unit carries into a snapshot
+    foreach: [snapshot, generator]
+    cases:
+      always_on:
+        when: "not committable"
+        expression: 1
+      boundary:
+        when: "position(snapshot) == 0"
+        expression: status_initial
+      interior:
+        expression: shift(status, over=snapshot, offset=1)
+
+constraints:
+  power_balance:
+    foreach: [snapshot]
+    expression: sum(p, over=generator) == load
+  upper:
+    description: a unit that is not running produces nothing
+    foreach: [snapshot, generator]
+    expression: p <= status * p_max
+  lower:
+    description: and one that is running produces at least its floor
+    foreach: [snapshot, generator]
+    expression: p >= status * p_min
+  ramp_up:
+    description: >-
+      one inequality for both regimes — a unit already running is held to
+      `ramp_limit`, a unit starting up to `start_up_limit`.
+    foreach: [snapshot, generator]
+    expression: >-
+      p - shift(p, over=snapshot, offset=1, edge=0)
+      <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
+
+objective:
+  sense: minimize
+  expression: sum(p * cost)
