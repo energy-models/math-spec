@@ -26,7 +26,7 @@ not-done, its PR or issue in the note. Three words say the distance:
 **split** — the same feasible region and optimum under a different
 statement: several `where:` blocks, or a bookkeeping difference the note
 names · **open** — not stated yet · **out** — never stated, deliberately:
-emitted only under the keyword, scope or version the note names.
+emitted only under the keyword, scope or version the note names. A name carrying `{k}` or `{s}` stands for the family PyPSA numbers per segment or scenario.
 
 Each rung's banner below states what PyPSA solved its reference network
 to. What an engine makes of the same rung — the objective and prices across
