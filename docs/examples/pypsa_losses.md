@@ -21,7 +21,7 @@ file of its own — the model's description below says why. Its network is the s
 | `Line-loss_secants-*` | out | the secant mode solves for its segment count |
 
 <!-- reference:rung_13_losses:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's network at objective `10645.51008773467`, 150 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `10645.295879552297`, 150 rows.
 
 <details markdown="1">
 <summary>The network, as PyPSA code</summary>
@@ -44,21 +44,21 @@ OPTIMIZE = {'transmission_losses': {'mode': 'tangents', 'segments': 2}}
 
 
 def build():
-    """The spine plus a lossy triangle of lines, one of them extendable; resistances small enough at 1 kV to keep the loss below the flow."""
+    """The spine plus a 110 kV triangle of lines, one of them extendable — ohms a real line has, so the loss stays a few percent of the flow."""
     n = spine.build()
-    n.add('Bus', ['a', 'b', 'c'])
+    n.add('Bus', ['a', 'b', 'c'], v_nom=110)
     n.add('Generator', 'hydro13', bus='a', p_nom=80, marginal_cost=10)
     n.add('Generator', 'diesel13', bus='b', p_nom=80, marginal_cost=50)
-    n.add('Line', 'ab13', bus0='a', bus1='b', carrier='AC', x=0.1, r=0.0005, s_nom=60)
-    n.add('Line', 'bc13', bus0='b', bus1='c', carrier='AC', x=0.2, r=0.0008, s_nom=60)
+    n.add('Line', 'ab13', bus0='a', bus1='b', carrier='AC', x=30, r=6, s_nom=60)
+    n.add('Line', 'bc13', bus0='b', bus1='c', carrier='AC', x=60, r=9.7, s_nom=60)
     n.add(
         'Line',
         'ca13',
         bus0='c',
         bus1='a',
         carrier='AC',
-        x=0.15,
-        r=0.0005,
+        x=45,
+        r=6,
         s_nom=40,
         s_nom_extendable=True,
         s_nom_max=90,
