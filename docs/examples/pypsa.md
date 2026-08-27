@@ -207,7 +207,7 @@ def build():
 | [capital cost](#objective)       | done   | `periodized_cost` is an annuity, data prep  |
 
 <!-- reference:rung_03_expansion:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's network at objective `7633.908502024292`, 184 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `7633.908502024291`, 184 rows.
 
 <details markdown="1">
 <summary>The network, as PyPSA code</summary>
@@ -425,7 +425,7 @@ each type is three blocks by sense.
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's network at objective `10282.833333333334`, 102 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `10282.833333333332`, 102 rows.
 
 <details markdown="1">
 <summary>The network, as PyPSA code</summary>
@@ -795,6 +795,40 @@ def build():
 
 </details>
 <!-- reference:rung_09_multilink:end -->
+
+### Rung 11 — ac-dc-meshed
+
+PyPSA's `ac_dc_meshed` example, whole: meshed AC and DC, extendable lines,
+links and generators, carriers, a CO2 budget. Every statement above,
+composed; the first rung with an objective constant.
+
+<!-- reference:rung_11_ac_dc_meshed:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `-3474256.0405499237`, 468 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_11_ac_dc_meshed.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 11: PyPSA's own `ac_dc_meshed` example, whole — meshed AC and DC, extendable lines, links and generators, carriers, a CO2 budget."""
+
+from __future__ import annotations
+
+
+def build():
+    """The example network as PyPSA ships it — not the spine: every statement above, composed."""
+    import pypsa
+
+    return pypsa.examples.ac_dc_meshed()
+```
+
+</details>
+<!-- reference:rung_11_ac_dc_meshed:end -->
 
 ### Not on a rung
 

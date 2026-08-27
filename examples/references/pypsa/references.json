@@ -102,7 +102,7 @@
         "type": "transmission_volume_expansion_limit"
       }
     },
-    "objective": 7633.908502024292,
+    "objective": 7633.908502024291,
     "objective_constant": 0.0,
     "pypsa": "1.3.0",
     "rows": {
@@ -218,7 +218,7 @@
         "type": "operational_limit"
       }
     },
-    "objective": 10282.833333333334,
+    "objective": 10282.833333333332,
     "objective_constant": 0.0,
     "pypsa": "1.3.0",
     "rows": {
@@ -408,6 +408,40 @@
       "Generator-fix-p-upper": 16,
       "Link-fix-p-lower": 8,
       "Link-fix-p-upper": 8
+    }
+  },
+  "rung_11_ac_dc_meshed": {
+    "columns": {
+      "Generator-p": 60,
+      "Generator-p_nom": 6,
+      "Line-s": 70,
+      "Line-s_nom": 7,
+      "Link-p": 40,
+      "Link-p_nom": 4,
+      "objective_constant": 1
+    },
+    "global_constraints": {
+      "co2_limit": {
+        "sense": "<=",
+        "type": "primary_energy"
+      }
+    },
+    "objective": -3474256.0405499237,
+    "objective_constant": 21915277.518279143,
+    "pypsa": "1.3.0",
+    "rows": {
+      "Bus-nodal_balance": 90,
+      "Generator-ext-p-lower": 60,
+      "Generator-ext-p-upper": 60,
+      "Generator-ext-p_nom-lower": 6,
+      "GlobalConstraint-co2_limit": 1,
+      "Kirchhoff-Voltage-Law": 20,
+      "Line-ext-s-lower": 70,
+      "Line-ext-s-upper": 70,
+      "Line-ext-s_nom-lower": 7,
+      "Link-ext-p-lower": 40,
+      "Link-ext-p-upper": 40,
+      "Link-ext-p_nom-lower": 4
     }
   }
 }
