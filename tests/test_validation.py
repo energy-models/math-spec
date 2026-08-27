@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from math_spec._yaml import parse_yaml
-from math_spec.errors import LanguageError
+from math_spec.errors import LanguageError, SchemaError
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import load_model
 from math_spec.where_parser import DimensionPositionNode
@@ -637,3 +637,19 @@ class TestTheFrontDoor:
         assert 'upper' in written['variables']['p']['bounds'] and 'where' not in written['variables']['p'], (
             'a null and an infinite bound say nothing, so they are not written'
         )
+
+
+class TestANumberIsAnExpression:
+    """`expression: 0` is a constant, and YAML reads it as an int rather than a string."""
+
+    def test_a_number_is_read_as_the_expression_it_writes(self):
+        assert _schema(**{'expressions.always': {'expression': 1}}).expressions['always'].expression == '1'
+
+    def test_it_survives_the_round_trip_as_the_string_it_became(self):
+        model = _schema(**{'expressions.always': {'expression': 1.5}})
+        assert load_model(model.to_dict()).expressions['always'].expression == '1.5'
+
+    def test_a_boolean_is_still_not_an_expression(self):
+        """`true` is not arithmetic, and an error naming the type reads better than one naming `'True'`."""
+        with pytest.raises(SchemaError, match='valid string'):
+            _schema(**{'expressions.always': {'expression': True}})
