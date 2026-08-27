@@ -35,4 +35,4 @@ names:
   CVaR_inv_tail: '\mathrm{v}'
   CVaR_a: a
   CVaR_theta: '\theta'
-  CVaR: 'CVaR'
+  CVaR: "CVaR"
