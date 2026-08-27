@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.28](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.27...v0.0.0-alpha.28) (2026-08-27)
+
+
+### Bug Fixes
+
+* the ac-dc-meshed rung states its network, so the reference run needs no download ([#166](https://github.com/energy-models/math-spec/issues/166)) ([abf734c](https://github.com/energy-models/math-spec/commit/abf734c8cd294935907455048a39da585cca56e1))
+
 ## [0.0.0-alpha.27](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.26...v0.0.0-alpha.27) (2026-08-27)
 
 
