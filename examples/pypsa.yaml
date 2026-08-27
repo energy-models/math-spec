@@ -15,7 +15,7 @@ description: >-
 dimensions:
   snapshot:
     description: dispatch periods
-    dtype: int
+    dtype: datetime
   bus:
     description: network nodes
   generator:

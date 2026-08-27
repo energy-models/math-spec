@@ -15,7 +15,7 @@ description: >-
 dimensions:
   snapshot:
     description: dispatch periods, positions across every investment period
-    dtype: int
+    dtype: datetime
   period:
     description: investment periods — PyPSA's `investment_periods`
     dtype: int
