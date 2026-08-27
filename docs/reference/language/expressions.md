@@ -336,10 +336,10 @@ reads none pays for none.
 ### `cases:` — one quantity, a value per region
 
 Some quantities have no single expression. The commitment state a unit carries
-into a snapshot is `1` for a unit that is never switched off, an initial
-condition at the first snapshot, and last snapshot's status everywhere else —
-three regimes, one quantity. Written at the constraint, the regimes fork it
-three ways; named here, the inequality that uses the quantity is written once:
+into a snapshot has three regimes: `1` for a unit that is never switched off, an
+initial condition at the first snapshot, and the last snapshot's status
+everywhere else. Written at the constraint, those regimes fork the inequality
+three ways. Named here, the inequality is written once:
 
 ```yaml
 expressions:
@@ -385,13 +385,14 @@ ordering an arm ahead of the one that drops out, by giving the `shift` an
 open at load, because whether an arm has a value there depends on the data.
 
 **`foreach:` is required with cases and refused without.** An uncased
-expression's dims fall out of its body; a cased one's cannot, since a case may
+expression's dims fall out of its body. A cased one's cannot, since a case may
 be a scalar while the condition selecting it is not — `always_on` above is
-exactly that. Each `when` is held to that frame the way a variable's or a
-constraint's mask is, and each case's value must sit inside it. **The dims of a
-reference are the declared `foreach`**, not the union of the arms: an arm
-narrower than the frame broadcasts, exactly as a parameter with fewer dims
-does.
+exactly that. The declared frame is what each `when` is held to, the way a
+variable's or a constraint's mask is, and each case's value must sit inside it.
+
+**The dims of a reference are the declared `foreach`**, not the union of the
+arms: an arm narrower than the frame broadcasts, exactly as a parameter with
+fewer dims does.
 
 One `expression:` or a set of `cases:`, never both and never neither, and two
 cases at least — one case is one value everywhere, which the plain form says.
@@ -400,9 +401,9 @@ cases at least — one case is one value everywhere, which the plain form says.
 
 Every other named expression is substituted where it is used and prints nothing
 under its own name. A cased one is the exception, because it cannot inline
-legibly: three arms are three rows tall, so inlined at the use site, whatever
-follows the name would sit beside the **middle** arm — and a quantity written
-once in the file would print once per use on the page.
+legibly. Three arms are three rows tall, so whatever follows the name at the use
+site would sit beside the **middle** arm — and a quantity written once in the
+file would print once per use on the page.
 
 So a use prints the symbol, and the block prints once under a **Definitions**
 heading between `Subject to` and `Variable domains`, in declaration order,
@@ -410,9 +411,9 @@ where a paper states a quantity defined by region:
 
 $$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
-A cased expression
-joins the symbol pool like any other quantity, so `--symbols` can rename one;
-uncased ones stay out, since a table entry for one would never apply.
+A cased expression joins the symbol pool like any other quantity, so
+`--symbols` can rename one. Uncased ones stay out, since a table entry for one
+would never apply.
 
 [The unit commitment example](../../examples/commitment.md) is the whole model
 this section is drawn from.

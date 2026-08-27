@@ -10,10 +10,10 @@ formulation [`cases:`](../reference/language/expressions.md#cases--one-quantity-
 exists for.
 
 Read `previous_status` and then `ramp_up`. The cases are read **in order**, and
-the last one carries no `when:` — so the first arm whose condition holds is the
-value, and the fallback covers every coordinate the others leave. One value at
-every coordinate — never two, never none — is what lets `ramp_up` use the
-quantity the way it uses a parameter.
+the last one carries no `when:`. So the value at a coordinate is the first arm
+whose condition holds there, and the fallback covers every coordinate the others
+leave. One value at every coordinate — never two, never none — is what lets
+`ramp_up` use the quantity the way it uses a parameter.
 
 It prints the way a paper writes it: `ramp_up` names the quantity, and the
 block itself prints once below, under **Definitions**.
