@@ -1,12 +1,15 @@
 """The spine every rung starts from: two buses, a coal and a gas unit, one link, two loads.
 
-Four snapshots with three different weighting columns, none of them constant
+Four hourly snapshots with three different weighting columns, none of them constant
 and none 1.0, so a factor a formula drops or swaps cannot pass as identity.
 """
 
 from __future__ import annotations
 
-SNAPSHOTS = [0, 1, 2, 3]
+from datetime import datetime
+
+#: Four hourly stamps — snapshots are timestamps, as PyPSA's are in practice and as the file declares them.
+SNAPSHOTS = [datetime(2015, 1, 1, hour) for hour in range(4)]
 WEIGHTINGS = {'objective': [2.0, 1.5, 2.5, 3.0], 'stores': [0.5, 2.0, 1.5, 2.5], 'generators': [1.5, 0.5, 3.0, 2.0]}
 
 

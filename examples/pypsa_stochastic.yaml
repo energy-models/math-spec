@@ -17,7 +17,7 @@ dimensions:
     description: the futures dispatch is chosen in, each with a weight
   snapshot:
     description: dispatch periods
-    dtype: int
+    dtype: datetime
   bus:
     description: network nodes
   generator:

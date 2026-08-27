@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import pandas as pd
 
 MODEL = 'pypsa_multi_period.yaml'
@@ -17,7 +19,9 @@ def build():
     import pypsa
 
     n = pypsa.Network()
-    n.snapshots = pd.MultiIndex.from_tuples([(2020, t) for t in range(4)] + [(2030, t) for t in range(4, 8)])
+    n.snapshots = pd.MultiIndex.from_tuples(
+        [(2020, datetime(2020, 1, 1, t)) for t in range(4)] + [(2030, datetime(2030, 1, 1, t)) for t in range(4)]
+    )
     n.investment_periods = [2020, 2030]
     n.investment_period_weightings['objective'] = [1.0, 0.5]
     n.investment_period_weightings['years'] = [10.0, 10.0]
