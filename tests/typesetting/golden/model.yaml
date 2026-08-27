@@ -180,6 +180,6 @@ constraints:
     where: "false"
     expression: slack >= 0
 
-objective: # a sense, a product of two variables, a power over two parameters, and the summations a scalar objective spells out beside two scalar terms
+objective: # a sense, a product of two variables, a power over two parameters, a power of one of those, and the summations a scalar objective spells out beside two scalar terms
   sense: maximize
-  expression: sum(p * cost) + sum(p * p * cost) + sum(p * cost * growth ** lead) + sum(p * p_max) - reserve + -headroom
+  expression: sum(p * cost) + sum(p * p * cost) + sum(p * cost * growth ** lead) + sum(p * (growth ** lead) ** 2) + sum(p * p_max) - reserve + -headroom
