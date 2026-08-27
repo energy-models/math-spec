@@ -433,6 +433,9 @@ A cased expression joins the symbol pool like any other quantity, so
 `--symbols` can rename one. Uncased ones stay out, since a table entry for one
 would never apply.
 
+[The unit commitment example](../../examples/commitment.md) is the whole model
+this section is drawn from.
+
 **`cases:` inside a `macros:` template is not supported.** `default` would have
 to cover a frame the macro does not have until it is called.
 
