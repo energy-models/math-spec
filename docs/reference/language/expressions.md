@@ -370,11 +370,19 @@ is read — and none of them has to cover everything, because the fallback has n
 condition to fail. Both guarantees come from the _shape_ of the block; nothing
 has to analyse the conditions to establish them.
 
-The fallback is required rather than optional because a gap would leave the
-quantity undefined there, and absence [spreads](absence.md) — every constraint
-referencing it would lose rows it never masked. It is not free: with no mask to
-narrow the frame, the last arm has to say what an absent parameter or an
+The fallback is required. Without it a coordinate no `when` matches would have
+no value, and absence [spreads](absence.md) — a constraint reading the
+expression would lose rows it never masked. The last arm has no mask to narrow
+its frame, so it is the arm that has to say what an absent parameter or an
 unnamed label gets.
+
+But it picks an arm, not a value, and the arm that wins can have none itself.
+`interior` above is the case in point: its `shift` carries no `edge=`, so it has
+no value at the first snapshot, and `previous_status` is whole only because
+`boundary` sits above it and takes that coordinate first. Close such a hole by
+ordering an arm ahead of the one that drops out, by giving the `shift` an
+`edge=`, or with `absence: zero` on a masked variable. Nothing catches one left
+open at load, because whether an arm has a value there depends on the data.
 
 **`foreach:` is required with cases and refused without.** An uncased
 expression's dims fall out of its body; a cased one's cannot, since a case may
