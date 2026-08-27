@@ -154,7 +154,7 @@ def test_macro_arity_errors(call, match):
             id='a-built-in-operator',
         ),
         pytest.param(
-            {'dimensions.sum': {'values': [1]}},
+            {'dimensions.sum': {'dtype': 'int'}},
             "collides with the built-in operator 'sum'",
             id='a-built-in-operator-taken-by-a-dimension',
         ),

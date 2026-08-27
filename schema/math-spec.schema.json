@@ -79,7 +79,7 @@
     },
     "DimensionBlock": {
       "additionalProperties": false,
-      "description": "A declared dimension with optional dtype and values.\n\nA dimension is an axis and nothing else. The maps its members carry \u2014 a\ngenerator's bus, a snapshot's period \u2014 are top-level ``lookups:``\n(:class:`LookupBlock`), keyed by their own name.",
+      "description": "A declared dimension, and the dtype its coordinates must be.\n\nA dimension is an axis and nothing else: it declares that the axis exists\nand what its coordinates are typed as, never which coordinates there are \u2014\nthose are data, and arrive at bind time. The maps its members carry \u2014 a\ngenerator's bus, a snapshot's period \u2014 are top-level ``lookups:``\n(:class:`LookupBlock`), keyed by their own name.",
       "properties": {
         "description": {
           "anyOf": [
@@ -103,19 +103,6 @@
           ],
           "title": "Dtype",
           "type": "string"
-        },
-        "values": {
-          "anyOf": [
-            {
-              "items": {},
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Values"
         }
       },
       "title": "DimensionBlock",
@@ -157,7 +144,7 @@
     },
     "LookupBlock": {
       "additionalProperties": false,
-      "description": "A named single-valued map out of a dimension (the declaration rules).\n\nExactly one of ``into:`` (a groupable map onto that dimension, what\n``sum(by=)`` lands terms on) or ``dtype:`` (its own label space, selection\nonly)::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n      period: {over: snapshot, dtype: int}\n\n``values:`` gives the map in the file as ``{label of over: value}``; a label\nit omits is unmapped. Without it the map is supplied at bind time.",
+      "description": "A named single-valued map out of a dimension (the declaration rules).\n\nExactly one of ``into:`` (a groupable map onto that dimension, what\n``sum(by=)`` lands terms on) or ``dtype:`` (its own label space, selection\nonly)::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n      period: {over: snapshot, dtype: int}\n\nThe map itself is data, and arrives at bind time under the lookup's name.",
       "properties": {
         "description": {
           "anyOf": [
@@ -204,18 +191,6 @@
         "over": {
           "title": "Over",
           "type": "string"
-        },
-        "values": {
-          "anyOf": [
-            {
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Values"
         }
       },
       "required": [

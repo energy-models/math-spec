@@ -84,12 +84,14 @@ variable unbounded, a dropped `where:` leaves it unmasked.
 ## How the YAML is read
 
 - **Booleans are YAML 1.2** (`true` / `false` only); everything else is read as
-  1.1. Under 1.1 `on` / `off` / `yes` / `no` / `y` / `n` become booleans and
-  silently destroy dimension labels that are country codes, so
-  `values: [no, se, on]` is three labels here.
+  1.1. Under 1.1 `on` / `off` / `yes` / `no` / `y` / `n` become booleans and a
+  declaration named after a country code stops being one, so `no: {dtype: str}`
+  is a dimension called `no` here.
 - **Implicit timestamps** (`2024-01-01`) and sexagesimal integers (`12:30` →
-  `750`) survive, and the `dtype` of a dimension catches them wherever they
-  were not meant ([dimensions](dimensions.md)).
+  `750`) survive. Neither reaches a coordinate, which is data; a literal in a
+  `where` string is where one is read as a label, and there the `dtype` of the
+  name it is compared against catches it
+  ([expressions](expressions.md#where-strings)).
 - **A duplicate key is a load error** naming both lines.
 - **`<<:` merge keys are honoured**, and a key the mapping declares itself
   overrides the merged value.

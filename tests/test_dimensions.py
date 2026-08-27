@@ -30,8 +30,8 @@ if TYPE_CHECKING:
 BASE = {
     'dimensions': {
         'snapshot': {'dtype': 'int'},
-        'generator': {'values': ['wind', 'gas']},
-        'bus': {'values': ['n', 's']},
+        'generator': {'dtype': 'str'},
+        'bus': {'dtype': 'str'},
     },
     'lookups': {
         'gen_bus': {'over': 'generator', 'into': 'bus'},

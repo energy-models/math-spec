@@ -9,21 +9,21 @@ for a language whose scalars are user data. The loader is the only layer that
 can see them, so both are fixed here:
 
 - **1.2 booleans.** ``on``/``off``/``yes``/``no``/``y``/``n`` are ordinary
-  dimension labels — country codes, region names, tech names. YAML 1.1
-  resolves them to ``True``/``False``, and the rows they keyed then vanish
-  from the model without a word. Only ``true``/``false`` are booleans here,
-  which is the YAML 1.2 core schema.
+  names in this language — a country code as a dimension, a mode as a lookup.
+  YAML 1.1 resolves them to ``True``/``False``, so the declaration the file
+  writes is not the one that reaches the schema. Only ``true``/``false`` are
+  booleans here, which is the YAML 1.2 core schema.
 - **Duplicate keys.** 1.1 lets the last one win silently, discarding a
   declaration the file plainly contains.
 
 Two further 1.1 coercions survive on purpose — the implicit timestamp
-(``2024-01-01`` → ``date``) and sexagesimal ints (``12:30`` → ``750``). Both
-are load errors where they are wrong rather than problems here: a coerced
-coordinate is caught against its declared ``dtype`` (``validation.py``), and so
-is a literal on the other side of a ``where`` comparison
-(``resolution.py``). ``dtype: datetime`` is implemented — a label needs only an
-order and equality, and nothing does arithmetic on a coordinate — so the
-timestamp coercion is the *useful* reading here, not a hazard to route around.
+(``2024-01-01`` → ``date``) and sexagesimal ints (``12:30`` → ``750``). Neither
+reaches a coordinate, which is data and never written here; a literal on the
+other side of a ``where`` comparison is where one would be read as a label, and
+there it is checked against the declared ``dtype`` (``resolution.py``).
+``dtype: datetime`` is implemented — a label needs only an order and equality,
+and nothing does arithmetic on a coordinate — so the timestamp coercion is the
+*useful* reading there, not a hazard to route around.
 
 The output is plain ``dict``/``str``: no loader wrapper reaches the schema
 or the AST.

@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, assert_never
+from typing import Any, assert_never
 
 from math_spec._yaml import read_yaml
 from math_spec.degree import carries_variable, check_expression
@@ -33,9 +32,6 @@ from math_spec.model import Model
 from math_spec.operators import BUILTINS, unknown_operator_message
 from math_spec.resolution import Namespace, resolve_expression, resolve_where
 from math_spec.where_parser import parse_where
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
 
 
 def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
@@ -83,8 +79,6 @@ def validate_expressions(schema: Model) -> None:
     ns = Namespace.of(schema)
     errors: list[str] = []
 
-    _check_declared_values(schema, errors)
-
     for mname, macro in schema.macros.items():
         context = f"Macro '{mname}'"
         formals = frozenset((*macro.args, *macro.kwargs))
@@ -121,43 +115,6 @@ def validate_expressions(schema: Model) -> None:
         raise SchemaError('\n'.join(errors))
 
     check_schema(schema)
-
-
-#: What each declared dimension ``dtype`` accepts as a coordinate value. ``bool``
-#: is excluded from ``int``/``float`` on purpose, being a Python int by accident.
-_DTYPE_TYPES: dict[str, tuple[type, ...]] = {
-    'str': (str,),
-    'int': (int,),
-    'float': (int, float),
-    'datetime': (datetime.date,),
-}
-
-
-def _mistyped_labels(lead: str, dtype: str, labels: Iterable[Any]) -> Iterator[str]:
-    """Every label in *labels* that is not *dtype*, as its own refusal — a coerced label joins nothing, and the rows vanish without a word."""
-    accepted = _DTYPE_TYPES[dtype]
-    return (
-        f"{lead} {label!r} has type {type(label).__name__}, but dtype is '{dtype}'.\n"
-        f'YAML resolves unquoted scalars by shape (2024-01-01 → date, '
-        f'12:30 → int) — quote the label, or declare the dtype it really is.'
-        for label in labels
-        if isinstance(label, bool) or not isinstance(label, accepted)
-    )
-
-
-def _check_declared_values(schema: Model, errors: list[str]) -> None:
-    """Reject a declared label that is not its dtype — in a dimension's ``values:``, and on both sides of a lookup's inline map."""
-    for dname, ddef in schema.dimensions.items():
-        errors.extend(_mistyped_labels(f"Dimension '{dname}': value", ddef.dtype, ddef.values or ()))
-
-    for lname, lookup in schema.lookups.items():
-        if lookup.values is None:
-            continue
-        errors.extend(_mistyped_labels(f"Lookup '{lname}': key", schema.dimensions[lookup.over].dtype, lookup.values))
-        dtype = schema.dimensions[lookup.into].dtype if lookup.into is not None else lookup.dtype
-        if dtype is not None:
-            mapped = [label for label in lookup.values.values() if label is not None]
-            errors.extend(_mistyped_labels(f"Lookup '{lname}': value", dtype, mapped))
 
 
 def _prefixed(context: str, e: ValueError) -> str:

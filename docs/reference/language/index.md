@@ -15,7 +15,7 @@ description: Least-cost dispatch of a generator fleet against an hourly load.
 
 dimensions:
   snapshot: { dtype: int }
-  generator: { values: [wind, solar, gas] }
+  generator: { dtype: str }
 
 parameters:
   load: { dims: [snapshot] }
@@ -48,7 +48,7 @@ in a different position, and each links to the page that spells it out.
 
 | #   | Rule                                                                                                                                                                                                                                                                                                                                               |                                                        |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 1   | Ten declaration keys plus `version` and `description`, and the schema is **closed at every level** — an unknown key is an error naming the near miss. Booleans are YAML 1.2, so `no` / `on` / `off` stay labels.                                                                                                                                   | [File shape](file.md)                                  |
+| 1   | Ten declaration keys plus `version` and `description`, and the schema is **closed at every level** — an unknown key is an error naming the near miss. Booleans are YAML 1.2, so `no` / `on` / `off` stay names.                                                                                                                                    | [File shape](file.md)                                  |
 | 2   | Everything decidable without data is **decided without data**.                                                                                                                                                                                                                                                                                     | [Errors](errors.md)                                    |
 | 3   | **One flat namespace, no shadowing** — a collision is a load error naming both declarations.                                                                                                                                                                                                                                                       | [Names](expressions.md#name-resolution)                |
 | 4   | **Position decides which kinds of name are legal**, and a name's kind is fixed at load time. A dimension is never legal in a value position: it is a coordinate space, not data.                                                                                                                                                                   | [Names](expressions.md#name-resolution)                |

@@ -12,21 +12,22 @@ things and the file keeps them apart.
 
 ```yaml
 dimensions:
-  snapshot: { dtype: int } # coordinates come from the data
-  generator: { values: [wind, solar, gas] } # coordinates are given here
+  snapshot: { dtype: int }
+  generator: { dtype: str }
 ```
 
 Every dimension named anywhere in the file must be declared here.
 
-| Field         |                                   |                                                  |
-| ------------- | --------------------------------- | ------------------------------------------------ |
-| `dtype`       | `float`, `int`, `str`, `datetime` | default `str`                                    |
-| `values`      | the coordinates, as a list        | default `null` — they must then arrive from data |
-| `description` | free text, never parsed           | default `null`                                   |
+| Field         |                                   |                |
+| ------------- | --------------------------------- | -------------- |
+| `dtype`       | `float`, `int`, `str`, `datetime` | default `str`  |
+| `description` | free text, never parsed           | default `null` |
 
-Every declared value must be of the declared `dtype`. `values: [2024-01-01]`
-under the default `dtype: str` is a load error: YAML resolved it to a date, and
-a date does not join `'2024-01-01'` in the data.
+**A declaration says the axis exists and what its coordinates are typed as,
+never which coordinates there are.** The members are data and arrive with it —
+a file naming them would be a second place to look, and a real model's
+generators, buses and snapshots are a table rather than a list somebody keeps
+in step by hand.
 
 **One master coordinate set per dimension, resolved before any data binds.**
 Every parameter is reindexed onto it, so two tables that disagree about which
@@ -63,8 +64,7 @@ against it once data is bound — the check that makes `sum(by=)` safe.
 **A partial lookup is legal**: a label the map leaves out belongs to no group —
 a generator on no bus, a line with one open end — and `sum(by=)` places its
 terms nowhere. A value naming no label of the target is a typo, and an error.
-Either transport spells "left out" the same way, by omission — an entry the
-declared map does not carry, a label with no row in the supplied one.
+"Left out" is spelled by omission: a label with no row in the map.
 
 **Several at once**: `sum(x, by=[gen_bus, gen_tech])` groups through both maps
 in one reduction, landing on `bus` _and_ `technology`. Every lookup in the list
@@ -72,7 +72,7 @@ must be `over:` the same dimension — one grouping consumes one dimension — a
 must target a different one. A member either map leaves out belongs to no group
 at all, the same reading one unmapped member gets.
 
-### `dtype:` declares an inline label space — the selection-only kind
+### `dtype:` declares a label space of its own — the selection-only kind
 
 It owns its values, targets nothing, and puts no entry under `dimensions:`,
 because a label space nothing aggregates into is not part of the model's
@@ -96,36 +96,7 @@ a name of its own (`period: {...}` under `dimensions:`,
 `period_of: {over: snapshot, into: period}`) — a promotion made the day the
 model genuinely gains the axis.
 
-### `values:` puts a small map in the file
-
-Keyed by the labels of `over` — what a dimension's own `values:` does for its
-labels, for a relation small enough to read:
-
-```yaml
-dimensions:
-  generator: { values: [g1, g2] }
-  bus: { values: [north, south] }
-lookups:
-  gen_bus: { over: generator, into: bus, values: { g1: north, g2: south } }
-```
-
-A label it omits is unmapped, which is the partial case above. Both sides are
-labels, so both carry the dtype rule a dimension's own `values:` carries: a key
-is of `over`'s dtype, and a value of the target's — or of the lookup's own,
-where it is a label space.
-
-**Where the target declares its values too, the containment check runs at
-load** rather than at bind, which is the reason to prefer declaring a small map
-over supplying it.
-
-**Labels from the caller, maps from the file** is the shape this is for: a
-relation small enough to read stays beside the equation that traverses it,
-while the members it is about stay in the data. A map declares no labels of its
-own, and neither fact may be claimed twice. Which homes each has, what a label
-no map mentions gets, and why a key no label matches is a typo rather than a
-new member, is settled at bind time by whatever supplies the data.
-
-### Otherwise it is supplied under the lookup's own name
+### The map is supplied under the lookup's own name
 
 `gen_bus` is a source key like any other, carrying two columns — the dimension
 it runs `over`, and the space its values are labels of:
@@ -144,8 +115,8 @@ itself** for a label space, which owns its values and targets nothing.
 **A partial map is the rows it has.** `g3` is in no row, so `g3` sits on no
 bus — absence is the absent row, exactly as it is for a parameter, and a null
 in the value column is refused for saying both at once. The relation is
-single-valued per label of `over`, and a key that matches no label is the same
-typo a declared map's key is.
+single-valued per label of `over`, and a key matching no label of it is a typo
+rather than a new member.
 
 Supplying it this way touches no table but its own, which is what a caller who
 did not generate the index needs: a model can be extended with a lookup the
@@ -159,11 +130,10 @@ other extra, and this one would be a map read by accident.
 dimension — its own target included. `generator`'s map onto `bus` is `gen_bus`,
 never a second `bus`.
 
-Either kind is single-valued per label, and a map the file does not declare is
-supplied under the lookup's own name. Values are never
-inferred
-from the parameters that use the dimension: inferring would let a mistyped
-label extend the label space instead of being rejected.
+Either kind is single-valued per label, and either is supplied under the
+lookup's own name. Values are never inferred from the parameters that use the
+dimension: inferring would let a mistyped label extend the label space instead
+of being rejected.
 
 ## Dimension or lookup?
 
