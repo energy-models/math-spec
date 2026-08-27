@@ -1,0 +1,213 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  The multi-period class of a plain `n.optimize()`:
+  `multi_investment_periods`, stated on rungs 1 and 3 in a file of its own.
+  A snapshot belongs to an investment period, an asset stands in the periods
+  its build year and lifetime span, and capacity is paid once per period it
+  stands in, each period weighted; a carrier may grow only so much per
+  period. Which snapshots an asset is active in is data prep, because a
+  `where` reaches only the frame's own dimensions. A dimension a run may not
+  have cannot ride on `examples/pypsa.yaml`, so this class lives here.
+
+dimensions:
+  snapshot:
+    description: dispatch periods, positions across every investment period
+    dtype: int
+  period:
+    description: investment periods — PyPSA's `investment_periods`
+    dtype: int
+  bus:
+    description: network nodes
+  generator:
+    description: generating units, each on one bus
+  link:
+    description: controllable connections, each from one bus to another
+  load:
+    description: demands, each on one bus
+  carrier:
+    description: energy carriers, what a growth limit is set per
+
+parameters:
+  snapshot_weightings_objective:
+    description: PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost
+    dims: [snapshot]
+  period_weight_objective:
+    description: PyPSA's `investment_period_weightings.objective` — what a period's cost weighs
+    dims: [period]
+  Generator_active:
+    description: whether a generator stands in a snapshot's period — PyPSA's `active`, from build year and lifetime, data prep
+    dims: [snapshot, generator]
+    dtype: bool
+  Generator_capital_weight:
+    description: the sum of period weights a generator stands in — PyPSA's `active * period_weighting`, summed, data prep
+    dims: [generator]
+  Generator_first_active:
+    description: one in the first period a generator stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep
+    dims: [period, generator]
+  Carrier_max_growth:
+    description: most capacity of a carrier that may be added in a period; no value means no limit
+    dims: [carrier]
+  Carrier_max_relative_growth:
+    description: share of the previous period's additions that may be added on top
+    dims: [carrier]
+  Generator_p_nom:
+    description: nominal power
+    dims: [generator]
+  Generator_p_nom_extendable:
+    description: whether the nominal power is a decision
+    dims: [generator]
+    dtype: bool
+  Generator_p_nom_min:
+    description: least nominal power an extendable generator may be built at
+    dims: [generator]
+  Generator_p_nom_max:
+    description: most nominal power an extendable generator may be built at
+    dims: [generator]
+  Generator_capital_cost:
+    description: cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep
+    dims: [generator]
+  Generator_p_min_pu:
+    description: least output, per unit of nominal power
+    dims: [snapshot, generator]
+  Generator_p_max_pu:
+    description: most output, per unit of nominal power — an availability profile
+    dims: [snapshot, generator]
+  Generator_marginal_cost:
+    description: cost of one unit of output
+    dims: [snapshot, generator]
+  Link_p_nom:
+    description: nominal power
+    dims: [link]
+  Link_p_min_pu:
+    description: least flow, per unit of nominal power — negative for a link that carries both ways
+    dims: [snapshot, link]
+  Link_p_max_pu:
+    description: most flow, per unit of nominal power
+    dims: [snapshot, link]
+  Link_efficiency:
+    description: share of the flow that arrives at the link's `Link_bus1` end
+    dims: [link]
+  Link_marginal_cost:
+    description: cost of one unit of flow
+    dims: [snapshot, link]
+  Load_p_set:
+    description: demand
+    dims: [snapshot, load]
+
+lookups:
+  snapshot_period:
+    description: the investment period a snapshot falls in
+    over: snapshot
+    into: period
+  Generator_carrier:
+    description: the carrier a generator converts from
+    over: generator
+    into: carrier
+  Generator_bus:
+    description: the bus a generator sits on
+    over: generator
+    into: bus
+  Link_bus0:
+    description: the bus a link leaves
+    over: link
+    into: bus
+  Link_bus1:
+    description: the bus a link arrives at
+    over: link
+    into: bus
+  Load_bus:
+    description: the bus a load sits on
+    over: load
+    into: bus
+
+variables:
+  Generator_p:
+    description: "`Generator-p` — output of a generator in a snapshot"
+    foreach: [snapshot, generator]
+    where: Generator_active
+  Link_p:
+    description: >-
+      `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a
+      positive value withdraws there and injects at `Link_bus1`
+    foreach: [snapshot, link]
+  Generator_p_nom_ext:
+    description: >-
+      `Generator-p_nom` — nominal power where it is a decision; the parameter
+      of the same PyPSA name carries the fixed regime
+    foreach: [generator]
+    where: Generator_p_nom_extendable
+
+constraints:
+  Generator_fix_p_lower:
+    description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
+    foreach: [snapshot, generator]
+    where: not Generator_p_nom_extendable AND Generator_active
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
+  Generator_fix_p_upper:
+    description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
+    foreach: [snapshot, generator]
+    where: not Generator_p_nom_extendable AND Generator_active
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
+  Generator_ext_p_lower:
+    description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable AND Generator_active
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
+  Generator_ext_p_upper:
+    description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
+    foreach: [snapshot, generator]
+    where: Generator_p_nom_extendable AND Generator_active
+    expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
+  Generator_ext_p_nom_lower:
+    description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
+    foreach: [generator]
+    where: Generator_p_nom_extendable
+    expression: Generator_p_nom_ext >= Generator_p_nom_min
+  Generator_ext_p_nom_upper:
+    description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
+    foreach: [generator]
+    where: Generator_p_nom_extendable AND Generator_p_nom_max
+    expression: Generator_p_nom_ext <= Generator_p_nom_max
+  Link_fix_p_lower:
+    description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
+    foreach: [snapshot, link]
+    expression: Link_p >= Link_p_min_pu * Link_p_nom
+  Link_fix_p_upper:
+    description: "`Link-fix-p-upper` — a link carries at most its nominal power"
+    foreach: [snapshot, link]
+    expression: Link_p <= Link_p_max_pu * Link_p_nom
+  Bus_nodal_balance:
+    description: >-
+      `Bus-nodal_balance` — what is generated at a bus, less what the links
+      take away, plus what arrives over them after losses, meets the load
+      there
+    foreach: [snapshot, bus]
+    expression: >-
+      sum(Generator_p, by=Generator_bus)
+      - sum(Link_p, by=Link_bus0)
+      + sum(Link_p * Link_efficiency, by=Link_bus1)
+      == sum(Load_p_set, by=Load_bus)
+  Carrier_growth_limit:
+    description: >-
+      `Carrier-growth_limit` — what a carrier adds in a period, counting each
+      build in the first period it stands in, is at most its allowance plus a
+      share of what it added the period before; the first period has no
+      predecessor, so `edge=0` leaves it the bare allowance
+    foreach: [carrier, period]
+    where: Carrier_max_growth
+    expression: >-
+      sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier)
+      - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier), over=period, offset=1, edge=0)
+      * Carrier_max_relative_growth
+      <= Carrier_max_growth
+
+objective:
+  sense: minimize
+  description: operating cost by weighted snapshot and weighted period, and capacity once per period it stands in
+  expression: >-
+    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period))
+    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period))
+    + sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)

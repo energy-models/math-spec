@@ -421,7 +421,7 @@ each type is three blocks by sense.
 | [`transmission_expansion_cost_limit`](#transmission_expansion_cost_limit) | split | a block per sense                     |
 | [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | split | a block per sense                             |
 | `Bus-nom_min/max_{carrier}`           | out         | deprecated in PyPSA                               |
-| `Carrier-growth_limit`                | out         | multi-period                                      |
+| [`Carrier-growth_limit`](pypsa_multi_period.md) | done | rung 15, a file of its own |
 | `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
