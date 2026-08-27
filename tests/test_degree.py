@@ -77,6 +77,7 @@ def test_the_affine_ceiling_refuses_and_names_the_rewrite(text, fragment):
         pytest.param('sum(p, over=g) * q', id='one-multi-term-factor'),
         pytest.param('(p + q) * c * p', id='a-sum-against-one-term'),
         pytest.param('p * q / c', id='a-quadratic-over-a-parameter'),
+        pytest.param('p * r * c', id='a-broadcast-product-of-disjoint-dims'),
     ],
 )
 def test_the_objective_takes_degree_two(text):

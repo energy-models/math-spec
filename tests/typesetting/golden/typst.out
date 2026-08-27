@@ -53,7 +53,7 @@ $abs(cal(T))$ denotes the size of the set being counted along, and a position co
 
 == Objective
 #set math.equation(numbering: "(1)")
-$  & max & sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot p_(t,g) dot upright("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) dot upright("growth")^(upright("lead")_(g)) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("p")^(upright("max"))_(g) - italic("reserve") - italic("headroom") $
+$  & max & sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot p_(t,g) dot upright("cost")_(g) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) dot upright("growth")^(upright("lead")_(g)) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot (upright("growth")^(upright("lead")_(g)))^(2) + sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("p")^(upright("max"))_(g) - italic("reserve") - italic("headroom") $
 
 == Subject to
 #set math.equation(numbering: "(1)")
