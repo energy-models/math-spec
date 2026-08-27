@@ -26,7 +26,7 @@ not-done, its PR or issue in the note. Three words say the distance:
 **split** — the same feasible region and optimum under a different
 statement: several `where:` blocks, or a bookkeeping difference the note
 names · **open** — not stated yet · **out** — never stated, deliberately:
-emitted only under the keyword, scope or version the note names.
+emitted only under the keyword, scope or version the note names. A name carrying `{k}` or `{s}` stands for the family PyPSA numbers per segment or scenario.
 
 Each rung's banner below states what PyPSA solved its reference network
 to. What an engine makes of the same rung — the objective and prices across
@@ -606,7 +606,7 @@ def build():
 | [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(within=min_up_time)`                    |
 | [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal, not a parameter |
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
-| `{c}-com-p-before/-current/-partly-*`        | out    | only under `linearized_unit_commitment`                       |
+| [`{c}-com-p-before/-current/-partly-*`](pypsa_linearized_uc.md) | done | rung 12, a file of its own                          |
 
 <!-- reference:rung_07_commitment:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `7775.0`, 116 rows.

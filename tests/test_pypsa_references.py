@@ -96,14 +96,37 @@ def test_every_declared_variable_is_built_by_some_reference():
     assert not unbuilt, f'no reference network builds these declared variables — extend a fixture: {sorted(unbuilt)}'
 
 
+def _stated(name: str, row: str) -> bool:
+    """A declared name carries `{k}` or `{s}` where PyPSA names a family of rows, one per segment or scenario."""
+    return re.fullmatch(re.sub(r'\\\{[a-z]\\\}', '.+', re.escape(name)), row) is not None
+
+
+BASE = load_model(DECLARED['pypsa.md'])
+
+
+@pytest.mark.parametrize('page', [page for page in DECLARED if page != 'pypsa.md'])
+def test_a_file_of_its_own_shares_its_declarations_with_the_base(page: str):
+    """A keyword file restates the base surface; a shared name keeps its PyPSA name and its dtype, or it has drifted."""
+    own = load_model(DECLARED[page])
+    drifted = []
+    for section in ('parameters', 'lookups', 'variables', 'constraints'):
+        theirs, ours = getattr(BASE, section), getattr(own, section)
+        for name in set(theirs) & set(ours):
+            if (theirs[name].description or '').split(' — ')[0] != (ours[name].description or '').split(' — ')[0]:
+                drifted.append(f'{section}.{name}: description')
+            if section == 'parameters' and theirs[name].dtype != ours[name].dtype:
+                drifted.append(f'{section}.{name}: dtype')
+    assert not drifted, f'{page} drifted from pypsa.yaml on {sorted(drifted)}'
+
+
 def test_pypsa_builds_no_row_the_files_do_not_declare():
     named = {row for row in RECORDED_ROWS if not row.startswith('GlobalConstraint-')}
-    unmatched = named - ROWS_DECLARED
+    unmatched = {row for row in named if not any(_stated(name, row) for name in ROWS_DECLARED)}
     assert not unmatched, f'pypsa builds these and the files declare nothing that stands for them: {sorted(unmatched)}'
 
 
 def test_every_declared_row_is_built_by_some_reference():
-    unbuilt = ROWS_DECLARED - GC_TYPES - RECORDED_ROWS
+    unbuilt = {name for name in ROWS_DECLARED - GC_TYPES if not any(_stated(name, row) for row in RECORDED_ROWS)}
     assert not unbuilt, f'no reference network builds these declared rows — extend a fixture: {sorted(unbuilt)}'
 
 

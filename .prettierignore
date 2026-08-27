@@ -24,6 +24,7 @@ docs/examples/dispatch.md
 docs/examples/operators.md
 docs/examples/pypsa.md
 docs/examples/pypsa_quadratic.md
+docs/examples/pypsa_linearized_uc.md
 
 # The PyPSA reference scripts write this file; prettier would reformat what
 # they stamp, and the two would fight over it exactly as above.
