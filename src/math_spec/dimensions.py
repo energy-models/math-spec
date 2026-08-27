@@ -30,6 +30,7 @@ from math_spec.errors import DimensionError
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     ExpressionNode,
@@ -107,6 +108,11 @@ def _dims(
 
     if isinstance(node, FunctionCallNode):
         return _dims_call(node, schema, context)
+
+    if isinstance(node, CasesNode):
+        # the declared frame, not the union of the arms: an arm narrower than
+        # it broadcasts, as a parameter with fewer dims does
+        return frozenset(schema.expressions[node.name].foreach or ())
 
     assert_never(node)
 
@@ -313,6 +319,20 @@ def check_schema(schema: Model) -> None:
                         f"{sorted(bdims - frame)} outside the variable's foreach "
                         f'{sorted(frame)}.'
                     )
+
+    for ename, block in schema.expressions.items():
+        if not block.cases:
+            continue
+        frame = frozenset(block.foreach or [])
+        for case_name, case in block.cases.items():
+            context = f"Named expression '{ename}', case '{case_name}'"
+            _check_where_dims(where_of(case.when, ns, context), schema, frame, context)
+            got = dims_of(expression_of(case.expression, schema, ns, context), schema, context)
+            if not got <= frame:
+                raise DimensionError(
+                    f'{context}: the value carries dims {sorted(got - frame)} outside the foreach '
+                    f'{sorted(frame)}. A case is a value within the frame — it cannot widen it.'
+                )
 
     for cname, cdef in schema.constraints.items():
         frame = frozenset(cdef.foreach)

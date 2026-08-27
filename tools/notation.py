@@ -53,6 +53,7 @@ BEGIN, END = '<!-- notation:begin -->', '<!-- notation:end -->'
 SECTIONS = {
     'objective': 'The objective',
     'constraints': 'Constraints',
+    'expressions': 'Definitions',
     'variables': 'Variable domains',
     'piecewise': 'Curves, as what they expand to',
     'sos': 'Sets carried to the solver',

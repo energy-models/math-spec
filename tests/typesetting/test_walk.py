@@ -15,7 +15,7 @@ from math_spec.errors import LanguageError
 from math_spec.piecewise import expand_piecewise
 from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset
 from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.typesetting.symbols import Symbols, _derive_name_symbol
+from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
 from math_spec.validation import load_model
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, override
 from tests.typesetting import golden
@@ -471,9 +471,10 @@ def test_nothing_the_model_is_given_prints_italic():
     lands in one of these two nets.
     """
     schema = expand_piecewise(load_model(golden.MODEL))
+    chosen = set(schema.variables) | chosen_expressions(schema)
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
-    assert italic <= set(schema.variables), (
-        f'{sorted(italic - set(schema.variables))} print italic and are not variables — '
+    assert italic <= chosen, (
+        f'{sorted(italic - chosen)} print italic and are not quantities the solver decides — '
         f'upright is what the model is given'
     )
 

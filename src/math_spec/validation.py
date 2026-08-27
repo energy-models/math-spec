@@ -18,6 +18,7 @@ from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     FunctionCallNode,
     KeywordNode,
@@ -102,9 +103,15 @@ def validate_expressions(schema: Model) -> None:
         _check_template_names(body_ast, macro.template, context, ns, formals, errors)
 
     for ename, block in schema.expressions.items():
-        _check_expression(
-            block.expression, schema, ns, f"Named expression '{ename}'", errors, comparison=False, ceiling=1
-        )
+        context = f"Named expression '{ename}'"
+        if not block.cases:
+            assert block.expression is not None
+            _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=1)
+            continue
+        for case_name, case in block.cases.items():
+            case_context = f"{context}, case '{case_name}'"
+            _check_where(case.when, ns, case_context, errors)
+            _check_expression(case.expression, schema, ns, case_context, errors, comparison=False, ceiling=1)
 
     for vname, vdef in schema.variables.items():
         _check_where(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
@@ -286,6 +293,12 @@ def _check_template_names(
                 )
             elif kwarg not in edge_kwargs:
                 _check_template_names(value, template, context, ns, formals, errors)
+        return
+
+    if isinstance(node, CasesNode):
+        # the values only: a `when` is the declaration's, checked there
+        for arm in node.arms:
+            _check_template_names(arm.value, template, context, ns, formals, errors)
         return
 
     assert_never(node)

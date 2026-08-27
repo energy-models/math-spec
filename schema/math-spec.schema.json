@@ -125,8 +125,16 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Model.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds",
+          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Model.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by **region** is written as ``cases:``\ninstead \u2014 an ordered set of arms over a declared ``foreach:``, the last of\nthem the fallback::\n\n    previous_status:\n      foreach: [snapshot, generator]\n      cases:\n        always_on: { when: \"not committable\", expression: 1 }\n        boundary:  { when: \"position(snapshot) == 0\", expression: status_initial }\n        interior:  { expression: shift(status, over=snapshot, offset=1) }\n\nSo the constraint that needs it names it, rather than being forked into one\ncopy per regime.",
           "properties": {
+            "cases": {
+              "additionalProperties": {
+                "$ref": "#/$defs/ExpressionCase"
+              },
+              "default": {},
+              "title": "Cases",
+              "type": "object"
+            },
             "description": {
               "anyOf": [
                 {
@@ -146,14 +154,30 @@
                 },
                 {
                   "type": "number"
+                },
+                {
+                  "type": "null"
                 }
               ],
+              "default": null,
               "title": "Expression"
+            },
+            "foreach": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Foreach"
             }
           },
-          "required": [
-            "expression"
-          ],
           "title": "ExpressionBlock",
           "type": "object"
         },
@@ -161,6 +185,40 @@
           "type": "string"
         }
       ]
+    },
+    "ExpressionCase": {
+      "additionalProperties": false,
+      "description": "One case of a named expression: the value, and where it is the value.\n\n``when`` rather than ``where``: a case selects which value a coordinate\ntakes and creates no absence, which is what ``where`` means on every other\nblock (:doc:`absence </reference/language/absence>`). The **last** case\nomits ``when:`` and is the fallback, which is what makes the quantity total.",
+      "properties": {
+        "expression": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Expression"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        }
+      },
+      "required": [
+        "expression"
+      ],
+      "title": "ExpressionCase",
+      "type": "object"
     },
     "LookupBlock": {
       "additionalProperties": false,

@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
+import copy
 import datetime
-from typing import TYPE_CHECKING
+import re
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from math_spec._yaml import parse_yaml
-from math_spec.errors import LanguageError, SchemaError
+from math_spec.errors import DimensionError, LanguageError, SchemaError
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import load_model
 from math_spec.where_parser import DimensionPositionNode
@@ -637,6 +639,133 @@ class TestTheFrontDoor:
         assert 'upper' in written['variables']['p']['bounds'] and 'where' not in written['variables']['p'], (
             'a null and an infinite bound say nothing, so they are not written'
         )
+
+
+#: A model with room for a cased expression: two dimensions, so an arm can be
+#: narrower than the frame, and a variable, so an arm can reach one.
+CASED_BASE = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'values': ['gas', 'oil']}},
+    'parameters': {'p_max': {'dims': ['generator']}, 'load': {'dims': ['snapshot']}},
+    'variables': {'p': {'foreach': ['snapshot', 'generator']}},
+}
+
+#: Two regions of one quantity: the opening snapshot, and everything else.
+OPENING_THEN_REST = {
+    'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'},
+    'later': {'expression': 0},
+}
+
+
+def _cased(cases: dict[str, Any] | None = None, **block: Any) -> dict[str, Any]:
+    """`CASED_BASE` with one cased expression named `headroom`."""
+    declared = {'foreach': ['snapshot', 'generator'], 'cases': cases or OPENING_THEN_REST, **block}
+    return {**copy.deepcopy(CASED_BASE), 'expressions': {'headroom': declared}}
+
+
+class TestExpressionCases:
+    """`cases:` on a named expression — the declaration, and the shape it must have."""
+
+    def test_a_cased_expression_loads(self):
+        schema = load_model(_cased())
+        assert list(schema.expressions['headroom'].cases) == ['opening', 'later']
+        assert schema.expressions['headroom'].cases['later'].when is None
+
+    def test_it_round_trips(self):
+        """The mapping form goes back out as it came in, fallback and all."""
+        schema = load_model(_cased(description='what is spare'))
+        assert load_model(schema.to_dict()).to_yaml() == schema.to_yaml()
+
+    def test_a_constant_case_may_be_written_as_a_number(self):
+        """YAML reads `expression: 0` as an int, and a constant is the common case body."""
+        assert load_model(_cased()).expressions['headroom'].cases['later'].expression == '0'
+
+    @pytest.mark.parametrize(
+        ('block', 'fragment'),
+        [
+            pytest.param(
+                {'expression': 'load', 'foreach': ['snapshot'], 'cases': OPENING_THEN_REST},
+                'this has both',
+                id='both',
+            ),
+            pytest.param({'description': 'nothing at all'}, 'this has neither', id='neither'),
+            pytest.param({'cases': OPENING_THEN_REST}, '`cases:` needs a `foreach:`', id='no-foreach'),
+            pytest.param(
+                {'expression': 'load', 'foreach': ['snapshot']},
+                '`foreach:` is only for a named expression with `cases:`',
+                id='foreach-alone',
+            ),
+        ],
+    )
+    def test_the_two_forms_do_not_mix(self, block: dict[str, Any], fragment: str):
+        model = {**copy.deepcopy(CASED_BASE), 'expressions': {'headroom': block}}
+        with pytest.raises(SchemaError, match=re.escape(fragment)):
+            load_model(model)
+
+    def test_one_case_is_one_expression(self):
+        with pytest.raises(SchemaError, match='at least two cases'):
+            load_model(_cased({'only': {'expression': 0}}))
+
+    def test_the_last_case_must_be_the_fallback(self):
+        """Without one the quantity has no value outside the arms, and absence spreads."""
+        cases = {
+            'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'},
+            'later': {'when': 'position(snapshot) > 0', 'expression': 0},
+        }
+        with pytest.raises(SchemaError, match='the last case is the fallback'):
+            load_model(_cased(cases))
+
+    def test_no_earlier_case_may_omit_its_when(self):
+        """A fallback above another arm would make that arm unreachable."""
+        cases = {'always': {'expression': 'p_max'}, 'opening': {'when': 'position(snapshot) == 0', 'expression': 0}}
+        with pytest.raises(SchemaError, match='the last case is the fallback'):
+            load_model(_cased(cases))
+
+    def test_the_frame_must_name_declared_dimensions(self):
+        with pytest.raises(SchemaError, match="references undeclared dimension 'region'"):
+            load_model(_cased(foreach=['snapshot', 'region']))
+
+    def test_a_case_may_not_widen_the_frame(self):
+        """A case is a value within the frame, and `load` carries a dim it lacks."""
+        cases = {'gas': {'when': "generator == 'gas'", 'expression': 'p_max'}, 'rest': {'expression': 'load'}}
+        with pytest.raises(DimensionError, match="case 'rest': the value carries dims \\['snapshot'\\]"):
+            load_model(_cased(cases, foreach=['generator']))
+
+    def test_a_when_may_not_test_a_dim_outside_the_frame(self):
+        """The same rule a variable's or a constraint's mask is held to."""
+        cases = {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}, 'later': {'expression': 0}}
+        with pytest.raises(DimensionError, match="'snapshot', which is not in the frame"):
+            load_model(_cased(cases, foreach=['generator']))
+
+    def test_an_unknown_name_in_a_case_is_a_load_error(self):
+        with pytest.raises(SchemaError, match="case 'later'"):
+            load_model(_cased({**OPENING_THEN_REST, 'later': {'expression': 'nonexistent'}}))
+
+    def test_a_case_may_not_compare(self):
+        cases = {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max >= 0'}, 'later': {'expression': 0}}
+        with pytest.raises(SchemaError, match='must not contain a comparison operator'):
+            load_model(_cased(cases))
+
+    def test_a_constraint_naming_it_carries_the_declared_frame(self):
+        """Not the union of the arms: an arm narrower than the frame broadcasts."""
+        model = _cased()
+        model['constraints'] = {'spare': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
+        load_model(model)
+
+        model['constraints'] = {'spare': {'foreach': ['generator'], 'expression': 'p <= headroom'}}
+        with pytest.raises(DimensionError, match='snapshot'):
+            load_model(model)
+
+    def test_an_arm_may_name_another_expression(self):
+        model = _cased({**OPENING_THEN_REST, 'opening': {'when': 'position(snapshot) == 0', 'expression': 'spare'}})
+        model['expressions']['spare'] = 'p_max * 2'
+        model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
+        load_model(model)
+
+    def test_a_macro_may_name_one(self):
+        model = _cased()
+        model['macros'] = {'twice': {'args': ['x'], 'template': 'x * 2'}}
+        model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= twice(headroom)'}}
+        load_model(model)
 
 
 class TestANumberIsAnExpression:

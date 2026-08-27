@@ -21,6 +21,8 @@ from math_spec.expansion import parse_and_expand
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CaseArm,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -327,6 +329,17 @@ def _resolve_arith(
             f'terms out and add them.'
         )
         return node
+
+    if isinstance(node, CasesNode):
+        arms = tuple(
+            CaseArm(
+                arm.label,
+                None if arm.when is None else _resolve_where(arm.when, ns, f"{context}, case '{arm.label}'", errors),
+                _resolve_arith(arm.value, ns, f"{context}, case '{arm.label}'", errors),
+            )
+            for arm in node.arms
+        )
+        return CasesNode(node.name, arms)
 
     assert_never(node)
 

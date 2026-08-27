@@ -19,7 +19,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from math_spec import read_yaml
+from math_spec import Namespace, expression_of, read_yaml
+from math_spec.degree import carries_variable
 from math_spec.errors import SchemaError, did_you_mean
 
 if TYPE_CHECKING:
@@ -74,6 +75,36 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, giv
     return _word(name, fmt, given=given)
 
 
+def printed_expressions(schema: Buildable) -> tuple[str, ...]:
+    """The named expressions that print under their own name, in declaration order.
+
+    A named expression is substituted where it is used, so it normally prints
+    nothing a symbol could stand for. A **cased** one is the exception: it
+    prints as a definition of its own, which the equations using it name. The
+    order is the file's, because the definitions print in it.
+    """
+    return tuple(name for name, block in schema.expressions.items() if block.cases)
+
+
+def chosen_expressions(schema: Buildable) -> frozenset[str]:
+    """The cased expressions the solver decides, rather than is handed.
+
+    A ``when`` does not move one: a variable there asks whether the variable
+    *exists*, which the model settles when it is built. Only a value reaching a
+    variable does — through a second cased expression's arms too, since
+    :func:`~math_spec.expression_of` expands those where the name stood.
+    """
+    namespace = Namespace.of(schema)
+    return frozenset(
+        name
+        for name in printed_expressions(schema)
+        if any(
+            carries_variable(expression_of(case.expression, schema, namespace, f"expression '{name}', case '{label}'"))
+            for label, case in schema.expressions[name].cases.items()
+        )
+    )
+
+
 class Symbols:
     r"""How every declared name prints: overrides first, derivation for the rest.
 
@@ -93,17 +124,19 @@ class Symbols:
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        declared = frozenset({*schema.parameters, *schema.variables})
+        printed = printed_expressions(schema)
+        chosen = frozenset(schema.variables) | chosen_expressions(schema)
+        declared = frozenset({*schema.parameters, *schema.variables, *printed})
 
         #: Names whose symbol came from the table rather than the derivation;
         #: the convention note quotes only the others, a table being free to
         #: map a parameter to an italic symbol.
-        self.overridden = frozenset(table.names) & {*schema.parameters, *schema.variables}
+        self.overridden = frozenset(table.names) & declared
         self.name: dict[str, str] = {
             name: table.names[name]
             if name in table.names
-            else _derive_name_symbol(name, declared, fmt, given=name in schema.parameters)
-            for name in (*schema.parameters, *schema.variables)
+            else _derive_name_symbol(name, declared, fmt, given=name not in chosen)
+            for name in (*schema.parameters, *schema.variables, *printed)
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}
 
@@ -213,7 +246,7 @@ class SymbolTable:
     def checked_against(self, schema: Buildable) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
-        everything = dims | set(schema.parameters) | set(schema.variables)
+        everything = dims | set(schema.parameters) | set(schema.variables) | set(printed_expressions(schema))
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),

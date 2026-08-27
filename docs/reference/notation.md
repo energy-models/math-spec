@@ -141,6 +141,18 @@ $$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm
 
 ### Constraints
 
+#### `starts`
+
+names the cased expression: its symbol prints here, its block once below
+
+```yaml
+starts:
+  foreach: [snapshot, generator]
+  expression: p <= startup_cost
+```
+
+$$p_{t,g} \le \mathrm{startup\_cost}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 #### `balance`
 
 sum over a lookup
@@ -488,6 +500,23 @@ never:
 ```
 
 $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \bot$$
+
+### Definitions
+
+#### `startup_cost`
+
+a quantity defined by region: read in order, the last arm the fallback
+
+```yaml
+startup_cost:
+  foreach: [snapshot, generator]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: cost }
+    winter: { when: "season_of == 'winter'", expression: cost * 2 }
+    rest: { expression: 0 }
+```
+
+$$\mathrm{startup\_cost}_{t,g} = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \cr 0 & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 ### Variable domains
 

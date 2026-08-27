@@ -333,6 +333,83 @@ anything consumes the model, so a reference costs nothing at build time. It is
 lowered only when it is _read_, so a model with fifty named expressions that
 reads none pays for none.
 
+### `cases:` — one quantity, a value per region
+
+Some quantities have no single expression. The commitment state a unit carries
+into a snapshot is `1` for a unit that is never switched off, an initial
+condition at the first snapshot, and last snapshot's status everywhere else —
+three regimes, one quantity. Written at the constraint they fork it three ways;
+named here, the inequality that uses it is written once:
+
+```yaml
+expressions:
+  previous_status:
+    description: the commitment state a unit carries into a snapshot
+    foreach: [snapshot, generator]
+    cases:
+      always_on:
+        when: "not committable"
+        expression: 1
+      boundary:
+        when: "position(snapshot) == 0"
+        expression: status_initial
+      interior:
+        expression: shift(status, over=snapshot, offset=1)
+constraints:
+  no_restart:
+    foreach: [snapshot, generator]
+    expression: status - previous_status <= 1
+```
+
+**The cases are read in order, and the last one is the fallback.** The value at
+a coordinate is the first arm whose `when` holds there, and the last arm
+carries no `when` at all. So the arms cannot disagree — only the first to match
+is read — and none of them has to cover everything, because the fallback has no
+condition to fail. Both are properties of the block's shape rather than claims
+about the masks, so nothing has to decide what a predicate could be true of.
+
+The fallback is required rather than optional because a gap would leave the
+quantity undefined there, and absence [spreads](absence.md) — every constraint
+referencing it would lose rows it never masked. It is not free: with no mask to
+narrow the frame, the last arm has to say what an absent parameter or an
+unnamed label gets.
+
+**`when:`, not `where:`.** A case selects which value a coordinate takes; it
+creates no absence and deletes no row, which is what `where` means on every
+other block. A cased expression has no `where` of its own.
+
+**`foreach:` is required with cases and refused without.** An uncased
+expression's dims fall out of its body; a cased one's cannot, since a case may
+be a scalar where its `when` is not — `always_on` above is exactly that. Each
+`when` is held to that frame the way a variable's or a constraint's mask is,
+and each case's value must sit inside it. **The dims of a reference are the
+declared `foreach`**, not the union of the arms: an arm narrower than the frame
+broadcasts, exactly as a parameter with fewer dims does.
+
+One `expression:` or a set of `cases:`, never both and never neither, and two
+cases at least — one case is one value everywhere, which the plain form says.
+
+### A cased expression is the one that keeps its name
+
+Every other named expression is substituted where it is used and prints nothing
+under its own name. A cased one is the exception: three arms are three rows
+tall, so inlined at the use site whatever follows sits beside the **middle**
+arm and reads as part of that arm's condition.
+
+So a use prints the symbol, and the block prints once under a **Definitions**
+heading between `Subject to` and `Variable domains`, in declaration order,
+where a paper states a quantity defined by region:
+
+$$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+The heading is _Definitions_ rather than the conventional _where_, which in
+this repo is a keyword and would read as the wrong thing. A cased expression
+joins the symbol pool like any other quantity, so `--symbols` can rename one;
+uncased ones stay out, since a table entry for one would never apply.
+
+**Cases in a `macros:` template are a follow-up.** The fallback would have to
+cover a frame the macro does not have until it is called.
+
 ## Macros
 
 A **parameterised** template. It has no dims until it is called, and each call

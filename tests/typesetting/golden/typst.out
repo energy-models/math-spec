@@ -57,7 +57,8 @@ $  & max & sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) + sum_
 
 == Subject to
 #set math.equation(numbering: "(1)")
-$ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g) + italic("spill")_(t) - italic("slack")_(t) & = upright("load")_(t,b) & forall t in cal(T), b in cal(B) \
+$ upright("starts") & p_(t,g) & <= upright("startup_cost")_(t,g) & forall t in cal(T), g in cal(G) \
+  upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g) + italic("spill")_(t) - italic("slack")_(t) & = upright("load")_(t,b) & forall t in cal(T), b in cal(B) \
   upright("ramp") & p_(t,g) - p_(t minus.o 1,g) & <= p_(t - 1,g) + upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
   upright("edges") & p_(t minus.square_(0) 1,g) & <= p_(t plus.square_(0) 1,g) + upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
   upright("ahead") & p_(t,g) & <= p_(t plus.o 1,g) & forall t in cal(T), g in cal(G) \
@@ -85,6 +86,10 @@ $ upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g)
   upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) \
   upright("redundant") & italic("spill")_(t) & >= 0 & forall t in cal(T) colon top and italic("spill")_(t) upright(" exists") \
   upright("never") & italic("slack")_(t) & >= 0 & forall t in cal(T) colon bot $
+
+== Definitions
+#set math.equation(numbering: "(1)")
+$ upright("startup_cost") & upright("startup_cost")_(t,g) & = cases(upright("cost")_(g) & upright("if ") upright("pos")(t) = 0, upright("cost")_(g) dot 2 & upright("if ") upright("season_of")(t) = upright("'winter'"), 0 & upright("otherwise")) & forall t in cal(T), g in cal(G) $
 
 == Variable domains
 #set math.equation(numbering: "(1)")
