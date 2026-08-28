@@ -58,7 +58,7 @@ from math_spec.where_parser import (
     ParameterComparisonNode,
     ParameterDefinedNode,
 )
-from tests.fixtures import schema_of
+from tests.fixtures import SMALL_MODEL, override, schema_of
 
 if TYPE_CHECKING:
     from math_spec.expression_parser import ArithmeticNode
@@ -199,6 +199,99 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
     lowered = _Lowering(dispatch_schema, 't').expr(resolved('cost ** cost', dispatch_schema))
     assert isinstance(lowered, Power), 'a variable-free power has a plan node of its own'
+
+
+#: `fixtures.SMALL_MODEL` plus a second groupable lookup and a per-entity
+#: offset. Which node a construct becomes is mostly a claim about the dim it
+#: consumes and the dim it lands on, and stating that needs a third dimension
+#: and two lookups over one of them.
+SHAPES_MODEL = override(
+    SMALL_MODEL,
+    **{
+        'dimensions.z': {'dtype': 'str'},
+        'lookups.lk2': {'over': 'g', 'into': 'z'},
+        'parameters.lead': {'dims': ['g'], 'dtype': 'int'},
+    },
+)
+
+
+@pytest.fixture
+def shapes_schema() -> Spec:
+    return schema_of(SHAPES_MODEL)
+
+
+@pytest.mark.parametrize(
+    ('expression', 'expected'),
+    [
+        pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
+        pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
+        pytest.param(
+            'sum(p, by=lk)',
+            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',)),
+            id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
+        ),
+        pytest.param(
+            'sum(p, by=[lk])',
+            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',)),
+            id='a-one-element-list-is-the-plain-form',
+        ),
+        pytest.param(
+            'sum(p, by=[lk, lk2])',
+            GroupSum(Variable('p'), over='g', coordinate=('lk', 'lk2'), into=('h', 'z')),
+            id='two-coordinates-are-one-grouping-with-paired-tuples',
+        ),
+        pytest.param(
+            'at(r, by=lk)',
+            At(Variable('r'), over='g', coordinate=('lk',), into=('h',)),
+            id='a-pullback-walks-the-same-table-back',
+        ),
+        pytest.param(
+            "shift(p, over=g, offset=1, edge='wrap')",
+            Translate(Variable('p'), 'g', offset=1, wrap=True, fill=None),
+            id='a-wrapping-translation-fills-nothing',
+        ),
+        pytest.param(
+            'shift(p, over=g, offset=-2, edge=0)',
+            Translate(Variable('p'), 'g', offset=-2, wrap=False, fill=0.0),
+            id='a-lead-is-a-negative-offset-and-the-edge-is-what-it-fills-with',
+        ),
+        pytest.param(
+            'shift(p, over=g, offset=lead, edge=0)',
+            Translate(Variable('p'), 'g', offset='lead', wrap=False, fill=0.0),
+            id='a-named-offset-crosses-as-the-parameter-name',
+        ),
+        pytest.param(
+            'shift(p, over=g, offset=1, by=lk, edge=0)',
+            Translate(Variable('p'), 'g', offset=1, wrap=False, fill=0.0, partition='lk'),
+            id='a-translation-stops-at-the-edges-of-the-lookup-it-names',
+        ),
+        pytest.param(
+            'sum_back(p, over=g, within=3)',
+            Window(Variable('p'), 'g', width=3, wrap=False),
+            id='a-window-is-one-node-rather-than-a-fold-of-translations',
+        ),
+        pytest.param(
+            'sum_back(p, over=g, within=k)',
+            Window(Variable('p'), 'g', width='k', wrap=False),
+            id='a-named-width-crosses-as-the-parameter-name',
+        ),
+        pytest.param(
+            'sum_back(p, over=g, within=2, by=lk)',
+            Window(Variable('p'), 'g', width=2, wrap=False, partition='lk'),
+            id='a-window-stops-at-the-edges-of-the-lookup-it-names',
+        ),
+    ],
+)
+def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
+    """Which node each surface construct becomes, and every field it arrives with.
+
+    The nodes are frozen dataclasses, so one `==` asserts the kind and all of
+    `over`, `into`, `wrap`, `fill`, `partition` and `width` at once — the
+    fields a partial assertion skips, which is where a lowering goes astray
+    while still producing a node of the right kind.
+    """
+    lowered = _Lowering(shapes_schema, 't').expr(resolved(expression, shapes_schema))
+    assert lowered == expected, 'the whole node, so no field is asserted by omission'
 
 
 def test_a_binary_variable_lowers_to_a_vtype():
