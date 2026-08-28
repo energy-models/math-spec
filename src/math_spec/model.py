@@ -74,17 +74,25 @@ class _StrictBlock(BaseModel):
         return data
 
 
-#: The dtype a dimension index may declare (the declaration rules).
+#: The dtype a dimension index may declare (the declaration rules), and what
+#: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
+#: order and compare, where a *value* of that type is a moment nothing
+#: computes with.
 DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 
 #: The dtype a parameter may declare (the declaration rules), and what its bound
-#: column must be.
+#: column must be. ``bool`` is a parameter's alone — a value column may be a
+#: flag a mask reads, where a label set of two members is a dimension nothing
+#: indexes by.
 ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
 
-#: What a masked variable's non-existence *means*.
+#: What a masked variable's non-existence *means* where it does not exist.
+#: ``undefined`` is the absence rules' default — a term carrying it takes its
+#: row. ``zero`` says the quantity *is* zero there, so the term contributes
+#: nothing and the row stands.
 VariableAbsence = Literal['undefined', 'zero']
 
 #: Which way an objective is optimised (the declaration rules).
