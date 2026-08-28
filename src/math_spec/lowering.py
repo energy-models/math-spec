@@ -49,7 +49,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
-from math_spec.piecewise import declaration_of, expand_piecewise
+from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
 
@@ -110,9 +110,13 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
     """
     expanded = schema
     ns = Namespace.of(expanded)
-    derived = {name: block for block, ex in expanded.expanded_piecewise.items() for name in ex.emitted}
+    derivations = {
+        name: how
+        for block, ex in expanded.expanded_piecewise.items()
+        for name, how in derivations_of(block, ex).items()
+    }
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derived.get(name))
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
         for name, pdef in expanded.parameters.items()
     }
 
