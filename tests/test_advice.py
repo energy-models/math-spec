@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec import advice, to_program
+from math_spec import ADVICE_KINDS, advice, to_program
 from tests.fixtures import SMALL_MODEL, override
 
 #: ``h`` is the target of ``lk`` and nothing else reaches it; ``g`` is an axis.
@@ -57,3 +57,4 @@ def test_both_kinds_of_note_come_through_the_one_door():
         'the never-an-axis advice comes first, then the unboundedness advice'
     )
     assert advice(to_program(model)) == notes[:1], 'a program has no file left to ask about bounds'
+    assert {n.kind for n in notes} == ADVICE_KINDS, 'every kind a consumer can pin against is one this file produces'

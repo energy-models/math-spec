@@ -29,7 +29,7 @@ SURFACE = frozenset(
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',
         # the declaration vocabularies a consumer pins its own tables against
-        'DIMENSION_DTYPES', 'PARAMETER_DTYPES', 'VARIABLE_DOMAINS', 'VARIABLE_ABSENCE',
+        'DIMENSION_DTYPES', 'PARAMETER_DTYPES', 'VARIABLE_DOMAINS', 'VARIABLE_ABSENCE', 'ADVICE_KINDS',
         'CURVATURES', 'SosBlock',
         # typesetting
         'FORMATS', 'SymbolTable', 'typeset', 'to_latex', 'to_typst', 'to_markdown',

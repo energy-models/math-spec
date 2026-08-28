@@ -33,7 +33,7 @@ silent fallback.
 
 Two more things are decidable without data, and each is advice rather than a
 refusal. `ms.advice(model)` returns both as a tuple of `ms.Advice`, each with a
-`kind` (`never-an-axis` or `unbounded`), the `subject` declaration it is about,
+`kind` (one of `ms.ADVICE_KINDS`: `never-an-axis` or `unbounded`), the `subject` declaration it is about,
 and its `text` — `str()` of one is the sentence. A consumer prints them, or
 filters on the two fields; the sentences are the language's, so no consumer
 writes its own.

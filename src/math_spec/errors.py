@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import difflib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 #: Which pass an :class:`Advice` comes from. Closed, like the operator set: a
 #: consumer filtering on it can enumerate every value.
 AdviceKind = Literal['never-an-axis', 'unbounded']
+ADVICE_KINDS = frozenset(get_args(AdviceKind))
 
 
 @dataclass(frozen=True)
