@@ -479,7 +479,7 @@ class ObjectiveDeclaration:
     expression: ExpressionNode
 
 
-def _declared[Declaration: (ParameterDeclaration, VariableDeclaration, ConstraintDeclaration)](
+def _declared[Declaration: (DimensionDeclaration, ParameterDeclaration, VariableDeclaration, ConstraintDeclaration)](
     items: tuple[Declaration, ...], name: str, kind: str
 ) -> Declaration:
     """The declaration called *name*, or a ``KeyError`` naming the near miss."""
@@ -510,15 +510,7 @@ class Program:
     expressions: dict[str, ExpressionNode] = field(default_factory=dict)
 
     def dimension(self, name: str) -> DimensionDeclaration:
-        """The dimension called *name*.
-
-        Undeclared is not an error here: a dimension with no lookups has
-        nothing to declare.
-        """
-        for d in self.dimensions:
-            if d.name == name:
-                return d
-        return DimensionDeclaration(name)
+        return _declared(self.dimensions, name, 'dimension')
 
     @property
     def lookups(self) -> tuple[tuple[str, LookupDeclaration], ...]:

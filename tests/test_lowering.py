@@ -258,11 +258,40 @@ def test_a_lookup_names_the_dimension_its_values_label():
         'one dimension names its own maps and no other dimension'
     )
     assert program.dimension('generator').targets == {'at_bus': 'bus'}, 'and the same for the second'
-    assert program.dimension('nothing_declared').targets == {}, 'a dimension with no maps has none to name'
     assert [(d, lk.name) for d, lk in program.lookups] == [
         ('snapshot', 'season_of'),
         ('generator', 'at_bus'),
     ], 'every map with the dimension it is over, in declaration order'
+
+
+def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():
+    """A typo used to return an empty declaration, silently dropping every join.
+
+    `dimension()` answered an unknown name with `DimensionDeclaration(name)` —
+    no lookups, no label spaces — while its siblings `parameter()` and
+    `variable()` raised. So a consumer misspelling a dimension read a
+    declaration that mapped nowhere and placed no terms, rather than being
+    told. Every dimension a valid model can name is declared: `Spec`'s
+    reference check refuses an undeclared one in `dims:`, `foreach:`, a
+    lookup's `over:`/`into:` and an sos's `over:`, so the fallback was
+    reachable only by a mistake.
+    """
+    program = lower_program(
+        expand_piecewise(
+            schema_of(
+                {
+                    'dimensions': {'snapshot': {}, 'generator': {}},
+                    'variables': {'p': {'foreach': ['generator'], 'bounds': {'lower': 0, 'upper': 1}}},
+                    'constraints': {'k': {'foreach': [], 'expression': 'sum(p, over=generator) >= 1'}},
+                }
+            )
+        )
+    )
+
+    assert program.dimension('snapshot').name == 'snapshot', 'a declared dimension still comes back'
+    with pytest.raises(KeyError, match='snapshto') as excinfo:
+        program.dimension('snapshto')
+    assert 'snapshot' in str(excinfo.value), 'the message names the near miss, which is the whole point of raising'
 
 
 def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
