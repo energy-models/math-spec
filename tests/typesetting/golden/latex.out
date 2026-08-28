@@ -73,7 +73,7 @@
 \text{edges} && p_{t \boxminus_{0} 1,g} & \le p_{t \boxplus_{0} 1,g} + \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{ahead} && p_{t,g} & \le p_{t \oplus 1,g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{composed} && p_{t - 2,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{uncomposed} && p_{\left( t - 1 \right) - \mathrm{lead},g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{uncomposed} && p_{\left( t - 1 \right) \boxminus_{0} \mathrm{lead},g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{crossed} && p_{t \ominus 1,g + 1} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{lead\_time} && p_{t \boxminus_{0} \mathrm{lead},g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{in\_season} && p_{t,g} & \le p_{t \ominus^{\mathrm{season\_of}(t)} 1,g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\

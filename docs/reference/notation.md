@@ -210,10 +210,10 @@ a named offset under a numbered one stays two steps, not their sum
 ```yaml
 uncomposed:
   foreach: [snapshot, generator]
-  expression: shift(shift(p, over=snapshot, offset=lead), over=snapshot, offset=1) <= p_max
+  expression: shift(shift(p, over=snapshot, offset=lead, edge=0), over=snapshot, offset=1) <= p_max
 ```
 
-$$p_{\left( t - 1 \right) - \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{\left( t - 1 \right) \boxminus_{0} \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### `crossed`
 

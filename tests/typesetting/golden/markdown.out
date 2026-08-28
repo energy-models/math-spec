@@ -87,7 +87,7 @@ $$p_{t - 2,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \
 
 **`uncomposed`**
 
-$$p_{\left( t - 1 \right) - \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{\left( t - 1 \right) \boxminus_{0} \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`crossed`**
 
