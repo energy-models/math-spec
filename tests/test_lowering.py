@@ -365,6 +365,41 @@ def test_a_program_seals_its_declaration_groups(dispatch_schema):
     assert list(program.parameters) == ['p_max', 'load', 'cost'], "and the file's own order survives the seal"
 
 
+def test_expressions_are_the_ones_a_row_is_built_from():
+    """`expressions` named the *declared* ones, which build no row at all.
+
+    Two readers walk the objective and both constraint sides — `advice` and
+    anything asking what a solver must support — and each wrote that list out.
+    A named expression counted among them would answer wrongly about what is
+    solved, which is why the declared ones are `named_expressions` now.
+    """
+    program = lower_program(
+        expand_piecewise(
+            schema_of(
+                {
+                    'dimensions': {'g': {}},
+                    'parameters': {'cost': {'dims': ['g']}},
+                    'variables': {'p': {'foreach': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
+                    'constraints': {'k': {'foreach': [], 'expression': 'sum(p, over=g) >= 1'}},
+                    'expressions': {'spend': 'sum(cost, over=g)'},
+                    'objective': {'sense': 'minimize', 'expression': 'sum(p * cost, over=g)'},
+                }
+            )
+        )
+    )
+
+    assert list(program.named_expressions) == ['spend'], 'the declared ones keep their own name'
+    assert program.expressions == (
+        program.objective.expression,
+        program.constraints['k'].lhs,
+        program.constraints['k'].rhs,
+    ), 'the objective first, then both sides of each constraint, in declaration order'
+    assert program.named_expressions['spend'] not in program.expressions, (
+        'a named expression builds no row, so it is not one of the expressions a row is built from'
+    )
+    assert len(program.expressions) == 3, 'and nothing else is counted'
+
+
 def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
     """The declared type travels with the dimension, as a parameter's does.
 

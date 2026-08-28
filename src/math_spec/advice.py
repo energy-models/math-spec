@@ -55,9 +55,7 @@ def _never_an_axis(program: Program) -> list[Advice]:
     axes: set[str] = set()
     for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
         axes.update(declaration.dims)
-    expressions = [program.objective.expression] if program.objective is not None else []
-    expressions.extend(side for c in program.constraints.values() for side in (c.lhs, c.rhs))
-    for e in expressions:
+    for e in program.expressions:
         axes |= _produced_axes(e)
 
     targeted = {lk.target: (dimension, lk.name) for dimension, lk in program.lookups}
