@@ -27,12 +27,14 @@ from math_spec import LanguageError, Spec
 from math_spec.lowering import _lower_where, _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
+    QUADRATIC_POSITIONS,
     Add,
     At,
     Constant,
     DimensionDeclaration,
     Divide,
     ExpressionNode,
+    Footprint,
     GroupSum,
     LookupDeclaration,
     Multiply,
@@ -48,6 +50,7 @@ from math_spec.program import (
     fan_in,
     quotients,
     variables_of,
+    walk,
 )
 from math_spec.resolution import Namespace, expression_of
 from math_spec.where_parser import (
@@ -398,6 +401,80 @@ def test_expressions_are_the_ones_a_row_is_built_from():
         'a named expression builds no row, so it is not one of the expressions a row is built from'
     )
     assert len(program.expressions) == 3, 'and nothing else is counted'
+
+
+def _footprint_of(constraint: str, objective: str) -> Footprint:
+    return lower_program(
+        expand_piecewise(
+            schema_of(
+                {
+                    'dimensions': {'g': {}},
+                    'variables': {'p': {'foreach': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
+                    'constraints': {'k': {'foreach': ['g'], 'expression': constraint}},
+                    'objective': {'sense': 'minimize', 'expression': objective},
+                }
+            )
+        )
+    ).footprint
+
+
+def test_the_footprint_says_which_position_a_quadratic_stands_in():
+    """A sink may take a quadratic objective and refuse a quadratic constraint.
+
+    One flag for both would collapse the distinction `ceiling.md` says sinks
+    actually make — quadratic is bounded "by convexity and again by what it
+    stands beside" — and leave the sink walking the program to recover it.
+    """
+    assert _footprint_of('p <= 1', 'sum(p * p, over=g)').quadratic == {'objective'}
+    assert _footprint_of('p * p <= 1', 'sum(p, over=g)').quadratic == {'constraint'}
+    assert _footprint_of('p * p <= 1', 'sum(p * p, over=g)').quadratic == {'objective', 'constraint'}
+    assert _footprint_of('p <= 1', 'sum(p, over=g)').quadratic == frozenset(), 'affine throughout is the empty set'
+
+
+def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
+    """Absence is the empty collection, so `if footprint.sos_types` is the whole test.
+
+    None would make three states out of two and put a null check in front of
+    every read.
+    """
+    footprint = _footprint_of('p <= 1', 'sum(p, over=g)')
+
+    assert footprint.sos_types == frozenset(), 'a file declaring no sos'
+    assert footprint.quadratic == frozenset()
+    assert footprint.variable_types == {'continuous'}, 'never empty — a program has variables'
+    assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.shapes)} == {frozenset}, (
+        'every field is a set, so one rule reads all of them'
+    )
+    assert footprint.quadratic <= QUADRATIC_POSITIONS, 'and the vocabulary a consumer pins its table against'
+    assert {'objective', 'constraint'} == QUADRATIC_POSITIONS, (
+        'a position admitted later widens this, which is what a consumer pins against to hear about it'
+    )
+
+
+def test_the_footprint_is_walked_once_and_held(dispatch_schema):
+    """Safe to hold only because the program cannot change under it."""
+    program = lower_program(expand_piecewise(dispatch_schema))
+    assert program.footprint is program.footprint
+
+
+def test_a_named_expression_is_not_in_the_footprint():
+    """It builds no row, so counting it would answer wrongly about what is solved."""
+    program = lower_program(
+        expand_piecewise(
+            schema_of(
+                {
+                    'dimensions': {'g': {}},
+                    'parameters': {'cost': {'dims': ['g']}},
+                    'variables': {'p': {'foreach': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
+                    'constraints': {'k': {'foreach': [], 'expression': 'sum(p, over=g) >= 1'}},
+                    'expressions': {'spend': 'sum(p * cost, over=g)'},
+                }
+            )
+        )
+    )
+
+    assert Parameter not in program.footprint.shapes, "the named expression's parameter reaches no row"
+    assert Parameter in {type(n) for n in walk(program.named_expressions['spend'])}, 'though it is in the expression'
 
 
 def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
