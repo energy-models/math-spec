@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import DimensionError, LanguageError, Spec
+from math_spec import LanguageError, Spec
 from math_spec.lowering import _lower_where, _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
@@ -163,30 +163,9 @@ def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
         _lower_where('no_such_param', Namespace.of(dispatch_schema), 't')
 
 
-def test_sum_over_absent_dim_raises_at_lowering_too(dispatch_schema):
-    """A no-op sum is an error at *every* layer, not only at the front door.
-
-    The dim algebra and alpha.4 settled the language question: summing over a dim
-    the operand does not carry builds a model that solves and is wrong, so it
-    is an error rather than the silent identity it once was. ``check_schema``
-    raises it for anything entering through ``lps.check``; this pins that
-    ``_Lowering.expr`` does not quietly disagree one layer down, which is what it
-    used to do — it returned the operand unchanged, and the comment claiming
-    eager parity outlived the parity.
-    """
-    with pytest.raises(DimensionError, match='no-op that builds and solves wrong'):
-        _Lowering(dispatch_schema, 't').expr(resolved('sum(load, over=generator)', dispatch_schema))
-
-
-def test_a_power_lowers_only_where_no_variable_is_under_it(dispatch_schema):
-    """roll/shift lower to program.Translate and binary/integer to variable_type;
-    `**` lowers to program.Power, but only over operands that carry no variable —
-    with one under it there is no affine reading and nowhere to go."""
+def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
     lowered = _Lowering(dispatch_schema, 't').expr(resolved('cost ** cost', dispatch_schema))
     assert isinstance(lowered, Power), 'a variable-free power has a plan node of its own'
-
-    with pytest.raises(LanguageError, match='over variables'):
-        _Lowering(dispatch_schema, 't').expr(resolved('p ** 2', dispatch_schema))
 
 
 def test_a_binary_variable_lowers_to_a_vtype():

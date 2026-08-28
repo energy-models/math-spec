@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, assert_never, cast
 
 import math_spec.program as program
-from math_spec.degree import carries_variable, check_binary
+from math_spec.degree import carries_variable
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
@@ -42,16 +42,15 @@ from math_spec.expression_parser import (
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
-    KeywordNode,
+    KwargNode,
     LookupNode,
-    NameListNode,
-    NameNode,
     NumberNode,
     ParameterNode,
     UnaryOperatorNode,
+    UnresolvedNode,
     VariableNode,
 )
-from math_spec.operators import call_shape_error, edge_error
+from math_spec.operators import edge_error
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
@@ -148,7 +147,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
             )
         if ast.op not in _SENSES:
             raise LanguageError(f"constraint '{cname}': unsupported sense '{ast.op}'")
-        lowering = _Lowering(expanded, f"constraint '{cname}'", ceiling=2)
+        lowering = _Lowering(expanded, f"constraint '{cname}'")
         constraints.append(
             program.ConstraintDeclaration(
                 cname,
@@ -167,7 +166,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
             raise LanguageError('the objective: expression must not contain a comparison operator')
         objective = program.ObjectiveDeclaration(
             odef.sense,
-            _Lowering(expanded, 'the objective', ceiling=2).expr(ast),
+            _Lowering(expanded, 'the objective').expr(ast),
         )
 
     dimensions = tuple(
@@ -189,11 +188,11 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         )
         for sname, sdef in expanded.sos.items()
     )
-    expressions = {name: _lower_expression(expanded, name) for name in expanded.expressions}
+    expressions = {name: _lower_expression(expanded, ns, name) for name in expanded.expressions}
     return program.Program(parameters, tuple(variables), tuple(constraints), objective, dimensions, sos, expressions)
 
 
-def _lower_expression(schema: _ExpandedSpec, name: str) -> program.ExpressionNode:
+def _lower_expression(schema: _ExpandedSpec, ns: Namespace, name: str) -> program.ExpressionNode:
     """Compile the named expression *name* into a program expression.
 
     Raises:
@@ -202,7 +201,6 @@ def _lower_expression(schema: _ExpandedSpec, name: str) -> program.ExpressionNod
     """
     expanded = schema
     context = f"named expression '{name}'"
-    ns = Namespace.of(expanded)
     ast = expression_of(expanded.expressions[name].expression, expanded, ns, context)
     assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
     return _Lowering(expanded, context).expr(ast)
@@ -215,37 +213,25 @@ def _lower_expression(schema: _ExpandedSpec, name: str) -> program.ExpressionNod
 
 @dataclass(frozen=True)
 class _Lowering:
-    """One expression walk, and the three things every step of it reads.
+    """One expression walk, and the two things every step of it reads.
 
-    ``schema``, ``context`` and ``ceiling`` are fixed for a whole walk: the
-    ceiling is chosen once by the position being lowered — 2 inside a
-    constraint or the objective, 1 elsewhere — and the other two never vary at
-    all. So they are the walk's state rather than three arguments every
-    recursion and every check repeats. Extend this rather than adding a
-    parameter to :meth:`expr` and every operator seam.
-
-    Frozen, because a walk that could change its own ceiling half way through
-    would be a degree rule no file states.
+    ``schema`` and ``context`` are fixed for a whole walk, so they are its
+    state rather than two arguments every recursion repeats. Extend this
+    rather than adding a parameter to :meth:`expr` and every operator seam.
     """
 
     schema: _ExpandedSpec
     context: str
-    ceiling: int = 1
 
     def expr(self, node: ArithmeticNode) -> program.ExpressionNode:
         """Rewrite one resolved core-AST expression as a program expression.
 
-        Three language rules are *asked* here and answered elsewhere: the call
-        shape (``operators.call_shape_error``, re-asked so an AST that skipped
-        resolution gets the language's wording rather than an ``IndexError``), the
-        dim rules (``dims_of``) and degree (``check_binary``), both asked for
-        their verdict rather than decided again here.
-
-        What stays is about the program: which node a call becomes, and the shapes a
-        node cannot represent — a ``GroupSum`` groups by a declared lookup, a
-        ``Translate`` distance is an integer literal. ``Sum`` and ``GroupSum`` stay
-        two nodes under one surface verb, reducing a dim away and reducing it into
-        another being different relational shapes.
+        Nothing is judged here: the expression passed every language rule at
+        load, and this walk only decides which node a call becomes and the
+        shapes a node cannot represent — a ``GroupSum`` groups by a declared
+        lookup, a ``Translate`` distance is an integer literal. ``Sum`` and
+        ``GroupSum`` stay two nodes under one surface verb, reducing a dim away
+        and reducing it into another being different relational shapes.
         """
         if isinstance(node, NumberNode):
             return program.Constant(node.value)
@@ -256,23 +242,8 @@ class _Lowering:
         if isinstance(node, ParameterNode):
             return program.Parameter(node.name)
 
-        if isinstance(node, EdgeNode):
-            msg = f'EdgeNode({node.policy!r}) reached lowering: an edge policy is a shift() kwarg, not a value.'
-            raise AssertionError(msg)
-
-        if isinstance(node, KeywordNode):
-            msg = (
-                f'KeywordNode({node.value!r}) reached lowering. A quoted keyword is consumed '
-                f'by its kwarg during resolution (docs/about/architecture.md hard rule 1).'
-            )
-            raise AssertionError(msg)
-        if isinstance(node, (NameNode, NameListNode, DimensionNode, LookupNode)):
-            shown = node.name if isinstance(node, (NameNode, DimensionNode)) else node.shown
-            msg = (
-                f'{type(node).__name__}({shown!r}) reached lowering. Expressions '
-                f'must go through resolution.expression_of() first '
-                f'(docs/about/architecture.md hard rule 1).'
-            )
+        if isinstance(node, UnresolvedNode | KwargNode):
+            msg = f'{node!r} reached lowering. Expressions go through resolution.expression_of() first.'
             raise AssertionError(msg)
 
         if isinstance(node, UnaryOperatorNode):
@@ -282,7 +253,6 @@ class _Lowering:
         if isinstance(node, BinaryOperatorNode):
             left = self.expr(node.left)
             right = self.expr(node.right)
-            check_binary(node, self.context, ceiling=self.ceiling)
             match node.op:
                 case '+':
                     return program.Add(left, right)
@@ -294,13 +264,10 @@ class _Lowering:
                     return program.Divide(left, right)
                 case '**':
                     return program.Power(left, right)
-                case _:  # pragma: no cover — check_binary refuses every other operator
-                    raise AssertionError(f'{self.context}: operator {node.op!r} passed the degree check')
+                case _:  # pragma: no cover — the parser admits no other operator
+                    raise AssertionError(f'{self.context}: operator {node.op!r} reached lowering')
 
         if isinstance(node, FunctionCallNode):
-            shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
-            if shape_error is not None:
-                raise LanguageError(f'{self.context}: {shape_error}')
             try:
                 lower_call = _CALLS[node.name]
             except KeyError:
@@ -317,7 +284,6 @@ class _Lowering:
         before anything else is read.
         """
         by_node = node.kwargs.get('by')
-        self._dim_rules(node)
         operand = self.expr(node.args[0])
         if by_node is None and 'over' not in node.kwargs:
             return program.Sum(operand, tuple(sorted(dims_of(node.args[0], self.schema, self.context))))
@@ -335,7 +301,6 @@ class _Lowering:
         by_node = node.kwargs['by']
         if not isinstance(by_node, LookupNode):
             raise LanguageError(f'{self.context}: at(by=...) must name a lookup')
-        self._dim_rules(node)
         return program.At(
             self.expr(node.args[0]),
             over=by_node.dimension,
@@ -358,7 +323,6 @@ class _Lowering:
         if not isinstance(over_node, DimensionNode):
             raise LanguageError(f'{self.context}: sum_back(over=...) must name a dimension')
         within_node = node.kwargs['within']
-        self._dim_rules(node)
         operand = self.expr(node.args[0])
         wrap = _window_edge(node.kwargs.get('edge'), self.context)
         width: int | str
@@ -393,7 +357,6 @@ class _Lowering:
             not isinstance(by_node, NumberNode) or int(by_node.value) != by_node.value
         ):
             raise LanguageError(f'{self.context}: {_shift_by_message()}')
-        self._dim_rules(node)
         operand = self.expr(node.args[0])
         has_var = carries_variable(node.args[0])
         edge = node.kwargs.get('edge')
@@ -411,21 +374,12 @@ class _Lowering:
             by = sign * int(by_node.value)
         return program.Translate(operand, over_node.name, offset=by, wrap=wrap, fill=fill, partition=partition)
 
-    def _dim_rules(self, node: FunctionCallNode) -> None:
-        """Apply the language's dim rules to an operator call, discarding the dim set.
-
-        Lowering wants the *raise*, not the answer. Called after the shape
-        checks so those speak first, and only for one call's dims — the enclosing
-        frame is ``dimensions.check_schema``'s business.
-        """
-        dims_of(node, self.schema, self.context)
-
 
 #: One lowering per name in the language's ``BUILTIN_NAMES``. A table rather
 #: than a chain of ``if``s because the set is *closed* — nothing registers into
-#: it, and a name the language declares with no entry here is the failure
-#: ``tests/test_architecture.py`` looks for. Each method is named for the
-#: operator it lowers, so the table reads as the identity it nearly is.
+#: it, and a name the language declares with no entry here is refused by name
+#: rather than by ``KeyError``. Each method is named for the operator it
+#: lowers, so the table reads as the identity it nearly is.
 _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode]] = {
     'sum': _Lowering.sum,
     'at': _Lowering.at,
