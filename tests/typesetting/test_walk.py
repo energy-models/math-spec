@@ -275,6 +275,24 @@ def test_a_mask_that_is_only_true_prints_no_condition(fmt: Format):
 
 
 @EVERY_FORMAT
+def test_a_negative_fill_prints(fmt: Format):
+    """`edge=-1` lowered to `fill=-1.0` and typeset as an AssertionError.
+
+    The parser reads a negated literal as a unary minus over a number, and
+    every reader of an `offset=` or `edge=` peeled that sign for itself —
+    lowering did, the walk's step did not. Resolution folds a literal to one
+    signed number now, so there is nothing left to peel.
+    """
+    model = {
+        'dimensions': {'g': {}},
+        'parameters': {'cap': {'dims': ['g']}},
+        'variables': {'p': {'foreach': ['g']}},
+        'constraints': {'k': {'foreach': ['g'], 'expression': 'p <= shift(cap, over=g, offset=1, edge=-1)'}},
+    }
+    assert fmt.operators['edge_minus'] in typeset(model, fmt, legend=False)
+
+
+@EVERY_FORMAT
 def test_the_legend_explains_wraparound_only_when_it_is_used(fmt: Format):
     assert 'cyclic translation' in typeset(_storage("offset=1, edge='wrap'"), fmt)
     assert 'cyclic translation' not in typeset(DISPATCH_MODEL, fmt)
