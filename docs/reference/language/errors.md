@@ -34,6 +34,9 @@ silent fallback.
 Two more things are decidable without data, and each is advice rather than a
 refusal. `ms.advice(model)` returns both as a list of sentences, and a consumer
 prints them; the sentences are the language's, so no consumer writes its own.
+From a shell, `python -m math_spec check model.yaml` is the two together: a
+refusal is its message on stderr and exit status 1, advice is printed and the
+status is 0.
 
 A dimension nothing is indexed by and nothing aggregates into is never an axis.
 Where a lookup targets it, it is a label space wearing a dimension's
