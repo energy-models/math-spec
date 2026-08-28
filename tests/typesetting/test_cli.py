@@ -2,12 +2,13 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The typeset shell front — `python -m math_spec <format> model.yaml`.
+"""The shell front — `python -m math_spec <verb> model.yaml`.
 
-What is checked here is the *design* rather than argparse: that the verbs are read off
-`FORMATS` rather than listed twice, that the front costs no dependency, that no
-verb binds data, and that a format nothing can render is refused rather than
-written as an empty file.
+What is checked here is the *design* rather than argparse: that the typeset
+verbs are read off `FORMATS` rather than listed twice, that `check` is the
+language's verdict and its advice with no consumer installed, that the front
+costs no dependency, that no verb binds data, and that a format nothing can
+render is refused rather than written as an empty file.
 
 `main` takes its argv and `parser` hands back the verbs, so none of this needs a
 subprocess or a scrape of help text.
@@ -43,14 +44,49 @@ def _verbs() -> dict[str, argparse.ArgumentParser]:
     raise AssertionError('the front registered no subcommands at all')
 
 
-def test_the_verbs_are_the_formats_and_nothing_else():
+def test_the_verbs_are_check_and_the_formats_and_nothing_else():
     """The one claim the module makes about itself, in both directions.
 
-    The verbs are built by looping over `FORMATS`, so a new typeset format
+    The typeset verbs are built by looping over `FORMATS`, so a new format
     arrives with its verb already written and there is no second list to
     forget. A verb hand-added here, or a format quietly dropped, breaks this.
     """
-    assert set(_verbs()) == set(FORMATS)
+    assert set(_verbs()) == set(FORMATS) | {'check'}
+
+
+UNUSED_DIMENSION = """
+dimensions:
+  g: {dtype: str}
+  spare: {dtype: str}
+parameters:
+  c: {dims: [g]}
+variables:
+  p: {foreach: [g], bounds: {lower: 0}}
+objective: {sense: minimize, expression: "sum(p * c)"}
+"""
+
+
+def test_check_prints_nothing_for_a_clean_file(capsys):
+    assert front.main(['check', str(Path(__file__).resolve().parents[2] / 'examples' / 'dispatch.yaml')]) == 0
+    assert capsys.readouterr() == ('', ''), 'no advice, no output'
+
+
+def test_check_prints_advice_and_does_not_fail(tmp_path, capsys):
+    model = tmp_path / 'm.yaml'
+    model.write_text(UNUSED_DIMENSION)
+    assert front.main(['check', str(model)]) == 0, 'advice is not a refusal'
+    out, err = capsys.readouterr()
+    assert "dimension 'spare' is never used" in out
+    assert err == ''
+
+
+def test_check_puts_a_refusal_on_stderr_with_exit_status_one(tmp_path, capsys):
+    model = tmp_path / 'm.yaml'
+    model.write_text(UNUSED_DIMENSION.replace('sum(p * c)', 'sum(p * nope)'))
+    assert front.main(['check', str(model)]) == 1
+    out, err = capsys.readouterr()
+    assert out == ''
+    assert "'nope' not found" in err
 
 
 def test_the_shell_front_costs_no_dependency():
