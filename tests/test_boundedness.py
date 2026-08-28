@@ -25,7 +25,7 @@ BASE = override(
 
 
 def _notes(**patch) -> list[str]:
-    return unbounded_notes(expand_piecewise(schema_of(BASE, **patch)))
+    return [str(a) for a in unbounded_notes(expand_piecewise(schema_of(BASE, **patch)))]
 
 
 @pytest.mark.parametrize(
@@ -115,8 +115,10 @@ def test_every_operator_hands_its_sign_to_its_operand(builtin):
 
 
 def test_every_unopposed_variable_is_named():
-    notes = _notes(**{'objective.expression': 'sum(v + w, over=g)'})
-    assert [n.split("'")[1] for n in notes] == ['v', 'w'], 'one note per variable, in objective order'
+    advice = unbounded_notes(expand_piecewise(schema_of(BASE, **{'objective.expression': 'sum(v + w, over=g)'})))
+    assert [(a.kind, a.subject) for a in advice] == [('unbounded', 'v'), ('unbounded', 'w')], (
+        'one piece of advice per variable, in objective order'
+    )
 
 
 def test_the_note_names_the_rewrite():

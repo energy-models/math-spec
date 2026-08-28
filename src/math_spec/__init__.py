@@ -15,6 +15,7 @@ reads a program instead. ``__all__`` is the public surface, pinned by
 from math_spec import program
 from math_spec.advice import advice
 from math_spec.errors import (
+    Advice,
     DimensionError,
     LanguageError,
     MathSpecError,
@@ -63,6 +64,7 @@ __all__ = [
     'PARAMETER_DTYPES',
     'VARIABLE_ABSENCE',
     'VARIABLE_DOMAINS',
+    'Advice',
     'DimensionError',
     'LanguageError',
     'MathSpecError',

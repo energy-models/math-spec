@@ -43,15 +43,17 @@ LABEL_SPACE = override(
 )
 def test_a_dimension_that_is_never_an_axis_is_named(patch, expected):
     notes = advice(override(LABEL_SPACE, **patch))
-    assert len(notes) == len((bool(expected) and [None]) or []), 'one dimension is never an axis, so one note or none'
+    assert len(notes) == (1 if expected else 0), 'one dimension is never an axis, so one piece of advice or none'
     for fragment in expected:
-        assert fragment in notes[0]
+        assert fragment in str(notes[0])
+    if expected:
+        assert (notes[0].kind, notes[0].subject) == ('never-an-axis', 'h')
 
 
 def test_both_kinds_of_note_come_through_the_one_door():
     model = override(LABEL_SPACE, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': -float('inf')}})
     notes = advice(model)
-    assert [n.split(' ')[0] for n in notes] == ['dimension', 'Variable'], (
-        'the never-an-axis note comes first, then the unboundedness note'
+    assert [(n.kind, n.subject) for n in notes] == [('never-an-axis', 'h'), ('unbounded', 'p')], (
+        'the never-an-axis advice comes first, then the unboundedness advice'
     )
     assert advice(to_program(model)) == notes[:1], 'a program has no file left to ask about bounds'

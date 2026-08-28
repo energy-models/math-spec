@@ -24,7 +24,7 @@ SURFACE = frozenset(
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'PiecewiseExpansionError', 'did_you_mean', 'schema_error',
         # the verdicts a consumer asks for rather than re-deriving
-        'advice', 'mask_of', 'curvature_required',
+        'advice', 'Advice', 'mask_of', 'curvature_required',
         # the closed operator set, and the wording of its refusals
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',

@@ -2,21 +2,50 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The errors the language raises.
+"""What the language says back about a file: the errors it raises, and the advice it gives.
 
 :class:`LanguageError` is the file saying something the language does not
 accept — decidable at load time, with no data bound. :class:`MathSpecError`
 is the root a consumer's own errors may derive from, so one ``except`` covers
-the package.
+the package. :class:`Advice` is the other kind of sentence: about a file the
+language accepts, decidable without data all the same.
 """
 
 from __future__ import annotations
 
 import difflib
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+
+#: Which pass an :class:`Advice` comes from. Closed, like the operator set: a
+#: consumer filtering on it can enumerate every value.
+AdviceKind = Literal['never-an-axis', 'unbounded']
+
+
+@dataclass(frozen=True)
+class Advice:
+    """One thing the language advises about a file it accepts.
+
+    Never an error: each is what a half-written model looks like too. A
+    consumer prints it, or filters on ``kind`` and ``subject``; the text is the
+    language's, so no consumer writes its own.
+
+    Attributes:
+        kind: The pass that said it.
+        subject: The declaration it is about — a dimension name, a variable name.
+        text: The sentence, naming the rewrite.
+    """
+
+    kind: AdviceKind
+    subject: str
+    text: str
+
+    def __str__(self) -> str:
+        return self.text
 
 
 class MathSpecError(ValueError):

@@ -20,6 +20,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Literal, assert_never
 
+from math_spec.errors import Advice
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
@@ -54,7 +55,7 @@ Sign = Literal['+', '-'] | None
 _OPEN = {'lower': -math.inf, 'upper': math.inf}
 
 
-def unbounded_notes(spec: str | Path | dict[str, Any] | Spec) -> list[str]:
+def unbounded_notes(spec: str | Path | dict[str, Any] | Spec) -> list[Advice]:
     """Name every variable the objective can drive to infinity unopposed.
 
     Expands internally: a ``piecewise:`` block holds the variables it names,
@@ -81,18 +82,22 @@ def unbounded_notes(spec: str | Path | dict[str, Any] | Spec) -> list[str]:
     _walk(objective, '+', signs)
 
     minimize = schema.objective.sense == 'minimize'
-    notes = []
+    notes: list[Advice] = []
     for vname, sign in signs.items():
         if sign is None or vname in constrained:
             continue
         side = 'lower' if minimize == (sign == '+') else 'upper'
         if _is_open(schema.variables[vname], side):
             notes.append(
-                f"Variable '{vname}' makes this model unbounded: no constraint names it, and "
-                f'bounds.{side} is {_OPEN[side]}, which is the direction a {sign}{vname} term '
-                f'improves a {schema.objective.sense} objective in. No data can change that, so '
-                f'the solve would answer `unbounded` and name nothing.\n'
-                f'Give it a finite bounds.{side}, or the constraint that was meant to define it.'
+                Advice(
+                    'unbounded',
+                    vname,
+                    f"Variable '{vname}' makes this model unbounded: no constraint names it, and "
+                    f'bounds.{side} is {_OPEN[side]}, which is the direction a {sign}{vname} term '
+                    f'improves a {schema.objective.sense} objective in. No data can change that, so '
+                    f'the solve would answer `unbounded` and name nothing.\n'
+                    f'Give it a finite bounds.{side}, or the constraint that was meant to define it.',
+                )
             )
     return notes
 
