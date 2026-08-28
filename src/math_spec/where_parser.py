@@ -31,19 +31,19 @@ PredicateOperator = Literal['<=', '>=', '==', '!=', '<', '>']
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class BooleanLiteralNode:
     value: bool
 
 
-@dataclass
+@dataclass(frozen=True)
 class UnresolvedNameNode:
     """A bare name — unresolved. ``resolution.py`` types it."""
 
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class UnresolvedComparisonNode:
     """A comparison against an unresolved name. ``resolution.py`` types it."""
 
@@ -57,7 +57,7 @@ class UnresolvedComparisonNode:
     quoted: bool = False
 
 
-@dataclass
+@dataclass(frozen=True)
 class UnresolvedPositionNode:
     """``position(dim) <op> i`` before the name is checked.
 
@@ -72,14 +72,14 @@ class UnresolvedPositionNode:
     by: str | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParameterDefinedNode:
     """True wherever the named parameter is non-null and finite."""
 
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class VariableDefinedNode:
     """True at the coordinates where the named variable exists.
 
@@ -91,7 +91,7 @@ class VariableDefinedNode:
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParameterComparisonNode:
     """Compare a parameter against a literal, element-wise."""
 
@@ -100,7 +100,7 @@ class ParameterComparisonNode:
     value: float | str
 
 
-@dataclass
+@dataclass(frozen=True)
 class DimensionComparisonNode:
     """Compare a dimension's own coordinates against a literal."""
 
@@ -109,7 +109,7 @@ class DimensionComparisonNode:
     value: float | str | datetime.date
 
 
-@dataclass
+@dataclass(frozen=True)
 class DimensionPositionNode:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
@@ -125,7 +125,7 @@ class DimensionPositionNode:
     by: str | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class LookupComparisonNode:
     """Compare a lookup's values against a literal — ``period_of == 2030``.
 
@@ -140,7 +140,7 @@ class LookupComparisonNode:
     value: float | str | datetime.date
 
 
-@dataclass
+@dataclass(frozen=True)
 class LookupPairComparisonNode:
     """Compare two lookups over one dimension — ``from != to``.
 
@@ -156,7 +156,7 @@ class LookupPairComparisonNode:
     op: PredicateOperator
 
 
-@dataclass
+@dataclass(frozen=True)
 class LookupDefinedNode:
     """True where the named lookup has a value — the partial-lookup case.
 
@@ -170,18 +170,18 @@ class LookupDefinedNode:
     over: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class NotNode:
     operand: WhereNode
 
 
-@dataclass
+@dataclass(frozen=True)
 class AndNode:
     left: WhereNode
     right: WhereNode
 
 
-@dataclass
+@dataclass(frozen=True)
 class OrNode:
     left: WhereNode
     right: WhereNode
