@@ -538,6 +538,10 @@ class PiecewiseDeclaration:
             where more links tie the curve and no link is the axis.
         points: The parameter masking the weights — the file's own, or the one
             derived from a values parameter — or ``None`` for a whole curve.
+        nominated: The values parameter the mask follows, where ``points:``
+            named one of the block's own — the mask is derived from its rows,
+            and it is the name the file's author wrote. ``None`` where the file
+            supplies the mask itself, or masks nothing.
         starts: The flag marking each curve's first breakpoint, emitted by an
             ``lp`` block under a mask; ``None`` otherwise.
         ends: Its sibling for the last breakpoint.
@@ -551,6 +555,7 @@ class PiecewiseDeclaration:
     breakpoints: tuple[str, ...]
     axis: str | None
     points: str | None
+    nominated: str | None
     starts: str | None
     ends: str | None
     assumptions: frozenset[PiecewiseAssumption]
@@ -576,8 +581,9 @@ def assumption_message(block: str, pw: PiecewiseDeclaration, which: PiecewiseAss
                 f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.'
             )
         case 'contiguous_mask':
+            named = pw.nominated if pw.nominated is not None else pw.points
             return (
-                f"{ctx}: points: '{pw.points}' must mark a consecutive run of at least one breakpoint per "
+                f"{ctx}: points: '{named}' must mark a consecutive run of at least one breakpoint per "
                 f'curve — the chord row joins a breakpoint to the one before it, and the domain rows sit '
                 f"on the curve's own first and last."
             )

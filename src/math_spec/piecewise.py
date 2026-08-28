@@ -101,6 +101,7 @@ def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:
         breakpoints=tuple(link.values for link in pw.links),
         axis=axis,
         points=expanded.points,
+        nominated=pw.points if pw.points != expanded.points else None,
         starts=expanded.starts,
         ends=expanded.ends,
         assumptions=frozenset(assumptions),

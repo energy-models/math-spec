@@ -350,6 +350,10 @@ def test_a_block_is_kept_as_the_facts_a_consumer_binding_it_reads():
     assert (curve.points, curve.starts, curve.ends) == ('cost_curve_points', 'cost_curve_starts', 'cost_curve_ends'), (
         'the mask derived from bp_x, and the two edge flags an lp block under a mask emits'
     )
+    assert curve.nominated == 'bp_x', 'the mask follows the rows of the parameter the file named'
+    assert "points: 'bp_x'" in assumption_message('cost_curve', curve, 'contiguous_mask'), (
+        'the refusal names the parameter the author wrote, not the mask the expansion emitted'
+    )
     assert curve.assumptions == {'increasing_breakpoints', 'two_breakpoints', 'contiguous_mask'}, (
         'an lp curve with a mask assumes all three'
     )
@@ -357,6 +361,12 @@ def test_a_block_is_kept_as_the_facts_a_consumer_binding_it_reads():
     plain = to_program(raw_of(NONCONVEX_YAML)).piecewise['cost_curve']
     assert plain.assumptions == frozenset(), 'adjacency over a whole curve checks nothing of the data'
     assert (plain.points, plain.starts, plain.ends) == (None, None, None), 'and emits no parameter'
+    assert plain.nominated is None
+
+    own = to_program(
+        override(LP, **{'parameters.reach': {'dims': ['bp'], 'dtype': 'bool'}, 'piecewise.cost_curve.points': 'reach'})
+    ).piecewise['cost_curve']
+    assert (own.points, own.nominated) == ('reach', None), 'a mask the file supplies itself follows nothing'
     assert plain.axis == 'bp_x', 'two links still name an axis, even where nothing is checked along it'
 
 
