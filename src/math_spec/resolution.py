@@ -181,7 +181,13 @@ def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> Expre
 
 
 def where_of(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> WhereNode | None:
-    """Parse and resolve a where string; ``None`` stays ``None``.
+    """Parse, resolve and fold a where string — ``None`` for no mask, however the file spelled it.
+
+    Every constant the connectives decide is folded away, so a mask that
+    admits every row arrives as ``None`` and one that admits none as
+    ``BooleanLiteralNode(False)``; that node stands at the root of a mask or
+    nowhere in it, and every reader — a program, a typeset page — gets the
+    same predicate.
 
     Raises:
         LanguageError: Listing every problem the predicate has.
@@ -192,7 +198,40 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
     resolved = resolve_where(parse_where(text), ns, context, errors, self_variable)
     if errors:
         raise LanguageError('\n'.join(errors))
-    return resolved
+    assert resolved is not None
+    folded = _fold(resolved)
+    if isinstance(folded, BooleanLiteralNode) and folded.value:
+        return None
+    return folded
+
+
+def _fold(node: WhereNode) -> WhereNode:
+    """*node* with every literal a connective decides evaluated away.
+
+    ``X AND True`` is ``X``, ``X OR True`` is every row, ``X AND False`` is
+    none, and ``NOT True`` is ``False``. What survives is a predicate over
+    data, or the one literal the whole mask reduces to.
+    """
+    if isinstance(node, NotNode):
+        operand = _fold(node.operand)
+        if isinstance(operand, BooleanLiteralNode):
+            return BooleanLiteralNode(not operand.value)
+        return NotNode(operand)
+    if isinstance(node, AndNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return right if left.value else left
+        if isinstance(right, BooleanLiteralNode):
+            return left if right.value else right
+        return AndNode(left, right)
+    if isinstance(node, OrNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return left if left.value else right
+        if isinstance(right, BooleanLiteralNode):
+            return right if right.value else left
+        return OrNode(left, right)
+    return node
 
 
 # ---------------------------------------------------------------------------
