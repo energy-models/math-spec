@@ -17,6 +17,14 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.43](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.42...v0.0.0-alpha.43) (2026-08-28)
+
+
+### Features
+
+* **program:** a parameter says which piecewise block derived it, and a label space keeps its dtype ([#227](https://github.com/energy-models/math-spec/issues/227)) ([515dbd5](https://github.com/energy-models/math-spec/commit/515dbd5054dae8ae61fd8818be4d204e1d98950b))
+* **program:** a piecewise block is kept as facts — its breakpoints, its mask, and what it assumes of the data ([#228](https://github.com/energy-models/math-spec/issues/228)) ([2fdbd6f](https://github.com/energy-models/math-spec/commit/2fdbd6f5760975132f0dc9db605b11f4d2cc7103))
+
 ## [0.0.0-alpha.42](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.41...v0.0.0-alpha.42) (2026-08-28)
 
 
