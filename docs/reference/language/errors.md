@@ -29,13 +29,21 @@ Check for typos, or ensure 'p_charge' is declared.
 A construct outside the language names the construct and its rewrite, never a
 silent fallback.
 
-## `unbounded_notes` is the advice
+## `advice` is what is decidable and not an error
 
-One more thing is decidable without data, and it is advice rather than a
-refusal. A variable that no constraint names, and whose bounds leave open the
-side its objective term improves toward, runs to infinity for every dataset
-there is. A solver says that with a bare `unbounded` naming nothing;
-`ms.unbounded_notes(model)` says it with the variable and the side:
+Two more things are decidable without data, and each is advice rather than a
+refusal. `ms.advice(model)` returns both as a list of sentences, and a consumer
+prints them; the sentences are the language's, so no consumer writes its own.
+
+A dimension nothing is indexed by and nothing aggregates into is never an axis.
+Where a lookup targets it, it is a label space wearing a dimension's
+declaration, and the note says how to declare it as one; where nothing reaches
+it at all, it is unused.
+
+A variable that no constraint names, and whose bounds leave open the side its
+objective term improves toward, runs to infinity for every dataset there is. A
+solver says that with a bare `unbounded` naming nothing; the note says it with
+the variable and the side:
 
 ```text
 Variable 'slack' makes this model unbounded: no constraint names it, and

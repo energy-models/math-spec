@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec import unbounded_notes
+from math_spec.boundedness import unbounded_notes
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.piecewise import expand_piecewise
 from tests.fixtures import SMALL_MODEL, override, schema_of
