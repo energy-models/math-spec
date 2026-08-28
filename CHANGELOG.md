@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.41](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.40...v0.0.0-alpha.41) (2026-08-28)
+
+
+### Bug Fixes
+
+* **language:** a boolean literal in a where is decided at load wherever it stands ([#216](https://github.com/energy-models/math-spec/issues/216)) ([fab308f](https://github.com/energy-models/math-spec/commit/fab308f61fddfad230fe8fb9d11e3961faa0a704)), closes [#214](https://github.com/energy-models/math-spec/issues/214)
+
 ## [0.0.0-alpha.40](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.39...v0.0.0-alpha.40) (2026-08-28)
 
 
