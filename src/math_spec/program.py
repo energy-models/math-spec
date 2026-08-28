@@ -36,10 +36,15 @@ one has to be *called* to be got right:
 A mask is the language's own resolved ``where`` node
 (:mod:`math_spec.where_parser`) rather than a second set spelling the same
 predicates — one home, so the two cannot come to disagree about what a
-comparison is. The declaration vocabularies are the language's own for the
-same reason (:mod:`math_spec.model`): a ``dtype``, a domain and an absence
-reading cross into a program by a cast, and a member added to one spelling
-alone would arrive as a string no consumer's branch recognises.
+comparison is. Its literals are already decided: a mask admitting every row
+arrives as ``None`` and one admitting none as ``BooleanLiteralNode(False)``, so
+that node stands at the root of a mask or nowhere in it, and no consumer needs
+a constant folder of its own to agree with the others about which rows exist.
+
+The declaration vocabularies are the language's own for the same reason
+(:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
+into a program by a cast, and a member added to one spelling alone would
+arrive as a string no consumer's branch recognises.
 
 Frozen dataclasses only — no execution logic, and nothing imported from a
 consumer.
