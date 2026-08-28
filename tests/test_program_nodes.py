@@ -33,8 +33,8 @@ def _expressions(program: Program) -> list[ExpressionNode]:
     Bounds and named expressions among them: a node reachable only from a
     bound is still a node a consumer has to build.
     """
-    trees = [side for c in program.constraints for side in (c.lhs, c.rhs)]
-    trees += [bound for v in program.variables for bound in (v.lower, v.upper)]
+    trees = [side for c in program.constraints.values() for side in (c.lhs, c.rhs)]
+    trees += [bound for v in program.variables.values() for bound in (v.lower, v.upper)]
     trees += list(program.expressions.values())
     if program.objective is not None:
         trees.append(program.objective.expression)
