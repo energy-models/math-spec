@@ -189,7 +189,15 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         for sname, sdef in expanded.sos.items()
     )
     expressions = {name: _lower_expression(expanded, ns, name) for name in expanded.expressions}
-    return program.Program(parameters, tuple(variables), tuple(constraints), objective, dimensions, sos, expressions)
+    return program.Program(
+        parameters=parameters,
+        variables=tuple(variables),
+        constraints=tuple(constraints),
+        objective=objective,
+        dimensions=dimensions,
+        sos=sos,
+        expressions=expressions,
+    )
 
 
 def _lower_expression(schema: _ExpandedSpec, ns: Namespace, name: str) -> program.ExpressionNode:

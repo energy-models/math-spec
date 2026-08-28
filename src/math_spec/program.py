@@ -504,7 +504,7 @@ def _declared[Declaration: (DimensionDeclaration, ParameterDeclaration, Variable
     raise KeyError(f"unknown {kind} '{name}'. " + did_you_mean(name, [i.name for i in items]))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Program:
     """A complete linear program over named tidy tables."""
 
