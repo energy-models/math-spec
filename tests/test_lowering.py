@@ -17,6 +17,7 @@ lanes agreeing about it is ``test_degree_parity.py`` and its siblings.
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -161,6 +162,26 @@ def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
     builds, solves, and is silently empty. Resolution makes it a load error."""
     with pytest.raises(LanguageError, match="'no_such_param' not found"):
         _lower_where('no_such_param', Namespace.of(dispatch_schema), 't')
+
+
+def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
+    """A consumer handed a program could invert the mask another one reads.
+
+    The where nodes were plain dataclasses while every declaration embedding
+    them was frozen, so `variable.where.op = '!='` rewrote `p_max > 0` into
+    `p_max != 0` on the shared object — two consumers disagreeing about one
+    file, which is the failure a program exists to prevent. It also left
+    hashability depending on the file: an unmasked declaration hashed and a
+    masked one raised TypeError.
+    """
+    program = lower_program(expand_piecewise(dispatch_schema))
+    (v,) = program.variables
+    assert v.where == ParameterComparisonNode('p_max', '>', 0.0)
+
+    with pytest.raises(FrozenInstanceError):
+        v.where.op = '!='
+    assert v.where == ParameterComparisonNode('p_max', '>', 0.0), 'the mask the file wrote, unchanged'
+    assert isinstance(hash(v), int), 'a masked declaration hashes like an unmasked one'
 
 
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
