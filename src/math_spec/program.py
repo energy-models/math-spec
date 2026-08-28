@@ -34,24 +34,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar, Literal, NamedTuple
 
-from math_spec.errors import LanguageError, did_you_mean
-from math_spec.where_parser import (
-    AndNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
-    LookupPairComparisonNode,
-    NotNode,
-    OrNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
-    VariableDefinedNode,
-    WhereNode,
-)
+from math_spec.errors import did_you_mean
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from math_spec.where_parser import WhereNode
 
 
 ConstraintSense = Literal['==', '<=', '>=']
@@ -202,13 +190,9 @@ class GroupSum(Expression):
     labels of the matching dim in ``into``; the result replaces ``over`` with
     all of them.
 
-    **The pair is redundant, and checked rather than trusted.** Each
-    coordinate's target is already its lookup's own ``into:``, so the two state
-    one fact twice, and :meth:`Program.check` refuses a node that contradicts
-    the declaration (:func:`_check_mapping`). It is written down because a node
-    is read on its own — a consumer places terms from one without consulting
-    the program — and it is checked because one fact stated twice is a fact that
-    can disagree with itself.
+    ``into`` restates each coordinate's declared target, because a node is
+    read on its own — a consumer places terms from one without consulting the
+    program — and lowering is the only thing that writes it.
 
     Several coordinates are one grouping into a product of targets, not a
     composition of groupings — they are consumed in a single join, so the pair
@@ -489,7 +473,7 @@ class SosDeclaration:
 
 @dataclass(frozen=True)
 class ObjectiveDeclaration:
-    """Objective; dims remaining after explicit Sums are implicitly summed."""
+    """Objective — scalar, every reduction in it one the file wrote."""
 
     sense: ObjectiveSense
     expression: ExpressionNode
@@ -551,28 +535,6 @@ class Program:
 
     def variable(self, name: str) -> VariableDeclaration:
         return _declared(self.variables, name, 'variable')
-
-    def check(self) -> None:
-        """Refuse this program unless every declaration is internally coherent.
-
-        The boundary a hand-built program crosses where one built from a
-        validated model passes by construction: a consumer calls it where a
-        program enters, so a malformed one fails there, in the vocabulary of
-        the declarations, rather than partway through a build in whatever
-        error that consumer happens to hit first. What data alone can answer
-        stays with binding: whether a lookup's source arrives, whether a
-        parameter covers the rows that read it.
-
-        Raises:
-            LanguageError: A name no declaration carries, two declarations
-                sharing one name, an expression whose shape no operator
-                produces — a reduction over a dimension its operand does not
-                span, a grouping into a dimension that is not its lookup's
-                declared target, a translation whose distance varies along the
-                walked dimension — a degree above the position's ceiling, or a
-                bound that is not variable-free arithmetic.
-        """
-        _check_program(self)
 
 
 def walk(*expressions: ExpressionNode) -> Iterator[ExpressionNode]:
@@ -653,274 +615,3 @@ def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
     rows a declaration builds.
     """
     return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
-
-
-# --------------------------------------------------------------------------
-# Checking — the invariants :meth:`Program.check` holds a program to
-# --------------------------------------------------------------------------
-
-
-def _check_program(program: Program) -> None:
-    names = _flat_namespace(program)
-    for v in program.variables:
-        context = f"variable '{v.name}'"
-        _check_bound(v.lower, v, names)
-        _check_bound(v.upper, v, names)
-        _check_predicate(v.where, names, context, v.dims)
-    for c in program.constraints:
-        context = f"constraint '{c.name}'"
-        _check_predicate(c.where, names, context, c.dims)
-        for side in (c.lhs, c.rhs):
-            spanned = _checked_dims(side, program, names, context)
-            outside = sorted(set(spanned) - set(c.dims))
-            if outside:
-                raise LanguageError(
-                    f'{context}: expression has dims {outside} outside foreach {list(c.dims)} — missing a Sum/GroupSum?'
-                )
-            _check_degree(side, context)
-    if program.objective is not None:
-        _checked_dims(program.objective.expression, program, names, 'the objective')
-        _check_degree(program.objective.expression, 'the objective')
-        _check_objective_constants(program.objective.expression, program, names)
-    for name, expression in program.expressions.items():
-        _checked_dims(expression, program, names, f"named expression '{name}'")
-    for s in program.sos:
-        v = program.variable(s.variable)
-        if s.over not in v.dims:
-            raise LanguageError(f"sos '{s.name}': over {s.over!r}, which variable '{v.name}' is not indexed by")
-
-
-def _check_objective_constants(objective: ExpressionNode, program: Program, names: dict[str, tuple[str, ...]]) -> None:
-    """Every variable-free part of the objective is one number, not a table of them.
-
-    The dims left on a *term* are implicitly summed — that is what makes an
-    objective scalar. A variable-free addend has no term to be summed into, so
-    a dimension on one is a table of constants where the objective wants a
-    number, and no reading picks which. Its terms may span anything.
-    """
-    for addend in _addends(objective):
-        if carries_variable(addend):
-            continue
-        spanned = _checked_dims(addend, program, names, 'the objective')
-        if spanned:
-            raise LanguageError(
-                f'the objective: a constant part has dims {sorted(spanned)} — an objective is one '
-                f'number, so reduce it, or multiply it by the variable it belongs to'
-            )
-
-
-def _addends(expression: ExpressionNode) -> Iterator[ExpressionNode]:
-    """The sum's own terms, flattened through ``+`` and unary minus.
-
-    What a compiled expression's fragment lists are built from, read off the
-    program: everything else is one addend however deep it goes.
-    """
-    if isinstance(expression, Add):
-        yield from _addends(expression.left)
-        yield from _addends(expression.right)
-    elif isinstance(expression, Negate):
-        yield from _addends(expression.operand)
-    else:
-        yield expression
-
-
-def _flat_namespace(program: Program) -> dict[str, tuple[str, ...]]:
-    """Every name to the dims it is read through — the language's one flat namespace.
-
-    A parameter and a variable sharing a name would shadow one another in
-    every consumer that merges the two, so the collision is refused here; a
-    name declared twice within a kind is the same silent shadowing one
-    declaration deep.
-    """
-    names: dict[str, tuple[str, ...]] = {}
-    for declaration in (*program.parameters, *program.variables):
-        if declaration.name in names:
-            raise LanguageError(f"'{declaration.name}' is declared twice — one flat namespace, one home per name")
-        names[declaration.name] = declaration.dims
-    return names
-
-
-def _named(names: dict[str, tuple[str, ...]], name: str, kind: str, context: str) -> tuple[str, ...]:
-    if name not in names:
-        raise LanguageError(f"{context}: unknown {kind} '{name}'. " + did_you_mean(name, names))
-    return names[name]
-
-
-def _checked_dims(
-    expression: ExpressionNode, program: Program, names: dict[str, tuple[str, ...]], context: str
-) -> tuple[str, ...]:
-    """The dims *expression* spans, derived bottom-up — refusing every incoherent node.
-
-    The order is first appearance, the union rule every fragment join uses;
-    what matters to callers is the set, so only membership is promised.
-    """
-    if isinstance(expression, Constant):
-        return ()
-    if isinstance(expression, Parameter):
-        return _named(names, expression.name, 'parameter', context)
-    if isinstance(expression, Variable):
-        return _named(names, expression.name, 'variable', context)
-    if isinstance(expression, Negate):
-        return _checked_dims(expression.operand, program, names, context)
-    if isinstance(expression, (Add, Multiply)):
-        left = _checked_dims(expression.left, program, names, context)
-        right = _checked_dims(expression.right, program, names, context)
-        return left + tuple(d for d in right if d not in left)
-    if isinstance(expression, Divide):
-        num = _checked_dims(expression.numerator, program, names, context)
-        div = _checked_dims(expression.divisor, program, names, context)
-        return num + tuple(d for d in div if d not in num)
-    if isinstance(expression, Power):
-        base = _checked_dims(expression.base, program, names, context)
-        exp = _checked_dims(expression.exponent, program, names, context)
-        return base + tuple(d for d in exp if d not in base)
-    if isinstance(expression, Sum):
-        operand = _checked_dims(expression.operand, program, names, context)
-        missing = [d for d in expression.over if d not in operand]
-        if missing:
-            raise LanguageError(f'{context}: sum over {missing}, which the operand does not span')
-        return tuple(d for d in operand if d not in expression.over)
-    if isinstance(expression, GroupSum):
-        operand = _checked_dims(expression.operand, program, names, context)
-        if expression.over not in operand:
-            raise LanguageError(f'{context}: sum(by=) over {expression.over!r}, which the operand does not span')
-        _check_mapping(expression, program, context)
-        return (*(d for d in operand if d != expression.over), *expression.into)
-    if isinstance(expression, At):
-        operand = _checked_dims(expression.operand, program, names, context)
-        missing = [d for d in expression.into if d not in operand]
-        if missing:
-            raise LanguageError(f'{context}: at() through {missing}, which the operand does not span')
-        _check_mapping(expression, program, context)
-        return (*(d for d in operand if d not in expression.into), expression.over)
-    if isinstance(expression, (Translate, Window)):
-        return _checked_walk_dims(expression, program, names, context)
-    raise LanguageError(f'{context}: unsupported expression node {type(expression).__name__}')
-
-
-def _checked_walk_dims(
-    expression: Translate | Window, program: Program, names: dict[str, tuple[str, ...]], context: str
-) -> tuple[str, ...]:
-    """A translation or a window: the walked dimension spanned, its distance independent of it."""
-    verb = 'shift' if isinstance(expression, Translate) else 'sum_back'
-    operand = _checked_dims(expression.operand, program, names, context)
-    if expression.dimension not in operand:
-        raise LanguageError(f'{context}: {verb}() along {expression.dimension!r}, which the operand does not span')
-    distance = expression.offset if isinstance(expression, Translate) else expression.width
-    if isinstance(distance, str) and expression.dimension in _named(names, distance, 'parameter', context):
-        raise LanguageError(
-            f'{context}: {verb}() distance {distance!r} varies along {expression.dimension!r}, '
-            f'the dimension being walked'
-        )
-    return operand
-
-
-def _check_mapping(node: GroupSum | At, program: Program, context: str) -> None:
-    """A grouping or a pullback pairs each lookup with the dimension it targets.
-
-    A lookup the program does not declare is left to binding, which refuses a
-    source that never arrives — declaring lookups on a dimension is optional
-    in a hand-built program. A lookup declared with a *different* target is a
-    contradiction no data can repair, and is refused here.
-    """
-    if len(node.coordinate) != len(node.into):
-        raise LanguageError(
-            f'{context}: {len(node.coordinate)} lookup(s) paired with {len(node.into)} target dimension(s)'
-        )
-    targets = {lk.name: lk.target for lk in program.dimension(node.over).lookups}
-    for coordinate, into in zip(node.coordinate, node.into, strict=True):
-        if coordinate in targets and targets[coordinate] != into:
-            raise LanguageError(f'{context}: lookup {coordinate!r} targets {targets[coordinate]!r}, not {into!r}')
-
-
-def _check_degree(expression: ExpressionNode, context: str) -> int:
-    """The degree of *expression* in variables, refusing what no position takes.
-
-    Two is the ceiling everywhere a whole expression stands — the objective
-    and a constraint side — so one number serves both; a divisor or an
-    exponent carrying a variable is refused where it stands, since no ceiling
-    admits either.
-    """
-    if isinstance(expression, Variable):
-        return 1
-    if isinstance(expression, (Constant, Parameter)):
-        return 0
-    if isinstance(expression, Multiply):
-        degree = _check_degree(expression.left, context) + _check_degree(expression.right, context)
-        if degree > 2:
-            raise LanguageError(f'{context}: a product of degree {degree} — nothing takes more than a quadratic form')
-        return degree
-    if isinstance(expression, Divide):
-        if carries_variable(expression.divisor):
-            raise LanguageError(f'{context}: the divisor contains variables')
-        return _check_degree(expression.numerator, context)
-    if isinstance(expression, Power):
-        if carries_variable(expression.base) or carries_variable(expression.exponent):
-            raise LanguageError(f'{context}: a power over variables — `**` takes neither side variable')
-        return 0
-    if isinstance(expression, Add):
-        return max(_check_degree(expression.left, context), _check_degree(expression.right, context))
-    return max((_check_degree(child, context) for child in children(expression)), default=0)
-
-
-#: The node kinds a bound may be built from — what a consumer's bound walk
-#: evaluates, stated once where the boundary refuses the rest.
-_BOUND_NODES = (Constant, Parameter, Negate, Add, Multiply)
-
-
-def _check_bound(expression: ExpressionNode, v: VariableDeclaration, names: dict[str, tuple[str, ...]]) -> None:
-    """A bound is variable-free arithmetic over parameters the variable's own coordinates reach.
-
-    A bound parameter carrying a dimension the variable does not is the one
-    shape no reading rescues: reduced over that dimension it would widen the
-    mask, and read at one coordinate of it the bound would be whichever the
-    join happened to pick.
-    """
-    context = f"bounds of variable '{v.name}'"
-    if not isinstance(expression, _BOUND_NODES):
-        raise LanguageError(f'{context}: unsupported node {type(expression).__name__}')
-    if isinstance(expression, Parameter):
-        outside = sorted(set(_named(names, expression.name, 'parameter', context)) - set(v.dims))
-        if outside:
-            raise LanguageError(
-                f"bound parameter '{expression.name}' of variable '{v.name}' has dims "
-                f'{outside} outside the foreach dims {list(v.dims)}'
-            )
-    for child in children(expression):
-        _check_bound(child, v, names)
-
-
-def _check_predicate(
-    predicate: WhereNode | None, names: dict[str, tuple[str, ...]], context: str, dims: tuple[str, ...]
-) -> None:
-    """Every name a mask reads resolves, and is read at the coordinates *dims* the declaration has.
-
-    A mask naming something wider than the declaration it masks has no
-    reading: reduced over the excess dimension it would admit a row wherever
-    *any* coordinate of it satisfied the mask, and read at one coordinate the
-    answer would be whichever the join picked.
-    """
-    if predicate is None:
-        return
-    if isinstance(predicate, (ParameterComparisonNode, ParameterDefinedNode)):
-        _read_within(_named(names, predicate.name, 'parameter', context), predicate.name, context, dims)
-    if isinstance(predicate, VariableDefinedNode):
-        _read_within(_named(names, predicate.name, 'variable', context), predicate.name, context, dims)
-    if isinstance(predicate, (DimensionComparisonNode, DimensionPositionNode)):
-        _read_within((predicate.name,), predicate.name, context, dims)
-    if isinstance(predicate, (LookupComparisonNode, LookupPairComparisonNode, LookupDefinedNode)):
-        _read_within((predicate.over,), f'{predicate.name} over {predicate.over}', context, dims)
-    if isinstance(predicate, NotNode):
-        _check_predicate(predicate.operand, names, context, dims)
-    if isinstance(predicate, (AndNode, OrNode)):
-        _check_predicate(predicate.left, names, context, dims)
-        _check_predicate(predicate.right, names, context, dims)
-
-
-def _read_within(has: tuple[str, ...], name: str, context: str, dims: tuple[str, ...]) -> None:
-    """Refuse a mask operand carrying a dimension the declaration it masks does not."""
-    outside = sorted(set(has) - set(dims))
-    if outside:
-        raise LanguageError(
-            f"{context}: where reads '{name}', which has dims {outside} outside the foreach dims {list(dims)}"
-        )
