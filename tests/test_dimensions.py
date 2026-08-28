@@ -257,7 +257,15 @@ class TestTheEdgeRulesAreDecidedAtLoad:
 
     def test_a_fractional_amount_is_refused_by_to_spec(self):
         assert 'must be a whole number' in self._refused("p <= shift(p, over=t, offset=1.5, edge='wrap')")
-        assert 'at least 1' in self._refused('p <= sum_back(p, over=t, within=0)')
+
+    @pytest.mark.parametrize('width', ['0', '1.5', '-2'], ids=['zero', 'fractional', 'negative'])
+    def test_a_literal_width_below_one_is_refused_by_to_spec(self, width):
+        """A negative literal once slipped past the load-time test.
+
+        The sign was stripped before the `at least 1` comparison, so `-2` was
+        tested as `2` and reached lowering, which asserted (#222).
+        """
+        assert 'at least 1' in self._refused(f'p <= sum_back(p, over=t, within={width})')
 
     def test_a_zero_step_vacates_nothing_and_needs_no_edge(self):
         """`shift(x, offset=0)` reaches every coordinate from itself.

@@ -251,20 +251,19 @@ def _check_amount_form(node: FunctionCallNode, context: str) -> None:
     """
     (kwarg,) = BUILTINS[node.name].required_value_kwargs
     amount = node.kwargs[kwarg]
-    if isinstance(amount, UnaryOperatorNode) and amount.op == '-':
-        amount = amount.operand
     if isinstance(amount, ParameterNode):
         return
-    whole = isinstance(amount, NumberNode) and int(amount.value) == amount.value
     if node.name == 'shift':
-        if not whole:
+        if isinstance(amount, UnaryOperatorNode) and amount.op == '-':
+            amount = amount.operand
+        if not (isinstance(amount, NumberNode) and int(amount.value) == amount.value):
             raise DimensionError(
                 f'{context}: shift(offset=...) must be a whole number, or the name of an integer '
                 f'parameter when the offset differs per entity — a lead time, a transit time, a '
                 f'minimum up time.'
             )
         return
-    if not whole or amount.value < 1:
+    if not (isinstance(amount, NumberNode) and int(amount.value) == amount.value and amount.value >= 1):
         raise DimensionError(
             f'{context}: sum_back(within=...) needs a whole number of positions of at least 1, or '
             f'the name of an integer parameter when the window differs per entity. A width of 1 is '
