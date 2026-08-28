@@ -21,29 +21,26 @@ import math
 from typing import TYPE_CHECKING, Literal, assert_never
 
 from math_spec.errors import Advice
-from math_spec.expression_parser import (
-    ArithmeticNode,
-    BinaryOperatorNode,
-    ComparisonNode,
+from math_spec.program import (
+    Add,
+    At,
+    Constant,
+    Divide,
     ExpressionNode,
-    FunctionCallNode,
-    KwargNode,
-    NumberNode,
-    ParameterNode,
-    UnaryOperatorNode,
-    UnresolvedNode,
-    VariableNode,
-    children,
+    GroupSum,
+    Multiply,
+    Negate,
+    Parameter,
+    Power,
+    Sum,
+    Translate,
+    Variable,
+    Window,
+    variables_of,
 )
-from math_spec.piecewise import expand_piecewise
-from math_spec.resolution import Namespace, expression_of
-from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from pathlib import Path
-    from typing import Any
-
-    from math_spec.model import Spec, VariableBlock
+    from math_spec.program import Program, VariableDeclaration
 
 #: The sign a term carries into the objective, or ``None`` where the file does
 #: not decide it: a parameter coefficient (which may be zero), a variable
@@ -55,46 +52,43 @@ Sign = Literal['+', '-'] | None
 _OPEN = {'lower': -math.inf, 'upper': math.inf}
 
 
-def unbounded_notes(spec: str | Path | dict[str, Any] | Spec) -> list[Advice]:
+def unbounded_notes(program: Program) -> list[Advice]:
     """Name every variable the objective can drive to infinity unopposed.
 
-    Expands internally: a ``piecewise:`` block holds the variables it names,
-    and does so through the constraints it expands into, so the answer is
-    about the expansion whatever the caller happens to hold.
+    Asked of the program rather than the file: every fact the rule reads is a
+    declaration — the objective's sense and its terms, the variables each
+    constraint names, the two bounds — and by the time a program exists a
+    ``piecewise:`` block has already become the constraints it expands into,
+    which is where the variables it names are held.
 
     Returns:
         One note per variable that is unbounded on the side its objective term
         improves toward and named by no constraint.
     """
-    schema = expand_piecewise(to_spec(spec))
-    if schema.objective is None:
+    if program.objective is None:
         return []
 
-    ns = Namespace.of(schema)
-    objective = expression_of(schema.objective.expression, schema, ns, 'The objective')
-    assert not isinstance(objective, ComparisonNode), 'an objective holds no comparison — checked before this runs'
-
-    constrained = {block.variable for block in schema.sos.values()}
-    for cname, cdef in schema.constraints.items():
-        constrained |= _variables(expression_of(cdef.expression, schema, ns, f"Constraint '{cname}'"))
+    constrained = {block.variable for block in program.sos.values()}
+    for constraint in program.constraints.values():
+        constrained |= variables_of(constraint.lhs, constraint.rhs)
 
     signs: dict[str, Sign] = {}
-    _walk(objective, '+', signs)
+    _walk(program.objective.expression, '+', signs)
 
-    minimize = schema.objective.sense == 'minimize'
+    minimize = program.objective.sense == 'minimize'
     notes: list[Advice] = []
     for vname, sign in signs.items():
         if sign is None or vname in constrained:
             continue
         side = 'lower' if minimize == (sign == '+') else 'upper'
-        if _is_open(schema.variables[vname], side):
+        if _is_open(program.variables[vname], side):
             notes.append(
                 Advice(
                     'unbounded',
                     vname,
                     f"Variable '{vname}' makes this model unbounded: no constraint names it, and "
                     f'bounds.{side} is {_OPEN[side]}, which is the direction a {sign}{vname} term '
-                    f'improves a {schema.objective.sense} objective in. No data can change that, so '
+                    f'improves a {program.objective.sense} objective in. No data can change that, so '
                     f'the solve would answer `unbounded` and name nothing.\n'
                     f'Give it a finite bounds.{side}, or the constraint that was meant to define it.',
                 )
@@ -102,22 +96,16 @@ def unbounded_notes(spec: str | Path | dict[str, Any] | Spec) -> list[Advice]:
     return notes
 
 
-def _is_open(vdef: VariableBlock, side: str) -> bool:
+def _is_open(vdef: VariableDeclaration, side: str) -> bool:
     """Whether *vdef* declares nothing at all on *side*.
 
-    A ``domain: binary`` variable is 0/1 whatever its bounds block says, and a
-    bound naming a parameter is finite or not by data this pass does not have,
-    which is why the match is against the open value rather than for a missing
-    bound.
+    A bound naming a parameter is finite or not by data this pass does not
+    have, which is why the match is against the open value rather than for a
+    missing bound. A ``binary`` variable needs no case of its own: it reaches
+    the program with the 0/1 bounds its domain fixes.
     """
-    return vdef.domain != 'binary' and getattr(vdef.bounds, side) == _OPEN[side]
-
-
-def _variables(node: ExpressionNode) -> set[str]:
-    """Every variable named anywhere under *node*."""
-    if isinstance(node, VariableNode):
-        return {node.name}
-    return {name for child in children(node) for name in _variables(child)}
+    bound = vdef.lower if side == 'lower' else vdef.upper
+    return bound == Constant(_OPEN[side])
 
 
 def _flip(sign: Sign) -> Sign:
@@ -128,60 +116,56 @@ def _times(sign: Sign, other: Sign) -> Sign:
     return None if sign is None or other is None else ('+' if sign == other else '-')
 
 
-def _coefficient_sign(node: ArithmeticNode) -> Sign:
-    """The sign *node* scales a term by, or ``None`` unless it is a signed literal.
+def _coefficient_sign(node: ExpressionNode) -> Sign:
+    """The sign *node* scales a term by, or ``None`` unless it is a signed constant.
 
-    ``-2`` parses as a unary minus over a number, so the sign of a literal
+    ``-2`` lowers to a negation over a constant, so the sign of a literal
     coefficient is not always on the node itself. Zero is ``None`` on purpose:
     a term multiplied away is not in the objective, so the variable it names is
     driven nowhere.
     """
-    if isinstance(node, UnaryOperatorNode) and node.op in ('+', '-'):
-        inner = _coefficient_sign(node.operand)
-        return inner if node.op == '+' else _flip(inner)
-    if isinstance(node, NumberNode) and node.value != 0:
+    if isinstance(node, Negate):
+        return _flip(_coefficient_sign(node.operand))
+    if isinstance(node, Constant) and node.value != 0:
         return '+' if node.value > 0 else '-'
     return None
 
 
-def _walk(node: ArithmeticNode, sign: Sign, signs: dict[str, Sign]) -> None:
+def _walk(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> None:
     """Record the sign each variable under *node* carries into the objective.
 
     *signs* accumulates, and a variable reached twice with different signs — or
     once with an undecidable one — lands on ``None``, which claims nothing.
-    Every operator the language has sums its argument's terms with coefficient
-    1, being a reduction, a re-index or a window, so each hands *sign* to its
-    arguments unchanged; a kwarg carries no term at all. Any other binary
-    operator — ``**``, and whatever joins it — carries no sign in its operands,
-    which is what makes a degree-2 term claim nothing.
+    Every shape node sums its operand's terms with coefficient 1, being a
+    reduction, a re-index or a window, so each hands *sign* on unchanged. A
+    power carries no sign in either half, which is what makes a degree-2 term
+    claim nothing.
     """
-    if isinstance(node, VariableNode):
+    if isinstance(node, Variable):
         signs[node.name] = sign if signs.setdefault(node.name, sign) == sign else None
         return
-    if isinstance(node, NumberNode | ParameterNode | KwargNode | UnresolvedNode):
+    if isinstance(node, Constant | Parameter):
         return
-    if isinstance(node, UnaryOperatorNode):
-        _walk(node.operand, _flip(sign) if node.op == '-' else sign, signs)
+    if isinstance(node, Negate):
+        _walk(node.operand, _flip(sign), signs)
         return
-    if isinstance(node, FunctionCallNode):
-        for arg in node.args:
-            _walk(arg, sign, signs)
-        for value in node.kwargs.values():
-            _walk(value, None, signs)
+    if isinstance(node, Add):
+        _walk(node.left, sign, signs)
+        _walk(node.right, sign, signs)
         return
-    if isinstance(node, BinaryOperatorNode):
-        if node.op == '+':
-            left, right = sign, sign
-        elif node.op == '-':
-            left, right = sign, _flip(sign)
-        elif node.op == '*':
-            left = _times(sign, _coefficient_sign(node.right))
-            right = _times(sign, _coefficient_sign(node.left))
-        elif node.op == '/':
-            left, right = _times(sign, _coefficient_sign(node.right)), None
-        else:
-            left, right = None, None
-        _walk(node.left, left, signs)
-        _walk(node.right, right, signs)
+    if isinstance(node, Multiply):
+        _walk(node.left, _times(sign, _coefficient_sign(node.right)), signs)
+        _walk(node.right, _times(sign, _coefficient_sign(node.left)), signs)
+        return
+    if isinstance(node, Divide):
+        _walk(node.numerator, _times(sign, _coefficient_sign(node.divisor)), signs)
+        _walk(node.divisor, None, signs)
+        return
+    if isinstance(node, Power):
+        _walk(node.base, None, signs)
+        _walk(node.exponent, None, signs)
+        return
+    if isinstance(node, Sum | GroupSum | At | Translate | Window):
+        _walk(node.operand, sign, signs)
         return
     assert_never(node)

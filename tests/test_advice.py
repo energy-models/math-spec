@@ -11,10 +11,16 @@ the one call.
 
 from __future__ import annotations
 
+import json
+from typing import TYPE_CHECKING
+
 import pytest
 
-from math_spec import ADVICE_KINDS, advice, to_program
+from math_spec import ADVICE_KINDS, advice, to_program, to_spec
 from tests.fixtures import SMALL_MODEL, override
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 #: ``h`` is the target of ``lk`` and nothing else reaches it; ``g`` is an axis.
 LABEL_SPACE = override(
@@ -50,11 +56,44 @@ def test_a_dimension_that_is_never_an_axis_is_named(patch, expected):
         assert (notes[0].kind, notes[0].subject) == ('never-an-axis', 'h')
 
 
+#: A model with one note of each kind: `h` is a label space, and `p` is driven
+#: down by the objective with an open lower bound and no constraint on it.
+BOTH_KINDS = override(LABEL_SPACE, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': -float('inf')}})
+
+
 def test_both_kinds_of_note_come_through_the_one_door():
-    model = override(LABEL_SPACE, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': -float('inf')}})
-    notes = advice(model)
+    notes = advice(BOTH_KINDS)
     assert [(n.kind, n.subject) for n in notes] == [('never-an-axis', 'h'), ('unbounded', 'p')], (
         'the never-an-axis advice comes first, then the unboundedness advice'
     )
-    assert advice(to_program(model)) == notes[:1], 'a program has no file left to ask about bounds'
     assert {n.kind for n in notes} == ADVICE_KINDS, 'every kind a consumer can pin against is one this file produces'
+
+
+def _written(model: dict, tmp_path: Path) -> Path:
+    """The model as a file on disk — JSON is YAML, once infinity is spelled its way."""
+    path = tmp_path / 'model.yaml'
+    path.write_text(json.dumps(model).replace('-Infinity', '-.inf'))
+    return path
+
+
+@pytest.mark.parametrize(
+    'form',
+    [
+        pytest.param(_written, id='a-path'),
+        pytest.param(lambda model, _: model, id='a-mapping'),
+        pytest.param(lambda model, _: to_spec(model), id='a-spec'),
+        pytest.param(lambda model, _: to_program(model), id='a-program'),
+    ],
+)
+def test_the_answer_does_not_turn_on_which_state_it_is_asked_of(form, tmp_path):
+    """A `Program` was advised of one kind and every other input of two (#210).
+
+    The unboundedness pass read the file, and the arm that had already lowered
+    skipped it — so a consumer that lowers first, which is every consumer,
+    since lowering is what it wanted the program for, got the shorter answer
+    and no signal that a rule had been skipped.
+    """
+    assert [(n.kind, n.subject) for n in advice(form(BOTH_KINDS, tmp_path))] == [
+        ('never-an-axis', 'h'),
+        ('unbounded', 'p'),
+    ], 'one model, one answer, whichever of the four the caller happens to hold'
