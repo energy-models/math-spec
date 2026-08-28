@@ -62,12 +62,12 @@ from math_spec.where_parser import (
 )
 
 if TYPE_CHECKING:
-    from math_spec.model import Model
+    from math_spec.model import Spec
 
 
 def dims_of(
     node: ExpressionNode,
-    schema: Model,
+    schema: Spec,
     context: str,
 ) -> frozenset[str]:
     """The dim set of a resolved expression, checking every rule on the way.
@@ -82,7 +82,7 @@ def dims_of(
 
 def _dims(
     node: ArithmeticNode,
-    schema: Model,
+    schema: Spec,
     context: str,
 ) -> frozenset[str]:
     """The recursive worker under :func:`dims_of`; a binary operator takes the union of its sides, unchecked, since :func:`check_schema` compares the result with the declared frame."""
@@ -113,7 +113,7 @@ def _dims(
 
 def _dims_call(
     node: FunctionCallNode,
-    schema: Model,
+    schema: Spec,
     context: str,
 ) -> frozenset[str]:
     """The dim rule of one operator call.
@@ -239,7 +239,7 @@ _AMOUNT_WORDING = {
 }
 
 
-def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str], schema: Model, context: str) -> None:
+def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str], schema: Spec, context: str) -> None:
     """The rules that hold of an ``offset=`` or ``within=`` naming a parameter.
 
     They are about the *amount* rather than about a dim set, but they live here
@@ -291,7 +291,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
 # ---------------------------------------------------------------------------
 
 
-def check_schema(schema: Model) -> None:
+def check_schema(schema: Spec) -> None:
     """Check every declaration's dim rules.
 
     Raises:
@@ -345,7 +345,7 @@ def check_schema(schema: Model) -> None:
 
 def _check_where_dims(
     node: WhereNode | None,
-    schema: Model,
+    schema: Spec,
     frame: frozenset[str],
     context: str,
 ) -> None:

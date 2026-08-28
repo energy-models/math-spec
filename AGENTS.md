@@ -274,11 +274,11 @@ precisely so that this file, not the linter, decides where one earns its place.
   bullets above: there a docstring argues for one assertion or narrates a
   script, and a summary line it has to fit in is the worse sentence.
 
-`load_model` is the model — the front door, in the caller's terms, and not a
+`to_spec` is the model — the front door, in the caller's terms, and not a
 word about how it validates:
 
 ```python
-def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
+def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
@@ -286,7 +286,7 @@ def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
     formulation emits.
 
     Args:
-        model: A YAML path, a mapping, or a loaded :class:`Model`.
+        model: A YAML path, a mapping, or a loaded :class:`Spec`.
 
     Returns:
         The schema *as the file declares it*, ``piecewise:`` intact.

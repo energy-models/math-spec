@@ -42,7 +42,7 @@ from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
 from math_spec.expression_parser import ComparisonNode
-from math_spec.model import Buildable, Curvature, Model, PiecewiseBlock, undeclared_dimension
+from math_spec.model import Curvature, ExpandedSpec, PiecewiseBlock, Spec, undeclared_dimension
 from math_spec.resolution import Namespace, resolve_expression
 
 if TYPE_CHECKING:
@@ -88,7 +88,7 @@ def curvature_required(pw: PiecewiseBlock) -> Curvature | None:
     return 'convex' if pw.curve[1].sign == '>=' else 'concave'
 
 
-def _gate_rows(schema: Model, pw: PiecewiseBlock) -> tuple[tuple[str, str | None, str], ...]:
+def _gate_rows(schema: Spec, pw: PiecewiseBlock) -> tuple[tuple[str, str | None, str], ...]:
     """What the weights sum to, as ``(name suffix, where, right-hand side)``.
 
     One row where the gate exists at every coordinate the block builds a curve
@@ -110,27 +110,27 @@ def _gate_rows(schema: Model, pw: PiecewiseBlock) -> tuple[tuple[str, str | None
     return (('', pw.activity, f'({pw.activity})'), ('_ungated', f'NOT {pw.activity}', '1'))
 
 
-def expand_piecewise(schema: Model) -> Buildable:
-    """Return *schema* as a :class:`Buildable` — every ``piecewise:`` block expanded away.
+def expand_piecewise(schema: Spec) -> ExpandedSpec:
+    """Return *schema* as an :class:`ExpandedSpec` — every ``piecewise:`` block expanded away.
 
     The adjacency row shifts with ``edge=0``: a bare ``shift`` would drop the
     first breakpoint's row and leave its weight unconstrained, a wrong MILP
     with no error (#289). ``points:`` masks the weights and the segment
     binaries and no constraint — every emitted row reduces over the breakpoint
     axis or carries a masked weight. The result is memoised on *schema*, and a
-    :class:`Buildable` comes straight back; a model with no ``piecewise:`` is
+    :class:`ExpandedSpec` comes straight back; a model with no ``piecewise:`` is
     retyped with ``model_construct``, its validation already done on the way in.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
             or emitting a name the file already declares.
     """
-    if isinstance(schema, Buildable):
+    if isinstance(schema, ExpandedSpec):
         return schema
     if schema._expansion is not None:
         return schema._expansion
     if not schema.piecewise:
-        schema._expansion = Buildable.model_construct(**dict(schema))
+        schema._expansion = ExpandedSpec.model_construct(**dict(schema))
         return schema._expansion
 
     raw = schema.model_dump()
@@ -190,7 +190,7 @@ def expand_piecewise(schema: Model) -> Buildable:
             }
 
     raw['piecewise'].clear()
-    expanded = Buildable.model_validate(raw)
+    expanded = ExpandedSpec.model_validate(raw)
     schema._expansion = expanded
     return expanded
 
@@ -244,7 +244,7 @@ def _expand_lp(
         }
 
 
-def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
+def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
     """Check references and infer the frame (union of the links' dims).
 
     A values parameter is checked against the frame in a second pass, since
@@ -341,12 +341,12 @@ def _validate_block(schema: Model, name: str, pw: PiecewiseBlock) -> tuple[str, 
     return tuple(frame)
 
 
-def _declared_order(schema: Model, dims: frozenset[str]) -> list[str]:
+def _declared_order(schema: Spec, dims: frozenset[str]) -> list[str]:
     """*dims* in declaration order — iterating the set varies the emitted ``foreach``, and every column index behind it, per process."""
     return [d for d in schema.dimensions if d in dims]
 
 
-def _expr_dims(schema: Model, text: str, ctx: str) -> frozenset[str]:
+def _expr_dims(schema: Spec, text: str, ctx: str) -> frozenset[str]:
     """Dims of an affine link expression, asked of ``dimensions`` before any declaration exists to carry it."""
     ast = parse_and_expand(text, schema, ctx)
     if isinstance(ast, ComparisonNode):

@@ -6,7 +6,7 @@
 
     pixi run python -m tools.schema   # rewrite schema/math-spec.schema.json
 
-The document is ``Model.model_json_schema()`` — the shape pydantic validates,
+The document is ``Spec.model_json_schema()`` — the shape pydantic validates,
 nothing more: ``expression:`` and ``where:`` are strings to it, so their
 grammars stay invisible to any editor reading this. ``tests/test_schema.py``
 asserts the committed file equals what this produces, so the artefact cannot
@@ -21,7 +21,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from math_spec import Model
+from math_spec import Spec
 
 PATH = Path(__file__).resolve().parent.parent / 'schema' / 'math-spec.schema.json'
 DIALECT = 'https://json-schema.org/draft/2020-12/schema'
@@ -66,7 +66,7 @@ def _canonical(node: Any) -> Any:
 
 def rendered() -> str:
     """The schema document, byte-for-byte as it lives in the repo."""
-    document = _canonical({'$schema': DIALECT, **Model.model_json_schema()})
+    document = _canonical({'$schema': DIALECT, **Spec.model_json_schema()})
     return json.dumps(document, indent=2, sort_keys=True, allow_nan=False) + '\n'
 
 

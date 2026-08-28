@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable
 
-    from math_spec import Buildable, Namespace, SosBlock
+    from math_spec import ExpandedSpec, Namespace, SosBlock
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -211,7 +211,7 @@ class Walk:
     equations print it.
     """
 
-    def __init__(self, schema: Buildable, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
+    def __init__(self, schema: ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
         self.schema = schema
         self.namespace = namespace
         self.symbols = symbols

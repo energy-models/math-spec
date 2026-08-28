@@ -19,7 +19,7 @@ from math_spec.resolution import Namespace, expression_of
 from tests.fixtures import OPERATOR_PROBES, schema_of
 
 if TYPE_CHECKING:
-    from math_spec.model import Model
+    from math_spec.model import Spec
 
 #: `fixtures.DISPATCH_MODEL` plus buses: a dim rule is mostly about an
 #: expression carrying a dim its frame does not, which needs three dims to
@@ -56,7 +56,7 @@ BASE = {
 }
 
 
-def _schema(**overrides) -> Model:
+def _schema(**overrides) -> Spec:
     return schema_of(BASE, **overrides)
 
 

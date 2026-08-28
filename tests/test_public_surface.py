@@ -18,8 +18,8 @@ from math_spec import typesetting
 #: here would make the two one list checked against itself.
 SURFACE = frozenset(
     {
-        # the front door, and the two model types
-        'load_model', 'Model', 'Buildable', 'expand_piecewise',
+        # the front door, and the two spec types
+        'to_spec', 'Spec', 'ExpandedSpec', 'expand_piecewise',
         # the error tree
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'PiecewiseExpansionError', 'did_you_mean', 'schema_error',

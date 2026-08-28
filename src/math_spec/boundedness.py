@@ -37,7 +37,7 @@ from math_spec.expression_parser import (
 from math_spec.resolution import Namespace, expression_of
 
 if TYPE_CHECKING:
-    from math_spec.model import Model, VariableBlock
+    from math_spec.model import Spec, VariableBlock
 
 #: The sign a term carries into the objective, or ``None`` where the file does
 #: not decide it: a parameter coefficient (which may be zero), a variable
@@ -49,7 +49,7 @@ Sign = Literal['+', '-'] | None
 _OPEN = {'lower': -math.inf, 'upper': math.inf}
 
 
-def unbounded_notes(schema: Model) -> list[str]:
+def unbounded_notes(schema: Spec) -> list[str]:
     """Name every variable the objective can drive to infinity unopposed.
 
     Takes an expanded schema: a ``piecewise:`` block holds the variables it

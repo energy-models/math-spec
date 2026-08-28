@@ -13,10 +13,10 @@ None of it is needed to write a model: these are the names a **consumer**
 reads a model through, and they are the whole of the seam:
 
 ```text
-load_model  →  Model  →  expand_piecewise  →  Buildable
+to_spec  →  Spec  →  expand_piecewise  →  ExpandedSpec
 ```
 
-## Two models, and the difference between them
+## Two specs, and the difference between them
 
 A file may declare a construct whose variables and constraints do not exist
 yet. `piecewise:` is the one that does — a curve
@@ -55,50 +55,50 @@ objective:
 ```
 
 ```python
-from math_spec import expand_piecewise, load_model
+from math_spec import expand_piecewise, to_spec
 
-model = load_model('curve.yaml')
-sorted(model.constraints)  # ['target']
+spec = to_spec('curve.yaml')
+sorted(spec.constraints)  # ['target']
 
-buildable = expand_piecewise(model)
-sorted(buildable.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
-sorted(buildable.variables)  # ['cost', 'curve_lam', 'p']
+expanded = expand_piecewise(spec)
+sorted(expanded.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+sorted(expanded.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
-**A `Model` is the file as written.** It still carries `piecewise:`, and its
+**A `Spec` is the file as written.** It still carries `piecewise:`, and its
 `constraints:` are the ones somebody typed.
 
-**A `Buildable` is what rows are built from.** `variables:` and `constraints:`
+**An `ExpandedSpec` is what rows are built from.** `variables:` and `constraints:`
 hold the whole model, so the rows built from one are the rows the file asked
 for. `piecewise:` is empty, every block having become declarations.
 
 `expand_piecewise` is idempotent and costs nothing to ask twice: the expansion
 is built once, while the model validates, and every later call hands back that
-same object — including when it is handed a `Buildable`, which is its own
+same object — including when it is handed an `ExpandedSpec`, which is its own
 expansion.
 
 ## Which one to take
 
-| you are                                                                      | take        | because                                |
-| ---------------------------------------------------------------------------- | ----------- | -------------------------------------- |
-| building rows — a lowering pass, a solver backend, a renderer                | `Buildable` | the declarations are all there         |
-| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Model`     | the expansion has cleared `piecewise:` |
+| you are                                                                      | take           | because                                |
+| ---------------------------------------------------------------------------- | -------------- | -------------------------------------- |
+| building rows — a lowering pass, a solver backend, a renderer                | `ExpandedSpec` | the declarations are all there         |
+| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Spec`         | the expansion has cleared `piecewise:` |
 
-**Take a `Buildable` to build.** A consumer that reads `constraints:` off a
-`Model` still carrying a curve builds a model missing declarations — and a
+**Take an `ExpandedSpec` to build.** A consumer that reads `constraints:` off a
+`Spec` still carrying a curve builds a model missing declarations — and a
 model missing declarations is a model, so it solves, and the answer is wrong
-with nothing to see. Saying `Buildable` in the signature is what makes that a
+with nothing to see. Saying `ExpandedSpec` in the signature is what makes that a
 type error rather than a number.
 
 **Reading the file off an expansion finds no curves, and says nothing.** A
-`Buildable` _is_ a `Model`, so it is accepted wherever the file is wanted and
+`ExpandedSpec` _is_ a `Spec`, so it is accepted wherever the file is wanted and
 the types cannot catch this one. Anything that asks a model what curves it
 declares — where they run, which method states them, which parameter a mask is
-derived from — has to be handed what `load_model` returned. An expansion
+derived from — has to be handed what `to_spec` returned. An expansion
 answers "none", which is indistinguishable from a model that has none.
 
 **The promise is about declarations, not expressions.** `macros:` and
-`expressions:` are still text inside the declarations a `Buildable` holds, and
+`expressions:` are still text inside the declarations an `ExpandedSpec` holds, and
 are substituted where they are read, not up front. That asymmetry is the reason
 the type exists: an expression is needed only when someone reads it, where the
 _set of declarations_ is needed before anything can be read at all.

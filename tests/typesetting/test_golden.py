@@ -20,7 +20,7 @@ from math_spec.operators import BUILTIN_NAMES
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.validation import load_model
+from math_spec.validation import to_spec
 from math_spec.where_parser import WhereNode
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
@@ -100,7 +100,7 @@ def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells():
     """
     recorder = _Recorded(LATEX)
     typeset(golden.MODEL, recorder, standalone=True)
-    sense = load_model(golden.MODEL).objective.sense
+    sense = to_spec(golden.MODEL).objective.sense
     unreachable = {'minimize', 'maximize'} - {sense}
     assert recorder.asked == OPERATOR_NAMES - unreachable, (
         f'tests/typesetting/golden/model.yaml no longer prints every operator: '
@@ -121,7 +121,7 @@ def _nodes(tree: object) -> Iterator[object]:
 
 def _rendered_trees() -> Iterator[object]:
     """Every resolved tree the walk is handed for the golden model."""
-    schema = load_model(golden.MODEL)
+    schema = to_spec(golden.MODEL)
     namespace = Namespace.of(schema)
     yield expression_of(schema.objective.expression, schema, namespace, 'the objective')
     for name, block in schema.constraints.items():

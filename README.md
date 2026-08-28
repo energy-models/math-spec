@@ -53,8 +53,8 @@ flowchart LR
     S --> AST["core AST<br/>two grammars"]
     AST --> Q{"inside the<br/>language?"}
     Q -->|"no"| ERR["load error<br/>naming the construct + rewrite"]
-    Q -->|"yes"| M["Model"]
-    M --> B["expand_piecewise<br/>→ Buildable"]
+    Q -->|"yes"| M["Spec"]
+    M --> B["expand_piecewise<br/>→ ExpandedSpec"]
     B --> ENG["an engine → solver"]
     M --> T["to_latex / to_typst / to_markdown"]
 
@@ -111,16 +111,16 @@ everything about it that can be wrong is wrong at load:
 ```python
 import math_spec as ms
 
-model = ms.load_model('dispatch.yaml')  # schema, names, dims, degree — all checked here
-sorted(model.variables)  # ['p']
+spec = ms.to_spec('dispatch.yaml')  # schema, names, dims, degree — all checked here
+sorted(spec.variables)  # ['p']
 
-buildable = ms.expand_piecewise(model)  # curves become the declarations they stand for
+expanded = ms.expand_piecewise(spec)  # curves become the declarations they stand for
 ```
 
-`load_model` needs no data and no solver: a repository of models can be
+`to_spec` needs no data and no solver: a repository of models can be
 compiled in CI with nothing bound to any of them. What comes back is the seam a
-consumer reads a model through — `load_model → Model → expand_piecewise →
-Buildable`.
+consumer reads a model through — `to_spec → Spec → expand_piecewise →
+ExpandedSpec`.
 
 <!--- --8<-- [end:load] -->
 

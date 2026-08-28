@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from math_spec._yaml import parse_yaml, read_yaml
-from math_spec.validation import load_model
+from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from math_spec import Model
+    from math_spec import Spec
 
 #: One construct per file; `tools/spec_math.py` renders the operator reference
 #: from the same directory, so a probe added for the page is swept here too.
@@ -61,13 +61,13 @@ def override(base: dict[str, Any], **patch: Any) -> dict[str, Any]:
     return raw
 
 
-def schema_of(source: str | Path | dict[str, Any], **patch: Any) -> Model:
-    """A ``Model`` from a YAML path, YAML text, or a raw dict, ``**patch`` applied by :func:`override`.
+def schema_of(source: str | Path | dict[str, Any], **patch: Any) -> Spec:
+    """A ``Spec`` from a YAML path, YAML text, or a raw dict, ``**patch`` applied by :func:`override`.
 
     ``Path`` means a file, ``str`` means the YAML itself.
     """
     raw = raw_of(source)
-    return load_model(override(raw, **patch) if patch else raw)
+    return to_spec(override(raw, **patch) if patch else raw)
 
 
 def raw_of(source: str | Path | dict[str, Any]) -> dict[str, Any]:

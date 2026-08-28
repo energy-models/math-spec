@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The YAML surface's types — every block a file may contain, rooted at :class:`Model`.
+"""The YAML surface's types — every block a file may contain, rooted at :class:`Spec`.
 
 A block per declaration kind, and one strict base: an unrecognised key is an
 error naming the near miss rather than a shrug, because a dropped ``bounds:``
@@ -312,7 +312,7 @@ class ExpressionBlock(_StrictBlock):
 
     Written in YAML as a bare string, or as a mapping once it carries a
     ``description:`` — and serialised back to whichever form it was written in,
-    so a round trip through :meth:`Model.to_yaml` reproduces the file::
+    so a round trip through :meth:`Spec.to_yaml` reproduces the file::
 
         expressions:
           total_generation: sum(p, over=generator)
@@ -349,7 +349,7 @@ class PiecewiseLink(_StrictBlock):
 
     Written in YAML as ``[expression, values]`` or ``[expression, values,
     sign]`` and serialised back to exactly that form, so a round trip through
-    :meth:`Model.to_yaml` reproduces the file.
+    :meth:`Spec.to_yaml` reproduces the file.
     """
 
     _label: ClassVar[str] = 'a piecewise link'
@@ -382,7 +382,7 @@ class PiecewiseLink(_StrictBlock):
 
 #: How a ``piecewise:`` block restricts its interpolation weights, and what
 #: each one emits. The key is ``method:`` because that is
-#: ``linopy.Model.add_piecewise_formulation``'s (#695); ``sos2`` and ``lp`` are
+#: ``linopy.Spec.add_piecewise_formulation``'s (#695); ``sos2`` and ``lp`` are
 #: its words too, and mean the same things. ``adjacency`` and ``convex`` are
 #: ours, linopy having no name for the first and reaching the second only as a
 #: fallback.
@@ -402,7 +402,7 @@ PIECEWISE_METHODS = {
 class PiecewiseBlock(_StrictBlock):
     """N expressions jointly pinned to a breakpoint-indexed piecewise curve.
 
-    Mirrors ``linopy.Model.add_piecewise_formulation``. Each link is
+    Mirrors ``linopy.Spec.add_piecewise_formulation``. Each link is
     ``[expression, values_parameter]`` or ``[expression, values_parameter,
     sign]``: *expression* is any affine expression string, *values_parameter*
     names a parameter carrying the ``over`` dim, and *sign* bounds the link by
@@ -553,7 +553,7 @@ def _repeated(items: Iterable[Any]) -> list[Any]:
 
 
 def _without_absence(value: Any) -> Any:
-    """*value* with every absent entry stripped, recursively — see :meth:`Model._drop_absence`."""
+    """*value* with every absent entry stripped, recursively — see :meth:`Spec._drop_absence`."""
     if not isinstance(value, dict):
         return value
     kept = {}
@@ -571,25 +571,25 @@ def _is_absent(value: Any) -> bool:
     return isinstance(value, float) and math.isinf(value)
 
 
-class Model(_StrictBlock):
+class Spec(_StrictBlock):
     """The declared math — one YAML file, or one dict, validated. Nothing here has seen data.
 
     The API is the ten declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads. In goes through
-    ``load_model``, which raises
+    ``to_spec``, which raises
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
 
     Everything else on this class is pydantic's, not a contract this package
     keeps — ``model_json_schema()`` describes the shape pydantic validates
     rather than the language (checked in for editors as
     ``schema/math_spec.schema.json``), and ``model_construct()`` skips validation
-    entirely, so a ``Model`` is valid when it was built the normal way.
+    entirely, so a ``Spec`` is valid when it was built the normal way.
     """
 
     _label: ClassVar[str] = 'the top level of the file'
 
-    #: The :class:`Buildable` built from this model. Owned entirely — written
+    #: The :class:`ExpandedSpec` built from this model. Owned entirely — written
     #: and read — by :func:`~math_spec.piecewise.expand_piecewise`; only
     #: the slot lives here.
     _expansion: Any = PrivateAttr(default=None)
@@ -660,7 +660,7 @@ class Model(_StrictBlock):
         return _without_absence(handler(self))
 
     def to_dict(self) -> dict[str, Any]:
-        """The model as plain data. ``load_model(m.to_dict())`` reproduces it."""
+        """The model as plain data. ``to_spec(m.to_dict())`` reproduces it."""
         return self.model_dump()
 
     def to_yaml(self) -> str:
@@ -674,7 +674,7 @@ class Model(_StrictBlock):
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
 
     @model_validator(mode='after')
-    def _validate_references(self) -> Model:
+    def _validate_references(self) -> Spec:
         """Every cross-declaration rule the schema can decide without data.
 
         Names share one flat namespace, shadowing being how a new declaration
@@ -794,10 +794,10 @@ class Model(_StrictBlock):
         return self
 
     @model_validator(mode='after')
-    def _validate_expressions(self) -> Model:
+    def _validate_expressions(self) -> Spec:
         """Every expression and where string — after expansion, whose emitted declarations are language too.
 
-        The :class:`Buildable` expansion builds runs every validator of its own,
+        The :class:`ExpandedSpec` expansion builds runs every validator of its own,
         so a file with ``piecewise:`` has its references checked twice and its
         expressions once, there. The checkers import this module, so the
         imports are local.
@@ -812,18 +812,18 @@ class Model(_StrictBlock):
         return self
 
 
-class Buildable(Model):
+class ExpandedSpec(Spec):
     """A model with nothing left to expand — what rows are built from.
 
     :func:`~math_spec.piecewise.expand_piecewise` produces one, and
     ``variables:`` and ``constraints:`` then hold the whole model. A consumer
-    that builds takes this type; one that reads takes :class:`Model` and
+    that builds takes this type; one that reads takes :class:`Spec` and
     accepts either.
     """
 
     @model_validator(mode='after')
-    def _nothing_left_to_expand(self) -> Buildable:
+    def _nothing_left_to_expand(self) -> ExpandedSpec:
         if self.piecewise:
-            msg = 'a Buildable carries no piecewise: — expand_piecewise is what produces one'
+            msg = 'an ExpandedSpec carries no piecewise: — expand_piecewise is what produces one'
             raise ValueError(msg)
         return self

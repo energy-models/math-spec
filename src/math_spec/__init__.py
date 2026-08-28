@@ -45,9 +45,9 @@ from math_spec.model import (
     PARAMETER_DTYPES,
     VARIABLE_ABSENCE,
     VARIABLE_DOMAINS,
-    Buildable,
-    Model,
+    ExpandedSpec,
     SosBlock,
+    Spec,
 )
 from math_spec.operators import (
     BUILTIN_NAMES,
@@ -58,7 +58,7 @@ from math_spec.operators import (
 )
 from math_spec.piecewise import curvature_required, expand_piecewise, mask_of
 from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.validation import load_model
+from math_spec.validation import to_spec
 from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
@@ -82,7 +82,7 @@ from math_spec.where_parser import (
 )
 
 # Last: `math_spec.typesetting` imports `Namespace`, `expand_piecewise` and
-# `load_model` back from this module, so those must be bound first.
+# `to_spec` back from this module, so those must be bound first.
 # isort: split
 from math_spec.typesetting import (
     FORMATS,
@@ -107,7 +107,6 @@ __all__ = [
     'BinaryOperatorNode',
     'BooleanLiteralNode',
     'BranchNode',
-    'Buildable',
     'ComparisonNode',
     'ConnectiveWhereNode',
     'DimensionComparisonNode',
@@ -115,6 +114,7 @@ __all__ = [
     'DimensionNode',
     'DimensionPositionNode',
     'EdgeNode',
+    'ExpandedSpec',
     'ExpressionNode',
     'FunctionCallNode',
     'KeywordNode',
@@ -126,7 +126,6 @@ __all__ = [
     'LookupNode',
     'LookupPairComparisonNode',
     'MathSpecError',
-    'Model',
     'NameListNode',
     'NameNode',
     'Namespace',
@@ -139,6 +138,7 @@ __all__ = [
     'PiecewiseExpansionError',
     'SchemaError',
     'SosBlock',
+    'Spec',
     'SymbolTable',
     'TypedPredicateNode',
     'UnaryOperatorNode',
@@ -161,13 +161,13 @@ __all__ = [
     'expand_piecewise',
     'expression_of',
     'is_quadratic',
-    'load_model',
     'mask_of',
     'parse_yaml',
     'read_yaml',
     'schema_error',
     'to_latex',
     'to_markdown',
+    'to_spec',
     'to_typst',
     'typeset',
     'unbounded_notes',
