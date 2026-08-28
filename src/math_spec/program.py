@@ -494,7 +494,7 @@ class ObjectiveDeclaration:
     expression: ExpressionNode
 
 
-def _declared[Declaration: (DimensionDeclaration, ParameterDeclaration, VariableDeclaration, ConstraintDeclaration)](
+def _declared[Declaration: (DimensionDeclaration, ParameterDeclaration, VariableDeclaration)](
     items: tuple[Declaration, ...], name: str, kind: str
 ) -> Declaration:
     """The declaration called *name*, or a ``KeyError`` naming the near miss."""
@@ -576,16 +576,6 @@ def is_quadratic(expression: ExpressionNode) -> bool:
         isinstance(node, Multiply) and all(carries_variable(side) for side in (node.left, node.right))
         for node in walk(expression)
     )
-
-
-def declares_quadratic(c: ConstraintDeclaration) -> bool:
-    """Whether constraint *c*'s expression multiplies two variable-carrying operands.
-
-    One home, because unrelated readers act on it — what a solver must
-    support, which declarations to build last — and a third side added to a
-    constraint has to be found by every one of them.
-    """
-    return is_quadratic(c.lhs) or is_quadratic(c.rhs)
 
 
 def carries_variable(expression: ExpressionNode) -> bool:
