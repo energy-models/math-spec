@@ -14,7 +14,11 @@ all. Data is bound against these declarations by whatever builds the model;
 *means*, with macros expanded, names typed, operators resolved to nodes and
 every dim rule already checked. Consumers dispatch on these nodes and read
 them; nothing here is built by hand, so what ships beside the nodes is the
-walk (:func:`children`), not builders.
+walk (:func:`children`), not builders. A program is trusted by construction:
+:func:`~math_spec.lowering.to_program` is the only thing that builds one, and
+nothing checks one assembled by hand. The language's refusals happen at load,
+where the file and its author are, and a program put together some other way
+is outside that guarantee rather than inside a pass restating it.
 
 What a consumer needs from this module falls in three, and only the middle
 one has to be *called* to be got right:
@@ -37,6 +41,11 @@ arrives as ``None`` and one admitting none as ``BooleanLiteralNode(False)``, so
 that node stands at the root of a mask or nowhere in it, and no consumer needs
 a constant folder of its own to agree with the others about which rows exist.
 
+The declaration vocabularies are the language's own for the same reason
+(:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
+into a program by a cast, and a member added to one spelling alone would
+arrive as a string no consumer's branch recognises.
+
 Frozen dataclasses only — no execution logic, and nothing imported from a
 consumer.
 
@@ -53,6 +62,7 @@ from functools import cached_property
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
+import math_spec.model as _model
 from math_spec.errors import did_you_mean
 
 if TYPE_CHECKING:
@@ -136,23 +146,22 @@ QuadraticPosition = Literal['objective', 'constraint']
 #: and hears about it when the language admits another.
 QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
 ComparisonOperator = Literal['==', '!=', '<=', '>=', '<', '>']
-VariableType = Literal['continuous', 'binary', 'integer']
 
-#: What a masked variable's non-existence means where it does not exist.
-#: ``undefined`` is the absence rules' default — a term carrying it takes its
-#: row. ``zero`` says the quantity *is* zero there, so the term contributes
-#: nothing and the row stands.
-VariableAbsence = Literal['undefined', 'zero']
+#: What a dimension's labels are — the language's own vocabulary
+#: (:data:`~math_spec.model.DimensionDtype`), under the name a consumer reads
+#: it by.
+DimensionDtype = _model.DimensionDtype
 
-#: What a dimension's labels are. ``datetime`` is a dimension's alone — labels
-#: on a timeline order and compare, where a *value* of that type is a moment
-#: nothing computes with.
-DimensionDtype = Literal['float', 'int', 'str', 'datetime']
+#: What a parameter's values are (:data:`~math_spec.model.ParameterDtype`).
+ParameterDtype = _model.ParameterDtype
 
-#: What a parameter's values are. ``bool`` is a parameter's alone — a value
-#: column may be a flag a mask reads, where a label set of two members is a
-#: dimension nothing indexes by.
-ParameterDtype = Literal['float', 'int', 'bool', 'str']
+#: What a masked variable's non-existence means
+#: (:data:`~math_spec.model.VariableAbsence`).
+VariableAbsence = _model.VariableAbsence
+
+#: A variable's domain (:data:`~math_spec.model.VariableDomain`), under the
+#: name this module's field carries.
+VariableType = _model.VariableDomain
 
 
 # --------------------------------------------------------------------------
