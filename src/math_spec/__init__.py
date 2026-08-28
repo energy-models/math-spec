@@ -38,7 +38,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
-from math_spec.lowering import to_program
+from math_spec.lowering import advice, to_program
 from math_spec.model import (
     CURVATURES,
     DIMENSION_DTYPES,
@@ -150,6 +150,7 @@ __all__ = [
     'VariableDefinedNode',
     'VariableNode',
     'WhereNode',
+    'advice',
     'call_shape_error',
     'curvature_required',
     'did_you_mean',
