@@ -19,11 +19,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from math_spec import read_yaml
+from math_spec._yaml import read_yaml
 from math_spec.errors import SchemaError, did_you_mean
 
 if TYPE_CHECKING:
-    from math_spec import Buildable
+    from math_spec.model import _ExpandedSpec
     from math_spec.typesetting.format import Format
 
 __all__ = ['SymbolTable', 'Symbols']
@@ -86,7 +86,7 @@ class Symbols:
         SchemaError: If *table* is written in a notation *fmt* does not read.
     """
 
-    def __init__(self, schema: Buildable, fmt: Format, table: SymbolTable) -> None:
+    def __init__(self, schema: _ExpandedSpec, fmt: Format, table: SymbolTable) -> None:
         if table.notation != fmt.notation:
             msg = (
                 f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
@@ -210,7 +210,7 @@ class SymbolTable:
             names={k: str(v) for k, v in (raw.get('names') or {}).items()},
         )
 
-    def checked_against(self, schema: Buildable) -> SymbolTable:
+    def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
         everything = dims | set(schema.parameters) | set(schema.variables)

@@ -10,7 +10,7 @@ import pytest
 
 from math_spec._yaml import read_yaml
 from math_spec.errors import SchemaError
-from math_spec.validation import load_model
+from math_spec.validation import to_spec
 from tests.fixtures import raw_of
 
 MODEL = """dimensions:
@@ -50,7 +50,7 @@ def test_only_true_and_false_are_booleans(tmp_path):
 
 
 def test_the_harness_reads_a_model_the_way_the_product_does(tmp_path):
-    """``raw_of`` read YAML 1.1, so a dimension named ``no`` reached a test's schema as ``False`` while ``load_model`` saw the string."""
+    """``raw_of`` read YAML 1.1, so a dimension named ``no`` reached a test's schema as ``False`` while ``to_spec`` saw the string."""
     path = _write(tmp_path, _BOOLISH_DIMS)
 
     assert raw_of(path) == read_yaml(path)
@@ -69,7 +69,7 @@ def test_the_loader_yields_plain_types(tmp_path):
     raw = read_yaml(_write(tmp_path, MODEL))
     assert type(raw) is dict
 
-    schema = load_model(raw)
+    schema = to_spec(raw)
     assert all(type(name) is str for name in schema.dimensions), 'a declaration is keyed by a plain str'
     assert type(schema.variables['p'].foreach) is list
     assert all(type(d) is str for d in schema.variables['p'].foreach)
@@ -83,14 +83,14 @@ def test_duplicate_key_is_an_error_naming_both_lines(tmp_path):
 
     first = MODEL.splitlines().index('  balance:') + 1
     with pytest.raises(SchemaError, match=rf"duplicate key 'balance' .* first declared on line {first}"):
-        load_model(path)
+        to_spec(path)
 
 
 def test_duplicate_top_level_section_is_an_error(tmp_path):
     path = _write(tmp_path, MODEL + 'parameters:\n  other: {dims: [snapshot]}\n')
 
     with pytest.raises(SchemaError, match="duplicate key 'parameters'"):
-        load_model(path)
+        to_spec(path)
 
 
 def test_a_merge_key_override_is_not_a_duplicate(tmp_path):
@@ -106,11 +106,11 @@ def test_a_merge_key_override_is_not_a_duplicate(tmp_path):
 
 
 def test_a_non_mapping_document_is_a_load_error(tmp_path):
-    """Otherwise `Model(**raw)` raises a bare TypeError about `**`."""
+    """Otherwise `Spec(**raw)` raises a bare TypeError about `**`."""
     for text in ('- a\n- b\n', 'just a string\n'):
         path = _write(tmp_path, text)
         with pytest.raises(SchemaError, match='must be a mapping of sections'):
-            load_model(path)
+            to_spec(path)
 
 
 def test_an_empty_file_is_an_empty_model(tmp_path):
@@ -122,7 +122,7 @@ def test_a_complex_key_is_refused_in_our_tree(tmp_path):
     """A `? [a, b]` key cannot name a declaration; the refusal is the loader's, not a TypeError."""
     path = _write(tmp_path, MODEL + 'expressions:\n  ? [a, b]\n  : p\n')
     with pytest.raises(SchemaError, match='a key must be a scalar'):
-        load_model(path)
+        to_spec(path)
 
 
 def test_two_merge_keys_accumulate(tmp_path):
@@ -133,4 +133,4 @@ def test_two_merge_keys_accumulate(tmp_path):
         + MODEL.replace('snapshot: {dtype: int}', 'snapshot:\n    <<: *a\n    <<: *b'),
     )
     with pytest.raises(SchemaError, match="unknown key 'anchors'"):
-        load_model(path)
+        to_spec(path)

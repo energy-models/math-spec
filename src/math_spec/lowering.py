@@ -54,7 +54,7 @@ from math_spec.expression_parser import (
 from math_spec.operators import call_shape_error, edge_error
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.validation import load_model
+from math_spec.validation import to_spec
 from math_spec.where_parser import BooleanLiteralNode, WhereNode
 
 if TYPE_CHECKING:
@@ -62,12 +62,12 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import Any
 
-    from math_spec.model import Buildable, Model
+    from math_spec.model import Spec, _ExpandedSpec
 
 _SENSES = {'==', '<=', '>='}
 
 
-def to_program(spec: str | Path | dict[str, Any] | Model | program.Program) -> program.Program:
+def to_program(spec: str | Path | dict[str, Any] | Spec | program.Program) -> program.Program:
     """*spec* as a :class:`~math_spec.program.Program` — the public door.
 
     Takes whatever you have: a YAML path, the YAML itself, a mapping, a loaded
@@ -93,14 +93,14 @@ def to_program(spec: str | Path | dict[str, Any] | Model | program.Program) -> p
     """
     if isinstance(spec, program.Program):
         return spec
-    return lower_program(expand_piecewise(load_model(spec)))
+    return lower_program(expand_piecewise(to_spec(spec)))
 
 
-def lower_program(schema: Buildable) -> program.Program:
-    """Compile a :class:`Buildable` into a :class:`Program`.
+def lower_program(schema: _ExpandedSpec) -> program.Program:
+    """Compile a :class:`_ExpandedSpec` into a :class:`Program`.
 
     Takes the expanded model rather than expanding one: a program is built from
-    declarations, and `Buildable` is the type that guarantees they are all
+    declarations, and `_ExpandedSpec` is the type that guarantees they are all
     there. Every caller already held one — the expansion is memoised on the
     model — so this moves no work, it only stops the guarantee being a
     convention four consumers happened to observe.
@@ -193,7 +193,7 @@ def lower_program(schema: Buildable) -> program.Program:
     return program.Program(parameters, tuple(variables), tuple(constraints), objective, dimensions, sos, expressions)
 
 
-def _lower_expression(schema: Buildable, name: str) -> program.ExpressionNode:
+def _lower_expression(schema: _ExpandedSpec, name: str) -> program.ExpressionNode:
     """Compile the named expression *name* into a program expression.
 
     Raises:
@@ -228,7 +228,7 @@ class _Lowering:
     would be a degree rule no file states.
     """
 
-    schema: Buildable
+    schema: _ExpandedSpec
     context: str
     ceiling: int = 1
 

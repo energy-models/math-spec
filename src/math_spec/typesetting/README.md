@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 # `typeset/` — the model, printed
 
 A consumer of the resolved core AST. It builds no model and binds no data; it
-walks the typed tree `load_model` validates and prints it.
+walks the typed tree `to_spec` validates and prints it.
 
 | Module        | Role                                                                            |
 | ------------- | ------------------------------------------------------------------------------- |

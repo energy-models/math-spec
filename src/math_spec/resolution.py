@@ -69,7 +69,7 @@ from math_spec.where_parser import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from math_spec.model import Model
+    from math_spec.model import Spec
 
 
 class Namespace:
@@ -108,7 +108,7 @@ class Namespace:
         return {n: into for n, (_, into) in self.lookups.items() if into is not None}
 
     @classmethod
-    def of(cls, schema: Model) -> Namespace:
+    def of(cls, schema: Spec) -> Namespace:
         """Build the namespace of *schema*, the whole of what a file may name.
 
         A targeted lookup's values are labels of its target, so its dtype is
@@ -162,7 +162,7 @@ class Namespace:
 # ---------------------------------------------------------------------------
 
 
-def expression_of(text: str, schema: Model, ns: Namespace, context: str) -> ExpressionNode:
+def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ExpressionNode:
     """Parse, expand and resolve *text* — the only way a consumer gets an AST.
 
     ``validation.py`` runs the same path at load time, so a consumer calling

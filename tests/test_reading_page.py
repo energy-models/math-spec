@@ -4,7 +4,7 @@
 
 """`docs/reference/language/reading.md`, run rather than read.
 
-The page states the consumer contract in three answers — what a `Model`'s
+The page states the consumer contract in three answers — what a `Spec`'s
 `constraints:` holds, and what the `Program` lowered from it holds. A page that
 shows the difference and is never executed is a page that stops being true the
 first time a curve expands into a fourth declaration, which is exactly the

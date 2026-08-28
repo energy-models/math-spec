@@ -19,7 +19,7 @@ import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
-from math_spec import load_model
+from math_spec import to_spec
 from math_spec.typesetting import to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
@@ -103,7 +103,7 @@ def _stands_for(name: str, description: str | None) -> str:
 def declared_block(path: Path) -> str:
     """The legend, the objective, then every constraint as YAML beside its equation."""
     text = without_header(path)
-    model = load_model(path)
+    model = to_spec(path)
     page = to_markdown(model, symbols=sidecar_for(path), numbered=False)
     legend = page[: page.index('#### Objective')].strip()
     objective = _section(page, 'Objective').strip().removeprefix('#### Objective').strip()

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What `load_model` refuses with no data bound, and how it says so."""
+"""What `to_spec` refuses with no data bound, and how it says so."""
 
 from __future__ import annotations
 
@@ -13,16 +13,16 @@ import pytest
 from math_spec._yaml import parse_yaml
 from math_spec.errors import LanguageError
 from math_spec.resolution import Namespace, where_of
-from math_spec.validation import load_model
+from math_spec.validation import to_spec
 from math_spec.where_parser import DimensionPositionNode
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
 
 if TYPE_CHECKING:
-    from math_spec.model import Model
+    from math_spec.model import Spec
 
 
-def _schema(**patch) -> Model:
-    return load_model(override(SMALL_MODEL, **patch))
+def _schema(**patch) -> Spec:
+    return to_spec(override(SMALL_MODEL, **patch))
 
 
 class TestValidateExpressions:
@@ -105,14 +105,14 @@ class TestDimensionKwargs:
     """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, over=snapshto)` used to load."""
 
     @staticmethod
-    def _schema(expression: str, foreach: list[str] | None = None) -> Model:
+    def _schema(expression: str, foreach: list[str] | None = None) -> Spec:
         """A model over (snapshot, generator), with `zone` a lookup into `bus`.
 
         `zone` deliberately targets a dim `p` does *not* carry: grouping into
         one it already has needs that dim twice, which is its own error.
         """
         foreach = ['snapshot'] if foreach is None else foreach  # an explicit [] is a scalar constraint
-        return load_model(
+        return to_spec(
             {
                 'dimensions': {
                     'snapshot': {'dtype': 'int'},
@@ -203,7 +203,7 @@ class TestArithmeticDtype:
     """
 
     @staticmethod
-    def _schema(dtype: str, expression: str) -> Model:
+    def _schema(dtype: str, expression: str) -> Spec:
         return _schema(
             **{
                 'parameters.a': {'dims': ['g'], 'dtype': dtype},
@@ -275,7 +275,7 @@ class TestVersion:
 
 
 #: `position(dim)` needs a lookup over *that* dimension, so one over it and one into it.
-POSITION_SCHEMA = load_model(
+POSITION_SCHEMA = to_spec(
     {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int'}},
         'lookups': {
@@ -557,39 +557,39 @@ class TestRulesDecidedWithoutData:
 
 class TestTheFrontDoor:
     def test_a_list_of_models_is_not_a_model(self):
-        with pytest.raises(TypeError, match='one file, one dict or one Model, never a list'):
-            load_model([DISPATCH_MODEL, DISPATCH_MODEL])
+        with pytest.raises(TypeError, match='one file, one dict or one Spec, never a list'):
+            to_spec([DISPATCH_MODEL, DISPATCH_MODEL])
 
     def test_a_loaded_model_passes_through_as_itself(self):
-        model = load_model(DISPATCH_MODEL)
-        assert load_model(model) is model
+        model = to_spec(DISPATCH_MODEL)
+        assert to_spec(model) is model
 
     def test_a_path_as_a_string_is_read_as_a_file(self, tmp_path):
         path = tmp_path / 'm.yaml'
-        path.write_text(load_model(DISPATCH_MODEL).to_yaml())
-        assert load_model(str(path)).to_dict() == load_model(path).to_dict()
+        path.write_text(to_spec(DISPATCH_MODEL).to_yaml())
+        assert to_spec(str(path)).to_dict() == to_spec(path).to_dict()
 
     @pytest.mark.parametrize('probe', OPERATOR_PROBES, ids=[p.stem for p in OPERATOR_PROBES])
     def test_to_dict_reproduces_the_model(self, probe):
-        model = load_model(probe)
-        assert load_model(model.to_dict()) == model
+        model = to_spec(probe)
+        assert to_spec(model.to_dict()) == model
 
     def test_to_yaml_reproduces_the_model(self):
-        model = load_model(DISPATCH_MODEL)
-        assert load_model(parse_yaml(model.to_yaml())) == model
+        model = to_spec(DISPATCH_MODEL)
+        assert to_spec(parse_yaml(model.to_yaml())) == model
 
     def test_an_empty_list_survives_the_round_trip(self):
         """`foreach: []` is a scalar declaration, not an absence — stripping it would put the variable on every dim it names."""
         model = _schema(**{'variables.p.foreach': []})
         assert model.to_dict()['variables']['p']['foreach'] == []
-        assert load_model(model.to_dict()).variables['p'].foreach == []
+        assert to_spec(model.to_dict()).variables['p'].foreach == []
 
     def test_an_empty_section_is_not_written(self):
-        written = load_model(DISPATCH_MODEL).to_yaml()
+        written = to_spec(DISPATCH_MODEL).to_yaml()
         assert 'lookups' not in written and 'macros' not in written, 'a section declaring nothing says nothing'
 
     def test_a_default_is_written_out_and_an_absence_is_not(self):
-        written = load_model(DISPATCH_MODEL).to_dict()
+        written = to_spec(DISPATCH_MODEL).to_dict()
         assert written['variables']['p']['domain'] == 'continuous', 'a default is a fact the reviewer reads'
         assert 'upper' in written['variables']['p']['bounds'] and 'where' not in written['variables']['p'], (
             'a null and an infinite bound say nothing, so they are not written'
