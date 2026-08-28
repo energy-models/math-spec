@@ -829,6 +829,10 @@ class _ExpandedSpec(Spec):
     accepts either.
     """
 
+    #: Each parameter the expansion wrote, to the ``piecewise:`` block that
+    #: emitted it — what tells a consumer the caller does not bind it.
+    emitted_parameters: dict[str, str] = {}
+
     @model_validator(mode='after')
     def _nothing_left_to_expand(self) -> _ExpandedSpec:
         if self.piecewise:

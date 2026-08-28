@@ -56,7 +56,7 @@ def _never_an_axis(program: Program) -> list[Advice]:
     for e in program.expressions:
         axes |= _produced_axes(e)
 
-    targeted = {lk.target: (dimension, lk.name) for dimension, lk in program.lookups}
+    targeted = {lk.target: (dimension, lk.name) for dimension, lk in program.lookups if lk.target is not None}
     notes: list[Advice] = []
     for name in program.dimensions:
         if name in axes:

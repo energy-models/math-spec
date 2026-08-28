@@ -139,12 +139,14 @@ def expand_piecewise(schema: Spec) -> _ExpandedSpec:
     for name, pw in schema.piecewise.items():
         frame = _validate_block(schema, name, pw)
         mask, nominated = mask_of(name, pw), pw.points
-        if nominated is not None and mask != nominated:
-            raw.setdefault('parameters', {})[mask] = {
-                'dims': list(schema.parameters[nominated].dims),
-                'dtype': 'bool',
-                'description': f"where '{nominated}' has a row, and so where the curve runs",
-            }
+        if mask is not None and nominated is not None and mask != nominated:
+            _emit_parameter(
+                raw,
+                name,
+                mask,
+                list(schema.parameters[nominated].dims),
+                f"where '{nominated}' has a row, and so where the curve runs",
+            )
         if pw.method == 'lp':
             _expand_lp(raw, name, pw, frame, mask, schema.parameters[pw.points].dims if pw.points else ())
             continue
@@ -232,11 +234,9 @@ def _expand_lp(
     axis = (('domain_lo', '>=', f'position({d}) == 0'), ('domain_hi', '<=', f'position({d}) == -1'))
     for suffix, sense, at in edges if mask else axis:
         if mask:
-            raw.setdefault('parameters', {})[at] = {
-                'dims': list(schema_dims),
-                'dtype': 'bool',
-                'description': f'the {"first" if sense == ">=" else "last"} breakpoint of each curve',
-            }
+            _emit_parameter(
+                raw, name, at, list(schema_dims), f'the {"first" if sense == ">=" else "last"} breakpoint of each curve'
+            )
         raw['constraints'][f'{name}_{suffix}'] = {
             'foreach': [*frame, d],
             'where': at,
@@ -339,6 +339,12 @@ def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock) -> tuple[str, .
             if one in declared:
                 raise PiecewiseExpansionError(f"{ctx}: emitted {kind} '{one}' collides with a declared {kind}")
     return tuple(frame)
+
+
+def _emit_parameter(raw: dict[str, Any], block: str, name: str, dims: list[str], description: str) -> None:
+    """Write a ``bool`` parameter the expansion of *block* derives, and record who emitted it."""
+    raw.setdefault('parameters', {})[name] = {'dims': dims, 'dtype': 'bool', 'description': description}
+    raw.setdefault('emitted_parameters', {})[name] = block
 
 
 def _declared_order(schema: Spec, dims: frozenset[str]) -> list[str]:

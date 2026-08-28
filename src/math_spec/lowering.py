@@ -112,7 +112,8 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
     expanded = schema
     ns = Namespace.of(expanded)
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype) for name, pdef in expanded.parameters.items()
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, expanded.emitted_parameters.get(name))
+        for name, pdef in expanded.parameters.items()
     }
 
     variables = {}
@@ -163,8 +164,11 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
 
     dimensions = {
         dname: program.DimensionDeclaration(
-            tuple(program.LookupDeclaration(cname, target) for cname, target in expanded.targeted_of(dname).items()),
-            tuple(expanded.labels_of(dname)),
+            tuple(
+                program.LookupDeclaration(lname, lk.into, lk.dtype)
+                for lname, lk in expanded.lookups.items()
+                if lk.over == dname
+            ),
             ddef.dtype,
         )
         for dname, ddef in expanded.dimensions.items()
