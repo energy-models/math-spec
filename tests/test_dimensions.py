@@ -10,13 +10,14 @@ the file reads as. None of them needs data to be caught.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
 from math_spec.dimensions import DimensionError, check_schema, dims_of
 from math_spec.resolution import Namespace, expression_of
-from tests.fixtures import OPERATOR_PROBES, schema_of
+from math_spec.validation import to_spec
+from tests.fixtures import OPERATOR_PROBES, override, schema_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
@@ -217,3 +218,53 @@ def test_an_ill_dimensioned_declaration_is_rejected(patch, match):
 @pytest.mark.parametrize('path', OPERATOR_PROBES, ids=lambda p: p.name)
 def test_every_operator_probe_typechecks(path):
     check_schema(schema_of(path))
+
+
+class TestTheEdgeRulesAreDecidedAtLoad:
+    """`to_spec` refuses what `to_program` used to, so the two cannot disagree.
+
+    Every rule here is decidable from the file — whether the operand carries a
+    variable, whether the offset is named, what the edge is written as. A file
+    accepted by one door and refused by the next is the bug these close (#193):
+    a repository of models compiled in CI would pass, and only a consumer that
+    built them would find out.
+    """
+
+    BASE: ClassVar[dict[str, Any]] = {
+        'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
+        'parameters': {'cap': {'dims': ['g']}, 'lead': {'dims': ['g'], 'dtype': 'int'}},
+        'variables': {'p': {'foreach': ['t', 'g'], 'bounds': {'lower': 0, 'upper': 1}}},
+        'constraints': {'k': {'foreach': ['t', 'g'], 'expression': 'p <= 1'}},
+    }
+
+    def _refused(self, expression: str) -> str:
+        raw = override(self.BASE, **{'constraints.k.expression': expression})
+        with pytest.raises(DimensionError) as caught:
+            to_spec(raw)
+        return str(caught.value)
+
+    def test_a_shift_over_data_with_no_edge_is_refused_by_to_spec(self):
+        assert 'leaves vacated positions with no value' in self._refused('p <= shift(cap, over=g, offset=1)')
+
+    def test_a_named_offset_with_no_edge_is_refused_by_to_spec(self):
+        assert 'per-entity offset cannot say yet' in self._refused('p <= shift(p, over=t, offset=lead)')
+
+    def test_a_nonzero_edge_over_a_variable_is_refused_by_to_spec(self):
+        assert 'only fill=0 is representable' in self._refused('p <= shift(p, over=t, offset=1, edge=2)')
+
+    def test_a_numeric_edge_on_a_window_is_refused_by_to_spec(self):
+        assert "takes 'wrap' or nothing" in self._refused('p <= sum_back(p, over=t, within=2, edge=0)')
+
+    def test_a_fractional_amount_is_refused_by_to_spec(self):
+        assert 'must be a whole number' in self._refused("p <= shift(p, over=t, offset=1.5, edge='wrap')")
+        assert 'at least 1' in self._refused('p <= sum_back(p, over=t, within=0)')
+
+    def test_a_zero_step_vacates_nothing_and_needs_no_edge(self):
+        """`shift(x, offset=0)` reaches every coordinate from itself.
+
+        The refusal above exists because vacated positions have no value; a
+        literal zero vacates none, so there is nothing for an `edge=` to answer
+        for. A *named* offset may be zero in the data and is not known here.
+        """
+        raw = override(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, over=g, offset=0)'})
+        assert to_spec(raw) is not None, 'a zero step is none at all, so no edge policy is owed'

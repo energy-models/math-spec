@@ -71,6 +71,25 @@ def test_check_prints_nothing_for_a_clean_file(capsys):
     assert capsys.readouterr() == ('', ''), 'no advice, no output'
 
 
+def test_check_accepts_the_model_that_carries_every_construct(capsys):
+    """The golden model loads, which is not the same as it being advice-free.
+
+    It exercises every operator and every edge policy, so `check` accepting it
+    is the claim that the whole language loads through one door. It could not
+    be asked before #193, when the edge rules were decided in lowering alone
+    and `check` refused a file `to_spec` had just accepted.
+
+    Silence is a different property and this model does not have it: `season`
+    is a lookup target nothing is indexed by, which `advice` says is a label
+    space. That is the fixture being deliberately odd, not a defect — hence the
+    neighbour above, on a model that is ordinary.
+    """
+    assert front.main(['check', str(golden.MODEL)]) == 0, 'the whole language loads'
+    out, err = capsys.readouterr()
+    assert err == '', 'advice is not a refusal, so nothing reaches stderr'
+    assert 'is never an axis' in out, 'and the advice it carries is about `season`, not about an edge'
+
+
 def test_check_prints_advice_and_does_not_fail(tmp_path, capsys):
     model = tmp_path / 'm.yaml'
     model.write_text(UNUSED_DIMENSION)

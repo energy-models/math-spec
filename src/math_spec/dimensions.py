@@ -26,12 +26,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, assert_never
 
+from math_spec.degree import carries_variable
 from math_spec.errors import DimensionError
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     ComparisonNode,
     DimensionNode,
+    EdgeNode,
     ExpressionNode,
     FunctionCallNode,
     KwargNode,
@@ -42,7 +44,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
-from math_spec.operators import BUILTINS
+from math_spec.operators import BUILTINS, edge_error
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.where_parser import (
     AndNode,
@@ -197,6 +199,8 @@ def _dims_call(
                 f'{context}: {node.name}(over={over.name}) but the expression has dims {sorted(inner)}.'
             )
         _check_named_amount(node, over.name, inner, schema, context)
+        _check_amount_form(node, context)
+        _check_edge(node, context)
         partition = node.kwargs.get('by')
         if partition is not None:
             assert isinstance(partition, LookupNode)
@@ -237,6 +241,131 @@ _AMOUNT_WORDING = {
         'a different window at every position, which is no longer "the last n"',
     ),
 }
+
+
+def _check_amount_form(node: FunctionCallNode, context: str) -> None:
+    """What an ``offset=`` or ``within=`` may be written as, before it is read.
+
+    A whole number or a parameter name, and nothing else — decidable from the
+    file, so refused here rather than by whoever tries to build it.
+    """
+    (kwarg,) = BUILTINS[node.name].required_value_kwargs
+    amount = node.kwargs[kwarg]
+    if isinstance(amount, UnaryOperatorNode) and amount.op == '-':
+        amount = amount.operand
+    if isinstance(amount, ParameterNode):
+        return
+    whole = isinstance(amount, NumberNode) and int(amount.value) == amount.value
+    if node.name == 'shift':
+        if not whole:
+            raise DimensionError(
+                f'{context}: shift(offset=...) must be a whole number, or the name of an integer '
+                f'parameter when the offset differs per entity — a lead time, a transit time, a '
+                f'minimum up time.'
+            )
+        return
+    if not whole or amount.value < 1:
+        raise DimensionError(
+            f'{context}: sum_back(within=...) needs a whole number of positions of at least 1, or '
+            f'the name of an integer parameter when the window differs per entity. A width of 1 is '
+            f'the operand itself.'
+        )
+
+
+def _check_edge(node: FunctionCallNode, context: str) -> None:
+    """What an ``edge=`` may say, and where saying nothing is an answer.
+
+    Every rule here is decidable from the file — whether the operand carries a
+    variable, whether the offset is named, what the edge is written as — so a
+    file breaking one is refused at load rather than by whoever lowers it.
+    """
+    edge = node.kwargs.get('edge')
+    if node.name == 'sum_back':
+        if edge is not None and not isinstance(edge, EdgeNode):
+            raise DimensionError(
+                f"{context}: sum_back(edge=...) takes 'wrap' or nothing. A window sums the terms "
+                f'it reaches, so a position before the first contributes nothing rather than a '
+                f'fill value; add the constant to the expression if you want one.'
+            )
+        return
+
+    if isinstance(edge, EdgeNode):
+        return
+    fill = _edge_fill(edge, context)
+    has_var = carries_variable(node.args[0])
+    if has_var and fill is not None and fill != 0:
+        raise DimensionError(
+            f'{context}: shift(edge={fill:g}) over an expression containing a variable — only '
+            f'fill=0 is representable there, since a vacated slot contributes no term. A nonzero '
+            f'fill would be a constant standing where a term was; add that constant to the '
+            f'expression instead.'
+        )
+    offset = node.kwargs['offset']
+    if fill is None and _vacates(offset) and not has_var:
+        raise DimensionError(_shift_over_data_message(context))
+    if fill is None and isinstance(offset, ParameterNode):
+        raise DimensionError(f'{context}: {_named_offset_edge_message(offset.name)}')
+
+
+def _vacates(offset: ArithmeticNode) -> bool:
+    """Whether a translation leaves anything behind.
+
+    A literal zero step reaches every coordinate from itself, so there is no
+    vacated position for an ``edge=`` to answer for and the refusal below has
+    nothing to refuse. A *named* offset may be zero in the data and is not
+    known here, so it vacates until proved otherwise.
+    """
+    if isinstance(offset, UnaryOperatorNode):
+        offset = offset.operand
+    return not (isinstance(offset, NumberNode) and offset.value == 0)
+
+
+def _edge_fill(edge: ArithmeticNode | None, context: str) -> float | None:
+    """The number an ``edge=`` names, or ``None`` where it names nothing."""
+    if edge is None:
+        return None
+    sign = 1.0
+    if isinstance(edge, UnaryOperatorNode) and edge.op in ('-', '+'):
+        sign, edge = (-1.0 if edge.op == '-' else 1.0), edge.operand
+    if not isinstance(edge, NumberNode):
+        raise DimensionError(f'{context}: {edge_error("shift", "...")}')
+    return sign * float(edge.value)
+
+
+def _named_offset_edge_message(name: str) -> str:
+    """Why a named offset must say what the vacated positions contribute.
+
+    The absent edge propagates through a presence frame keyed by the translated
+    dimension alone, and a per-entity offset vacates a different slot for each
+    entity — which that frame cannot say. Refused rather than answered wrongly
+    (#850); the two edges that write their own answer are allowed.
+    """
+    return (
+        f'shift(offset={name}) leaves the vacated positions absent, which a '
+        f'per-entity offset cannot say yet.\n'
+        f"Add edge='wrap' for a cyclic translation, or edge=<number> for what the "
+        f'vacated positions contribute.'
+    )
+
+
+def _shift_over_data_message(context: str) -> str:
+    """The three ways out, one of which is two things at once.
+
+    A ``where`` is a *companion* to ``edge=``, not an alternative: the refusal
+    is decided on the expression alone so a mask does not lift it, and
+    ``edge=0`` alone leaves a row at the vacated coordinate whose bound is that
+    zero — the silent pinning this refusal exists to prevent. Either one alone
+    is wrong, so the message says so rather than listing them as alternatives.
+    """
+    return (
+        f'{context}: shift() over a variable-free expression leaves vacated positions with no '
+        f'value, and inventing one is what silently pinned a bound to zero. Say which you mean:\n'
+        f"  shift(x, over=d, offset=n, edge='wrap')   the dimension really is cyclic\n"
+        f'  shift(x, over=d, offset=n, edge=0)        the vacated positions contribute zero\n'
+        f'  ...and a where: excluding them        the vacated rows should not exist at all\n'
+        f'A where: alone does not lift this — it is decided on the expression, before any mask '
+        f'is read — and edge=0 alone leaves a row whose bound is that zero.'
+    )
 
 
 def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str], schema: Spec, context: str) -> None:

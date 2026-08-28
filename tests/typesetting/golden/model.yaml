@@ -102,7 +102,7 @@ constraints:
     expression: shift(shift(p, over=snapshot, offset=1), over=snapshot, offset=1) <= shift(p_max, over=generator, offset=0)
   uncomposed: # a named offset under a numbered one stays two steps, not their sum
     foreach: [snapshot, generator]
-    expression: shift(shift(p, over=snapshot, offset=lead), over=snapshot, offset=1) <= p_max
+    expression: shift(shift(p, over=snapshot, offset=lead, edge=0), over=snapshot, offset=1) <= p_max
   crossed: # two dimensions translated at one leaf, each with its own policy
     foreach: [snapshot, generator]
     expression: shift(shift(p, over=snapshot, offset=1, edge='wrap'), over=generator, offset=-1) <= p_max

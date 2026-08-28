@@ -32,7 +32,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, assert_never, cast
 
 import math_spec.program as program
-from math_spec.degree import carries_variable
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
@@ -50,7 +49,6 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
-from math_spec.operators import edge_error
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
@@ -324,18 +322,13 @@ class _Lowering:
             raise LanguageError(f'{self.context}: sum_back(over=...) must name a dimension')
         within_node = node.kwargs['within']
         operand = self.expr(node.args[0])
-        wrap = _window_edge(node.kwargs.get('edge'), self.context)
+        wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
         width: int | str
         if isinstance(within_node, ParameterNode):
             width = within_node.name
-        elif (
-            isinstance(within_node, NumberNode)
-            and within_node.value >= 1
-            and int(within_node.value) == within_node.value
-        ):
-            width = int(within_node.value)
         else:
-            raise LanguageError(f'{self.context}: {_window_width_message()}')
+            assert isinstance(within_node, NumberNode), 'a within= that is neither is refused at load'
+            width = int(within_node.value)
         return program.Window(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
 
     def shift(self, node: FunctionCallNode) -> program.ExpressionNode:
@@ -353,24 +346,15 @@ class _Lowering:
         sign = 1
         if isinstance(by_node, UnaryOperatorNode) and by_node.op == '-':
             sign, by_node = -1, by_node.operand
-        if not isinstance(by_node, ParameterNode) and (
-            not isinstance(by_node, NumberNode) or int(by_node.value) != by_node.value
-        ):
-            raise LanguageError(f'{self.context}: {_shift_by_message()}')
         operand = self.expr(node.args[0])
-        has_var = carries_variable(node.args[0])
         edge = node.kwargs.get('edge')
         wrap = isinstance(edge, EdgeNode)
-        fill = None if wrap else _translate_fill(edge, self.context, has_var=has_var)
-        if not wrap and fill is None and not has_var:
-            raise LanguageError(_shift_over_data_message(self.context))
+        fill = None if wrap else _edge_fill(edge)
         by: int | str
         if isinstance(by_node, ParameterNode):
-            if not wrap and fill is None:
-                raise LanguageError(f'{self.context}: {_named_offset_edge_message(by_node.name)}')
             by = by_node.name
         else:
-            assert isinstance(by_node, NumberNode)
+            assert isinstance(by_node, NumberNode), 'an offset= that is neither is refused at load'
             by = sign * int(by_node.value)
         return program.Translate(operand, over_node.name, offset=by, wrap=wrap, fill=fill, partition=partition)
 
@@ -388,41 +372,19 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 }
 
 
-def _translate_fill(node: ArithmeticNode | None, context: str, *, has_var: bool) -> float | None:
-    """The number an ``edge=`` names, or ``None`` for the absence default.
+def _edge_fill(edge: ArithmeticNode | None) -> float | None:
+    """The number an ``edge=`` names, or ``None`` where it names nothing.
 
-    One kwarg, three policies. ``edge='wrap'`` is cyclic and never reaches here,
-    which makes a cyclic call that also asks for a fill unrepresentable rather
-    than refused; a number is what the vacated slots contribute; an absent
-    ``edge=`` leaves them absent.
-
-    **The right fill is positional**, which is why none is picked for the
-    file: 0 is the identity of a sum and 1 of a product, so
-    ``x * shift(eff, over=t, offset=1, edge=1)`` wants a different number from
-    ``lam <= seg + shift(seg, over=bp, offset=1, edge=0)``. Over data any
-    number is accepted, and a consumer fills natively.
-
-    Over an operand carrying a **variable** the only representable fill is 0,
-    the vacated slot contributing no term at all. A nonzero one would be a
-    constant standing where a term was — a different kind of thing entirely —
-    and is refused rather than left to each consumer to answer its own way.
+    What it *may* name is the language's to say (``dimensions._check_edge``);
+    this only reads it.
     """
-    if node is None:
+    if edge is None:
         return None
     sign = 1.0
-    if isinstance(node, UnaryOperatorNode) and node.op in ('-', '+'):
-        sign, node = (-1.0 if node.op == '-' else 1.0), node.operand
-    if not isinstance(node, NumberNode):
-        raise LanguageError(f'{context}: {edge_error("shift", "...")}')
-    fill = sign * float(node.value)
-    if has_var and fill != 0:
-        raise LanguageError(
-            f'{context}: shift(edge={fill:g}) over an expression containing a variable — only '
-            f'fill=0 is representable there, since a vacated slot contributes no term. A nonzero '
-            f'fill would be a constant standing where a term was; add that constant to the '
-            f'expression instead.'
-        )
-    return fill
+    if isinstance(edge, UnaryOperatorNode) and edge.op in ('-', '+'):
+        sign, edge = (-1.0 if edge.op == '-' else 1.0), edge.operand
+    assert isinstance(edge, NumberNode), 'an edge= that is neither a keyword nor a number is refused at load'
+    return sign * float(edge.value)
 
 
 def _partition_of(node: FunctionCallNode) -> str | None:
@@ -437,77 +399,6 @@ def _partition_of(node: FunctionCallNode) -> str | None:
         return None
     assert isinstance(by_node, LookupNode)
     return by_node.names[0]
-
-
-def _shift_by_message() -> str:
-    """What a ``offset=`` may be, now that it may be two things."""
-    return (
-        'shift(offset=...) must be a whole number, or the name of an integer '
-        'parameter when the offset differs per entity — a lead time, a transit '
-        'time, a minimum up time.'
-    )
-
-
-def _named_offset_edge_message(name: str) -> str:
-    """Why a named offset must say what the vacated positions contribute.
-
-    The absent edge propagates through a presence frame keyed by the translated
-    dimension alone, and a per-entity offset vacates a different slot for each
-    entity — which that frame cannot say. Refused rather than answered wrongly
-    (#850); the two edges that write their own answer are allowed.
-    """
-    return (
-        f'shift(offset={name}) leaves the vacated positions absent, which a '
-        f'per-entity offset cannot say yet.\n'
-        f"Add edge='wrap' for a cyclic translation, or edge=<number> for what the "
-        f'vacated positions contribute.'
-    )
-
-
-def _window_width_message() -> str:
-    return (
-        'sum_back(within=...) needs a whole number of positions of at least 1, or the '
-        'name of an integer parameter when the window differs per entity. A width of 1 '
-        'is the operand itself.'
-    )
-
-
-def _window_edge(edge: ArithmeticNode | None, context: str) -> bool:
-    """Whether the window wraps, refusing a fill.
-
-    A window sums the terms it can see, so a position the axis does not reach
-    contributes nothing — there is no vacated slot to fill, which is what makes
-    this narrower than ``shift(edge=...)``.
-    """
-    if edge is None:
-        return False
-    if isinstance(edge, EdgeNode):
-        return True
-    raise LanguageError(
-        f"{context}: sum_back(edge=...) takes 'wrap' or nothing. A window sums the terms "
-        f'it reaches, so a position before the first contributes nothing rather than a '
-        f'fill value; add the constant to the expression if you want one.'
-    )
-
-
-def _shift_over_data_message(context: str) -> str:
-    """The three ways out, one of which is two things at once.
-
-    A ``where`` is a *companion* to ``edge=``, not an alternative: the refusal
-    is decided on the expression alone so a mask does not lift it, and
-    ``edge=0`` alone leaves a row at the vacated coordinate whose bound is that
-    zero — the silent pinning this refusal exists to prevent. Either one alone
-    is wrong, so the message says so rather than listing them as alternatives.
-    """
-    return (
-        f'{context}: shift() over a variable-free expression leaves vacated positions with no '
-        f'value, and inventing one is what silently pinned a bound to zero. Say which you mean:\n'
-        f"  shift(x, over=d, offset=n, edge='wrap')   the dimension really is cyclic\n"
-        f'  shift(x, over=d, offset=n, edge=0)        the vacated positions contribute zero\n'
-        f'  ...and a where: excluding them        the vacated rows should not exist at all\n'
-        f'A where: alone does not lift this — it is decided on the expression, before any mask '
-        f'is read — and edge=0 alone leaves a row whose bound is that zero.'
-    )
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:
