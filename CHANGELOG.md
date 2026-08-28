@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.45](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.44...v0.0.0-alpha.45) (2026-08-28)
+
+
+### Bug Fixes
+
+* **language:** a negative edge fill prints, the sign of a literal amount being folded once at resolution ([#234](https://github.com/energy-models/math-spec/issues/234)) ([d9303db](https://github.com/energy-models/math-spec/commit/d9303dbd1e824f674331b7e9403dd5799444dd15))
+
 ## [0.0.0-alpha.44](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.43...v0.0.0-alpha.44) (2026-08-28)
 
 
