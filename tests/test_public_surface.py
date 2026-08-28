@@ -20,6 +20,8 @@ SURFACE = frozenset(
     {
         # the front door, and the two model types
         'load_model', 'Model', 'Buildable', 'expand_piecewise',
+        # the second public state, and the door to it
+        'to_program', 'program',
         # the error tree
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'PiecewiseExpansionError', 'did_you_mean', 'schema_error',
@@ -29,7 +31,7 @@ SURFACE = frozenset(
         'ExpressionNode', 'ArithmeticNode', 'ComparisonNode', 'NumberNode', 'NameNode',
         'NameListNode', 'VariableNode', 'ParameterNode', 'DimensionNode', 'LookupNode',
         'EdgeNode', 'KeywordNode', 'UnaryOperatorNode', 'BinaryOperatorNode',
-        'FunctionCallNode', 'children',
+        'FunctionCallNode',
         # the groups a pass asks about, rather than re-listing the classes in it
         'LeafNode', 'BranchNode', 'KwargNode', 'UnresolvedNode',
         'UnresolvedWhereNode', 'TypedPredicateNode', 'ConnectiveWhereNode',
@@ -40,9 +42,8 @@ SURFACE = frozenset(
         'LookupPairComparisonNode', 'LookupDefinedNode', 'UnresolvedNameNode',
         'UnresolvedComparisonNode', 'UnresolvedPositionNode',
         # the passes a consumer asks for a verdict rather than re-deriving
-        'Namespace', 'expression_of', 'where_of', 'dims_of', 'check_binary',
-        'carries_variable', 'is_quadratic', 'unbounded_notes', 'mask_of',
-        'curvature_required',
+        'Namespace', 'expression_of', 'where_of', 'dims_of', 'unbounded_notes',
+        'mask_of', 'curvature_required',
         # the closed operator set, and the wording of its refusals
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',

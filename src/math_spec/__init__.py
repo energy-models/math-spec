@@ -4,9 +4,9 @@
 
 """The language: what a YAML file may say, and what it means. ``__all__`` is the public surface, pinned by ``tests/test_public_surface.py``."""
 
+from math_spec import program
 from math_spec._yaml import parse_yaml, read_yaml
 from math_spec.boundedness import unbounded_notes
-from math_spec.degree import carries_variable, check_binary, is_quadratic
 from math_spec.dimensions import dims_of
 from math_spec.errors import (
     DimensionError,
@@ -37,8 +37,8 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
-    children,
 )
+from math_spec.lowering import to_program
 from math_spec.model import (
     CURVATURES,
     DIMENSION_DTYPES,
@@ -151,23 +151,21 @@ __all__ = [
     'VariableNode',
     'WhereNode',
     'call_shape_error',
-    'carries_variable',
-    'check_binary',
-    'children',
     'curvature_required',
     'did_you_mean',
     'dims_of',
     'edge_error',
     'expand_piecewise',
     'expression_of',
-    'is_quadratic',
     'load_model',
     'mask_of',
     'parse_yaml',
+    'program',
     'read_yaml',
     'schema_error',
     'to_latex',
     'to_markdown',
+    'to_program',
     'to_typst',
     'typeset',
     'unbounded_notes',

@@ -53,15 +53,15 @@ flowchart LR
     S --> AST["core AST<br/>two grammars"]
     AST --> Q{"inside the<br/>language?"}
     Q -->|"no"| ERR["load error<br/>naming the construct + rewrite"]
-    Q -->|"yes"| M["Model"]
-    M --> B["expand_piecewise<br/>→ Buildable"]
-    B --> ENG["an engine → solver"]
+    Q -->|"yes"| M["Model<br/>what the file says"]
+    M -->|"to_program"| P["Program<br/>names, dims and operators resolved"]
+    P --> ENG["a consumer → solver"]
     M --> T["to_latex / to_typst / to_markdown"]
 
     classDef spec fill:#f0f7f0,stroke:#3a7d44,stroke-width:2px,color:#111
     classDef consumer fill:#eef1fb,stroke:#4a5fc1,stroke-width:2px,color:#111
     classDef err fill:#fdf3e7,stroke:#b7791f,color:#111
-    class S,AST,M,B spec
+    class S,AST,M,P spec
     class ENG,T consumer
     class ERR err
 ```
@@ -114,13 +114,14 @@ import math_spec as ms
 model = ms.load_model('dispatch.yaml')  # schema, names, dims, degree — all checked here
 sorted(model.variables)  # ['p']
 
-buildable = ms.expand_piecewise(model)  # curves become the declarations they stand for
+program = ms.to_program(model)  # curves expanded, names typed, operators resolved to nodes
+program.constraints[0].name  # 'power_balance'
 ```
 
-`load_model` needs no data and no solver: a repository of models can be
-compiled in CI with nothing bound to any of them. What comes back is the seam a
-consumer reads a model through — `load_model → Model → expand_piecewise →
-Buildable`.
+Neither needs data or a solver: a repository of models can be compiled in CI
+with nothing bound to any of them. The two states are the whole seam — **`Model`
+is what the file says, `Program` is what it means** — and a consumer that
+builds reads the second.
 
 <!--- --8<-- [end:load] -->
 
