@@ -52,7 +52,6 @@ from math_spec.expression_parser import (
 from math_spec.piecewise import declaration_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import AndNode, BooleanLiteralNode, NotNode, OrNode, WhereNode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -126,7 +125,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
         variables[vname] = program.VariableDeclaration(
             tuple(vdef.foreach),
-            where=_lower_where(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
+            where=where_of(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
             lower=lower,
             upper=upper,
             variable_type=variable_type,
@@ -135,7 +134,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
 
     constraints = {}
     for cname, cdef in expanded.constraints.items():
-        where = _lower_where(cdef.where, ns, f"constraint '{cname}'")
+        where = where_of(cdef.where, ns, f"constraint '{cname}'")
         ast = expression_of(cdef.expression, expanded, ns, f"constraint '{cname}'")
         if not isinstance(ast, ComparisonNode):
             raise LanguageError(
@@ -411,56 +410,3 @@ def _bound_expression(value: float | str) -> program.ExpressionNode:
     if isinstance(value, str):
         return program.Parameter(value)
     return program.Constant(value)
-
-
-# ---------------------------------------------------------------------------
-# where lowering
-# ---------------------------------------------------------------------------
-
-
-def _lower_where(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> WhereNode | None:
-    """Lower a where string to a program predicate, ``None`` when there is no mask.
-
-    Every constant the connectives decide is folded away first, so a mask that
-    admits every row arrives as ``None`` however the file spelled it and one
-    that admits none arrives as ``BooleanLiteralNode(False)``.
-    """
-    node = where_of(text, ns, context, self_variable)
-    if node is None:
-        return None
-    folded = _fold(node)
-    if isinstance(folded, BooleanLiteralNode) and folded.value:
-        return None
-    return folded
-
-
-def _fold(node: WhereNode) -> WhereNode:
-    """*node* with every literal a connective decides evaluated away.
-
-    A mask is decidable without data wherever a literal meets a connective, so
-    it is decided here rather than by each consumer: ``X AND True`` is ``X``,
-    ``X OR True`` is every row, ``X AND False`` is none, and ``NOT True`` is
-    ``False``. What survives is a predicate over data, or the one literal the
-    whole mask reduces to — which is what makes a ``BooleanLiteralNode`` a node
-    a consumer meets at the root or nowhere.
-    """
-    if isinstance(node, NotNode):
-        operand = _fold(node.operand)
-        if isinstance(operand, BooleanLiteralNode):
-            return BooleanLiteralNode(not operand.value)
-        return NotNode(operand)
-    if isinstance(node, AndNode):
-        left, right = _fold(node.left), _fold(node.right)
-        if isinstance(left, BooleanLiteralNode):
-            return right if left.value else left
-        if isinstance(right, BooleanLiteralNode):
-            return left if right.value else right
-        return AndNode(left, right)
-    if isinstance(node, OrNode):
-        left, right = _fold(node.left), _fold(node.right)
-        if isinstance(left, BooleanLiteralNode):
-            return left if left.value else right
-        if isinstance(right, BooleanLiteralNode):
-            return right if right.value else left
-        return OrNode(left, right)
-    return node

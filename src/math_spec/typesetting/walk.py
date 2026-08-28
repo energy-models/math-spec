@@ -462,7 +462,8 @@ class Walk:
 
     def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
         if isinstance(node, BooleanLiteralNode):
-            return self.op('true' if node.value else 'false'), _ATOM
+            assert not node.value, 'resolution folds a True literal away before anything prints it'
+            return self.op('false'), _ATOM
 
         if isinstance(node, ParameterDefinedNode):
             block = self.schema.parameters[node.name]
@@ -544,15 +545,13 @@ class Walk:
         return f'{self.format.cardinality(size)} {self.op("minus")} {self.number(-at)}'
 
     def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
-        r"""The mask on a quantifier, as one condition.
+        """The mask on a quantifier, as one condition.
 
-        A mask that is *only* ``True`` prints nothing: the language says it is
-        the same as no ``where`` at all, so a quantifier reading ``: \top``
-        would put a condition on the page that reads as one and is not. Nested
-        it still prints — ``\top \wedge x`` is what the file says, and
-        simplifying a mask is resolution's job rather than the typesetter's.
+        A mask every row passes arrives as ``None`` — resolution folds it,
+        so this prints what a program carries — and a quantifier with no
+        condition prints none.
         """
-        kept = [n for n in nodes if n is not None and not (isinstance(n, BooleanLiteralNode) and n.value)]
+        kept = [n for n in nodes if n is not None]
         parts = [self.where(n, ctx, need=1 if len(kept) > 1 else 0) for n in kept]
         return self.format.joined(parts, self.op('and')) if parts else ''
 

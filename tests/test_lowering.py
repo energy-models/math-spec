@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, get_args
 import pytest
 
 from math_spec import LanguageError, Spec
-from math_spec.lowering import _lower_where, _Lowering, lower_program
+from math_spec.lowering import _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
@@ -52,7 +52,7 @@ from math_spec.program import (
     variables_of,
     walk,
 )
-from math_spec.resolution import Namespace, expression_of
+from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.where_parser import (
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -163,11 +163,11 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
     ],
 )
 def test_where_lowering(dispatch_schema, where, expected):
-    assert _lower_where(where, Namespace.of(dispatch_schema), 't') == expected
+    assert where_of(where, Namespace.of(dispatch_schema), 't') == expected
 
 
 def test_a_compound_where_lowers_to_something(dispatch_schema):
-    assert _lower_where('p_max > 0 AND NOT load == 0', Namespace.of(dispatch_schema), 't') is not None
+    assert where_of('p_max > 0 AND NOT load == 0', Namespace.of(dispatch_schema), 't') is not None
 
 
 @pytest.mark.parametrize(
@@ -198,10 +198,14 @@ def test_a_literal_is_folded_wherever_it_stands(dispatch_schema, where, expected
     which rows a mask admits is decidable wherever a literal meets a
     connective.
 
+    The fold then lived in lowering alone, and the typesetter — reading the
+    same `where_of` — printed `True AND x` as written while the program said
+    `x`. It is resolution's now, so every reader of a mask gets one predicate.
+
     What the table asserts between the rows: a `BooleanLiteralNode` is a node
     a consumer meets at the root or nowhere.
     """
-    assert _lower_where(where, Namespace.of(dispatch_schema), 't') == expected
+    assert where_of(where, Namespace.of(dispatch_schema), 't') == expected
 
 
 def test_a_folded_mask_reaches_the_declaration_the_shorter_spelling_would_have(dispatch_schema):
@@ -217,7 +221,7 @@ def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
     """It used to be a scalar-False mask in the eager lane: a model that
     builds, solves, and is silently empty. Resolution makes it a load error."""
     with pytest.raises(LanguageError, match="'no_such_param' not found"):
-        _lower_where('no_such_param', Namespace.of(dispatch_schema), 't')
+        where_of('no_such_param', Namespace.of(dispatch_schema), 't')
 
 
 def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
