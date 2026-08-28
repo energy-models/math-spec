@@ -188,7 +188,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         objective=objective,
         dimensions=dimensions,
         sos=sos,
-        expressions=expressions,
+        named_expressions=expressions,
     )
 
 

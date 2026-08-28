@@ -522,7 +522,7 @@ class Program:
     #: sees — none of them builds a row — but lowered with it, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
-    expressions: Mapping[str, ExpressionNode] = MappingProxyType({})
+    named_expressions: Mapping[str, ExpressionNode] = MappingProxyType({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to.
@@ -535,6 +535,20 @@ class Program:
             group = getattr(self, f.name)
             if isinstance(group, Mapping):
                 object.__setattr__(self, f.name, MappingProxyType(dict(group)))
+
+    @property
+    def expressions(self) -> tuple[ExpressionNode, ...]:
+        """Every expression a row is built from — the objective and both sides of each constraint.
+
+        What a walk over the program *a solver sees* takes. A declared
+        :attr:`named_expressions` entry is not among them: it builds no row, so
+        a question asked about what will be solved would answer wrongly if it
+        counted one.
+        """
+        return (
+            *((self.objective.expression,) if self.objective is not None else ()),
+            *(side for c in self.constraints.values() for side in (c.lhs, c.rhs)),
+        )
 
     def dimension(self, name: str) -> DimensionDeclaration:
         return _declared(self.dimensions, name, 'dimension')
