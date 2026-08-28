@@ -356,7 +356,8 @@ git fetch origin
 git worktree add ../wt/<topic> -b <type>/<topic> origin/main
 ```
 
-- Branch from `origin/main` — the prompt's git status is a stale snapshot.
+- **`git fetch origin` first, every time.** Branch from the fetched
+  `origin/main`, never from HEAD or a local `main`.
 - Never switch the branch of the shared primary checkout, or park a large diff
   there.
 - Keep the worktree out of gitignored paths: `pyrefly` skips them and **exits
