@@ -10,7 +10,7 @@ all. Data is bound against these declarations by whatever builds the model;
 :func:`~math_spec.lowering.to_program` is what produces one from a spec.
 
 **It is the second public state, and the one a consumer reads.** A
-:class:`~math_spec.model.Model` is what the file *says*; a program is what it
+:class:`~math_spec.model.Spec` is what the file *says*; a program is what it
 *means*, with macros expanded, names typed, operators resolved to nodes and
 every dim rule already checked. Consumers dispatch on these nodes and read
 them; nothing here is built by hand, so what ships beside the nodes is the

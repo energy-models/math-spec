@@ -25,7 +25,7 @@ import sys
 
 import pytest
 
-from math_spec import load_model
+from math_spec import to_spec
 from tools import gallery
 from tools.gallery import DECLARED, RECORDED, REFERENCES, _stands_for
 
@@ -33,7 +33,7 @@ RUNGS = sorted(path.stem for path in REFERENCES.glob('rung_*.py'))
 SCRIPT = REFERENCES / 'reference.py'
 PAGE_TEXTS = [(gallery.PAGES / page).read_text() for page in DECLARED]
 
-MODELS = [load_model(path) for path in DECLARED.values()]
+MODELS = [to_spec(path) for path in DECLARED.values()]
 ROWS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.constraints.items()}
 COLUMNS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.variables.items()}
 #: The five GlobalConstraint formulas open with their *type* — PyPSA names
@@ -115,13 +115,13 @@ def _stated(name: str, row: str) -> bool:
     return re.fullmatch(re.sub(r'\\\{[a-z]\\\}', '.+', re.escape(name)), row) is not None
 
 
-BASE = load_model(DECLARED['pypsa.md'])
+BASE = to_spec(DECLARED['pypsa.md'])
 
 
 @pytest.mark.parametrize('page', [page for page in DECLARED if page != 'pypsa.md'])
 def test_a_file_of_its_own_shares_its_declarations_with_the_base(page: str):
     """A keyword file restates the base surface; a shared name keeps its PyPSA name and its dtype, or it has drifted."""
-    own = load_model(DECLARED[page])
+    own = to_spec(DECLARED[page])
     drifted = []
     for section in ('parameters', 'lookups', 'variables', 'constraints'):
         theirs, ours = getattr(BASE, section), getattr(own, section)

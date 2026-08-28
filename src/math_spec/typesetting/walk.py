@@ -15,45 +15,50 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, assert_never
 
-from math_spec import (
-    AndNode,
+from math_spec.dimensions import dims_of
+from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
-    BooleanLiteralNode,
     ComparisonNode,
-    DimensionComparisonNode,
     DimensionNode,
-    DimensionPositionNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
     LookupNode,
-    LookupPairComparisonNode,
-    NotNode,
     NumberNode,
-    OrNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
     ParameterNode,
     UnaryOperatorNode,
     UnresolvedNode,
-    UnresolvedWhereNode,
-    VariableDefinedNode,
     VariableNode,
-    WhereNode,
-    dims_of,
+)
+from math_spec.resolution import (
     expression_of,
     where_of,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line
+from math_spec.where_parser import (
+    AndNode,
+    BooleanLiteralNode,
+    DimensionComparisonNode,
+    DimensionPositionNode,
+    LookupComparisonNode,
+    LookupDefinedNode,
+    LookupPairComparisonNode,
+    NotNode,
+    OrNode,
+    ParameterComparisonNode,
+    ParameterDefinedNode,
+    UnresolvedWhereNode,
+    VariableDefinedNode,
+    WhereNode,
+)
 
 if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterable
 
-    from math_spec import Buildable, Namespace, SosBlock
+    from math_spec.model import SosBlock, _ExpandedSpec
+    from math_spec.resolution import Namespace
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -211,7 +216,7 @@ class Walk:
     equations print it.
     """
 
-    def __init__(self, schema: Buildable, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
+    def __init__(self, schema: _ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
         self.schema = schema
         self.namespace = namespace
         self.symbols = symbols

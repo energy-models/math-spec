@@ -2,12 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The language: what a YAML file may say, and what it means. ``__all__`` is the public surface, pinned by ``tests/test_public_surface.py``."""
+"""The language: what a YAML file may say, and what it means.
+
+Two public states — a :class:`~math_spec.model.Spec` is what the file *says*,
+a :class:`~math_spec.program.Program` is what it *means* — and a conversion to
+each. The AST between them is this package's own: it is reachable by module
+path for a renderer that needs it, and out of ``__all__`` because a consumer
+reads a program instead. ``__all__`` is the public surface, pinned by
+``tests/test_public_surface.py``.
+"""
 
 from math_spec import program
-from math_spec._yaml import parse_yaml, read_yaml
 from math_spec.boundedness import unbounded_notes
-from math_spec.dimensions import dims_of
 from math_spec.errors import (
     DimensionError,
     LanguageError,
@@ -17,27 +23,6 @@ from math_spec.errors import (
     did_you_mean,
     schema_error,
 )
-from math_spec.expression_parser import (
-    ArithmeticNode,
-    BinaryOperatorNode,
-    BranchNode,
-    ComparisonNode,
-    DimensionNode,
-    EdgeNode,
-    ExpressionNode,
-    FunctionCallNode,
-    KeywordNode,
-    KwargNode,
-    LeafNode,
-    LookupNode,
-    NameListNode,
-    NameNode,
-    NumberNode,
-    ParameterNode,
-    UnaryOperatorNode,
-    UnresolvedNode,
-    VariableNode,
-)
 from math_spec.lowering import advice, to_program
 from math_spec.model import (
     CURVATURES,
@@ -45,9 +30,8 @@ from math_spec.model import (
     PARAMETER_DTYPES,
     VARIABLE_ABSENCE,
     VARIABLE_DOMAINS,
-    Buildable,
-    Model,
     SosBlock,
+    Spec,
 )
 from math_spec.operators import (
     BUILTIN_NAMES,
@@ -56,34 +40,10 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
-from math_spec.piecewise import curvature_required, expand_piecewise, mask_of
-from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.validation import load_model
-from math_spec.where_parser import (
-    AndNode,
-    BooleanLiteralNode,
-    ConnectiveWhereNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
-    LookupPairComparisonNode,
-    NotNode,
-    OrNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
-    TypedPredicateNode,
-    UnresolvedComparisonNode,
-    UnresolvedNameNode,
-    UnresolvedPositionNode,
-    UnresolvedWhereNode,
-    VariableDefinedNode,
-    WhereNode,
-)
+from math_spec.piecewise import curvature_required, mask_of
 
-# Last: `math_spec.typesetting` imports `Namespace`, `expand_piecewise` and
-# `load_model` back from this module, so those must be bound first.
-# isort: split
+# Last: `math_spec.typesetting` reaches back for the two conversions, so those
+# must be bound before it is imported.
 from math_spec.typesetting import (
     FORMATS,
     SymbolTable,
@@ -92,6 +52,7 @@ from math_spec.typesetting import (
     to_typst,
     typeset,
 )
+from math_spec.validation import to_spec
 
 __all__ = [
     'BUILTIN_NAMES',
@@ -102,76 +63,30 @@ __all__ = [
     'PARAMETER_DTYPES',
     'VARIABLE_ABSENCE',
     'VARIABLE_DOMAINS',
-    'AndNode',
-    'ArithmeticNode',
-    'BinaryOperatorNode',
-    'BooleanLiteralNode',
-    'BranchNode',
-    'Buildable',
-    'ComparisonNode',
-    'ConnectiveWhereNode',
-    'DimensionComparisonNode',
     'DimensionError',
-    'DimensionNode',
-    'DimensionPositionNode',
-    'EdgeNode',
-    'ExpressionNode',
-    'FunctionCallNode',
-    'KeywordNode',
-    'KwargNode',
     'LanguageError',
-    'LeafNode',
-    'LookupComparisonNode',
-    'LookupDefinedNode',
-    'LookupNode',
-    'LookupPairComparisonNode',
     'MathSpecError',
-    'Model',
-    'NameListNode',
-    'NameNode',
-    'Namespace',
-    'NotNode',
-    'NumberNode',
-    'OrNode',
-    'ParameterComparisonNode',
-    'ParameterDefinedNode',
-    'ParameterNode',
     'PiecewiseExpansionError',
     'SchemaError',
     'SosBlock',
+    'Spec',
     'SymbolTable',
-    'TypedPredicateNode',
-    'UnaryOperatorNode',
-    'UnresolvedComparisonNode',
-    'UnresolvedNameNode',
-    'UnresolvedNode',
-    'UnresolvedPositionNode',
-    'UnresolvedWhereNode',
-    'VariableDefinedNode',
-    'VariableNode',
-    'WhereNode',
     'advice',
     'call_shape_error',
     'curvature_required',
     'did_you_mean',
-    'dims_of',
     'edge_error',
-    'expand_piecewise',
-    'expression_of',
-    'load_model',
     'mask_of',
-    'parse_yaml',
     'program',
-    'read_yaml',
     'schema_error',
     'to_latex',
     'to_markdown',
     'to_program',
+    'to_spec',
     'to_typst',
     'typeset',
     'unbounded_notes',
     'unknown_operator_message',
-    'where_of',
 ]
 
 import warnings as _warnings

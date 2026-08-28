@@ -5,13 +5,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Errors and limits
 
-## `load_model` is the check
+## `to_spec` is the check
 
-There is one entry point, and it binds nothing. `ms.load_model('model.yaml')`
+There is one entry point, and it binds nothing. `ms.to_spec('model.yaml')`
 parses the file, expands every `piecewise:` block, resolves every name,
 checks every dim rule and every degree, and reads every `where` string and
 every macro template — the _uncalled_ ones included — before it returns a
-`Model`. Anything the language refuses is refused there, so a repository of
+`Spec`. Anything the language refuses is refused there, so a repository of
 models is validated in CI with no data and no solver, and the worst error a
 consumer downstream could hand you — an opaque array or solver exception with
 no pointer back to a declaration — cannot be one of this package's.
@@ -46,7 +46,7 @@ Give it a finite bounds.lower, or the constraint that was meant to define it.
 ```
 
 Advice, because the same shape is what a half-written model looks like — a
-variable declared before the constraint that will hold it — and `load_model`
+variable declared before the constraint that will hold it — and `to_spec`
 stays open to one. It is a list a consumer asks for, not an error it is
 handed: build straight from the model and the solver's bare answer is still
 the first word.

@@ -13,12 +13,12 @@ None of it is needed to write a model: these are the names a **consumer**
 reads a model through, and they are the whole of the seam:
 
 ```text
-load_model  →  Model  →  to_program  →  Program
+to_spec  →  Spec  →  to_program  →  Program
 ```
 
 ## Two states, and the difference between them
 
-**A `Model` is what the file says. A `Program` is what it means** — macros
+**A `Spec` is what the file says. A `Program` is what it means** — macros
 expanded, curves become the declarations they stand for, names typed,
 operators resolved to nodes, and every dim and degree rule already checked. A
 consumer that _builds_ reads the second; one that asks what the file _wrote_
@@ -61,17 +61,17 @@ objective:
 ```
 
 ```python
-from math_spec import load_model, to_program
+from math_spec import to_spec, to_program
 
-model = load_model('curve.yaml')
-sorted(model.constraints)  # ['target']
+spec = to_spec('curve.yaml')
+sorted(spec.constraints)  # ['target']
 
-program = to_program(model)
+program = to_program(spec)
 sorted(c.name for c in program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
 sorted(v.name for v in program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
-`to_program` takes whatever you have — a path, the YAML, a mapping, a `Model`,
+`to_program` takes whatever you have — a path, the YAML, a mapping, a `Spec`,
 or a `Program` already — and is idempotent, so a consumer that does not know
 which it holds can call it and be sure.
 
@@ -80,18 +80,18 @@ which it holds can call it and be sure.
 | you are                                                                      | take      | because                                       |
 | ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
 | building rows — a solver backend, a second front end                         | `Program` | every declaration is there, resolved          |
-| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Model`   | a program has no `piecewise:` left to look at |
+| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Spec`    | a program has no `piecewise:` left to look at |
 
 **Take a `Program` to build.** A consumer that reads `constraints:` off a
-`Model` still carrying a curve builds a model missing declarations — and a
+`Spec` still carrying a curve builds a model missing declarations — and a
 model missing declarations is a model, so it solves, and the answer is wrong
-with nothing to see. `Program` is a different type from `Model`, so that
+with nothing to see. `Program` is a different type from `Spec`, so that
 mistake is one the signature refuses rather than one the numbers report.
 
 **A program cannot answer what the file wrote.** It has no `piecewise:`, no
-`macros:`, no `description:` — those are the `Model`'s, and anything asking
+`macros:`, no `description:` — those are the `Spec`'s, and anything asking
 what curves a file declares, or rendering it, has to be handed what
-`load_model` returned. The projection runs one way on purpose.
+`to_spec` returned. The projection runs one way on purpose.
 
 **Nothing here is built by hand.** The program's nodes are exported to be
 dispatched on with `isinstance` and read, which is why what ships beside them

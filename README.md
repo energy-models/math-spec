@@ -53,7 +53,7 @@ flowchart LR
     S --> AST["core AST<br/>two grammars"]
     AST --> Q{"inside the<br/>language?"}
     Q -->|"no"| ERR["load error<br/>naming the construct + rewrite"]
-    Q -->|"yes"| M["Model<br/>what the file says"]
+    Q -->|"yes"| M["Spec<br/>what the file says"]
     M -->|"to_program"| P["Program<br/>names, dims and operators resolved"]
     P --> ENG["a consumer → solver"]
     M --> T["to_latex / to_typst / to_markdown"]
@@ -111,15 +111,15 @@ everything about it that can be wrong is wrong at load:
 ```python
 import math_spec as ms
 
-model = ms.load_model('dispatch.yaml')  # schema, names, dims, degree — all checked here
-sorted(model.variables)  # ['p']
+spec = ms.to_spec('dispatch.yaml')  # schema, names, dims, degree — all checked here
+sorted(spec.variables)  # ['p']
 
-program = ms.to_program(model)  # curves expanded, names typed, operators resolved to nodes
+program = ms.to_program(spec)  # curves expanded, names typed, operators resolved to nodes
 program.constraints[0].name  # 'power_balance'
 ```
 
 Neither needs data or a solver: a repository of models can be compiled in CI
-with nothing bound to any of them. The two states are the whole seam — **`Model`
+with nothing bound to any of them. The two states are the whole seam — **`Spec`
 is what the file says, `Program` is what it means** — and a consumer that
 builds reads the second.
 

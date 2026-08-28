@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Tests whose claim is a claim about the language — `load_model` alone raises the verdict."""
+"""Tests whose claim is a claim about the language — `to_spec` alone raises the verdict."""

@@ -4,7 +4,7 @@
 
 """`piecewise:` expansion, judged at the door that decides it.
 
-Every claim here is one `load_model` or `expand_piecewise` reaches with no data
+Every claim here is one `to_spec` or `expand_piecewise` reaches with no data
 bound: which declarations a curve emits, which names it may not collide with,
 which methods exist, and which gates a block will accept.
 """
@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec import CURVATURES, Buildable, curvature_required, expand_piecewise
+from math_spec import CURVATURES, curvature_required
 from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
+from math_spec.model import _ExpandedSpec
+from math_spec.piecewise import expand_piecewise
 from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
@@ -110,36 +112,36 @@ def test_a_method_this_project_does_not_have_is_refused(method):
         schema_of(NONCONVEX_YAML, **{'piecewise.cost_curve.method': method})
 
 
-def test_the_file_is_not_a_buildable_and_the_expansion_is():
-    """A `Model` may still owe declarations to a `piecewise:` block; a `Buildable` owes none."""
+def test_the_file_is_not_an_expansion_and_the_expansion_is():
+    """A `Spec` may still owe declarations to a `piecewise:` block; an `_ExpandedSpec` owes none."""
     schema = schema_of(NONCONVEX_YAML)
 
-    assert not isinstance(schema, Buildable)
-    assert isinstance(expand_piecewise(schema), Buildable)
+    assert not isinstance(schema, _ExpandedSpec)
+    assert isinstance(expand_piecewise(schema), _ExpandedSpec)
 
 
-def test_a_curve_stated_as_lines_expands_to_a_buildable():
-    assert isinstance(expand_piecewise(schema_of(LP)), Buildable)
+def test_a_curve_stated_as_lines_expands_to_an_expanded_spec():
+    assert isinstance(expand_piecewise(schema_of(LP)), _ExpandedSpec)
 
 
 def test_expansion_is_memoised_and_idempotent():
-    """One object from every call: validation already built the expansion, and a `Buildable` is its own."""
+    """One object from every call: validation already built the expansion, and an `_ExpandedSpec` is its own."""
     schema = schema_of(NONCONVEX_YAML)
     expanded = expand_piecewise(schema)
     assert expand_piecewise(schema) is expanded
     assert expand_piecewise(expanded) is expanded
 
     curveless = schema_of(DISPATCH_MODEL)
-    buildable = expand_piecewise(curveless)
-    assert isinstance(buildable, Buildable), 'a curve-free file is buildable, and says so in its type'
-    assert expand_piecewise(curveless) is buildable
-    assert buildable.constraints.keys() == curveless.constraints.keys(), 'retyping declares nothing new'
+    expanded = expand_piecewise(curveless)
+    assert isinstance(expanded, _ExpandedSpec), 'a curve-free file is its own expansion, and says so in its type'
+    assert expand_piecewise(curveless) is expanded
+    assert expanded.constraints.keys() == curveless.constraints.keys(), 'retyping declares nothing new'
 
 
-def test_a_buildable_will_not_be_built_around_a_curve():
+def test_an_expansion_will_not_be_built_around_a_curve():
     """`expand_piecewise` is the only thing that produces one; validated straight from a file, the type would lie."""
     with pytest.raises(SchemaError, match='expand_piecewise is what produces one'):
-        Buildable.model_validate(raw_of(NONCONVEX_YAML))
+        _ExpandedSpec.model_validate(raw_of(NONCONVEX_YAML))
 
 
 @pytest.mark.parametrize('order', [['snapshot', 'generator', 'bp'], ['generator', 'snapshot', 'bp']])

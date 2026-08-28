@@ -28,13 +28,13 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from math_spec.model import Model
+from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
 from math_spec.resolution import Namespace, resolve_expression, resolve_where
 from math_spec.where_parser import parse_where
 
 
-def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
+def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
@@ -42,7 +42,7 @@ def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
     formulation emits.
 
     Args:
-        model: A YAML path, a mapping, or a loaded :class:`Model`.
+        model: A YAML path, a mapping, or a loaded :class:`Spec`.
 
     Returns:
         The schema *as the file declares it*, ``piecewise:`` intact.
@@ -51,14 +51,14 @@ def load_model(model: str | Path | dict[str, Any] | Model) -> Model:
         LanguageError: Anything the language does not accept.
     """
     if isinstance(model, (list, tuple)):
-        msg = 'a model is one file, one dict or one Model, never a list of them; merge the declarations into one dict (#30).'
+        msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict (#30).'
         raise TypeError(msg)
-    if isinstance(model, Model):
+    if isinstance(model, Spec):
         return model
-    return Model.model_validate(model if isinstance(model, dict) else read_yaml(Path(model)))
+    return Spec.model_validate(model if isinstance(model, dict) else read_yaml(Path(model)))
 
 
-def validate_expressions(schema: Model) -> None:
+def validate_expressions(schema: Spec) -> None:
     """Validate and resolve every expression and where string in *schema*.
 
     What is checked:
@@ -124,7 +124,7 @@ def _prefixed(context: str, e: ValueError) -> str:
 
 def _check_expression(
     expression: str,
-    schema: Model,
+    schema: Spec,
     ns: Namespace,
     context: str,
     errors: list[str],

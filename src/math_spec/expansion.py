@@ -29,26 +29,26 @@ from math_spec.expression_parser import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from math_spec.model import MacroBlock, Model
+    from math_spec.model import MacroBlock, Spec
 
 
-def parse_and_expand(text: str, schema: Model, context: str = 'expression') -> ExpressionNode:
+def parse_and_expand(text: str, schema: Spec, context: str = 'expression') -> ExpressionNode:
     """Parse *text* and expand named sub-expressions and macros to core AST."""
     return expand(parse_expression(text), schema, context)
 
 
 @overload
 def expand(
-    node: ArithmeticNode, schema: Model, context: str = ..., *, shadow: frozenset[str] = ...
+    node: ArithmeticNode, schema: Spec, context: str = ..., *, shadow: frozenset[str] = ...
 ) -> ArithmeticNode: ...
 @overload
 def expand(
-    node: ComparisonNode, schema: Model, context: str = ..., *, shadow: frozenset[str] = ...
+    node: ComparisonNode, schema: Spec, context: str = ..., *, shadow: frozenset[str] = ...
 ) -> ComparisonNode: ...
 
 
 def expand(
-    node: ExpressionNode, schema: Model, context: str = 'expression', *, shadow: frozenset[str] = frozenset()
+    node: ExpressionNode, schema: Spec, context: str = 'expression', *, shadow: frozenset[str] = frozenset()
 ) -> ExpressionNode:
     """Expand all named sub-expressions and macro calls under *node*.
 
@@ -111,7 +111,7 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
 
 def _expand(
     node: ArithmeticNode,
-    schema: Model,
+    schema: Spec,
     context: str,
     stack: tuple[str, ...],
     shadow: frozenset[str],
@@ -134,7 +134,7 @@ def _expand(
     return _descend(node, lambda child: _expand(child, schema, context, stack, shadow))
 
 
-def _parse_named(name: str, schema: Model, context: str) -> ArithmeticNode:
+def _parse_named(name: str, schema: Spec, context: str) -> ArithmeticNode:
     body = parse_expression(schema.expressions[name].expression)
     if isinstance(body, ComparisonNode):
         msg = (
@@ -147,7 +147,7 @@ def _parse_named(name: str, schema: Model, context: str) -> ArithmeticNode:
 
 def _expand_macro(
     call: FunctionCallNode,
-    schema: Model,
+    schema: Spec,
     context: str,
     stack: tuple[str, ...],
     shadow: frozenset[str],

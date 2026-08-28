@@ -61,7 +61,7 @@ both at load:
 - **A variable anywhere under it.** `x * x` is how a square gets written; above
   degree 2 there is no rewrite at all. A variable _exponent_ is out for a
   sharper reason — `p ** n` is affine at `n = 1` and quadratic at `n = 2`, so
-  the _degree_ would be a property of the data and `load_model` could not
+  the _degree_ would be a property of the data and `to_spec` could not
   answer with nothing bound.
 - **An operand that adds.** Addition does not distribute over `**`, so
   `(1 + rate) ** period` is two factors wearing one and is refused where

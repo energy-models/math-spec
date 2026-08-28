@@ -18,32 +18,13 @@ from math_spec import typesetting
 #: here would make the two one list checked against itself.
 SURFACE = frozenset(
     {
-        # the front door, and the two model types
-        'load_model', 'Model', 'Buildable', 'expand_piecewise',
-        # the second public state, and the door to it
-        'to_program', 'program',
+        # the two public states, and the conversion to each
+        'Spec', 'to_spec', 'program', 'to_program',
         # the error tree
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'PiecewiseExpansionError', 'did_you_mean', 'schema_error',
-        # reading a file
-        'read_yaml', 'parse_yaml',
-        # the core AST — every node a consumer may meet
-        'ExpressionNode', 'ArithmeticNode', 'ComparisonNode', 'NumberNode', 'NameNode',
-        'NameListNode', 'VariableNode', 'ParameterNode', 'DimensionNode', 'LookupNode',
-        'EdgeNode', 'KeywordNode', 'UnaryOperatorNode', 'BinaryOperatorNode',
-        'FunctionCallNode',
-        # the groups a pass asks about, rather than re-listing the classes in it
-        'LeafNode', 'BranchNode', 'KwargNode', 'UnresolvedNode',
-        'UnresolvedWhereNode', 'TypedPredicateNode', 'ConnectiveWhereNode',
-        # the where AST
-        'WhereNode', 'BooleanLiteralNode', 'AndNode', 'OrNode', 'NotNode',
-        'ParameterComparisonNode', 'ParameterDefinedNode', 'VariableDefinedNode',
-        'DimensionComparisonNode', 'DimensionPositionNode', 'LookupComparisonNode',
-        'LookupPairComparisonNode', 'LookupDefinedNode', 'UnresolvedNameNode',
-        'UnresolvedComparisonNode', 'UnresolvedPositionNode',
-        # the passes a consumer asks for a verdict rather than re-deriving
-        'Namespace', 'expression_of', 'where_of', 'dims_of', 'unbounded_notes',
-        'advice', 'mask_of', 'curvature_required',
+        # the verdicts a consumer asks for rather than re-deriving
+        'advice', 'unbounded_notes', 'mask_of', 'curvature_required',
         # the closed operator set, and the wording of its refusals
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',

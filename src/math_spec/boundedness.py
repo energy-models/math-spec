@@ -34,10 +34,15 @@ from math_spec.expression_parser import (
     VariableNode,
     children,
 )
+from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace, expression_of
+from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from math_spec.model import Model, VariableBlock
+    from pathlib import Path
+    from typing import Any
+
+    from math_spec.model import Spec, VariableBlock
 
 #: The sign a term carries into the objective, or ``None`` where the file does
 #: not decide it: a parameter coefficient (which may be zero), a variable
@@ -49,16 +54,18 @@ Sign = Literal['+', '-'] | None
 _OPEN = {'lower': -math.inf, 'upper': math.inf}
 
 
-def unbounded_notes(schema: Model) -> list[str]:
+def unbounded_notes(spec: str | Path | dict[str, Any] | Spec) -> list[str]:
     """Name every variable the objective can drive to infinity unopposed.
 
-    Takes an expanded schema: a ``piecewise:`` block holds the variables it
-    names, and does so through the constraints it expands into.
+    Expands internally: a ``piecewise:`` block holds the variables it names,
+    and does so through the constraints it expands into, so the answer is
+    about the expansion whatever the caller happens to hold.
 
     Returns:
         One note per variable that is unbounded on the side its objective term
         improves toward and named by no constraint.
     """
+    schema = expand_piecewise(to_spec(spec))
     if schema.objective is None:
         return []
 

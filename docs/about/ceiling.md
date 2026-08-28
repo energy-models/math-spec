@@ -260,7 +260,7 @@ table and a single `sum(by=)` balance. **Topology is data, not structure** —
 wiring a specific system is rows in a connectivity table, never generated YAML,
 so structure is bounded by the number of component _types_ while cardinality
 lives entirely in data. Schema merge is therefore a pure **compose-then-build**
-step producing one `Model` before a single lower/stream pass (native merge is
+step producing one `Spec` before a single lower/stream pass (native merge is
 #30). Namespacing via qualified names is
 the missing primitive (#29) — the port/flow surface stays deliberately shared, as
 the coupling contract between templates — and signs and bidirectional flows need
@@ -269,9 +269,9 @@ bounds-as-expressions (#31).
 Whatever genuinely is not data (variable port counts, runtime-unknown component
 types) belongs in a thin layer emitting **more rows or more templates, never
 per-instance YAML** — and that layer has a supported thing to call. Every
-verb takes `str | Path | dict | Model`, so a programmatically built model goes
+verb takes `str | Path | dict | Spec`, so a programmatically built model goes
 through validation, expansion, resolution and dim checking exactly as a file
-does, and `Model.to_yaml` gives it the review copy rule 5 requires.
+does, and `Spec.to_yaml` gives it the review copy rule 5 requires.
 
 That is the whole of the blessed contract, and it is at the schema level rather
 than the plan level. It is a narrow way to emit _declarations_, not a Python
