@@ -6,6 +6,10 @@
 
 A note is a proof that no data can bound the variable, so most rows here are
 reasons it must stay silent: a false note is worse than none.
+
+Asked of the program, because that is the state the rule reads: every case
+here lowers first, and `test_advice.py` is where the four ways to hand the
+same model in are held to one answer.
 """
 
 from __future__ import annotations
@@ -13,8 +17,8 @@ from __future__ import annotations
 import pytest
 
 from math_spec.boundedness import unbounded_notes
+from math_spec.lowering import to_program
 from math_spec.operators import BUILTIN_NAMES
-from math_spec.piecewise import expand_piecewise
 from tests.fixtures import SMALL_MODEL, override, schema_of
 
 BASE = override(
@@ -25,7 +29,7 @@ BASE = override(
 
 
 def _notes(**patch) -> list[str]:
-    return [str(a) for a in unbounded_notes(expand_piecewise(schema_of(BASE, **patch)))]
+    return [str(a) for a in unbounded_notes(to_program(schema_of(BASE, **patch)))]
 
 
 @pytest.mark.parametrize(
@@ -107,7 +111,7 @@ def test_every_operator_hands_its_sign_to_its_operand(builtin):
     """
     assert builtin in THROUGH_EACH_OPERATOR, (
         f"the built-in '{builtin}' has no case here. Add the objective that drives a free variable "
-        f"through it — or, if it does not hand its sign to its operand, split `_walk`'s FunctionCallNode arm."
+        f'through it — or, if it does not hand its sign to its operand, split the shape-node arm of `_walk`.'
     )
     notes = _notes(**THROUGH_EACH_OPERATOR[builtin])
     assert len(notes) == 1, 'one variable is driven and unopposed, so one note'
@@ -115,7 +119,7 @@ def test_every_operator_hands_its_sign_to_its_operand(builtin):
 
 
 def test_every_unopposed_variable_is_named():
-    advice = unbounded_notes(expand_piecewise(schema_of(BASE, **{'objective.expression': 'sum(v + w, over=g)'})))
+    advice = unbounded_notes(to_program(schema_of(BASE, **{'objective.expression': 'sum(v + w, over=g)'})))
     assert [(a.kind, a.subject) for a in advice] == [('unbounded', 'v'), ('unbounded', 'w')], (
         'one piece of advice per variable, in objective order'
     )
@@ -137,4 +141,4 @@ def test_a_curve_holds_its_variables_through_the_rows_it_emits():
             'piecewise': {'curve': {'over': 'bp', 'links': [['v', 'bx'], ['w', 'by']]}},
         },
     )
-    assert unbounded_notes(expand_piecewise(schema_of(model))) == []
+    assert unbounded_notes(to_program(schema_of(model))) == []
