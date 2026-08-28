@@ -287,10 +287,10 @@ def test_a_lookup_names_the_dimension_its_values_label():
     binding, which reads them all before it knows which are used.
     """
     program = Program(
-        (),
-        (),
-        (),
-        None,
+        parameters=(),
+        variables=(),
+        constraints=(),
+        objective=None,
         dimensions=(
             DimensionDeclaration('snapshot', (LookupDeclaration('season_of', 'season'),)),
             DimensionDeclaration('generator', (LookupDeclaration('at_bus', 'bus'),)),
@@ -335,6 +335,18 @@ def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():
     with pytest.raises(KeyError, match='snapshto') as excinfo:
         program.dimension('snapshto')
     assert 'snapshot' in str(excinfo.value), 'the message names the near miss, which is the whole point of raising'
+
+
+def test_a_program_is_built_by_keyword_so_a_field_added_later_cannot_reorder_an_old_call():
+    """Positional construction made every field's *position* part of the contract.
+
+    `Program(parameters, variables, constraints, objective, dimensions, sos,
+    expressions)` is seven positional slots on a record consumers read; a field
+    inserted anywhere but the end silently rebound the ones after it, with no
+    type error where the arguments happen to share a shape.
+    """
+    with pytest.raises(TypeError, match='positional'):
+        Program((), (), (), None)  # pyrefly: ignore[bad-argument-count]  the point of the test
 
 
 def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
