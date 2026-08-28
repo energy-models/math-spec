@@ -16,12 +16,9 @@ from math_spec import (
     LanguageError,
     NameNode,
     Namespace,
-    carries_variable,
-    check_binary,
     expression_of,
-    is_quadratic,
 )
-from math_spec.degree import check_expression
+from math_spec.degree import carries_variable, check_binary, check_expression, is_quadratic
 from tests.fixtures import SMALL_MODEL, schema_of
 
 SCHEMA = schema_of(SMALL_MODEL)

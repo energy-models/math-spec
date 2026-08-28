@@ -13,10 +13,16 @@ None of it is needed to write a model: these are the names a **consumer**
 reads a model through, and they are the whole of the seam:
 
 ```text
-load_model  →  Model  →  expand_piecewise  →  Buildable
+load_model  →  Model  →  to_program  →  Program
 ```
 
-## Two models, and the difference between them
+## Two states, and the difference between them
+
+**A `Model` is what the file says. A `Program` is what it means** — macros
+expanded, curves become the declarations they stand for, names typed,
+operators resolved to nodes, and every dim and degree rule already checked. A
+consumer that _builds_ reads the second; one that asks what the file _wrote_
+reads the first.
 
 A file may declare a construct whose variables and constraints do not exist
 yet. `piecewise:` is the one that does — a curve
@@ -55,50 +61,40 @@ objective:
 ```
 
 ```python
-from math_spec import expand_piecewise, load_model
+from math_spec import load_model, to_program
 
 model = load_model('curve.yaml')
 sorted(model.constraints)  # ['target']
 
-buildable = expand_piecewise(model)
-sorted(buildable.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
-sorted(buildable.variables)  # ['cost', 'curve_lam', 'p']
+program = to_program(model)
+sorted(c.name for c in program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+sorted(v.name for v in program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
-**A `Model` is the file as written.** It still carries `piecewise:`, and its
-`constraints:` are the ones somebody typed.
-
-**A `Buildable` is what rows are built from.** `variables:` and `constraints:`
-hold the whole model, so the rows built from one are the rows the file asked
-for. `piecewise:` is empty, every block having become declarations.
-
-`expand_piecewise` is idempotent and costs nothing to ask twice: the expansion
-is built once, while the model validates, and every later call hands back that
-same object — including when it is handed a `Buildable`, which is its own
-expansion.
+`to_program` takes whatever you have — a path, the YAML, a mapping, a `Model`,
+or a `Program` already — and is idempotent, so a consumer that does not know
+which it holds can call it and be sure.
 
 ## Which one to take
 
-| you are                                                                      | take        | because                                |
-| ---------------------------------------------------------------------------- | ----------- | -------------------------------------- |
-| building rows — a lowering pass, a solver backend, a renderer                | `Buildable` | the declarations are all there         |
-| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Model`     | the expansion has cleared `piecewise:` |
+| you are                                                                      | take      | because                                       |
+| ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
+| building rows — a solver backend, a second front end                         | `Program` | every declaration is there, resolved          |
+| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Model`   | a program has no `piecewise:` left to look at |
 
-**Take a `Buildable` to build.** A consumer that reads `constraints:` off a
+**Take a `Program` to build.** A consumer that reads `constraints:` off a
 `Model` still carrying a curve builds a model missing declarations — and a
 model missing declarations is a model, so it solves, and the answer is wrong
-with nothing to see. Saying `Buildable` in the signature is what makes that a
-type error rather than a number.
+with nothing to see. `Program` is a different type from `Model`, so that
+mistake is one the signature refuses rather than one the numbers report.
 
-**Reading the file off an expansion finds no curves, and says nothing.** A
-`Buildable` _is_ a `Model`, so it is accepted wherever the file is wanted and
-the types cannot catch this one. Anything that asks a model what curves it
-declares — where they run, which method states them, which parameter a mask is
-derived from — has to be handed what `load_model` returned. An expansion
-answers "none", which is indistinguishable from a model that has none.
+**A program cannot answer what the file wrote.** It has no `piecewise:`, no
+`macros:`, no `description:` — those are the `Model`'s, and anything asking
+what curves a file declares, or rendering it, has to be handed what
+`load_model` returned. The projection runs one way on purpose.
 
-**The promise is about declarations, not expressions.** `macros:` and
-`expressions:` are still text inside the declarations a `Buildable` holds, and
-are substituted where they are read, not up front. That asymmetry is the reason
-the type exists: an expression is needed only when someone reads it, where the
-_set of declarations_ is needed before anything can be read at all.
+**Nothing here is built by hand.** The program's nodes are exported to be
+dispatched on with `isinstance` and read, which is why what ships beside them
+is the walk (`children()`) and not builders. A mask is the language's own
+resolved `where` node rather than a second set spelling the same predicates —
+one home, so the two cannot come to disagree about what a comparison is.

@@ -4,11 +4,11 @@
 
 """`docs/reference/language/reading.md`, run rather than read.
 
-The page states the consumer contract in three answers — what `constraints:`
-holds before the expansion and what it holds after. A page that shows the
-difference and is never executed is a page that stops being true the first time
-the expansion emits a fourth declaration, which is exactly the drift the
-contract exists to prevent.
+The page states the consumer contract in three answers — what a `Model`'s
+`constraints:` holds, and what the `Program` lowered from it holds. A page that
+shows the difference and is never executed is a page that stops being true the
+first time a curve expands into a fourth declaration, which is exactly the
+drift the contract exists to prevent.
 """
 
 from __future__ import annotations
