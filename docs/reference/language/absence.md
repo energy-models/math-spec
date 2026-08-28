@@ -42,8 +42,8 @@ such value exists the load is refused rather than guessed: a divisor, a
 
 ## How absence travels
 
-**Through arithmetic it spreads and takes the row with it. Out of a `sum` it
-does not.**
+**Through arithmetic it spreads and takes the row with it. Out of a summing
+operator it does not.**
 
 ```yaml
 variables:
@@ -79,6 +79,26 @@ Where the _variable_ `y` is masked the row is gone. Where the _parameter_
 `rel_max` has no row it is `0`, and the row stands as `x <= 0`. To drop the row
 there instead, say so: `where: rel_max` on the constraint.
 
+Every operator falls on one side of that line, and one question puts it there:
+**does an output slot stand for several input slots, or for one?**
+
+| Operator                        | An output slot reads            | An absent input                      |
+| ------------------------------- | ------------------------------- | ------------------------------------ |
+| `sum(x, over=d)`                | every position along `d`        | is one summand fewer; the row stands |
+| `sum(x, by=lookup)`             | every member of the group       | is one summand fewer; the row stands |
+| `sum_back(x, over=d, within=w)` | the positions the window covers | is one summand fewer; the row stands |
+| `shift(x, over=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
+| `at(x, by=lookup)`              | one position, through the map   | _is_ the output, so it spreads       |
+
+The three summing operators put several slots into one, so a missing slot is a
+shorter sum and the row survives — a window that reaches past the start of its
+axis is short for the same reason, not absent. The other two are one slot for
+one, so there is nothing to sum over and absence rides straight through, which
+is why a bare `shift`'s vacated edge takes its row with it.
+
+Reading a summing operator as though it spread absence is the same error as
+rewriting `total` into `split` above, one operator down.
+
 ## What a missing coordinate means
 
 By default the masked coordinate has **no value**: a store that is not there
@@ -105,8 +125,8 @@ At a storage with a store and no inflow, `balance` reads `inflow - soc == 0`.
 At one with inflow and no store, there is no row.
 
 `absence: zero` needs a `where:`, is the only fill a variable takes, and changes
-nothing inside a bare `sum(y, over=…)`, which never propagated absence in the
-first place.
+nothing inside a summing operator, which never propagated absence in the first
+place.
 
 ## A row with no variable terms is not built
 
