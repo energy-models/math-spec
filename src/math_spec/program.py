@@ -77,23 +77,31 @@ if TYPE_CHECKING:
 #: ``tests/test_public_surface.py``, which derives this set from the module
 #: rather than restating it, so the two cannot come apart.
 __all__ = [
-    'PIECEWISE_ASSUMPTIONS',
     'QUADRATIC_POSITIONS',
     'Add',
     'At',
+    'AtLeastTwo',
+    'Check',
     'ComparisonOperator',
     'Constant',
     'ConstraintDeclaration',
     'ConstraintSense',
+    'Contiguous',
+    'Curved',
+    'Derivation',
     'DimensionDeclaration',
     'DimensionDtype',
     'Divide',
     'Expression',
     'ExpressionNode',
     'FanIn',
+    'FirstOf',
     'Footprint',
     'GroupSum',
+    'Increasing',
+    'LastOf',
     'LookupDeclaration',
+    'MaskOf',
     'Multiply',
     'Negate',
     'ObjectiveDeclaration',
@@ -101,7 +109,6 @@ __all__ = [
     'Parameter',
     'ParameterDeclaration',
     'ParameterDtype',
-    'PiecewiseAssumption',
     'PiecewiseDeclaration',
     'Power',
     'Program',
@@ -114,8 +121,8 @@ __all__ = [
     'VariableDeclaration',
     'VariableType',
     'Window',
-    'assumption_message',
     'carries_variable',
+    'check_message',
     'children',
     'divisor_parameters',
     'fan_in',
@@ -514,75 +521,144 @@ class DimensionDeclaration:
         return {lk.name: lk.target for lk in self.lookups if lk.target is not None}
 
 
-#: What a ``piecewise:`` block assumes of the numbers it is bound to, named
-#: per block by :attr:`PiecewiseDeclaration.assumptions`. The data decides
-#: whether each holds, so the language names the condition and its sentence
-#: (:func:`assumption_message`) and the consumer holding the numbers checks.
-PiecewiseAssumption = Literal['increasing_breakpoints', 'two_breakpoints', 'contiguous_mask']
-PIECEWISE_ASSUMPTIONS = frozenset(get_args(PiecewiseAssumption))
+@dataclass(frozen=True)
+class MaskOf:
+    """A ``bool`` parameter true wherever *values* has a row.
+
+    The mask a ``points:`` naming one of the block's own breakpoints derives:
+    the curve runs as far as its values do. ``values`` is the name the file
+    wrote, so a refusal about the mask can say it.
+    """
+
+    block: str
+    values: str
+
+
+@dataclass(frozen=True)
+class FirstOf:
+    """A ``bool`` parameter marking, per curve, the first breakpoint *mask* admits."""
+
+    block: str
+    mask: str
+
+
+@dataclass(frozen=True)
+class LastOf:
+    """Its sibling for the last breakpoint."""
+
+    block: str
+    mask: str
+
+
+#: How an emitted parameter is filled — closed, so a consumer binding data
+#: dispatches on it and a kind added later is a type error at that match.
+#: Each names the ``piecewise:`` block whose expansion emitted the parameter.
+Derivation = MaskOf | FirstOf | LastOf
+
+
+@dataclass(frozen=True)
+class Increasing:
+    """*parameter* is strictly increasing along *over* within each curve — the x-axis a method sorts by."""
+
+    parameter: str
+    over: str
+
+
+@dataclass(frozen=True)
+class Curved:
+    """*y* over *x* bends, along *over*, the way *curvature* says.
+
+    That is the shape the method is exact for. ``either`` is the hull's
+    weaker condition: any single bend, so only a mixed curve fails it.
+    """
+
+    x: str
+    y: str
+    over: str
+    curvature: _model.Curvature
+
+
+@dataclass(frozen=True)
+class AtLeastTwo:
+    """Each curve has at least two breakpoints — every position along *over*, or those *mask* admits."""
+
+    over: str
+    mask: str | None
+
+
+@dataclass(frozen=True)
+class Contiguous:
+    """*mask* admits one consecutive run of at least one breakpoint per curve."""
+
+    mask: str
+    #: The breakpoint parameter the mask was derived from, where it was — the
+    #: name the file wrote, and the one a refusal names.
+    values: str | None
+
+
+#: What a ``piecewise:`` block assumes of the numbers it is bound to. The data
+#: decides whether each holds, so the language names the condition with its
+#: subjects and its sentence (:func:`check_message`), and the consumer holding
+#: the numbers checks. Closed, like :data:`Derivation`.
+Check = Increasing | Curved | AtLeastTwo | Contiguous
 
 
 @dataclass(frozen=True)
 class PiecewiseDeclaration:
     """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
 
-    The expansion lowered the links into constraints already; what is left is
-    which parameters carry the curve and what the block assumes of them.
+    The expansion lowered the links into constraints and emitted the
+    parameters it needs — each of those says how it is filled, on its own
+    :attr:`ParameterDeclaration.derivation`. What is left here is the curve
+    and what the block assumes of it.
 
     Attributes:
         over: The breakpoint dimension.
         method: How the weights are restricted.
         breakpoints: The links' values parameters, in link order.
-        axis: The values parameter that is the curve's x-axis, for a block of
-            exactly two links (the one whose bounded link comes last); ``None``
-            where more links tie the curve and no link is the axis.
-        points: The parameter masking the weights — the file's own, or the one
-            derived from a values parameter — or ``None`` for a whole curve.
-        starts: The flag marking each curve's first breakpoint, emitted by an
-            ``lp`` block under a mask; ``None`` otherwise.
-        ends: Its sibling for the last breakpoint.
-        assumptions: What the block assumes of the numbers, each checked by the
-            consumer holding them.
-        curvature: The shape the method is exact for, or ``None`` if any works.
+        checks: What the block assumes of the numbers, each carrying its own
+            subjects, for the consumer holding them to check.
     """
 
     over: str
     method: _model.PiecewiseMethod
     breakpoints: tuple[str, ...]
-    axis: str | None
-    points: str | None
-    starts: str | None
-    ends: str | None
-    assumptions: frozenset[PiecewiseAssumption]
-    curvature: _model.Curvature | None
+    checks: tuple[Check, ...]
 
 
-def assumption_message(block: str, pw: PiecewiseDeclaration, which: PiecewiseAssumption) -> str:
-    """The sentence a consumer raises when the data bound to *block* breaks *which*.
+def check_message(block: str, pw: PiecewiseDeclaration, check: Check) -> str:
+    """The sentence a consumer raises when the data bound to *block* fails *check*.
 
     The language's own wording, so every consumer refuses in the same words;
     a consumer appends what it saw.
     """
     ctx = f"piecewise '{block}'"
-    match which:
-        case 'increasing_breakpoints':
+    match check:
+        case Increasing(parameter, over):
             return (
-                f"{ctx}: method: {pw.method} requires strictly increasing breakpoints in '{pw.axis}' along '{pw.over}'"
+                f"{ctx}: method: {pw.method} requires strictly increasing breakpoints in '{parameter}' along '{over}'"
             )
-        case 'two_breakpoints':
+        case Curved(x, y, over, curvature):
+            shape = 'a single bend' if curvature == 'either' else f'a {curvature} curve'
+            return (
+                f"{ctx}: method: {pw.method} is exact only for {shape}, and '{y}' over '{x}' along "
+                f"'{over}' is not one, so the answer is wrong rather than loose. Use method: adjacency "
+                f'or sos2, which take a curve of any shape.'
+            )
+        case AtLeastTwo():
             return (
                 f'{ctx}: method: lp needs at least two breakpoints per curve — the method *is* its segment '
                 f'lines, so a curve with no segment states nothing and leaves the bounded link on its own '
                 f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.'
             )
-        case 'contiguous_mask':
+        case Contiguous(mask, values):
             return (
-                f"{ctx}: points: '{pw.points}' must mark a consecutive run of at least one breakpoint per "
-                f'curve — the chord row joins a breakpoint to the one before it, and the domain rows sit '
-                f"on the curve's own first and last."
+                f"{ctx}: points: '{values if values is not None else mask}' must mark a consecutive run of at "
+                f'least one breakpoint per curve — the chord row joins a breakpoint to the one before it, and '
+                f"the domain rows sit on the curve's own first and last."
             )
         case _:
-            assert_never(which)
+            assert_never(check)
 
 
 @dataclass(frozen=True)
@@ -596,11 +672,11 @@ class ParameterDeclaration:
 
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
-    #: The ``piecewise:`` block whose expansion emitted this parameter, or
-    #: ``None`` for one the file declares. Who supplies the data follows: the
-    #: caller binds a declared parameter, and fills an emitted one from the
-    #: block's own breakpoints.
-    derived_from: str | None = None
+    #: How this parameter is filled where a ``piecewise:`` expansion emitted
+    #: it, or ``None`` for one the file declares. Who supplies the data
+    #: follows: the caller binds a declared parameter, and an emitted one is
+    #: built from the block's own breakpoints the way its derivation says.
+    derivation: Derivation | None = None
 
 
 @dataclass(frozen=True)
@@ -684,7 +760,7 @@ class Footprint:
             stands in. Empty is affine throughout. Convexity is not here: it is
             a property of the whole Hessian rather than of any term, and the
             coefficients deciding it arrive with the data — so, as with a
-            curve's shape (:attr:`PiecewiseDeclaration.curvature`),
+            curve's shape (:class:`Curved`),
             this names where the products are and the caller holding the
             numbers does the checking.
         variable_types: Every domain declared, ``{'continuous'}`` alone being

@@ -92,9 +92,12 @@ mistake is one the signature refuses rather than one the numbers report.
 `description:`, and no link expression — those are the `Spec`'s, and
 rendering has to be handed what `to_spec` returned. The projection runs one
 way on purpose. What it keeps of a `piecewise:` block is `program.piecewise`:
-which parameters carry the curve, which the expansion emitted, and what the
-block assumes of the numbers — each named so the consumer holding them checks
-it, with `assumption_message` for the sentence to raise.
+which parameters carry the curve, and what the block assumes of the numbers as
+a `checks` tuple — each check carrying the names it is about, so the consumer
+holding the numbers runs it, with `check_message` for the sentence to raise.
+What the expansion emitted is answered where it is asked instead: a
+`ParameterDeclaration.derivation` says how that parameter is filled, and `None`
+means the caller binds it.
 
 **Nothing here is built by hand.** The program's nodes are exported to be
 dispatched on with `isinstance` and read, which is why what ships beside them

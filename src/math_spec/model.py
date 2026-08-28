@@ -109,10 +109,10 @@ SosType = Literal[1, 2]
 #: ``tests/test_schema.py``.
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
-#: The shape a method needs a curve to have to be exact on it, answered by
-#: :attr:`~math_spec.program.PiecewiseDeclaration.curvature`. ``convex`` and ``concave``
-#: name one bend; ``either`` is the hull's weaker condition — any single bend
-#: will do, and only a *mixed* curve fails it.
+#: The shape a method needs a curve to have to be exact on it, carried by the
+#: :class:`~math_spec.program.Curved` check. ``convex`` and ``concave`` name
+#: one bend; ``either`` is the hull's weaker condition — any single bend will
+#: do, and only a *mixed* curve fails it.
 Curvature = Literal['convex', 'concave', 'either']
 
 #: The set form of each vocabulary above, for callers that want membership.
@@ -826,15 +826,12 @@ class ExpandedPiecewise(_StrictBlock):
     ``points`` is the mask the weights carry — the file's own parameter, or
     the one derived from a values parameter; ``starts`` and ``ends`` are the
     edge flags an ``lp`` block under a mask sits its domain rows on.
-    ``emitted`` is every parameter the expansion wrote, which the caller does
-    not bind.
     """
 
     block: PiecewiseBlock
     points: str | None = None
     starts: str | None = None
     ends: str | None = None
-    emitted: list[str] = []
 
 
 class _ExpandedSpec(Spec):
