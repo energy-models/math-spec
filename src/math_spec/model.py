@@ -110,7 +110,7 @@ SosType = Literal[1, 2]
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
 #: The shape a method needs a curve to have to be exact on it, answered by
-#: :func:`~math_spec.piecewise.curvature_required`. ``convex`` and ``concave``
+#: :attr:`~math_spec.program.PiecewiseDeclaration.curvature`. ``convex`` and ``concave``
 #: name one bend; ``either`` is the hull's weaker condition — any single bend
 #: will do, and only a *mixed* curve fails it.
 Curvature = Literal['convex', 'concave', 'either']
@@ -820,6 +820,23 @@ class Spec(_StrictBlock):
         return self
 
 
+class ExpandedPiecewise(_StrictBlock):
+    """A ``piecewise:`` block after expansion: the block, and the parameters it emitted.
+
+    ``points`` is the mask the weights carry — the file's own parameter, or
+    the one derived from a values parameter; ``starts`` and ``ends`` are the
+    edge flags an ``lp`` block under a mask sits its domain rows on.
+    ``emitted`` is every parameter the expansion wrote, which the caller does
+    not bind.
+    """
+
+    block: PiecewiseBlock
+    points: str | None = None
+    starts: str | None = None
+    ends: str | None = None
+    emitted: list[str] = []
+
+
 class _ExpandedSpec(Spec):
     """A model with nothing left to expand — what rows are built from.
 
@@ -829,9 +846,10 @@ class _ExpandedSpec(Spec):
     accepts either.
     """
 
-    #: Each parameter the expansion wrote, to the ``piecewise:`` block that
-    #: emitted it — what tells a consumer the caller does not bind it.
-    emitted_parameters: dict[str, str] = {}
+    #: What each ``piecewise:`` block became, under the block's name — the
+    #: block as written and the names its expansion chose, which is what a
+    #: program's :class:`~math_spec.program.PiecewiseDeclaration` is built from.
+    expanded_piecewise: dict[str, ExpandedPiecewise] = {}
 
     @model_validator(mode='after')
     def _nothing_left_to_expand(self) -> _ExpandedSpec:

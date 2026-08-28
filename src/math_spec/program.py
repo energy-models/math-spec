@@ -77,6 +77,7 @@ if TYPE_CHECKING:
 #: ``tests/test_public_surface.py``, which derives this set from the module
 #: rather than restating it, so the two cannot come apart.
 __all__ = [
+    'PIECEWISE_ASSUMPTIONS',
     'QUADRATIC_POSITIONS',
     'Add',
     'At',
@@ -100,6 +101,8 @@ __all__ = [
     'Parameter',
     'ParameterDeclaration',
     'ParameterDtype',
+    'PiecewiseAssumption',
+    'PiecewiseDeclaration',
     'Power',
     'Program',
     'QuadraticPosition',
@@ -111,6 +114,7 @@ __all__ = [
     'VariableDeclaration',
     'VariableType',
     'Window',
+    'assumption_message',
     'carries_variable',
     'children',
     'divisor_parameters',
@@ -510,6 +514,77 @@ class DimensionDeclaration:
         return {lk.name: lk.target for lk in self.lookups if lk.target is not None}
 
 
+#: What a ``piecewise:`` block assumes of the numbers it is bound to, named
+#: per block by :attr:`PiecewiseDeclaration.assumptions`. The data decides
+#: whether each holds, so the language names the condition and its sentence
+#: (:func:`assumption_message`) and the consumer holding the numbers checks.
+PiecewiseAssumption = Literal['increasing_breakpoints', 'two_breakpoints', 'contiguous_mask']
+PIECEWISE_ASSUMPTIONS = frozenset(get_args(PiecewiseAssumption))
+
+
+@dataclass(frozen=True)
+class PiecewiseDeclaration:
+    """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
+
+    The expansion lowered the links into constraints already; what is left is
+    which parameters carry the curve and what the block assumes of them.
+
+    Attributes:
+        over: The breakpoint dimension.
+        method: How the weights are restricted.
+        breakpoints: The links' values parameters, in link order.
+        axis: The values parameter that is the curve's x-axis, for a block of
+            exactly two links (the one whose bounded link comes last); ``None``
+            where more links tie the curve and no link is the axis.
+        points: The parameter masking the weights — the file's own, or the one
+            derived from a values parameter — or ``None`` for a whole curve.
+        starts: The flag marking each curve's first breakpoint, emitted by an
+            ``lp`` block under a mask; ``None`` otherwise.
+        ends: Its sibling for the last breakpoint.
+        assumptions: What the block assumes of the numbers, each checked by the
+            consumer holding them.
+        curvature: The shape the method is exact for, or ``None`` if any works.
+    """
+
+    over: str
+    method: _model.PiecewiseMethod
+    breakpoints: tuple[str, ...]
+    axis: str | None
+    points: str | None
+    starts: str | None
+    ends: str | None
+    assumptions: frozenset[PiecewiseAssumption]
+    curvature: _model.Curvature | None
+
+
+def assumption_message(block: str, pw: PiecewiseDeclaration, which: PiecewiseAssumption) -> str:
+    """The sentence a consumer raises when the data bound to *block* breaks *which*.
+
+    The language's own wording, so every consumer refuses in the same words;
+    a consumer appends what it saw.
+    """
+    ctx = f"piecewise '{block}'"
+    match which:
+        case 'increasing_breakpoints':
+            return (
+                f"{ctx}: method: {pw.method} requires strictly increasing breakpoints in '{pw.axis}' along '{pw.over}'"
+            )
+        case 'two_breakpoints':
+            return (
+                f'{ctx}: method: lp needs at least two breakpoints per curve — the method *is* its segment '
+                f'lines, so a curve with no segment states nothing and leaves the bounded link on its own '
+                f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.'
+            )
+        case 'contiguous_mask':
+            return (
+                f"{ctx}: points: '{pw.points}' must mark a consecutive run of at least one breakpoint per "
+                f'curve — the chord row joins a breakpoint to the one before it, and the domain rows sit '
+                f"on the curve's own first and last."
+            )
+        case _:
+            assert_never(which)
+
+
 @dataclass(frozen=True)
 class ParameterDeclaration:
     """Shape declaration; data is bound at execution time by name.
@@ -609,7 +684,7 @@ class Footprint:
             stands in. Empty is affine throughout. Convexity is not here: it is
             a property of the whole Hessian rather than of any term, and the
             coefficients deciding it arrive with the data — so, as with a
-            curve's shape (:func:`~math_spec.piecewise.curvature_required`),
+            curve's shape (:attr:`PiecewiseDeclaration.curvature`),
             this names where the products are and the caller holding the
             numbers does the checking.
         variable_types: Every domain declared, ``{'continuous'}`` alone being
@@ -655,6 +730,9 @@ class Program:
     objective: ObjectiveDeclaration | None
     dimensions: Mapping[str, DimensionDeclaration] = MappingProxyType({})
     sos: Mapping[str, SosDeclaration] = MappingProxyType({})
+    #: Each ``piecewise:`` block the file wrote, as facts — see
+    #: :class:`PiecewiseDeclaration`.
+    piecewise: Mapping[str, PiecewiseDeclaration] = MappingProxyType({})
     #: Declared ``expressions:``, lowered. Not part of the program a solver
     #: sees — none of them builds a row — but lowered with it, so a file whose
     #: named expression is outside the language is refused by every verb that

@@ -42,7 +42,6 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
-from math_spec.piecewise import curvature_required, mask_of
 
 # Last: `math_spec.typesetting` reaches back for the two conversions, so those
 # must be bound before it is imported.
@@ -77,10 +76,8 @@ __all__ = [
     'SymbolTable',
     'advice',
     'call_shape_error',
-    'curvature_required',
     'did_you_mean',
     'edge_error',
-    'mask_of',
     'program',
     'schema_error',
     'to_latex',

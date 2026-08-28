@@ -77,10 +77,10 @@ which it holds can call it and be sure.
 
 ## Which one to take
 
-| you are                                                                      | take      | because                                       |
-| ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
-| building rows — a solver backend, a second front end                         | `Program` | every declaration is there, resolved          |
-| reading the file — `points:`, `method:`, what a curve's mask is derived from | `Spec`    | a program has no `piecewise:` left to look at |
+| you are                                                                | take      | because                                       |
+| ---------------------------------------------------------------------- | --------- | --------------------------------------------- |
+| building rows — a solver backend, a second front end                   | `Program` | every declaration is there, resolved          |
+| reading the file — `macros:`, `description:`, a link as it was written | `Spec`    | a program keeps a curve's facts, not its text |
 
 **Take a `Program` to build.** A consumer that reads `constraints:` off a
 `Spec` still carrying a curve builds a model missing declarations — and a
@@ -88,10 +88,13 @@ model missing declarations is a model, so it solves, and the answer is wrong
 with nothing to see. `Program` is a different type from `Spec`, so that
 mistake is one the signature refuses rather than one the numbers report.
 
-**A program cannot answer what the file wrote.** It has no `piecewise:`, no
-`macros:`, no `description:` — those are the `Spec`'s, and anything asking
-what curves a file declares, or rendering it, has to be handed what
-`to_spec` returned. The projection runs one way on purpose.
+**A program cannot answer what the file wrote.** It has no `macros:`, no
+`description:`, and no link expression — those are the `Spec`'s, and
+rendering has to be handed what `to_spec` returned. The projection runs one
+way on purpose. What it keeps of a `piecewise:` block is `program.piecewise`:
+which parameters carry the curve, which the expansion emitted, and what the
+block assumes of the numbers — each named so the consumer holding them checks
+it, with `assumption_message` for the sentence to raise.
 
 **Nothing here is built by hand.** The program's nodes are exported to be
 dispatched on with `isinstance` and read, which is why what ships beside them
