@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.30](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.29...v0.0.0-alpha.30) (2026-08-28)
+
+
+### Documentation
+
+* the absence rules cover every operator, not the three they named ([#173](https://github.com/energy-models/math-spec/issues/173)) ([3266a5b](https://github.com/energy-models/math-spec/commit/3266a5bbfb5df657f4a1a417f8ce5206ee986227))
+
 ## [0.0.0-alpha.29](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.28...v0.0.0-alpha.29) (2026-08-27)
 
 
