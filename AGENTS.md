@@ -192,10 +192,10 @@ generator lands with a row in `tests/test_docs.py`'s `GENERATED` table, or
 
   ```python
   # no
-  expand_piecewise(model)  # before typesetting, because the walk needs the SOS rows
+  program = to_program(spec)  # hold it — this one is not memoised, unlike the expansion
 
-  # yes — the sentence lives in expand_piecewise()'s docstring
-  expand_piecewise(model)
+  # yes — the sentence lives in to_program()'s docstring
+  program = to_program(spec)
   ```
 
   Kept inline: pragmas (`# pyrefly: ignore[…]` with its reason, `# noqa` with
@@ -278,7 +278,7 @@ precisely so that this file, not the linter, decides where one earns its place.
 word about how it validates:
 
 ```python
-def to_spec(spec: str | Path | dict[str, Any] | Spec) -> Spec:
+def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
     """Load and validate a model definition — the language's front door.
 
     Everything decidable without data is decided here: schema shape, every
@@ -286,10 +286,10 @@ def to_spec(spec: str | Path | dict[str, Any] | Spec) -> Spec:
     formulation emits.
 
     Args:
-        spec: A YAML path, a mapping, or a loaded :class:`Spec`.
+        model: A YAML path, a mapping, or a loaded :class:`Spec`.
 
     Returns:
-        The model *as the file declares it*, ``piecewise:`` intact.
+        The schema *as the file declares it*, ``piecewise:`` intact.
 
     Raises:
         LanguageError: Anything the language does not accept.
