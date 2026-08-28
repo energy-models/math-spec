@@ -89,15 +89,15 @@ def dispatch_schema() -> Spec:
 def test_lower_program_structure(dispatch_schema):
     program = lower_program(expand_piecewise(dispatch_schema))
 
-    assert [p.name for p in program.parameters] == ['p_max', 'load', 'cost']
-    (v,) = program.variables
-    assert v.name == 'p'
+    assert list(program.parameters) == ['p_max', 'load', 'cost'], 'keyed by name, in declaration order'
+    ((vname, v),) = program.variables.items()
+    assert vname == 'p'
     assert v.dims == ('snapshot', 'generator')
     assert v.where == ParameterComparisonNode('p_max', '>', 0.0)
     assert v.upper == Parameter('p_max')
 
-    (c,) = program.constraints
-    assert c.name == 'power_balance'
+    ((cname, c),) = program.constraints.items()
+    assert cname == 'power_balance'
     assert c.dims == ('snapshot',)
     assert c.lhs == Sum(Variable('p'), ('generator',))
     assert c.sense == '=='
@@ -184,7 +184,7 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
     masked one raised TypeError.
     """
     program = lower_program(expand_piecewise(dispatch_schema))
-    (v,) = program.variables
+    (v,) = program.variables.values()
     assert v.where == ParameterComparisonNode('p_max', '>', 0.0)
 
     with pytest.raises(FrozenInstanceError):
@@ -287,14 +287,14 @@ def test_a_lookup_names_the_dimension_its_values_label():
     binding, which reads them all before it knows which are used.
     """
     program = Program(
-        parameters=(),
-        variables=(),
-        constraints=(),
+        parameters={},
+        variables={},
+        constraints={},
         objective=None,
-        dimensions=(
-            DimensionDeclaration('snapshot', (LookupDeclaration('season_of', 'season'),)),
-            DimensionDeclaration('generator', (LookupDeclaration('at_bus', 'bus'),)),
-        ),
+        dimensions={
+            'snapshot': DimensionDeclaration((LookupDeclaration('season_of', 'season'),)),
+            'generator': DimensionDeclaration((LookupDeclaration('at_bus', 'bus'),)),
+        },
     )
 
     assert program.dimension('snapshot').targets == {'season_of': 'season'}, (
@@ -331,7 +331,7 @@ def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():
         )
     )
 
-    assert program.dimension('snapshot').name == 'snapshot', 'a declared dimension still comes back'
+    assert program.dimension('snapshot').dtype == 'str', 'a declared dimension still comes back'
     with pytest.raises(KeyError, match='snapshto') as excinfo:
         program.dimension('snapshto')
     assert 'snapshot' in str(excinfo.value), 'the message names the near miss, which is the whole point of raising'
@@ -346,7 +346,23 @@ def test_a_program_is_built_by_keyword_so_a_field_added_later_cannot_reorder_an_
     type error where the arguments happen to share a shape.
     """
     with pytest.raises(TypeError, match='positional'):
-        Program((), (), (), None)  # pyrefly: ignore[bad-argument-count]  the point of the test
+        Program({}, {}, {}, None)  # pyrefly: ignore[bad-argument-count]  the point of the test
+
+
+def test_a_program_seals_its_declaration_groups(dispatch_schema):
+    """`frozen=True` sealed the fields and said nothing about what was behind them.
+
+    `Program.expressions` was a plain dict, so a consumer could add or replace
+    a declaration on the program another consumer was reading — the same
+    two-consumers-disagree failure a mutable where node allowed. Every group is
+    keyed now, so the seal has to hold for all of them rather than the one.
+    """
+    program = lower_program(expand_piecewise(dispatch_schema))
+
+    for group in (program.parameters, program.variables, program.constraints, program.dimensions, program.sos):
+        with pytest.raises(TypeError):
+            group['sneak'] = None  # pyrefly: ignore[unsupported-operation]  the point of the test
+    assert list(program.parameters) == ['p_max', 'load', 'cost'], "and the file's own order survives the seal"
 
 
 def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():

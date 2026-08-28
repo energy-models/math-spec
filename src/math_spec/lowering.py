@@ -113,30 +113,27 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
     """
     expanded = schema
     ns = Namespace.of(expanded)
-    parameters = tuple(
-        program.ParameterDeclaration(name, tuple(pdef.dims), pdef.dtype) for name, pdef in expanded.parameters.items()
-    )
+    parameters = {
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype) for name, pdef in expanded.parameters.items()
+    }
 
-    variables = []
+    variables = {}
     for vname, vdef in expanded.variables.items():
         variable_type = cast('program.VariableType', vdef.domain)
         if variable_type == 'binary':
             lower, upper = program.Constant(0.0), program.Constant(1.0)
         else:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
-        variables.append(
-            program.VariableDeclaration(
-                vname,
-                tuple(vdef.foreach),
-                where=_lower_where(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
-                lower=lower,
-                upper=upper,
-                variable_type=variable_type,
-                absence=cast('program.VariableAbsence', vdef.absence),
-            )
+        variables[vname] = program.VariableDeclaration(
+            tuple(vdef.foreach),
+            where=_lower_where(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
+            lower=lower,
+            upper=upper,
+            variable_type=variable_type,
+            absence=cast('program.VariableAbsence', vdef.absence),
         )
 
-    constraints = []
+    constraints = {}
     for cname, cdef in expanded.constraints.items():
         where = _lower_where(cdef.where, ns, f"constraint '{cname}'")
         ast = expression_of(cdef.expression, expanded, ns, f"constraint '{cname}'")
@@ -148,15 +145,12 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         if ast.op not in _SENSES:
             raise LanguageError(f"constraint '{cname}': unsupported sense '{ast.op}'")
         lowering = _Lowering(expanded, f"constraint '{cname}'")
-        constraints.append(
-            program.ConstraintDeclaration(
-                cname,
-                tuple(cdef.foreach),
-                lhs=lowering.expr(ast.left),
-                sense=ast.op,
-                rhs=lowering.expr(ast.right),
-                where=where,
-            )
+        constraints[cname] = program.ConstraintDeclaration(
+            tuple(cdef.foreach),
+            lhs=lowering.expr(ast.left),
+            sense=ast.op,
+            rhs=lowering.expr(ast.right),
+            where=where,
         )
 
     objective = None
@@ -169,30 +163,28 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
             _Lowering(expanded, 'the objective').expr(ast),
         )
 
-    dimensions = tuple(
-        program.DimensionDeclaration(
-            dname,
+    dimensions = {
+        dname: program.DimensionDeclaration(
             tuple(program.LookupDeclaration(cname, target) for cname, target in expanded.targeted_of(dname).items()),
             tuple(expanded.labels_of(dname)),
             ddef.dtype,
         )
         for dname, ddef in expanded.dimensions.items()
-    )
-    sos = tuple(
-        program.SosDeclaration(
-            sname,
+    }
+    sos = {
+        sname: program.SosDeclaration(
             sdef.variable,
             sdef.over,
             sos_type=cast('Literal[1, 2]', sdef.type),
             big_m=sdef.big_m,
         )
         for sname, sdef in expanded.sos.items()
-    )
+    }
     expressions = {name: _lower_expression(expanded, ns, name) for name in expanded.expressions}
     return program.Program(
         parameters=parameters,
-        variables=tuple(variables),
-        constraints=tuple(constraints),
+        variables=variables,
+        constraints=constraints,
         objective=objective,
         dimensions=dimensions,
         sos=sos,

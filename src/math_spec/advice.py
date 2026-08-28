@@ -53,22 +53,22 @@ def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice,
 def _never_an_axis(program: Program) -> list[Advice]:
     """One piece of advice per dimension nothing is indexed by and nothing aggregates into."""
     axes: set[str] = set()
-    for declaration in (*program.parameters, *program.variables, *program.constraints):
+    for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
         axes.update(declaration.dims)
     expressions = [program.objective.expression] if program.objective is not None else []
-    expressions.extend(side for c in program.constraints for side in (c.lhs, c.rhs))
+    expressions.extend(side for c in program.constraints.values() for side in (c.lhs, c.rhs))
     for e in expressions:
         axes |= _produced_axes(e)
 
     targeted = {lk.target: (dimension, lk.name) for dimension, lk in program.lookups}
     notes: list[Advice] = []
-    for d in program.dimensions:
-        if d.name in axes:
+    for name in program.dimensions:
+        if name in axes:
             continue
-        if d.name in targeted:
-            owner, cname = targeted[d.name]
+        if name in targeted:
+            owner, cname = targeted[name]
             text = (
-                f"dimension '{d.name}' is never an axis: nothing is indexed by it and nothing "
+                f"dimension '{name}' is never an axis: nothing is indexed by it and nothing "
                 f"aggregates into it — it only serves as the target of lookup '{cname}' over "
                 f"'{owner}'. That is a label space, not a dimension of this model; declare the "
                 f'lookup as one instead:\n'
@@ -77,11 +77,11 @@ def _never_an_axis(program: Program) -> list[Advice]:
             )
         else:
             text = (
-                f"dimension '{d.name}' is never used: nothing is indexed by it, nothing "
+                f"dimension '{name}' is never used: nothing is indexed by it, nothing "
                 f'aggregates into it, and no lookup targets it. Remove it — or keep it '
                 f'knowingly, if the declarations that use it are still to be written.'
             )
-        notes.append(Advice('never-an-axis', d.name, text))
+        notes.append(Advice('never-an-axis', name, text))
     return notes
 
 

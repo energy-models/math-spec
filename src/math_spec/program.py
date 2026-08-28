@@ -31,7 +31,9 @@ balance = GroupSum(Variable("p"), over="generator", coordinate=("bus",), into=("
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass, field, fields
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never
 
 from math_spec.errors import did_you_mean
@@ -391,7 +393,6 @@ class DimensionDeclaration:
     reaches them.
     """
 
-    name: str
     lookups: tuple[LookupDeclaration, ...] = ()
     label_spaces: tuple[str, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
@@ -431,14 +432,12 @@ class ParameterDeclaration:
     what is read, rather than whatever the column happens to hold.
     """
 
-    name: str
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
 
 
 @dataclass(frozen=True)
 class VariableDeclaration:
-    name: str
     dims: tuple[str, ...]
     where: WhereNode | None = None
     lower: ExpressionNode = field(default_factory=lambda: Constant(float('-inf')))
@@ -456,7 +455,6 @@ class ConstraintDeclaration:
     ``where`` masks out coord combinations (row absence, like variables).
     """
 
-    name: str
     dims: tuple[str, ...]
     lhs: ExpressionNode
     sense: ConstraintSense
@@ -479,7 +477,6 @@ class SosDeclaration:
     the only cap.
     """
 
-    name: str
     variable: str
     over: str
     sos_type: Literal[1, 2]
@@ -494,35 +491,50 @@ class ObjectiveDeclaration:
     expression: ExpressionNode
 
 
-def _declared[Declaration: (DimensionDeclaration, ParameterDeclaration, VariableDeclaration)](
-    items: tuple[Declaration, ...], name: str, kind: str
-) -> Declaration:
+def _declared[Declaration](items: Mapping[str, Declaration], name: str, kind: str) -> Declaration:
     """The declaration called *name*, or a ``KeyError`` naming the near miss."""
-    for item in items:
-        if item.name == name:
-            return item
-    raise KeyError(f"unknown {kind} '{name}'. " + did_you_mean(name, [i.name for i in items]))
+    try:
+        return items[name]
+    except KeyError:
+        raise KeyError(f"unknown {kind} '{name}'. " + did_you_mean(name, list(items))) from None
 
 
 @dataclass(frozen=True, kw_only=True)
 class Program:
-    """A complete linear program over named tidy tables."""
+    """A complete linear program over named tidy tables.
 
-    parameters: tuple[ParameterDeclaration, ...]
-    variables: tuple[VariableDeclaration, ...]
-    constraints: tuple[ConstraintDeclaration, ...]
+    Every group of declarations is keyed by the name the file wrote, in the
+    order it wrote them, and is read-only: the mappings are wrapped at
+    construction, so a consumer cannot rewrite what another consumer reads.
+    A whole program is not hashable — the declarations and expression nodes
+    inside it are, which is what dedup and memoisation ask for.
+    """
+
+    parameters: Mapping[str, ParameterDeclaration]
+    variables: Mapping[str, VariableDeclaration]
+    constraints: Mapping[str, ConstraintDeclaration]
     #: ``None`` where the file declares no objective — a feasibility problem,
     #: whose answer is whether the constraints can be met at all.
     objective: ObjectiveDeclaration | None
-    dimensions: tuple[DimensionDeclaration, ...] = ()
-    sos: tuple[SosDeclaration, ...] = ()
+    dimensions: Mapping[str, DimensionDeclaration] = MappingProxyType({})
+    sos: Mapping[str, SosDeclaration] = MappingProxyType({})
     #: Declared ``expressions:``, lowered. Not part of the program a solver
     #: sees — none of them builds a row — but lowered with it, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
-    #: Keyed rather than a tuple of declarations because a reader asks for one
-    #: by the name it wrote, and nothing iterates them in order.
-    expressions: dict[str, ExpressionNode] = field(default_factory=dict)
+    expressions: Mapping[str, ExpressionNode] = MappingProxyType({})
+
+    def __post_init__(self) -> None:
+        """Seal every group, so a program handed out cannot be written to.
+
+        ``frozen=True`` stops a field being rebound and says nothing about the
+        mapping behind it. Wrapping here rather than trusting the caller is
+        what makes the guarantee hold for every construction path.
+        """
+        for f in fields(self):
+            group = getattr(self, f.name)
+            if isinstance(group, Mapping):
+                object.__setattr__(self, f.name, MappingProxyType(dict(group)))
 
     def dimension(self, name: str) -> DimensionDeclaration:
         return _declared(self.dimensions, name, 'dimension')
@@ -535,7 +547,7 @@ class Program:
         target to origin, the set of targets — because the nested comprehension
         that produces any of them is the same walk written again.
         """
-        return tuple((d.name, lk) for d in self.dimensions for lk in d.lookups)
+        return tuple((dimension, lk) for dimension, d in self.dimensions.items() for lk in d.lookups)
 
     def parameter(self, name: str) -> ParameterDeclaration:
         return _declared(self.parameters, name, 'parameter')

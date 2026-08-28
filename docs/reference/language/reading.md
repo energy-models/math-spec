@@ -67,8 +67,8 @@ spec = to_spec('curve.yaml')
 sorted(spec.constraints)  # ['target']
 
 program = to_program(spec)
-sorted(c.name for c in program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
-sorted(v.name for v in program.variables)  # ['cost', 'curve_lam', 'p']
+sorted(program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1', 'target']
+sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
 `to_program` takes whatever you have — a path, the YAML, a mapping, a `Spec`,
