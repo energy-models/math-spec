@@ -32,7 +32,7 @@ balance = GroupSum(Variable("p"), over="generator", coordinate=("bus",), into=("
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, ClassVar, Literal, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never
 
 from math_spec.errors import did_you_mean
 
@@ -49,8 +49,9 @@ ConstraintSense = Literal['==', '<=', '>=']
 #: several input slots into one output row, so an absent slot there is one
 #: summand fewer and the row stands; a pullback and a translation are one slot
 #: for one, so an absent input *is* the output and takes the row with it.
-#: Declared on the node because a consumer keeping its own list of which is
-#: which would be deciding a rule the language has already decided.
+#: Answered by :func:`fan_in` for every node, because a consumer keeping its
+#: own list of which is which would be deciding a rule the language has
+#: already decided.
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
 ObjectiveSense = Literal['minimize', 'maximize']
 ComparisonOperator = Literal['==', '!=', '<=', '>=', '<', '>']
@@ -176,8 +177,6 @@ class Divide(Expression):
 class Sum(Expression):
     """Sum ``operand`` over the named dims, removing them from the result."""
 
-    fan_in: ClassVar[FanIn] = 'many-to-one'
-
     operand: ExpressionNode
     over: tuple[str, ...]
 
@@ -199,8 +198,6 @@ class GroupSum(Expression):
     of tuples is always the same length and their order pairs them up.
     """
 
-    fan_in: ClassVar[FanIn] = 'many-to-one'
-
     operand: ExpressionNode
     over: str
     coordinate: tuple[str, ...]
@@ -220,8 +217,6 @@ class At(Expression):
     The join fans out, many ``over`` labels sharing one ``into`` tuple — the
     fan-out ``GroupSum`` pays in reverse, so the locality class is unchanged.
     """
-
-    fan_in: ClassVar[FanIn] = 'one-to-one'
 
     operand: ExpressionNode
     over: str
@@ -261,8 +256,6 @@ class Translate(Expression):
     no group and reaches nothing.
     """
 
-    fan_in: ClassVar[FanIn] = 'one-to-one'
-
     operand: ExpressionNode
     dimension: str
     offset: int | str
@@ -300,8 +293,6 @@ class Window(Expression):
     supplies how many snapshots there are.
     """
 
-    fan_in: ClassVar[FanIn] = 'one-to-many'
-
     operand: ExpressionNode
     dimension: str
     width: int | str
@@ -330,6 +321,30 @@ ExpressionNode = (
     | Translate
     | Window
 )
+
+
+def fan_in(expression: ExpressionNode) -> FanIn:
+    """How *expression*'s output rows relate to its input slots.
+
+    Total over the node set, so a consumer asks any node rather than keeping a
+    list of which kinds carry the answer. Arithmetic and the leaves reshape
+    nothing, which is one slot for one row — the same class a pullback and a
+    translation are in, reached for a different reason.
+
+    Exhaustive rather than defaulted: a node added without a case here is a
+    type error at this function, where the absence rule it needs is decided,
+    instead of silently inheriting the class that reshapes nothing.
+    """
+    if isinstance(expression, (Sum, GroupSum)):
+        return 'many-to-one'
+    if isinstance(expression, Window):
+        return 'one-to-many'
+    if isinstance(
+        expression,
+        (Constant, Parameter, Variable, Negate, Add, Multiply, Power, Divide, At, Translate),
+    ):
+        return 'one-to-one'
+    assert_never(expression)
 
 
 def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:

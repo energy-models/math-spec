@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
 import pytest
 
@@ -27,16 +27,25 @@ from math_spec import LanguageError, Spec
 from math_spec.lowering import _lower_where, _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
+    Add,
     At,
+    Constant,
     DimensionDeclaration,
     Divide,
+    ExpressionNode,
+    GroupSum,
     LookupDeclaration,
+    Multiply,
+    Negate,
     Parameter,
     Power,
     Program,
     Sum,
+    Translate,
     Variable,
+    Window,
     divisor_parameters,
+    fan_in,
     quotients,
     variables_of,
 )
@@ -234,6 +243,40 @@ def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():
     assert divisor_parameters(Sum(left + right, ('flow',))) == frozenset({'rate', 'loss'}), (
         'the flat answer is still the union of the same walk'
     )
+
+
+FAN_IN = {
+    Constant(1.0): 'one-to-one',
+    Parameter('c'): 'one-to-one',
+    Variable('p'): 'one-to-one',
+    Negate(Variable('p')): 'one-to-one',
+    Add(Variable('p'), Constant(1.0)): 'one-to-one',
+    Multiply(Variable('p'), Parameter('c')): 'one-to-one',
+    Power(Parameter('c'), Constant(2.0)): 'one-to-one',
+    Divide(Variable('p'), Parameter('c')): 'one-to-one',
+    Sum(Variable('p'), ('g',)): 'many-to-one',
+    GroupSum(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'many-to-one',
+    At(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'one-to-one',
+    Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
+    Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
+}
+
+
+def test_every_expression_node_answers_fan_in():
+    """`fan_in` was a ClassVar on five nodes, so `Add(...).fan_in` was an AttributeError.
+
+    A consumer had to keep its own list of which node kinds carry the answer,
+    which is the list the declaration existed to spare it. The table below is
+    checked for completeness against `ExpressionNode` so a node added later
+    fails here rather than reaching a consumer unclassified.
+    """
+    covered = {type(node) for node in FAN_IN}
+    assert covered == set(get_args(ExpressionNode)), (
+        'every node in the ExpressionNode union is classified, and nothing retired lingers'
+    )
+    assert {type(node).__name__: fan_in(node) for node in FAN_IN} == {
+        type(node).__name__: expected for node, expected in FAN_IN.items()
+    }
 
 
 def test_a_lookup_names_the_dimension_its_values_label():
