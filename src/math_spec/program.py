@@ -16,6 +16,19 @@ every dim rule already checked. Consumers dispatch on these nodes and read
 them; nothing here is built by hand, so what ships beside the nodes is the
 walk (:func:`children`), not builders.
 
+What a consumer needs from this module falls in three, and only the middle
+one has to be *called* to be got right:
+
+- **Types to match on** — every node and declaration class, the
+  :data:`ExpressionNode` union, and the ``Literal`` vocabularies. A backend
+  dispatches on these and calls none of them.
+- **Rules to call** — :func:`children` and :func:`fan_in`. Neither is visible
+  in a node's own structure, so a consumer deriving them derives them wrongly
+  the day a node is added.
+- **Questions over the walk** — :func:`walk` and the filters beside it. Each is
+  a line a consumer could write; they are here so two consumers cannot write it
+  differently.
+
 A mask is the language's own resolved ``where`` node
 (:mod:`math_spec.where_parser`) rather than a second set spelling the same
 predicates — one home, so the two cannot come to disagree about what a
@@ -43,6 +56,58 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from math_spec.where_parser import WhereNode
+
+
+#: What ``math_spec.program`` promises. The package's ``__all__`` exports this
+#: *module* rather than its names, so this is where a consumer's imports are
+#: pinned. Sorted, like the package's own: the grouping a reader wants is in
+#: ``tests/test_public_surface.py``, which derives this set from the module
+#: rather than restating it, so the two cannot come apart.
+__all__ = [
+    'QUADRATIC_POSITIONS',
+    'Add',
+    'At',
+    'ComparisonOperator',
+    'Constant',
+    'ConstraintDeclaration',
+    'ConstraintSense',
+    'DimensionDeclaration',
+    'DimensionDtype',
+    'Divide',
+    'Expression',
+    'ExpressionNode',
+    'FanIn',
+    'Footprint',
+    'GroupSum',
+    'LookupDeclaration',
+    'Multiply',
+    'Negate',
+    'ObjectiveDeclaration',
+    'ObjectiveSense',
+    'Parameter',
+    'ParameterDeclaration',
+    'ParameterDtype',
+    'Power',
+    'Program',
+    'QuadraticPosition',
+    'SosDeclaration',
+    'Sum',
+    'Translate',
+    'Variable',
+    'VariableAbsence',
+    'VariableDeclaration',
+    'VariableType',
+    'Window',
+    'carries_variable',
+    'children',
+    'divisor_parameters',
+    'fan_in',
+    'is_quadratic',
+    'parameters_of',
+    'quotients',
+    'variables_of',
+    'walk',
+]
 
 
 ConstraintSense = Literal['==', '<=', '>=']
@@ -644,6 +709,11 @@ class Program:
 
     def variable(self, name: str) -> VariableDeclaration:
         return _declared(self.variables, name, 'variable')
+
+
+# --------------------------------------------------------------------------
+# Walks, and the questions asked through them
+# --------------------------------------------------------------------------
 
 
 def walk(*expressions: ExpressionNode) -> Iterator[ExpressionNode]:

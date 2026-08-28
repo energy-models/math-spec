@@ -10,8 +10,11 @@ addition to it is a decision, and the table below is where it is recorded.
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
+
 import math_spec
-from math_spec import typesetting
+from math_spec import program, typesetting
 
 #: Every name `math_spec` promises. Grouped as a reader meets them, not
 #: alphabetically: the alphabetical form is `__all__` itself, and repeating it
@@ -59,3 +62,47 @@ def test_all_names_nothing_twice():
 def test_the_typeset_subpackage_binds_what_it_exports():
     missing = sorted(n for n in typesetting.__all__ if not hasattr(typesetting, n))
     assert not missing, f'math_spec.typesetting.__all__ names unbound attributes: {missing}'
+
+
+def _defined_by(module: object) -> set[str]:
+    """Every public name *module* binds itself, the bare ``Literal`` aliases included.
+
+    Read from the source rather than ``dir()``: an alias is a plain assignment
+    with no ``__module__`` to tell it apart from an imported one, so a runtime
+    walk cannot say which names the module owns and which it merely imported.
+    """
+    tree = ast.parse(Path(module.__file__).read_text())  # pyrefly: ignore[missing-attribute]
+    names: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.Assign):
+            names.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.add(node.target.id)
+    return {n for n in names if not n.startswith('_')}
+
+
+def test_the_program_module_exports_everything_it_defines():
+    """`math_spec.__all__` exports the *module*, so this is the consumers' surface.
+
+    Without an `__all__` the module's namespace was the surface, which made
+    every import it happens to make — `dataclass`, `Mapping`, `Literal` —
+    part of what a consumer could reach. Both directions, so a public name
+    added without a decision fails here rather than shipping unnoticed.
+    """
+    declared = set(program.__all__)
+    defined = _defined_by(program)
+    assert declared == defined, (
+        f'only in __all__: {sorted(declared - defined)}; defined but unexported: {sorted(defined - declared)}'
+    )
+
+
+def test_the_program_module_binds_what_it_exports():
+    missing = sorted(n for n in program.__all__ if not hasattr(program, n))
+    assert not missing, f'math_spec.program.__all__ names unbound attributes: {missing}'
+
+
+def test_the_program_module_names_nothing_twice():
+    names = list(program.__all__)
+    assert len(names) == len(set(names)), 'duplicate name in math_spec.program.__all__'
