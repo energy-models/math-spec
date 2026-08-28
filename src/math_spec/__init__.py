@@ -13,7 +13,7 @@ reads a program instead. ``__all__`` is the public surface, pinned by
 """
 
 from math_spec import program
-from math_spec.boundedness import unbounded_notes
+from math_spec.advice import advice
 from math_spec.errors import (
     DimensionError,
     LanguageError,
@@ -23,7 +23,7 @@ from math_spec.errors import (
     did_you_mean,
     schema_error,
 )
-from math_spec.lowering import advice, to_program
+from math_spec.lowering import to_program
 from math_spec.model import (
     CURVATURES,
     DIMENSION_DTYPES,
@@ -85,7 +85,6 @@ __all__ = [
     'to_spec',
     'to_typst',
     'typeset',
-    'unbounded_notes',
     'unknown_operator_message',
 ]
 
