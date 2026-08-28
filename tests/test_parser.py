@@ -15,6 +15,7 @@ from math_spec.expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,
     FunctionCallNode,
+    NameListNode,
     NameNode,
     NumberNode,
     UnaryOperatorNode,
@@ -101,6 +102,36 @@ def test_an_exponent_may_be_negated_and_a_negation_stacked():
 def test_a_keyword_given_twice_is_refused_not_overwritten():
     with pytest.raises(SchemaError, match='sum\\(over=\\) is given twice'):
         parse_expression('sum(p, over=snapshot, over=generator)')
+
+
+def test_a_list_of_names_is_a_kwarg_value():
+    """`by=[a, b]` is one value, so the operator reads one grouping and not two."""
+    node = parse_expression('sum(p, by=[a, b])')
+    assert node.kwargs['by'] == NameListNode(('a', 'b'))
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        pytest.param('sum(p, by=[a,])', id='a-trailing-comma'),
+        pytest.param('sum(p, by=[])', id='no-names-at-all'),
+        pytest.param('sum(p, by=[a b])', id='a-missing-comma'),
+        pytest.param('sum(p, by=[a)', id='an-unclosed-bracket'),
+        pytest.param('sum([p], over=g)', id='a-positional-argument'),
+        pytest.param('p + [c]', id='a-term'),
+        pytest.param('[a, b]', id='the-whole-expression'),
+    ],
+)
+def test_a_list_the_grammar_cannot_read_is_refused_at_load(text):
+    """A list is a kwarg value and nothing else, and the last three say so.
+
+    Which is a claim about the *grammar*: a list admitted as a term would be
+    a second thing `[a, b]` could mean, and one read past a missing comma
+    would be a grouping the file does not write. Neither is decidable later —
+    a parse is what every consumer starts from.
+    """
+    with pytest.raises(SchemaError, match='Failed to parse expression'):
+        parse_expression(text)
 
 
 @pytest.mark.parametrize(
