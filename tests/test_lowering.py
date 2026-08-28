@@ -23,13 +23,16 @@ from typing import TYPE_CHECKING, get_args
 
 import pytest
 
+import math_spec.program as program_module
 from math_spec import LanguageError, Spec
+from math_spec.exclusivity import overlapping
 from math_spec.lowering import _lower_where, _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
     At,
+    Cases,
     Constant,
     DimensionDeclaration,
     Divide,
@@ -42,6 +45,7 @@ from math_spec.program import (
     Parameter,
     Power,
     Program,
+    Region,
     Sum,
     Translate,
     Variable,
@@ -54,6 +58,7 @@ from math_spec.program import (
 )
 from math_spec.resolution import Namespace, expression_of
 from math_spec.where_parser import (
+    AndNode,
     DimensionComparisonNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
@@ -262,6 +267,7 @@ FAN_IN = {
     At(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
+    Cases((Region(ParameterDefinedNode('c'), Variable('p')),)): 'one-to-one',
 }
 
 
@@ -496,3 +502,78 @@ def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
 
     assert program.dimension('t').dtype == 'int', 'a declared dtype reaches the plan'
     assert program.dimension('g').dtype == 'str', "and the schema's default does too, rather than nothing"
+
+
+CASED = {
+    'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
+    'parameters': {'committable': {'dims': ['g'], 'dtype': 'bool'}, 'initial': {'dims': ['g']}},
+    'variables': {'status': {'foreach': ['t', 'g'], 'domain': 'binary'}},
+    'expressions': {
+        'previous': {
+            'foreach': ['t', 'g'],
+            'cases': {
+                'always_on': {'when': 'not committable', 'expression': 1},
+                'boundary': {'when': 'committable and position(t) == 0', 'expression': 'initial'},
+                'default': 'shift(status, over=t, offset=1)',
+            },
+        }
+    },
+    'constraints': {'no_restart': {'foreach': ['t', 'g'], 'expression': 'status - previous <= 1'}},
+}
+
+
+def _cases_in(program: Program) -> program_module.Cases:
+    """The one cased node the fixture's constraint carries."""
+    sides = [side for c in program.constraints.values() for side in (c.lhs, c.rhs)]
+    found = [n for n in walk(*sides) if isinstance(n, program_module.Cases)]
+    assert len(found) == 1, 'the fixture has exactly one cased expression, inlined where it is named'
+    return found[0]
+
+
+def test_a_cased_expression_lowers_to_one_region_per_case():
+    """The regions come out in file order, values lowered like any other expression."""
+    program = lower_program(expand_piecewise(schema_of(CASED)))
+    cases = _cases_in(program)
+
+    assert len(cases.regions) == 3, 'one region per case, the default among them'
+    assert [type(r.value).__name__ for r in cases.regions] == ['Constant', 'Parameter', 'Translate'], (
+        'each region carries its own value, lowered — a number, a parameter and a shift'
+    )
+
+
+def test_the_default_region_carries_the_mask_the_file_left_unwritten():
+    """`default` writes no `when:`; it arrives with the negation of the rest.
+
+    A consumer adds regions rather than working out which one is left over, so
+    the remainder is resolved once here instead of once per consumer.
+    """
+    program = lower_program(expand_piecewise(schema_of(CASED)))
+    default = _cases_in(program).regions[-1]
+
+    assert isinstance(default.when, AndNode), 'two stated cases, so the remainder is a conjunction of two negations'
+    assert default.when.left == ParameterDefinedNode('committable'), (
+        'the negation of `not committable` is the term itself, not a second `not` around it'
+    )
+
+
+def test_the_lowered_regions_are_still_proved_apart():
+    """The remainder does not collide with the cases it was built from.
+
+    The language proves the *stated* masks apart before lowering runs. This is
+    the other half: the mask lowering invents for `default` is put through the
+    same prover, against each stated case, and must overlap none of them.
+    """
+    spec = schema_of(CASED)
+    regions = _cases_in(lower_program(expand_piecewise(spec))).regions
+    named = {f'region{i}': r.when for i, r in enumerate(regions)}
+
+    assert list(overlapping(named, spec)) == [], 'no two lowered regions can claim one coordinate'
+
+
+def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
+    """`Program.expressions` carries it, so a consumer reads it back whole."""
+    program = lower_program(expand_piecewise(schema_of(CASED)))
+
+    assert isinstance(program.named_expressions['previous'], program_module.Cases), (
+        'a cased expression reaches the program as the node, not as its default arm alone'
+    )

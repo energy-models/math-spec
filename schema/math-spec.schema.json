@@ -112,8 +112,16 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds",
+          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by **region** is written as ``cases:``\ninstead \u2014 one case per region over a declared ``foreach:``, no two of them\nclaiming one coordinate, and ``default`` last for the rest::\n\n    previous_status:\n      foreach: [snapshot, generator]\n      cases:\n        always_on: { when: \"not committable\", expression: 1 }\n        boundary:  { when: \"committable and position(snapshot) == 0\", expression: status_initial }\n        default:   shift(status, over=snapshot, offset=1)\n\nSo the constraint that needs it names it, rather than being forked into one\ncopy per regime.",
           "properties": {
+            "cases": {
+              "additionalProperties": {
+                "$ref": "#/$defs/ExpressionCase"
+              },
+              "default": {},
+              "title": "Cases",
+              "type": "object"
+            },
             "description": {
               "anyOf": [
                 {
@@ -133,19 +141,79 @@
                 },
                 {
                   "type": "number"
+                },
+                {
+                  "type": "null"
                 }
               ],
+              "default": null,
               "title": "Expression"
+            },
+            "foreach": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Foreach"
             }
           },
-          "required": [
-            "expression"
-          ],
           "title": "ExpressionBlock",
           "type": "object"
         },
         {
           "type": "string"
+        }
+      ]
+    },
+    "ExpressionCase": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "description": "One region of a named expression: the value, and when it is the value.\n\n``when`` is absent on the case named ``default`` and only there, so that\ncase is written as the bare value \u2014 the shorthand ``expressions:`` itself\ntakes, for the same reason::\n\n    cases:\n      opening: { when: \"position(snapshot) == 0\", expression: p_max }\n      default: 0",
+          "properties": {
+            "expression": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "title": "Expression"
+            },
+            "when": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "When"
+            }
+          },
+          "required": [
+            "expression"
+          ],
+          "title": "ExpressionCase",
+          "type": "object"
+        },
+        {
+          "type": [
+            "string",
+            "number"
+          ]
         }
       ]
     },

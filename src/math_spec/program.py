@@ -67,6 +67,7 @@ __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
     'At',
+    'Cases',
     'ComparisonOperator',
     'Constant',
     'ConstraintDeclaration',
@@ -90,6 +91,7 @@ __all__ = [
     'Power',
     'Program',
     'QuadraticPosition',
+    'Region',
     'SosDeclaration',
     'Sum',
     'Translate',
@@ -378,6 +380,39 @@ class Window(Expression):
     partition: str | None = None
 
 
+@dataclass(frozen=True)
+class Region:
+    """One region of a :class:`Cases`: where it applies, and the value there.
+
+    ``when`` is stated on every region, the file's ``default`` included — its
+    mask is the negation of the others, resolved once here rather than by each
+    consumer in turn. A consumer builds a region without holding the rest in
+    mind, and both facts it needs are on the region it is reading.
+    """
+
+    when: WhereNode
+    value: ExpressionNode
+
+
+@dataclass(frozen=True)
+class Cases(Expression):
+    """A value defined by region — exactly one region applies at each coordinate.
+
+    The language proves the regions apart before any data binds, and the
+    file's ``default`` covers whatever the rest leave, so they are disjoint and
+    total by construction: a consumer adds the regions rather than ranking
+    them, and needs neither an order nor a tie-break.
+
+    Not a shape operator — every region spans the dims the expression does, and
+    this neither reduces nor replicates. What it adds is the one thing no other
+    node here carries: **a mask in a value position**. A consumer that can
+    restrict rows but cannot weigh a term by a predicate builds each region
+    against its own mask and adds the results.
+    """
+
+    regions: tuple[Region, ...]
+
+
 #: Every expression node, as one type. The set is *closed* — nothing registers
 #: into it — so a consumer that walks it ends in ``assert_never`` and a node
 #: added without a branch is a type error at the site that must grow one,
@@ -398,6 +433,7 @@ ExpressionNode = (
     | At
     | Translate
     | Window
+    | Cases
 )
 
 
@@ -412,6 +448,10 @@ def fan_in(expression: ExpressionNode) -> FanIn:
     Exhaustive rather than defaulted: a node added without a case here is a
     type error at this function, where the absence rule it needs is decided,
     instead of silently inheriting the class that reshapes nothing.
+
+    :class:`Cases` is in that class too, for a reason of its own: its regions
+    are disjoint, so an output row reads exactly one of them — the several
+    values it holds are alternatives rather than slots summed together.
     """
     if isinstance(expression, (Sum, GroupSum)):
         return 'many-to-one'
@@ -419,7 +459,7 @@ def fan_in(expression: ExpressionNode) -> FanIn:
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Negate, Add, Multiply, Power, Divide, At, Translate),
+        (Constant, Parameter, Variable, Negate, Add, Multiply, Power, Divide, At, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)
@@ -440,6 +480,8 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
         return (expression.numerator, expression.divisor)
     if isinstance(expression, (Sum, GroupSum, At, Translate, Window)):
         return (expression.operand,)
+    if isinstance(expression, Cases):
+        return tuple(region.value for region in expression.regions)
     return ()
 
 

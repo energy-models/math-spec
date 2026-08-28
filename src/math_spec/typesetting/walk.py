@@ -19,6 +19,7 @@ from math_spec.dimensions import dims_of
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -36,6 +37,7 @@ from math_spec.resolution import (
     where_of,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line
+from math_spec.typesetting.symbols import printed_expressions
 from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
@@ -299,6 +301,10 @@ class Walk:
 
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
+
+        if isinstance(node, CasesNode):
+            # the symbol, not the block: :meth:`definitions` prints that, once
+            return ctx.indexed(self.symbols.name[node.name], self._frame(node.name)), _ATOM
 
         if isinstance(node, UnresolvedNode | KwargNode):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
@@ -602,6 +608,54 @@ class Walk:
                 )
             )
         return lines
+
+    def definitions(self) -> list[Line]:
+        """One line per cased expression, in declaration order, defining it.
+
+        Inlining the block where its name stood is what the AST does and the
+        wrong thing to print: three arms are three rows tall, so whatever
+        follows sits beside the middle one. So a use prints the symbol and the
+        block prints here, as a paper states a quantity defined by region.
+
+        Every declared one prints, used or not — the rule a variable's domain
+        follows, and what keeps this section independent of the others having
+        run.
+        """
+        lines = []
+        for name in printed_expressions(self.schema):
+            node = expression_of(name, self.schema, self.namespace, f"expression '{name}'")
+            assert isinstance(node, CasesNode)
+            frame = self._frame(name)
+            ctx = self.context(frame)
+            lines.append(
+                Line(
+                    label=name,
+                    left=ctx.indexed(self.symbols.name[name], frame),
+                    right=f'{self.op("equal")} {self.format.cases(self._arms(node, ctx))}',
+                    condition=self.quantifier(frame, ''),
+                )
+            )
+        return lines
+
+    def _frame(self, name: str) -> list[str]:
+        """The dims a cased expression is read over — its declaration's, not a copy."""
+        return list(self.schema.expressions[name].foreach or ())
+
+    def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
+        """Each arm as its value and the words saying where it applies.
+
+        Which arm is the ``default`` is a fact about the math, so the *walk*
+        chooses between "if" and "otherwise" and a Format only stacks the rows.
+        """
+        arms = []
+        for arm in node.arms:
+            when = (
+                self.format.prose('otherwise')
+                if arm.when is None
+                else f'{self.format.prose("if ")} {self.where(arm.when, ctx, need=1)}'
+            )
+            arms.append((self.arithmetic(arm.value, ctx), when))
+        return arms
 
     def variables(self) -> list[Line]:
         """One line per variable, and one more for a set the variable carries.

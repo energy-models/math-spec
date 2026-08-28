@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import copy
+import re
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from math_spec._yaml import parse_yaml
-from math_spec.errors import LanguageError, SchemaError
+from math_spec.errors import DimensionError, LanguageError, SchemaError
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import to_spec
 from math_spec.where_parser import DimensionPositionNode
@@ -596,6 +598,195 @@ class TestTheFrontDoor:
         )
 
 
+#: A model with room for a cased expression: two dimensions, so an arm can be
+#: narrower than the frame, and a variable, so an arm can reach one.
+CASED_BASE = {
+    'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}},
+    'parameters': {'p_max': {'dims': ['generator']}, 'load': {'dims': ['snapshot']}},
+    'variables': {'p': {'foreach': ['snapshot', 'generator']}},
+}
+
+#: Two regions of one quantity: the opening snapshot, and everything else.
+OPENING_THEN_REST = {
+    'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'},
+    'default': 0,
+}
+
+
+def _cased(cases: dict[str, Any] | None = None, **block: Any) -> dict[str, Any]:
+    """`CASED_BASE` with one cased expression named `headroom`."""
+    declared = {'foreach': ['snapshot', 'generator'], 'cases': cases or OPENING_THEN_REST, **block}
+    return {**copy.deepcopy(CASED_BASE), 'expressions': {'headroom': declared}}
+
+
+class TestExpressionCases:
+    """`cases:` on a named expression — the declaration, and the shape it must have."""
+
+    def test_a_cased_expression_loads(self):
+        schema = to_spec(_cased())
+        assert list(schema.expressions['headroom'].cases) == ['opening', 'default']
+        assert schema.expressions['headroom'].cases['default'].when is None
+
+    def test_it_round_trips(self):
+        """The mapping form goes back out as it came in, `default` and all."""
+        schema = to_spec(_cased(description='what is spare'))
+        assert to_spec(schema.to_dict()).to_yaml() == schema.to_yaml()
+
+    def test_a_case_with_no_condition_is_written_as_the_bare_value(self):
+        """`default` carries nothing but its value, so the mapping around it is ceremony.
+
+        The same shorthand `expressions:` itself takes, and a number is how a
+        constant region is spelled — YAML reads `default: 0` as an int.
+        """
+        case = to_spec(_cased()).expressions['headroom'].cases['default']
+        assert (case.when, case.expression) == (None, '0')
+
+    def test_the_bare_value_is_how_it_goes_back_out(self):
+        written = to_spec(_cased()).to_dict()['expressions']['headroom']['cases']
+        assert written == {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}, 'default': '0'}, (
+            'a case with a `when` keeps its mapping, and one without is the value alone'
+        )
+
+    def test_a_bare_case_that_is_not_default_is_refused(self):
+        """It parses as a case with no condition, which only `default` may be."""
+        with pytest.raises(SchemaError, match=re.escape('`opening` carry no `when:`')):
+            to_spec(_cased({'opening': 'p_max', 'default': 0}))
+
+    @pytest.mark.parametrize(
+        ('block', 'fragment'),
+        [
+            pytest.param(
+                {'expression': 'load', 'foreach': ['snapshot'], 'cases': OPENING_THEN_REST},
+                'this has both',
+                id='both',
+            ),
+            pytest.param({'description': 'nothing at all'}, 'this has neither', id='neither'),
+            pytest.param({'cases': OPENING_THEN_REST}, '`cases:` needs a `foreach:`', id='no-foreach'),
+            pytest.param(
+                {'expression': 'load', 'foreach': ['snapshot']},
+                '`foreach:` is only for a named expression with `cases:`',
+                id='foreach-alone',
+            ),
+        ],
+    )
+    def test_the_two_forms_do_not_mix(self, block: dict[str, Any], fragment: str):
+        model = {**copy.deepcopy(CASED_BASE), 'expressions': {'headroom': block}}
+        with pytest.raises(SchemaError, match=re.escape(fragment)):
+            to_spec(model)
+
+    @pytest.mark.parametrize(
+        ('cases', 'fragment'),
+        [
+            pytest.param(
+                {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}},
+                'needs a case named `default`',
+                id='no-default',
+            ),
+            pytest.param(
+                {'default': 0, 'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}},
+                '`default` is written last, and here `opening` follows it',
+                id='default-not-last',
+            ),
+            pytest.param({'default': 0}, 'whose only case is `default`', id='default-alone'),
+            pytest.param(
+                {
+                    'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'},
+                    'default': {'when': 'position(snapshot) > 0', 'expression': 0},
+                },
+                '`default` carries a `when:`',
+                id='default-with-when',
+            ),
+            pytest.param(
+                {'opening': {'expression': 'p_max'}, 'default': 0},
+                '`opening` carry no `when:`',
+                id='case-without-when',
+            ),
+        ],
+    )
+    def test_default_is_the_last_case_and_the_only_one_without_a_when(self, cases: dict[str, Any], fragment: str):
+        with pytest.raises(SchemaError, match=re.escape(fragment)):
+            to_spec(_cased(cases))
+
+    def test_two_cases_may_not_claim_one_coordinate(self):
+        """Proved before any data binds, so the arms are read apart rather than in order."""
+        cases = {
+            'gas': {'when': "generator == 'gas'", 'expression': 'p_max'},
+            'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max * 2'},
+            'default': 0,
+        }
+        with pytest.raises(SchemaError, match="cases 'gas' and 'opening' both claim the value where"):
+            to_spec(_cased(cases))
+
+    def test_cases_spelled_apart_load(self):
+        """The same three regions, with the second narrowed by the negation of the first."""
+        cases = {
+            'gas': {'when': "generator == 'gas'", 'expression': 'p_max'},
+            'opening': {'when': "generator != 'gas' and position(snapshot) == 0", 'expression': 'p_max * 2'},
+            'default': 0,
+        }
+        assert list(to_spec(_cased(cases)).expressions['headroom'].cases) == ['gas', 'opening', 'default']
+
+    def test_a_pair_that_cannot_be_decided_is_refused_as_an_overlap_is(self):
+        """`snapshot` declares no `values:`, so 0 and -1 are one row on a one-member axis."""
+        cases = {
+            'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'},
+            'closing': {'when': 'position(snapshot) == -1', 'expression': 'p_max * 2'},
+            'default': 0,
+        }
+        with pytest.raises(SchemaError, match='cannot be told apart before the data arrives'):
+            to_spec(_cased(cases))
+
+    def test_the_frame_must_name_declared_dimensions(self):
+        with pytest.raises(SchemaError, match="references undeclared dimension 'region'"):
+            to_spec(_cased(foreach=['snapshot', 'region']))
+
+    def test_a_case_may_not_widen_the_frame(self):
+        """A case is a value within the frame, and `load` carries a dim it lacks."""
+        cases = {'gas': {'when': "generator == 'gas'", 'expression': 'p_max'}, 'default': 'load'}
+        with pytest.raises(DimensionError, match="case 'default': the value carries dims \\['snapshot'\\]"):
+            to_spec(_cased(cases, foreach=['generator']))
+
+    def test_a_when_may_not_test_a_dim_outside_the_frame(self):
+        """The same rule a variable's or a constraint's mask is held to."""
+        cases = {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}, 'default': 0}
+        with pytest.raises(DimensionError, match="'snapshot', which is not in the frame"):
+            to_spec(_cased(cases, foreach=['generator']))
+
+    def test_an_unknown_name_in_a_case_is_a_load_error(self):
+        with pytest.raises(SchemaError, match="case 'default'"):
+            to_spec(_cased({**OPENING_THEN_REST, 'default': 'nonexistent'}))
+
+    def test_a_case_may_not_compare(self):
+        cases = {
+            'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max >= 0'},
+            'default': 0,
+        }
+        with pytest.raises(SchemaError, match='must not contain a comparison operator'):
+            to_spec(_cased(cases))
+
+    def test_a_constraint_naming_it_carries_the_declared_frame(self):
+        """Not the union of the cases: one narrower than the frame broadcasts."""
+        model = _cased()
+        model['constraints'] = {'spare': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
+        to_spec(model)
+
+        model['constraints'] = {'spare': {'foreach': ['generator'], 'expression': 'p <= headroom'}}
+        with pytest.raises(DimensionError, match='snapshot'):
+            to_spec(model)
+
+    def test_a_case_may_name_another_expression(self):
+        model = _cased({**OPENING_THEN_REST, 'opening': {'when': 'position(snapshot) == 0', 'expression': 'spare'}})
+        model['expressions']['spare'] = 'p_max * 2'
+        model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
+        to_spec(model)
+
+    def test_a_macro_may_name_one(self):
+        model = _cased()
+        model['macros'] = {'twice': {'args': ['x'], 'template': 'x * 2'}}
+        model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= twice(headroom)'}}
+        to_spec(model)
+
+
 class TestANumberIsAnExpression:
     """`expression: 0` is a constant, and YAML reads it as an int rather than a string."""
 
@@ -604,7 +795,7 @@ class TestANumberIsAnExpression:
 
     def test_it_survives_the_round_trip_as_the_string_it_became(self):
         model = _schema(**{'expressions.always': {'expression': 1.5}})
-        assert load_model(model.to_dict()).expressions['always'].expression == '1.5'
+        assert to_spec(model.to_dict()).expressions['always'].expression == '1.5'
 
     def test_a_boolean_is_still_not_an_expression(self):
         """`true` is not arithmetic, and an error naming the type reads better than one naming `'True'`."""

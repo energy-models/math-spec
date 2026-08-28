@@ -17,6 +17,8 @@ from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CaseArm,
+    CasesNode,
     ComparisonNode,
     ExpressionNode,
     FunctionCallNode,
@@ -25,11 +27,12 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
+from math_spec.where_parser import parse_where
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from math_spec.model import MacroBlock, Spec
+    from math_spec.model import ExpressionBlock, MacroBlock, Spec
 
 
 def parse_and_expand(text: str, schema: Spec, context: str = 'expression') -> ExpressionNode:
@@ -106,6 +109,9 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
             [recurse(a) for a in node.args],
             {k: recurse(v) for k, v in node.kwargs.items()},
         )
+    if isinstance(node, CasesNode):
+        # the values only: a `when` is a mask over the frame, checked where the cases are declared
+        return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
     assert_never(node)
 
 
@@ -135,12 +141,34 @@ def _expand(
 
 
 def _parse_named(name: str, schema: Spec, context: str) -> ArithmeticNode:
-    body = parse_expression(schema.expressions[name].expression)
+    block = schema.expressions[name]
+    if block.cases:
+        return _parse_cased(name, block, context)
+    assert block.expression is not None
+    return _parse_body(block.expression, f"named expression '{name}'", context)
+
+
+def _parse_cased(name: str, block: ExpressionBlock, context: str) -> CasesNode:
+    """A cased expression, as the node that stands where its name was.
+
+    The arms come out in file order, which is the order they print in, and
+    carry unresolved ``when`` masks — expansion runs before resolution, so
+    :mod:`math_spec.resolution` types those along with everything else. The
+    ``default`` case is the last arm, and the only one with no mask.
+    """
+    arms = []
+    for label, case in block.cases.items():
+        when = None if case.when is None else parse_where(case.when)
+        value = _parse_body(case.expression, f"named expression '{name}', case '{label}'", context)
+        arms.append(CaseArm(label, when, value))
+    return CasesNode(name, tuple(arms))
+
+
+def _parse_body(text: str, subject: str, context: str) -> ArithmeticNode:
+    """Parse one expression string that stands for a value, not a relation."""
+    body = parse_expression(text)
     if isinstance(body, ComparisonNode):
-        msg = (
-            f"{context}: named expression '{name}' must not contain a "
-            f'comparison operator. Got: {schema.expressions[name].expression!r}'
-        )
+        msg = f'{context}: {subject} must not contain a comparison operator. Got: {text!r}'
         raise SchemaError(msg)
     return body
 

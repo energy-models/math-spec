@@ -13,10 +13,12 @@ from math_spec._yaml import read_yaml
 from math_spec.degree import carries_variable, check_expression
 from math_spec.dimensions import check_schema
 from math_spec.errors import LanguageError, SchemaError
+from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     FunctionCallNode,
     KeywordNode,
@@ -31,7 +33,7 @@ from math_spec.expression_parser import (
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
 from math_spec.resolution import Namespace, resolve_expression, resolve_where
-from math_spec.where_parser import parse_where
+from math_spec.where_parser import WhereNode, parse_where
 
 
 def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
@@ -96,9 +98,20 @@ def validate_expressions(schema: Spec) -> None:
         _check_template_names(body_ast, macro.template, context, ns, formals, errors)
 
     for ename, block in schema.expressions.items():
-        _check_expression(
-            block.expression, schema, ns, f"Named expression '{ename}'", errors, comparison=False, ceiling=1
-        )
+        context = f"Named expression '{ename}'"
+        if not block.cases:
+            assert block.expression is not None
+            _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=1)
+            continue
+        found = len(errors)
+        masks: dict[str, WhereNode] = {}
+        for case_name, case in block.cases.items():
+            case_context = f"{context}, case '{case_name}'"
+            if (mask := _check_where(case.when, ns, case_context, errors)) is not None:
+                masks[case_name] = mask
+            _check_expression(case.expression, schema, ns, case_context, errors, comparison=False, ceiling=1)
+        if len(errors) == found:
+            errors.extend(f'{context}: {problem}' for problem in overlapping(masks, schema))
 
     for vname, vdef in schema.variables.items():
         _check_where(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
@@ -169,15 +182,18 @@ def _check_where(
     context: str,
     errors: list[str],
     self_variable: str | None = None,
-) -> None:
+) -> WhereNode | None:
+    """Parse and resolve one mask, returning it — ``None`` where there is none to read, and where reading it failed."""
     if text is None:
-        return
+        return None
     try:
         node = parse_where(text)
     except ValueError as e:
         errors.append(f'{context}: {e}')
-        return
-    resolve_where(node, ns, context, errors, self_variable)
+        return None
+    found = len(errors)
+    resolved = resolve_where(node, ns, context, errors, self_variable)
+    return resolved if len(errors) == found else None
 
 
 def _names_in(value: ArithmeticNode) -> tuple[str, ...]:
@@ -243,6 +259,12 @@ def _check_template_names(
                 )
             elif kwarg not in edge_kwargs:
                 _check_template_names(value, template, context, ns, formals, errors)
+        return
+
+    if isinstance(node, CasesNode):
+        # the values only: a `when` is the declaration's, checked there
+        for arm in node.arms:
+            _check_template_names(arm.value, template, context, ns, formals, errors)
         return
 
     assert_never(node)

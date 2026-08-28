@@ -321,6 +321,41 @@ def _number_is_an_expression(value: Any) -> Any:
 Expression = Annotated[str, BeforeValidator(_number_is_an_expression, json_schema_input_type=str | float)]
 
 
+class ExpressionCase(_StrictBlock):
+    """One region of a named expression: the value, and when it is the value.
+
+    ``when`` is absent on the case named ``default`` and only there, so that
+    case is written as the bare value — the shorthand ``expressions:`` itself
+    takes, for the same reason::
+
+        cases:
+          opening: { when: "position(snapshot) == 0", expression: p_max }
+          default: 0
+    """
+
+    _label: ClassVar[str] = 'an expression case'
+
+    when: str | None = None
+    expression: Expression
+
+    @model_validator(mode='before')
+    @classmethod
+    def _from_value(cls, data: Any) -> Any:
+        return data if isinstance(data, dict) else {'expression': data}
+
+    @classmethod
+    @override
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """The published schema admits the bare value a conditionless case is written as."""
+        return _also_written_as(core_schema, handler, {'type': ['string', 'number']})
+
+    @model_serializer
+    def _as_written(self) -> str | dict[str, Any]:
+        if self.when is None:
+            return self.expression
+        return {'when': self.when, 'expression': self.expression}
+
+
 class ExpressionBlock(_StrictBlock):
     """A named quantity: one arithmetic expression, readable after a solve.
 
@@ -333,17 +368,118 @@ class ExpressionBlock(_StrictBlock):
           emissions:
             expression: sum(p * rate, over=generator)
             description: CO2 released, the quantity the cap bounds
+
+    A quantity whose value varies by **region** is written as ``cases:``
+    instead — one case per region over a declared ``foreach:``, no two of them
+    claiming one coordinate, and ``default`` last for the rest::
+
+        previous_status:
+          foreach: [snapshot, generator]
+          cases:
+            always_on: { when: "not committable", expression: 1 }
+            boundary:  { when: "committable and position(snapshot) == 0", expression: status_initial }
+            default:   shift(status, over=snapshot, offset=1)
+
+    So the constraint that needs it names it, rather than being forked into one
+    copy per regime.
     """
 
     _label: ClassVar[str] = 'a named expression'
 
-    expression: Expression
+    expression: Expression | None = None
+    #: The frame the cases are read over — required with them and refused
+    #: without, since no one case's body gives a cased expression its shape.
+    foreach: list[str] | None = None
+    #: The regions this quantity is defined by, keyed by the name labelling the
+    #: row it prints. Each ``when`` is proved apart from every other, so the
+    #: order is the page's rather than the meaning's — bar ``default``, which
+    #: carries no ``when`` and is written last because that is where it prints.
+    cases: dict[str, ExpressionCase] = {}
     description: str | None = None
 
     @model_validator(mode='before')
     @classmethod
     def _from_string(cls, data: Any) -> Any:
         return {'expression': data} if isinstance(data, str) else data
+
+    @model_validator(mode='after')
+    def _one_form_or_the_other(self) -> Self:
+        """One ``expression:`` or two or more ``cases:``, and a ``foreach:`` with those.
+
+        Each near-miss gets its own sentence, being a different mistake: both
+        is not knowing which wins, neither is an empty declaration, and a
+        ``foreach:`` alone is a second answer to what the body already answers.
+        """
+        if bool(self.cases) == (self.expression is not None):
+            got = 'both' if self.cases else 'neither'
+            msg = (
+                f'a named expression is one `expression:` or a set of `cases:`, and this has {got}. '
+                f'Cases are for a quantity whose value varies by region; one expression is everything else.'
+            )
+            raise ValueError(msg)
+        if self.cases and self.foreach is None:
+            msg = (
+                '`cases:` needs a `foreach:` — it is the frame the cases are read over, and no one '
+                "case's body gives it, since a case may be a scalar while the condition selecting it is not."
+            )
+            raise ValueError(msg)
+        if self.foreach is not None and not self.cases:
+            msg = (
+                '`foreach:` is only for a named expression with `cases:`. Without them the dims fall '
+                'out of the body, and declaring a second answer is a second thing to keep true.'
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode='after')
+    def _default_is_the_last_case(self) -> Self:
+        """A case named ``default`` is written last, and it alone carries no ``when``.
+
+        Whether two cases can overlap is a question about predicates, which
+        :mod:`math_spec.exclusivity` answers once the names have resolved. That
+        the quantity has a value at *every* coordinate is settled here instead,
+        by the block's shape: ``default`` has no condition to fail.
+        """
+        if not self.cases:
+            return self
+        labels = list(self.cases)
+        if 'default' not in self.cases:
+            msg = (
+                f'a `cases:` block needs a case named `default` — the value wherever no `when` '
+                f'holds, and the row that prints as "otherwise". Without it the quantity would have '
+                f'no value there, and absence spreads to every constraint that names it. '
+                f'The cases here are `{"`, `".join(labels)}`.'
+            )
+            raise ValueError(msg)
+        if labels[-1] != 'default':
+            msg = (
+                f'`default` is written last, and here `{labels[-1]}` follows it. It is the row that '
+                f'prints as "otherwise", which is the last row of the block, so the file reads in '
+                f'the order the page does.'
+            )
+            raise ValueError(msg)
+        if len(labels) == 1:
+            msg = (
+                'a `cases:` block whose only case is `default` is one value everywhere, '
+                'which is what a plain `expression:` already says.'
+            )
+            raise ValueError(msg)
+        if self.cases['default'].when is not None:
+            msg = (
+                '`default` carries a `when:`, and it is the one case that must not — it is what '
+                'covers every coordinate the others leave. Give the region a name of its own if it '
+                'is a region like any other.'
+            )
+            raise ValueError(msg)
+        conditionless = [name for name, case in self.cases.items() if case.when is None and name != 'default']
+        if conditionless:
+            msg = (
+                f'`{"`, `".join(conditionless)}` carry no `when:`, and `default` is the only case '
+                f'that may omit one — every other case says where it applies, so that no two of '
+                f'them can claim one coordinate.'
+            )
+            raise ValueError(msg)
+        return self
 
     @classmethod
     @override
@@ -352,7 +488,14 @@ class ExpressionBlock(_StrictBlock):
         return _also_written_as(core_schema, handler, {'type': 'string'})
 
     @model_serializer
-    def _as_written(self) -> str | dict[str, str]:
+    def _as_written(self) -> str | dict[str, Any]:
+        if self.cases:
+            written: dict[str, Any] = {'foreach': list(self.foreach or [])}
+            if self.description is not None:
+                written['description'] = self.description
+            written['cases'] = {name: case.model_dump() for name, case in self.cases.items()}
+            return written
+        assert self.expression is not None
         if self.description is None:
             return self.expression
         return {'expression': self.expression, 'description': self.description}
@@ -732,6 +875,7 @@ class Spec(_StrictBlock):
             *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
             *(('Variable', name, v.foreach) for name, v in self.variables.items()),
             *(('Constraint', name, c.foreach) for name, c in self.constraints.items()),
+            *(('Named expression', name, e.foreach or []) for name, e in self.expressions.items()),
         ]
         for kind, name, dims in frames:
             errors.extend(undeclared_dimension(kind, name, d) for d in dims if d not in self.dimensions)

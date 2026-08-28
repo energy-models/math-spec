@@ -333,6 +333,109 @@ anything consumes the model, so a reference costs nothing at build time. It is
 lowered only when it is _read_, so a model with fifty named expressions that
 reads none pays for none.
 
+### `cases:` — one quantity, a value per region
+
+Some quantities have no single expression. The commitment state a unit carries
+into a snapshot has three regimes: `1` for a unit that is never switched off, an
+initial condition at the first snapshot, and the last snapshot's status
+everywhere else. Written at the constraint, those regimes fork the inequality
+three ways. Named here, the inequality is written once:
+
+```yaml
+expressions:
+  previous_status:
+    description: the commitment state a unit carries into a snapshot
+    foreach: [snapshot, generator]
+    cases:
+      always_on:
+        when: "not committable"
+        expression: 1
+      boundary:
+        when: "committable and position(snapshot) == 0"
+        expression: status_initial
+      default: shift(status, over=snapshot, offset=1)
+constraints:
+  ramp_up:
+    foreach: [snapshot, generator]
+    expression: >-
+      p - shift(p, over=snapshot, offset=1, edge=0)
+      <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
+```
+
+**No two cases may claim one coordinate**, and it is a load error when they
+can — decided before any data binds, with the pair named and a coordinate they
+both claim:
+
+> `Named expression 'previous_status'`: cases `always_on` and `boundary` both
+> claim the value where committable is false, the position of snapshot is 0
+
+That is why `boundary` above says `committable and`. Two values at one
+coordinate is not a quantity, so the regimes are spelled apart rather than
+ranked, and the cases can be read in any order — each one says where it applies
+on its own terms, without the ones above it in mind.
+
+**`default` is the case with no `when`**, and it takes every coordinate the
+others leave. That is what makes the quantity whole without a second proof:
+there is no condition on it to fail. Which is also why it is required — a
+coordinate no `when` matched would have no value, and absence
+[spreads](absence.md), so a constraint reading the expression would lose rows it
+never masked. Having no mask to narrow its frame, `default` is the case that has
+to say what an absent parameter or an unnamed label gets.
+
+The name is reserved and the position is fixed: `default` is written last,
+because that is the row it prints on, and no other case may omit its `when`.
+Having nothing but a value to carry, it is written as one — the same shorthand
+`expressions:` itself takes.
+
+Covering a coordinate is not the same as having a value there, though, and a
+case that claims one may be empty at it. `default` above is the case in point:
+its `shift` carries no `edge=`, so it has no value at the first snapshot, and
+`previous_status` is whole only because every unit at that snapshot is claimed
+by `boundary` or by `always_on`. Close such a hole by widening a `when` until it
+covers the coordinate the case drops out at, by giving the `shift` an `edge=`,
+or with `absence: zero` on a masked variable. Nothing catches one left open at
+load, because whether a case has a value there depends on the data.
+
+**A pair the check cannot decide is refused too**, and the refusal names the
+rewrite. `position(snapshot) == 0` against `position(snapshot) == -1` is the one
+that comes up: they are the same row on a one-member axis, and how many members
+an axis has is data — so count from one end only.
+
+**`foreach:` is required with cases and refused without.** An uncased
+expression's dims fall out of its body. A cased one's cannot, since a case may
+be a scalar while the condition selecting it is not — `always_on` above is
+exactly that. The declared frame is what each `when` is held to, the way a
+variable's or a constraint's mask is, and each case's value must sit inside it.
+
+**The dims of a reference are the declared `foreach`**, not the union of the
+cases: one narrower than the frame broadcasts, exactly as a parameter with
+fewer dims does.
+
+One `expression:` or a set of `cases:`, never both and never neither, and a
+region beside `default` — a block whose only case is `default` is one value
+everywhere, which the plain form already says.
+
+### A cased expression is the one that keeps its name
+
+Every other named expression is substituted where it is used and prints nothing
+under its own name. A cased one is the exception, because it cannot inline
+legibly. Three cases are three rows tall, so whatever follows the name at the
+use site would sit beside the **middle** row — and a quantity written once in the
+file would print once per use on the page.
+
+So a use prints the symbol, and the block prints once under a **Definitions**
+heading between `Subject to` and `Variable domains`, in declaration order,
+where a paper states a quantity defined by region:
+
+$$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+A cased expression joins the symbol pool like any other quantity, so
+`--symbols` can rename one. Uncased ones stay out, since a table entry for one
+would never apply.
+
+**`cases:` inside a `macros:` template is not supported.** `default` would have
+to cover a frame the macro does not have until it is called.
+
 ## Macros
 
 A **parameterised** template. It has no dims until it is called, and each call
