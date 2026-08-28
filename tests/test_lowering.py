@@ -447,6 +447,37 @@ def test_a_lookup_names_the_dimension_its_values_label():
     ], 'every map with the dimension it is over, in declaration order'
 
 
+def test_a_label_space_keeps_its_dtype_and_has_no_target():
+    """The file's claim about a label-space column used to be dropped at lowering.
+
+    ``period: {over: snapshot, dtype: int}`` became a bare name, so a consumer
+    binding the column had nothing to check it against — the one claim
+    ``dtype`` makes for a dimension and a parameter, missing for this column.
+    """
+    program = lower_program(
+        expand_piecewise(
+            schema_of(
+                {
+                    'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {}},
+                    'lookups': {
+                        'season_of': {'over': 'snapshot', 'into': 'season'},
+                        'period': {'over': 'snapshot', 'dtype': 'int'},
+                    },
+                    'variables': {'p': {'foreach': ['snapshot'], 'where': 'period == 1'}},
+                    'constraints': {'k': {'foreach': ['season'], 'expression': 'sum(p, by=season_of) >= 1'}},
+                }
+            )
+        )
+    )
+
+    assert program.dimension('snapshot').lookups == (
+        LookupDeclaration('season_of', 'season', None),
+        LookupDeclaration('period', None, 'int'),
+    ), 'both kinds, in declaration order: a targeted lookup carries its target, a label space its dtype'
+    assert program.dimension('snapshot').maps == ['period', 'season_of'], 'binding reads both kinds'
+    assert program.dimension('snapshot').targets == {'season_of': 'season'}, 'grouping reads only the targeted one'
+
+
 def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():
     """A typo used to return an empty declaration, silently dropping every join.
 

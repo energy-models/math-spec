@@ -461,28 +461,27 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 
 
 class LookupDeclaration(NamedTuple):
-    """One declared lookup and the dimension its values are labels of."""
+    """One declared lookup over a dimension, of either kind.
+
+    Exactly one of ``target`` and ``dtype`` is set. A *targeted* lookup's
+    values are labels of ``target``, checked for containment once the dim
+    tables exist — which keeps a mistyped label from silently dropping its
+    terms in the join that places them — and it is what ``sum(by=)`` lands
+    terms on. A *label space* owns its values, typed by ``dtype`` the way a
+    dimension's labels are: it is read for selection and rendering, and
+    resolution refuses to group into one, so no expression node reaches it.
+    """
 
     name: str
-    target: str
+    target: str | None
+    dtype: DimensionDtype | None = None
 
 
 @dataclass(frozen=True)
 class DimensionDeclaration:
-    """A dimension and the lookups its labels carry.
-
-    ``lookups`` names each lookup and the dimension its values are labels of,
-    checked for containment once the dim tables exist — which keeps a mistyped
-    label from silently dropping its terms in the join that places them.
-
-    ``label_spaces`` are the inline kind: maps the dimension owns outright,
-    with no target and so nothing to check. They are read for selection and
-    rendering, and resolution refuses to group into one, so no expression node
-    reaches them.
-    """
+    """A dimension and the lookups its labels carry, of both kinds."""
 
     lookups: tuple[LookupDeclaration, ...] = ()
-    label_spaces: tuple[str, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
     #: whatever table carries it, so the declared type is what that column is
     #: checked against — the same claim ``ParameterDeclaration.dtype`` makes
@@ -497,7 +496,7 @@ class DimensionDeclaration:
         and both arrive the same way, and only the targeted ones have a label
         set to be checked against.
         """
-        return sorted([*(lk.name for lk in self.lookups), *self.label_spaces])
+        return sorted(lk.name for lk in self.lookups)
 
     @property
     def targets(self) -> dict[str, str]:
@@ -508,7 +507,7 @@ class DimensionDeclaration:
         the dim it lands on, and a partition array is named for it so an amount
         declared over the group's own dim can be read through it.
         """
-        return {lk.name: lk.target for lk in self.lookups}
+        return {lk.name: lk.target for lk in self.lookups if lk.target is not None}
 
 
 @dataclass(frozen=True)
@@ -522,6 +521,11 @@ class ParameterDeclaration:
 
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
+    #: The ``piecewise:`` block whose expansion emitted this parameter, or
+    #: ``None`` for one the file declares. Who supplies the data follows: the
+    #: caller binds a declared parameter, and fills an emitted one from the
+    #: block's own breakpoints.
+    derived_from: str | None = None
 
 
 @dataclass(frozen=True)

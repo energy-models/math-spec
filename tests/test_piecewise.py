@@ -15,6 +15,7 @@ import pytest
 
 from math_spec import CURVATURES, curvature_required
 from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
+from math_spec.lowering import lower_program
 from math_spec.model import _ExpandedSpec
 from math_spec.piecewise import expand_piecewise
 from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
@@ -312,4 +313,23 @@ def test_every_published_curvature_is_one_a_method_can_ask_for():
     assert answered == set(CURVATURES), (
         f'the cases above answer {sorted(answered)} but the package publishes '
         f'{sorted(CURVATURES)} — one of the two is out of date'
+    )
+
+
+def test_an_emitted_parameter_names_the_block_that_derived_it():
+    """Who binds a parameter is the program's to say, not a suffix a consumer re-spells.
+
+    An ``lp`` block masked by one of its own values-parameters emits three
+    ``bool`` parameters the caller never supplies; each is stamped with the
+    block, and every parameter the file declared is not.
+    """
+    program = lower_program(expand_piecewise(schema_of(LP, **{'piecewise.cost_curve.points': 'bp_x'})))
+
+    assert {n for n, p in program.parameters.items() if p.derived_from == 'cost_curve'} == {
+        'cost_curve_points',
+        'cost_curve_starts',
+        'cost_curve_ends',
+    }, 'the mask derived from bp_x and the two edge flags, and nothing else'
+    assert {n for n, p in program.parameters.items() if p.derived_from is None} == {'bp_x', 'bp_y', 'load'}, (
+        "every declared parameter is the caller's to bind"
     )
