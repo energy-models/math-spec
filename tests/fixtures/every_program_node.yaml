@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: every node a program can carry, in one file that lowers
+dimensions:
+  t: { dtype: int }
+  g: { dtype: str }
+  zone: { dtype: str }
+lookups:
+  zone_of: { over: g, into: zone }
+parameters:
+  cost: { dims: [g] }
+  load: { dims: [zone] }
+  rate: { dims: [] }
+  lead: { dims: [g], dtype: int }
+  width: { dims: [g], dtype: int }
+variables:
+  p: { foreach: [t, g], bounds: { lower: 0, upper: 100 } }
+  q: { foreach: [zone], bounds: { lower: 0, upper: 100 } }
+constraints:
+  arithmetic:
+    foreach: [t, g]
+    expression: "-p + p * cost - p / cost + rate ** 2 <= 1"
+  reduced:
+    foreach: []
+    expression: "sum(p) >= 0"
+  grouped:
+    foreach: [t, zone]
+    expression: "sum(p, by=zone_of) - q <= load"
+  pulled_back:
+    foreach: [t, g]
+    expression: "p - at(q, by=zone_of) <= 0"
+  translated:
+    foreach: [t, g]
+    expression: "p - shift(p, over=t, offset=lead, edge='wrap') <= 0"
+  windowed:
+    foreach: [t, g]
+    expression: "sum_back(p, over=t, within=width) <= 10"
+objective:
+  sense: minimize
+  expression: "sum(p * cost)"
