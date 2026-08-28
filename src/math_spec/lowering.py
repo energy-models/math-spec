@@ -52,7 +52,7 @@ from math_spec.expression_parser import (
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import BooleanLiteralNode, WhereNode
+from math_spec.where_parser import AndNode, BooleanLiteralNode, NotNode, OrNode, WhereNode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -415,10 +415,46 @@ def _bound_expression(value: float | str) -> program.ExpressionNode:
 def _lower_where(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> WhereNode | None:
     """Lower a where string to a program predicate, ``None`` when there is no mask.
 
-    A predicate that resolves to the constant ``True`` is dropped too: it is
-    equivalent to no mask.
+    Every constant the connectives decide is folded away first, so a mask that
+    admits every row arrives as ``None`` however the file spelled it and one
+    that admits none arrives as ``BooleanLiteralNode(False)``.
     """
     node = where_of(text, ns, context, self_variable)
-    if isinstance(node, BooleanLiteralNode) and node.value:
+    if node is None:
         return None
+    folded = _fold(node)
+    if isinstance(folded, BooleanLiteralNode) and folded.value:
+        return None
+    return folded
+
+
+def _fold(node: WhereNode) -> WhereNode:
+    """*node* with every literal a connective decides evaluated away.
+
+    A mask is decidable without data wherever a literal meets a connective, so
+    it is decided here rather than by each consumer: ``X AND True`` is ``X``,
+    ``X OR True`` is every row, ``X AND False`` is none, and ``NOT True`` is
+    ``False``. What survives is a predicate over data, or the one literal the
+    whole mask reduces to — which is what makes a ``BooleanLiteralNode`` a node
+    a consumer meets at the root or nowhere.
+    """
+    if isinstance(node, NotNode):
+        operand = _fold(node.operand)
+        if isinstance(operand, BooleanLiteralNode):
+            return BooleanLiteralNode(not operand.value)
+        return NotNode(operand)
+    if isinstance(node, AndNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return right if left.value else left
+        if isinstance(right, BooleanLiteralNode):
+            return left if right.value else right
+        return AndNode(left, right)
+    if isinstance(node, OrNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return left if left.value else right
+        if isinstance(right, BooleanLiteralNode):
+            return right if right.value else left
+        return OrNode(left, right)
     return node

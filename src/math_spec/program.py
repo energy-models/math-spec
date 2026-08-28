@@ -32,7 +32,10 @@ one has to be *called* to be got right:
 A mask is the language's own resolved ``where`` node
 (:mod:`math_spec.where_parser`) rather than a second set spelling the same
 predicates — one home, so the two cannot come to disagree about what a
-comparison is.
+comparison is. Its literals are already decided: a mask admitting every row
+arrives as ``None`` and one admitting none as ``BooleanLiteralNode(False)``, so
+that node stands at the root of a mask or nowhere in it, and no consumer needs
+a constant folder of its own to agree with the others about which rows exist.
 
 Frozen dataclasses only — no execution logic, and nothing imported from a
 consumer.

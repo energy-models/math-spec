@@ -54,11 +54,12 @@ from math_spec.program import (
 )
 from math_spec.resolution import Namespace, expression_of
 from math_spec.where_parser import (
+    BooleanLiteralNode,
     DimensionComparisonNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
 )
-from tests.fixtures import schema_of
+from tests.fixtures import DISPATCH_MODEL, schema_of
 
 if TYPE_CHECKING:
     from math_spec.expression_parser import ArithmeticNode
@@ -167,6 +168,49 @@ def test_where_lowering(dispatch_schema, where, expected):
 
 def test_a_compound_where_lowers_to_something(dispatch_schema):
     assert _lower_where('p_max > 0 AND NOT load == 0', Namespace.of(dispatch_schema), 't') is not None
+
+
+@pytest.mark.parametrize(
+    ('where', 'expected'),
+    [
+        pytest.param('False', BooleanLiteralNode(False), id='the-empty-declaration-keeps-its-own-spelling'),
+        pytest.param('p_max > 0 AND True', ParameterComparisonNode('p_max', '>', 0.0), id='and-true-is-the-other-side'),
+        pytest.param('p_max > 0 OR False', ParameterComparisonNode('p_max', '>', 0.0), id='or-false-is-the-other-side'),
+        pytest.param('p_max > 0 OR True', None, id='or-true-is-no-mask-at-all'),
+        pytest.param('p_max > 0 AND False', BooleanLiteralNode(False), id='and-false-is-the-empty-declaration'),
+        pytest.param('NOT True', BooleanLiteralNode(False), id='not-true-is-false'),
+        pytest.param('NOT False', None, id='not-false-is-no-mask'),
+        pytest.param('NOT (p_max > 0 AND False)', None, id='a-branch-folded-away-folds-the-one-above-it'),
+        pytest.param(
+            '(p_max > 0 OR True) AND load',
+            ParameterDefinedNode('load'),
+            id='an-absorbed-side-takes-its-own-branch-with-it',
+        ),
+    ],
+)
+def test_a_literal_is_folded_wherever_it_stands(dispatch_schema, where, expected):
+    """One mask had two lowerings: `True` was dropped at the root and kept under a connective.
+
+    So a consumer that met `where: "True"` first — no mask at all — had no
+    reason to expect a `BooleanLiteralNode` under an `AND`, and `p_max > 0 AND
+    False` reached it as a tree that only says "no rows" once someone
+    evaluates it. Everything decidable without data is decided at load, and
+    which rows a mask admits is decidable wherever a literal meets a
+    connective.
+
+    What the table asserts between the rows: a `BooleanLiteralNode` is a node
+    a consumer meets at the root or nowhere.
+    """
+    assert _lower_where(where, Namespace.of(dispatch_schema), 't') == expected
+
+
+def test_a_folded_mask_reaches_the_declaration_the_shorter_spelling_would_have(dispatch_schema):
+    """The fold is the program's, not a helper's: two files, one declaration."""
+    written_out = lower_program(
+        expand_piecewise(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0 AND True'}))
+    )
+    plain = lower_program(expand_piecewise(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})))
+    assert written_out.variable('p') == plain.variable('p'), 'the same mask, so the same declaration'
 
 
 def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
