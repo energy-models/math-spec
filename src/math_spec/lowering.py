@@ -339,29 +339,29 @@ class _Lowering:
     def shift(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``shift(x, over=d, offset=n)`` — the value at *t - offset* along one dim.
 
-        The longest of the four because *offset* and *edge* are read together:
-        what the vacated positions contribute decides whether a named offset is
-        sayable at all, so it is settled before the offset is read.
+        What the vacated positions contribute is ``edge=``'s to say, and the
+        language has already held it to the keyword or a number.
         """
         over_node = node.kwargs['over']
         if not isinstance(over_node, DimensionNode):
             raise LanguageError(f'{self.context}: shift(over=...) must name a dimension')
-        partition = _partition_of(node)
         by_node = node.kwargs['offset']
-        sign = 1
-        if isinstance(by_node, UnaryOperatorNode) and by_node.op == '-':
-            sign, by_node = -1, by_node.operand
         operand = self.expr(node.args[0])
         edge = node.kwargs.get('edge')
-        wrap = isinstance(edge, EdgeNode)
-        fill = None if wrap else _edge_fill(edge)
         by: int | str
         if isinstance(by_node, ParameterNode):
             by = by_node.name
         else:
             assert isinstance(by_node, NumberNode), 'an offset= that is neither is refused at load'
-            by = sign * int(by_node.value)
-        return program.Translate(operand, over_node.name, offset=by, wrap=wrap, fill=fill, partition=partition)
+            by = int(by_node.value)
+        return program.Translate(
+            operand,
+            over_node.name,
+            offset=by,
+            wrap=isinstance(edge, EdgeNode),
+            fill=edge.value if isinstance(edge, NumberNode) else None,
+            partition=_partition_of(node),
+        )
 
 
 #: One lowering per name in the language's ``BUILTIN_NAMES``. A table rather
@@ -375,21 +375,6 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
     'sum_back': _Lowering.sum_back,
     'shift': _Lowering.shift,
 }
-
-
-def _edge_fill(edge: ArithmeticNode | None) -> float | None:
-    """The number an ``edge=`` names, or ``None`` where it names nothing.
-
-    What it *may* name is the language's to say (``dimensions._check_edge``);
-    this only reads it.
-    """
-    if edge is None:
-        return None
-    sign = 1.0
-    if isinstance(edge, UnaryOperatorNode) and edge.op in ('-', '+'):
-        sign, edge = (-1.0 if edge.op == '-' else 1.0), edge.operand
-    assert isinstance(edge, NumberNode), 'an edge= that is neither a keyword nor a number is refused at load'
-    return sign * float(edge.value)
 
 
 def _partition_of(node: FunctionCallNode) -> str | None:

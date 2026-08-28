@@ -404,6 +404,20 @@ def _unsigned(value: ArithmeticNode) -> ArithmeticNode:
     return value.operand if isinstance(value, UnaryOperatorNode) else value
 
 
+def _literal(value: ArithmeticNode) -> NumberNode | None:
+    """The number a literal names, its sign folded in — ``None`` where *value* is not one.
+
+    Folded here so that every later reader of an ``offset=`` or ``edge=`` —
+    the dim rules, lowering, the typesetter — meets one signed number rather
+    than each peeling a unary minus of its own.
+    """
+    if isinstance(value, NumberNode):
+        return value
+    if isinstance(value, UnaryOperatorNode) and isinstance(value.operand, NumberNode):
+        return NumberNode(-value.operand.value if value.op == '-' else value.operand.value)
+    return None
+
+
 def _resolve_amount(
     value: ArithmeticNode, ns: Namespace, context: str, operator: str, key: str, errors: list[str]
 ) -> ArithmeticNode:
@@ -412,7 +426,9 @@ def _resolve_amount(
     Closed so that :func:`math_spec.dimensions._check_named_amount` sees every
     parameter an amount carries.
     """
-    if not isinstance(_unsigned(value), NumberNode | NameNode):
+    if (literal := _literal(value)) is not None:
+        return literal
+    if not isinstance(_unsigned(value), NameNode):
         errors.append(
             f'{context}: {operator}({key}=) takes a number or the name of an integer parameter. '
             f'Precompute it as a parameter.'
@@ -448,12 +464,13 @@ def _resolve_edge(
             return value
         errors.append(f'{context}: {edge_error(operator, value.name)}')
         return value
-    if not isinstance(_unsigned(value), NumberNode):
+    if (literal := _literal(value)) is None:
         errors.append(
             f"{context}: {operator}(edge=) is an expression, and an edge is the keyword '{EDGE_WRAP}' "
             f'or a number. Write the number itself.'
         )
-    return value
+        return value
+    return literal
 
 
 def _resolve_dim_ref(

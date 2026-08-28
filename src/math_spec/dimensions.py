@@ -254,8 +254,6 @@ def _check_amount_form(node: FunctionCallNode, context: str) -> None:
     if isinstance(amount, ParameterNode):
         return
     if node.name == 'shift':
-        if isinstance(amount, UnaryOperatorNode) and amount.op == '-':
-            amount = amount.operand
         if not (isinstance(amount, NumberNode) and int(amount.value) == amount.value):
             raise DimensionError(
                 f'{context}: shift(offset=...) must be a whole number, or the name of an integer '
@@ -314,8 +312,6 @@ def _vacates(offset: ArithmeticNode) -> bool:
     nothing to refuse. A *named* offset may be zero in the data and is not
     known here, so it vacates until proved otherwise.
     """
-    if isinstance(offset, UnaryOperatorNode):
-        offset = offset.operand
     return not (isinstance(offset, NumberNode) and offset.value == 0)
 
 
@@ -323,12 +319,9 @@ def _edge_fill(edge: ArithmeticNode | None, context: str) -> float | None:
     """The number an ``edge=`` names, or ``None`` where it names nothing."""
     if edge is None:
         return None
-    sign = 1.0
-    if isinstance(edge, UnaryOperatorNode) and edge.op in ('-', '+'):
-        sign, edge = (-1.0 if edge.op == '-' else 1.0), edge.operand
     if not isinstance(edge, NumberNode):
         raise DimensionError(f'{context}: {edge_error("shift", "...")}')
-    return sign * float(edge.value)
+    return float(edge.value)
 
 
 def _named_offset_edge_message(name: str) -> str:

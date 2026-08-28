@@ -87,16 +87,12 @@ PRIME = "'"
 def _amount(node: ArithmeticNode) -> int | str:
     """``shift``'s ``offset=``: a signed number, or the name of a parameter.
 
-    A negated literal parses as a unary minus over a number. A named offset is
-    always backward — a negated one is refused at load, in
+    A named offset is always backward — a negated one is refused at load, in
     :func:`math_spec.dimensions.check_schema` — which the assert relies on.
     """
     if isinstance(node, ParameterNode):
         return node.name
-    if isinstance(node, UnaryOperatorNode):
-        assert isinstance(node.operand, NumberNode)
-        return -int(node.operand.value) if node.op == '-' else int(node.operand.value)
-    assert isinstance(node, NumberNode)
+    assert isinstance(node, NumberNode), 'resolution folds a literal offset to one signed number'
     return int(node.value)
 
 

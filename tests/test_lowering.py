@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, get_args
 import pytest
 
 from math_spec import LanguageError, Spec
+from math_spec.expression_parser import FunctionCallNode, NumberNode
 from math_spec.lowering import _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
@@ -164,6 +165,14 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
 )
 def test_where_lowering(dispatch_schema, where, expected):
     assert where_of(where, Namespace.of(dispatch_schema), 't') == expected
+
+
+def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
+    """`offset=-1` parses as a unary minus over `1`; after resolution it is `-1`, for every reader alike."""
+    ns = Namespace.of(dispatch_schema)
+    node = expression_of('shift(p, over=snapshot, offset=-1, edge=+2)', dispatch_schema, ns, 't')
+    assert isinstance(node, FunctionCallNode)
+    assert (node.kwargs['offset'], node.kwargs['edge']) == (NumberNode(-1.0), NumberNode(2.0))
 
 
 def test_a_compound_where_lowers_to_something(dispatch_schema):
