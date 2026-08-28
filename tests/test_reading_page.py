@@ -22,9 +22,14 @@ PAGE = Path(__file__).resolve().parents[1] / 'docs' / 'reference' / 'language' /
 _FENCE = re.compile(r'^```(?P<lang>yaml|python)[^\n]*\n(?P<code>.*?)^```$', re.DOTALL | re.MULTILINE)
 
 
+def _blocks(lang: str) -> list[str]:
+    """Every fenced block in *lang*, in page order."""
+    return [m.group('code') for m in _FENCE.finditer(PAGE.read_text()) if m.group('lang') == lang]
+
+
 def _block(lang: str) -> str:
     """The page's single fenced block in *lang*."""
-    blocks = [m.group('code') for m in _FENCE.finditer(PAGE.read_text()) if m.group('lang') == lang]
+    blocks = _blocks(lang)
     assert len(blocks) == 1, f'reading.md has {len(blocks)} {lang} blocks — this test reads exactly one'
     return blocks[0]
 
@@ -43,12 +48,13 @@ def test_the_page_shows_the_declarations_the_expansion_emits(tmp_path, monkeypat
     (tmp_path / 'curve.yaml').write_text(_block('yaml'))
     monkeypatch.chdir(tmp_path)
 
-    code = _block('python')
     namespace: dict[str, object] = {}
-    # the page is the input, so running it is the point rather than a smell
-    exec(compile(code, str(PAGE), 'exec'), namespace)
+    claims: list[tuple[str, object]] = []
+    for code in _blocks('python'):
+        # the page is the input, so running it is the point rather than a smell
+        exec(compile(code, str(PAGE), 'exec'), namespace)
+        claims.extend(_claims(code))
 
-    claims = _claims(code)
-    assert len(claims) == 3, 'the page answers three questions; a fourth would go unchecked here'
+    assert len(claims) == 7, 'every `expression  # value` line on the page is checked; one without one is not'
     for expression, claimed in claims:
         assert eval(expression, namespace) == claimed, f'reading.md says `{expression}` is {claimed}'

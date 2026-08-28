@@ -98,3 +98,38 @@ dispatched on with `isinstance` and read, which is why what ships beside them
 is the walk (`children()`) and not builders. A mask is the language's own
 resolved `where` node rather than a second set spelling the same predicates —
 one home, so the two cannot come to disagree about what a comparison is.
+
+## Asking what a program uses
+
+`program.footprint` is which of the language's constructs one program actually
+reaches for — a **subset**, never the whole. It is walked once and held, which
+is safe because a program cannot change after it is built.
+
+```python
+footprint = program.footprint
+
+sorted(footprint.quadratic)  # []
+sorted(footprint.variable_types)  # ['continuous']
+sorted(footprint.sos_types)  # []
+sorted(kind.__name__ for kind in footprint.shapes)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
+```
+
+Every field is a set, so `if footprint.sos_types` asks whether sets appear at
+all and `2 in footprint.sos_types` asks about one kind. An empty field says
+this program does not use that construct — never that the construct does not
+exist. A construct admitted later widens a set rather than needing a field no
+consumer yet reads.
+
+**It answers what the program uses, never what you can do about it.** What a
+sink can ingest is a separate axis — [capability is not the
+ceiling](../../about/ceiling.md) — where a capability is neither a flat set nor
+one verdict per construct: SOS is solver-bounded, and quadratic is bounded
+twice over on a single sink, by convexity and again by what it stands beside.
+So there is deliberately no verdict here to read instead of giving one, and
+convexity is absent because it depends on coefficient data rather than on
+anything a program states.
+
+The footprint stops at the kind. A sink that takes a window but not a wrapped
+one reads `Window in footprint.shapes` and then walks: `wrap`, `partition` and
+a named width are refinements without end, and each is one line once the set
+has said where to look.

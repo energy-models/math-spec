@@ -33,8 +33,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
+from functools import cached_property
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never
+from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 from math_spec.errors import did_you_mean
 
@@ -56,6 +57,16 @@ ConstraintSense = Literal['==', '<=', '>=']
 #: already decided.
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
 ObjectiveSense = Literal['minimize', 'maximize']
+
+#: Where a degree-2 product may stand. An objective and a constraint take
+#: ``variable * variable``; a bound, a named expression and a ``piecewise:``
+#: link are read affinely (``math_spec.degree``), so those are the two.
+QuadraticPosition = Literal['objective', 'constraint']
+
+#: The set form, for a consumer pinning its own table against the vocabulary:
+#: ``QUADRATIC_POSITIONS <= handled`` is how one says it covers every position
+#: and hears about it when the language admits another.
+QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
 ComparisonOperator = Literal['==', '!=', '<=', '>=', '<', '>']
 VariableType = Literal['continuous', 'binary', 'integer']
 
@@ -491,6 +502,51 @@ class ObjectiveDeclaration:
     expression: ExpressionNode
 
 
+@dataclass(frozen=True)
+class Footprint:
+    """Which of the language's constructs one program actually reaches for.
+
+    A *subset*, never the whole: the language admits more than any one file
+    uses, and an empty field says this program does not use that construct —
+    not that the construct does not exist. Every field is a set, so
+    ``if footprint.x`` asks whether it appears at all and ``y in footprint.x``
+    asks about one kind, and a construct admitted later widens a set rather
+    than needing a field a consumer does not yet read.
+
+    Facts only. What a sink can ingest is a separate axis
+    (``docs/about/ceiling.md``, "Capability is not the ceiling"), where a
+    capability is neither a flat set nor one verdict per construct — so there
+    is deliberately no verdict here to read instead of giving one.
+
+    Nothing below the kind, either: a sink that takes a window but not a
+    wrapped one reads ``Window in shapes`` and then walks, because ``wrap``,
+    ``partition`` and a named width are refinements without end and each is one
+    line once the set has said where to look.
+
+    Attributes:
+        quadratic: Each position a product of two variable-carrying operands
+            stands in. Empty is affine throughout. Convexity is not here: it is
+            a property of the whole Hessian rather than of any term, and the
+            coefficients deciding it arrive with the data — so, as with a
+            curve's shape (:func:`~math_spec.piecewise.curvature_required`),
+            this names where the products are and the caller holding the
+            numbers does the checking.
+        variable_types: Every domain declared, ``{'continuous'}`` alone being
+            the pure-LP case.
+        sos_types: The order of each special-ordered set declared. Empty where
+            the file declares none.
+        shapes: Every expression node kind that appears, complete rather than
+            curated — picking the interesting ones would be the judgement this
+            leaves to the consumer, and a node added later is reported without
+            anyone remembering a filter.
+    """
+
+    quadratic: frozenset[QuadraticPosition]
+    variable_types: frozenset[VariableType]
+    sos_types: frozenset[Literal[1, 2]]
+    shapes: frozenset[type[ExpressionNode]]
+
+
 def _declared[Declaration](items: Mapping[str, Declaration], name: str, kind: str) -> Declaration:
     """The declaration called *name*, or a ``KeyError`` naming the near miss."""
     try:
@@ -548,6 +604,26 @@ class Program:
         return (
             *((self.objective.expression,) if self.objective is not None else ()),
             *(side for c in self.constraints.values() for side in (c.lhs, c.rhs)),
+        )
+
+    @cached_property
+    def footprint(self) -> Footprint:
+        """Which constructs this program uses — walked once, then held.
+
+        Safe to hold: a program cannot change after construction, its groups
+        being sealed and every node under them frozen.
+        """
+        objective = (self.objective.expression,) if self.objective is not None else ()
+        sides = tuple(side for c in self.constraints.values() for side in (c.lhs, c.rhs))
+        return Footprint(
+            quadratic=frozenset(
+                position
+                for position, group in (('objective', objective), ('constraint', sides))
+                if any(is_quadratic(e) for e in group)
+            ),
+            variable_types=frozenset(v.variable_type for v in self.variables.values()),
+            sos_types=frozenset(s.sos_type for s in self.sos.values()),
+            shapes=frozenset(type(node) for node in walk(*self.expressions)),
         )
 
     def dimension(self, name: str) -> DimensionDeclaration:
