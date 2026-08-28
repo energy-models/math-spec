@@ -17,6 +17,19 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.37](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.36...v0.0.0-alpha.37) (2026-08-28)
+
+
+### Features
+
+* a model is checked from the shell, advice included, with no consumer installed ([#192](https://github.com/energy-models/math-spec/issues/192)) ([941126c](https://github.com/energy-models/math-spec/commit/941126cd95af7decb0d37538e93c4f7c4ad54935))
+* advice carries which pass said it and which declaration it is about, so a consumer can filter rather than parse ([#195](https://github.com/energy-models/math-spec/issues/195)) ([89408f6](https://github.com/energy-models/math-spec/commit/89408f6fae500df661bda66cc2f0ef100b691636))
+
+
+### Refactoring
+
+* one call returns every note the language can give without data ([#191](https://github.com/energy-models/math-spec/issues/191)) ([2face7a](https://github.com/energy-models/math-spec/commit/2face7a39092e5f2fc1ddb705efee8a7d34dd343))
+
 ## [0.0.0-alpha.36](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.35...v0.0.0-alpha.36) (2026-08-28)
 
 
