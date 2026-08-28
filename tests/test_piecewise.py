@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec import CURVATURES, curvature_required
+from math_spec import CURVATURES
 from math_spec.errors import LanguageError, PiecewiseExpansionError, SchemaError
-from math_spec.lowering import lower_program
+from math_spec.lowering import lower_program, to_program
 from math_spec.model import _ExpandedSpec
 from math_spec.piecewise import expand_piecewise
+from math_spec.program import PIECEWISE_ASSUMPTIONS, assumption_message
 from tests.fixtures import DISPATCH_MODEL, override, raw_of, schema_of
 
 #: Larger than a minimal probe on purpose: a curve that exercises adjacency
@@ -298,7 +299,7 @@ def test_a_method_names_the_curvature_it_is_exact_for(raw, expected):
     """The consumer holding the breakpoints checks the shape; this says what to
     check for. It is the block's own semantics, so it is answered here rather
     than re-derived by every repository that binds data to a curve."""
-    answer = curvature_required(schema_of(raw).piecewise['cost_curve'])
+    answer = to_program(raw).piecewise['cost_curve'].curvature
     assert answer == expected
     assert answer is None or answer in CURVATURES, (
         f'{answer!r} is not one of the curvatures the package publishes, so a consumer '
@@ -333,3 +334,34 @@ def test_an_emitted_parameter_names_the_block_that_derived_it():
     assert {n for n, p in program.parameters.items() if p.derived_from is None} == {'bp_x', 'bp_y', 'load'}, (
         "every declared parameter is the caller's to bind"
     )
+
+
+def test_a_block_is_kept_as_the_facts_a_consumer_binding_it_reads():
+    """Which parameters carry a curve, and what the block assumes of them, used to be readable only off the file.
+
+    A consumer re-spelled ``_starts``/``_ends`` and asserted the data
+    conditions in its own words; the program now names both.
+    """
+    program = to_program(override(LP, **{'piecewise.cost_curve.points': 'bp_x'}))
+    curve = program.piecewise['cost_curve']
+
+    assert curve.breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
+    assert curve.axis == 'bp_x', 'the bounded link comes last, so the other is the x-axis'
+    assert (curve.points, curve.starts, curve.ends) == ('cost_curve_points', 'cost_curve_starts', 'cost_curve_ends'), (
+        'the mask derived from bp_x, and the two edge flags an lp block under a mask emits'
+    )
+    assert curve.assumptions == {'increasing_breakpoints', 'two_breakpoints', 'contiguous_mask'}, (
+        'an lp curve with a mask assumes all three'
+    )
+
+    plain = to_program(raw_of(NONCONVEX_YAML)).piecewise['cost_curve']
+    assert plain.assumptions == frozenset(), 'adjacency over a whole curve checks nothing of the data'
+    assert (plain.points, plain.starts, plain.ends) == (None, None, None), 'and emits no parameter'
+    assert plain.axis == 'bp_x', 'two links still name an axis, even where nothing is checked along it'
+
+
+@pytest.mark.parametrize('which', sorted(PIECEWISE_ASSUMPTIONS))
+def test_every_assumption_has_a_sentence(which):
+    curve = to_program(override(LP, **{'piecewise.cost_curve.points': 'bp_x'})).piecewise['cost_curve']
+    assert which in curve.assumptions, 'the fixture is the block that assumes everything'
+    assert assumption_message('cost_curve', curve, which).startswith("piecewise 'cost_curve':")
