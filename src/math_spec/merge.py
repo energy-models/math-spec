@@ -37,7 +37,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from math_spec._yaml import parse_yaml, read_yaml
+from math_spec._yaml import read_yaml
 from math_spec.errors import LanguageError
 from math_spec.model import Spec
 
@@ -64,11 +64,11 @@ def merge(
     """Compose *fragments* into one unvalidated model mapping.
 
     Args:
-        fragments: What each fragment is called, to the fragment — a YAML path,
-            YAML text, a mapping, or a loaded :class:`~math_spec.model.Spec`.
-            The name is what an error calls it, so it is the template's name
-            rather than a path. Order is the order given, and the merged
-            model's declarations keep it.
+        fragments: What each fragment is called, to the fragment — the same
+            ``str | Path | dict | Spec`` every other verb takes, a ``str``
+            being a path as it is there. The name is what an error calls it,
+            so it is the template's name rather than a path. Order is the
+            order given, and the merged model's declarations keep it.
         description: What the *composed* model is. A fragment's own
             ``description`` is about the fragment, so it is not carried and not
             joined — the composition is a different thing from its parts and
@@ -112,10 +112,7 @@ def _sections(fragment: str | Path | dict[str, Any] | Spec) -> dict[str, Any]:
         return fragment.to_dict()
     if isinstance(fragment, dict):
         return fragment
-    path = Path(fragment)
-    if path.suffix in {'.yaml', '.yml'}:
-        return read_yaml(path)
-    return parse_yaml(str(fragment))
+    return read_yaml(Path(fragment))
 
 
 def _one_version(read: Mapping[str, dict[str, Any]]) -> int:

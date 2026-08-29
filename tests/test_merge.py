@@ -129,8 +129,33 @@ def test_a_composition_that_cannot_be_one_model_is_refused(fragments, fragment_n
         assert fragment in str(exc.value), f'the message carries {fragment!r}'
 
 
-def test_a_loaded_spec_is_a_fragment_like_any_other():
-    """`merge` takes what every other verb takes, so a composition of a file, a
-    mapping and an already-loaded model needs no conversion at the call site."""
-    program = ms.to_program(merge({'generator': ms.to_spec(GENERATOR), 'demand': DEMAND}))
-    assert sorted(program.parameters) == ['cost', 'load', 'p_max'], 'the Spec contributed its declarations unchanged'
+def test_a_fragment_is_whatever_every_other_verb_takes(tmp_path):
+    """A `str` is a path here because a `str` is a path in `to_spec`. Composing
+    a shipped template with a mapping is what a library does, so it needs no
+    conversion at the call site — and no second convention for what a `str` is."""
+    shipped = tmp_path / 'generator.yaml'
+    shipped.write_text(ms.to_spec(GENERATOR).to_yaml())
+    for fragment in (shipped, str(shipped), ms.to_spec(GENERATOR), GENERATOR):
+        program = ms.to_program(merge({'generator': fragment, 'demand': DEMAND}))
+        assert sorted(program.parameters) == ['cost', 'load', 'p_max'], (
+            f'{type(fragment).__name__} contributed its declarations unchanged'
+        )
+
+
+def test_a_composed_model_is_still_one_a_reviewer_can_read(tmp_path):
+    """Hard rule 5 wants the model to be the file you review and diff, and a
+    composition is a model like any other — so `to_yaml` has to give back a file
+    that loads to the same thing. Without this, merging would be a way to reach
+    a model no reviewer could open."""
+    spec = ms.to_spec(merge({'generator': GENERATOR, 'demand': DEMAND}, description='a fleet'))
+    written = tmp_path / 'composed.yaml'
+    written.write_text(spec.to_yaml())
+    assert ms.to_spec(written).to_dict() == spec.to_dict(), 'the review copy loads to the model it was written from'
+
+
+@pytest.mark.parametrize('typeset', ['to_latex', 'to_typst', 'to_markdown'])
+def test_a_composed_model_prints_as_math(typeset):
+    """A construct that cannot be printed is not in the language, and composing
+    does not make one: all three formats render the merged model."""
+    spec = ms.to_spec(merge({'generator': GENERATOR, 'demand': DEMAND}))
+    assert 'balance' in getattr(ms, typeset)(spec), f'{typeset} renders the constraint the composition carries'
