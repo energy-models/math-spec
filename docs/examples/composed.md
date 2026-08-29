@@ -51,11 +51,11 @@ description: >-
   The coupling surface every component agrees on: one flow per port, and one
   balance per bus. Every other fragment names `flow` and declares none of it.
 dimensions:
-  snapshot: {dtype: int}
-  bus: {dtype: str}
-  port: {dtype: str}
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+  port: { dtype: str }
 lookups:
-  port_bus: {over: port, into: bus}
+  port_bus: { over: port, into: bus }
 variables:
   flow:
     description: what a port puts into its bus in a snapshot, negative for a withdrawal
@@ -72,18 +72,18 @@ constraints:
 ```yaml
 description: A fleet of generators, each on one port.
 dimensions:
-  snapshot: {dtype: int}
-  port: {dtype: str}
-  generator: {dtype: str}
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  generator: { dtype: str }
 lookups:
-  gen_port: {over: generator, into: port}
+  gen_port: { over: generator, into: port }
 parameters:
-  gen_cost: {dims: [generator]}
-  gen_p_max: {dims: [generator]}
+  gen_cost: { dims: [generator] }
+  gen_p_max: { dims: [generator] }
 variables:
   gen_p:
     foreach: [snapshot, generator]
-    bounds: {lower: 0, upper: gen_p_max}
+    bounds: { lower: 0, upper: gen_p_max }
 constraints:
   gen_injects:
     foreach: [snapshot, generator]
@@ -98,13 +98,13 @@ objective:
 ```yaml
 description: Fixed demands, each on one port.
 dimensions:
-  snapshot: {dtype: int}
-  port: {dtype: str}
-  demand: {dtype: str}
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  demand: { dtype: str }
 lookups:
-  dem_port: {over: demand, into: port}
+  dem_port: { over: demand, into: port }
 parameters:
-  dem_load: {dims: [snapshot, demand]}
+  dem_load: { dims: [snapshot, demand] }
 constraints:
   dem_withdraws:
     foreach: [snapshot, demand]
@@ -116,18 +116,18 @@ constraints:
 ```yaml
 description: Stores, each on one port, charging and discharging against a state of charge.
 dimensions:
-  snapshot: {dtype: int}
-  port: {dtype: str}
-  store: {dtype: str}
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  store: { dtype: str }
 lookups:
-  st_port: {over: store, into: port}
+  st_port: { over: store, into: port }
 parameters:
-  st_capacity: {dims: [store]}
-  st_holding: {dims: []}
+  st_capacity: { dims: [store] }
+  st_holding: { dims: [] }
 variables:
-  st_charge: {foreach: [snapshot, store], bounds: {lower: 0}}
-  st_discharge: {foreach: [snapshot, store], bounds: {lower: 0}}
-  st_soc: {foreach: [snapshot, store], bounds: {lower: 0, upper: st_capacity}}
+  st_charge: { foreach: [snapshot, store], bounds: { lower: 0 } }
+  st_discharge: { foreach: [snapshot, store], bounds: { lower: 0 } }
+  st_soc: { foreach: [snapshot, store], bounds: { lower: 0, upper: st_capacity } }
 constraints:
   st_injects:
     foreach: [snapshot, store]

@@ -4,18 +4,18 @@
 
 description: A fleet of generators, each on one port.
 dimensions:
-  snapshot: {dtype: int}
-  port: {dtype: str}
-  generator: {dtype: str}
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  generator: { dtype: str }
 lookups:
-  gen_port: {over: generator, into: port}
+  gen_port: { over: generator, into: port }
 parameters:
-  gen_cost: {dims: [generator]}
-  gen_p_max: {dims: [generator]}
+  gen_cost: { dims: [generator] }
+  gen_p_max: { dims: [generator] }
 variables:
   gen_p:
     foreach: [snapshot, generator]
-    bounds: {lower: 0, upper: gen_p_max}
+    bounds: { lower: 0, upper: gen_p_max }
 constraints:
   gen_injects:
     foreach: [snapshot, generator]
