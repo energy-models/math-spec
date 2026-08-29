@@ -30,6 +30,8 @@ SURFACE = frozenset(
         'advice', 'Advice',
         # composing several files into one model, before any of them is validated
         'merge',
+        # a decided variable becoming a supplied number
+        'fix',
         # the closed operator set, and the wording of its refusals
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',

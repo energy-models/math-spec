@@ -178,3 +178,35 @@ in the objective it is additively separable, an objective being a sum already.
 What is not decided here is whether the modeller _wanted_ the window — a
 `position(t) == 0` seed fires once over a horizon and once per window, and both
 are models somebody means.
+
+## Fixing a decision somebody else made
+
+A myopic pathway, a rolling horizon and a Benders subproblem share one move: a
+variable stops being a decision and becomes a number somebody else chose.
+
+```python
+from math_spec import fix
+
+sorted(fix(spec, 'cost').parameters)  # ['bp_x', 'bp_y', 'cost']
+```
+
+A myopic step fixes what earlier periods built, which is many at once, so
+`fix` takes every name in one call and validates once at the end of it. The
+name does not move, so every expression naming it goes on reading and the
+subproblem is a call rather than a second file to keep in step. What it is not
+is every half of a decomposition: a Benders _master_ has the dispatch **gone**
+rather than fixed, and fixing every variable a constraint names leaves a row
+that decides nothing, which the language refuses.
+
+Two of the translations are decisions rather than copies, and are why this is
+here rather than four lines in a driver. A variable masked by `where:` has rows
+that do not exist, so as a parameter it is
+[`coverage: masked`](declarations.md#parameters) — the obvious rewrite leaves it
+`total`, which claims a number everywhere and binds cleanly against data that
+has none. And a `binary` or `integer` variable becomes an `int` parameter,
+never a `float` one, because the values are whole and a `bool` would be a mask
+rather than something a constraint multiplies by.
+
+Bounds are dropped, which is the one thing lost: they constrained a decision
+the model no longer makes, and whether the supplied numbers respect them is a
+question about data.
