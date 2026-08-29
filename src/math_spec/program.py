@@ -967,9 +967,12 @@ class Program:
         other, and in the objective it is additively separable, an objective
         being a sum already.
 
-        Not cached, unlike :attr:`footprint`: this is asked once per axis by a
-        driver deciding how to run, where a footprint is asked repeatedly by
-        whatever is building.
+        Not cached, unlike :attr:`footprint`, on two counts: this is asked once
+        per axis by a driver deciding how to run where a footprint is asked
+        repeatedly by whatever is building, and one walk costs a fraction of a
+        percent of the lowering that produced the program it walks (#248). A
+        repeat caller would want a mapping over every axis built in one walk,
+        which is what :attr:`footprint` already is — not a memo on this.
 
         Args:
             dimension: The axis to cut along.
