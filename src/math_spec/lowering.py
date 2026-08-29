@@ -100,7 +100,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for name, how in derivations_of(block, ex).items()
     }
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name), pdef.coverage)
         for name, pdef in expanded.parameters.items()
     }
 
@@ -370,3 +370,8 @@ def _bound_expression(value: float | str) -> program.ExpressionNode:
     if isinstance(value, str):
         return program.Parameter(value)
     return program.Constant(value)
+
+
+#: Where a missing value has no reading that contributes nothing, and so is
+#: refused rather than filled — the two positions named in rule 8.
+_NO_READING_FOR_ABSENCE = 'a bound', 'a divisor'
