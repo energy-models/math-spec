@@ -37,7 +37,7 @@ BASE: dict[str, Any] = {
 
 
 def _verdict(dimension: str = 'h', **patch: Any):
-    return ms.to_program({**BASE, **patch}).separability(dimension)
+    return ms.to_program({**BASE, **patch}).separability[dimension]
 
 
 def _rows(expression: str, *, foreach: list[str] | None = None, **block: Any) -> dict[str, Any]:
@@ -126,19 +126,33 @@ def test_a_grouping_that_consumes_the_axis_couples_it():
     program = ms.to_program(
         {**BASE, 'constraints': {'z': {'foreach': ['h', 'zone'], 'expression': 'sum(p, by=zone_of) <= cap'}}}
     )
-    verdict = program.separability('u')
+    verdict = program.separability['u']
     assert not verdict.windowable, 'the grouping consumes u, so a window of u is a different sum'
 
 
-def test_an_unknown_dimension_is_refused_with_the_near_miss():
-    with pytest.raises(KeyError) as exc:
-        _verdict('hh', **_rows('p >= 0'))
-    assert 'h' in str(exc.value), 'the message names the axis it was probably reaching for'
+def test_every_declared_axis_has_a_verdict_and_nothing_else_does():
+    """The mapping is complete over the program's dimensions, so an axis nothing
+    mentions is trivially windowable rather than missing, and a name that is not
+    an axis is a `KeyError` rather than a verdict nobody should trust."""
+    program = ms.to_program({**BASE, **_rows('p >= 0')})
+    assert sorted(program.separability) == sorted(program.dimensions), 'every declared axis is answered for'
+    assert program.separability['zone'].windowable, 'an axis no construct mentions is trivially windowable'
+    with pytest.raises(KeyError):
+        program.separability['hh']
 
 
 @pytest.mark.parametrize('dimension', ['t', 'g', 'zone'])
 def test_every_node_a_program_can_carry_is_judged_without_raising(dimension):
     """The fixture the node fence maintains carries every construct, so this is
     the pass meeting each of them at least once."""
-    verdict = ms.to_program(FIXTURE).separability(dimension)
+    verdict = ms.to_program(FIXTURE).separability[dimension]
     assert isinstance(verdict.halo, int), 'a verdict comes back for every axis of the widest model there is'
+
+
+def test_a_reduction_over_several_axes_couples_every_one_of_them():
+    """`sum(p)` with no `over=` collapses every dimension its operand carries,
+    so the verdict for each of them has to say so — a walk that read only the
+    first would call the rest windowable."""
+    program = ms.to_program({**BASE, 'constraints': {'all': {'foreach': [], 'expression': 'sum(p) <= budget'}}})
+    assert not program.separability['h'].windowable, 'the reduction consumes h'
+    assert not program.separability['u'].windowable, 'and u, in the same node'

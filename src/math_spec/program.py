@@ -863,9 +863,9 @@ class Separability:
         dimension: The axis asked about.
         halo: Coordinates two neighbouring windows must share for the rows to
             come out the same. ``0`` is pointwise; a ``shift`` of one is ``1``;
-            a ``sum_back`` of ``n`` is ``n - 1``. Meaningful where nothing is
-            coupled — a program that does not separate has no overlap that
-            would fix it.
+            a ``sum_back`` of ``n`` is ``n - 1``. How far the program reads
+            across the axis, which it does whether or not anything couples;
+            overlap alone is enough only where nothing does.
         coupled: Each declaration that ties the axis together, to the construct
             that ties it. Empty is the answer a driver wants.
     """
@@ -954,45 +954,27 @@ class Program:
             shapes=frozenset(type(node) for node in walk(*self.expressions)),
         )
 
-    def separability(self, dimension: str) -> Separability:
-        """What windowing *dimension* would cost, and what it would break.
+    @cached_property
+    def separability(self) -> Mapping[str, Separability]:
+        """Every axis, to what windowing it would cost and what it would break.
 
         The locality :doc:`the ceiling </about/ceiling>` argues in — pointwise,
-        bounded halo, global — asked about an axis rather than about an
-        operator, so a driver may know before it cuts a horizon whether cutting
-        it changes the answer.
+        bounded halo, global — asked about the axes rather than about the
+        operators, so a driver may know before it cuts a horizon whether
+        cutting it changes the answer.
 
         **A reduction means opposite things by position**, which is the whole of
         the care: in a constraint a sum over the axis ties every window to every
         other, and in the objective it is additively separable, an objective
         being a sum already.
 
-        Not cached, unlike :attr:`footprint`, on two counts: this is asked once
-        per axis by a driver deciding how to run where a footprint is asked
-        repeatedly by whatever is building, and one walk costs a fraction of a
-        percent of the lowering that produced the program it walks (#248). A
-        repeat caller would want a mapping over every axis built in one walk,
-        which is what :attr:`footprint` already is — not a memo on this.
-
-        Args:
-            dimension: The axis to cut along.
-
-        Raises:
-            KeyError: Not a dimension this program declares, named with the
-                near miss.
+        Every declared dimension has an entry, an axis nothing mentions being
+        trivially windowable. Walked once and held, like :attr:`footprint` and
+        for the same reason — a program cannot change after construction — and
+        answering for every axis costs what answering for one did, every
+        construct that ties an axis naming the axis it ties (#248).
         """
-        _declared(self.dimensions, dimension, 'dimension')
-        halo = 0
-        coupled: dict[str, str] = {}
-        for label, nodes, mask, reductions_couple in self._built_blocks():
-            reach, reasons = _couplings(nodes, mask, dimension, reductions_couple=reductions_couple)
-            halo = max(halo, reach)
-            if reasons:
-                coupled[label] = ', '.join(dict.fromkeys(reasons))
-        for name, block in self.sos.items():
-            if block.over == dimension:
-                coupled[f"set '{name}'"] = f'is a set over {dimension}, which a window would cut'
-        return Separability(dimension=dimension, halo=halo, coupled=coupled)
+        return MappingProxyType(_separabilities(self))
 
     def _built_blocks(self) -> Iterator[tuple[str, tuple[ExpressionNode, ...], WhereNode | None, bool]]:
         """Every block that builds rows, labelled as the lowering's own messages label it.
@@ -1103,49 +1085,66 @@ def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
     return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
 
 
-def _couplings(
-    nodes: tuple[ExpressionNode, ...],
-    mask: WhereNode | None,
-    dimension: str,
-    *,
-    reductions_couple: bool,
-) -> tuple[int, list[str]]:
-    """One block's halo along *dimension*, and why it does not separate at all.
+def _separabilities(program: Program) -> dict[str, Separability]:
+    """Every axis's verdict, in one walk.
 
-    ``reductions_couple`` is the position the block stands in rather than
-    anything about the block: a sum over the axis couples a constraint row to
-    the whole horizon and leaves an objective additively separable.
+    One traversal rather than one per axis, because every construct that ties an
+    axis together names the axis it ties: asking each node *which* dimension it
+    is about answers for all of them at what answering for one cost.
+
+    ``reductions_couple`` is the position a block stands in rather than anything
+    about the block — a sum over the axis couples a constraint row to the whole
+    horizon and leaves an objective additively separable.
     """
-    halo = 0
-    reasons: list[str] = []
-    masks: list[WhereNode | None] = [mask]
-    for node in walk(*nodes):
-        if isinstance(node, Cases):
-            masks.extend(region.when for region in node.regions)
-        elif isinstance(node, Sum) and dimension in node.over:
-            if reductions_couple:
-                reasons.append(f'sums over {dimension}')
-        elif isinstance(node, GroupSum) and node.over == dimension:
-            reasons.append(f'groups {dimension} away')
-        elif isinstance(node, At) and dimension in node.into:
-            reasons.append(f'reads {dimension} at a coordinate the data chooses')
-        elif isinstance(node, (Translate, Window)) and node.dimension == dimension:
-            reach = node.offset if isinstance(node, Translate) else node.width
-            if node.wrap:
-                reasons.append(f'wraps around {dimension}, so its first row reads its last')
-            elif node.partition is not None:
-                reasons.append(f"walks inside the groups '{node.partition}' makes, which a window may cut")
-            elif isinstance(reach, str):
-                reasons.append(f"reaches back by '{reach}', so how far is data's to say")
-            else:
-                halo = max(halo, abs(reach) if isinstance(node, Translate) else reach - 1)
-    reasons.extend(
-        f'counts a position along {dimension}, which a window restarts'
-        for candidate in masks
-        for predicate in _masks(candidate)
-        if isinstance(predicate, DimensionPositionNode) and predicate.name == dimension
-    )
-    return halo, reasons
+    halo = dict.fromkeys(program.dimensions, 0)
+    reasons: dict[str, dict[str, list[str]]] = {dimension: {} for dimension in program.dimensions}
+
+    def couples(dimension: str, label: str, reason: str) -> None:
+        reasons[dimension].setdefault(label, []).append(reason)
+
+    for label, nodes, mask, reductions_couple in program._built_blocks():
+        masks: list[WhereNode | None] = [mask]
+        for node in walk(*nodes):
+            if isinstance(node, Cases):
+                masks.extend(region.when for region in node.regions)
+            elif isinstance(node, Sum):
+                if reductions_couple:
+                    for dimension in node.over:
+                        couples(dimension, label, f'sums over {dimension}')
+            elif isinstance(node, GroupSum):
+                couples(node.over, label, f'groups {node.over} away')
+            elif isinstance(node, At):
+                for dimension in node.into:
+                    couples(dimension, label, f'reads {dimension} at a coordinate the data chooses')
+            elif isinstance(node, (Translate, Window)):
+                dimension = node.dimension
+                reach = node.offset if isinstance(node, Translate) else node.width
+                if node.wrap:
+                    couples(dimension, label, f'wraps around {dimension}, so its first row reads its last')
+                elif node.partition is not None:
+                    couples(
+                        dimension, label, f"walks inside the groups '{node.partition}' makes, which a window may cut"
+                    )
+                elif isinstance(reach, str):
+                    couples(dimension, label, f"reaches back by '{reach}', so how far is data's to say")
+                else:
+                    halo[dimension] = max(halo[dimension], abs(reach) if isinstance(node, Translate) else reach - 1)
+        for candidate in masks:
+            for predicate in _masks(candidate):
+                if isinstance(predicate, DimensionPositionNode):
+                    couples(predicate.name, label, f'counts a position along {predicate.name}, which a window restarts')
+
+    for name, block in program.sos.items():
+        couples(block.over, f"set '{name}'", f'is a set over {block.over}, which a window would cut')
+
+    return {
+        dimension: Separability(
+            dimension=dimension,
+            halo=halo[dimension],
+            coupled={label: ', '.join(dict.fromkeys(found)) for label, found in reasons[dimension].items()},
+        )
+        for dimension in program.dimensions
+    }
 
 
 def _masks(where: WhereNode | None) -> Iterator[WhereNode]:
