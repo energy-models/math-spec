@@ -991,3 +991,32 @@ class TestParameterCoverage:
         what a sparse table is *for*, so refusing it as a coefficient, a term or
         a where would refuse the construct the declaration exists to describe."""
         to_program(override(SMALL_MODEL, **{'parameters.c.coverage': 'masked', **patch}))
+
+
+class TestLookupCoverage:
+    """A map short of a label lands its terms in no group, which is the
+    wiring mistake a composed model cannot otherwise be told about."""
+
+    def test_a_map_covers_every_label_unless_it_says_otherwise(self):
+        program = to_program(
+            override(
+                SMALL_MODEL,
+                lookups={
+                    'lk': {'over': 'g', 'into': 'h'},
+                    'open': {'over': 'g', 'into': 'h', 'coverage': 'masked'},
+                },
+            )
+        )
+        declared = {lookup.name: lookup.coverage for lookup in program.dimensions['g'].lookups}
+        assert declared == {'lk': 'total', 'open': 'masked'}, (
+            'a map that says nothing covers its labels, and one that says so is carried through'
+        )
+
+    def test_coverage_on_a_label_space_is_refused(self):
+        """A label space is only selected on, and a label it leaves out reads as
+        false there — a reading rather than a gap, so there is nothing for
+        `coverage:` to say about one."""
+        with pytest.raises(LanguageError) as exc:
+            to_spec(override(SMALL_MODEL, **{'lookups.tag': {'over': 'g', 'dtype': 'str', 'coverage': 'masked'}}))
+        assert 'reads as false' in str(exc.value), 'the message says why a label space has no gap to declare'
+        assert 'Drop' in str(exc.value), 'and names the rewrite'
