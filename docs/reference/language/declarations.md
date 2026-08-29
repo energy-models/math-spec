@@ -20,7 +20,10 @@ characters rather than as a symbol. Write the thing rather than its symbol —
 ## `parameters`
 
 Declared shape only; the numbers bind by name at run time, in whatever
-consumes the AST.
+consumes the AST. What that binding may not decide for itself — where a
+dimension's members come from, the order they stand in, and that a table
+carries each coordinate at most once — is in
+[dimensions](dimensions.md).
 
 ```yaml
 dimensions:
