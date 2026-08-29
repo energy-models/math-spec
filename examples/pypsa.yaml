@@ -62,9 +62,11 @@ parameters:
   Generator_ramp_limit_up:
     description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit
     dims: [generator]
+    coverage: masked
   Generator_ramp_limit_down:
     description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit
     dims: [generator]
+    coverage: masked
   Generator_ramp_limit_start_up:
     description: most output in the snapshot a unit starts, per unit of nominal power
     dims: [generator]
@@ -102,6 +104,7 @@ parameters:
   Generator_p_nom_mod:
     description: the module size a build comes in whole numbers of; no value means the build is continuous
     dims: [generator]
+    coverage: masked
   Generator_big_m:
     description: a bound safely above any feasible output — the build cap at full availability, data prep
     dims: [generator]
@@ -114,9 +117,11 @@ parameters:
   Link_ramp_limit_up:
     description: most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit
     dims: [link]
+    coverage: masked
   Link_ramp_limit_down:
     description: most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit
     dims: [link]
+    coverage: masked
   Link_p_nom:
     description: nominal power
     dims: [link]

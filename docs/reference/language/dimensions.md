@@ -65,7 +65,10 @@ open. A lookup's map obeys the same rule one axis over, and says so under
 `lookups` below: it is single-valued per label of `over`.
 
 _At most_ once, rather than exactly once: a coordinate with no row is
-[absence](absence.md), which is how a model masks.
+[absence](absence.md), which is how a model masks — and whether a given
+parameter meant to mask is
+[`coverage`](declarations.md), which it declares rather than leaving to be
+inferred from the table.
 
 ## `lookups`
 
