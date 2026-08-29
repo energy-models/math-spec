@@ -194,4 +194,17 @@ def _objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | None:
             f'against the same one — negate the terms of the odd one out rather than its sense.'
         )
     expressions = [objective['expression'] for objective in declared.values()]
-    return {'sense': next(iter(senses.values())), 'expression': ' + '.join(f'({term})' for term in expressions)}
+    return {'sense': next(iter(senses.values())), 'expression': _summed(expressions)}
+
+
+def _summed(expressions: list[str]) -> str:
+    """The terms as one expression, parenthesised only where there is a sum to protect.
+
+    One fragment's objective is returned as it was written, which is what makes
+    merging a single fragment give back that fragment: a wrapper nothing needs
+    would leave the composition of one differing from the thing composed, and
+    every nested merge would add another pair.
+    """
+    if len(expressions) == 1:
+        return expressions[0]
+    return ' + '.join(f'({term})' for term in expressions)

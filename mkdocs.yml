@@ -55,6 +55,7 @@ nav:
   - About:
       - The ceiling: about/ceiling.md
       - What counts as language: about/what-counts-as-language.md
+      - What counts as a verb: about/what-counts-as-a-verb.md
   - Contributing: contributing.md
   - Changelog: CHANGELOG.md
 
