@@ -562,7 +562,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'lookups.tag': {'over': 'g', 'dtype': 'str'}},
-                ("unknown key 'dtype' in a lookup declaration. Valid keys: description, into, over.",),
+                ("unknown key 'dtype' in a lookup declaration. Valid keys: coverage, description, into, over.",),
                 id='lookup-with-a-dtype-of-its-own',
             ),
             pytest.param({'lookups.tag': {'over': 'g'}}, ('lookups.tag.into: Field required',), id='lookup-no-into'),
@@ -1262,3 +1262,23 @@ class TestParameterCoverage:
         what a sparse table is *for*, so refusing it as a coefficient, a term or
         a where would refuse the construct the declaration exists to describe."""
         to_program(override(SMALL_MODEL, **{'parameters.c.coverage': 'masked', **patch}))
+
+
+class TestLookupCoverage:
+    """A map short of a label lands its terms in no group, which is the
+    wiring mistake a composed model cannot otherwise be told about."""
+
+    def test_a_map_covers_every_label_unless_it_says_otherwise(self):
+        program = to_program(
+            override(
+                SMALL_MODEL,
+                lookups={
+                    'lk': {'over': 'g', 'into': 'h'},
+                    'open': {'over': 'g', 'into': 'h', 'coverage': 'masked'},
+                },
+            )
+        )
+        declared = {lookup.name: lookup.coverage for lookup in program.dimensions['g'].lookups}
+        assert declared == {'lk': 'total', 'open': 'masked'}, (
+            'a map that says nothing covers its labels, and one that says so is carried through'
+        )

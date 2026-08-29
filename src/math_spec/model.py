@@ -94,12 +94,12 @@ ParameterDtype = Literal['float', 'int', 'bool', 'str']
 #: half, because a mask names all three kinds and reads the dtype the same way.
 DeclaredDtype = ParameterDtype | DimensionDtype
 
-#: What a parameter's table is required to carry. ``total`` is every coordinate
-#: its ``dims`` reach; ``masked`` says a missing row is deliberate — the
-#: parameter *is* a mask, and a missing row reads as the identity of the
-#: position it stands in. The two are indistinguishable in the data, which is
-#: why the declaration says which was meant rather than a consumer guessing.
-ParameterCoverage = Literal['total', 'masked']
+#: What a table is required to carry — a parameter's values, or a lookup's map.
+#: ``total`` is every coordinate its ``dims`` reach, or every label of the
+#: dimension a lookup is ``over``; ``masked`` says a missing row is deliberate.
+#: The two are indistinguishable in the data, which is why the declaration says
+#: which was meant rather than a consumer guessing.
+Coverage = Literal['total', 'masked']
 
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
@@ -133,7 +133,7 @@ Curvature = Literal['convex', 'concave', 'either']
 #: The set form of each vocabulary above, for callers that want membership.
 DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
-PARAMETER_COVERAGE = frozenset(get_args(ParameterCoverage))
+COVERAGE = frozenset(get_args(Coverage))
 #: The parameter dtypes that stand where a number belongs — a coefficient, a
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
 NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
@@ -177,7 +177,16 @@ class LookupBlock(_StrictBlock):
 
     over: str
     into: str
+    #: ``None`` where the file writes none, which is what a round trip through
+    #: :meth:`Spec.to_dict` has to preserve. :meth:`coverage_or_default` is what
+    #: a consumer asks.
+    coverage: Coverage | None = None
     description: str | None = None
+
+    @property
+    def coverage_or_default(self) -> Coverage:
+        """What the map must carry: what the file wrote, or ``total`` where it wrote nothing."""
+        return self.coverage or 'total'
 
 
 class DimensionBlock(_StrictBlock):
@@ -203,7 +212,7 @@ class ParameterBlock(_StrictBlock):
 
     dims: list[str]
     dtype: ParameterDtype = 'float'
-    coverage: ParameterCoverage = 'total'
+    coverage: Coverage = 'total'
     description: str | None = None
 
 
