@@ -96,9 +96,23 @@ lookups:
 The target must be a declared dimension other than `over`. Values are checked
 against it once data is bound — the check that makes `sum(by=)` safe.
 
-**A partial lookup is legal**: a label the map leaves out belongs to no group —
-a generator on no bus, a line with one open end — and `sum(by=)` places its
-terms nowhere. A value naming no label of the target is a typo, and an error.
+**A partial lookup is legal, and `coverage:` is where the file says it was
+meant.** A label the map leaves out belongs to no group — a generator on no bus,
+a line with one open end — and `sum(by=)` places its terms nowhere. That is a
+deliberate shape and a wiring mistake in equal measure, and they are identical in
+the data, so the declaration says which:
+
+```yaml
+lookups:
+  gen_bus: { over: generator, into: bus } # total: every generator is on a bus
+  line_to: { over: line, into: bus, coverage: masked } # an open end is meant
+```
+
+The default is `total`, so a component library declaring its coupling map
+`total` turns a port nobody wired from a term that quietly vanishes into an
+error naming it. `coverage:` is for the `into:` kind only — a label space is
+selected on, and a label it leaves out reads as false, which is a reading rather
+than a gap. A value naming no label of the target is a typo, and an error.
 "Left out" is spelled by omission: a label with no row in the map.
 
 **Several at once**: `sum(x, by=[gen_bus, gen_tech])` groups through both maps

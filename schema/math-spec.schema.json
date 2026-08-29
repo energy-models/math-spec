@@ -220,6 +220,22 @@
       "additionalProperties": false,
       "description": "A named single-valued map out of a dimension (the declaration rules).\n\nExactly one of ``into:`` (a groupable map onto that dimension, what\n``sum(by=)`` lands terms on) or ``dtype:`` (its own label space, selection\nonly)::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n      period: {over: snapshot, dtype: int}\n\nThe map itself is data, and arrives at bind time under the lookup's name.",
       "properties": {
+        "coverage": {
+          "anyOf": [
+            {
+              "enum": [
+                "total",
+                "masked"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage"
+        },
         "description": {
           "anyOf": [
             {

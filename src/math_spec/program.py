@@ -88,6 +88,7 @@ __all__ = [
     'ConstraintDeclaration',
     'ConstraintSense',
     'Contiguous',
+    'Coverage',
     'Curved',
     'Derivation',
     'DimensionDeclaration',
@@ -108,7 +109,6 @@ __all__ = [
     'ObjectiveDeclaration',
     'ObjectiveSense',
     'Parameter',
-    'ParameterCoverage',
     'ParameterDeclaration',
     'ParameterDtype',
     'PiecewiseDeclaration',
@@ -169,9 +169,10 @@ DimensionDtype = _model.DimensionDtype
 #: What a parameter's values are (:data:`~math_spec.model.ParameterDtype`).
 ParameterDtype = _model.ParameterDtype
 
-#: Whether a parameter's table must carry every coordinate of its dims
-#: (:data:`~math_spec.model.ParameterCoverage`).
-ParameterCoverage = _model.ParameterCoverage
+#: Whether a table or a map must carry every coordinate it is declared over
+#: (:data:`~math_spec.model.Coverage`) — one word for the parameter key and the
+#: lookup key, which ask the same question.
+Coverage = _model.Coverage
 
 #: What a masked variable's non-existence means
 #: (:data:`~math_spec.model.VariableAbsence`).
@@ -534,6 +535,9 @@ class LookupDeclaration(NamedTuple):
     name: str
     target: str | None
     dtype: DimensionDtype | None = None
+    #: Whether the map must carry every label of the dimension it is over. A
+    #: label space has none to answer for, so this is a targeted lookup's alone.
+    coverage: Coverage = 'total'
 
 
 @dataclass(frozen=True)
@@ -728,7 +732,7 @@ class ParameterDeclaration:
     #: Whether the table must carry every coordinate of *dims*. ``masked`` says
     #: a missing row is absence the model means, so the declaration rather than
     #: the data decides how a short table reads.
-    coverage: ParameterCoverage = 'total'
+    coverage: Coverage = 'total'
 
 
 @dataclass(frozen=True)
