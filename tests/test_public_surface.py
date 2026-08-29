@@ -28,6 +28,8 @@ SURFACE = frozenset(
         'PiecewiseExpansionError', 'did_you_mean', 'schema_error',
         # the verdicts a consumer asks for rather than re-deriving
         'advice', 'Advice',
+        # composing several files into one model, before any of them is validated
+        'merge',
         # the closed operator set, and the wording of its refusals
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',

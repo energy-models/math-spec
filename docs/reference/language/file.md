@@ -26,6 +26,45 @@ Any subset is accepted, `objective` included: a file with none is a
 at all. It solves, its variables read back, and `result.objective` is the zero
 the solver was handed.
 
+## More than one file
+
+A component library is a set of templates agreeing on a port and flow
+convention, and wiring a system is rows in a connectivity table rather than
+generated YAML. `merge` is what that needs of the language: the templates in,
+**one model** out, validated and lowered exactly once.
+
+```python
+import math_spec as ms
+
+model = ms.merge({'generator': 'generator.yaml', 'demand': 'demand.yaml'}, description='a fleet')
+spec = ms.to_spec(model)  # one flat namespace, checked here and nowhere else
+```
+
+**A fragment is not a model.** It is merged before it is validated, so a
+template may name what a sibling declares — a shared `bus`, the flow every
+component writes into — without being loadable on its own. Nothing is resolved
+or name-checked until the composition is whole, and then everything is, exactly
+as for a file somebody typed.
+
+Two kinds of declaration, and the split is what merging means:
+
+- `dimensions` and `lookups` are the coordinate space, which templates share on
+  purpose. Declared twice and agreeing they are one declaration; declared twice
+  and disagreeing, the disagreement is the error.
+- Everything else is the math, which a template owns, so a name two fragments
+  both declare is a collision naming both — the composition being wrong rather
+  than the file.
+
+Objectives are summed, each term parenthesised, and a fragment running the
+other way is refused rather than negated: a composed model has one sense and
+nothing in the files says which.
+
+**Names are not rewritten.** Until qualified names are in the language, a
+library keeps its templates apart by naming them apart, and the collision error
+is what holds it to that. Two of the same kind of thing — a battery and a
+pumped hydro — are not two fragments to keep apart but two **rows** of one
+dimension: merge the template once, and let the data carry both.
+
 ## `description`
 
 What the file as a whole is: the same plain prose a declaration's
