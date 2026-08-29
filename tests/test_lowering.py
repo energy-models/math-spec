@@ -911,3 +911,12 @@ def test_two_groups_of_a_program_merge_with_or_as_they_did_behind_the_proxy():
     assert isinstance(merged, dict), 'a merge is a plain dict, as the proxy gave'
     assert list(merged) == ['meet', 'p'], 'both groups, the left one first'
     assert list({'q': None} | program.variables) == ['q', 'p'], 'and a dict on the left merges too'
+
+
+def test_a_parameter_covers_every_coordinate_unless_it_says_otherwise():
+    """The default is the claim rule 8 already makes of a bound and a divisor:
+    a table carries what its dims reach. ``masked`` is the file saying the
+    missing row was meant."""
+    program = to_program(override(SMALL_MODEL, **{'parameters.k.coverage': 'masked'}))
+    assert program.parameters['c'].coverage == 'total', 'a parameter that says nothing covers its dims'
+    assert program.parameters['k'].coverage == 'masked', 'and one that says so is carried through unchanged'

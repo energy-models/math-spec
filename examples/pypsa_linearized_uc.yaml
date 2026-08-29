@@ -72,9 +72,11 @@ parameters:
   Generator_ramp_limit_up:
     description: most a generator may raise its output between snapshots, per unit of nominal power; no value means no limit
     dims: [generator]
+    coverage: masked
   Generator_ramp_limit_down:
     description: most a generator may lower its output between snapshots, per unit of nominal power; no value means no limit
     dims: [generator]
+    coverage: masked
   Generator_ramp_limit_start_up:
     description: most output in the snapshot a unit starts, per unit of nominal power
     dims: [generator]
