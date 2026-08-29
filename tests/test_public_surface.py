@@ -30,8 +30,6 @@ SURFACE = frozenset(
         'advice', 'Advice',
         # composing several files into one model, before any of them is validated
         'merge',
-        # whether a horizon may be solved a window at a time
-        'separable', 'Separability',
         # the closed operator set, and the wording of its refusals
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',

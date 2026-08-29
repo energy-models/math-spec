@@ -19,7 +19,6 @@ from typing import Any
 import pytest
 
 import math_spec as ms
-from math_spec.separability import separable
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yaml'
 
@@ -38,7 +37,7 @@ BASE: dict[str, Any] = {
 
 
 def _verdict(dimension: str = 'h', **patch: Any):
-    return separable(ms.to_program({**BASE, **patch}), dimension)
+    return ms.to_program({**BASE, **patch}).separability(dimension)
 
 
 def _rows(expression: str, *, foreach: list[str] | None = None, **block: Any) -> dict[str, Any]:
@@ -124,12 +123,10 @@ def test_the_halo_is_the_widest_reach_of_any_block():
 
 
 def test_a_grouping_that_consumes_the_axis_couples_it():
-    verdict = separable(
-        ms.to_program(
-            {**BASE, 'constraints': {'z': {'foreach': ['h', 'zone'], 'expression': 'sum(p, by=zone_of) <= cap'}}}
-        ),
-        'u',
+    program = ms.to_program(
+        {**BASE, 'constraints': {'z': {'foreach': ['h', 'zone'], 'expression': 'sum(p, by=zone_of) <= cap'}}}
     )
+    verdict = program.separability('u')
     assert not verdict.windowable, 'the grouping consumes u, so a window of u is a different sum'
 
 
@@ -143,5 +140,5 @@ def test_an_unknown_dimension_is_refused_with_the_near_miss():
 def test_every_node_a_program_can_carry_is_judged_without_raising(dimension):
     """The fixture the node fence maintains carries every construct, so this is
     the pass meeting each of them at least once."""
-    verdict = separable(ms.to_program(FIXTURE), dimension)
+    verdict = ms.to_program(FIXTURE).separability(dimension)
     assert isinstance(verdict.halo, int), 'a verdict comes back for every axis of the widest model there is'

@@ -64,6 +64,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
 from math_spec.errors import did_you_mean
+from math_spec.where_parser import AndNode, DimensionPositionNode, NotNode, OrNode
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -116,6 +117,7 @@ __all__ = [
     'Program',
     'QuadraticPosition',
     'Region',
+    'Separability',
     'SosDeclaration',
     'Sum',
     'Translate',
@@ -843,6 +845,41 @@ def _declared[Declaration](items: Mapping[str, Declaration], name: str, kind: st
         raise KeyError(f"unknown {kind} '{name}'. " + did_you_mean(name, list(items))) from None
 
 
+@dataclass(frozen=True)
+class Separability:
+    """What windowing one dimension would cost this program, and what it would break.
+
+    A driver that solves a horizon in windows — a rolling horizon, a myopic
+    pathway — is asking whether windowing changes the answer. Storage carried
+    over a snapshot survives being cut into windows that overlap by a row; an
+    annual budget does not survive it at all, and both window into pieces that
+    solve.
+
+    A verdict rather than facts, unlike :class:`Footprint`: whether windowing
+    changes the answer has one right answer, where what a sink can ingest has
+    one per sink.
+
+    Attributes:
+        dimension: The axis asked about.
+        halo: Coordinates two neighbouring windows must share for the rows to
+            come out the same. ``0`` is pointwise; a ``shift`` of one is ``1``;
+            a ``sum_back`` of ``n`` is ``n - 1``. Meaningful where nothing is
+            coupled — a program that does not separate has no overlap that
+            would fix it.
+        coupled: Each declaration that ties the axis together, to the construct
+            that ties it. Empty is the answer a driver wants.
+    """
+
+    dimension: str
+    halo: int
+    coupled: Mapping[str, str]
+
+    @property
+    def windowable(self) -> bool:
+        """Whether the rows may be built a window at a time, given :attr:`halo` of overlap."""
+        return not self.coupled
+
+
 @dataclass(frozen=True, kw_only=True)
 class Program:
     """A complete linear program over named tidy tables.
@@ -916,6 +953,57 @@ class Program:
             sos_types=frozenset(s.sos_type for s in self.sos.values()),
             shapes=frozenset(type(node) for node in walk(*self.expressions)),
         )
+
+    def separability(self, dimension: str) -> Separability:
+        """What windowing *dimension* would cost, and what it would break.
+
+        The locality :doc:`the ceiling </about/ceiling>` argues in — pointwise,
+        bounded halo, global — asked about an axis rather than about an
+        operator, so a driver may know before it cuts a horizon whether cutting
+        it changes the answer.
+
+        **A reduction means opposite things by position**, which is the whole of
+        the care: in a constraint a sum over the axis ties every window to every
+        other, and in the objective it is additively separable, an objective
+        being a sum already.
+
+        Not cached, unlike :attr:`footprint`: this is asked once per axis by a
+        driver deciding how to run, where a footprint is asked repeatedly by
+        whatever is building.
+
+        Args:
+            dimension: The axis to cut along.
+
+        Raises:
+            KeyError: Not a dimension this program declares, named with the
+                near miss.
+        """
+        _declared(self.dimensions, dimension, 'dimension')
+        halo = 0
+        coupled: dict[str, str] = {}
+        for label, nodes, mask, reductions_couple in self._built_blocks():
+            reach, reasons = _couplings(nodes, mask, dimension, reductions_couple=reductions_couple)
+            halo = max(halo, reach)
+            if reasons:
+                coupled[label] = ', '.join(dict.fromkeys(reasons))
+        for name, block in self.sos.items():
+            if block.over == dimension:
+                coupled[f"set '{name}'"] = f'is a set over {dimension}, which a window would cut'
+        return Separability(dimension=dimension, halo=halo, coupled=coupled)
+
+    def _built_blocks(self) -> Iterator[tuple[str, tuple[ExpressionNode, ...], WhereNode | None, bool]]:
+        """Every block that builds rows, labelled as the lowering's own messages label it.
+
+        A named expression is not one: it is inlined where it is referenced, so
+        walking the constraint sides reaches it, and walking it again would
+        report one coupling twice.
+        """
+        for name, block in self.constraints.items():
+            yield f"constraint '{name}'", (block.lhs, block.rhs), block.where, True
+        for name, variable in self.variables.items():
+            yield f"variable '{name}'", (variable.lower, variable.upper), variable.where, True
+        if self.objective is not None:
+            yield 'the objective', (self.objective.expression,), None, False
 
     def dimension(self, name: str) -> DimensionDeclaration:
         return _declared(self.dimensions, name, 'dimension')
@@ -1010,3 +1098,68 @@ def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
     rows a declaration builds.
     """
     return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
+
+
+def _couplings(
+    nodes: tuple[ExpressionNode, ...],
+    mask: WhereNode | None,
+    dimension: str,
+    *,
+    reductions_couple: bool,
+) -> tuple[int, list[str]]:
+    """One block's halo along *dimension*, and why it does not separate at all.
+
+    ``reductions_couple`` is the position the block stands in rather than
+    anything about the block: a sum over the axis couples a constraint row to
+    the whole horizon and leaves an objective additively separable.
+    """
+    halo = 0
+    reasons: list[str] = []
+    masks: list[WhereNode | None] = [mask]
+    for node in walk(*nodes):
+        if isinstance(node, Cases):
+            masks.extend(region.when for region in node.regions)
+        elif isinstance(node, Sum) and dimension in node.over:
+            if reductions_couple:
+                reasons.append(f'sums over {dimension}')
+        elif isinstance(node, GroupSum) and node.over == dimension:
+            reasons.append(f'groups {dimension} away')
+        elif isinstance(node, At) and dimension in node.into:
+            reasons.append(f'reads {dimension} at a coordinate the data chooses')
+        elif isinstance(node, (Translate, Window)) and node.dimension == dimension:
+            reach = node.offset if isinstance(node, Translate) else node.width
+            if node.wrap:
+                reasons.append(f'wraps around {dimension}, so its first row reads its last')
+            elif node.partition is not None:
+                reasons.append(f"walks inside the groups '{node.partition}' makes, which a window may cut")
+            elif isinstance(reach, str):
+                reasons.append(f"reaches back by '{reach}', so how far is data's to say")
+            else:
+                halo = max(halo, abs(reach) if isinstance(node, Translate) else reach - 1)
+    reasons.extend(
+        f'counts a position along {dimension}, which a window restarts'
+        for candidate in masks
+        for predicate in _masks(candidate)
+        if isinstance(predicate, DimensionPositionNode) and predicate.name == dimension
+    )
+    return halo, reasons
+
+
+def _masks(where: WhereNode | None) -> Iterator[WhereNode]:
+    """Every predicate under *where*, the composites included.
+
+    A where tree is not an expression tree, so ``program.walk`` does not reach
+    it, and ``children`` descends into a region's *value* and not its ``when``
+    — which is why the masks a block is judged on are collected during the walk
+    rather than read off the declaration alone. One recursion here rather than a
+    public walker, there being one caller; it belongs beside ``children`` in
+    ``where_parser`` the day there are two.
+    """
+    if where is None:
+        return
+    yield where
+    if isinstance(where, NotNode):
+        yield from _masks(where.operand)
+    elif isinstance(where, (AndNode, OrNode)):
+        yield from _masks(where.left)
+        yield from _masks(where.right)

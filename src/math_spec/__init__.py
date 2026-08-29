@@ -43,7 +43,6 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
-from math_spec.separability import Separability, separable
 
 # Last: `math_spec.typesetting` reaches back for the two conversions, so those
 # must be bound before it is imported.
@@ -73,7 +72,6 @@ __all__ = [
     'MathSpecError',
     'PiecewiseExpansionError',
     'SchemaError',
-    'Separability',
     'SosBlock',
     'Spec',
     'SymbolTable',
@@ -84,7 +82,6 @@ __all__ = [
     'merge',
     'program',
     'schema_error',
-    'separable',
     'to_latex',
     'to_markdown',
     'to_program',
