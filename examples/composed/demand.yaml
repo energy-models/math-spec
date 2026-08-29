@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: Fixed demands, each on one port.
+dimensions:
+  snapshot: {dtype: int}
+  port: {dtype: str}
+  demand: {dtype: str}
+lookups:
+  dem_port: {over: demand, into: port}
+parameters:
+  dem_load: {dims: [snapshot, demand]}
+constraints:
+  dem_withdraws:
+    foreach: [snapshot, demand]
+    expression: at(flow, by=dem_port) == -dem_load

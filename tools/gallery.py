@@ -19,7 +19,7 @@ import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
-from math_spec import to_spec
+from math_spec import merge, to_spec
 from math_spec.typesetting import to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
@@ -51,6 +51,15 @@ DECLARED = {
     'pypsa_multi_period.md': ROOT / 'examples' / 'pypsa_multi_period.yaml',
 }
 
+#: Page -> the fragments it composes, in the order `merge` takes them. A
+#: composed model has no single file to show, so the page shows each fragment
+#: and then the one document the composition prints.
+COMPOSED = {
+    'composed.md': {
+        name: ROOT / 'examples' / 'composed' / f'{name}.yaml' for name in ('base', 'generator', 'demand', 'storage')
+    },
+}
+
 #: One PyPSA reference network per rung, run out of band with the versions
 #: each script pins; `references.json` beside them holds what each solve
 #: recorded.
@@ -61,6 +70,21 @@ RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 def model_block(path: Path) -> str:
     """One model, then the whole document the typesetter prints from it."""
     return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
+
+
+def composed_block(fragments: dict[str, Path]) -> str:
+    """Each fragment as written, then the document the composition prints.
+
+    The fragments are shown separately and the math is not, which is the whole
+    claim: what a reader reviews is four small files, and what the language
+    checks is the one model they make.
+    """
+    parts = [
+        f'#### `examples/composed/{name}.yaml`\n\n```yaml\n{without_header(path)}\n```'
+        for name, path in fragments.items()
+    ]
+    composed = merge(fragments, description='A power system composed from four templates')
+    return '\n\n'.join([*parts, '#### The one model they make', to_markdown(composed, numbered=False).strip()])
 
 
 def probe_block() -> str:
@@ -178,6 +202,8 @@ def block(page: str) -> str:
         return probe_block()
     if page in DECLARED:
         return declared_block(DECLARED[page])
+    if page in COMPOSED:
+        return composed_block(COMPOSED[page])
     return model_block(MODELS[page])
 
 
@@ -189,7 +215,7 @@ def rendered(page: str, text: str) -> str:
 
 
 def pages() -> list[str]:
-    return [*MODELS, *DECLARED, 'operators.md']
+    return [*MODELS, *DECLARED, *COMPOSED, 'operators.md']
 
 
 def main(argv: list[str] | None = None) -> int:
