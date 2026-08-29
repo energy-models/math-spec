@@ -139,3 +139,37 @@ The footprint stops at the kind. A sink that takes a window but not a wrapped
 one reads `Window in footprint.shapes` and then walks: `wrap`, `partition` and
 a named width are refinements without end, and each is one line once the set
 has said where to look.
+
+## Reading it somewhere that is not Python
+
+A consumer written in Python imports the program. A consumer written in
+anything else had, until now, one way to reach the same model: implement the
+language a second time. That is the one thing
+[rule 1](../../about/what-counts-as-language.md) exists to forbid, so the
+program is also a document:
+
+```python
+from math_spec import from_json, to_json
+
+document = to_json(program)  # or the file, or the `Spec` — whatever you hold
+from_json(document) == program  # True
+```
+
+Everything in a program is already resolved, so the document carries no
+grammar, no expression strings and nothing to parse — a reader dispatches on a
+tag and builds a node. **A node is an object carrying `$`**, a mapping is an
+object without one, and a tuple is an array; that is the whole encoding.
+
+It is **strict JSON**: an unbounded variable's bound is an infinity, which
+`Infinity` would spell and no conforming parser would accept, so a non-finite
+float is written as `{"$": "float", "value": "-inf"}` instead. Every model in
+`examples/` is round-tripped exactly, and so is the fixture the
+[node fence](https://github.com/energy-models/math-spec/blob/main/tests/test_program_nodes.py)
+keeps every node in.
+
+**Reading is closed.** A tag names a class in a registry built from the modules
+that define nodes; nothing is imported or evaluated from the document. A tag
+naming no node is refused with the near miss, and a document at a `version` this
+release does not know is refused by number rather than guessed at — `WIRE_VERSION`
+is the one this release writes, and it moves when the encoding changes rather
+than when the language does.

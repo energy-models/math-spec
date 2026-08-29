@@ -30,6 +30,8 @@ SURFACE = frozenset(
         'advice', 'Advice',
         # composing several files into one model, before any of them is validated
         'merge',
+        # the waist as a value a consumer in another language reads
+        'to_json', 'from_json', 'WIRE_VERSION',
         # the closed operator set, and the wording of its refusals
         'BUILTIN_NAMES', 'EDGE_WRAP', 'call_shape_error', 'edge_error',
         'unknown_operator_message',
