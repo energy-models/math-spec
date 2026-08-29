@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, assert_never
 
 import math_spec.program as program
 from math_spec.dimensions import dims_of
+from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
@@ -38,7 +39,7 @@ from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
     from typing import Any
 
@@ -100,7 +101,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for name, how in derivations_of(block, ex).items()
     }
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name), pdef.coverage)
         for name, pdef in expanded.parameters.items()
     }
 
@@ -164,6 +165,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for sname, sdef in expanded.sos.items()
     }
     expressions = {name: _lower_expression(expanded, ns, name) for name in expanded.expressions}
+    _refuse_a_mask_where_absence_has_no_reading(parameters, variables, constraints, objective, expressions)
     return program.Program(
         parameters=parameters,
         variables=variables,
@@ -370,3 +372,48 @@ def _bound_expression(value: float | str) -> program.ExpressionNode:
     if isinstance(value, str):
         return program.Parameter(value)
     return program.Constant(value)
+
+
+#: Where a missing value has no reading that contributes nothing, and so is
+#: refused rather than filled — the two positions named in rule 8.
+_NO_READING_FOR_ABSENCE = 'a bound', 'a divisor'
+
+
+def _refuse_a_mask_where_absence_has_no_reading(
+    parameters: Mapping[str, program.ParameterDeclaration],
+    variables: Mapping[str, program.VariableDeclaration],
+    constraints: Mapping[str, program.ConstraintDeclaration],
+    objective: program.ObjectiveDeclaration | None,
+    expressions: Mapping[str, program.ExpressionNode],
+) -> None:
+    """Refuse ``coverage: masked`` in the two positions rule 8 gives absence no reading.
+
+    A bound and a divisor are the positions where a missing value cannot read
+    as "contributes nothing": an absent bound is no bound rather than an open
+    one, and an absent divisor is no quotient at all. A parameter declaring
+    itself a mask therefore cannot stand in either, and the file says so before
+    any data arrives — where the same fault would otherwise surface as a bind
+    error against whichever rows the data happened to carry.
+
+    Both positions are read off the lowered declarations rather than the file,
+    so a parameter reaching one through a macro or a named expression is caught
+    on the same footing as one written there directly.
+    """
+    every = (
+        *(node for vdef in variables.values() for node in (vdef.lower, vdef.upper)),
+        *(node for cdef in constraints.values() for node in (cdef.lhs, cdef.rhs)),
+        *((objective.expression,) if objective is not None else ()),
+        *expressions.values(),
+    )
+    bounded = program.parameters_of(*(node for vdef in variables.values() for node in (vdef.lower, vdef.upper)))
+    positions = dict.fromkeys(bounded, 'a bound')
+    positions |= dict.fromkeys(program.divisor_parameters(*every), 'a divisor')
+    for name, position in sorted(positions.items()):
+        if parameters[name].coverage == 'masked':
+            raise LanguageError(
+                f"parameter '{name}' is declared `coverage: masked`, and stands as {position}. "
+                f'A missing row is absence, and absence has no reading there — an absent bound is '
+                f'no bound rather than an open one, and an absent divisor is no quotient at all. '
+                f"Declare `coverage: total` on '{name}' where its table does carry every "
+                f'coordinate, or move the mask onto the declaration that wants it, as a `where:`.'
+            )

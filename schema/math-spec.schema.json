@@ -356,6 +356,15 @@
       "additionalProperties": false,
       "description": "A declared parameter with dims and dtype.",
       "properties": {
+        "coverage": {
+          "default": "total",
+          "enum": [
+            "total",
+            "masked"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
         "description": {
           "anyOf": [
             {

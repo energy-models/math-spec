@@ -39,7 +39,29 @@ parameters:
 | ------------- | ------------------------------------------------------------ | --------------- |
 | `dims`        | required — the dimensions it is indexed by; `[]` is a scalar |                 |
 | `dtype`       | `float`, `int`, `bool`, `str`                                | default `float` |
+| `coverage`    | `total`, `masked`                                            | default `total` |
 | `description` | free text                                                    | default `null`  |
+
+**`coverage` says whether a missing row was meant.** A table short of a
+coordinate and a table that never had one look identical in the data, and they
+mean opposite things: `total` is the claim that every coordinate the `dims`
+reach has a value, so a row that went missing in preparation is an error rather
+than a mask; `masked` is the file saying the gap is the point — the parameter
+_is_ a mask, and a coordinate it leaves out is [absence](absence.md).
+
+```yaml
+parameters:
+  cost: { dims: [generator] } # total: every generator has one
+  ramp_limit: { dims: [generator], coverage: masked } # no row means no limit
+```
+
+Without it the reading is a consumer's to pick, and two consumers picking
+differently would build different models from one file and one table — so the
+declaration says it and no consumer guesses. **The default is `total`** because
+that is what the other rules already assume: a bound and a divisor
+[refuse absence outright](absence.md), so a parameter reaching either must
+cover its rows, and a file declaring `masked` in those positions is a load
+error naming the rewrite.
 
 **`dtype` is a claim about the values, and the column has to be it.** It
 decides four things — whether the name is a value in an

@@ -14,6 +14,7 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
+from math_spec.lowering import to_program
 from math_spec.program import DimensionPositionNode
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import to_spec
@@ -918,3 +919,75 @@ class TestADeclarationIsNamed:
 
     def test_an_ordinary_name_still_loads(self):
         assert 'headroom_2' in _schema(**{'parameters.headroom_2': {'dims': ['g']}}).parameters
+
+
+class TestParameterCoverage:
+    """``coverage: masked`` is a claim, and rule 8 gives it two places it cannot stand.
+
+    A bound and a divisor are where a missing value has no reading that
+    contributes nothing, so a parameter calling itself a mask is refused there
+    before any data arrives — rather than binding and failing against whichever
+    rows the caller's table happened to carry.
+    """
+
+    @pytest.mark.parametrize(
+        ('patch', 'position'),
+        [
+            pytest.param(
+                {'parameters.c.coverage': 'masked', 'variables.p.bounds': {'upper': 'c'}},
+                'a bound',
+                id='masked-as-an-upper-bound',
+            ),
+            pytest.param(
+                {'parameters.c.coverage': 'masked', 'variables.p.bounds': {'lower': 'c'}},
+                'a bound',
+                id='masked-as-a-lower-bound',
+            ),
+            pytest.param(
+                {
+                    'parameters.c.coverage': 'masked',
+                    'constraints': {'cap': {'foreach': ['g'], 'expression': 'p / c <= 1'}},
+                },
+                'a divisor',
+                id='masked-as-a-divisor',
+            ),
+            pytest.param(
+                {
+                    'parameters.c.coverage': 'masked',
+                    'expressions': {'scaled': 'p / c'},
+                    'constraints': {'cap': {'foreach': ['g'], 'expression': 'scaled <= 1'}},
+                },
+                'a divisor',
+                id='masked-as-a-divisor-reached-through-a-named-expression',
+            ),
+        ],
+    )
+    def test_a_masked_parameter_is_refused_where_absence_has_no_reading(self, patch, position):
+        with pytest.raises(LanguageError) as exc:
+            to_program(override(SMALL_MODEL, **patch))
+        assert "parameter 'c'" in str(exc.value), 'the message names the parameter that has to change'
+        assert position in str(exc.value), f'the message names the position, which decides the rewrite: {position}'
+        assert 'coverage: total' in str(exc.value), 'the message names the rewrite, not only the fault'
+
+    @pytest.mark.parametrize(
+        ('patch'),
+        [
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p * c <= 1'}}},
+                id='a-coefficient-reads-as-zero',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c > 0'},
+                id='a-where-reads-as-false',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p + c <= 1'}}},
+                id='a-term-reads-as-zero',
+            ),
+        ],
+    )
+    def test_a_masked_parameter_stands_wherever_absence_does_have_a_reading(self, patch):
+        """The guard is the two positions of rule 8 and not a third: a mask is
+        what a sparse table is *for*, so refusing it as a coefficient, a term or
+        a where would refuse the construct the declaration exists to describe."""
+        to_program(override(SMALL_MODEL, **{'parameters.c.coverage': 'masked', **patch}))

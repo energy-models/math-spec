@@ -747,3 +747,12 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
     assert isinstance(program.named_expressions['previous'], Cases), (
         'a cased expression reaches the program as the node, not as its fallback arm alone'
     )
+
+
+def test_a_parameter_covers_every_coordinate_unless_it_says_otherwise():
+    """The default is the claim rule 8 already makes of a bound and a divisor:
+    a table carries what its dims reach. ``masked`` is the file saying the
+    missing row was meant."""
+    program = to_program(override(SMALL_MODEL, **{'parameters.k.coverage': 'masked'}))
+    assert program.parameters['c'].coverage == 'total', 'a parameter that says nothing covers its dims'
+    assert program.parameters['k'].coverage == 'masked', 'and one that says so is carried through unchanged'
