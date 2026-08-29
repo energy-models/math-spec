@@ -108,6 +108,7 @@ __all__ = [
     'ObjectiveDeclaration',
     'ObjectiveSense',
     'Parameter',
+    'ParameterCoverage',
     'ParameterDeclaration',
     'ParameterDtype',
     'PiecewiseDeclaration',
@@ -167,6 +168,10 @@ DimensionDtype = _model.DimensionDtype
 
 #: What a parameter's values are (:data:`~math_spec.model.ParameterDtype`).
 ParameterDtype = _model.ParameterDtype
+
+#: Whether a parameter's table must carry every coordinate of its dims
+#: (:data:`~math_spec.model.ParameterCoverage`).
+ParameterCoverage = _model.ParameterCoverage
 
 #: What a masked variable's non-existence means
 #: (:data:`~math_spec.model.VariableAbsence`).
@@ -720,6 +725,10 @@ class ParameterDeclaration:
     #: follows: the caller binds a declared parameter, and an emitted one is
     #: built from the block's own breakpoints the way its derivation says.
     derivation: Derivation | None = None
+    #: Whether the table must carry every coordinate of *dims*. ``masked`` says
+    #: a missing row is absence the model means, so the declaration rather than
+    #: the data decides how a short table reads.
+    coverage: ParameterCoverage = 'total'
 
 
 @dataclass(frozen=True)

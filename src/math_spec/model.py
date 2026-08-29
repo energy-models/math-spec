@@ -88,6 +88,13 @@ DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 #: indexes by.
 ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
+#: What a parameter's table is required to carry. ``total`` is every coordinate
+#: its ``dims`` reach; ``masked`` says a missing row is deliberate — the
+#: parameter *is* a mask, and a missing row reads as the identity of the
+#: position it stands in. The two are indistinguishable in the data, which is
+#: why the declaration says which was meant rather than a consumer guessing.
+ParameterCoverage = Literal['total', 'masked']
+
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
 
@@ -120,6 +127,7 @@ Curvature = Literal['convex', 'concave', 'either']
 #: The set form of each vocabulary above, for callers that want membership.
 DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
+PARAMETER_COVERAGE = frozenset(get_args(ParameterCoverage))
 #: The parameter dtypes that stand where a number belongs — a coefficient, a
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
 NUMERIC_DTYPES = frozenset({'float', 'int'})
@@ -202,6 +210,7 @@ class ParameterBlock(_StrictBlock):
 
     dims: list[str]
     dtype: ParameterDtype = 'float'
+    coverage: ParameterCoverage = 'total'
     description: str | None = None
 
 
