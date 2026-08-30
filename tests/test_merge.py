@@ -12,12 +12,14 @@ four disagreements that make one model impossible.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 import pytest
 
 import math_spec as ms
 from math_spec import LanguageError, merge
+from math_spec.merge import override
 
 #: A generator's own math. Not a model: nothing here says what `p` is for, and
 #: the balance that reads it lives in the fragment below.
@@ -186,3 +188,113 @@ def test_a_composition_does_not_depend_on_how_it_was_grouped():
     assert ms.to_spec(grouped).to_dict() == ms.to_spec(flat).to_dict(), (
         'the same fragments compose to the same model however they were grouped'
     )
+
+
+#: A framework's base math, in the shape a project extends: a decision, the
+#: dispatch that uses it, and a cost for both.
+BASE: dict[str, Any] = {
+    'dimensions': {'g': {'dtype': 'str'}},
+    'parameters': {'cap_max': {'dims': ['g']}, 'cost': {'dims': ['g']}, 'load': {'dims': ['g']}},
+    'variables': {
+        'cap': {'foreach': ['g'], 'bounds': {'lower': 0, 'upper': 'cap_max'}, 'description': 'capacity built'},
+        'p': {'foreach': ['g'], 'bounds': {'lower': 0}},
+    },
+    'constraints': {
+        'lim': {'foreach': ['g'], 'expression': 'p <= cap'},
+        'meet': {'foreach': ['g'], 'expression': 'p >= load'},
+    },
+    'objective': {'sense': 'minimize', 'expression': 'sum(cap * cost) + sum(p * cost)'},
+}
+
+
+def test_a_patch_says_only_what_it_changes():
+    """The reason a patch can be short, and the reason #13's example is one
+    line: a declaration is laid over field by field, so naming `foreach` keeps
+    the expression under it."""
+    patched = override(BASE, {'pathway': {'constraints': {'lim': {'foreach': ['g', 'g']}}}})
+    assert patched['constraints']['lim'] == {'foreach': ['g', 'g'], 'expression': 'p <= cap'}, (
+        'the field named is replaced and the rest of the declaration stands'
+    )
+
+
+def test_a_declaration_the_patch_nulls_is_removed():
+    """The one thing an ordered list of files cannot say for itself: a
+    declaration a patch does not mention is left alone, so without a marker
+    there is no way to spell a deletion."""
+    patched = ms.to_spec(override(BASE, {'operate': {'constraints': {'lim': None}}}))
+    assert sorted(patched.constraints) == ['meet'], 'the nulled constraint is gone and the other stands'
+
+
+def test_a_null_deeper_than_a_declaration_is_a_value_and_not_a_removal():
+    """The marker is positional. `where: null` is a mask the schema already
+    takes, so a null inside a declaration replaces the field rather than
+    deleting it — otherwise one spelling would mean two things."""
+    patched = override(BASE, {'x': {'variables': {'cap': {'description': None}}}})
+    assert patched['variables']['cap']['description'] is None, 'the field was set, not dropped'
+    assert patched['variables']['cap']['bounds'] == {'lower': 0, 'upper': 'cap_max'}, 'and the rest is untouched'
+
+
+def test_a_variable_becomes_a_parameter_at_file_level():
+    """#13's case, by the route #12 describes: the patch nulls the decision and
+    declares the number, and every expression naming it goes on reading."""
+    dispatch = {
+        'variables': {'cap': None},
+        'parameters': {'cap': {'dims': ['g']}},
+        'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
+    }
+    spec = ms.to_spec(override(BASE, {'dispatch': dispatch}))
+    assert 'cap' in spec.parameters and 'cap' not in spec.variables, 'the name moved between the two blocks'
+    assert spec.constraints['lim'].expression == 'p <= cap', 'and the constraint that reads it is untouched'
+
+
+def test_the_later_patch_wins():
+    """Order is the instruction, which is what makes this the one verb here
+    where the same arguments given differently mean a different model."""
+    patched = override(
+        BASE,
+        {'a': {'parameters': {'cost': {'dims': []}}}, 'b': {'parameters': {'cost': {'dims': ['g'], 'dtype': 'int'}}}},
+    )
+    assert patched['parameters']['cost'] == {'dims': ['g'], 'dtype': 'int'}, 'the last patch to name it decides'
+
+
+def test_a_patch_may_add_what_no_base_declares():
+    patched = ms.to_spec(
+        override(BASE, {'extra': {'constraints': {'floor': {'foreach': ['g'], 'expression': 'p >= 0'}}}})
+    )
+    assert sorted(patched.constraints) == ['floor', 'lim', 'meet'], 'a declaration the base lacks is simply added'
+
+
+def test_removing_a_declaration_the_base_does_not_have_is_refused():
+    """A removal is a claim about what is there, so a stale one is a patch that
+    no longer describes the model it lands on — a base that moved on, or a
+    section confused for another."""
+    with pytest.raises(LanguageError) as exc:
+        override(BASE, {'stale': {'constraints': {'limm': None}}})
+    assert "'stale'" in str(exc.value), 'the message names the patch to open'
+    assert 'lim' in str(exc.value), 'and the declaration it was probably reaching for'
+
+
+def test_override_composes_with_merge():
+    """Both take and return what the other does, so a library composed from
+    templates is a base like any other."""
+    composed = merge({'generator': GENERATOR, 'demand': DEMAND})
+    patched = ms.to_program(override(composed, {'operate': {'constraints': {'balance': None}}}))
+    assert sorted(patched.constraints) == [], 'the composed model is a base a patch lands on'
+
+
+def test_a_patched_model_is_still_one_a_reviewer_can_open(tmp_path):
+    """The safety story for a verb designed to collide: the artifact to review
+    is the output, and a patch's real effect is a diff of base against result."""
+    spec = ms.to_spec(override(BASE, {'operate': {'constraints': {'lim': None}}}))
+    written = tmp_path / 'operate.yaml'
+    written.write_text(spec.to_yaml())
+    assert ms.to_spec(written).to_dict() == spec.to_dict(), 'the composed model round-trips like any other'
+
+
+def test_the_base_and_the_patches_are_left_alone():
+    """A caller's dicts are theirs. Nothing here writes into what it was given."""
+    before = deepcopy(BASE)
+    patch = {'constraints': {'lim': None}}
+    override(BASE, {'operate': patch})
+    assert before == BASE, 'the base is unchanged'
+    assert patch == {'constraints': {'lim': None}}, 'and so is the patch'

@@ -29,7 +29,7 @@ SURFACE = frozenset(
         # the verdicts a consumer asks for rather than re-deriving
         'advice', 'Advice',
         # composing several files into one model, before any of them is validated
-        'merge',
+        'merge', 'override',
         # a decided variable becoming a supplied number
         'fix',
         # the closed operator set, and the wording of its refusals

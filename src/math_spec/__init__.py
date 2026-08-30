@@ -26,7 +26,7 @@ from math_spec.errors import (
     schema_error,
 )
 from math_spec.lowering import to_program
-from math_spec.merge import merge
+from math_spec.merge import merge, override
 from math_spec.model import (
     CURVATURES,
     DIMENSION_DTYPES,
@@ -82,6 +82,7 @@ __all__ = [
     'edge_error',
     'fix',
     'merge',
+    'override',
     'program',
     'schema_error',
     'to_latex',

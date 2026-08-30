@@ -4,6 +4,13 @@
 
 """Several files into one model, before any of them is validated.
 
+Two verbs, and they obey opposite laws. :func:`merge` composes **peers**: a
+name two of them declare is a collision, and the order they are given in does
+not matter. :func:`override` layers a **base and its patches**: a name the
+patch declares is the point, and the order is the whole instruction. Neither
+is a mode of the other — erroring on a shared name and letting the later one
+win cannot both be true of one call.
+
 A component library is a fixed set of templates agreeing on a port and flow
 convention, and wiring a specific system is rows in a connectivity table rather
 than generated YAML. What that needs of the language is one function: take the
@@ -30,15 +37,22 @@ Two kinds of declaration, and the split is what merging *means*:
 Names are **not rewritten** here. Qualified names are their own question
 (``#29``), and until they land a library keeps its templates apart by naming
 them apart — which the collision error above is what enforces.
+
+**A patch is not a model either**, for the same reason a fragment is not: it is
+read before validation, so it may carry ``null`` where a declaration would go
+and name what only its base declares. That is what keeps the removal marker out
+of every file a reviewer reads as a model — nothing in the schema gains a key,
+and ``null`` never appears in a validated ``Spec``.
 """
 
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from math_spec._yaml import read_yaml
-from math_spec.errors import LanguageError
+from math_spec.errors import LanguageError, did_you_mean
 from math_spec.model import Spec
 
 if TYPE_CHECKING:
@@ -56,6 +70,11 @@ OWNED_SECTIONS = ('parameters', 'variables', 'constraints', 'expressions', 'macr
 #: The sections whose plural key does not become the singular by dropping an
 #: ``s``, for the noun a collision or a disagreement prints.
 IRREGULAR = {'piecewise': 'piecewise curve', 'sos': 'special-ordered set'}
+
+#: Every section a patch may touch, which is every section a model may declare.
+#: A key outside them — ``version``, ``description``, ``objective`` — is a
+#: single value the later file simply replaces.
+SECTIONS = (*SHARED_SECTIONS, *OWNED_SECTIONS)
 
 
 def merge(
@@ -208,3 +227,95 @@ def _summed(expressions: list[str]) -> str:
     if len(expressions) == 1:
         return expressions[0]
     return ' + '.join(f'({term})' for term in expressions)
+
+
+def override(
+    base: str | Path | dict[str, Any] | Spec,
+    patches: Mapping[str, str | Path | dict[str, Any] | Spec],
+) -> dict[str, Any]:
+    """*base* with each patch laid over it in turn, later winning.
+
+    What a framework ships and a project extends. The patch says only what it
+    changes, so a constraint whose dimensions grew is the one line that grew::
+
+        flow_out_max: {foreach: [node, tech, carrier, snapshot, investstep]}
+
+    **A declaration the patch sets to** ``null`` **is removed**, which is the
+    one thing an ordered list of files cannot say for itself: a declaration the
+    patch does not mention is left alone, so without a marker there is no way
+    to spell a deletion. The marker is positional and means nothing deeper
+    down — ``constraints: {ramp: null}`` removes the constraint, where
+    ``variables: {p: {where: null}}`` sets that variable's mask to none, which
+    is an ordinary value the schema already takes.
+
+    Everything else is laid over a declaration at a time and a **field** at a
+    time: a mapping is merged into the mapping below it and anything else
+    replaces, so a patch naming one field keeps the rest of the declaration it
+    lands on. That is what lets a patch be short, and the reason to read the
+    composed model rather than the patch: :meth:`~math_spec.model.Spec.to_yaml`
+    on the result is the artifact a reviewer diffs against the base.
+
+    Args:
+        base: The model being extended — whatever every other verb takes.
+        patches: What each patch is called, to the patch, **in the order they
+            are laid on**. The name is what an error calls it. Order is the
+            instruction, so this is the one verb here where giving the same
+            arguments differently means a different model.
+
+    Returns:
+        One mapping, ready for :func:`~math_spec.validation.to_spec`. Composes
+        with :func:`merge`, both taking and returning what the other does.
+
+    Raises:
+        LanguageError: A patch removes a declaration its base does not have,
+            named with the near miss — a stale patch, or a section confused
+            for another.
+    """
+    result = deepcopy(_sections(base))
+    for name, patch in patches.items():
+        result = _lay_over(result, deepcopy(_sections(patch)), name)
+    return result
+
+
+def _lay_over(base: dict[str, Any], patch: dict[str, Any], name: str) -> dict[str, Any]:
+    """One patch over one base: sections declaration by declaration, the rest wholesale."""
+    laid = dict(base)
+    for key, value in patch.items():
+        if key in SECTIONS:
+            laid[key] = _patched(laid.get(key) or {}, value or {}, key, name)
+        else:
+            laid[key] = value
+    return laid
+
+
+def _patched(declared: dict[str, Any], patch: dict[str, Any], section: str, name: str) -> dict[str, Any]:
+    """One section, with the patch's declarations laid over it and the ones it nulls removed."""
+    out = dict(declared)
+    for key, block in patch.items():
+        if block is None:
+            if key not in out:
+                raise LanguageError(
+                    f"patch '{name}' removes the {_singular(section)} '{key}', which its base does not declare. "
+                    f'A removal is a claim about what is there, so a stale one is a patch that no longer '
+                    f'describes the model it lands on. ' + did_you_mean(key, list(out))
+                )
+            del out[key]
+        else:
+            out[key] = _field_by_field(out.get(key), block)
+    return out
+
+
+def _field_by_field(under: Any, over: Any) -> Any:
+    """*over* laid on *under*: mappings merge, everything else replaces.
+
+    A patch naming one field of a declaration keeps the rest of it, which is
+    the whole reason a patch can be short. ``None`` replaces here rather than
+    removing — removal is the declaration-level marker and reaches no deeper,
+    so ``where: null`` is the mask the schema already lets a file write.
+    """
+    if isinstance(under, dict) and isinstance(over, dict):
+        merged = dict(under)
+        for key, value in over.items():
+            merged[key] = _field_by_field(merged.get(key), value)
+        return merged
+    return over
