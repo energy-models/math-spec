@@ -25,7 +25,9 @@ from math_spec.errors import SchemaError, did_you_mean
 from math_spec.resolution import Namespace, expression_of
 
 if TYPE_CHECKING:
-    from math_spec.model import _ExpandedSpec
+    from collections.abc import Iterator
+
+    from math_spec.model import ExpressionBlock, _ExpandedSpec
     from math_spec.typesetting.format import Format
 
 __all__ = ['SymbolTable', 'Symbols']
@@ -100,10 +102,23 @@ def chosen_expressions(schema: _ExpandedSpec) -> frozenset[str]:
         name
         for name in printed_expressions(schema)
         if any(
-            carries_variable(expression_of(case.expression, schema, namespace, f"expression '{name}', case '{label}'"))
-            for label, case in schema.expressions[name].cases.items()
+            carries_variable(expression_of(text, schema, namespace, f"expression '{name}', {where}"))
+            for text, where in _values_of(schema.expressions[name])
         )
     )
+
+
+def _values_of(block: ExpressionBlock) -> Iterator[tuple[str, str]]:
+    """Every value a cased block holds, the ``otherwise:`` included, and where it sits.
+
+    The fallback is a value of the quantity like any case's, so it decides what
+    the block *is* alongside them: a block whose only variable is there is one
+    the solver returns, and printing it upright would call it data.
+    """
+    for label, case in block.cases.items():
+        yield case.expression, f"case '{label}'"
+    assert block.otherwise is not None
+    yield block.otherwise, 'otherwise'
 
 
 class Symbols:
