@@ -91,7 +91,7 @@ class TestProvesApart:
         assert refusals(schema, cases) == [], 'a storage carries one kind, so the two labels are apart'
 
     def test_the_ramp_regimes_from_the_issue(self, schema: Spec):
-        """The three quantities #2 factors a PyPSA ramp limit into, less each one's `default`.
+        """The three quantities #2 factors a PyPSA ramp limit into, less each one's `otherwise`.
 
         The point of putting cases on an expression rather than on the
         constraint: three independent axes multiply into eight constraint cases
@@ -135,8 +135,8 @@ class TestProvesApart:
         cases = {'small': 'capacity < 1', 'large': 'capacity > 0'}
         assert refusals(schema, cases), 'a float between the two bands is claimed by both'
 
-    def test_a_when_of_true_is_not_a_default(self, schema: Spec):
-        """`default` is the case *without* a `when`, and nothing here stands in for it.
+    def test_a_when_of_true_is_not_a_fallback(self, schema: Spec):
+        """The fallback is the block's `otherwise:`, and nothing inside `cases:` stands in for it.
 
         A mask that happens to be true everywhere is read as any other mask is,
         so it collides with every case beside it.

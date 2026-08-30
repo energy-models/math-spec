@@ -171,7 +171,7 @@ class Format(Protocol):
     def cases(self, arms: list[tuple[str, str]]) -> str:
         """A value defined by region: ``(value, condition)`` per arm, in order.
 
-        Both halves arrive rendered — which arm is the ``default`` is the walk's
+        Both halves arrive rendered — which arm is the fallback is the walk's
         to decide, and this only stacks the rows.
         """
         ...

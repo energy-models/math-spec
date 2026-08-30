@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Literal, assert_never, cast
 
 import math_spec.program as program
 from math_spec.dimensions import dims_of
-from math_spec.errors import LanguageError, did_you_mean
+from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
@@ -228,16 +228,12 @@ def _lower_expression(schema: _ExpandedSpec, ns: Namespace, name: str) -> progra
     """Compile the named expression *name* into a program expression.
 
     Raises:
-        KeyError: No named expression called *name*.
         LanguageError: A construct outside the streaming language.
     """
-    expanded = schema
     context = f"named expression '{name}'"
-    if name not in expanded.expressions:
-        raise KeyError(f"unknown named expression '{name}'. " + did_you_mean(name, expanded.expressions))
-    ast = expression_of(name, expanded, ns, context)
+    ast = expression_of(name, schema, ns, context)
     assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
-    return _Lowering(expanded, context).expr(ast)
+    return _Lowering(schema, context).expr(ast)
 
 
 # ---------------------------------------------------------------------------
