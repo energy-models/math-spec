@@ -36,9 +36,14 @@ generated YAML. `merge` is what that needs of the language: the templates in,
 ```python
 import math_spec as ms
 
-model = ms.merge({'generator': 'generator.yaml', 'demand': 'demand.yaml'}, description='a fleet')
-spec = ms.to_spec(model)  # one flat namespace, checked here and nowhere else
+library = {name: f'examples/composed/{name}.yaml' for name in ('base', 'generator', 'demand', 'storage')}
+
+model = ms.merge(library, description='a power system')
+'gen_cap' in ms.to_spec(model).variables  # True
 ```
+
+Those four files are in [`examples/composed/`](../../examples/composed.md), and
+none of them is a model: each names `flow`, which only `base.yaml` declares.
 
 **A fragment is not a model.** It is merged before it is validated, so a
 template may name what a sibling declares — a shared `bus`, the flow every
@@ -71,8 +76,15 @@ dimension: merge the template once, and let the data carry both.
 a framework ships and a project extends:
 
 ```python
-model = ms.override('base.yaml', {'pathway': 'pathway.yaml', 'project': 'project.yaml'})
+operating = ms.override(model, {'operate': 'examples/composed/operate.yaml'})
+
+'gen_cap' in ms.to_spec(operating).parameters  # True
 ```
+
+`operate.yaml` is four lines, and the whole of it is that capacity stops being a
+decision — every constraint expression and the objective are identical either
+side of it. That is
+[the example](../../examples/composed.md) in full.
 
 The two obey opposite laws and neither is a mode of the other: a name two peers
 declare is a collision, a name a patch declares is the point, and erroring on

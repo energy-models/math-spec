@@ -43,6 +43,12 @@ declare, so the templates here are spelled apart — `gen_p`, `st_soc`,
 `dem_load`. If two of these were the same kind of thing with different numbers,
 they would be two _rows_ in one dimension rather than two fragments.
 
+And the same library, operated rather than planned: `operate.yaml` is a
+[patch](../reference/language/file.md#a-base-and-its-patches) laid over the
+composition, and **the whole of it is that capacity stops being a decision**.
+Every constraint expression and the objective are identical either side of it —
+the cost of capacity becoming the sunk constant it is.
+
 <!-- gallery:begin -->
 #### `examples/composed/base.yaml`
 
@@ -79,18 +85,26 @@ lookups:
   gen_port: { over: generator, into: port }
 parameters:
   gen_cost: { dims: [generator] }
-  gen_p_max: { dims: [generator] }
+  gen_invest: { dims: [generator] }
+  gen_cap_max: { dims: [generator] }
 variables:
+  gen_cap:
+    description: capacity built, which an operating model is told rather than decides
+    foreach: [generator]
+    bounds: { lower: 0, upper: gen_cap_max }
   gen_p:
     foreach: [snapshot, generator]
-    bounds: { lower: 0, upper: gen_p_max }
+    bounds: { lower: 0 }
 constraints:
   gen_injects:
     foreach: [snapshot, generator]
     expression: at(flow, by=gen_port) == gen_p
+  gen_within_capacity:
+    foreach: [snapshot, generator]
+    expression: gen_p <= gen_cap
 objective:
   sense: minimize
-  expression: sum(gen_p * gen_cost)
+  expression: sum(gen_cap * gen_invest) + sum(gen_p * gen_cost)
 ```
 
 #### `examples/composed/demand.yaml`
@@ -160,10 +174,122 @@ A power system composed from four templates
 | Symbol | Meaning |
 |---|---|
 | $\mathrm{gen\_cost}$ | `gen_cost` over $\mathcal{G}$ |
-| $\mathrm{gen\_p\_max}$ | `gen_p_max` over $\mathcal{G}$ |
+| $\mathrm{gen\_invest}$ | `gen_invest` over $\mathcal{G}$ |
+| $\mathrm{gen\_cap\_max}$ | `gen_cap_max` over $\mathcal{G}$ |
 | $\mathrm{dem\_load}$ | `dem_load` over $\mathcal{T} \times \mathcal{D}$ |
 | $\mathrm{st\_capacity}$ | `st_capacity` over $\mathcal{S}$ |
 | $\mathrm{st\_holding}$ | `st_holding` (scalar) |
+
+#### Variables
+
+| Symbol | Meaning |
+|---|---|
+| $\mathit{flow}$ | `flow` over $\mathcal{T} \times \mathcal{P}$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
+| $\mathit{gen\_cap}$ | `gen_cap` over $\mathcal{G}$ — capacity built, which an operating model is told rather than decides |
+| $\mathit{gen\_p}$ | `gen_p` over $\mathcal{T} \times \mathcal{G}$ |
+| $\mathit{st\_charge}$ | `st_charge` over $\mathcal{T} \times \mathcal{S}$ |
+| $\mathit{st\_discharge}$ | `st_discharge` over $\mathcal{T} \times \mathcal{S}$ |
+| $\mathit{st\_soc}$ | `st_soc` over $\mathcal{T} \times \mathcal{S}$ |
+
+Upright is what the model is given — a parameter such as $\mathrm{gen\_cost}$, a coordinate map, a label — and italic is what the solver chooses, such as $\mathit{flow}$. An index is italic too, being what a quantifier chooses, and a set is script.
+
+$t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
+
+#### Objective
+
+$$\min \sum_{g \in \mathcal{G}} \mathit{gen\_cap}_{g} \cdot \mathrm{gen\_invest}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{gen\_p}_{t,g} \cdot \mathrm{gen\_cost}_{g} + \left( \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{st\_soc}_{t,s} \right) \cdot \mathrm{st\_holding}$$
+
+#### Subject to
+
+**`balance`**
+
+$$\sum_{p \in \mathcal{P} \thinspace:\thinspace \mathrm{port\_bus}(p) = b} \mathit{flow}_{t,p} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+
+**`gen_injects`**
+
+$$\mathit{flow}_{t,\mathrm{gen\_port}(g)} = \mathit{gen\_p}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`gen_within_capacity`**
+
+$$\mathit{gen\_p}_{t,g} \le \mathit{gen\_cap}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`dem_withdraws`**
+
+$$\mathit{flow}_{t,\mathrm{dem\_port}(d)} = -\mathrm{dem\_load}_{t,d} \qquad \forall\thinspace t \in \mathcal{T},\enspace d \in \mathcal{D}$$
+
+**`st_injects`**
+
+$$\mathit{flow}_{t,\mathrm{st\_port}(s)} = \mathit{st\_discharge}_{t,s} - \mathit{st\_charge}_{t,s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S}$$
+
+**`st_soc_balance`**
+
+$$\mathit{st\_soc}_{t,s} = \mathit{st\_soc}_{t \boxminus_{0} 1,s} + \mathit{st\_charge}_{t,s} - \mathit{st\_discharge}_{t,s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S}$$
+
+#### Variable domains
+
+**`flow`**
+
+$$\mathit{flow}_{t,p} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace p \in \mathcal{P}$$
+
+**`gen_cap`**
+
+$$0 \le \mathit{gen\_cap}_{g} \le \mathrm{gen\_cap\_max}_{g} \qquad \forall\thinspace g \in \mathcal{G}$$
+
+**`gen_p`**
+
+$$\mathit{gen\_p}_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`st_charge`**
+
+$$\mathit{st\_charge}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S}$$
+
+**`st_discharge`**
+
+$$\mathit{st\_discharge}_{t,s} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S}$$
+
+**`st_soc`**
+
+$$0 \le \mathit{st\_soc}_{t,s} \le \mathrm{st\_capacity}_{s} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S}$$
+
+#### `examples/composed/operate.yaml`
+
+```yaml
+description: >-
+  The same system, operating a fleet somebody already built. The whole patch is
+  that capacity stops being a decision: the constraint that reads it is
+  untouched, and its cost becomes the sunk constant it is.
+variables:
+  gen_cap: null
+parameters:
+  gen_cap: { dims: [generator] }
+```
+
+#### The model that patch makes
+
+The same system, operating a fleet somebody already built. The whole patch is that capacity stops being a decision: the constraint that reads it is untouched, and its cost becomes the sunk constant it is.
+
+#### Sets
+
+| Symbol | Meaning |
+|---|---|
+| $\mathcal{T}$ | index $t$ — `snapshot` |
+| $\mathcal{B}$ | index $b$ — `bus` |
+| $\mathcal{P}$ | index $p$ — `port` with $\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B}$ |
+| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_port}: \mathcal{G} \to \mathcal{P}$ |
+| $\mathcal{D}$ | index $d$ — `demand` with $\mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}$ |
+| $\mathcal{S}$ | index $s$ — `store` with $\mathrm{st\_port}: \mathcal{S} \to \mathcal{P}$ |
+
+#### Parameters
+
+| Symbol | Meaning |
+|---|---|
+| $\mathrm{gen\_cost}$ | `gen_cost` over $\mathcal{G}$ |
+| $\mathrm{gen\_invest}$ | `gen_invest` over $\mathcal{G}$ |
+| $\mathrm{gen\_cap\_max}$ | `gen_cap_max` over $\mathcal{G}$ |
+| $\mathrm{dem\_load}$ | `dem_load` over $\mathcal{T} \times \mathcal{D}$ |
+| $\mathrm{st\_capacity}$ | `st_capacity` over $\mathcal{S}$ |
+| $\mathrm{st\_holding}$ | `st_holding` (scalar) |
+| $\mathrm{gen\_cap}$ | `gen_cap` over $\mathcal{G}$ |
 
 #### Variables
 
@@ -181,7 +307,7 @@ $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leav
 
 #### Objective
 
-$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{gen\_p}_{t,g} \cdot \mathrm{gen\_cost}_{g} + \left( \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{st\_soc}_{t,s} \right) \cdot \mathrm{st\_holding}$$
+$$\min \sum_{g \in \mathcal{G}} \mathrm{gen\_cap}_{g} \cdot \mathrm{gen\_invest}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} \mathit{gen\_p}_{t,g} \cdot \mathrm{gen\_cost}_{g} + \left( \sum_{t \in \mathcal{T},\enspace s \in \mathcal{S}} \mathit{st\_soc}_{t,s} \right) \cdot \mathrm{st\_holding}$$
 
 #### Subject to
 
@@ -192,6 +318,10 @@ $$\sum_{p \in \mathcal{P} \thinspace:\thinspace \mathrm{port\_bus}(p) = b} \math
 **`gen_injects`**
 
 $$\mathit{flow}_{t,\mathrm{gen\_port}(g)} = \mathit{gen\_p}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**`gen_within_capacity`**
+
+$$\mathit{gen\_p}_{t,g} \le \mathrm{gen\_cap}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`dem_withdraws`**
 
@@ -213,7 +343,7 @@ $$\mathit{flow}_{t,p} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},
 
 **`gen_p`**
 
-$$0 \le \mathit{gen\_p}_{t,g} \le \mathrm{gen\_p\_max}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathit{gen\_p}_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 **`st_charge`**
 

@@ -19,7 +19,7 @@ import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
-from math_spec import merge, to_spec
+from math_spec import merge, override, to_spec
 from math_spec.typesetting import to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
@@ -60,6 +60,12 @@ COMPOSED = {
     },
 }
 
+#: Page -> the patch laid over the fragments above it. A composition and the
+#: model a patch makes of it are one narrative, so they are one page.
+PATCHES = {
+    'composed.md': {'operate': ROOT / 'examples' / 'composed' / 'operate.yaml'},
+}
+
 #: One PyPSA reference network per rung, run out of band with the versions
 #: each script pins; `references.json` beside them holds what each solve
 #: recorded.
@@ -72,7 +78,7 @@ def model_block(path: Path) -> str:
     return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
 
 
-def composed_block(fragments: dict[str, Path]) -> str:
+def composed_block(fragments: dict[str, Path], patches: dict[str, Path] | None) -> str:
     """Each fragment as written, then the document the composition prints.
 
     The fragments are shown separately and the math is not, which is the whole
@@ -84,7 +90,13 @@ def composed_block(fragments: dict[str, Path]) -> str:
         for name, path in fragments.items()
     ]
     composed = merge(fragments, description='A power system composed from four templates')
-    return '\n\n'.join([*parts, '#### The one model they make', to_markdown(composed, numbered=False).strip()])
+    parts += ['#### The one model they make', to_markdown(composed, numbered=False).strip()]
+    if patches:
+        for name, path in patches.items():
+            parts.append(f'#### `examples/composed/{name}.yaml`\n\n```yaml\n{without_header(path)}\n```')
+        operating = override(composed, patches)
+        parts += ['#### The model that patch makes', to_markdown(operating, numbered=False).strip()]
+    return '\n\n'.join(parts)
 
 
 def probe_block() -> str:
@@ -203,7 +215,7 @@ def block(page: str) -> str:
     if page in DECLARED:
         return declared_block(DECLARED[page])
     if page in COMPOSED:
-        return composed_block(COMPOSED[page])
+        return composed_block(COMPOSED[page], PATCHES.get(page))
     return model_block(MODELS[page])
 
 

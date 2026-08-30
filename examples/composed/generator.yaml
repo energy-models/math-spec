@@ -11,15 +11,23 @@ lookups:
   gen_port: { over: generator, into: port }
 parameters:
   gen_cost: { dims: [generator] }
-  gen_p_max: { dims: [generator] }
+  gen_invest: { dims: [generator] }
+  gen_cap_max: { dims: [generator] }
 variables:
+  gen_cap:
+    description: capacity built, which an operating model is told rather than decides
+    foreach: [generator]
+    bounds: { lower: 0, upper: gen_cap_max }
   gen_p:
     foreach: [snapshot, generator]
-    bounds: { lower: 0, upper: gen_p_max }
+    bounds: { lower: 0 }
 constraints:
   gen_injects:
     foreach: [snapshot, generator]
     expression: at(flow, by=gen_port) == gen_p
+  gen_within_capacity:
+    foreach: [snapshot, generator]
+    expression: gen_p <= gen_cap
 objective:
   sense: minimize
-  expression: sum(gen_p * gen_cost)
+  expression: sum(gen_cap * gen_invest) + sum(gen_p * gen_cost)
