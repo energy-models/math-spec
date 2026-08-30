@@ -22,8 +22,12 @@ from tools._page import ROOT, sidecar_for
 #: Every model the repository has; `examples/*.yaml` is not recursive, and a glob that narrows is a gate that stops testing.
 CORPUS = ('examples/**/*.yaml', 'tests/typesetting/golden/*.yaml')
 
-#: Inside that glob and not models: the symbol tables `sidecar_for` looks up.
-NOT_MODELS = ('examples/symbols',)
+#: Inside that glob and not models: the symbol tables `sidecar_for` looks up,
+#: and the composition fragments, which name what a sibling declares and are a
+#: load error alone — being one is what `examples/composed/` is showing. The
+#: model they make is rendered by `tools/gallery.py` and typeset in all three
+#: formats by `tests/test_merge.py`, so nothing here goes unrendered.
+NOT_MODELS = ('examples/symbols', 'examples/composed')
 
 
 def models() -> list[Path]:

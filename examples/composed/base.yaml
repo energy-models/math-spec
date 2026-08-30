@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  The coupling surface every component agrees on: one flow per port, and one
+  balance per bus. Every other fragment names `flow` and declares none of it.
+dimensions:
+  snapshot: { dtype: int }
+  bus: { dtype: str }
+  port: { dtype: str }
+lookups:
+  port_bus: { over: port, into: bus }
+variables:
+  flow:
+    description: what a port puts into its bus in a snapshot, negative for a withdrawal
+    foreach: [snapshot, port]
+constraints:
+  balance:
+    description: every bus clears
+    foreach: [snapshot, bus]
+    expression: sum(flow, by=port_bus) == 0

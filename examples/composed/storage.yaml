@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: Stores, each on one port, charging and discharging against a state of charge.
+dimensions:
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  store: { dtype: str }
+lookups:
+  st_port: { over: store, into: port }
+parameters:
+  st_capacity: { dims: [store] }
+  st_holding: { dims: [] }
+variables:
+  st_charge: { foreach: [snapshot, store], bounds: { lower: 0 } }
+  st_discharge: { foreach: [snapshot, store], bounds: { lower: 0 } }
+  st_soc: { foreach: [snapshot, store], bounds: { lower: 0, upper: st_capacity } }
+constraints:
+  st_injects:
+    foreach: [snapshot, store]
+    expression: at(flow, by=st_port) == st_discharge - st_charge
+  st_soc_balance:
+    foreach: [snapshot, store]
+    expression: st_soc == shift(st_soc, over=snapshot, offset=1, edge=0) + st_charge - st_discharge
+objective:
+  sense: minimize
+  expression: sum(st_soc) * st_holding
