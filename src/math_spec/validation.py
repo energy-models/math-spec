@@ -110,6 +110,8 @@ def validate_expressions(schema: Spec) -> None:
             if (mask := _check_where(case.when, ns, case_context, errors)) is not None:
                 masks[case_name] = mask
             _check_expression(case.expression, schema, ns, case_context, errors, comparison=False, ceiling=1)
+        assert block.otherwise is not None
+        _check_expression(block.otherwise, schema, ns, f'{context}, otherwise', errors, comparison=False, ceiling=1)
         if len(errors) == found:
             errors.extend(f'{context}: {problem}' for problem in overlapping(masks, schema))
 

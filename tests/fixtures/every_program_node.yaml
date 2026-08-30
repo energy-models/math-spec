@@ -23,7 +23,7 @@ expressions:
     foreach: [t, g]
     cases:
       opening: { when: "position(t) == 0", expression: 0 }
-      default: shift(p, over=t, offset=1, edge='wrap')
+    otherwise: shift(p, over=t, offset=1, edge='wrap')
 constraints:
   regional:
     foreach: [t, g]

@@ -353,7 +353,7 @@ expressions:
       boundary:
         when: "committable and position(snapshot) == 0"
         expression: status_initial
-      default: shift(status, over=snapshot, offset=1)
+    otherwise: shift(status, over=snapshot, offset=1)
 constraints:
   ramp_up:
     foreach: [snapshot, generator]
@@ -374,22 +374,22 @@ coordinate is not a quantity, so the regimes are spelled apart rather than
 ranked, and the cases can be read in any order — each one says where it applies
 on its own terms, without the ones above it in mind.
 
-**`default` is the case with no `when`**, and it takes every coordinate the
-others leave. That is what makes the quantity whole without a second proof:
-there is no condition on it to fail. Which is also why it is required — a
-coordinate no `when` matched would have no value, and absence
+**`otherwise:` is the value wherever no `when` holds**, and it takes every
+coordinate the cases leave. That is what makes the quantity whole without a
+second proof: there is no condition on it to fail. Which is also why it is
+required — a coordinate no `when` matched would have no value, and absence
 [spreads](absence.md), so a constraint reading the expression would lose rows it
-never masked. Having no mask to narrow its frame, `default` is the case that has
-to say what an absent parameter or an unnamed label gets.
+never masked. Having no mask to narrow its frame, `otherwise:` is the one that
+has to say what an absent parameter or an unnamed label gets.
 
-The name is reserved and the position is fixed: `default` is written last,
-because that is the row it prints on, and no other case may omit its `when`.
-Having nothing but a value to carry, it is written as one — the same shorthand
-`expressions:` itself takes.
+It is written beside `cases:` rather than inside them, because it is not a
+region like they are — it is what is left. Having nothing but a value to carry,
+it is written as one, the same shorthand `expressions:` itself takes, and it
+prints as the last row, the one that reads "otherwise".
 
 Covering a coordinate is not the same as having a value there, though, and a
-case that claims one may be empty at it. `default` above is the case in point:
-its `shift` carries no `edge=`, so it has no value at the first snapshot, and
+case that claims one may be empty at it. The `otherwise:` above is the case in
+point: its `shift` carries no `edge=`, so it has no value at the first snapshot, and
 `previous_status` is whole only because every unit at that snapshot is claimed
 by `boundary` or by `always_on`. Close such a hole by widening a `when` until it
 covers the coordinate the case drops out at, by giving the `shift` an `edge=`,
@@ -411,9 +411,9 @@ variable's or a constraint's mask is, and each case's value must sit inside it.
 cases: one narrower than the frame broadcasts, exactly as a parameter with
 fewer dims does.
 
-One `expression:` or a set of `cases:`, never both and never neither, and a
-region beside `default` — a block whose only case is `default` is one value
-everywhere, which the plain form already says.
+One `expression:` or a set of `cases:` with their `otherwise:`, never both and
+never neither. The cases carry no order — each says where it applies on its own
+terms — so a file a formatter re-sorted says what it said before.
 
 ### A cased expression is the one that keeps its name
 
@@ -436,8 +436,8 @@ would never apply.
 [The unit commitment example](../../examples/commitment.md) is the whole model
 this section is drawn from.
 
-**`cases:` inside a `macros:` template is not supported.** `default` would have
-to cover a frame the macro does not have until it is called.
+**`cases:` inside a `macros:` template is not supported.** The `otherwise:`
+would have to cover a frame the macro does not have until it is called.
 
 ## Macros
 

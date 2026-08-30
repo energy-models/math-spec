@@ -83,13 +83,13 @@ sos:
     type: 2
 
 expressions:
-  startup_cost: # a quantity defined by region: no two cases overlap, and `default` is last
+  startup_cost: # a quantity defined by region: no two cases overlap, and `otherwise` is the rest
     description: what starting a unit in this snapshot costs, which the horizon's edge changes
     foreach: [snapshot, generator]
     cases:
       opening: { when: "position(snapshot) == 0", expression: cost }
       winter: { when: "position(snapshot) > 0 and season_of == 'winter'", expression: cost * 2 }
-      default: 0
+    otherwise: 0
 
 constraints:
   starts: # names the cased expression: its symbol prints here, its block once below

@@ -154,13 +154,15 @@ def _parse_cased(name: str, block: ExpressionBlock, context: str) -> CasesNode:
     The arms come out in file order, which is the order they print in, and
     carry unresolved ``when`` masks — expansion runs before resolution, so
     :mod:`math_spec.resolution` types those along with everything else. The
-    ``default`` case is the last arm, and the only one with no mask.
+    block's ``otherwise:`` becomes the last arm, the only one with no mask.
     """
     arms = []
     for label, case in block.cases.items():
-        when = None if case.when is None else parse_where(case.when)
         value = _parse_body(case.expression, f"named expression '{name}', case '{label}'", context)
-        arms.append(CaseArm(label, when, value))
+        arms.append(CaseArm(label, parse_where(case.when), value))
+    assert block.otherwise is not None
+    fallback = _parse_body(block.otherwise, f"named expression '{name}', otherwise", context)
+    arms.append(CaseArm('otherwise', None, fallback))
     return CasesNode(name, tuple(arms))
 
 

@@ -639,7 +639,7 @@ class Walk:
     def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
         """Each arm as its value and the words saying where it applies.
 
-        Which arm is the ``default`` is a fact about the math, so the *walk*
+        Which arm is the fallback is a fact about the math, so the *walk*
         chooses between "if" and "otherwise" and a Format only stacks the rows.
         """
         arms = []

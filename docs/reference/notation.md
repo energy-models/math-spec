@@ -505,7 +505,7 @@ $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace
 
 #### `startup_cost`
 
-a quantity defined by region: no two cases overlap, and `default` is last
+a quantity defined by region: no two cases overlap, and `otherwise` is the rest
 
 ```yaml
 startup_cost:
@@ -513,7 +513,7 @@ startup_cost:
   cases:
     opening: { when: "position(snapshot) == 0", expression: cost }
     winter: { when: "position(snapshot) > 0 and season_of == 'winter'", expression: cost * 2 }
-    default: 0
+  otherwise: 0
 ```
 
 $$\mathrm{startup\_cost}_{t,g} = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{pos}(t) > 0 \wedge \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \cr 0 & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$

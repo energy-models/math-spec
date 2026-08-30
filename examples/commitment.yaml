@@ -44,7 +44,7 @@ expressions:
       boundary:
         when: "committable and position(snapshot) == 0"
         expression: status_initial
-      default: shift(status, over=snapshot, offset=1)
+    otherwise: shift(status, over=snapshot, offset=1)
 
 constraints:
   power_balance:
