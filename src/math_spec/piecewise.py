@@ -42,14 +42,26 @@ from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
 from math_spec.expression_parser import ComparisonNode
-from math_spec.model import Curvature, PiecewiseBlock, Spec, _ExpandedSpec, undeclared_dimension
+from math_spec.model import Curvature, ExpandedPiecewise, PiecewiseBlock, Spec, _ExpandedSpec, undeclared_dimension
+from math_spec.program import (
+    AtLeastTwo,
+    Check,
+    Contiguous,
+    Curved,
+    Derivation,
+    FirstOf,
+    Increasing,
+    LastOf,
+    MaskOf,
+    PiecewiseDeclaration,
+)
 from math_spec.resolution import Namespace, resolve_expression
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
-def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
+def _mask_of(block: str, pw: PiecewiseBlock) -> str | None:
     """The parameter a block masks its weights with, or ``None`` for a whole curve.
 
     ``points:`` may name the mask itself, or one of the block's own values
@@ -62,30 +74,68 @@ def mask_of(block: str, pw: PiecewiseBlock) -> str | None:
     return f'{block}_points' if pw.points in {link.values for link in pw.links} else pw.points
 
 
-def curvature_required(pw: PiecewiseBlock) -> Curvature | None:
+def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
     """The curvature *pw*'s method is only exact for, or ``None`` if any shape works.
 
     ``convex`` relaxes the weights onto the hull, which cuts the corners of a
     *mixed* curve and nothing else, so it answers ``'either'``. ``lp`` states
     one side of the curve as its segment lines and the bounded link's sign says
     which side, so the opposite bend is silently wrong rather than merely loose.
-
-    The breakpoints decide whether a model meets the condition, and they arrive
-    with the data rather than with the schema — so this names what to check,
-    and the caller holding the numbers does the checking.
-
-    Args:
-        pw: The block whose method is in question.
-
-    Returns:
-        One of :data:`~math_spec.model.CURVATURES` for a method that constrains
-        the shape, or ``None`` for one that does not.
     """
     if pw.method == 'convex':
         return 'either'
     if pw.method != 'lp':
         return None
     return 'convex' if pw.curve[1].sign == '>=' else 'concave'
+
+
+def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:
+    """The facts of one expanded block, as a program carries them.
+
+    A curve has an x-axis only where two links tie it, so the increasing
+    condition — and the shape it is checked with — exist only there; ``lp``
+    alone needs a segment to state a line for; a mask must be one run.
+    """
+    pw = expanded.block
+    checks: list[Check] = []
+    curvature = _curvature_required(pw)
+    if curvature is not None:
+        x, y = pw.curve
+        checks.append(Increasing(x.values, pw.over))
+        checks.append(Curved(x.values, y.values, pw.over, curvature))
+    if pw.method == 'lp':
+        checks.append(AtLeastTwo(pw.over, expanded.points))
+    if expanded.points is not None:
+        checks.append(Contiguous(expanded.points, _nominated(expanded)))
+    return PiecewiseDeclaration(
+        over=pw.over,
+        method=pw.method,
+        breakpoints=tuple(link.values for link in pw.links),
+        checks=tuple(checks),
+    )
+
+
+def derivations_of(block: str, expanded: ExpandedPiecewise) -> dict[str, Derivation]:
+    """How each parameter *block*'s expansion emitted is filled, by name.
+
+    Everything emitted hangs off the mask, so a block masking nothing emits
+    nothing for the caller to be told about.
+    """
+    if (mask := expanded.points) is None:
+        return {}
+    derivations: dict[str, Derivation] = {}
+    if (values := _nominated(expanded)) is not None:
+        derivations[mask] = MaskOf(block, values)
+    if expanded.starts is not None:
+        derivations[expanded.starts] = FirstOf(block, mask)
+    if expanded.ends is not None:
+        derivations[expanded.ends] = LastOf(block, mask)
+    return derivations
+
+
+def _nominated(expanded: ExpandedPiecewise) -> str | None:
+    """The breakpoint parameter the mask was derived from, or ``None`` where the file supplied the mask itself."""
+    return expanded.block.points if expanded.block.points != expanded.points else None
 
 
 def _gate_rows(schema: Spec, pw: PiecewiseBlock) -> tuple[tuple[str, str | None, str], ...]:
@@ -136,17 +186,21 @@ def expand_piecewise(schema: Spec) -> _ExpandedSpec:
     raw = schema.model_dump()
     raw.setdefault('variables', {})
     raw.setdefault('constraints', {})
+    records: dict[str, dict[str, Any]] = {}
+    raw['expanded_piecewise'] = records
     for name, pw in schema.piecewise.items():
         frame = _validate_block(schema, name, pw)
-        mask, nominated = mask_of(name, pw), pw.points
-        if nominated is not None and mask != nominated:
-            raw.setdefault('parameters', {})[mask] = {
-                'dims': list(schema.parameters[nominated].dims),
-                'dtype': 'bool',
-                'description': f"where '{nominated}' has a row, and so where the curve runs",
-            }
+        mask, nominated = _mask_of(name, pw), pw.points
+        record = records[name] = {'block': raw['piecewise'][name], 'points': mask}
+        if mask is not None and nominated is not None and mask != nominated:
+            _emit_parameter(
+                raw,
+                mask,
+                list(schema.parameters[nominated].dims),
+                f"where '{nominated}' has a row, and so where the curve runs",
+            )
         if pw.method == 'lp':
-            _expand_lp(raw, name, pw, frame, mask, schema.parameters[pw.points].dims if pw.points else ())
+            _expand_lp(raw, record, name, pw, frame, mask, schema.parameters[pw.points].dims if pw.points else ())
             continue
         lam = f'{name}_lam'
 
@@ -197,6 +251,7 @@ def expand_piecewise(schema: Spec) -> _ExpandedSpec:
 
 def _expand_lp(
     raw: dict[str, Any],
+    record: dict[str, Any],
     name: str,
     pw: PiecewiseBlock,
     frame: tuple[str, ...],
@@ -232,11 +287,13 @@ def _expand_lp(
     axis = (('domain_lo', '>=', f'position({d}) == 0'), ('domain_hi', '<=', f'position({d}) == -1'))
     for suffix, sense, at in edges if mask else axis:
         if mask:
-            raw.setdefault('parameters', {})[at] = {
-                'dims': list(schema_dims),
-                'dtype': 'bool',
-                'description': f'the {"first" if sense == ">=" else "last"} breakpoint of each curve',
-            }
+            record['starts' if sense == '>=' else 'ends'] = at
+            _emit_parameter(
+                raw,
+                at,
+                list(schema_dims),
+                f'the {"first" if sense == ">=" else "last"} breakpoint of each curve',
+            )
         raw['constraints'][f'{name}_{suffix}'] = {
             'foreach': [*frame, d],
             'where': at,
@@ -297,7 +354,7 @@ def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock) -> tuple[str, .
                 f"it, or drop it from '{link.values}'."
             )
 
-    if pw.points is not None and mask_of(name, pw) == pw.points:
+    if pw.points is not None and _mask_of(name, pw) == pw.points:
         if pw.points not in schema.parameters:
             raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
         if (dtype := schema.parameters[pw.points].dtype) != 'bool':
@@ -328,7 +385,7 @@ def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock) -> tuple[str, .
         f'{name}_domain_hi',
         *(f'{name}_link{i}' for i in range(len(pw.links))),
     )
-    derived = (f'{name}_points',) if mask_of(name, pw) != pw.points else ()
+    derived = (f'{name}_points',) if _mask_of(name, pw) != pw.points else ()
     for kind, emitted, declared in (
         ('variable', (f'{name}_lam', f'{name}_seg'), schema.variables),
         ('parameter', (f'{name}_starts', f'{name}_ends', *derived), schema.parameters),
@@ -339,6 +396,11 @@ def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock) -> tuple[str, .
             if one in declared:
                 raise PiecewiseExpansionError(f"{ctx}: emitted {kind} '{one}' collides with a declared {kind}")
     return tuple(frame)
+
+
+def _emit_parameter(raw: dict[str, Any], name: str, dims: list[str], description: str) -> None:
+    """Write a ``bool`` parameter the expansion derives."""
+    raw.setdefault('parameters', {})[name] = {'dims': dims, 'dtype': 'bool', 'description': description}
 
 
 def _declared_order(schema: Spec, dims: frozenset[str]) -> list[str]:

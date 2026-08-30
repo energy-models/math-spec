@@ -263,13 +263,33 @@ def test_a_mask_that_is_only_true_prints_no_condition(fmt: Format):
     """The language says `True` is the same as no `where`, so a `\\top` on the
     quantifier would put a condition on the page that reads as one and is not.
 
-    Nested it still prints: `\\top \\wedge x` is what the file says, and simplifying a
-    mask belongs to resolution rather than to the typesetter.
+    Nested it printed — `\\top \\wedge x` — while the program lowered the same
+    mask to `x`: two readers of one file disagreeing about what it says. The
+    fold is resolution's, so the page prints what the program carries.
     """
     always = override(DISPATCH_MODEL, **{'constraints.balance.where': 'True'})
-    assert fmt.operators['true'] not in typeset(always, fmt)
+    assert typeset(always, fmt) == typeset(DISPATCH_MODEL, fmt), 'a mask every row passes is no mask at all'
     nested = override(DISPATCH_MODEL, **{'constraints.balance.where': 'True AND load > 0'})
-    assert fmt.operators['true'] in typeset(nested, fmt)
+    plain = override(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'})
+    assert typeset(nested, fmt) == typeset(plain, fmt), 'a literal under a connective is folded before it prints'
+
+
+@EVERY_FORMAT
+def test_a_negative_fill_prints(fmt: Format):
+    """`edge=-1` lowered to `fill=-1.0` and typeset as an AssertionError.
+
+    The parser reads a negated literal as a unary minus over a number, and
+    every reader of an `offset=` or `edge=` peeled that sign for itself —
+    lowering did, the walk's step did not. Resolution folds a literal to one
+    signed number now, so there is nothing left to peel.
+    """
+    model = {
+        'dimensions': {'g': {}},
+        'parameters': {'cap': {'dims': ['g']}},
+        'variables': {'p': {'foreach': ['g']}},
+        'constraints': {'k': {'foreach': ['g'], 'expression': 'p <= shift(cap, over=g, offset=1, edge=-1)'}},
+    }
+    assert fmt.operators['edge_minus'] in typeset(model, fmt, legend=False)
 
 
 @EVERY_FORMAT

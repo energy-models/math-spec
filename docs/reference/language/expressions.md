@@ -182,7 +182,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `position(name) OP i`            | one dimension                    | where the row sits along that dimension's own order, as an integer — `0` is first, negative counts from the end. Both sides are integers, so every comparator reads the one way                                                             |
 | `position(name, by=lookup) OP i` | a dimension and a lookup over it | the same, counted **within each group** the lookup makes — every period's first snapshot, whatever each period's length                                                                                                                     |
 | `AND` `OR` `NOT`                 | —                                | case-insensitive; `NOT` binds tighter than `AND`, which binds tighter than `OR`                                                                                                                                                             |
-| `True` / `False`                 | —                                | literals; `True` is the same as no `where`                                                                                                                                                                                                  |
+| `True` / `False`                 | —                                | literals, decided at load wherever they stand: `True` is the same as no `where`, `False` is a declaration with no rows, and one under an `AND` or an `OR` settles that side — `x AND False` is the declaration with no rows too             |
 
 The mask's dims must not exceed the frame it sits in
 ([dim algebra](#dim-algebra)), and an undeclared bare name is a

@@ -183,7 +183,13 @@ def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> Expre
 
 
 def where_of(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> WhereNode | None:
-    """Parse and resolve a where string; ``None`` stays ``None``.
+    """Parse, resolve and fold a where string — ``None`` for no mask, however the file spelled it.
+
+    Every constant the connectives decide is folded away, so a mask that
+    admits every row arrives as ``None`` and one that admits none as
+    ``BooleanLiteralNode(False)``; that node stands at the root of a mask or
+    nowhere in it, and every reader — a program, a typeset page — gets the
+    same predicate.
 
     Raises:
         LanguageError: Listing every problem the predicate has.
@@ -194,7 +200,40 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
     resolved = resolve_where(parse_where(text), ns, context, errors, self_variable)
     if errors:
         raise LanguageError('\n'.join(errors))
-    return resolved
+    assert resolved is not None
+    folded = _fold(resolved)
+    if isinstance(folded, BooleanLiteralNode) and folded.value:
+        return None
+    return folded
+
+
+def _fold(node: WhereNode) -> WhereNode:
+    """*node* with every literal a connective decides evaluated away.
+
+    ``X AND True`` is ``X``, ``X OR True`` is every row, ``X AND False`` is
+    none, and ``NOT True`` is ``False``. What survives is a predicate over
+    data, or the one literal the whole mask reduces to.
+    """
+    if isinstance(node, NotNode):
+        operand = _fold(node.operand)
+        if isinstance(operand, BooleanLiteralNode):
+            return BooleanLiteralNode(not operand.value)
+        return NotNode(operand)
+    if isinstance(node, AndNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return right if left.value else left
+        if isinstance(right, BooleanLiteralNode):
+            return left if right.value else right
+        return AndNode(left, right)
+    if isinstance(node, OrNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return left if left.value else right
+        if isinstance(right, BooleanLiteralNode):
+            return right if right.value else left
+        return OrNode(left, right)
+    return node
 
 
 # ---------------------------------------------------------------------------
@@ -375,6 +414,20 @@ def _unsigned(value: ArithmeticNode) -> ArithmeticNode:
     return value.operand if isinstance(value, UnaryOperatorNode) else value
 
 
+def _literal(value: ArithmeticNode) -> NumberNode | None:
+    """The number a literal names, its sign folded in — ``None`` where *value* is not one.
+
+    Folded here so that every later reader of an ``offset=`` or ``edge=`` —
+    the dim rules, lowering, the typesetter — meets one signed number rather
+    than each peeling a unary minus of its own.
+    """
+    if isinstance(value, NumberNode):
+        return value
+    if isinstance(value, UnaryOperatorNode) and isinstance(value.operand, NumberNode):
+        return NumberNode(-value.operand.value if value.op == '-' else value.operand.value)
+    return None
+
+
 def _resolve_amount(
     value: ArithmeticNode, ns: Namespace, context: str, operator: str, key: str, errors: list[str]
 ) -> ArithmeticNode:
@@ -383,7 +436,9 @@ def _resolve_amount(
     Closed so that :func:`math_spec.dimensions._check_named_amount` sees every
     parameter an amount carries.
     """
-    if not isinstance(_unsigned(value), NumberNode | NameNode):
+    if (literal := _literal(value)) is not None:
+        return literal
+    if not isinstance(_unsigned(value), NameNode):
         errors.append(
             f'{context}: {operator}({key}=) takes a number or the name of an integer parameter. '
             f'Precompute it as a parameter.'
@@ -419,12 +474,13 @@ def _resolve_edge(
             return value
         errors.append(f'{context}: {edge_error(operator, value.name)}')
         return value
-    if not isinstance(_unsigned(value), NumberNode):
+    if (literal := _literal(value)) is None:
         errors.append(
             f"{context}: {operator}(edge=) is an expression, and an edge is the keyword '{EDGE_WRAP}' "
             f'or a number. Write the number itself.'
         )
-    return value
+        return value
+    return literal
 
 
 def _resolve_dim_ref(

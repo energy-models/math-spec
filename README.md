@@ -115,7 +115,7 @@ spec = ms.to_spec('dispatch.yaml')  # schema, names, dims, degree — all checke
 sorted(spec.variables)  # ['p']
 
 program = ms.to_program(spec)  # curves expanded, names typed, operators resolved to nodes
-program.constraints[0].name  # 'power_balance'
+sorted(program.constraints)  # ['power_balance']
 ```
 
 Neither needs data or a solver: a repository of models can be compiled in CI

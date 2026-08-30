@@ -47,7 +47,6 @@ OPERATOR_SPELLINGS: dict[str, tuple[str, str]] = {
     'and': (r'\wedge', 'and'),
     'or': (r'\vee', 'or'),
     'not': (r'\neg', 'not'),
-    'true': (r'\top', 'top'),
     'false': (r'\bot', 'bot'),
     'forall': (r'\forall\,', 'forall'),
     'such_that': (r'\,:\,', 'colon'),

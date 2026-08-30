@@ -75,17 +75,25 @@ class _StrictBlock(BaseModel):
         return data
 
 
-#: The dtype a dimension index may declare (the declaration rules).
+#: The dtype a dimension index may declare (the declaration rules), and what
+#: its labels are. ``datetime`` is a dimension's alone — labels on a timeline
+#: order and compare, where a *value* of that type is a moment nothing
+#: computes with.
 DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 
 #: The dtype a parameter may declare (the declaration rules), and what its bound
-#: column must be.
+#: column must be. ``bool`` is a parameter's alone — a value column may be a
+#: flag a mask reads, where a label set of two members is a dimension nothing
+#: indexes by.
 ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
 
-#: What a masked variable's non-existence *means*.
+#: What a masked variable's non-existence *means* where it does not exist.
+#: ``undefined`` is the absence rules' default — a term carrying it takes its
+#: row. ``zero`` says the quantity *is* zero there, so the term contributes
+#: nothing and the row stands.
 VariableAbsence = Literal['undefined', 'zero']
 
 #: Which way an objective is optimised (the declaration rules).
@@ -102,10 +110,10 @@ SosType = Literal[1, 2]
 #: ``tests/test_schema.py``.
 PiecewiseMethod = Literal['adjacency', 'sos2', 'convex', 'lp']
 
-#: The shape a method needs a curve to have to be exact on it, answered by
-#: :func:`~math_spec.piecewise.curvature_required`. ``convex`` and ``concave``
-#: name one bend; ``either`` is the hull's weaker condition — any single bend
-#: will do, and only a *mixed* curve fails it.
+#: The shape a method needs a curve to have to be exact on it, carried by the
+#: :class:`~math_spec.program.Curved` check. ``convex`` and ``concave`` name
+#: one bend; ``either`` is the hull's weaker condition — any single bend will
+#: do, and only a *mixed* curve fails it.
 Curvature = Literal['convex', 'concave', 'either']
 
 #: The set form of each vocabulary above, for callers that want membership.
@@ -970,6 +978,20 @@ class Spec(_StrictBlock):
         return self
 
 
+class ExpandedPiecewise(_StrictBlock):
+    """A ``piecewise:`` block after expansion: the block, and the parameters it emitted.
+
+    ``points`` is the mask the weights carry — the file's own parameter, or
+    the one derived from a values parameter; ``starts`` and ``ends`` are the
+    edge flags an ``lp`` block under a mask sits its domain rows on.
+    """
+
+    block: PiecewiseBlock
+    points: str | None = None
+    starts: str | None = None
+    ends: str | None = None
+
+
 class _ExpandedSpec(Spec):
     """A model with nothing left to expand — what rows are built from.
 
@@ -978,6 +1000,11 @@ class _ExpandedSpec(Spec):
     that builds takes this type; one that reads takes :class:`Spec` and
     accepts either.
     """
+
+    #: What each ``piecewise:`` block became, under the block's name — the
+    #: block as written and the names its expansion chose, which is what a
+    #: program's :class:`~math_spec.program.PiecewiseDeclaration` is built from.
+    expanded_piecewise: dict[str, ExpandedPiecewise] = {}
 
     @model_validator(mode='after')
     def _nothing_left_to_expand(self) -> _ExpandedSpec:

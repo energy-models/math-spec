@@ -17,6 +17,94 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.47](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.46...v0.0.0-alpha.47) (2026-08-28)
+
+
+### Documentation
+
+* the README's example of reading a loaded model runs as written ([#240](https://github.com/energy-models/math-spec/issues/240)) ([304a233](https://github.com/energy-models/math-spec/commit/304a233d408979aa54b7fa2b0a6b5f12469e8afd))
+
+## [0.0.0-alpha.46](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.45...v0.0.0-alpha.46) (2026-08-28)
+
+
+### Features
+
+* **program:** a piecewise assumption names the data it is about, and a derived parameter says how it is filled ([#237](https://github.com/energy-models/math-spec/issues/237)) ([48431b1](https://github.com/energy-models/math-spec/commit/48431b1a72197570ab291103267212d269141936))
+
+## [0.0.0-alpha.45](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.44...v0.0.0-alpha.45) (2026-08-28)
+
+
+### Bug Fixes
+
+* **language:** a negative edge fill prints, the sign of a literal amount being folded once at resolution ([#234](https://github.com/energy-models/math-spec/issues/234)) ([d9303db](https://github.com/energy-models/math-spec/commit/d9303dbd1e824f674331b7e9403dd5799444dd15))
+
+## [0.0.0-alpha.44](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.43...v0.0.0-alpha.44) (2026-08-28)
+
+
+### Bug Fixes
+
+* **language:** a where mask is folded at resolution, so a typeset page and a program agree about it ([#232](https://github.com/energy-models/math-spec/issues/232)) ([553bda0](https://github.com/energy-models/math-spec/commit/553bda0239932b8a1225a6df0f9d008dff5e285d))
+
+## [0.0.0-alpha.43](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.42...v0.0.0-alpha.43) (2026-08-28)
+
+
+### Features
+
+* **program:** a parameter says which piecewise block derived it, and a label space keeps its dtype ([#227](https://github.com/energy-models/math-spec/issues/227)) ([515dbd5](https://github.com/energy-models/math-spec/commit/515dbd5054dae8ae61fd8818be4d204e1d98950b))
+* **program:** a piecewise block is kept as facts — its breakpoints, its mask, and what it assumes of the data ([#228](https://github.com/energy-models/math-spec/issues/228)) ([2fdbd6f](https://github.com/energy-models/math-spec/commit/2fdbd6f5760975132f0dc9db605b11f4d2cc7103))
+
+## [0.0.0-alpha.42](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.41...v0.0.0-alpha.42) (2026-08-28)
+
+
+### Bug Fixes
+
+* **language:** a negative sum_back width is refused at load rather than asserting in lowering ([#223](https://github.com/energy-models/math-spec/issues/223)) ([62e52eb](https://github.com/energy-models/math-spec/commit/62e52eb6c7071f16e360055c5d11870e8a2ba1a0)), closes [#222](https://github.com/energy-models/math-spec/issues/222)
+
+## [0.0.0-alpha.41](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.40...v0.0.0-alpha.41) (2026-08-28)
+
+
+### Bug Fixes
+
+* **language:** a boolean literal in a where is decided at load wherever it stands ([#216](https://github.com/energy-models/math-spec/issues/216)) ([fab308f](https://github.com/energy-models/math-spec/commit/fab308f61fddfad230fe8fb9d11e3961faa0a704)), closes [#214](https://github.com/energy-models/math-spec/issues/214)
+
+## [0.0.0-alpha.40](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.39...v0.0.0-alpha.40) (2026-08-28)
+
+
+### Refactoring
+
+* **program:** the declaration vocabularies have one home, so a program cannot spell one differently from the file ([#219](https://github.com/energy-models/math-spec/issues/219)) ([f7596d7](https://github.com/energy-models/math-spec/commit/f7596d7bcf7ff61aff5a94807b34bf5516b29085)), closes [#209](https://github.com/energy-models/math-spec/issues/209)
+
+## [0.0.0-alpha.39](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.38...v0.0.0-alpha.39) (2026-08-28)
+
+
+### Bug Fixes
+
+* **advice:** a model handed over as a program is advised of everything a file is ([#217](https://github.com/energy-models/math-spec/issues/217)) ([4fc50e6](https://github.com/energy-models/math-spec/commit/4fc50e60b7387c657a7571650a151054f564308b)), closes [#210](https://github.com/energy-models/math-spec/issues/210)
+
+## [0.0.0-alpha.38](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.37...v0.0.0-alpha.38) (2026-08-28)
+
+
+### Features
+
+* **program:** a program says which of the language's constructs it uses ([#207](https://github.com/energy-models/math-spec/issues/207)) ([4e55a15](https://github.com/energy-models/math-spec/commit/4e55a15df57bef28364049ff16d449312d06aebd))
+
+
+### Bug Fixes
+
+* a file the language accepts is one every consumer can build, the edge rules being decided at load ([#211](https://github.com/energy-models/math-spec/issues/211)) ([a362ff0](https://github.com/energy-models/math-spec/commit/a362ff0e9bb582ffa11edadec69daf700f7cea3f))
+* **program:** a where mask cannot be rewritten under another consumer ([#197](https://github.com/energy-models/math-spec/issues/197)) ([ce406b0](https://github.com/energy-models/math-spec/commit/ce406b045567ff82732f818e2a905bf7d302852b))
+* **program:** an unknown dimension is refused rather than answered empty ([#199](https://github.com/energy-models/math-spec/issues/199)) ([96fdccf](https://github.com/energy-models/math-spec/commit/96fdccf105bf2ffc37d8cda078f3560e56bff9ec))
+* **program:** every expression node answers fan_in ([#202](https://github.com/energy-models/math-spec/issues/202)) ([f5cc67d](https://github.com/energy-models/math-spec/commit/f5cc67d9320ab254771e2d5527bf41641a6ca648))
+
+
+### Refactoring
+
+* **program:** a program is built by keyword, so a new field cannot reorder an old call ([#203](https://github.com/energy-models/math-spec/issues/203)) ([214394a](https://github.com/energy-models/math-spec/commit/214394a0dc2499b5af8c8300b2306631e9592f98))
+* **program:** a program's declarations are keyed by the name the file wrote ([#205](https://github.com/energy-models/math-spec/issues/205)) ([579264a](https://github.com/energy-models/math-spec/commit/579264a6b69557ab840edf38dace462e10b6715e))
+* **program:** drop the two pieces of the program API nothing reaches ([#204](https://github.com/energy-models/math-spec/issues/204)) ([ca25fa5](https://github.com/energy-models/math-spec/commit/ca25fa5433540d45b73bc9fe307eeca78bc47376))
+* **program:** expressions are the ones a row is built from, and the declared ones say so ([#206](https://github.com/energy-models/math-spec/issues/206)) ([81aaddd](https://github.com/energy-models/math-spec/commit/81aaddd655a8db6676f4f87c073908f6c0340a16))
+* **program:** the program module says what it promises, rather than offering its whole namespace ([#208](https://github.com/energy-models/math-spec/issues/208)) ([08d2f64](https://github.com/energy-models/math-spec/commit/08d2f644f1975aca0a3eb4927e034c402e6d46eb))
+
 ## [0.0.0-alpha.37](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.36...v0.0.0-alpha.37) (2026-08-28)
 
 

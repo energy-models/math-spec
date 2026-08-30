@@ -95,7 +95,7 @@
 \text{efficiency} && p_{t,g} & \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{ceiling} && \theta_{b} & \le \infty && \forall\, b \in \mathcal{B} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
-\text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \top \wedge \mathit{spill}_{t} \text{ exists} \\
+\text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \mathit{spill}_{t} \text{ exists} \\
 \text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot
 \end{align}
 

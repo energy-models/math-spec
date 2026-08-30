@@ -175,7 +175,7 @@ $$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T}$$
 
 **`redundant`**
 
-$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \top \wedge \mathit{spill}_{t} \text{ exists}$$
+$$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \mathit{spill}_{t} \text{ exists}$$
 
 **`never`**
 

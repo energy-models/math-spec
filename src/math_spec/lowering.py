@@ -50,10 +50,10 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
-from math_spec.piecewise import expand_piecewise
+from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import AndNode, BooleanLiteralNode, NotNode, WhereNode
+from math_spec.where_parser import AndNode, NotNode, WhereNode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -135,8 +135,14 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
     """
     expanded = schema
     ns = Namespace.of(expanded)
+    derivations = {
+        name: how
+        for block, ex in expanded.expanded_piecewise.items()
+        for name, how in derivations_of(block, ex).items()
+    }
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype) for name, pdef in expanded.parameters.items()
+        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
+        for name, pdef in expanded.parameters.items()
     }
 
     variables = {}
@@ -148,7 +154,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
         variables[vname] = program.VariableDeclaration(
             tuple(vdef.foreach),
-            where=_lower_where(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
+            where=where_of(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
             lower=lower,
             upper=upper,
             variable_type=variable_type,
@@ -157,7 +163,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
 
     constraints = {}
     for cname, cdef in expanded.constraints.items():
-        where = _lower_where(cdef.where, ns, f"constraint '{cname}'")
+        where = where_of(cdef.where, ns, f"constraint '{cname}'")
         ast = expression_of(cdef.expression, expanded, ns, f"constraint '{cname}'")
         if not isinstance(ast, ComparisonNode):
             raise LanguageError(
@@ -187,8 +193,11 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
 
     dimensions = {
         dname: program.DimensionDeclaration(
-            tuple(program.LookupDeclaration(cname, target) for cname, target in expanded.targeted_of(dname).items()),
-            tuple(expanded.labels_of(dname)),
+            tuple(
+                program.LookupDeclaration(lname, lk.into, lk.dtype)
+                for lname, lk in expanded.lookups.items()
+                if lk.over == dname
+            ),
             ddef.dtype,
         )
         for dname, ddef in expanded.dimensions.items()
@@ -210,6 +219,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         objective=objective,
         dimensions=dimensions,
         sos=sos,
+        piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
         named_expressions=expressions,
     )
 
@@ -379,29 +389,29 @@ class _Lowering:
     def shift(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``shift(x, over=d, offset=n)`` — the value at *t - offset* along one dim.
 
-        The longest of the four because *offset* and *edge* are read together:
-        what the vacated positions contribute decides whether a named offset is
-        sayable at all, so it is settled before the offset is read.
+        What the vacated positions contribute is ``edge=``'s to say, and the
+        language has already held it to the keyword or a number.
         """
         over_node = node.kwargs['over']
         if not isinstance(over_node, DimensionNode):
             raise LanguageError(f'{self.context}: shift(over=...) must name a dimension')
-        partition = _partition_of(node)
         by_node = node.kwargs['offset']
-        sign = 1
-        if isinstance(by_node, UnaryOperatorNode) and by_node.op == '-':
-            sign, by_node = -1, by_node.operand
         operand = self.expr(node.args[0])
         edge = node.kwargs.get('edge')
-        wrap = isinstance(edge, EdgeNode)
-        fill = None if wrap else _edge_fill(edge)
         by: int | str
         if isinstance(by_node, ParameterNode):
             by = by_node.name
         else:
             assert isinstance(by_node, NumberNode), 'an offset= that is neither is refused at load'
-            by = sign * int(by_node.value)
-        return program.Translate(operand, over_node.name, offset=by, wrap=wrap, fill=fill, partition=partition)
+            by = int(by_node.value)
+        return program.Translate(
+            operand,
+            over_node.name,
+            offset=by,
+            wrap=isinstance(edge, EdgeNode),
+            fill=edge.value if isinstance(edge, NumberNode) else None,
+            partition=_partition_of(node),
+        )
 
 
 #: One lowering per name in the language's ``BUILTIN_NAMES``. A table rather
@@ -415,21 +425,6 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
     'sum_back': _Lowering.sum_back,
     'shift': _Lowering.shift,
 }
-
-
-def _edge_fill(edge: ArithmeticNode | None) -> float | None:
-    """The number an ``edge=`` names, or ``None`` where it names nothing.
-
-    What it *may* name is the language's to say (``dimensions._check_edge``);
-    this only reads it.
-    """
-    if edge is None:
-        return None
-    sign = 1.0
-    if isinstance(edge, UnaryOperatorNode) and edge.op in ('-', '+'):
-        sign, edge = (-1.0 if edge.op == '-' else 1.0), edge.operand
-    assert isinstance(edge, NumberNode), 'an edge= that is neither a keyword nor a number is refused at load'
-    return sign * float(edge.value)
 
 
 def _partition_of(node: FunctionCallNode) -> str | None:
@@ -450,20 +445,3 @@ def _bound_expression(value: float | str) -> program.ExpressionNode:
     if isinstance(value, str):
         return program.Parameter(value)
     return program.Constant(value)
-
-
-# ---------------------------------------------------------------------------
-# where lowering
-# ---------------------------------------------------------------------------
-
-
-def _lower_where(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> WhereNode | None:
-    """Lower a where string to a program predicate, ``None`` when there is no mask.
-
-    A predicate that resolves to the constant ``True`` is dropped too: it is
-    equivalent to no mask.
-    """
-    node = where_of(text, ns, context, self_variable)
-    if isinstance(node, BooleanLiteralNode) and node.value:
-        return None
-    return node

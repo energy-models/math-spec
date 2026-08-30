@@ -18,9 +18,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 
 from math_spec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Frame, overlapping
-from math_spec.resolution import Namespace, where_of
+from math_spec.resolution import Namespace, resolve_where
 from math_spec.validation import to_spec
-from math_spec.where_parser import AndNode, NotNode, OrNode
+from math_spec.where_parser import AndNode, NotNode, OrNode, parse_where
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
@@ -59,7 +59,10 @@ def refusals(schema: Spec, cases: dict[str, str]) -> list[str]:
 
 
 def _mask(text: str, namespace: Namespace, name: str) -> WhereNode:
-    mask = where_of(text, namespace, f"case '{name}'")
+    """Resolved but not folded, which is the shape a case's `when` reaches the prover in."""
+    errors: list[str] = []
+    mask = resolve_where(parse_where(text), namespace, f"case '{name}'", errors)
+    assert not errors, errors
     assert mask is not None
     return mask
 
@@ -236,7 +239,7 @@ class TestSoundness:
     @pytest.mark.parametrize('seed', [1, 7])
     def test_a_pair_proved_apart_stays_apart_on_a_finer_grid(self, schema: Spec, seed: int):
         namespace = Namespace.of(schema)
-        atoms = [where_of(text, namespace, 'a probe') for text in self.ATOMS]
+        atoms = [_mask(text, namespace, 'a probe') for text in self.ATOMS]
         subjects = {
             'capacity': Subject('param', 'capacity'),
             'cyclic': Subject('param', 'cyclic'),

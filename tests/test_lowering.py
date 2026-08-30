@@ -26,7 +26,8 @@ import pytest
 import math_spec.program as program_module
 from math_spec import LanguageError, Spec
 from math_spec.exclusivity import overlapping
-from math_spec.lowering import _lower_where, _Lowering, lower_program
+from math_spec.expression_parser import FunctionCallNode, NumberNode
+from math_spec.lowering import _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
@@ -56,14 +57,15 @@ from math_spec.program import (
     variables_of,
     walk,
 )
-from math_spec.resolution import Namespace, expression_of
+from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.where_parser import (
     AndNode,
+    BooleanLiteralNode,
     DimensionComparisonNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
 )
-from tests.fixtures import schema_of
+from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, override, schema_of
 
 if TYPE_CHECKING:
     from math_spec.expression_parser import ArithmeticNode
@@ -167,18 +169,73 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
     ],
 )
 def test_where_lowering(dispatch_schema, where, expected):
-    assert _lower_where(where, Namespace.of(dispatch_schema), 't') == expected
+    assert where_of(where, Namespace.of(dispatch_schema), 't') == expected
+
+
+def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
+    """`offset=-1` parses as a unary minus over `1`; after resolution it is `-1`, for every reader alike."""
+    ns = Namespace.of(dispatch_schema)
+    node = expression_of('shift(p, over=snapshot, offset=-1, edge=+2)', dispatch_schema, ns, 't')
+    assert isinstance(node, FunctionCallNode)
+    assert (node.kwargs['offset'], node.kwargs['edge']) == (NumberNode(-1.0), NumberNode(2.0))
 
 
 def test_a_compound_where_lowers_to_something(dispatch_schema):
-    assert _lower_where('p_max > 0 AND NOT load == 0', Namespace.of(dispatch_schema), 't') is not None
+    assert where_of('p_max > 0 AND NOT load == 0', Namespace.of(dispatch_schema), 't') is not None
+
+
+@pytest.mark.parametrize(
+    ('where', 'expected'),
+    [
+        pytest.param('False', BooleanLiteralNode(False), id='the-empty-declaration-keeps-its-own-spelling'),
+        pytest.param('p_max > 0 AND True', ParameterComparisonNode('p_max', '>', 0.0), id='and-true-is-the-other-side'),
+        pytest.param('p_max > 0 OR False', ParameterComparisonNode('p_max', '>', 0.0), id='or-false-is-the-other-side'),
+        pytest.param('p_max > 0 OR True', None, id='or-true-is-no-mask-at-all'),
+        pytest.param('p_max > 0 AND False', BooleanLiteralNode(False), id='and-false-is-the-empty-declaration'),
+        pytest.param('NOT True', BooleanLiteralNode(False), id='not-true-is-false'),
+        pytest.param('NOT False', None, id='not-false-is-no-mask'),
+        pytest.param('NOT (p_max > 0 AND False)', None, id='a-branch-folded-away-folds-the-one-above-it'),
+        pytest.param(
+            '(p_max > 0 OR True) AND load',
+            ParameterDefinedNode('load'),
+            id='an-absorbed-side-takes-its-own-branch-with-it',
+        ),
+    ],
+)
+def test_a_literal_is_folded_wherever_it_stands(dispatch_schema, where, expected):
+    """One mask had two lowerings: `True` was dropped at the root and kept under a connective.
+
+    So a consumer that met `where: "True"` first — no mask at all — had no
+    reason to expect a `BooleanLiteralNode` under an `AND`, and `p_max > 0 AND
+    False` reached it as a tree that only says "no rows" once someone
+    evaluates it. Everything decidable without data is decided at load, and
+    which rows a mask admits is decidable wherever a literal meets a
+    connective.
+
+    The fold then lived in lowering alone, and the typesetter — reading the
+    same `where_of` — printed `True AND x` as written while the program said
+    `x`. It is resolution's now, so every reader of a mask gets one predicate.
+
+    What the table asserts between the rows: a `BooleanLiteralNode` is a node
+    a consumer meets at the root or nowhere.
+    """
+    assert where_of(where, Namespace.of(dispatch_schema), 't') == expected
+
+
+def test_a_folded_mask_reaches_the_declaration_the_shorter_spelling_would_have(dispatch_schema):
+    """The fold is the program's, not a helper's: two files, one declaration."""
+    written_out = lower_program(
+        expand_piecewise(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0 AND True'}))
+    )
+    plain = lower_program(expand_piecewise(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})))
+    assert written_out.variable('p') == plain.variable('p'), 'the same mask, so the same declaration'
 
 
 def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
     """It used to be a scalar-False mask in the eager lane: a model that
     builds, solves, and is silently empty. Resolution makes it a load error."""
     with pytest.raises(LanguageError, match="'no_such_param' not found"):
-        _lower_where('no_such_param', Namespace.of(dispatch_schema), 't')
+        where_of('no_such_param', Namespace.of(dispatch_schema), 't')
 
 
 def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
@@ -204,6 +261,99 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
     lowered = _Lowering(dispatch_schema, 't').expr(resolved('cost ** cost', dispatch_schema))
     assert isinstance(lowered, Power), 'a variable-free power has a plan node of its own'
+
+
+#: `fixtures.SMALL_MODEL` plus a second groupable lookup and a per-entity
+#: offset. Which node a construct becomes is mostly a claim about the dim it
+#: consumes and the dim it lands on, and stating that needs a third dimension
+#: and two lookups over one of them.
+SHAPES_MODEL = override(
+    SMALL_MODEL,
+    **{
+        'dimensions.z': {'dtype': 'str'},
+        'lookups.lk2': {'over': 'g', 'into': 'z'},
+        'parameters.lead': {'dims': ['g'], 'dtype': 'int'},
+    },
+)
+
+
+@pytest.fixture
+def shapes_schema() -> Spec:
+    return schema_of(SHAPES_MODEL)
+
+
+@pytest.mark.parametrize(
+    ('expression', 'expected'),
+    [
+        pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
+        pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
+        pytest.param(
+            'sum(p, by=lk)',
+            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',)),
+            id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
+        ),
+        pytest.param(
+            'sum(p, by=[lk])',
+            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',)),
+            id='a-one-element-list-is-the-plain-form',
+        ),
+        pytest.param(
+            'sum(p, by=[lk, lk2])',
+            GroupSum(Variable('p'), over='g', coordinate=('lk', 'lk2'), into=('h', 'z')),
+            id='two-coordinates-are-one-grouping-with-paired-tuples',
+        ),
+        pytest.param(
+            'at(r, by=lk)',
+            At(Variable('r'), over='g', coordinate=('lk',), into=('h',)),
+            id='a-pullback-walks-the-same-table-back',
+        ),
+        pytest.param(
+            "shift(p, over=g, offset=1, edge='wrap')",
+            Translate(Variable('p'), 'g', offset=1, wrap=True, fill=None),
+            id='a-wrapping-translation-fills-nothing',
+        ),
+        pytest.param(
+            'shift(p, over=g, offset=-2, edge=0)',
+            Translate(Variable('p'), 'g', offset=-2, wrap=False, fill=0.0),
+            id='a-lead-is-a-negative-offset-and-the-edge-is-what-it-fills-with',
+        ),
+        pytest.param(
+            'shift(p, over=g, offset=lead, edge=0)',
+            Translate(Variable('p'), 'g', offset='lead', wrap=False, fill=0.0),
+            id='a-named-offset-crosses-as-the-parameter-name',
+        ),
+        pytest.param(
+            'shift(p, over=g, offset=1, by=lk, edge=0)',
+            Translate(Variable('p'), 'g', offset=1, wrap=False, fill=0.0, partition='lk'),
+            id='a-translation-stops-at-the-edges-of-the-lookup-it-names',
+        ),
+        pytest.param(
+            'sum_back(p, over=g, within=3)',
+            Window(Variable('p'), 'g', width=3, wrap=False),
+            id='a-window-is-one-node-rather-than-a-fold-of-translations',
+        ),
+        pytest.param(
+            'sum_back(p, over=g, within=k)',
+            Window(Variable('p'), 'g', width='k', wrap=False),
+            id='a-named-width-crosses-as-the-parameter-name',
+        ),
+        pytest.param(
+            'sum_back(p, over=g, within=2, by=lk)',
+            Window(Variable('p'), 'g', width=2, wrap=False, partition='lk'),
+            id='a-window-stops-at-the-edges-of-the-lookup-it-names',
+        ),
+    ],
+)
+def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
+    """Which node each surface construct becomes, and every field it arrives with.
+
+    The nodes are frozen dataclasses, so one `==` asserts the kind and all of
+    `over`, `into`, `wrap`, `fill`, `partition` and `width` at once — the
+    fields a partial assertion skips, which is where a lowering goes astray
+    while still producing a node of the right kind.
+    """
+    lowered = _Lowering(shapes_schema, 't').expr(resolved(expression, shapes_schema))
+    assert lowered == expected, 'the whole node, so no field is asserted by omission'
 
 
 def test_a_binary_variable_lowers_to_a_vtype():
@@ -314,6 +464,37 @@ def test_a_lookup_names_the_dimension_its_values_label():
         ('snapshot', 'season_of'),
         ('generator', 'at_bus'),
     ], 'every map with the dimension it is over, in declaration order'
+
+
+def test_a_label_space_keeps_its_dtype_and_has_no_target():
+    """The file's claim about a label-space column used to be dropped at lowering.
+
+    ``period: {over: snapshot, dtype: int}`` became a bare name, so a consumer
+    binding the column had nothing to check it against — the one claim
+    ``dtype`` makes for a dimension and a parameter, missing for this column.
+    """
+    program = lower_program(
+        expand_piecewise(
+            schema_of(
+                {
+                    'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {}},
+                    'lookups': {
+                        'season_of': {'over': 'snapshot', 'into': 'season'},
+                        'period': {'over': 'snapshot', 'dtype': 'int'},
+                    },
+                    'variables': {'p': {'foreach': ['snapshot'], 'where': 'period == 1'}},
+                    'constraints': {'k': {'foreach': ['season'], 'expression': 'sum(p, by=season_of) >= 1'}},
+                }
+            )
+        )
+    )
+
+    assert program.dimension('snapshot').lookups == (
+        LookupDeclaration('season_of', 'season', None),
+        LookupDeclaration('period', None, 'int'),
+    ), 'both kinds, in declaration order: a targeted lookup carries its target, a label space its dtype'
+    assert program.dimension('snapshot').maps == ['period', 'season_of'], 'binding reads both kinds'
+    assert program.dimension('snapshot').targets == {'season_of': 'season'}, 'grouping reads only the targeted one'
 
 
 def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():

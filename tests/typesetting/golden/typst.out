@@ -84,7 +84,7 @@ $ upright("starts") & p_(t,g) & <= upright("startup_cost")_(t,g) & forall t in c
   upright("efficiency") & p_(t,g) & <= upright("eta")_(g) dot upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
   upright("ceiling") & theta_(b) & <= infinity & forall b in cal(B) \
   upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) \
-  upright("redundant") & italic("spill")_(t) & >= 0 & forall t in cal(T) colon top and italic("spill")_(t) upright(" exists") \
+  upright("redundant") & italic("spill")_(t) & >= 0 & forall t in cal(T) colon italic("spill")_(t) upright(" exists") \
   upright("never") & italic("slack")_(t) & >= 0 & forall t in cal(T) colon bot $
 
 == Definitions

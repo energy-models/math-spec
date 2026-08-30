@@ -14,7 +14,11 @@ all. Data is bound against these declarations by whatever builds the model;
 *means*, with macros expanded, names typed, operators resolved to nodes and
 every dim rule already checked. Consumers dispatch on these nodes and read
 them; nothing here is built by hand, so what ships beside the nodes is the
-walk (:func:`children`), not builders.
+walk (:func:`children`), not builders. A program is trusted by construction:
+:func:`~math_spec.lowering.to_program` is the only thing that builds one, and
+nothing checks one assembled by hand. The language's refusals happen at load,
+where the file and its author are, and a program put together some other way
+is outside that guarantee rather than inside a pass restating it.
 
 What a consumer needs from this module falls in three, and only the middle
 one has to be *called* to be got right:
@@ -32,7 +36,15 @@ one has to be *called* to be got right:
 A mask is the language's own resolved ``where`` node
 (:mod:`math_spec.where_parser`) rather than a second set spelling the same
 predicates — one home, so the two cannot come to disagree about what a
-comparison is.
+comparison is. Its literals are already decided: a mask admitting every row
+arrives as ``None`` and one admitting none as ``BooleanLiteralNode(False)``, so
+that node stands at the root of a mask or nowhere in it, and no consumer needs
+a constant folder of its own to agree with the others about which rows exist.
+
+The declaration vocabularies are the language's own for the same reason
+(:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
+into a program by a cast, and a member added to one spelling alone would
+arrive as a string no consumer's branch recognises.
 
 Frozen dataclasses only — no execution logic, and nothing imported from a
 consumer.
@@ -50,6 +62,7 @@ from functools import cached_property
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
+import math_spec.model as _model
 from math_spec.errors import did_you_mean
 
 if TYPE_CHECKING:
@@ -67,20 +80,29 @@ __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
     'At',
+    'AtLeastTwo',
     'Cases',
+    'Check',
     'ComparisonOperator',
     'Constant',
     'ConstraintDeclaration',
     'ConstraintSense',
+    'Contiguous',
+    'Curved',
+    'Derivation',
     'DimensionDeclaration',
     'DimensionDtype',
     'Divide',
     'Expression',
     'ExpressionNode',
     'FanIn',
+    'FirstOf',
     'Footprint',
     'GroupSum',
+    'Increasing',
+    'LastOf',
     'LookupDeclaration',
+    'MaskOf',
     'Multiply',
     'Negate',
     'ObjectiveDeclaration',
@@ -88,6 +110,7 @@ __all__ = [
     'Parameter',
     'ParameterDeclaration',
     'ParameterDtype',
+    'PiecewiseDeclaration',
     'Power',
     'Program',
     'QuadraticPosition',
@@ -101,6 +124,7 @@ __all__ = [
     'VariableType',
     'Window',
     'carries_variable',
+    'check_message',
     'children',
     'divisor_parameters',
     'fan_in',
@@ -135,23 +159,22 @@ QuadraticPosition = Literal['objective', 'constraint']
 #: and hears about it when the language admits another.
 QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
 ComparisonOperator = Literal['==', '!=', '<=', '>=', '<', '>']
-VariableType = Literal['continuous', 'binary', 'integer']
 
-#: What a masked variable's non-existence means where it does not exist.
-#: ``undefined`` is the absence rules' default — a term carrying it takes its
-#: row. ``zero`` says the quantity *is* zero there, so the term contributes
-#: nothing and the row stands.
-VariableAbsence = Literal['undefined', 'zero']
+#: What a dimension's labels are — the language's own vocabulary
+#: (:data:`~math_spec.model.DimensionDtype`), under the name a consumer reads
+#: it by.
+DimensionDtype = _model.DimensionDtype
 
-#: What a dimension's labels are. ``datetime`` is a dimension's alone — labels
-#: on a timeline order and compare, where a *value* of that type is a moment
-#: nothing computes with.
-DimensionDtype = Literal['float', 'int', 'str', 'datetime']
+#: What a parameter's values are (:data:`~math_spec.model.ParameterDtype`).
+ParameterDtype = _model.ParameterDtype
 
-#: What a parameter's values are. ``bool`` is a parameter's alone — a value
-#: column may be a flag a mask reads, where a label set of two members is a
-#: dimension nothing indexes by.
-ParameterDtype = Literal['float', 'int', 'bool', 'str']
+#: What a masked variable's non-existence means
+#: (:data:`~math_spec.model.VariableAbsence`).
+VariableAbsence = _model.VariableAbsence
+
+#: A variable's domain (:data:`~math_spec.model.VariableDomain`), under the
+#: name this module's field carries.
+VariableType = _model.VariableDomain
 
 
 # --------------------------------------------------------------------------
@@ -491,28 +514,27 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 
 
 class LookupDeclaration(NamedTuple):
-    """One declared lookup and the dimension its values are labels of."""
+    """One declared lookup over a dimension, of either kind.
+
+    Exactly one of ``target`` and ``dtype`` is set. A *targeted* lookup's
+    values are labels of ``target``, checked for containment once the dim
+    tables exist — which keeps a mistyped label from silently dropping its
+    terms in the join that places them — and it is what ``sum(by=)`` lands
+    terms on. A *label space* owns its values, typed by ``dtype`` the way a
+    dimension's labels are: it is read for selection and rendering, and
+    resolution refuses to group into one, so no expression node reaches it.
+    """
 
     name: str
-    target: str
+    target: str | None
+    dtype: DimensionDtype | None = None
 
 
 @dataclass(frozen=True)
 class DimensionDeclaration:
-    """A dimension and the lookups its labels carry.
-
-    ``lookups`` names each lookup and the dimension its values are labels of,
-    checked for containment once the dim tables exist — which keeps a mistyped
-    label from silently dropping its terms in the join that places them.
-
-    ``label_spaces`` are the inline kind: maps the dimension owns outright,
-    with no target and so nothing to check. They are read for selection and
-    rendering, and resolution refuses to group into one, so no expression node
-    reaches them.
-    """
+    """A dimension and the lookups its labels carry, of both kinds."""
 
     lookups: tuple[LookupDeclaration, ...] = ()
-    label_spaces: tuple[str, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
     #: whatever table carries it, so the declared type is what that column is
     #: checked against — the same claim ``ParameterDeclaration.dtype`` makes
@@ -527,7 +549,7 @@ class DimensionDeclaration:
         and both arrive the same way, and only the targeted ones have a label
         set to be checked against.
         """
-        return sorted([*(lk.name for lk in self.lookups), *self.label_spaces])
+        return sorted(lk.name for lk in self.lookups)
 
     @property
     def targets(self) -> dict[str, str]:
@@ -538,7 +560,147 @@ class DimensionDeclaration:
         the dim it lands on, and a partition array is named for it so an amount
         declared over the group's own dim can be read through it.
         """
-        return {lk.name: lk.target for lk in self.lookups}
+        return {lk.name: lk.target for lk in self.lookups if lk.target is not None}
+
+
+@dataclass(frozen=True)
+class MaskOf:
+    """A ``bool`` parameter true wherever *values* has a row.
+
+    The mask a ``points:`` naming one of the block's own breakpoints derives:
+    the curve runs as far as its values do. ``values`` is the name the file
+    wrote, so a refusal about the mask can say it.
+    """
+
+    block: str
+    values: str
+
+
+@dataclass(frozen=True)
+class FirstOf:
+    """A ``bool`` parameter marking, per curve, the first breakpoint *mask* admits."""
+
+    block: str
+    mask: str
+
+
+@dataclass(frozen=True)
+class LastOf:
+    """Its sibling for the last breakpoint."""
+
+    block: str
+    mask: str
+
+
+#: How an emitted parameter is filled — closed, so a consumer binding data
+#: dispatches on it and a kind added later is a type error at that match.
+#: Each names the ``piecewise:`` block whose expansion emitted the parameter.
+Derivation = MaskOf | FirstOf | LastOf
+
+
+@dataclass(frozen=True)
+class Increasing:
+    """*parameter* is strictly increasing along *over* within each curve — the x-axis a method sorts by."""
+
+    parameter: str
+    over: str
+
+
+@dataclass(frozen=True)
+class Curved:
+    """*y* over *x* bends, along *over*, the way *curvature* says.
+
+    That is the shape the method is exact for. ``either`` is the hull's
+    weaker condition: any single bend, so only a mixed curve fails it.
+    """
+
+    x: str
+    y: str
+    over: str
+    curvature: _model.Curvature
+
+
+@dataclass(frozen=True)
+class AtLeastTwo:
+    """Each curve has at least two breakpoints — every position along *over*, or those *mask* admits."""
+
+    over: str
+    mask: str | None
+
+
+@dataclass(frozen=True)
+class Contiguous:
+    """*mask* admits one consecutive run of at least one breakpoint per curve."""
+
+    mask: str
+    #: The breakpoint parameter the mask was derived from, where it was — the
+    #: name the file wrote, and the one a refusal names.
+    values: str | None
+
+
+#: What a ``piecewise:`` block assumes of the numbers it is bound to. The data
+#: decides whether each holds, so the language names the condition with its
+#: subjects and its sentence (:func:`check_message`), and the consumer holding
+#: the numbers checks. Closed, like :data:`Derivation`.
+Check = Increasing | Curved | AtLeastTwo | Contiguous
+
+
+@dataclass(frozen=True)
+class PiecewiseDeclaration:
+    """A ``piecewise:`` block, kept as the facts a consumer binding its data reads.
+
+    The expansion lowered the links into constraints and emitted the
+    parameters it needs — each of those says how it is filled, on its own
+    :attr:`ParameterDeclaration.derivation`. What is left here is the curve
+    and what the block assumes of it.
+
+    Attributes:
+        over: The breakpoint dimension.
+        method: How the weights are restricted.
+        breakpoints: The links' values parameters, in link order.
+        checks: What the block assumes of the numbers, each carrying its own
+            subjects, for the consumer holding them to check.
+    """
+
+    over: str
+    method: _model.PiecewiseMethod
+    breakpoints: tuple[str, ...]
+    checks: tuple[Check, ...]
+
+
+def check_message(block: str, pw: PiecewiseDeclaration, check: Check) -> str:
+    """The sentence a consumer raises when the data bound to *block* fails *check*.
+
+    The language's own wording, so every consumer refuses in the same words;
+    a consumer appends what it saw.
+    """
+    ctx = f"piecewise '{block}'"
+    match check:
+        case Increasing(parameter, over):
+            return (
+                f"{ctx}: method: {pw.method} requires strictly increasing breakpoints in '{parameter}' along '{over}'"
+            )
+        case Curved(x, y, over, curvature):
+            shape = 'a single bend' if curvature == 'either' else f'a {curvature} curve'
+            return (
+                f"{ctx}: method: {pw.method} is exact only for {shape}, and '{y}' over '{x}' along "
+                f"'{over}' is not one, so the answer is wrong rather than loose. Use method: adjacency "
+                f'or sos2, which take a curve of any shape.'
+            )
+        case AtLeastTwo():
+            return (
+                f'{ctx}: method: lp needs at least two breakpoints per curve — the method *is* its segment '
+                f'lines, so a curve with no segment states nothing and leaves the bounded link on its own '
+                f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.'
+            )
+        case Contiguous(mask, values):
+            return (
+                f"{ctx}: points: '{values if values is not None else mask}' must mark a consecutive run of at "
+                f'least one breakpoint per curve — the chord row joins a breakpoint to the one before it, and '
+                f"the domain rows sit on the curve's own first and last."
+            )
+        case _:
+            assert_never(check)
 
 
 @dataclass(frozen=True)
@@ -552,6 +714,11 @@ class ParameterDeclaration:
 
     dims: tuple[str, ...]
     dtype: ParameterDtype = 'float'
+    #: How this parameter is filled where a ``piecewise:`` expansion emitted
+    #: it, or ``None`` for one the file declares. Who supplies the data
+    #: follows: the caller binds a declared parameter, and an emitted one is
+    #: built from the block's own breakpoints the way its derivation says.
+    derivation: Derivation | None = None
 
 
 @dataclass(frozen=True)
@@ -635,7 +802,7 @@ class Footprint:
             stands in. Empty is affine throughout. Convexity is not here: it is
             a property of the whole Hessian rather than of any term, and the
             coefficients deciding it arrive with the data — so, as with a
-            curve's shape (:func:`~math_spec.piecewise.curvature_required`),
+            curve's shape (:class:`Curved`),
             this names where the products are and the caller holding the
             numbers does the checking.
         variable_types: Every domain declared, ``{'continuous'}`` alone being
@@ -681,6 +848,9 @@ class Program:
     objective: ObjectiveDeclaration | None
     dimensions: Mapping[str, DimensionDeclaration] = MappingProxyType({})
     sos: Mapping[str, SosDeclaration] = MappingProxyType({})
+    #: Each ``piecewise:`` block the file wrote, as facts — see
+    #: :class:`PiecewiseDeclaration`.
+    piecewise: Mapping[str, PiecewiseDeclaration] = MappingProxyType({})
     #: Declared ``expressions:``, lowered. Not part of the program a solver
     #: sees — none of them builds a row — but lowered with it, so a file whose
     #: named expression is outside the language is refused by every verb that

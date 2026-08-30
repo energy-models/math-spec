@@ -37,17 +37,15 @@ def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice,
 
     Args:
         model: A YAML path, a mapping, a loaded :class:`Spec`, or a
-            :class:`Program`.
+            :class:`Program`. Both passes read the program, so the four
+            answer alike.
 
     Returns:
         The never-an-axis advice in declaration order, then the unboundedness
         advice; ``str()`` of each is its sentence.
     """
     program = to_program(model)
-    notes = _never_an_axis(program)
-    if not isinstance(model, program_.Program):
-        notes += unbounded_notes(model)
-    return tuple(notes)
+    return tuple(_never_an_axis(program) + unbounded_notes(program))
 
 
 def _never_an_axis(program: Program) -> list[Advice]:
@@ -58,7 +56,7 @@ def _never_an_axis(program: Program) -> list[Advice]:
     for e in program.expressions:
         axes |= _produced_axes(e)
 
-    targeted = {lk.target: (dimension, lk.name) for dimension, lk in program.lookups}
+    targeted = {lk.target: (dimension, lk.name) for dimension, lk in program.lookups if lk.target is not None}
     notes: list[Advice] = []
     for name in program.dimensions:
         if name in axes:
