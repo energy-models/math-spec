@@ -296,7 +296,10 @@ def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, str]) ->
             raise Undecidable(msg)
         return [True, False, Special.NULL]
     numeric = _numeric(dtype, values)
-    cells: list[Cell] = list(_ordered_cells(values) if numeric or _dated(values) else _label_cells(values))
+    dated = _dated(values)
+    cells: list[Cell] = list(
+        _ordered_cells(values, discrete=dated or dtype == 'int') if numeric or dated else _label_cells(values)
+    )
     # A dimension's coordinates are its own index, so there is no null among
     # them; everything else may be absent, and absence is a region of its own
     # because a null compares false and is not `defined`.
@@ -320,7 +323,7 @@ def _dated(literals: set[Any]) -> bool:
     return bool(literals) and all(isinstance(value, datetime.date) for value in literals)
 
 
-def _ordered_cells(literals: set[Any]) -> list[Cell]:
+def _ordered_cells(literals: set[Any], *, discrete: bool) -> list[Cell]:
     """Each literal, and one representative of the gap on either side of it."""
     if not literals:
         return [0.0]
@@ -332,7 +335,7 @@ def _ordered_cells(literals: set[Any]) -> list[Cell]:
         following = values[index + 1] if index + 1 < len(values) else None
         if following is None:
             continue
-        between = _between(value, following, step)
+        between = _between(value, following, step, discrete=discrete)
         if between is not None:
             cells.append(between)
     cells.append(values[-1] + step)
@@ -348,13 +351,18 @@ def _step(value: Any) -> Any:
     return 1.0
 
 
-def _between(value: Any, following: Any, step: Any) -> Any | None:
+def _between(value: Any, following: Any, step: Any, *, discrete: bool) -> Any | None:
     """A value strictly between two literals, where the type admits one.
 
-    A magnitude always does — the midpoint. A date is discrete, so the gap has
-    to be wider than one unit before there is anything in it to stand for.
+    A continuous magnitude always admits one — the midpoint. A **discrete**
+    subject, an ``int`` or a date, need not: between 0 and 1 there is no
+    integer and between two adjacent days no date, so the gap has to be wider
+    than one unit before there is anything in it to stand for. A midpoint
+    invented there is a coordinate the subject cannot take, and the only thing
+    it can do is manufacture a witness — refusing ``n < 1`` against ``n > 0``,
+    which no integer claims twice, at a coordinate named ``0.5``.
     """
-    if isinstance(value, datetime.date):
+    if discrete:
         return value + step if following - value > step else None
     return (value + following) / 2.0
 

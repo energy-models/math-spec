@@ -41,6 +41,7 @@ STORAGE: dict[str, Any] = {
         'kind': {'dims': ['storage'], 'dtype': 'str'},
         'soc_initial': {'dims': ['storage']},
         'capacity': {'dims': ['storage']},
+        'age': {'dims': ['storage'], 'dtype': 'int'},
     },
     'variables': {'soc': {'foreach': ['snapshot', 'storage']}},
     'constraints': {'balance': {'foreach': ['snapshot', 'storage'], 'expression': 'soc == 1'}},
@@ -90,7 +91,7 @@ class TestProvesApart:
         assert refusals(schema, cases) == [], 'a storage carries one kind, so the two labels are apart'
 
     def test_the_ramp_regimes_from_the_issue(self, schema: Spec):
-        """The three quantities #2 factors a PyPSA ramp limit into, less each one's `default`.
+        """The three quantities #2 factors a PyPSA ramp limit into, less each one's `otherwise`.
 
         The point of putting cases on an expression rather than on the
         constraint: three independent axes multiply into eight constraint cases
@@ -119,8 +120,23 @@ class TestProvesApart:
         cases = {'small': 'capacity and capacity <= 10', 'large': 'capacity and capacity > 10'}
         assert refusals(schema, cases) == [], 'a capacity is at most 10 or above it'
 
-    def test_a_when_of_true_is_not_a_default(self, schema: Spec):
-        """`default` is the case *without* a `when`, and nothing here stands in for it.
+    def test_an_integer_admits_no_value_between_its_bands(self, schema: Spec):
+        """`age` is declared `int`, and the two bands are complements over the integers.
+
+        A midpoint invented in the gap is a coordinate the subject cannot take,
+        and the refusal it manufactures names `0.5` — a value no data produces,
+        with a rewrite the file has already followed.
+        """
+        cases = {'new': 'age < 1', 'old': 'age > 0'}
+        assert refusals(schema, cases) == [], 'an integer is below 1 or above 0, never between'
+
+    def test_a_magnitude_still_admits_one(self, schema: Spec):
+        """The mirror: `capacity` is a float, so 0.5 is a coordinate it can take."""
+        cases = {'small': 'capacity < 1', 'large': 'capacity > 0'}
+        assert refusals(schema, cases), 'a float between the two bands is claimed by both'
+
+    def test_a_when_of_true_is_not_a_fallback(self, schema: Spec):
+        """The fallback is the block's `otherwise:`, and nothing inside `cases:` stands in for it.
 
         A mask that happens to be true everywhere is read as any other mask is,
         so it collides with every case beside it.
@@ -197,6 +213,12 @@ class TestSoundness:
     infinities, an absent value, labels the masks never name — and asserts that
     nothing it proved apart has a point claimed by both.
 
+    **The two masks are drawn independently**, and only the pairs the check
+    proves apart are walked. A pair built as a complement — `m` against
+    `not m` — makes the assertion `X and not X`, false at every point under
+    every implementation, so a fuzz over those shapes cannot fail and certifies
+    nothing.
+
     What it does not test is the reading of an individual atom: ground truth
     here evaluates through the same `_evaluate` the checker uses, so a misread
     atom would agree with itself. That is what `TestProvesApart` and
@@ -254,12 +276,8 @@ class TestSoundness:
         rng = random.Random(seed)
         dtypes = namespace.dtypes
         proved = 0
-        for _ in range(300):
-            split = self._mask(rng, atoms)
-            first, second = split, NotNode(split)
-            if rng.random() < 0.5:
-                inner = self._mask(rng, atoms)
-                first, second = AndNode(split, inner), AndNode(split, NotNode(inner))
+        for _ in range(2000):
+            first, second = self._mask(rng, atoms), self._mask(rng, atoms)
             if list(overlapping({'a': first, 'b': second}, schema)):
                 continue
             proved += 1
@@ -269,4 +287,4 @@ class TestSoundness:
             for point in grid:
                 both = _evaluate(first, point, frame) and _evaluate(second, point, frame)
                 assert not both, f'both cases claim {point} — the cells hid a witness'
-        assert proved > 50, f'only {proved} pairs proved apart; the fuzz is not exercising the check'
+        assert proved > 150, f'only {proved} pairs proved apart; the fuzz is not exercising the check'

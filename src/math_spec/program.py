@@ -407,10 +407,11 @@ class Window(Expression):
 class Region:
     """One region of a :class:`Cases`: where it applies, and the value there.
 
-    ``when`` is stated on every region, the file's ``default`` included — its
-    mask is the negation of the others, resolved once here rather than by each
-    consumer in turn. A consumer builds a region without holding the rest in
-    mind, and both facts it needs are on the region it is reading.
+    ``when`` is stated on every region, the one the file wrote as
+    ``otherwise:`` included — its mask is the negation of the others, resolved
+    once here rather than by each consumer in turn. A consumer builds a region
+    without holding the rest in mind, and both facts it needs are on the region
+    it is reading.
     """
 
     when: WhereNode
@@ -422,8 +423,8 @@ class Cases(Expression):
     """A value defined by region — exactly one region applies at each coordinate.
 
     The language proves the regions apart before any data binds, and the
-    file's ``default`` covers whatever the rest leave, so they are disjoint and
-    total by construction: a consumer adds the regions rather than ranking
+    file's ``otherwise:`` covers whatever the rest leave, so they are disjoint
+    and total by construction: a consumer adds the regions rather than ranking
     them, and needs neither an order nor a tie-break.
 
     Not a shape operator — every region spans the dims the expression does, and

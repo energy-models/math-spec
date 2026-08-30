@@ -60,6 +60,17 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
     return Spec.model_validate(model if isinstance(model, dict) else read_yaml(Path(model)))
 
 
+def _once(errors: list[str]) -> str:
+    """The errors as one message, an identical sentence kept only the first time.
+
+    A cased expression is expanded at every use, so a fault in one of its arms
+    is found again at each constraint naming it. Every error carries the
+    context it was found in, so two that differ at all are two faults and an
+    exact repeat is one seen twice.
+    """
+    return '\n'.join(dict.fromkeys(errors))
+
+
 def validate_expressions(schema: Spec) -> None:
     """Validate and resolve every expression and where string in *schema*.
 
@@ -127,7 +138,7 @@ def validate_expressions(schema: Spec) -> None:
         _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2)
 
     if errors:
-        raise SchemaError('\n'.join(errors))
+        raise SchemaError(_once(errors))
 
     check_schema(schema)
 

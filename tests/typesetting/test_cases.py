@@ -101,6 +101,19 @@ def test_a_case_reaching_a_variable_is_chosen(fmt: Format):
 
 
 @EVERY_FORMAT
+def test_the_fallback_reaching_a_variable_is_chosen(fmt: Format):
+    """The `otherwise:` is a value of the quantity like any case's.
+
+    `previous_status` in the commitment example is this shape and no other: its
+    two cases are a constant and a parameter, and the variable is in the
+    fallback alone. Read only the cases and the block prints upright, which
+    says the model was handed a quantity it in fact solves for.
+    """
+    decided = override(CASED, **{'expressions.headroom.otherwise': 'p'})
+    assert fmt.italic('headroom') in typeset(decided, fmt, legend=False)
+
+
+@EVERY_FORMAT
 def test_a_definition_naming_another_one_prints_both(fmt: Format):
     """The cases are walked too, so the collection runs to a fixpoint."""
     rendered = typeset(_NESTED, fmt, legend=False)
