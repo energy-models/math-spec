@@ -112,13 +112,14 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by **region** is written as ``cases:``\ninstead \u2014 one case per region over a declared ``foreach:``, no two of them\nclaiming one coordinate, and ``default`` last for the rest::\n\n    previous_status:\n      foreach: [snapshot, generator]\n      cases:\n        always_on: { when: \"not committable\", expression: 1 }\n        boundary:  { when: \"committable and position(snapshot) == 0\", expression: status_initial }\n        default:   shift(status, over=snapshot, offset=1)\n\nSo the constraint that needs it names it, rather than being forked into one\ncopy per regime.",
+          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by **region** is written as ``cases:``\ninstead \u2014 one case per region over a declared ``foreach:``, no two of them\nclaiming one coordinate, and an ``otherwise:`` for the rest::\n\n    previous_status:\n      foreach: [snapshot, generator]\n      cases:\n        always_on: { when: \"not committable\", expression: 1 }\n        boundary:  { when: \"committable and position(snapshot) == 0\", expression: status_initial }\n      otherwise: shift(status, over=snapshot, offset=1)\n\nSo the constraint that needs it names it, rather than being forked into one\ncopy per regime.",
           "properties": {
             "cases": {
               "additionalProperties": {
                 "$ref": "#/$defs/ExpressionCase"
               },
               "default": {},
+              "minProperties": 1,
               "title": "Cases",
               "type": "object"
             },
@@ -163,6 +164,21 @@
               ],
               "default": null,
               "title": "Foreach"
+            },
+            "otherwise": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Otherwise"
             }
           },
           "title": "ExpressionBlock",
@@ -174,48 +190,31 @@
       ]
     },
     "ExpressionCase": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "description": "One region of a named expression: the value, and when it is the value.\n\n``when`` is absent on the case named ``default`` and only there, so that\ncase is written as the bare value \u2014 the shorthand ``expressions:`` itself\ntakes, for the same reason::\n\n    cases:\n      opening: { when: \"position(snapshot) == 0\", expression: p_max }\n      default: 0",
-          "properties": {
-            "expression": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                }
-              ],
-              "title": "Expression"
+      "additionalProperties": false,
+      "description": "One region of a named expression: the value, and when it is the value.\n\nEvery case says where it applies. The value wherever none of them does is\nthe block's ``otherwise:``, which is written outside ``cases:`` because it\nis not a region like these \u2014 it is what is left::\n\n    cases:\n      opening: { when: \"position(snapshot) == 0\", expression: p_max }\n    otherwise: 0",
+      "properties": {
+        "expression": {
+          "anyOf": [
+            {
+              "type": "string"
             },
-            "when": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "When"
+            {
+              "type": "number"
             }
-          },
-          "required": [
-            "expression"
           ],
-          "title": "ExpressionCase",
-          "type": "object"
+          "title": "Expression"
         },
-        {
-          "type": [
-            "string",
-            "number"
-          ]
+        "when": {
+          "title": "When",
+          "type": "string"
         }
-      ]
+      },
+      "required": [
+        "when",
+        "expression"
+      ],
+      "title": "ExpressionCase",
+      "type": "object"
     },
     "LookupBlock": {
       "additionalProperties": false,

@@ -695,8 +695,8 @@ CASED = {
             'cases': {
                 'always_on': {'when': 'not committable', 'expression': 1},
                 'boundary': {'when': 'committable and position(t) == 0', 'expression': 'initial'},
-                'default': 'shift(status, over=t, offset=1)',
             },
+            'otherwise': 'shift(status, over=t, offset=1)',
         }
     },
     'constraints': {'no_restart': {'foreach': ['t', 'g'], 'expression': 'status - previous <= 1'}},
@@ -716,23 +716,23 @@ def test_a_cased_expression_lowers_to_one_region_per_case():
     program = lower_program(expand_piecewise(schema_of(CASED)))
     cases = _cases_in(program)
 
-    assert len(cases.regions) == 3, 'one region per case, the default among them'
+    assert len(cases.regions) == 3, 'one region per case, the `otherwise` among them'
     assert [type(r.value).__name__ for r in cases.regions] == ['Constant', 'Parameter', 'Translate'], (
         'each region carries its own value, lowered — a number, a parameter and a shift'
     )
 
 
-def test_the_default_region_carries_the_mask_the_file_left_unwritten():
-    """`default` writes no `when:`; it arrives with the negation of the rest.
+def test_the_fallback_region_carries_the_mask_the_file_left_unwritten():
+    """`otherwise:` writes no `when:`; it arrives with the negation of the rest.
 
     A consumer adds regions rather than working out which one is left over, so
     the remainder is resolved once here instead of once per consumer.
     """
     program = lower_program(expand_piecewise(schema_of(CASED)))
-    default = _cases_in(program).regions[-1]
+    remainder = _cases_in(program).regions[-1]
 
-    assert isinstance(default.when, AndNode), 'two stated cases, so the remainder is a conjunction of two negations'
-    assert default.when.left == ParameterDefinedNode('committable'), (
+    assert isinstance(remainder.when, AndNode), 'two stated cases, so the remainder is a conjunction of two negations'
+    assert remainder.when.left == ParameterDefinedNode('committable'), (
         'the negation of `not committable` is the term itself, not a second `not` around it'
     )
 
@@ -741,7 +741,7 @@ def test_the_lowered_regions_are_still_proved_apart():
     """The remainder does not collide with the cases it was built from.
 
     The language proves the *stated* masks apart before lowering runs. This is
-    the other half: the mask lowering invents for `default` is put through the
+    the other half: the mask lowering invents for `otherwise` is put through the
     same prover, against each stated case, and must overlap none of them.
     """
     spec = schema_of(CASED)
@@ -756,5 +756,5 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
     program = lower_program(expand_piecewise(schema_of(CASED)))
 
     assert isinstance(program.named_expressions['previous'], program_module.Cases), (
-        'a cased expression reaches the program as the node, not as its default arm alone'
+        'a cased expression reaches the program as the node, not as its fallback arm alone'
     )

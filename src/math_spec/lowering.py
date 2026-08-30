@@ -68,9 +68,9 @@ _SENSES = {'==', '<=', '>='}
 def _none_of(masks: list[WhereNode]) -> WhereNode:
     """The region left over: where not one of *masks* holds.
 
-    ``default``'s own mask, built rather than written. An empty list cannot
-    reach here — a block whose only case is ``default`` is refused at load —
-    so there is no vacuous truth to spell.
+    The ``otherwise`` arm's own mask, built rather than written. An empty list
+    cannot reach here — ``cases:`` carries at least one case — so there is no
+    vacuous truth to spell.
     """
     remainder = _negated(masks[0])
     for mask in masks[1:]:
@@ -316,8 +316,8 @@ class _Lowering:
     def _cases(self, node: CasesNode) -> program.Cases:
         """A cased expression, with every region carrying the mask it applies under.
 
-        The file's ``default`` arm carries no ``when``; here it carries the
-        negation of every other region's, so a consumer adds regions rather
+        The ``otherwise`` arm carries no ``when`` in the file; here it carries
+        the negation of every other region's, so a consumer adds regions rather
         than working out which one is left. The language proved the rest apart
         before this ran, so the negation is exactly the remainder and the
         regions stay disjoint and total.

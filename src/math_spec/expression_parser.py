@@ -154,8 +154,8 @@ class FunctionCallNode:
 class CaseArm:
     """One region of a :class:`CasesNode`: where it applies, and the value there.
 
-    ``when`` is ``None`` on the **last** arm and only there — the case the file
-    names ``default``, which is what makes the quantity total without anything
+    ``when`` is ``None`` on the **last** arm and only there — the block's
+    ``otherwise:``, which is what makes the quantity total without anything
     having to prove it. Every other arm's ``when`` is proved apart from every
     other arm's.
     """
@@ -175,7 +175,7 @@ class CasesNode:
 
     Exactly one arm applies at every coordinate: no two ``when`` masks can hold
     at once, which :mod:`math_spec.exclusivity` proves at load, and the last arm
-    — the file's ``default`` — carries no ``when`` and so takes whatever the
+    — the block's ``otherwise:`` — carries no ``when`` and so takes whatever the
     rest leave. So the arms may be read in any order; the file's is kept because
     it is the order they print in. The frame is not carried here: it is on the
     declaration, which every consumer needing it already holds.

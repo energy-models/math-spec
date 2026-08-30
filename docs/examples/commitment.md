@@ -62,7 +62,7 @@ expressions:
       boundary:
         when: "committable and position(snapshot) == 0"
         expression: status_initial
-      default: shift(status, over=snapshot, offset=1)
+    otherwise: shift(status, over=snapshot, offset=1)
 
 constraints:
   power_balance:
@@ -145,13 +145,13 @@ $$p_{t,g} \ge \mathit{status}_{t,g} \cdot \mathrm{p}^{\mathrm{min}}_{g} \qquad \
 
 **`ramp_up`**
 
-$$p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathrm{ramp\_limit}_{g} \cdot \mathit{previous\_status}_{t,g} + \mathrm{start\_up\_limit}_{g} \cdot \left( 1 - \mathit{previous\_status}_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathrm{ramp\_limit}_{g} \cdot \mathrm{previous\_status}_{t,g} + \mathrm{start\_up\_limit}_{g} \cdot \left( 1 - \mathrm{previous\_status}_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### Definitions
 
 **`previous_status`**
 
-$$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+$$\mathrm{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### Variable domains
 

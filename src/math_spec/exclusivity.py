@@ -11,8 +11,8 @@ data decides that — so it is decided at load, and a file leaving two cases fre
 to collide does not load.
 
 The other half of being a quantity — a value *everywhere* — is the block's
-shape rather than anything proved: the case named ``default`` carries no
-``when``, so it takes whatever the rest leave. Only the ``when`` strings are checked, and only
+shape rather than anything proved: the ``otherwise:`` beside the cases takes
+whatever they leave. Only the ``when`` strings are checked, and only
 against each other, pair by pair: ``when_i AND when_j`` unsatisfiable.
 
 Every atom in the where-grammar talks about exactly one **subject** — a
@@ -89,9 +89,9 @@ def overlapping(cases: Mapping[str, WhereNode], schema: Spec) -> Iterator[str]:
     """One refusal per pair of cases that could both claim a coordinate.
 
     Args:
-        cases: The ``when`` of every case that carries one, keyed by the case's
-            name. ``default`` carries none and is not among them: it claims
-            what the rest leave, so it overlaps nothing by construction.
+        cases: The ``when`` of every case, keyed by the case's name. The
+            block's ``otherwise`` is not among them: it claims what the rest
+            leave, so it overlaps nothing by construction.
         schema: Read for the dtype of every name a mask compares against.
 
     Yields:
@@ -115,7 +115,7 @@ def overlapping(cases: Mapping[str, WhereNode], schema: Spec) -> Iterator[str]:
                 f"cases '{first}' and '{second}' both claim the value where {witness}. "
                 f'A coordinate two cases claim has two values, so it has none — narrow one of the '
                 f'two `when:` strings by the negation of the other, or drop the wider one and let '
-                f'`default` carry that region.'
+                f'`otherwise:` carry that region.'
             )
 
 

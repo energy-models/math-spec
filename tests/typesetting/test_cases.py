@@ -20,14 +20,12 @@ from tests.typesetting.fixtures import EVERY_FORMAT
 if TYPE_CHECKING:
     from math_spec.typesetting.format import Format
 
-#: One region and the default. `opening` is a column and the default a scalar,
+#: One region and the fallback. `opening` is a column and `otherwise` a scalar,
 #: so the cases alone would not give a quantity its shape — the `foreach` does.
 BY_REGION = {
     'foreach': ['snapshot', 'generator'],
-    'cases': {
-        'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'},
-        'default': 0,
-    },
+    'cases': {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}},
+    'otherwise': 0,
 }
 
 #: The dispatch model, with a quantity defined by region and a constraint using it.
@@ -88,12 +86,7 @@ def test_a_case_is_given_when_its_values_are_however_its_regions_are_chosen(fmt:
     """
     masked = override(
         CASED,
-        **{
-            'expressions.headroom.cases': {
-                'running': {'when': 'p', 'expression': 'p_max'},
-                'default': 0,
-            }
-        },
+        **{'expressions.headroom.cases': {'running': {'when': 'p', 'expression': 'p_max'}}},
     )
     rendered = typeset(masked, fmt, legend=False)
     assert fmt.upright('headroom') in rendered, 'every case is a parameter, so the quantity is given'
@@ -124,8 +117,8 @@ _NESTED = override(
         'expressions.opening_cost.foreach': ['snapshot', 'generator'],
         'expressions.opening_cost.cases': {
             'opening': {'when': 'position(snapshot) == 0', 'expression': 'headroom * cost'},
-            'default': 0,
         },
+        'expressions.opening_cost.otherwise': 0,
         'constraints.spare.expression': 'p <= opening_cost',
     },
 )
