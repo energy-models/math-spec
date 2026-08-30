@@ -604,13 +604,23 @@ class Holds:
     """The predicate a ``checks:`` block declares, read over *dims*.
 
     The only member the file writes: the others are what a ``piecewise:``
-    block's own shape assumes. *dims* comes from the names in the predicate —
-    a check has no frame to declare, so its rows are the coordinates it spans,
-    and empty dims are one question rather than none.
+    block's own shape assumes.
+
+    Attributes:
+        holds: The condition, resolved. Never a literal: one the data cannot
+            decide is refused at load.
+        dims: The coordinates it is asked at, from the names in the predicate —
+            a check has no frame to declare, so its rows are the ones it spans,
+            and empty dims are one question rather than none.
+        description: The file's own sentence, or ``None``. The one place a
+            program keeps prose: for every other declaration a description is
+            for the typeset page, and here it is the second half of the
+            refusal a consumer raises (:func:`check_message`).
     """
 
     holds: WhereNode
     dims: tuple[str, ...]
+    description: str | None = None
 
 
 #: A condition on the numbers a model is bound to — what a ``piecewise:``
@@ -680,8 +690,10 @@ def check_message(context: str, check: Check) -> str:
                 f'least one breakpoint per curve — the chord row joins a breakpoint to the one before it, and '
                 f"the domain rows sit on the curve's own first and last."
             )
-        case Holds():
+        case Holds(description=None):
             return f'{context}: the data does not satisfy it'
+        case Holds(description=description):
+            return f'{context}: the data does not satisfy it — {description}'
         case _:
             assert_never(check)
 

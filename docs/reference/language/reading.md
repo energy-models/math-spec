@@ -89,7 +89,8 @@ with nothing to see. `Program` is a different type from `Spec`, so that
 mistake is one the signature refuses rather than one the numbers report.
 
 **A program cannot answer what the file wrote.** It has no `macros:`, no
-`description:`, and no link expression — those are the `Spec`'s, and
+link expression, and no `description:` — bar one, below — so those are the
+`Spec`'s, and
 rendering has to be handed what `to_spec` returned. The projection runs one
 way on purpose. What it keeps of a `piecewise:` block is `program.piecewise`:
 which parameters carry the curve, and what the block assumes of the numbers as
@@ -97,8 +98,10 @@ a `checks` tuple — each check carrying the names it is about, so the consumer
 holding the numbers runs it, with `check_message` for the sentence to raise.
 `program.checks` is the same vocabulary where the _file_ wrote the condition
 rather than a curve implying it: one `Holds` per
-[`checks:`](declarations.md#checks) block, carrying the resolved predicate and
-the dims it is asked over.
+[`checks:`](declarations.md#checks) block, carrying the resolved predicate, the
+dims it is asked over, and — the one prose a program keeps — the block's own
+`description:`, because there it is not documentation but the second half of
+the sentence `check_message` returns.
 What the expansion emitted is answered where it is asked instead: a
 `ParameterDeclaration.derivation` says how that parameter is filled, and `None`
 means the caller binds it.

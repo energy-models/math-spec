@@ -704,3 +704,14 @@ def test_a_check_builds_no_row():
 def test_a_declared_check_and_a_piecewise_one_share_a_sentence():
     program = to_program(override(SMALL_MODEL, checks={'share': 'c > 0'}))
     assert check_message("check 'share'", program.checks['share']) == "check 'share': the data does not satisfy it"
+
+
+def test_a_checks_description_reaches_the_program_because_it_is_half_the_refusal():
+    """The one prose a program keeps: a consumer reading only the program prints why the condition matters."""
+    program = to_program(
+        override(SMALL_MODEL, checks={'share': {'holds': 'c > 0', 'description': 'a price of zero is a free good'}})
+    )
+    assert program.checks['share'].description == 'a price of zero is a free good'
+    assert check_message("check 'share'", program.checks['share']) == (
+        "check 'share': the data does not satisfy it — a price of zero is a free good"
+    )

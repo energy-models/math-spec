@@ -240,7 +240,9 @@ declared beside it.
 
 **Nothing here checks it.** No file determines whether a table satisfies a
 condition, so the language states it and the consumer binding the data raises
-it, in the language's own words
+it, in the language's own words — `check_message` is the sentence, and the
+`description:` is its second half, which is why a check is the one declaration
+whose prose reaches the program
 ([reading a loaded model](reading.md)). What _is_ decided at load is that the
 condition is one data could break: a predicate the connectives settle to
 `True` checks nothing and one that settles to `False` refuses every table, and

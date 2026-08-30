@@ -203,9 +203,10 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
 
 def _lower_check(schema: _ExpandedSpec, ns: Namespace, name: str) -> program.Holds:
     """Resolve the check *name* and read the coordinates it is asked at off its own names."""
-    holds = where_of(schema.checks[name].holds, ns, f"check '{name}'")
+    block = schema.checks[name]
+    holds = where_of(block.holds, ns, f"check '{name}'")
     assert holds is not None, 'load-time validation refuses a check that holds whatever the data says'
-    return program.Holds(holds, tuple(sorted(where_dims(holds, schema))))
+    return program.Holds(holds, tuple(sorted(where_dims(holds, schema))), block.description)
 
 
 def _lower_expression(schema: _ExpandedSpec, ns: Namespace, name: str) -> program.ExpressionNode:
