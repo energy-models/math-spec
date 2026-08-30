@@ -213,6 +213,12 @@ class TestSoundness:
     infinities, an absent value, labels the masks never name — and asserts that
     nothing it proved apart has a point claimed by both.
 
+    **The two masks are drawn independently**, and only the pairs the check
+    proves apart are walked. A pair built as a complement — `m` against
+    `not m` — makes the assertion `X and not X`, false at every point under
+    every implementation, so a fuzz over those shapes cannot fail and certifies
+    nothing.
+
     What it does not test is the reading of an individual atom: ground truth
     here evaluates through the same `_evaluate` the checker uses, so a misread
     atom would agree with itself. That is what `TestProvesApart` and
@@ -270,12 +276,8 @@ class TestSoundness:
         rng = random.Random(seed)
         dtypes = namespace.dtypes
         proved = 0
-        for _ in range(300):
-            split = self._mask(rng, atoms)
-            first, second = split, NotNode(split)
-            if rng.random() < 0.5:
-                inner = self._mask(rng, atoms)
-                first, second = AndNode(split, inner), AndNode(split, NotNode(inner))
+        for _ in range(2000):
+            first, second = self._mask(rng, atoms), self._mask(rng, atoms)
             if list(overlapping({'a': first, 'b': second}, schema)):
                 continue
             proved += 1
@@ -285,4 +287,4 @@ class TestSoundness:
             for point in grid:
                 both = _evaluate(first, point, frame) and _evaluate(second, point, frame)
                 assert not both, f'both cases claim {point} — the cells hid a witness'
-        assert proved > 50, f'only {proved} pairs proved apart; the fuzz is not exercising the check'
+        assert proved > 150, f'only {proved} pairs proved apart; the fuzz is not exercising the check'
