@@ -41,6 +41,7 @@ STORAGE: dict[str, Any] = {
         'kind': {'dims': ['storage'], 'dtype': 'str'},
         'soc_initial': {'dims': ['storage']},
         'capacity': {'dims': ['storage']},
+        'age': {'dims': ['storage'], 'dtype': 'int'},
     },
     'variables': {'soc': {'foreach': ['snapshot', 'storage']}},
     'constraints': {'balance': {'foreach': ['snapshot', 'storage'], 'expression': 'soc == 1'}},
@@ -118,6 +119,21 @@ class TestProvesApart:
         """And the same for a magnitude, with the absent capacity a region of its own."""
         cases = {'small': 'capacity and capacity <= 10', 'large': 'capacity and capacity > 10'}
         assert refusals(schema, cases) == [], 'a capacity is at most 10 or above it'
+
+    def test_an_integer_admits_no_value_between_its_bands(self, schema: Spec):
+        """`age` is declared `int`, and the two bands are complements over the integers.
+
+        A midpoint invented in the gap is a coordinate the subject cannot take,
+        and the refusal it manufactures names `0.5` — a value no data produces,
+        with a rewrite the file has already followed.
+        """
+        cases = {'new': 'age < 1', 'old': 'age > 0'}
+        assert refusals(schema, cases) == [], 'an integer is below 1 or above 0, never between'
+
+    def test_a_magnitude_still_admits_one(self, schema: Spec):
+        """The mirror: `capacity` is a float, so 0.5 is a coordinate it can take."""
+        cases = {'small': 'capacity < 1', 'large': 'capacity > 0'}
+        assert refusals(schema, cases), 'a float between the two bands is claimed by both'
 
     def test_a_when_of_true_is_not_a_default(self, schema: Spec):
         """`default` is the case *without* a `when`, and nothing here stands in for it.
