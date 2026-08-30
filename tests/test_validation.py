@@ -761,6 +761,41 @@ class TestExpressionCases:
         with pytest.raises(DimensionError, match='snapshot'):
             to_spec(model)
 
+    def test_a_fault_in_an_arm_names_the_declaration_and_is_reported_once(self):
+        """The block is expanded at every use, and the fault is in one place.
+
+        Naming the use site would report a case on a constraint that has none,
+        and one sentence per constraint reading the expression is the same
+        fault as many.
+        """
+        model = _cased({'opening': {'when': 'position(snapshot) == 0', 'expression': 'nope'}})
+        model['constraints'] = {
+            name: {'foreach': ['snapshot', 'generator'], 'expression': f'p <= headroom + {n}'}
+            for n, name in enumerate(('cap', 'floor'))
+        }
+        with pytest.raises(SchemaError) as caught:
+            to_spec(model)
+
+        message = str(caught.value)
+        assert message.count("'nope' not found") == 1, 'two constraints read it; the fault is reported once'
+        assert "Named expression 'headroom', case 'opening'" in message
+        assert 'Constraint' not in message, "the arm is the declaration's, not the use site's"
+
+    def test_the_fallback_is_not_named_as_a_case(self):
+        """`otherwise:` is what is left, not a region like the cases are.
+
+        Reached through a constraint, which is where the arms are walked a
+        second time and where the label was read off the arm.
+        """
+        model = _cased(otherwise='nope')
+        model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
+        with pytest.raises(SchemaError) as caught:
+            to_spec(model)
+
+        message = str(caught.value)
+        assert "Named expression 'headroom', otherwise: 'nope' not found" in message
+        assert "case 'otherwise'" not in message, 'the fallback is not one of the cases'
+
     def test_a_case_may_name_another_expression(self):
         model = _cased({'opening': {'when': 'position(snapshot) == 0', 'expression': 'spare'}})
         model['expressions']['spare'] = 'p_max * 2'

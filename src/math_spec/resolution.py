@@ -270,6 +270,18 @@ def resolve_expression(
     return None if len(errors) > before else resolved
 
 
+def _arm_context(name: str, arm: CaseArm) -> str:
+    """Where an error inside one arm is reported: the declaration, not the use site.
+
+    A cased expression is expanded where its name stood, so the context in hand
+    at that point is the constraint's — and naming it would report a case on a
+    constraint that has none. The arm without a ``when`` is the block's
+    ``otherwise:``, which is not a case and is not named as one.
+    """
+    where = 'otherwise' if arm.when is None else f"case '{arm.label}'"
+    return f"Named expression '{name}', {where}"
+
+
 def _resolve_arith(
     node: ArithmeticNode,
     ns: Namespace,
@@ -372,7 +384,7 @@ def _resolve_arith(
     if isinstance(node, CasesNode):
         arms = []
         for arm in node.arms:
-            arm_context = f"{context}, case '{arm.label}'"
+            arm_context = _arm_context(node.name, arm)
             when = None if arm.when is None else _resolve_where(arm.when, ns, arm_context, errors)
             arms.append(CaseArm(arm.label, when, _resolve_arith(arm.value, ns, arm_context, errors)))
         return CasesNode(node.name, tuple(arms))
