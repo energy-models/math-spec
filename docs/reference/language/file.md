@@ -20,6 +20,7 @@ and `description`:
 | `macros`      | parameterised templates ([macros](expressions.md#macros))                                                    |
 | `piecewise`   | piecewise-linear curves ([piecewise](piecewise.md))                                                          |
 | `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                               |
+| `checks`      | conditions the bound data must satisfy ([checks](declarations.md#checks))                                    |
 
 Any subset is accepted, `objective` included: a file with none is a
 **feasibility problem**, and the answer is whether the constraints can be met

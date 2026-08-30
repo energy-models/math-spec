@@ -98,6 +98,7 @@ __all__ = [
     'FirstOf',
     'Footprint',
     'GroupSum',
+    'Holds',
     'Increasing',
     'LastOf',
     'LookupDeclaration',
@@ -558,10 +559,11 @@ Derivation = MaskOf | FirstOf | LastOf
 
 @dataclass(frozen=True)
 class Increasing:
-    """*parameter* is strictly increasing along *over* within each curve — the x-axis a method sorts by."""
+    """*parameter* is strictly increasing along *over* within each curve — the x-axis *method* sorts by."""
 
     parameter: str
     over: str
+    method: _model.PiecewiseMethod
 
 
 @dataclass(frozen=True)
@@ -576,6 +578,7 @@ class Curved:
     y: str
     over: str
     curvature: _model.Curvature
+    method: _model.PiecewiseMethod
 
 
 @dataclass(frozen=True)
@@ -596,11 +599,26 @@ class Contiguous:
     values: str | None
 
 
-#: What a ``piecewise:`` block assumes of the numbers it is bound to. The data
-#: decides whether each holds, so the language names the condition with its
-#: subjects and its sentence (:func:`check_message`), and the consumer holding
-#: the numbers checks. Closed, like :data:`Derivation`.
-Check = Increasing | Curved | AtLeastTwo | Contiguous
+@dataclass(frozen=True)
+class Holds:
+    """The predicate a ``checks:`` block declares, read over *dims*.
+
+    The only member the file writes: the others are what a ``piecewise:``
+    block's own shape assumes. *dims* comes from the names in the predicate —
+    a check has no frame to declare, so its rows are the coordinates it spans,
+    and empty dims are one question rather than none.
+    """
+
+    holds: WhereNode
+    dims: tuple[str, ...]
+
+
+#: A condition on the numbers a model is bound to — what a ``piecewise:``
+#: block assumes of its curve, and what a ``checks:`` block declares outright.
+#: The data decides whether each holds, so the language names the condition
+#: with its subjects and its sentence (:func:`check_message`), and the consumer
+#: holding the numbers checks. Closed, like :data:`Derivation`.
+Check = Increasing | Curved | AtLeastTwo | Contiguous | Holds
 
 
 @dataclass(frozen=True)
@@ -626,37 +644,44 @@ class PiecewiseDeclaration:
     checks: tuple[Check, ...]
 
 
-def check_message(block: str, pw: PiecewiseDeclaration, check: Check) -> str:
-    """The sentence a consumer raises when the data bound to *block* fails *check*.
+def check_message(context: str, check: Check) -> str:
+    """The sentence a consumer raises when the data fails *check*.
 
     The language's own wording, so every consumer refuses in the same words;
     a consumer appends what it saw.
+
+    Args:
+        context: What is being checked, as a refusal names it — ``piecewise
+            'cost_curve'`` for a block's own assumption, ``check 'weights'``
+            for one the file declares.
+        check: The condition that failed.
     """
-    ctx = f"piecewise '{block}'"
     match check:
-        case Increasing(parameter, over):
+        case Increasing(parameter, over, method):
             return (
-                f"{ctx}: method: {pw.method} requires strictly increasing breakpoints in '{parameter}' along '{over}'"
+                f"{context}: method: {method} requires strictly increasing breakpoints in '{parameter}' along '{over}'"
             )
-        case Curved(x, y, over, curvature):
+        case Curved(x, y, over, curvature, method):
             shape = 'a single bend' if curvature == 'either' else f'a {curvature} curve'
             return (
-                f"{ctx}: method: {pw.method} is exact only for {shape}, and '{y}' over '{x}' along "
+                f"{context}: method: {method} is exact only for {shape}, and '{y}' over '{x}' along "
                 f"'{over}' is not one, so the answer is wrong rather than loose. Use method: adjacency "
                 f'or sos2, which take a curve of any shape.'
             )
         case AtLeastTwo():
             return (
-                f'{ctx}: method: lp needs at least two breakpoints per curve — the method *is* its segment '
+                f'{context}: method: lp needs at least two breakpoints per curve — the method *is* its segment '
                 f'lines, so a curve with no segment states nothing and leaves the bounded link on its own '
                 f'bound. Use method: adjacency, sos2 or convex, which pin it to the points it does have.'
             )
         case Contiguous(mask, values):
             return (
-                f"{ctx}: points: '{values if values is not None else mask}' must mark a consecutive run of at "
+                f"{context}: points: '{values if values is not None else mask}' must mark a consecutive run of at "
                 f'least one breakpoint per curve — the chord row joins a breakpoint to the one before it, and '
                 f"the domain rows sit on the curve's own first and last."
             )
+        case Holds():
+            return f'{context}: the data does not satisfy it'
         case _:
             assert_never(check)
 
@@ -814,6 +839,10 @@ class Program:
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     named_expressions: Mapping[str, ExpressionNode] = MappingProxyType({})
+    #: Each ``checks:`` block the file wrote. Not part of the program a solver
+    #: sees either — a check builds no row — but carried with it, because the
+    #: consumer that binds the data is the only one that can answer one.
+    checks: Mapping[str, Holds] = MappingProxyType({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to.

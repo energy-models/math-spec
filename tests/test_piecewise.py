@@ -371,8 +371,8 @@ def test_a_block_is_kept_as_the_checks_a_consumer_binding_it_runs():
 
     assert curve.breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
     assert set(curve.checks) == {
-        Increasing('bp_x', 'bp'),
-        Curved('bp_x', 'bp_y', 'bp', 'convex'),
+        Increasing('bp_x', 'bp', 'lp'),
+        Curved('bp_x', 'bp_y', 'bp', 'convex', 'lp'),
         AtLeastTwo('bp', 'cost_curve_points'),
         Contiguous('cost_curve_points', 'bp_x'),
     }, 'an lp curve with a mask assumes all four, each against the names the file wrote'
@@ -383,7 +383,13 @@ def test_a_block_is_kept_as_the_checks_a_consumer_binding_it_runs():
 
 @pytest.mark.parametrize('kind', get_args(Check), ids=lambda k: k.__name__)
 def test_every_check_has_a_sentence(kind):
+    """The union is what a consumer dispatches on, so a member with no sentence is one every consumer words for itself.
+
+    Both provenances are swept: a block assumes the first four of its curve,
+    and the file declares the fifth.
+    """
     curve = to_program(override(LP, **{'piecewise.cost_curve.points': 'bp_x'})).piecewise['cost_curve']
-    check = next((c for c in curve.checks if isinstance(c, kind)), None)
-    assert check is not None, 'the fixture is the block that assumes everything'
-    assert check_message('cost_curve', curve, check).startswith("piecewise 'cost_curve':")
+    declared = to_program(override(LP, checks={'positive': 'bp_x > 0'})).checks
+    found = [c for c in (*curve.checks, *declared.values()) if isinstance(c, kind)]
+    assert found, 'no fixture here produces this check, so nothing holds its sentence to the language'
+    assert check_message("piecewise 'cost_curve'", found[0]).startswith("piecewise 'cost_curve':")

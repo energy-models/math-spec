@@ -95,6 +95,10 @@ way on purpose. What it keeps of a `piecewise:` block is `program.piecewise`:
 which parameters carry the curve, and what the block assumes of the numbers as
 a `checks` tuple — each check carrying the names it is about, so the consumer
 holding the numbers runs it, with `check_message` for the sentence to raise.
+`program.checks` is the same vocabulary where the _file_ wrote the condition
+rather than a curve implying it: one `Holds` per
+[`checks:`](declarations.md#checks) block, carrying the resolved predicate and
+the dims it is asked over.
 What the expansion emitted is answered where it is asked instead: a
 `ParameterDeclaration.derivation` says how that parameter is filled, and `None`
 means the caller binds it.

@@ -202,3 +202,16 @@ objective:
     sum(Generator_p_nom_ext * Generator_capital_cost)
     + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
     + CVaR_omega * CVaR
+
+checks:
+  omega_is_a_share:
+    holds: "CVaR_omega >= 0 AND CVaR_omega <= 1"
+    description: >-
+      the objective blends the expectation and the tail at `omega` and
+      `1 - omega`, so outside [0, 1] it is an extrapolation of the two rather
+      than a mix of them
+  tail_probability_is_one_or_more:
+    holds: "CVaR_inv_tail >= 1"
+    description: >-
+      `1 / (1 - alpha)` for a probability `alpha`, so below one the CVaR row
+      prices the tail at less than its own expectation

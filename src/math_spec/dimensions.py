@@ -464,6 +464,31 @@ def check_schema(schema: Spec) -> None:
             )
 
 
+def where_dims(node: WhereNode | None, schema: Spec) -> frozenset[str]:
+    """The dims a resolved predicate reads.
+
+    A ``where:`` is checked *against* a declared frame; a ``checks:`` block has
+    no frame of its own, so its rows are exactly the coordinates its names
+    span, and this is what says which those are.
+    """
+    if node is None or isinstance(node, BooleanLiteralNode):
+        return frozenset()
+    if isinstance(node, (ParameterDefinedNode, ParameterComparisonNode)):
+        return frozenset(schema.parameters[node.name].dims)
+    if isinstance(node, VariableDefinedNode):
+        return frozenset(schema.variables[node.name].foreach)
+    if isinstance(node, (DimensionComparisonNode, DimensionPositionNode)):
+        return frozenset({node.name})
+    if isinstance(node, (LookupComparisonNode, LookupPairComparisonNode, LookupDefinedNode)):
+        return frozenset({node.over})
+    if isinstance(node, NotNode):
+        return where_dims(node.operand, schema)
+    if isinstance(node, (AndNode, OrNode)):
+        return where_dims(node.left, schema) | where_dims(node.right, schema)
+    msg = f'{type(node).__name__} reached the dim reader unresolved.'
+    raise AssertionError(msg)
+
+
 def _check_where_dims(
     node: WhereNode | None,
     schema: Spec,

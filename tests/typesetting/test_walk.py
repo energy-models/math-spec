@@ -723,3 +723,21 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(fmt: Format):
     text = typeset(model, fmt, legend=False)
     assert fmt.quoted('gas_ccgt') in text, 'a string value prints through the quoted seam'
     assert fmt.prose('gas_ccgt') not in text, 'a string value is data, never words inside math'
+
+
+@EVERY_FORMAT
+def test_a_check_prints_as_the_predicate_under_its_own_heading(fmt: Format):
+    """A construct the loader admits, the typesetter renders — and a data
+    condition is a mathematical statement, so it reads as one rather than as a
+    note beside the model."""
+    model = override(DISPATCH_MODEL, checks={'costs_are_priced': 'cost > 0'})
+    text = typeset(model, fmt, legend=False)
+    assert 'Data conditions' in text
+    assert fmt.operators['forall'] in text.split('Data conditions')[1], (
+        'a check over a dimension is quantified over the coordinates its own names span'
+    )
+
+
+@EVERY_FORMAT
+def test_a_model_with_no_checks_prints_no_heading_for_them(fmt: Format):
+    assert 'Data conditions' not in typeset(DISPATCH_MODEL, fmt, legend=False)

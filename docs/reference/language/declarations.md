@@ -207,3 +207,44 @@ different models, and the bracket is the difference.
 
 A second objective is unsayable rather than checked — the schema holds one
 block. Weight several goals into one expression.
+
+## `checks`
+
+A condition the **data** must satisfy for the model to mean what it says. It
+builds no row and changes no answer; it is the sentence a reader has to believe
+about the table before believing the constraints above it.
+
+```yaml
+parameters:
+  CVaR_omega: { dims: [] }
+  Link_efficiency: { dims: [link] }
+checks:
+  omega_is_a_share: "CVaR_omega >= 0 AND CVaR_omega <= 1"
+  efficiency_is_a_share:
+    holds: "Link_efficiency > 0 AND Link_efficiency <= 1"
+    description: a link delivers some of what it takes, and no more
+```
+
+| Field         |                                                                        |                |
+| ------------- | ---------------------------------------------------------------------- | -------------- |
+| `holds`       | required — a `where` predicate ([where](expressions.md#where-strings)) |                |
+| `description` | free text                                                              | default `null` |
+
+Written as a bare string wherever it carries no description, like a named
+expression.
+
+**There is no `foreach`.** A check is asked at every coordinate the names in it
+span — `Link_efficiency` over `link` is one question per link, and a scalar
+parameter is one question — so the frame is read off the predicate rather than
+declared beside it.
+
+**Nothing here checks it.** No file determines whether a table satisfies a
+condition, so the language states it and the consumer binding the data raises
+it, in the language's own words
+([reading a loaded model](reading.md)). What _is_ decided at load is that the
+condition is one data could break: a predicate the connectives settle to
+`True` checks nothing and one that settles to `False` refuses every table, and
+both are load errors naming the rewrite. So is a predicate reading a variable,
+which has no value before the solve.
+
+A check prints, under **Data conditions**, as the predicate it is.

@@ -107,6 +107,7 @@ def typeset(
         ('Objective', walk.objective()),
         ('Subject to', walk.constraints()),
         ('Variable domains', walk.variables()),
+        ('Data conditions', walk.checks()),
     ]
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
 

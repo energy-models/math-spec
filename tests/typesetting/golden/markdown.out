@@ -222,3 +222,13 @@ $$0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\
 **`weight sos`**
 
 $$\left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\thinspace t \in \mathcal{T}$$
+
+#### Data conditions
+
+**`availability_is_a_share`**
+
+$$\mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \mathrm{eta}_{g} \le 1 \qquad \forall\thinspace g \in \mathcal{G}$$
+
+**`the_budget_is_real`**
+
+$$\mathrm{budget} \ge 0$$

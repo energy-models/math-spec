@@ -28,10 +28,18 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     VariableNode,
 )
-from math_spec.model import Spec
+from math_spec.model import CheckBlock, Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
-from math_spec.resolution import Namespace, resolve_expression, resolve_where
-from math_spec.where_parser import parse_where
+from math_spec.resolution import Namespace, resolve_expression, resolve_where, where_of
+from math_spec.where_parser import (
+    AndNode,
+    BooleanLiteralNode,
+    NotNode,
+    OrNode,
+    VariableDefinedNode,
+    WhereNode,
+    parse_where,
+)
 
 
 def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
@@ -111,6 +119,9 @@ def validate_expressions(schema: Spec) -> None:
     if schema.objective is not None:
         _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2)
 
+    for kname, kdef in schema.checks.items():
+        _check_check(kname, kdef, ns, errors)
+
     if errors:
         raise SchemaError('\n'.join(errors))
 
@@ -161,6 +172,49 @@ def _check_expression(
         check_expression(resolved, context, ceiling=ceiling)
     except LanguageError as e:
         errors.append(str(e))
+
+
+def _check_check(name: str, block: CheckBlock, ns: Namespace, errors: list[str]) -> None:
+    """A check is a predicate over data alone, and one that data cannot decide is a mistake the file can see.
+
+    Folding is what makes the second half reachable: ``where_of`` reduces a
+    predicate the connectives settle to a literal, so a check no table can
+    fail arrives as ``None`` and one no table can pass as ``False``.
+    """
+    context = f"Check '{name}'"
+    try:
+        folded = where_of(block.holds, ns, context)
+    except ValueError as e:
+        errors.append(_prefixed(context, e))
+        return
+    if variables := sorted(_variables_in(folded)):
+        errors.append(
+            f'{context}: reads variable(s) {variables}, and a check is a condition on the data, '
+            f'settled before any variable has a value. Test the parameters the variable is '
+            f'built from, or make it a constraint.'
+        )
+        return
+    if folded is None:
+        errors.append(
+            f'{context}: holds at every coordinate whatever the data says, so it checks nothing. '
+            f'Write the condition the data could break, or drop the check.'
+        )
+    elif isinstance(folded, BooleanLiteralNode):
+        errors.append(
+            f'{context}: no data satisfies it, so every table is refused. Write the condition '
+            f'the data could meet, or drop the check.'
+        )
+
+
+def _variables_in(node: WhereNode | None) -> set[str]:
+    """Every variable a predicate reads — empty for one that reads only data."""
+    if isinstance(node, VariableDefinedNode):
+        return {node.name}
+    if isinstance(node, NotNode):
+        return _variables_in(node.operand)
+    if isinstance(node, (AndNode, OrNode)):
+        return _variables_in(node.left) | _variables_in(node.right)
+    return set()
 
 
 def _check_where(
