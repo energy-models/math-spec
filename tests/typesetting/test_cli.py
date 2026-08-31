@@ -163,3 +163,15 @@ def test_no_verb_binds_data():
     for name, verb in _verbs().items():
         flags = {option for action in verb._actions for option in action.option_strings}
         assert not (flags & banned), f'{name} binds data: {sorted(flags & banned)}'
+
+
+def test_each_section_switch_drops_its_own_section(capsys):
+    """`--no-legend` and `--no-checks` are the two the front offers, and neither reaches the other's section."""
+    assert front.main(['markdown', MODEL, '--no-checks']) == 0
+    without_checks = capsys.readouterr().out
+    assert front.main(['markdown', MODEL, '--no-legend']) == 0
+    without_legend = capsys.readouterr().out
+
+    assert 'Data conditions' not in without_checks
+    assert 'Parameters' in without_checks, 'the legend is still there'
+    assert 'Data conditions' in without_legend, 'the checks are still there'

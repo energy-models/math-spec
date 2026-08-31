@@ -741,3 +741,13 @@ def test_a_check_prints_as_the_predicate_under_its_own_heading(fmt: Format):
 @EVERY_FORMAT
 def test_a_model_with_no_checks_prints_no_heading_for_them(fmt: Format):
     assert 'Data conditions' not in typeset(DISPATCH_MODEL, fmt, legend=False)
+
+
+@EVERY_FORMAT
+def test_the_data_conditions_are_left_out_on_request(fmt: Format):
+    """They are conditions on the input rather than rows a solver holds, so a page about the math alone drops them."""
+    model = override(DISPATCH_MODEL, checks={'costs_are_priced': 'cost > 0'})
+    assert 'Data conditions' not in typeset(model, fmt, legend=False, checks=False)
+    assert typeset(model, fmt, legend=False, checks=False) == typeset(DISPATCH_MODEL, fmt, legend=False), (
+        'dropping the section leaves the math byte-identical to the same model without checks'
+    )

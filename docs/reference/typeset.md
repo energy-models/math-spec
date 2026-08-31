@@ -39,6 +39,7 @@ The three functions take the same keywords; the CLI spells each as a flag.
 | `symbols`    | `--symbols FILE` | how names should print — [below](#symbol-tables). Default: derived                  |
 | `standalone` | `--standalone`   | emit a document that compiles, rather than a fragment to include. Default: fragment |
 | `legend`     | `--no-legend`    | the sets / parameters / variables table above the math. Default: on                 |
+| `checks`     | `--no-checks`    | the data conditions the model declares, below the math. Default: on                 |
 | `numbered`   | `--no-numbers`   | number the equations. Default: on                                                   |
 
 `-o FILE` writes to a file instead of stdout.
@@ -50,6 +51,10 @@ that is the math the solver receives. Where the math translates an index —
 `shift`, in any of its edge spellings — the document also prints a line saying
 what the notation for it means, so a reader meets no symbol the page has not
 defined.
+
+A [`checks:`](language/declarations.md#checks) block prints last, under **Data
+conditions** — a condition on the _input_ rather than a row a solver holds, so
+`--no-checks` leaves a page about the math alone.
 
 A model that does not compile does not print: typesetting runs the same
 load-time checks everything else does.

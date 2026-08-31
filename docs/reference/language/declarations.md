@@ -249,4 +249,4 @@ condition is one data could break: a predicate the connectives settle to
 both are load errors naming the rewrite. So is a predicate reading a variable,
 which has no value before the solve.
 
-A check prints, under **Data conditions**, as the predicate it is.
+A check prints, under **Data conditions**, as the predicate it is — last, and [droppable](../typeset.md#options) for a page about the math alone.
