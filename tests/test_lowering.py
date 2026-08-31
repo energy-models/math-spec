@@ -57,8 +57,11 @@ from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.where_parser import (
     BooleanLiteralNode,
     DimensionComparisonNode,
+    DimensionMembershipNode,
+    LookupMembershipNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterMembershipNode,
 )
 from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, override, schema_of
 
@@ -165,6 +168,27 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
 )
 def test_where_lowering(dispatch_schema, where, expected):
     assert where_of(where, Namespace.of(dispatch_schema), 't') == expected
+
+
+@pytest.mark.parametrize(
+    ('where', 'expected'),
+    [
+        pytest.param('c in [1.5, 2.5]', ParameterMembershipNode('c', (1.5, 2.5)), id='over-a-parameter'),
+        pytest.param("g in ['g1', 'g2']", DimensionMembershipNode('g', ('g1', 'g2')), id='over-a-dimension'),
+        pytest.param("lk in ['h1']", LookupMembershipNode('lk', 'g', ('h1',)), id='over-a-groupable-lookup'),
+        pytest.param("tag in ['north']", LookupMembershipNode('tag', 'g', ('north',)), id='over-a-label-space'),
+    ],
+)
+def test_a_membership_mask_reaches_the_program_unchanged(where, expected):
+    """A `where` atom *is* the program's predicate — no lowering case rewrites one.
+
+    That is what lets a new atom (#254) cost nothing in `lowering.py`, and it is
+    the half no other suite covers: resolution proves the node is built and the
+    typesetter proves it prints, while only this asks whether it survives the
+    pass in between.
+    """
+    program = lower_program(expand_piecewise(schema_of(SMALL_MODEL, **{'variables.p.where': where})))
+    assert program.variables['p'].where == expected, 'the atom the file wrote, not a rewrite of it'
 
 
 def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
