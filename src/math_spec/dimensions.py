@@ -47,20 +47,14 @@ from math_spec.expression_parser import (
 from math_spec.operators import BUILTINS, edge_error
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.where_parser import (
-    AndNode,
-    BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
-    LookupPairComparisonNode,
-    NotNode,
-    OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
-    UnresolvedWhereNode,
     VariableDefinedNode,
     WhereNode,
+    _atom_dims,
+    atoms,
 )
 
 if TYPE_CHECKING:
@@ -473,49 +467,50 @@ def _check_where_dims(
     """A predicate may only test dims the frame carries.
 
     Reducing an outside dim to fit — with ``any()``, say — is a mask that fails
-    *open*, silently including everything. It is rejected here, at load
-    time.
+    *open*, silently including everything. It is rejected here, at load time.
+
+    **Which dims a leaf reads is not decided here.** That is
+    :func:`~math_spec.where_parser.dims_read`'s rule, and this walks the same
+    leaves by the same reading, so a mask cannot be checked against one answer
+    and built against another. What is decided here is the wording, and the
+    wording is per leaf: a reader told only that the predicate leaves the frame
+    would still have to work out which half of it did.
     """
     if node is None:
         return
 
-    if isinstance(node, (ParameterDefinedNode, ParameterComparisonNode)):
-        pdims = frozenset(schema.parameters[node.name].dims)
-        if not pdims <= frame:
+    name_dims = _name_dims(schema)
+    for atom in atoms(node):
+        if not (outside := sorted(_atom_dims(atom, name_dims) - frame)):
+            continue
+        if isinstance(atom, (ParameterDefinedNode, ParameterComparisonNode)):
             raise DimensionError(
-                f"{context}: where-parameter '{node.name}' has dims "
-                f'{sorted(pdims - frame)} outside the frame {sorted(frame)}. Reducing '
+                f"{context}: where-parameter '{atom.name}' has dims "
+                f'{outside} outside the frame {sorted(frame)}. Reducing '
                 f'a mask over an unlisted dim would silently widen it.'
             )
-    elif isinstance(node, VariableDefinedNode):
-        vdims = frozenset(schema.variables[node.name].foreach)
-        if not vdims <= frame:
+        if isinstance(atom, VariableDefinedNode):
             raise DimensionError(
-                f"{context}: where-variable '{node.name}' has dims "
-                f'{sorted(vdims - frame)} outside the frame {sorted(frame)}. A mask '
+                f"{context}: where-variable '{atom.name}' has dims "
+                f'{outside} outside the frame {sorted(frame)}. A mask '
                 f'reducing over an unlisted dim would silently widen it — say which '
                 f'reduction you mean.'
             )
-    elif isinstance(node, (DimensionComparisonNode, DimensionPositionNode)):
-        if node.name not in frame:
+        if isinstance(atom, (DimensionComparisonNode, DimensionPositionNode)):
             raise DimensionError(
-                f"{context}: where-comparison on dimension '{node.name}', which is not in the frame {sorted(frame)}."
+                f"{context}: where-comparison on dimension '{atom.name}', which is not in the frame {sorted(frame)}."
             )
-    elif isinstance(node, (LookupComparisonNode, LookupPairComparisonNode, LookupDefinedNode)):
-        if node.over not in frame:
-            raise DimensionError(
-                f"{context}: where-comparison on lookup '{node.name}', which is over "
-                f"dimension '{node.over}' — not in the frame {sorted(frame)}. A lookup is "
-                f'read on the dim it maps out of, so that dim has to be one the '
-                f'declaration ranges over.'
-            )
-    elif isinstance(node, NotNode):
-        _check_where_dims(node.operand, schema, frame, context)
-    elif isinstance(node, (AndNode, OrNode)):
-        _check_where_dims(node.left, schema, frame, context)
-        _check_where_dims(node.right, schema, frame, context)
-    elif isinstance(node, UnresolvedWhereNode):
-        msg = f'{type(node).__name__} reached the dim checker unresolved.'
-        raise AssertionError(msg)
-    elif not isinstance(node, BooleanLiteralNode):
-        assert_never(node)
+        raise DimensionError(
+            f"{context}: where-comparison on lookup '{atom.name}', which is over "
+            f"dimension '{atom.over}' — not in the frame {sorted(frame)}. A lookup is "
+            f'read on the dim it maps out of, so that dim has to be one the '
+            f'declaration ranges over.'
+        )
+
+
+def _name_dims(schema: Spec) -> dict[str, tuple[str, ...]]:
+    """Every declared name to the dims it is read through — what :func:`~math_spec.where_parser.dims_read` takes."""
+    return {
+        **{name: tuple(pdef.dims) for name, pdef in schema.parameters.items()},
+        **{name: tuple(vdef.foreach) for name, vdef in schema.variables.items()},
+    }

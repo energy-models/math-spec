@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, assert_never, cast
 
 import pyparsing as pp
 
@@ -22,7 +22,7 @@ from math_spec.expression_parser import REAL
 
 if TYPE_CHECKING:
     import datetime
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator, Mapping, Sequence
 
 PredicateOperator = Literal['<=', '>=', '==', '!=', '<', '>']
 
@@ -228,6 +228,84 @@ TypedPredicateNode = (
 #: The boolean connectives — the only where nodes carrying other where nodes,
 #: and so the only place a walk over a predicate recurses.
 ConnectiveWhereNode = NotNode | AndNode | OrNode
+
+
+# ---------------------------------------------------------------------------
+# What a predicate reads
+# ---------------------------------------------------------------------------
+
+
+def atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
+    """Every node in *where* that reads a declaration, connectives removed.
+
+    A predicate is a tree of :data:`ConnectiveWhereNode` over leaves that each
+    name one declaration, so every question about what a mask *reads* is asked
+    of the leaves and answered by taking them together. A boolean literal reads
+    nothing and yields nothing.
+
+    Raises:
+        AssertionError: An unresolved node, which is a pass running before
+            resolution rather than a predicate with a property to read.
+    """
+    if isinstance(where, NotNode):
+        yield from atoms(where.operand)
+    elif isinstance(where, (AndNode, OrNode)):
+        yield from atoms(where.left)
+        yield from atoms(where.right)
+    elif isinstance(where, UnresolvedWhereNode):
+        msg = f'{type(where).__name__} reached a predicate walk unresolved.'
+        raise AssertionError(msg)
+    elif not isinstance(where, BooleanLiteralNode):
+        yield where
+
+
+def dims_read(where: WhereNode, name_dims: Mapping[str, Sequence[str]]) -> frozenset[str]:
+    """Which dims *where* reads, given what each declared name is read through.
+
+    The dim rule for the predicate side, stated once: **a mask is read at the
+    coordinates its leaves are read at**. A parameter is read through its own
+    dims, a variable through the frame it is declared over, a comparison on a
+    dimension through that dimension, and a lookup through the dimension it
+    maps out of — a lookup being read on the dim it leaves, not the one it
+    lands in.
+
+    A consumer masking rows needs this to know which coordinates a mask can
+    restrict, and answering it separately is the mistake
+    ``what-counts-as-language.md`` forbids: two consumers deciding differently
+    would mask the same model differently, with no error anywhere.
+
+    Args:
+        where: A resolved predicate.
+        name_dims: Every declared name to the dims it is read through —
+            parameters by their ``dims`` and variables by their ``foreach``,
+            one flat mapping because the language has one flat namespace.
+
+    Returns:
+        The dims read, which is empty for a predicate over nothing but
+        literals.
+    """
+    return frozenset(dim for atom in atoms(where) for dim in _atom_dims(atom, name_dims))
+
+
+def _atom_dims(atom: TypedPredicateNode, name_dims: Mapping[str, Sequence[str]]) -> frozenset[str]:
+    """One leaf's dims — the rule :func:`dims_read` is the union of.
+
+    Private because a caller wanting one leaf's answer wants the whole
+    predicate's, and separate because the load-time frame check reports per
+    leaf and so cannot take the union. Closed by ``assert_never``: a predicate
+    node added without a reading is a type error here, at the one place that
+    has to grow a branch, rather than a wrong dim set at the first model to use
+    it.
+    """
+    match atom:
+        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
+            return frozenset(name_dims.get(atom.name, ()))
+        case DimensionComparisonNode() | DimensionPositionNode():
+            return frozenset({atom.name})
+        case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
+            return frozenset({atom.over})
+        case _:
+            assert_never(atom)
 
 
 # ---------------------------------------------------------------------------
