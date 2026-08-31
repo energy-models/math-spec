@@ -16,9 +16,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 !!! hint
 
-    If it is your first time using Python, we recommend [pixi](https://pixi.prefix.dev/), [conda](https://docs.conda.io/projects/conda), or [uv](https://docs.astral.sh/uv/) as easy-to-use package managers.
-    They are available for Windows, macOS, and GNU/Linux.
-    It is always helpful to use dedicated environments.
+    New to Python? [pixi](https://pixi.prefix.dev/), [conda](https://docs.conda.io/projects/conda), and [uv](https://docs.astral.sh/uv/) are package managers that work on Windows, macOS, and GNU/Linux.
+    Use a dedicated environment for each project.
 
 You can install `math-spec` via all common package managers:
 
@@ -48,12 +47,12 @@ You can install `math-spec` via all common package managers:
     pip install math_spec
     ```
 
-`math-spec` is written and tested to be compatible with Python 3.12 and above.
-We recommend to use the latest version with active support (see [endoflife.date](https://endoflife.date/python)).
+`math-spec` supports Python 3.12 and above.
+Use the latest version with active support (see [endoflife.date](https://endoflife.date/python)).
 
 ## Installing a development environment
 
-The install instructions are slightly different to create a development environment compared to a user environment:
+Installing a development environment takes different commands:
 
 --8<-- "README.md:docs-install-dev"
 

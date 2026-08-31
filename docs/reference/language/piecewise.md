@@ -6,8 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 # Piecewise curves and SOS
 
 Two blocks for the shapes a purely affine language cannot state directly: a
-curve through breakpoints, and a family of variables of which only one — or two
-neighbours — may be nonzero.
+curve through breakpoints (`piecewise:`), and a family of variables of which
+only one — or two neighbours — may be nonzero (`sos:`, a special-ordered set).
 
 ## `piecewise`
 
@@ -87,7 +87,7 @@ weights with nothing making them a curve.
 the order its labels are first written in, which `shift` walks and
 `position(bp) == 0` names. So the `bp` index is the curve's x-axis, and a values
 parameter is a lookup against it — a table is a function of its coordinates and
-the order its rows arrive in means nothing, on either lane. "Strictly
+the order its rows arrive in means nothing, in any consumer. "Strictly
 increasing breakpoints" below is increasing _in that order_: write the index
 backwards and the curve really does run backwards, which is refused.
 
@@ -182,8 +182,9 @@ Two things follow from stating lines rather than weights:
 ### When the arity is data, the formulation is four declarations
 
 `links:` is a list, so how many expressions a block ties is written in the file.
-Where that number is a property of the system — a boiler tying two flows, a CHP
-unit tying three — the formulation is written out instead, and it is not much:
+Where that number is a property of the system — a boiler tying two flows, a
+combined heat and power (CHP) unit tying three — the formulation is written
+out instead, and it is not much:
 
 <!-- doctest: skip -->
 
