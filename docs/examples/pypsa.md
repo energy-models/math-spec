@@ -760,12 +760,11 @@ def build():
 </details>
 <!-- reference:rung_08_modular_big_m:end -->
 
-### Rung 9 — multi-link and delay
+### Rung 9 — multi-link
 
 | PyPSA                        | status | note                                          |
 | ---------------------------- | ------ | --------------------------------------------- |
 | [nodal balance, ports 1..n](#bus-nodal_balance) | done | one term over `link_output`, so a link of any number of output ports needs no further declaration (#124) |
-| nodal balance, link delay    | open   | #75, a per-link edge kind                     |
 
 <!-- reference:rung_09_multilink:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `11714.4`, 92 rows.
@@ -1107,6 +1106,89 @@ def build():
 </details>
 <!-- reference:rung_11_ac_dc_meshed:end -->
 
+### Rung 16 — link delay
+
+A source feeding two sinks over links whose energy arrives late. PyPSA's
+`delay` lags a port's delivery by a number of snapshots, and `cyclic_delay`
+says whether the flow still in transit at the horizon's edge wraps to the start
+or is lost. The two are a per-link number and a per-link kind, so the balance
+turns them on with a `cases:` block over `shift(…, offset=Link_output_delay,
+edge=…)` — one arm wrapping (`edge='wrap'`), the other vacating (`edge=0`).
+
+This is the one rung whose `generators` weighting is uniform. PyPSA measures
+`delay` in those units, so a uniform column makes a delay of `n` a shift of
+exactly `n` snapshot positions, which a positional `shift` reproduces. Under a
+non-uniform column PyPSA resamples by elapsed time rather than by position — a
+shift that varies along the snapshot axis, above what `shift` states (#299).
+
+| PyPSA                     | status | note                                            |
+| ------------------------- | ------ | ----------------------------------------------- |
+| [link `delay`, `cyclic_delay`](#bus-nodal_balance) | done | a `cases:` on `cyclic_delay` over `shift(offset=delay)`, at uniform `generators` weighting; supersedes #75 |
+
+<!-- reference:rung_16_link_delay:begin -->
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `5262.5`, 52 rows.
+
+<details markdown="1">
+<summary>The network, as PyPSA code</summary>
+
+`rung_16_link_delay.py`
+
+```python
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+"""Rung 16: link delay — a source feeding two sinks over links whose energy arrives late, one wrapping cyclically and one losing what is still in transit at the horizon's edge."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+#: Four hourly stamps. The `generators` weighting is uniform here, and only here
+#: on the ladder, because PyPSA measures `delay` in those units: a uniform column
+#: makes a delay of `n` a shift of exactly `n` snapshot positions, which is what a
+#: positional `shift(offset=n)` reproduces. The `objective` and `stores` columns
+#: stay non-uniform, so no cost or storage factor passes as identity.
+SNAPSHOTS = [datetime(2015, 1, 1, hour) for hour in range(4)]
+WEIGHTINGS = {'objective': [2.0, 1.5, 2.5, 3.0], 'stores': [0.5, 2.0, 1.5, 2.5], 'generators': [1.0, 1.0, 1.0, 1.0]}
+
+#: Each sink carries the same demand, so the only thing that separates their cost
+#: is how each link treats the horizon's edge.
+DEMAND = [20.0, 15.0, 25.0, 10.0]
+
+
+def build():
+    """A source, two delayed links, and two sinks, stated as the calls that build it.
+
+    ``pipe_wrap`` delays by two snapshots and wraps cyclically, so every unit the
+    cheap source sends reaches its sink and the expensive backup stays dark.
+    ``pipe_lose`` delays by one and does not wrap, so the flow that would arrive
+    in the first snapshot is lost and that snapshot's demand falls to the backup.
+    The two links differ in both a per-link number (`delay`) and a per-link kind
+    (`cyclic_delay`), which is what the model's ``cases:`` block turns on.
+    """
+    import pypsa
+
+    n = pypsa.Network()
+    n.set_snapshots(SNAPSHOTS)
+    for column, values in WEIGHTINGS.items():
+        n.snapshot_weightings[column] = values
+    n.add('Bus', 'source')
+    n.add('Bus', 'sink_wrap')
+    n.add('Bus', 'sink_lose')
+    n.add('Generator', 'spring', bus='source', p_nom=200, marginal_cost=5)
+    n.add('Generator', 'backup_wrap', bus='sink_wrap', p_nom=200, marginal_cost=100)
+    n.add('Generator', 'backup_lose', bus='sink_lose', p_nom=200, marginal_cost=100)
+    n.add('Link', 'pipe_wrap', bus0='source', bus1='sink_wrap', p_nom=100, delay=2, cyclic_delay=True)
+    n.add('Link', 'pipe_lose', bus0='source', bus1='sink_lose', p_nom=100, delay=1, cyclic_delay=False)
+    n.add('Load', 'load_wrap', bus='sink_wrap', p_set=DEMAND)
+    n.add('Load', 'load_lose', bus='sink_lose', p_set=DEMAND)
+    return n
+```
+
+</details>
+<!-- reference:rung_16_link_delay:end -->
+
 ### Not on a rung
 
 | PyPSA                          | status | note                                 |
@@ -1187,6 +1269,8 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\underline{\mathrm{f}}$ | `Link_p_min_pu` over $\mathcal{T} \times \mathcal{L}$ — least flow, per unit of nominal power — negative for a link that carries both ways |
 | $\overline{\mathrm{f}}$ | `Link_p_max_pu` over $\mathcal{T} \times \mathcal{L}$ — most flow, per unit of nominal power |
 | $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
+| $\mathrm{d}^{f}$ | `Link_output_delay` over $\mathcal{O}$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once |
+| $\mathrm{cyc}^{f}$ | `Link_output_cyclic_delay` over $\mathcal{O}$ — whether a delayed port's flow wraps from the horizon's end — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at the first snapshots is lost |
 | $\mathrm{c}^{f}$ | `Link_marginal_cost` over $\mathcal{T} \times \mathcal{L}$ — cost of one unit of flow |
 | $\mathrm{load}$ | `Load_p_set` over $\mathcal{T} \times \mathcal{D}$ — demand |
 | $\mathrm{p}^{\mathrm{set}}$ | `Generator_p_set` over $\mathcal{T} \times \mathcal{G}$ — a given output schedule; a generator without one has no row here |
@@ -1290,6 +1374,8 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $E$ | `Store_e_nom_ext` over $\mathcal{V}$ — `Store-e_nom` — nominal capacity where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
+
+$t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
 
 $\mathrm{pos}(t)$ denotes where index $t$ sits along its dimension's own order — the order `shift` walks, not the order labels sort in — counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $\mathrm{pos}(t)$ against positions.
 
@@ -2780,7 +2866,8 @@ Bus_nodal_balance:
   description: >-
     `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
     stores included, less what the links take away, plus what arrives over
-    them after losses at every port they deliver to, meets the load there.
+    them after losses and any delay at every port they deliver to, meets the
+    load there.
     A bus nothing is attached to has no row; PyPSA refuses one that
     carries load, and this file does not yet.
   foreach: [snapshot, bus]
@@ -2789,13 +2876,13 @@ Bus_nodal_balance:
     + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus)
     + sum(Store_p, by=Store_bus)
     - sum(Link_p, by=Link_bus0)
-    + sum(at(Link_p, by=Link_output_link) * Link_efficiency, by=Link_output_bus)
+    + sum(Link_output_arrival, by=Link_output_bus)
     - sum(Line_s, by=Line_bus0)
     + sum(Line_s, by=Line_bus1)
     == sum(Load_p_set, by=Load_bus)
 ```
 
-$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{Generator\_bus}(g) = n} p_{t,g} + \sum_{s \in \mathcal{S} \thinspace:\thinspace \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{t,s} - h^{-}_{t,s} \right) + \sum_{v \in \mathcal{V} \thinspace:\thinspace \mathrm{Store\_bus}(v) = n} q_{t,v} - \left( \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus0}(l) = n} f_{t,l} \right) + \sum_{o \in \mathcal{O} \thinspace:\thinspace \mathrm{Link\_output\_bus}(o) = n} f_{t,\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} - \left( \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus0}(k) = n} s_{t,k} \right) + \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus1}(k) = n} s_{t,k} = \sum_{d \in \mathcal{D} \thinspace:\thinspace \mathrm{Load\_bus}(d) = n} \mathrm{load}_{t,d} \qquad \forall\thinspace t \in \mathcal{T},\enspace n \in \mathcal{N}$$
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{Generator\_bus}(g) = n} p_{t,g} + \sum_{s \in \mathcal{S} \thinspace:\thinspace \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{t,s} - h^{-}_{t,s} \right) + \sum_{v \in \mathcal{V} \thinspace:\thinspace \mathrm{Store\_bus}(v) = n} q_{t,v} - \left( \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus0}(l) = n} f_{t,l} \right) + \sum_{o \in \mathcal{O} \thinspace:\thinspace \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{t,o} - \left( \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus0}(k) = n} s_{t,k} \right) + \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus1}(k) = n} s_{t,k} = \sum_{d \in \mathcal{D} \thinspace:\thinspace \mathrm{Load\_bus}(d) = n} \mathrm{load}_{t,d} \qquad \forall\thinspace t \in \mathcal{T},\enspace n \in \mathcal{N}$$
 
 #### Variable domains
 

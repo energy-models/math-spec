@@ -56,6 +56,8 @@ names:
   Link_p_min_pu: '\underline{\mathrm{f}}'
   Link_p_max_pu: '\overline{\mathrm{f}}'
   Link_efficiency: '\eta'
+  Link_output_delay: '\mathrm{d}^{f}'
+  Link_output_cyclic_delay: '\mathrm{cyc}^{f}'
   Link_marginal_cost: '\mathrm{c}^{f}'
   Load_p_set: '\mathrm{load}'
   Generator_p_set: '\mathrm{p}^{\mathrm{set}}'
@@ -72,6 +74,7 @@ names:
   Generator_e_sum_max: '\overline{\mathrm{E}}'
   Link_p_nom_ext: "F"
   Link_p_nom_effective: '\widetilde{\mathrm{f}}^{\mathrm{nom}}'
+  Link_output_arrival: '\overrightarrow{f}'
   Link_p_nom_min: '\underline{\mathrm{f}}^{\mathrm{nom}}'
   Link_p_nom_max: '\overline{\mathrm{f}}^{\mathrm{nom}}'
   Link_capital_cost: '\mathrm{c}^{\mathrm{cap},f}'
