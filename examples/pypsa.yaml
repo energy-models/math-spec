@@ -148,6 +148,20 @@ parameters:
       `efficiency2`, … read long — negative where that port consumes rather
       than delivers
     dims: [link_output]
+  Link_output_delay:
+    description: >-
+      snapshots a port's delivery lags its link's flow — PyPSA's `delay`,
+      `delay2`, … read long, in `snapshot_weightings.generators` units, which
+      the file states as whole snapshots; zero for a port that delivers at once
+    dims: [link_output]
+    dtype: int
+  Link_output_cyclic_delay:
+    description: >-
+      whether a delayed port's flow wraps from the horizon's end — PyPSA's
+      `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in
+      transit at the first snapshots is lost
+    dims: [link_output]
+    dtype: bool
   Link_marginal_cost:
     description: cost of one unit of flow
     dims: [snapshot, link]
@@ -637,6 +651,20 @@ expressions:
         when: not Store_e_cyclic AND position(snapshot) == 0
         expression: Store_e_initial
     otherwise: Store_retention * shift(Store_e, over=snapshot, offset=1)
+  Link_output_arrival:
+    description: >-
+      what a link delivers to an output port at a snapshot — its flow after the
+      port's efficiency, delayed by the port's `delay`; where the port is
+      `cyclic_delay` the delayed flow wraps from the horizon's end, and where it
+      is not the flow still in transit at the first snapshots is lost. A port
+      that does not delay (`delay` zero) delivers its flow unshifted, cyclic or
+      not
+    foreach: [snapshot, link_output]
+    cases:
+      wrapping:
+        when: Link_output_cyclic_delay
+        expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge='wrap')
+    otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge=0)
   primary_energy:
     description: >-
       what a `primary_energy` row totals — weighted generator energy, less
@@ -1258,7 +1286,8 @@ constraints:
     description: >-
       `Bus-nodal_balance` — what is generated at a bus, storage dispatch and
       stores included, less what the links take away, plus what arrives over
-      them after losses at every port they deliver to, meets the load there.
+      them after losses and any delay at every port they deliver to, meets the
+      load there.
       A bus nothing is attached to has no row; PyPSA refuses one that
       carries load, and this file does not yet.
     foreach: [snapshot, bus]
@@ -1267,7 +1296,7 @@ constraints:
       + sum(StorageUnit_p_dispatch - StorageUnit_p_store, by=StorageUnit_bus)
       + sum(Store_p, by=Store_bus)
       - sum(Link_p, by=Link_bus0)
-      + sum(at(Link_p, by=Link_output_link) * Link_efficiency, by=Link_output_bus)
+      + sum(Link_output_arrival, by=Link_output_bus)
       - sum(Line_s, by=Line_bus0)
       + sum(Line_s, by=Line_bus1)
       == sum(Load_p_set, by=Load_bus)
