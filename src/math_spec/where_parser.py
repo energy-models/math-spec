@@ -378,24 +378,29 @@ def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
     )
 
 
+def _literal_token(token: Any) -> tuple[float | str, bool]:
+    """One literal token as ``(value, quoted)`` — a number, a quoted label, or a bare word.
+
+    The one home for turning a raw grammar token into a typed literal plus its
+    quoted flag; a comparison's single right-hand side and a membership's list
+    both read one token at a time through it.
+    """
+    if isinstance(token, _Quoted):
+        return str(token), True
+    return (token if isinstance(token, float) else str(token)), False
+
+
 def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
     """``name <op> literal`` off the tokens the grammar captured, the quoted marker turned into a flag."""
     name, op, value = tokens
-    quoted = isinstance(value, _Quoted)
-    return UnresolvedComparisonNode(str(name), cast('PredicateOperator', op), str(value) if quoted else value, quoted)
-
-
-def _element(token: Any) -> tuple[float | str, bool]:
-    """One membership element as ``(value, quoted)`` — a number, a quoted label, or a bare word."""
-    if isinstance(token, _Quoted):
-        return str(token), True
-    return (token, False) if isinstance(token, float) else (str(token), False)
+    value, quoted = _literal_token(value)
+    return UnresolvedComparisonNode(str(name), cast('PredicateOperator', op), value, quoted)
 
 
 def _membership(tokens: pp.ParseResults) -> UnresolvedMembershipNode:
     """``name in [l1, l2, …]`` off the tokens the grammar captured; the list may be empty for resolution to refuse."""
     name, *elements = tokens
-    return UnresolvedMembershipNode(str(name), tuple(_element(e) for e in elements))
+    return UnresolvedMembershipNode(str(name), tuple(_literal_token(e) for e in elements))
 
 
 def _build_where_grammar() -> pp.ParserElement:
