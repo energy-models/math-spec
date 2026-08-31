@@ -33,6 +33,7 @@ from math_spec.expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    ConstraintNode,
     DimensionNode,
     EdgeNode,
     ExpressionNode,
@@ -96,6 +97,10 @@ def _dims(
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
+    if isinstance(node, ConstraintNode):
+        msg = f"ConstraintNode '{node.name}' reached the dim checker outside dual(); a constraint is legal only as dual()'s argument."
+        raise AssertionError(msg)
+
     if isinstance(node, UnaryOperatorNode):
         return _dims(node.operand, schema, context)
 
@@ -125,8 +130,15 @@ def _dims_call(
     *into* its target rather than away.
     ``at`` is the adjoint of ``sum``, one mapping table walked either way:
     ``sum`` consumes the dim the lookup is *over*, ``at`` the dim it maps
-    *into*, and each produces the other.
+    *into*, and each produces the other. ``dual`` carries the frame of the
+    constraint it names — a row dual exists at every coordinate of its
+    ``foreach``.
     """
+    if node.name == 'dual':
+        (arg,) = node.args
+        assert isinstance(arg, ConstraintNode), 'dual() resolves its argument to a ConstraintNode'
+        return frozenset(schema.constraints[arg.name].foreach)
+
     if node.name == 'sum':
         inner = _dims(node.args[0], schema, context)
         by = node.kwargs.get('by')

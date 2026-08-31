@@ -21,6 +21,7 @@ from math_spec.program import WhereNode
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
+from math_spec.typesetting.symbols import postsolve_expressions
 from math_spec.validation import to_spec
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
@@ -131,6 +132,8 @@ def _rendered_trees() -> Iterator[object]:
     for name, block in schema.variables.items():
         if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
             yield mask.root
+    for name in postsolve_expressions(schema):
+        yield expression_of(name, schema, namespace, f'post-solve expression {name!r}')
 
 
 #: What resolution never hands the walk: the three nodes it types away, and the
@@ -180,10 +183,12 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 
 
 #: What the fixture cannot reach, by the source text of the line, in two
-#: groups. The **guards** — every line of the two ``resolve … first`` arms and
-#: the one asserting a constraint is a comparison — are what the walk raises
-#: when resolution hands it something it types away, so a model reaching one is
-#: a bug upstream rather than a case worth committing output for. The
+#: groups. The **guards** — every line of the two ``resolve … first`` arms, the
+#: one asserting a constraint is a comparison, and the one catching a bare
+#: ``ConstraintNode`` (``dual()`` consumes its argument without recursing) — are
+#: what the walk raises when resolution hands it something it types away, so a
+#: model reaching one is a bug upstream rather than a case worth committing
+#: output for. The
 #: **absent objective** is the arm a *different* model takes: a file declares
 #: at most one, so a fixture that has one cannot also be a fixture that has
 #: none, and `test_a_model_with_no_objective_prints_the_rest` covers it instead.
@@ -192,6 +197,8 @@ UNREACHABLE = {
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
     'if not isinstance(node, ComparisonNode):',
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
+    'if isinstance(node, ConstraintNode):',
+    "msg = 'a ConstraintNode reached the typesetter outside dual(); only dual() consumes a constraint reference.'",
     'raise AssertionError(msg)',
     'assert_never(node)',
     'if block is None:',

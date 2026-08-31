@@ -95,14 +95,15 @@ parameter named `snapshot` would silently change what an existing
 **Position decides which kinds of name are legal**, and every name's kind is
 fixed when the file loads:
 
-| Position                                | Legal kinds                                                                        |
-| --------------------------------------- | ---------------------------------------------------------------------------------- |
-| expression (`p * cost`)                 | variable, parameter — the parameter a number ([dtype](declarations.md#parameters)) |
-| dimension argument (`over=`)            | dimension                                                                          |
-| lookup argument (`by=` on `sum` / `at`) | lookup — never a dimension                                                         |
-| `where` string                          | parameter, variable, dimension, lookup ([where strings](#where-strings))           |
-| `bounds.lower` / `bounds.upper`         | parameter name, or a number                                                        |
-| the `edge` key of `shift`               | `'wrap'` **quoted**, or a bare number; never a dimension                           |
+| Position                                | Legal kinds                                                                                                                       |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| expression (`p * cost`)                 | variable, parameter — the parameter a number ([dtype](declarations.md#parameters))                                                |
+| dimension argument (`over=`)            | dimension                                                                                                                         |
+| lookup argument (`by=` on `sum` / `at`) | lookup — never a dimension                                                                                                        |
+| `where` string                          | parameter, variable, dimension, lookup ([where strings](#where-strings))                                                          |
+| `bounds.lower` / `bounds.upper`         | parameter name, or a number                                                                                                       |
+| the `edge` key of `shift`               | `'wrap'` **quoted**, or a bare number; never a dimension                                                                          |
+| `dual` argument (`dual(c)`)             | constraint — resolved against constraints alone, never the flat namespace ([post-solve](postsolve.md#reading-a-constraints-dual)) |
 
 A bare word in a keyword-argument value is _a name to resolve_, which is why
 `wrap` is quoted: `shift(x, over=wrap, edge='wrap')` reads unambiguously even
@@ -119,10 +120,12 @@ either is a cast the file never wrote, so only `dtype: float` and `dtype: int`
 stand as a coefficient, a term or a divisor
 ([dtype](declarations.md#parameters)).
 
-**Constraints are outside the namespace**, no position resolving to one, so a
-model may name a constraint after a variable. What reads a solve back keys on
-the label space as well as the name for that reason. The objective carries no
-name at all.
+**Constraints are outside the flat namespace.** The one position that names a
+constraint is [`dual`'s argument](postsolve.md#reading-a-constraints-dual),
+resolved against constraints alone — so a bare name never reaches a constraint
+and a model may still name a constraint after a variable. What reads a solve
+back keys on the label space as well as the name for that reason. The objective
+carries no name at all.
 
 ## Dim algebra
 
@@ -343,7 +346,9 @@ not written down anywhere in the file. **Math grade** is the shape above: an
 affine form the objective, a constraint or a bound may reference, held to the
 same [degree-2 ceiling](#degree-2-in-the-math-degree-1-beside-it) the math
 holds to everywhere else. A body that breaks one of those rules — a variable
-divisor, a cube, a ratio of two sums — is **post-solve grade** instead: a
+divisor, a cube, a ratio of two sums — or that calls
+[`dual()`](postsolve.md#reading-a-constraints-dual) is **post-solve grade**
+instead: a
 statistic the solver never sees, arithmetic over numbers a solve has already
 produced, where those restrictions lift. See
 [Post-solve expressions](postsolve.md) for what lifts, and why the math

@@ -311,6 +311,23 @@ def test_a_link_reading_a_degree_two_product_entry_is_refused():
     assert "piecewise 'cost_curve' link 0" in str(exc.value)
 
 
+def test_a_link_reading_a_dual_entry_is_refused():
+    """A link is math a build ingests, so the dual placement rule fires here as at every other reading position.
+
+    Without the guard the entry's `dual(balance)` would pass the affine check —
+    a dual carries no variable — and hand lowering a leaf no piecewise
+    expansion can build.
+    """
+    with pytest.raises(PiecewiseExpansionError, match='a dual exists only after a solve'):
+        schema_of(
+            NONCONVEX_YAML,
+            **{
+                'expressions': {'price': 'dual(balance)'},
+                'piecewise.cost_curve.links': [['price', 'bp_x'], ['op_cost', 'bp_y']],
+            },
+        )
+
+
 @pytest.mark.parametrize(
     ('activity', 'match'),
     [

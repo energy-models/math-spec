@@ -98,6 +98,24 @@ def test_dim_inference(expr, expected):
     assert _dims(expr) == expected
 
 
+def _dims_with(expr: str, **overrides) -> frozenset[str]:
+    s = _schema(**overrides)
+    return dims_of(expression_of(expr, s, Namespace.of(s), 't'), s, 't')
+
+
+def test_a_dual_carries_the_constraints_own_frame():
+    """`dual(c)` is a row dual at every coordinate of the constraint's declared `foreach`."""
+    s = _schema()
+    assert _dims_with('dual(balance)') == frozenset(s.constraints['balance'].foreach) == {'snapshot', 'bus'}
+
+
+def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
+    """Constraints sit outside the flat namespace, so only `dual()` reads the constraint store — a bare name never does, even one a constraint shares (#74)."""
+    shadowing = {'variables.balance': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}}
+    assert _dims_with('balance', **shadowing) == {'snapshot'}, 'a bare name resolves to the variable of that name'
+    assert _dims_with('dual(balance)', **shadowing) == {'snapshot', 'bus'}, 'dual() alone reaches the constraint'
+
+
 @pytest.mark.parametrize(
     ('expr', 'match'),
     [

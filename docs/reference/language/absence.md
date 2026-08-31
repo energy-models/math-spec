@@ -155,6 +155,12 @@ built and the numbers are in hand, but the arithmetic has no value there, so the
 post-solve quantity reads that same null — the language has one "no value", and
 an undefined quotient joins it rather than raising a separate not-a-number.
 
+A [`dual(c)`](postsolve.md#reading-a-constraints-dual) follows the same rule
+from the constraint side. A constraint's `where:` leaves its row **unbuilt** at
+the masked coordinates, and an unbuilt row has no shadow price, so `dual(c)` has
+**no value** there — the same null, not a zero. The dual is defined at exactly
+the coordinates of `c`'s frame where the row was built.
+
 ## Asking for the other reading
 
 | You want                                       | You write                                                                                     |

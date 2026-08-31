@@ -41,6 +41,7 @@ from math_spec.program import (
     DimensionComparisonNode,
     DimensionDeclaration,
     Divide,
+    Dual,
     ExpressionNode,
     Footprint,
     GroupSum,
@@ -587,6 +588,7 @@ FAN_IN = {
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',
+    Dual('balance'): 'one-to-one',
 }
 
 

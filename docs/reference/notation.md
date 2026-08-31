@@ -513,6 +513,16 @@ lcoe: sum(p * cost) / sum(p)
 
 $$\mathit{lcoe} = \frac{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g}}$$
 
+#### `marginal_price`
+
+the row dual of a constraint, the one builtin only a post-solve-grade entry may read
+
+```yaml
+marginal_price: dual(balance)
+```
+
+$$\mathit{marginal\_price}_{t,b} = \lambda_{\mathrm{balance},t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+
 #### `startup_cost`
 
 a quantity defined by region: no two cases overlap, and `otherwise` is the rest

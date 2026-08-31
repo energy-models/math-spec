@@ -27,6 +27,7 @@ from math_spec.program import (
     Cases,
     Constant,
     Divide,
+    Dual,
     ExpressionNode,
     GroupSum,
     Multiply,
@@ -144,11 +145,18 @@ def _walk(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> None:
     reduction, a re-index or a window, so each hands *sign* on unchanged. A
     power carries no sign in either half, which is what makes a degree-2 term
     claim nothing.
+
+    A Constant, Parameter or Dual is a variable-free leaf and contributes
+    nothing. ``Dual`` is in that arm only to keep the walk exhaustive after the
+    union gained it — a dual makes its entry post-solve grade, which no
+    objective may read, so this walk never actually meets one; the clause is
+    not a claim that a dual would carry no sign into an objective it can never
+    enter.
     """
     if isinstance(node, Variable):
         signs[node.name] = sign if signs.setdefault(node.name, sign) == sign else None
         return
-    if isinstance(node, Constant | Parameter):
+    if isinstance(node, Constant | Parameter | Dual):
         return
     if isinstance(node, Negate):
         _walk(node.operand, _flip(sign), signs)

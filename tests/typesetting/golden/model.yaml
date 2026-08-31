@@ -84,6 +84,7 @@ sos:
 
 expressions:
   lcoe: sum(p * cost) / sum(p) # a divisor carrying a variable, so the entry grades post-solve and prints under its own name rather than inlining
+  marginal_price: dual(balance) # the row dual of a constraint, the one builtin only a post-solve-grade entry may read
   startup_cost: # a quantity defined by region: no two cases overlap, and `otherwise` is the rest
     description: what starting a unit in this snapshot costs, which the horizon's edge changes
     foreach: [snapshot, generator]

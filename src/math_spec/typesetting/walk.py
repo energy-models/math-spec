@@ -22,6 +22,7 @@ from math_spec.expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    ConstraintNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
@@ -318,6 +319,10 @@ class Walk:
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
+        if isinstance(node, ConstraintNode):
+            msg = 'a ConstraintNode reached the typesetter outside dual(); only dual() consumes a constraint reference.'
+            raise AssertionError(msg)
+
         assert_never(node)
 
     def _binary(self, node: BinaryOperatorNode, ctx: _Context) -> tuple[str, int]:
@@ -355,8 +360,17 @@ class Walk:
         ``shift`` and ``at`` emit no operator of their own — they re-index the
         operand, so the substitution shows at the leaves. A ``sum`` naming no
         dim binds every dim its operand carries, and the domain has to say
-        which, since the call does not.
+        which, since the call does not. ``dual`` is a leaf, not a reduction: it
+        renders as λ subscripted by the constraint's symbol and then the
+        indices of the constraint's own frame.
         """
+        if node.name == 'dual':
+            (arg,) = node.args
+            assert isinstance(arg, ConstraintNode), "resolution resolves dual()'s argument to a constraint reference"
+            frame = self._sorted(dims_of(node, self.schema, 'a dual'))
+            indices = [self.symbols.constraint[arg.name], *(ctx.subscript(d) for d in frame)]
+            return self.format.subscript(self.op('dual'), indices), _ATOM
+
         if node.name == 'shift':
             dim = node.kwargs['over']
             assert isinstance(dim, DimensionNode)

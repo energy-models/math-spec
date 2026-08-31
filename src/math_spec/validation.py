@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, assert_never
 
 from math_spec._yaml import read_yaml
-from math_spec.degree import carries_variable, check_expression
+from math_spec.degree import calls_dual, carries_variable, check_expression, dual_in_math_message
 from math_spec.dimensions import check_schema
 from math_spec.errors import LanguageError, SchemaError
 from math_spec.exclusivity import overlapping
@@ -20,6 +20,7 @@ from math_spec.expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    ConstraintNode,
     FunctionCallNode,
     KeywordNode,
     KwargNode,
@@ -187,16 +188,19 @@ def _check_expression(
 ) -> None:
     """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
 
-    ``check_degree`` is off for an ``expressions:`` entry's body: degree is a
-    rule about the position that *reads* the math, so it fires on the expanded
-    tree of every constraint, objective, bound, where and piecewise link, and
-    an entry's declaration only decides its grade
-    (:func:`math_spec.degree.is_postsolve_grade`).
+    ``check_degree`` is off for an ``expressions:`` entry's body: degree and
+    the ``dual()`` placement rule are rules about the position that *reads*
+    the math, so they fire on the expanded tree of every constraint,
+    objective, bound, where and piecewise link, and an entry's declaration
+    only decides its grade (:func:`math_spec.degree.is_postsolve_grade`).
     """
     try:
         ast = parse_and_expand(expression, schema, context)
     except ValueError as e:
         errors.append(_prefixed(context, e))
+        return
+    if check_degree and calls_dual(ast):
+        errors.append(dual_in_math_message(context))
         return
     if comparison and not isinstance(ast, ComparisonNode):
         errors.append(
@@ -268,6 +272,14 @@ def _check_template_names(
         builtin = BUILTINS.get(node.name)
         if builtin is None:
             errors.append(f'{context}: {unknown_operator_message(node.name)}')
+        if node.name == 'dual':
+            errors.extend(
+                f"{context}: dual({arg.name}) in template {template!r}: '{arg.name}' is not a "
+                f'declared constraint or a formal of this macro.\n  Constraints: {sorted(ns.constraints)}'
+                for arg in node.args
+                if isinstance(arg, NameNode) and arg.name not in formals and arg.name not in ns.constraints
+            )
+            return
         for arg in node.args:
             _check_template_names(arg, template, context, ns, formals, errors)
         dimension_kwargs, lookup_kwargs, edge_kwargs = (
@@ -294,6 +306,9 @@ def _check_template_names(
         # the values only: a `when` is the declaration's, checked there
         for arm in node.arms:
             _check_template_names(arm.value, template, context, ns, formals, errors)
+        return
+
+    if isinstance(node, ConstraintNode):
         return
 
     assert_never(node)

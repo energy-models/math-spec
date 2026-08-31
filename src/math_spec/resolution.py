@@ -31,6 +31,7 @@ from math_spec.expression_parser import (
     CaseArm,
     CasesNode,
     ComparisonNode,
+    ConstraintNode,
     DimensionNode,
     EdgeNode,
     ExpressionNode,
@@ -93,7 +94,7 @@ class Namespace:
     walk through several stores.
     """
 
-    __slots__ = ('dimensions', 'dtypes', 'leaf_dims', 'lookups', 'parameters', 'variables')
+    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'lookups', 'parameters', 'variables')
 
     def __init__(
         self,
@@ -103,10 +104,15 @@ class Namespace:
         lookups: Mapping[str, tuple[str, str | None]],
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
+        constraints: Iterable[str] = (),
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
         self.dimensions = frozenset(dimensions)
+        #: The declared constraint names, off the flat namespace: a bare name
+        #: never reaches them, so a model may name a constraint after a variable.
+        #: Consulted only in ``dual()``'s argument position.
+        self.constraints = frozenset(constraints)
         #: name -> declared dtype, for dimensions, parameters and lookups alike;
         #: what a where comparison checks its literal against.
         self.dtypes: dict[str, DeclaredDtype] = dict(dtypes)
@@ -148,6 +154,7 @@ class Namespace:
                 **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
                 **{v: tuple(vd.foreach) for v, vd in schema.variables.items()},
             },
+            schema.constraints,
         )
 
     def kind(self, name: str) -> DeclarationKind | None:
@@ -297,7 +304,7 @@ def _resolve_arith(
     if isinstance(node, NumberNode):
         return node
 
-    if isinstance(node, VariableNode | ParameterNode | KwargNode):
+    if isinstance(node, VariableNode | ParameterNode | ConstraintNode | KwargNode):
         return node
 
     if isinstance(node, NameNode):
@@ -349,6 +356,10 @@ def _resolve_arith(
         shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
         if shape_error is not None:
             errors.append(f'{context}: {shape_error}')
+        if node.name == 'dual':
+            return FunctionCallNode(
+                'dual', tuple(_resolve_constraint_ref(a, ns, context, errors) for a in node.args), {}
+            )
         args = tuple(_resolve_arith(a, ns, context, errors) for a in node.args)
         kwargs: dict[str, ArithmeticNode] = {}
         for key, value in node.kwargs.items():
@@ -490,6 +501,35 @@ def _resolve_edge(
         )
         return value
     return literal
+
+
+def _resolve_constraint_ref(
+    value: ArithmeticNode,
+    ns: Namespace,
+    context: str,
+    errors: list[str],
+) -> ArithmeticNode:
+    """Resolve ``dual()``'s argument: the name of a declared constraint.
+
+    Constraints sit outside the flat namespace, so this store is consulted only
+    here — a bare name in arithmetic never reaches it. A ``dual`` reference from
+    the math is refused separately (:mod:`math_spec.validation`); this pass only
+    types the name a legal one carries.
+    """
+    if not isinstance(value, NameNode):
+        errors.append(
+            f'{context}: dual() takes the name of a declared constraint, written bare — '
+            f'dual(<constraint>). Name the constraint whose row dual you want.'
+        )
+        return value
+    if value.name not in ns.constraints:
+        errors.append(
+            f"{context}: dual({value.name}): '{value.name}' is not a declared constraint.\n"
+            f'  Constraints: {sorted(ns.constraints)}\n'
+            f"Check for typos, or declare '{value.name}' under 'constraints:'."
+        )
+        return value
+    return ConstraintNode(value.name)
 
 
 def _resolve_dim_ref(

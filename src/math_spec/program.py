@@ -102,6 +102,7 @@ __all__ = [
     'DimensionDtype',
     'DimensionPositionNode',
     'Divide',
+    'Dual',
     'Expression',
     'ExpressionNode',
     'FanIn',
@@ -249,6 +250,21 @@ class Variable(Expression):
     """A variable reference — one term per existing variable row."""
 
     name: str
+
+
+@dataclass(frozen=True)
+class Dual(Expression):
+    """A constraint's dual — its shadow price, read after the solve.
+
+    Reached only from a post-solve-grade entry (:attr:`Program.postsolve_names`):
+    a dual exists once the program is solved and nowhere in the math a solver
+    ingests, so no node reached from the objective or a constraint carries
+    one. One value per coordinate of the
+    named constraint's own ``foreach`` frame, which is what :func:`fan_in`
+    answers ``one-to-one`` for — the leaf reshapes nothing, like a parameter.
+    """
+
+    constraint: str
 
 
 @dataclass(frozen=True)
@@ -485,6 +501,7 @@ ExpressionNode = (
     Constant
     | Parameter
     | Variable
+    | Dual
     | Negate
     | Add
     | Multiply
@@ -521,7 +538,7 @@ def fan_in(expression: ExpressionNode) -> FanIn:
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Negate, Add, Multiply, Power, Divide, At, Translate, Cases),
+        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, At, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)

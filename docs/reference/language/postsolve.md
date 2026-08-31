@@ -71,9 +71,10 @@ reference it makes — to a variable, a parameter, another named expression, a
 macro call — is inlined first, so the question is body-local and answered once,
 at load, with no data. An entry is post-solve grade when its expanded body
 fails `check_expression` at the ceiling a bound or a `where` is held to
-(`ceiling=1`); otherwise it is math grade. Because expansion runs first, a
-macro cannot smuggle a post-solve-grade shape past the check by hiding it
-behind a call.
+(`ceiling=1`), or when it calls
+[`dual()`](#reading-a-constraints-dual) — a number only a solve produces;
+otherwise it is math grade. Because expansion runs first, a macro cannot
+smuggle a post-solve-grade shape past the check by hiding it behind a call.
 
 ## The math never reads one — checked where the math reads
 
@@ -96,6 +97,32 @@ not the entry `lcoe` the author wrote — expansion has already substituted it
 away by the time the ceiling is checked. Move the quantity a constraint needs
 into a math-grade entry instead; a post-solve-grade one is for reading back
 after the solve, never for feeding one.
+
+## Reading a constraint's dual
+
+`dual(c)` is the one builtin unique to a post-solve-grade entry: it reads the
+**row dual** of constraint `c` — the shadow price a solve puts on it — over
+`c`'s own `foreach` frame. `c` names a constraint, and only a constraint: it
+[resolves against constraints alone](expressions.md#name-resolution), never the
+flat namespace, so a variable or parameter sharing the name is not what `dual`
+reads.
+
+A dual exists only after a solve, so calling `dual` is itself what grades an
+entry post-solve — no affine rule needs breaking. Written anywhere the solver
+ingests — a constraint, the objective, a bound, a `where` — it is a load error
+naming the rewrite:
+
+```text
+Constraint 'd': a dual exists only after a solve; the math cannot read one —
+keep the entry that carries it out of constraints, the objective, bounds and where.
+```
+
+The check runs on the **expanded** tree, so a macro or an inlined named
+expression cannot smuggle a `dual` into the math.
+
+Where a constraint's `where:` deletes a row, that row has no dual, so `dual(c)`
+is absent there too — the null reading a lookup gets
+([absence](absence.md#post-solve-values-follow-the-rows-that-were-built)).
 
 ## What a consumer does with it
 

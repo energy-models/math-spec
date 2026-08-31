@@ -29,6 +29,7 @@ from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
     BinaryOperatorNode,
     BranchNode,
+    ConstraintNode,
     ExpressionNode,
     FunctionCallNode,
     KwargNode,
@@ -48,7 +49,7 @@ def carries_variable(node: ExpressionNode) -> bool:
     """
     if isinstance(node, VariableNode):
         return True
-    if isinstance(node, NumberNode | ParameterNode | KwargNode):
+    if isinstance(node, NumberNode | ParameterNode | ConstraintNode | KwargNode):
         return False
     if isinstance(node, UnresolvedNode):
         msg = f'{node!r} reached the degree check. Expressions go through resolution.expression_of() first.'
@@ -245,7 +246,9 @@ def is_postsolve_grade(node: ExpressionNode) -> bool:
     because a sink downstream must build the math; a post-solve-grade body is
     arithmetic over numbers a solve has already produced, which nothing
     ingests — so ``cost / energy``, ``p * p * p`` and ``(1 + rate) ** period``
-    grade post-solve where a constraint would refuse them.
+    grade post-solve where a constraint would refuse them. A body calling
+    ``dual()`` is post-solve grade for the same reason: a dual is a number
+    only a solve produces.
 
     Expansion inlines every reference before this asks, so the grade is
     body-local and decided at load, no data. The math reading an entry never
@@ -253,8 +256,31 @@ def is_postsolve_grade(node: ExpressionNode) -> bool:
     reading position's own ceiling, which is where a post-solve-grade body in
     a constraint fails.
     """
+    if calls_dual(node):
+        return True
     try:
         check_expression(node, '', ceiling=1)
     except LanguageError:
         return True
     return False
+
+
+def calls_dual(node: ExpressionNode) -> bool:
+    """Whether ``dual()`` is called anywhere in *node*.
+
+    Asked of the *expanded* tree, so a ``dual`` inlined through a macro or a
+    named expression is caught alongside one written in place — the whole
+    point of enforcing the placement rule after expansion rather than at the
+    call site.
+    """
+    if isinstance(node, FunctionCallNode) and node.name == 'dual':
+        return True
+    return any(calls_dual(c) for c in children(node))
+
+
+def dual_in_math_message(context: str) -> str:
+    """Why ``dual()`` is refused where the math is built — a placement rule, not a degree."""
+    return (
+        f'{context}: a dual exists only after a solve; the math cannot read one — '
+        f'keep the entry that carries it out of constraints, the objective, bounds and where.'
+    )

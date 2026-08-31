@@ -176,6 +176,16 @@ class Symbols:
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}
 
+        #: Each constraint's symbol, the subscript ``dual(c)`` prints λ against.
+        #: Off the flat namespace, like the constraints themselves — a model may
+        #: name a constraint after a variable, so this is its own map rather than
+        #: an entry in :attr:`name`. Given structure, so upright unless a table
+        #: overrides it.
+        self.constraint: dict[str, str] = {
+            name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt, given=True)
+            for name in schema.constraints
+        }
+
         self.index: dict[str, str] = {}
         self.set: dict[str, str] = {}
         taken_index, taken_set = set(spoken_for), set()
@@ -288,6 +298,7 @@ class SymbolTable:
             | set(schema.variables)
             | set(printed_expressions(schema))
             | set(postsolve_expressions(schema))
+            | set(schema.constraints)
         )
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),

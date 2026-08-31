@@ -170,6 +170,73 @@ class TestValidateExpressions:
         assert 'Post-solve' in rendered and 'lcoe' in rendered, 'and it prints in the Post-solve section'
 
 
+class TestDual:
+    """`dual(c)`: a primitive whose call grades its entry post-solve, its argument a constraint name resolved against constraints alone."""
+
+    BASE = override(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'expressions': {'price': 'dual(nope)'}},
+                ("dual(nope): 'nope' is not a declared constraint", 'Constraints:', 'lim'),
+                id='an-unknown-constraint',
+            ),
+            pytest.param(
+                {'expressions': {'price': 'dual(p)'}},
+                ("dual(p): 'p' is not a declared constraint",),
+                id='a-variable-name-is-not-a-constraint',
+            ),
+            pytest.param(
+                {'expressions': {'price': 'dual(1 + 1)'}},
+                ('dual() takes the name of a declared constraint, written bare', 'dual(<constraint>)'),
+                id='a-non-name-argument-is-not-a-constraint-reference',
+            ),
+            pytest.param(
+                {'expressions': {'price': 'dual(c)'}},
+                ("dual(c): 'c' is not a declared constraint",),
+                id='a-parameter-name-is-not-a-constraint',
+            ),
+            pytest.param(
+                {'constraints': {'lim': {'foreach': ['g'], 'expression': 'dual(lim) <= c'}}},
+                ('a dual exists only after a solve', 'the math cannot read one'),
+                id='a-dual-written-inside-a-constraint',
+            ),
+            pytest.param(
+                {'objective': {'sense': 'minimize', 'expression': 'sum(p) + dual(lim)'}},
+                ('a dual exists only after a solve', 'the math cannot read one'),
+                id='a-dual-written-inside-the-objective',
+            ),
+            pytest.param(
+                {
+                    'macros': {'shadow': {'args': ['x'], 'template': 'dual(x)'}},
+                    'constraints': {'lim': {'foreach': ['g'], 'expression': 'shadow(lim) <= c'}},
+                },
+                ('a dual exists only after a solve', 'the math cannot read one'),
+                id='a-dual-smuggled-through-a-macro-into-a-constraint',
+            ),
+            pytest.param(
+                {
+                    'expressions': {'price': 'dual(lim)'},
+                    'constraints': {'lim': {'foreach': ['g'], 'expression': 'price <= c'}},
+                },
+                ('a dual exists only after a solve', 'keep the entry that carries it out of constraints'),
+                id='a-dual-smuggled-through-an-entry-into-a-constraint',
+            ),
+        ],
+    )
+    def test_a_dual_out_of_place_is_refused(self, patch, fragments):
+        with pytest.raises(LanguageError) as exc:
+            to_spec(override(self.BASE, **patch))
+        for fragment in fragments:
+            assert fragment in str(exc.value)
+
+    def test_a_dual_loads_in_an_expressions_entry(self):
+        """The one place it is legal: an ``expressions:`` entry naming a declared constraint — the call grades the entry post-solve."""
+        assert to_spec(override(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
+
+
 class TestDimensionKwargs:
     """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, over=snapshto)` used to load."""
 

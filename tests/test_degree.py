@@ -175,3 +175,18 @@ def test_the_grade_is_decided_on_the_expanded_body(template, postsolve):
     schema = schema_of(override(SMALL_MODEL, macros={'sq': {'args': ['x'], 'template': template}}))
     ast = expression_of('sq(p)', schema, Namespace.of(schema), 'test')
     assert is_postsolve_grade(ast) is postsolve
+
+
+def _dual_ast(text: str):
+    schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
+    return expression_of(text, schema, Namespace.of(schema), 'test')
+
+
+def test_a_dual_carries_no_variable():
+    """A dual is data read after the solve, so it is not a variable term."""
+    assert carries_variable(_dual_ast('dual(lim)')) is False
+
+
+def test_a_body_reading_a_dual_grades_post_solve():
+    """A dual is a number only a solve produces, so the entry reading one is post-solve grade even where its arithmetic is affine."""
+    assert is_postsolve_grade(_dual_ast('dual(lim) * c')) is True
