@@ -159,3 +159,30 @@ def test_a_composed_model_prints_as_math(typeset):
     does not make one: all three formats render the merged model."""
     spec = ms.to_spec(merge({'generator': GENERATOR, 'demand': DEMAND}))
     assert 'balance' in getattr(ms, typeset)(spec), f'{typeset} renders the constraint the composition carries'
+
+
+def test_merging_one_fragment_gives_back_that_fragment():
+    """Composition of one is the thing composed. It is what stops a wrapper
+    nobody needs from accumulating: without it a lone objective came back
+    parenthesised, and every nested merge added another pair."""
+    assert ms.to_spec(merge({'only': GENERATOR})).to_dict() == ms.to_spec(GENERATOR).to_dict(), (
+        'merging one fragment changes nothing about it'
+    )
+
+
+def test_a_composition_does_not_depend_on_how_it_was_grouped():
+    """Merging is associative, so a library may ship a prelude already merged
+    and a caller may merge it with their own fragments, and reach what merging
+    all of them at once reaches. Without this a composed library would have to
+    document an order."""
+    storage = {
+        'dimensions': {'snapshot': {'dtype': 'int'}},
+        'parameters': {'holding': {'dims': []}},
+        'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
+        'objective': {'sense': 'minimize', 'expression': 'sum(soc) * holding'},
+    }
+    flat = merge({'generator': GENERATOR, 'demand': DEMAND, 'storage': storage})
+    grouped = merge({'pair': merge({'generator': GENERATOR, 'demand': DEMAND}), 'storage': storage})
+    assert ms.to_spec(grouped).to_dict() == ms.to_spec(flat).to_dict(), (
+        'the same fragments compose to the same model however they were grouped'
+    )
