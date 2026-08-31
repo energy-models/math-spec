@@ -302,6 +302,33 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
 where the reader has no diff, no issue and none of our vocabulary. It names the
 problem solved — an outcome, not an activity, not a mechanism.
 
+**The type is decided by the diff's file list, before a word of the subject is
+written.** `feat fix perf refactor docs` publish, `chore test ci build style`
+hide.
+
+| The diff touches                                               | Type                           |
+| -------------------------------------------------------------- | ------------------------------ |
+| `src/` — what the language accepts, refuses, prints or exposes | `feat` `fix` `perf` `refactor` |
+| `docs/`, `examples/`, `mkdocs.yml`                             | `docs`                         |
+| `tests/`                                                       | `test`                         |
+| `.github/`, `pixi.toml`, `pixi.lock`, `pyproject.toml`         | `ci` / `build`                 |
+| `AGENTS.md`, `CONTRIBUTING.md`, `tools/`, `scripts/`           | `chore`                        |
+
+A diff across several rows takes the topmost it touches: a construct lands with
+its docs and its tests and is still a `feat`. A reshuffle inside `src/` that no
+consumer can tell apart — a module moved, a private name changed — is `chore`;
+`refactor` publishes, so it is for the ones a changelog reader would want. Two
+cases the table decides and a writer still gets wrong:
+
+- **A new example, or a whole rung of the ladder, is `docs`** however much work
+  it was. `docs` publishes to the changelog too, so nothing is lost by not
+  calling it `feat`.
+- **A dependency bump that changes what this package accepts is `feat`/`fix` on
+  that outcome**, not `build` on the bump — the type names the problem solved,
+  for the same reason the subject does.
+
+Then the subject:
+
 - **A complete sentence, as long as it needs.** `a curve varying along a dim` is
   a telegram; `a curve that varies along a dimension` is longer and it reads.
 - **A tail that parses on its own.** `…, not an em dash` is a fragment, and it
@@ -309,9 +336,6 @@ problem solved — an outcome, not an activity, not a mechanism.
   `rather than` — or drop it.
 - **A subject the changelog reader can name.** Not `a pass` or `a walk`; not
   `dim`, `coord`, `AST`.
-- **Type by who can observe the work.** `feat fix perf refactor docs` publish,
-  `chore test ci build style` hide. Test scaffolding, the agent docs and an
-  internal reshuffle hide.
 
 Lower case, no full stop, conventional-commit form and the refused breaking
 marker: [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages). The 72-char warning
@@ -329,6 +353,8 @@ no   fix: to_markdown printed TeX's em-dash ligature, not an em dash
      ^ the tail is a fragment; say what it prints now
 no   refactor: name the groups a pass asks about, and spell each operator once
      ^ `a pass` is nothing the changelog reader can reach
+no   feat: rung 15 — investment periods with a growth limit, a file of its own
+     ^ the diff is examples/ and docs/ → docs:
 ```
 
 ## PR descriptions
