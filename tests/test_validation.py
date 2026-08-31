@@ -110,6 +110,7 @@ class TestDimensionKwargs:
 
         `zone` deliberately targets a dim `p` does *not* carry: grouping into
         one it already has needs that dim twice, which is its own error.
+        `season` is a label space over the same dim, for the refusals below.
         """
         foreach = ['snapshot'] if foreach is None else foreach  # an explicit [] is a scalar constraint
         return to_spec(
@@ -119,7 +120,10 @@ class TestDimensionKwargs:
                     'bus': {'dtype': 'str'},
                     'generator': {'dtype': 'str'},
                 },
-                'lookups': {'zone': {'over': 'generator', 'into': 'bus'}},
+                'lookups': {
+                    'zone': {'over': 'generator', 'into': 'bus'},
+                    'season': {'over': 'generator', 'dtype': 'str'},
+                },
                 'parameters': {'load': {'dims': ['snapshot']}},
                 'variables': {'p': {'foreach': ['snapshot', 'generator']}},
                 'constraints': {'c': {'foreach': foreach, 'expression': expression}},
@@ -168,6 +172,23 @@ class TestDimensionKwargs:
     )
     def test_declared_dimensions_still_pass(self, expression, foreach):
         self._schema(expression, foreach)
+
+    @pytest.mark.parametrize(
+        'expression',
+        [
+            pytest.param('sum(p, by=season) == load', id='sum'),
+            pytest.param('at(p, by=season) == load', id='at'),
+            pytest.param('shift(p, over=generator, offset=1, by=season) == load', id='shift'),
+        ],
+    )
+    def test_a_label_space_is_refused_wherever_by_needs_a_target(self, expression):
+        """Every `by=` but `position`'s reaches a target dimension: `sum` and `at` to
+        place terms on it, `shift` so a named `offset=` may vary per group. A label
+        space targets nothing, so all three refuse it and name the promotion (#280)."""
+        with pytest.raises(LanguageError) as exc:
+            self._schema(expression, ['snapshot', 'bus'])
+        assert 'is a label space' in str(exc.value), 'the refusal names the kind, not just the name'
+        assert 'season_of' in str(exc.value), 'and it spells the promotion out'
 
     def test_macro_formals_are_not_mistaken_for_dimensions(self):
         """A formal in a dim position is legal inside the template body."""
@@ -281,6 +302,7 @@ POSITION_SCHEMA = to_spec(
         'lookups': {
             'period_of': {'over': 'snapshot', 'into': 'period'},
             'starts_at': {'over': 'period', 'into': 'snapshot'},
+            'season': {'over': 'snapshot', 'dtype': 'str'},
         },
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'foreach': ['snapshot']}},
@@ -291,9 +313,11 @@ POSITION_SCHEMA = to_spec(
 class TestPositionResolves:
     """`position(dim)` — the conversion #32 put on the left-hand side.
 
-    A `by=` has to be a lookup over *that* dimension: the groups are its
-    target's labels, and a lookup over anything else carries no row for a
-    position to be a position in.
+    A `by=` has to be a lookup over *that* dimension, and that is the whole
+    test: a lookup over anything else carries no row for a position to be a
+    position in. Unlike `sum`, `at` and `shift`, it does not have to be a
+    *groupable* one — counting inside a group lands no terms, so a label
+    space partitions the rows perfectly well (#280).
     """
 
     @pytest.mark.parametrize(
@@ -301,8 +325,9 @@ class TestPositionResolves:
         [
             ('position(snapshot) == 0', 0, None),
             ('position(snapshot, by=period_of) == 0', 0, 'period_of'),
+            ('position(snapshot, by=season) == 0', 0, 'season'),
         ],
-        ids=['first', 'first of each period'],
+        ids=['first', 'first of each period', 'first of each season, by a label space'],
     )
     def test_it_resolves(self, mask: str, position: int, by: str | None):
         node = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')

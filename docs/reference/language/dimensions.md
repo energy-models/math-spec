@@ -91,7 +91,9 @@ variables:
 ```
 
 A lookup declares **exactly one** of `into:` and `dtype:`. Grouping into a
-label space is refused, with the rewrite: declare the axis and target it under
+label space is refused — by `sum`, `at` and `shift`, each of which reaches the
+target dimension, though not by `position(dim, by=)`, which only counts inside
+a group ([#280](https://github.com/energy-models/math-spec/issues/280)). The rewrite is to declare the axis and target it under
 a name of its own (`period: {...}` under `dimensions:`,
 `period_of: {over: snapshot, into: period}`) — a promotion made the day the
 model genuinely gains the axis.

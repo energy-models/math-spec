@@ -751,7 +751,8 @@ def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str,
         was = f'a {kind}' if kind else 'not declared'
         errors.append(
             f"{context}: '{call}' groups by '{node.by}', which is {was}. "
-            f'``by=`` takes a lookup, the same as sum(by=) and at(by=).\n'
+            f'``by=`` takes a lookup over that dimension — either kind, since counting '
+            f'inside a group lands no terms, unlike sum(by=) and at(by=).\n'
             f'  Lookups: {sorted(ns.lookups)}'
         )
         return node
