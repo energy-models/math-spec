@@ -113,4 +113,10 @@
 \text{weight sos} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T}
 \end{align}
 
+\paragraph{Data conditions}
+\begin{align}
+\text{availability\_is\_a\_share} && \mathrm{p}^{\mathrm{max}}_{g} > 0 \wedge \mathrm{eta}_{g} \le 1 &  && \forall\, g \in \mathcal{G} \\
+\text{the\_budget\_is\_real} && \mathrm{budget} \ge 0
+\end{align}
+
 \end{document}

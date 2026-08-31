@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, assert_never
 
-from math_spec.dimensions import dims_of
+from math_spec.dimensions import dims_of, where_dims
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
@@ -662,6 +662,29 @@ class Walk:
         return sorted(dims, key=order.index)
 
     # -- legend ------------------------------------------------------------
+
+    def checks(self) -> list[Line]:
+        """One line per ``checks:`` block — a condition on the data, not a row.
+
+        It prints as the predicate it is, quantified over the coordinates its
+        own names span: the reader believing the constraints above has to
+        believe these of the table first.
+        """
+        lines = []
+        for name, block in self.schema.checks.items():
+            node = where_of(block.holds, self.namespace, f"check '{name}'")
+            assert node is not None, 'load-time validation refuses a check that holds whatever the data says'
+            dims = sorted(where_dims(node, self.schema))
+            ctx = self.context(frame=dims)
+            lines.append(
+                Line(
+                    label=name,
+                    left=self.where(node, ctx),
+                    right='',
+                    condition=self.quantifier(dims, ''),
+                )
+            )
+        return lines
 
     def glossaries(self) -> list[Glossary]:
         fmt = self.format

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, get_args
 
 import pytest
 
-from math_spec import LanguageError, Spec
+from math_spec import LanguageError, Spec, to_program, to_spec
 from math_spec.expression_parser import FunctionCallNode, NumberNode
 from math_spec.lowering import _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
@@ -47,6 +47,7 @@ from math_spec.program import (
     Translate,
     Variable,
     Window,
+    check_message,
     divisor_parameters,
     fan_in,
     quotients,
@@ -677,3 +678,40 @@ def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
 
     assert program.dimension('t').dtype == 'int', 'a declared dtype reaches the plan'
     assert program.dimension('g').dtype == 'str', "and the schema's default does too, rather than nothing"
+
+
+def test_a_check_lowers_to_the_predicate_and_the_coordinates_it_is_asked_at():
+    program = to_program(
+        override(
+            SMALL_MODEL,
+            checks={'share': 'c > 0 AND c <= 1', 'scale': 'k >= 1'},
+        )
+    )
+    assert list(program.checks) == ['share', 'scale'], 'checks come back in the order the file wrote them'
+    assert program.checks['share'].dims == ('g',), "the frame is read off the predicate's own names"
+    assert program.checks['scale'].dims == (), 'a scalar condition is one question, not none'
+    assert program.checks['share'].holds == where_of('c > 0 AND c <= 1', Namespace.of(to_spec(SMALL_MODEL)), 'x')
+
+
+def test_a_check_builds_no_row():
+    raw = override(SMALL_MODEL, constraints={'cap': {'foreach': ['g'], 'expression': 'p <= c'}})
+    without = to_program(raw)
+    with_check = to_program(override(raw, checks={'share': 'c > 0'}))
+    assert with_check.constraints == without.constraints
+    assert with_check.expressions == without.expressions, 'a check is not among the expressions a solver sees'
+
+
+def test_a_declared_check_and_a_piecewise_one_share_a_sentence():
+    program = to_program(override(SMALL_MODEL, checks={'share': 'c > 0'}))
+    assert check_message("check 'share'", program.checks['share']) == "check 'share': the data does not satisfy it"
+
+
+def test_a_checks_description_reaches_the_program_because_it_is_half_the_refusal():
+    """The one prose a program keeps: a consumer reading only the program prints why the condition matters."""
+    program = to_program(
+        override(SMALL_MODEL, checks={'share': {'holds': 'c > 0', 'description': 'a price of zero is a free good'}})
+    )
+    assert program.checks['share'].description == 'a price of zero is a free good'
+    assert check_message("check 'share'", program.checks['share']) == (
+        "check 'share': the data does not satisfy it — a price of zero is a free good"
+    )

@@ -30,6 +30,40 @@
       "title": "BoundsBlock",
       "type": "object"
     },
+    "CheckBlock": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "description": "A condition the data must satisfy for the model to mean what it says.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    checks:\n      omega_is_a_share: \"CVaR_omega >= 0 AND CVaR_omega <= 1\"\n      efficiency_is_a_share:\n        holds: \"Link_efficiency > 0 AND Link_efficiency <= 1\"\n        description: a link delivers some of what it takes, and no more\n\n``holds:`` is a ``where`` predicate, read over the dims the names in it\ncarry. It builds no row: a consumer holding the data refuses a model whose\ntable breaks it, in the language's own words\n(:func:`~math_spec.program.check_message`).",
+          "properties": {
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "holds": {
+              "title": "Holds",
+              "type": "string"
+            }
+          },
+          "required": [
+            "holds"
+          ],
+          "title": "CheckBlock",
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
     "ConstraintBlock": {
       "additionalProperties": false,
       "description": "A declared constraint: one rule, over one frame.",
@@ -552,8 +586,16 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nThe API is the ten declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. In goes through\n``to_spec``, which raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\n\nEverything else on this class is pydantic's, not a contract this package\nkeeps \u2014 ``model_json_schema()`` describes the shape pydantic validates\nrather than the language (checked in for editors as\n``schema/math_spec.schema.json``), and ``model_construct()`` skips validation\nentirely, so a ``Spec`` is valid when it was built the normal way.",
+  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nThe API is the eleven declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. In goes through\n``to_spec``, which raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\n\nEverything else on this class is pydantic's, not a contract this package\nkeeps \u2014 ``model_json_schema()`` describes the shape pydantic validates\nrather than the language (checked in for editors as\n``schema/math_spec.schema.json``), and ``model_construct()`` skips validation\nentirely, so a ``Spec`` is valid when it was built the normal way.",
   "properties": {
+    "checks": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CheckBlock"
+      },
+      "default": {},
+      "title": "Checks",
+      "type": "object"
+    },
     "constraints": {
       "additionalProperties": {
         "$ref": "#/$defs/ConstraintBlock"

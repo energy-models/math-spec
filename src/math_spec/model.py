@@ -352,6 +352,48 @@ class ExpressionBlock(_StrictBlock):
         return {'expression': self.expression, 'description': self.description}
 
 
+class CheckBlock(_StrictBlock):
+    """A condition the data must satisfy for the model to mean what it says.
+
+    Written in YAML as a bare string, or as a mapping once it carries a
+    ``description:`` — and serialised back to whichever form it was written in,
+    so a round trip through :meth:`Spec.to_yaml` reproduces the file::
+
+        checks:
+          omega_is_a_share: "CVaR_omega >= 0 AND CVaR_omega <= 1"
+          efficiency_is_a_share:
+            holds: "Link_efficiency > 0 AND Link_efficiency <= 1"
+            description: a link delivers some of what it takes, and no more
+
+    ``holds:`` is a ``where`` predicate, read over the dims the names in it
+    carry. It builds no row: a consumer holding the data refuses a model whose
+    table breaks it, in the language's own words
+    (:func:`~math_spec.program.check_message`).
+    """
+
+    _label: ClassVar[str] = 'a check'
+
+    holds: str
+    description: str | None = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def _from_string(cls, data: Any) -> Any:
+        return {'holds': data} if isinstance(data, str) else data
+
+    @classmethod
+    @override
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """The published schema admits the bare string the one-line form is written as."""
+        return _also_written_as(core_schema, handler, {'type': 'string'})
+
+    @model_serializer
+    def _as_written(self) -> str | dict[str, str]:
+        if self.description is None:
+            return self.holds
+        return {'holds': self.holds, 'description': self.description}
+
+
 class PiecewiseLink(_StrictBlock):
     """One link of a piecewise block: an expression pinned to a values curve.
 
@@ -582,7 +624,7 @@ def _is_absent(value: Any) -> bool:
 class Spec(_StrictBlock):
     """The declared math — one YAML file, or one dict, validated. Nothing here has seen data.
 
-    The API is the ten declaration sections plus ``version`` and
+    The API is the eleven declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads. In goes through
     ``to_spec``, which raises
@@ -620,6 +662,7 @@ class Spec(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
+    checks: dict[str, CheckBlock] = {}
 
     def targeted_of(self, dimension: str) -> dict[str, str]:
         """The groupable lookups over *dimension*: name -> the dim they map into."""

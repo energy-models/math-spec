@@ -594,3 +594,83 @@ class TestTheFrontDoor:
         assert 'upper' in written['variables']['p']['bounds'] and 'where' not in written['variables']['p'], (
             'a null and an infinite bound say nothing, so they are not written'
         )
+
+
+class TestChecks:
+    """A `checks:` block states a condition on the data; what the file can decide is decided at load."""
+
+    @pytest.mark.parametrize(
+        ('holds', 'fragments'),
+        [
+            pytest.param(
+                'nope > 0',
+                ("Check 'k1'", "'nope' not found"),
+                id='an-unknown-name',
+            ),
+            pytest.param(
+                'p',
+                ("Check 'k1'", "reads variable(s) ['p']", 'make it a constraint'),
+                id='a-variable',
+            ),
+            pytest.param(
+                'c > 0 AND p',
+                ("Check 'k1'", "reads variable(s) ['p']"),
+                id='a-variable-under-a-connective',
+            ),
+            pytest.param(
+                'True',
+                ("Check 'k1'", 'checks nothing'),
+                id='a-condition-every-table-passes',
+            ),
+            pytest.param(
+                'c > 0 OR True',
+                ("Check 'k1'", 'checks nothing'),
+                id='a-condition-the-connectives-settle-true',
+            ),
+            pytest.param(
+                'False',
+                ("Check 'k1'", 'no data satisfies it'),
+                id='a-condition-no-table-passes',
+            ),
+            pytest.param(
+                'c > 0 AND False',
+                ("Check 'k1'", 'no data satisfies it'),
+                id='a-condition-the-connectives-settle-false',
+            ),
+        ],
+    )
+    def test_a_check_the_file_can_refute_is_refused_at_load(self, holds, fragments):
+        with pytest.raises(LanguageError) as exc:
+            _schema(checks={'k1': holds})
+        for fragment in fragments:
+            assert fragment in str(exc.value)
+
+    @pytest.mark.parametrize(
+        'holds',
+        [
+            pytest.param('c > 0', id='over-a-dimension'),
+            pytest.param('k >= 1', id='scalar'),
+            pytest.param('c > 0 AND c <= 1', id='a-conjunction'),
+            pytest.param('flag', id='a-boolean-parameter'),
+            pytest.param('tag != "wind"', id='a-label-space'),
+            pytest.param('NOT flag OR c > 0', id='a-connective-the-data-decides'),
+        ],
+    )
+    def test_a_condition_the_data_decides_loads(self, holds):
+        assert _schema(checks={'k1': holds}).checks['k1'].holds == holds
+
+    def test_a_check_is_written_as_a_bare_string_or_a_mapping(self):
+        schema = _schema(
+            checks={'bare': 'c > 0', 'described': {'holds': 'k >= 1', 'description': 'the scale is positive'}}
+        )
+        assert schema.checks['bare'].description is None
+        assert schema.checks['described'].description == 'the scale is positive'
+
+    def test_a_check_round_trips_through_yaml_in_the_form_it_was_written(self):
+        schema = _schema(
+            checks={'bare': 'c > 0', 'described': {'holds': 'k >= 1', 'description': 'the scale is positive'}}
+        )
+        assert to_spec(parse_yaml(schema.to_yaml())).to_dict() == schema.to_dict()
+        assert parse_yaml(schema.to_yaml())['checks']['bare'] == 'c > 0', (
+            'a check with no description serialises back to the bare string it was written as'
+        )

@@ -73,6 +73,7 @@ def typeset(
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
     standalone: bool = False,
     legend: bool = True,
+    checks: bool = True,
     numbered: bool = True,
 ) -> str:
     """Render *model*'s math in *fmt*.
@@ -87,6 +88,9 @@ def typeset(
         legend: Prepend the sets/parameters/variables table. The model's own
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
+        checks: Append the data conditions the model declares. They are
+            conditions on the *input*, not rows a solver holds, so a page
+            about the math alone leaves them out.
         numbered: Number the equations.
 
     Returns:
@@ -108,6 +112,8 @@ def typeset(
         ('Subject to', walk.constraints()),
         ('Variable domains', walk.variables()),
     ]
+    if checks:
+        sections.append(('Data conditions', walk.checks()))
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
 
     blocks = [fmt.note(fmt.escape(schema.description))] if schema.description else []

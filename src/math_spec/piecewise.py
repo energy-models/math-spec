@@ -101,8 +101,8 @@ def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:
     curvature = _curvature_required(pw)
     if curvature is not None:
         x, y = pw.curve
-        checks.append(Increasing(x.values, pw.over))
-        checks.append(Curved(x.values, y.values, pw.over, curvature))
+        checks.append(Increasing(x.values, pw.over, pw.method))
+        checks.append(Curved(x.values, y.values, pw.over, curvature, pw.method))
     if pw.method == 'lp':
         checks.append(AtLeastTwo(pw.over, expanded.points))
     if expanded.points is not None:

@@ -99,3 +99,8 @@ $ upright("p") & upright("p")^(upright("min"))_(g) <= p_(t,g) & <= upright("p")^
   upright("headroom") & italic("headroom") & >= 0 & upright("where ") upright("budget") upright(" is defined") \
   upright("weight") & 0 <= italic("weight")_(t,g) & <= 1 & forall t in cal(T), g in cal(G) \
   upright("weight sos") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) $
+
+== Data conditions
+#set math.equation(numbering: "(1)")
+$ upright("availability_is_a_share") & upright("p")^(upright("max"))_(g) > 0 and upright("eta")_(g) <= 1 &  & forall g in cal(G) \
+  upright("the_budget_is_real") & upright("budget") >= 0 $

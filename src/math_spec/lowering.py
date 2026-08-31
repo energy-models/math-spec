@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, assert_never, cast
 
 import math_spec.program as program
-from math_spec.dimensions import dims_of
+from math_spec.dimensions import dims_of, where_dims
 from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
     ArithmeticNode,
@@ -187,6 +187,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         for sname, sdef in expanded.sos.items()
     }
     expressions = {name: _lower_expression(expanded, ns, name) for name in expanded.expressions}
+    checks = {name: _lower_check(expanded, ns, name) for name in expanded.checks}
     return program.Program(
         parameters=parameters,
         variables=variables,
@@ -196,7 +197,16 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
         named_expressions=expressions,
+        checks=checks,
     )
+
+
+def _lower_check(schema: _ExpandedSpec, ns: Namespace, name: str) -> program.Holds:
+    """Resolve the check *name* and read the coordinates it is asked at off its own names."""
+    block = schema.checks[name]
+    holds = where_of(block.holds, ns, f"check '{name}'")
+    assert holds is not None, 'load-time validation refuses a check that holds whatever the data says'
+    return program.Holds(holds, tuple(sorted(where_dims(holds, schema))), block.description)
 
 
 def _lower_expression(schema: _ExpandedSpec, ns: Namespace, name: str) -> program.ExpressionNode:
