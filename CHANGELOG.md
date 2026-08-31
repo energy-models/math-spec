@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.54](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.53...v0.0.0-alpha.54) (2026-08-31)
+
+
+### Documentation
+
+* drop the effects row from the PyPSA-1.3.0 parity table, a feature that release does not have ([#305](https://github.com/energy-models/math-spec/issues/305)) ([92e5ed8](https://github.com/energy-models/math-spec/commit/92e5ed84c14c59e8068a7814722950f936e2925a))
+
 ## [0.0.0-alpha.53](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.52...v0.0.0-alpha.53) (2026-08-31)
 
 
