@@ -139,3 +139,42 @@ The footprint stops at the kind. A sink that takes a window but not a wrapped
 one reads `Window in footprint.shapes` and then walks: `wrap`, `partition` and
 a named width are refinements without end, and each is one line once the set
 has said where to look.
+
+## Asking whether an axis can be cut
+
+A driver that solves a horizon in windows — a rolling horizon, a myopic
+pathway — needs one thing from the model before it starts: **would windowing
+change the answer?** Storage carried over a snapshot survives being cut into
+windows that overlap by a row. An annual budget does not survive it at all, and
+the windows still solve, so nothing else would say so.
+
+```python
+program.separability['bp'].windowable  # False
+program.separability['generator'].coupled["constraint 'target'"]  # 'sums over generator'
+```
+
+Neither axis of the model above may be cut, and the report says which
+declaration ties each one — including the three the `piecewise:` block emitted,
+so a coupling introduced by an expansion is named under the name the expansion
+gave it rather than under the block a reader wrote.
+
+It is the locality [the ceiling](../../about/ceiling.md) already argues in —
+pointwise, bounded halo and global — asked about a dimension rather than about
+an operator. Every declared axis has an entry, walked once and held like
+[`footprint`](#asking-what-a-program-uses): answering for every axis costs what
+answering for one did, since every construct that ties an axis names the axis it
+ties.
+
+`halo` is how many coordinates two neighbouring windows must share — `0` where
+every row is pointwise, `1` for a `shift` of one, `n - 1` for a `sum_back` of
+`n`. `coupled` is empty where the model separates, and otherwise names each
+declaration and the construct that ties the axis together: a sum over it, a
+wrapped shift, an offset only the data knows, or a `position()` a window would
+restart.
+
+**A reduction means opposite things by position**, which is the whole of the
+care: in a constraint a sum over the axis ties every window to every other, and
+in the objective it is additively separable, an objective being a sum already.
+What is not decided here is whether the modeller _wanted_ the window — a
+`position(t) == 0` seed fires once over a horizon and once per window, and both
+are models somebody means.
