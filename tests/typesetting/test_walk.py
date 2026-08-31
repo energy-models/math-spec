@@ -367,6 +367,41 @@ def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(fmt
     assert 'coordinates)' not in typeset(_selected('position(snapshot) == 0'), fmt)
 
 
+def _member(where: str) -> dict[str, Any]:
+    """One variable masked by *where*, with a dimension, a lookup and a parameter to test membership against."""
+    return {
+        'dimensions': {'g': {'dtype': 'str'}},
+        'lookups': {'kind_of': {'over': 'g', 'dtype': 'str'}},
+        'parameters': {'size': {'dims': ['g'], 'dtype': 'int'}},
+        'variables': {'p': {'foreach': ['g'], 'where': where, 'bounds': {'lower': 0}}},
+        'objective': {'sense': 'minimize', 'expression': 'sum(p, over=g)'},
+    }
+
+
+@EVERY_FORMAT
+@pytest.mark.parametrize(
+    ('where', 'rendered'),
+    [
+        pytest.param("g in ['wind', 'solar']", ['wind', 'solar'], id='a-dimension'),
+        pytest.param("kind_of in ['thermal']", ['thermal'], id='a-lookup'),
+        pytest.param('size in [2, 3]', [2, 3], id='a-parameter'),
+    ],
+)
+def test_a_membership_renders_as_a_set(fmt: Format, where: str, rendered: list[Any]):
+    """`name in [...]` prints `∈ {v1, v2, …}` in every format per kind, its elements as literals."""
+    text = typeset(_member(where), fmt, legend=False)
+    elements = [str(v) if isinstance(v, int) else fmt.quoted(v) for v in rendered]
+    inner = fmt.set_braces(fmt.joined(elements, ''))
+    assert f'{fmt.operators["in"]} {inner}' in text
+
+
+@EVERY_FORMAT
+def test_a_membership_over_a_numeric_dimension_says_what_its_coordinates_are(fmt: Format):
+    """A numeric coordinate in a set can be taken for a position, so the legend places it — the `==` case one construct over."""
+    text = typeset(_selected('snapshot in [0, 3]'), fmt)
+    assert f'({fmt.mono("int")} coordinates)' in text
+
+
 @EVERY_FORMAT
 def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(fmt: Format):
     """``---`` is TeX's em-dash ligature and Typst's, and nothing in Markdown.

@@ -426,6 +426,19 @@ northern:
 
 $$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{'}\mathrm{north}\text{'} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
 
+#### `selected`
+
+set membership per kind: a dimension's coordinates, a lookup's values, a parameter's numbers
+
+```yaml
+selected:
+  foreach: [snapshot, generator, bus]
+  where: "snapshot in [0, 3] OR zone_of in ['north', 'south'] OR min_up in [2, 3]"
+  expression: p <= load
+```
+
+$$p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace t \in \{0,\enspace 3\} \vee \mathrm{zone\_of}(b) \in \{\text{'}\mathrm{north}\text{'},\enspace \text{'}\mathrm{south}\text{'}\} \vee \mathrm{min\_up}_{g} \in \{2,\enspace 3\}$$
+
 #### `efficiency`
 
 a Greek-named parameter, which is given — so the convention wins and it prints as the word

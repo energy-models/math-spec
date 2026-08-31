@@ -40,14 +40,17 @@ from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
+    DimensionMembershipNode,
     DimensionPositionNode,
     LookupComparisonNode,
     LookupDefinedNode,
+    LookupMembershipNode,
     LookupPairComparisonNode,
     NotNode,
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterMembershipNode,
     UnresolvedWhereNode,
     VariableDefinedNode,
     WhereNode,
@@ -477,10 +480,20 @@ class Walk:
             left = ctx.indexed(self.symbols.name[node.name], dims)
             return f'{left} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
 
+        if isinstance(node, ParameterMembershipNode):
+            dims = list(self.schema.parameters[node.name].dims)
+            left = ctx.indexed(self.symbols.name[node.name], dims)
+            return f'{left} {self.op("in")} {self.set_of(node.values)}', 2
+
         if isinstance(node, DimensionComparisonNode):
             if isinstance(node.value, (int, float)):
                 self.numeric_coordinates.add(node.name)
             return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+
+        if isinstance(node, DimensionMembershipNode):
+            if any(isinstance(value, (int, float)) for value in node.values):
+                self.numeric_coordinates.add(node.name)
+            return f'{ctx.subscript(node.name)} {self.op("in")} {self.set_of(node.values)}', 2
 
         if isinstance(node, DimensionPositionNode):
             grouping = None if node.by is None else self.lookup(node.by, ctx.subscript(node.name))
@@ -491,6 +504,10 @@ class Walk:
         if isinstance(node, LookupComparisonNode):
             applied = self.lookup(node.name, ctx.subscript(node.over))
             return f'{applied} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+
+        if isinstance(node, LookupMembershipNode):
+            applied = self.lookup(node.name, ctx.subscript(node.over))
+            return f'{applied} {self.op("in")} {self.set_of(node.values)}', 2
 
         if isinstance(node, LookupPairComparisonNode):
             index = ctx.subscript(node.over)
@@ -521,6 +538,10 @@ class Walk:
 
     def literal(self, value: float | str | datetime.date) -> str:
         return self.number(value) if isinstance(value, (int, float)) else self.format.quoted(str(value))
+
+    def set_of(self, values: tuple[float | str | datetime.date, ...]) -> str:
+        """The set a membership tests against — ``{v1, v2, …}``, each element a :meth:`literal`."""
+        return self.format.set_braces(self.format.joined([self.literal(v) for v in values], ''))
 
     def position(self, index: str, grouping: str | None) -> str:
         """``position(dim)`` applied to the row, *grouping* as a subscript — as an argument it read as a second position."""

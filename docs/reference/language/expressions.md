@@ -161,8 +161,8 @@ A `where:` is a boolean mask, and true means "this coordinate exists".
 ```text
 where_expr ::= atom | "NOT" where_expr | where_expr ("AND"|"OR") where_expr
             |  "(" where_expr ")"
-atom       ::= NAME | NAME COMPARATOR value | POSITION COMPARATOR INTEGER
-            |  "True" | "False"
+atom       ::= NAME | NAME COMPARATOR value | NAME "in" "[" [ value { "," value } ] "]"
+            |  POSITION COMPARATOR INTEGER | "True" | "False"
 COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
 value      ::= NUMBER | QUOTED | NAME_OR_STRING
 POSITION   ::= "position" "(" NAME [ "," "by" "=" NAME ] ")"
@@ -176,6 +176,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `name` (bare)                    | dimension                        | load error: it is true everywhere, so it reads as a condition and is not one. Compare it instead                                                                                                                                            |
 | `name OP value`                  | parameter                        | element-wise; a null compares false. The right-hand side is a literal number, or a bare name read as a string coordinate                                                                                                                    |
 | `name OP value`                  | dimension                        | a filter on the frame's own coordinate column                                                                                                                                                                                               |
+| `name in [v, …]`                 | parameter, dimension, lookup     | keeps the rows whose value is one of a **set of literals** — the same three left-hand sides a comparison takes, one `isin` filter instead of an `==` OR chain. Each element is dtype-checked like `==`, so a date is quoted per element     |
 | `name` (bare)                    | lookup                           | defined: the label maps somewhere. A lookup may be [partial](dimensions.md#lookups), and this is how a declaration asks for the labels that do map                                                                                          |
 | `name OP value`                  | lookup                           | a filter on the lookup's column of its `over` dimension's index — which therefore has to be in the frame. A null value is **false**, whatever the comparator                                                                                |
 | `name OP name`                   | two lookups                      | the one comparison whose both sides are structure. Legal only where both map out of the **same** dimension _and_ into the **same** one — `from != to` excludes a self-loop                                                                  |
@@ -221,7 +222,19 @@ dates: a `datetime` dimension compared to a number is compared against the
 **epoch**, so `snapshot > 0` would silently mean "after 1970-01-01". That is a
 load error naming the fix. A datetime boundary is a quoted ISO date —
 `snapshot > '2030-01-01'`, or `'2030-01-01T06:00'` with a time. Calendar
-arithmetic, resampling and timezone conversion stay data prep.
+arithmetic, resampling and timezone conversion stay data prep. Membership
+checks each element the same way, so a set of dates is a list of quoted ISO
+strings and a `str` column takes quoted labels; a `float` column may be tested
+against a set of floats, exact equality and all, exactly as `==` permits it.
+
+**A membership list is literals only, and it is not empty.** `carrier in []`
+matches nothing, which is `where: "False"` said obscurely — a load error names
+that rewrite. A repeated element selects nothing extra and is a load error too.
+A **declared** name among the elements is a near miss the same way a comparison's
+right-hand side is: selecting by data on the right is
+[data-driven membership](https://github.com/energy-models/math-spec/issues/258),
+so the message points there, or to precomputing the test as a `bool` parameter.
+Negation is the existing `NOT` — there is no `not in`.
 
 **`position(dim)` converts a dimension to where the row sits along it**, so a
 boundary clause survives the index being relabelled:

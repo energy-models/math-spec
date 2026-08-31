@@ -161,6 +161,10 @@ constraints:
     foreach: [snapshot, bus]
     where: "zone_of == 'north' AND zone_of != area_of AND zone_of"
     expression: slack <= load
+  selected: # set membership per kind: a dimension's coordinates, a lookup's values, a parameter's numbers
+    foreach: [snapshot, generator, bus]
+    where: "snapshot in [0, 3] OR zone_of in ['north', 'south'] OR min_up in [2, 3]"
+    expression: p <= load
   efficiency: # a Greek-named parameter, which is given — so the convention wins and it prints as the word
     foreach: [snapshot, generator]
     expression: p <= eta * p_max

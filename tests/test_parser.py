@@ -27,6 +27,7 @@ from math_spec.where_parser import (
     NotNode,
     OrNode,
     UnresolvedComparisonNode,
+    UnresolvedMembershipNode,
     UnresolvedNameNode,
     UnresolvedPositionNode,
     parse_where,
@@ -242,3 +243,63 @@ def test_an_unrelated_parse_failure_says_nothing_about_positions():
     with pytest.raises(SchemaError) as excinfo:
         parse_where('p_max >')
     assert 'position()' not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    ('text', 'elements'),
+    [
+        ("carrier in ['ccgt', 'ocgt']", (('ccgt', True), ('ocgt', True))),
+        ('carrier in ["ccgt"]', (('ccgt', True),)),
+        ("carrier in ['combined-cycle']", (('combined-cycle', True),)),
+        ("carrier in ['it\\'s']", (("it's", True),)),
+        ('period in [2030, 2040]', ((2030.0, False), (2040.0, False))),
+        ('offset in [-1, -2]', ((-1.0, False), (-2.0, False))),
+        ('period in [1.5, 2e3]', ((1.5, False), (2000.0, False))),
+        ('carrier in [wind]', (('wind', False),)),
+        ('carrier IN [wind]', (('wind', False),)),
+        ('carrier in []', ()),
+    ],
+    ids=[
+        'labels',
+        'double-quotes',
+        'hyphen',
+        'escaped-quote',
+        'integers',
+        'negatives',
+        'floats',
+        'bare-word',
+        'upper-case-in',
+        'empty',
+    ],
+)
+def test_a_membership_parses_to_its_elements(text, elements):
+    """The parser keeps each element's `quoted` flag; whether a bare word names
+    a declaration is resolution's problem, and an empty list parses so
+    resolution can word the refusal."""
+    node = parse_where(text)
+    assert isinstance(node, UnresolvedMembershipNode)
+    assert node.elements == elements
+
+
+@pytest.mark.parametrize(
+    ('text', 'tree'),
+    [
+        ("NOT carrier in ['a']", NotNode(UnresolvedMembershipNode('carrier', (('a', True),)))),
+        (
+            "carrier in ['a'] AND p > 0",
+            AndNode(
+                UnresolvedMembershipNode('carrier', (('a', True),)),
+                UnresolvedComparisonNode('p', '>', 0.0, quoted=False),
+            ),
+        ),
+        (
+            "(carrier in ['a']) OR b",
+            OrNode(UnresolvedMembershipNode('carrier', (('a', True),)), UnresolvedNameNode('b')),
+        ),
+    ],
+    ids=['under-not', 'under-and', 'parenthesised-under-or'],
+)
+def test_a_membership_takes_the_connectives(text, tree):
+    """A membership is an atom like a comparison, so `NOT`/`AND`/`OR` and
+    parentheses bind around it the same way."""
+    assert parse_where(text) == tree
