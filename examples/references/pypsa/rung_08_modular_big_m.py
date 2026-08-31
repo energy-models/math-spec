@@ -1,4 +1,4 @@
-"""Rung 8: modular and big-M — capacity in whole modules, and a committable unit whose capacity is also built."""
+"""Rung 8: modular and big-M — capacity in whole modules, built or already standing, and a committable unit whose capacity is also built."""
 
 from __future__ import annotations
 
@@ -46,6 +46,17 @@ def build():
         capital_cost=40,
         marginal_cost=15,
         p_min_pu=-0.2,
+        up_time_before=0,
+    )
+    n.add(
+        'Generator',
+        'array',
+        bus='mill',
+        committable=True,
+        p_nom=90,
+        p_nom_mod=30,
+        marginal_cost=12,
+        p_min_pu=0.2,
         up_time_before=0,
     )
     n.add('Load', 'mill_load', bus='mill', p_set=[40, 80, 120, 60])

@@ -102,6 +102,13 @@ parameters:
   Generator_p_nom_mod:
     description: the module size a build comes in whole numbers of; no value means the build is continuous
     dims: [generator]
+  Generator_modules_installed:
+    description: >-
+      how many whole modules a committable build has in place: `Generator_p_nom
+      / Generator_p_nom_mod` where a fixed build is modular, one where it is
+      not, data prep. PyPSA refuses a fixed modular build whose nominal power
+      is not a whole number of modules
+    dims: [generator]
   Generator_big_m:
     description: a bound safely above any feasible output — the build cap at full availability, data prep
     dims: [generator]
@@ -909,30 +916,43 @@ constraints:
       AND Generator_p_min_pu_nonneg AND NOT (Generator_p_nom_mod > 0)
     expression: Generator_p >= 0
   Generator_com_mod_p_lower:
-    description: "`Generator-com-mod-p-lower` — a committed modular unit outputs at least its minimum of one module"
+    description: >-
+      `Generator-com-mod-p-lower` — a committed modular unit outputs at least
+      its minimum of one module, whether the build is fixed or a decision
     foreach: [snapshot, generator]
-    where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    where: Generator_committable AND Generator_p_nom_mod > 0
     expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_mod * Generator_status
   Generator_com_mod_p_upper:
-    description: "`Generator-com-mod-p-upper` — a committed modular unit outputs at most one module's share"
+    description: >-
+      `Generator-com-mod-p-upper` — a committed modular unit outputs at most
+      one module's share, whether the build is fixed or a decision
     foreach: [snapshot, generator]
-    where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+    where: Generator_committable AND Generator_p_nom_mod > 0
     expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_mod * Generator_status
   Generator_status_p_fixed_upper:
-    description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
+    description: >-
+      `Generator-status-p-fixed-upper` — a status is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
     foreach: [snapshot, generator]
     where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-    expression: Generator_status <= 1
+    expression: Generator_status <= Generator_modules_installed
   Generator_start_up_p_fixed_upper:
-    description: "`Generator-start_up-p-fixed-upper` — a start is at most one, an explicit row as PyPSA writes it"
+    description: >-
+      `Generator-start_up-p-fixed-upper` — a start is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
     foreach: [snapshot, generator]
     where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-    expression: Generator_start_up <= 1
+    expression: Generator_start_up <= Generator_modules_installed
   Generator_shut_down_p_fixed_upper:
-    description: "`Generator-shut_down-p-fixed-upper` — a stop is at most one, an explicit row as PyPSA writes it"
+    description: >-
+      `Generator-shut_down-p-fixed-upper` — a stop is at most the modules in
+      place, an explicit row as PyPSA writes it: one where the build is not
+      modular, and the fixed build's whole count of modules where it is
     foreach: [snapshot, generator]
     where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-    expression: Generator_shut_down <= 1
+    expression: Generator_shut_down <= Generator_modules_installed
   Generator_status_p_nom_variable_upper:
     description: "`Generator-status-p_nom-variable-upper` — a modular unit is on only where a module is built"
     foreach: [snapshot, generator]
