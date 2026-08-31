@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.52](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.51...v0.0.0-alpha.52) (2026-08-31)
+
+
+### Documentation
+
+* **examples:** the PyPSA file states a constraint once where PyPSA builds one row set, rather than a block per regime ([#257](https://github.com/energy-models/math-spec/issues/257)) ([#292](https://github.com/energy-models/math-spec/issues/292)) ([c35e637](https://github.com/energy-models/math-spec/commit/c35e637c8632e361d1d9565824e0497d3199bc16))
+
 ## [0.0.0-alpha.51](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.50...v0.0.0-alpha.51) (2026-08-31)
 
 
