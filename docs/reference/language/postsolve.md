@@ -124,6 +124,25 @@ Where a constraint's `where:` deletes a row, that row has no dual, so `dual(c)`
 is absent there too — the null reading a lookup gets
 ([absence](absence.md#post-solve-values-follow-the-rows-that-were-built)).
 
+**A solve does not always return one.** A model with integer or binary
+variables, a quadratic constraint, or a set reformulated into binaries may come
+back with no dual for a row that carries one in a pure linear model — and
+solvers legitimately differ on which. The language refuses none of these at
+load: capability is not the ceiling
+([ceiling](../../about/ceiling.md#capability-is-not-the-ceiling)), where a set
+reformulated into binaries "returns no duals where the native form does". So
+`dual(c)` where a solve reports none is a **documented absence a consumer
+names**, the same null — not a value the language promises is there.
+
+**The sign is fixed by the constraint as written and the declared sense.**
+`dual(c)` is the rate the optimal objective improves as `c` is relaxed in the
+direction its `sense` points, under the model's own `minimize` or `maximize`.
+The orientation the file wrote — which side is `lhs`, which is `rhs`, which way
+the `sense` faces — is kept verbatim, so the sign is a function of two facts the
+file states. A solver that normalises signs its own way is reconciling its
+representation, not the language's; two consumers reading the same model still
+agree on the sign.
+
 ## What a consumer does with it
 
 A post-solve-grade entry is **observable**, like a math-grade one: after a
