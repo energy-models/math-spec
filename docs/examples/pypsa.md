@@ -130,8 +130,8 @@ def build():
 | [`StorageUnit-p_dispatch`, `-p_store`, `-state_of_charge`, `Store-e`, `Store-p`](#variable-domains) | done |                                 |
 | [`StorageUnit-spill`](#variable-domains)              | done   | `where: inflow > 0`, `absence: zero`; bounds on the variable, as PyPSA's |
 | [`StorageUnit-fix-*`](#storageunit-fix-p_dispatch-lower), [`Store-fix-e-*`](#store-fix-e-lower) | done |                                 |
-| [`StorageUnit-energy_balance`](#storageunit-energy_balance) | split | three blocks: carried / initial / cyclic, fused by #70; `(1-loss)**eh` is prep |
-| [`Store-energy_balance`](#store-energy_balance)       | split  | same                                                          |
+| [`StorageUnit-energy_balance`](#storageunit-energy_balance) | done | the charge carried into a snapshot is a cased quantity — cyclic, opening, carried; `(1-loss)**eh` is prep |
+| [`Store-energy_balance`](#store-energy_balance)       | done   | same                                                          |
 | [`StorageUnit-p_set`](#storageunit-p_set), [`{c}-{attr}_set`](#generator-p_set) | done | `Generator-p_set`, `Link-p_set`, `StorageUnit-state_of_charge_set`, `Store-e_set`, `Line-s_set` |
 | [`marginal_cost_storage`, `spill_cost`](#objective)   | done   |                                                               |
 
@@ -379,7 +379,7 @@ def build():
 
 | PyPSA                          | status | note                                                       |
 | ------------------------------ | ------ | ---------------------------------------------------------- |
-| [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | split | fix, ext and first-snapshot blocks, fused by #70; com is rung 7's, big-M rung 8's |
+| [`{c}-p-ramp_limit_up/down`](#generator-p-ramp_limit_up) | done | the build, the allowance and the output carried in are cased quantities, so fixed, extendable and committed are one block; big-M is rung 8's |
 
 <!-- reference:rung_04_ramps:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `8785.0`, 64 rows.
@@ -605,7 +605,7 @@ def build():
 | [`{c}-status`, `-start_up`, `-shut_down`](#variable-domains) | done | Generator; a committable link is not taken up here |
 | [`{c}-com-p-lower/upper`](#generator-com-p-lower) | done |                                                          |
 | [`{c}-*-p-fixed-upper`](#generator-status-p-fixed-upper) | done | status, start and stop each at most one, as explicit rows |
-| [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | split | a first-snapshot block carries the initial status, fused by #70 |
+| [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | the state carried into a snapshot is a cased quantity, so the first snapshot needs no block of its own |
 | [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(within=min_up_time)`                    |
 | [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal, not a parameter |
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
@@ -681,7 +681,7 @@ def build():
 | [`{c}-com-mod-p-lower/upper`](#generator-com-mod-p-lower) | done | one module's share, times the status — a fixed build too, beside its ordinary `com-p-*` rows |
 | [`{c}-com-ext-p-*` (big-M)](#generator-com-ext-p-upper-cap) | done | a cap row beside a big-M row; `M` is the build cap at full availability, data prep |
 | [`{c}-com-ext-p-lower-nonneg`](#generator-com-ext-p-lower-nonneg) | done | `(p_min_pu >= 0).all()` is prep        |
-| [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | split | run and start rows up, run and shut rows down, each with an initial block #70 fuses |
+| [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | done | run and start rows up, run and shut rows down; the output carried in is a cased quantity, so each is one block |
 
 <!-- reference:rung_08_modular_big_m:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `15915.0`, 191 rows.
@@ -1663,30 +1663,13 @@ $$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \c
 
 ```yaml
 Generator_com_transition_start_up:
-  description: >-
-    `Generator-com-transition-start-up` — turning on is a start. The
-    translated term vacates the first snapshot; the initial block below
-    compares it against the given status instead
+  description: "`Generator-com-transition-start-up` — turning on is a start, counted against the state the unit carried into the snapshot"
   foreach: [snapshot, generator]
   where: Generator_committable
-  expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
+  expression: Generator_start_up >= Generator_status - Generator_previous_status
 ```
 
-$$\mathit{up}_{t,g} \ge u_{t,g} - u_{t - 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
-
-### `Generator-com-transition-start-up`
-
-`Generator_com_transition_start_up_initial`
-
-```yaml
-Generator_com_transition_start_up_initial:
-  description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND position(snapshot) == 0
-  expression: Generator_start_up >= Generator_status - Generator_status_initial
-```
-
-$$\mathit{up}_{t,g} \ge u_{t,g} - \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
+$$\mathit{up}_{t,g} \ge u_{t,g} - \overleftarrow{u}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 ### `Generator-com-transition-shut-down`
 
@@ -1694,27 +1677,13 @@ $$\mathit{up}_{t,g} \ge u_{t,g} - \mathrm{u}^{0}_{g} \qquad \forall\thinspace t 
 
 ```yaml
 Generator_com_transition_shut_down:
-  description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
+  description: "`Generator-com-transition-shut-down` — turning off is a stop, counted against the state the unit carried into the snapshot"
   foreach: [snapshot, generator]
   where: Generator_committable
-  expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
+  expression: Generator_shut_down >= Generator_previous_status - Generator_status
 ```
 
-$$\mathit{dn}_{t,g} \ge u_{t - 1,g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
-
-### `Generator-com-transition-shut-down`
-
-`Generator_com_transition_shut_down_initial`
-
-```yaml
-Generator_com_transition_shut_down_initial:
-  description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND position(snapshot) == 0
-  expression: Generator_shut_down >= Generator_status_initial - Generator_status
-```
-
-$$\mathit{dn}_{t,g} \ge \mathrm{u}^{0}_{g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
+$$\mathit{dn}_{t,g} \ge \overleftarrow{u}_{t,g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 ### `Generator-com-up-time`
 
@@ -1761,91 +1730,6 @@ Generator_com_status_must_stay_up:
 
 $$u_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{hold}_{t,g}$$
 
-### `Generator-p-ramp_limit_up`
-
-`Generator_p_ramp_limit_up_com`
-
-```yaml
-Generator_p_ramp_limit_up_com:
-  description: >-
-    `Generator-p-ramp_limit_up` — a committed unit raises output no faster
-    than its limit while it was already on, and no further than its
-    start-up ramp in the snapshot it turns on
-  foreach: [snapshot, generator]
-  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_up
-  expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-    Generator_ramp_limit_up * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
-    + Generator_ramp_limit_start_up * Generator_p_nom
-    * (Generator_status - shift(Generator_status, over=snapshot, offset=1))
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t - 1,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - u_{t - 1,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up`
-
-`Generator_p_ramp_limit_up_com_initial`
-
-```yaml
-Generator_p_ramp_limit_up_com_initial:
-  description: >-
-    `Generator-p-ramp_limit_up` — a unit that was off ramps its first
-    snapshot from an output of nothing; one already on brought an unknown
-    output, so it carries no row
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND not Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
-  expression: >-
-    Generator_p <=
-    Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
-    + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
-```
-
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathrm{u}^{0}_{g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathrm{u}^{0}_{g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
-
-### `Generator-p-ramp_limit_down`
-
-`Generator_p_ramp_limit_down_com`
-
-```yaml
-Generator_p_ramp_limit_down_com:
-  description: >-
-    `Generator-p-ramp_limit_down` — a committed unit lowers output no
-    faster than its limit while it stays on, and no further than its
-    shut-down ramp in the snapshot it turns off
-  foreach: [snapshot, generator]
-  where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_down
-  expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom * Generator_status
-    + Generator_ramp_limit_shut_down * Generator_p_nom
-    * (shift(Generator_status, over=snapshot, offset=1) - Generator_status)
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t - 1,g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down`
-
-`Generator_p_ramp_limit_down_com_initial`
-
-```yaml
-Generator_p_ramp_limit_down_com_initial:
-  description: >-
-    `Generator-p-ramp_limit_down` — a unit that was off ramps its first
-    snapshot down from an output of nothing; one already on carries no row
-  foreach: [snapshot, generator]
-  where: >-
-    Generator_committable AND not Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
-  expression: >-
-    -Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom * Generator_status
-    + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
-```
-
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
-
 ### `Generator-p-ramp_limit_up-run-bigM`
 
 `Generator_p_ramp_limit_up_run_big_m`
@@ -1857,33 +1741,16 @@ Generator_p_ramp_limit_up_run_big_m:
     raises output no faster than its limit of the chosen build; the big M
     releases the row in the snapshot it turns on
   foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
-  expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-    Generator_ramp_limit_up * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * shift(Generator_status, over=snapshot, offset=1)
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t - 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up-run-bigM`
-
-`Generator_p_ramp_limit_up_run_big_m_initial`
-
-```yaml
-Generator_p_ramp_limit_up_run_big_m_initial:
-  description: "`Generator-p-ramp_limit_up-run-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
-  foreach: [snapshot, generator]
   where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+    Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
   expression: >-
-    Generator_p <=
+    Generator_p - Generator_previous_p <=
     Generator_ramp_limit_up * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_status_initial
+    + Generator_big_m - Generator_big_m * Generator_previous_status
 ```
 
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+$$p_{t,g} - \overleftarrow{p}_{t,g} \le \mathrm{ru}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \overleftarrow{u}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)$$
 
 ### `Generator-p-ramp_limit_up-start-bigM`
 
@@ -1896,33 +1763,16 @@ Generator_p_ramp_limit_up_start_big_m:
     committed extendable unit ramps no further than its start-up ramp of
     the chosen build; the big M releases the row everywhere else
   foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
-  expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-    Generator_ramp_limit_start_up * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_start_up
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up-start-bigM`
-
-`Generator_p_ramp_limit_up_start_big_m_initial`
-
-```yaml
-Generator_p_ramp_limit_up_start_big_m_initial:
-  description: "`Generator-p-ramp_limit_up-start-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
-  foreach: [snapshot, generator]
   where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+    Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
   expression: >-
-    Generator_p <=
+    Generator_p - Generator_previous_p <=
     Generator_ramp_limit_start_up * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_start_up
 ```
 
-$$p_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+$$p_{t,g} - \overleftarrow{p}_{t,g} \le \mathrm{ru}^{\mathrm{up}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{up}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)$$
 
 ### `Generator-p-ramp_limit_down-run-bigM`
 
@@ -1935,33 +1785,16 @@ Generator_p_ramp_limit_down_run_big_m:
     lowers output no faster than its limit of the chosen build; the big M
     releases the row in the snapshot it turns off
   foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
-  expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_status
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down-run-bigM`
-
-`Generator_p_ramp_limit_down_run_big_m_initial`
-
-```yaml
-Generator_p_ramp_limit_down_run_big_m_initial:
-  description: "`Generator-p-ramp_limit_down-run-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
-  foreach: [snapshot, generator]
   where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+    Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
   expression: >-
-    -Generator_p <=
+    Generator_previous_p - Generator_p <=
     Generator_ramp_limit_down * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_status
 ```
 
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+$$\overleftarrow{p}_{t,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)$$
 
 ### `Generator-p-ramp_limit_down-shut-bigM`
 
@@ -1974,33 +1807,16 @@ Generator_p_ramp_limit_down_shut_big_m:
     a committed extendable unit ramps no further than its shut-down ramp of
     the chosen build; the big M releases the row everywhere else
   foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
-  expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-    Generator_ramp_limit_shut_down * Generator_p_nom_ext
-    + Generator_big_m - Generator_big_m * Generator_shut_down
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down-shut-bigM`
-
-`Generator_p_ramp_limit_down_shut_big_m_initial`
-
-```yaml
-Generator_p_ramp_limit_down_shut_big_m_initial:
-  description: "`Generator-p-ramp_limit_down-shut-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
-  foreach: [snapshot, generator]
   where: >-
-    Generator_committable AND Generator_p_nom_extendable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+    Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
   expression: >-
-    -Generator_p <=
+    Generator_previous_p - Generator_p <=
     Generator_ramp_limit_shut_down * Generator_p_nom_ext
     + Generator_big_m - Generator_big_m * Generator_shut_down
 ```
 
-$$-p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+$$\overleftarrow{p}_{t,g} - p_{t,g} \le \mathrm{rd}^{\mathrm{dn}}_{g} \cdot P_{g} + \mathrm{M}_{g} - \mathrm{M}_{g} \cdot \mathit{dn}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)$$
 
 ### `Generator-p_nom_modularity`
 
@@ -2339,118 +2155,78 @@ $$\sum_{k \in \mathcal{K}} s_{t,k} \cdot \mathrm{x}_{k,c} = 0 \qquad \forall\thi
 
 ### `Generator-p-ramp_limit_up`
 
-`Generator_p_ramp_limit_up_fix`
+`Generator_p_ramp_limit_up`
 
 ```yaml
-Generator_p_ramp_limit_up_fix:
+Generator_p_ramp_limit_up:
   description: >-
-    `Generator-p-ramp_limit_up` — a fixed generator raises output no faster
-    than its limit. The translated term vacates the first snapshot, where a
-    plain optimize builds no row either
+    `Generator-p-ramp_limit_up` — a generator raises output no faster than
+    its ramp limit of the build, and a committed one no further than its
+    start-up ramp in the snapshot it turns on. A unit that came into the
+    horizon running brought an unknown output, so it carries no row at the
+    first snapshot — nor does any unit a big M releases instead
   foreach: [snapshot, generator]
-  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
-  expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom
+  where: >-
+    Generator_ramp_limit_up
+    AND NOT (Generator_committable AND Generator_p_nom_extendable)
+    AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0))
+  expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
 ```
 
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
+$$p_{t,g} - \overleftarrow{p}_{t,g} \le \Delta^{+}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ru}_{g} \text{ is defined} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right)$$
 
 ### `Generator-p-ramp_limit_down`
 
-`Generator_p_ramp_limit_down_fix`
+`Generator_p_ramp_limit_down`
 
 ```yaml
-Generator_p_ramp_limit_down_fix:
-  description: "`Generator-p-ramp_limit_down` — a fixed generator lowers output no faster than its limit"
+Generator_p_ramp_limit_down:
+  description: >-
+    `Generator-p-ramp_limit_down` — a generator lowers output no faster than
+    its ramp limit of the build, and a committed one no further than its
+    shut-down ramp in the snapshot it turns off. A unit that came into the
+    horizon running brought an unknown output, so it carries no row at the
+    first snapshot — nor does any unit a big M releases instead
   foreach: [snapshot, generator]
-  where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
-  expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom
+  where: >-
+    Generator_ramp_limit_down
+    AND NOT (Generator_committable AND Generator_p_nom_extendable)
+    AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0))
+  expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
 ```
 
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up`
-
-`Generator_p_ramp_limit_up_ext`
-
-```yaml
-Generator_p_ramp_limit_up_ext:
-  description: "`Generator-p-ramp_limit_up` — an extendable generator raises output no faster than its limit of the chosen build"
-  foreach: [snapshot, generator]
-  where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
-  expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom_ext
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down`
-
-`Generator_p_ramp_limit_down_ext`
-
-```yaml
-Generator_p_ramp_limit_down_ext:
-  description: "`Generator-p-ramp_limit_down` — an extendable generator lowers output no faster than its limit of the chosen build"
-  foreach: [snapshot, generator]
-  where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
-  expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom_ext
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot P_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \neg \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
+$$\overleftarrow{p}_{t,g} - p_{t,g} \le \Delta^{-}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{rd}_{g} \text{ is defined} \wedge \neg \left( \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \right) \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{com}_{g} \wedge \mathrm{u}^{0}_{g} = 0 \right)$$
 
 ### `Link-p-ramp_limit_up`
 
-`Link_p_ramp_limit_up_fix`
+`Link_p_ramp_limit_up`
 
 ```yaml
-Link_p_ramp_limit_up_fix:
-  description: "`Link-p-ramp_limit_up` — a fixed link raises flow no faster than its limit"
+Link_p_ramp_limit_up:
+  description: >-
+    `Link-p-ramp_limit_up` — a link raises flow no faster than its limit of
+    the build. The translated term vacates the first snapshot, where a plain
+    optimize builds no row either
   foreach: [snapshot, link]
-  where: not Link_p_nom_extendable AND Link_ramp_limit_up
-  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom
+  where: Link_ramp_limit_up
+  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
 ```
 
-$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined}$$
+$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ru}^{f}_{l} \text{ is defined}$$
 
 ### `Link-p-ramp_limit_down`
 
-`Link_p_ramp_limit_down_fix`
+`Link_p_ramp_limit_down`
 
 ```yaml
-Link_p_ramp_limit_down_fix:
-  description: "`Link-p-ramp_limit_down` — a fixed link lowers flow no faster than its limit"
+Link_p_ramp_limit_down:
+  description: "`Link-p-ramp_limit_down` — a link lowers flow no faster than its limit of the build"
   foreach: [snapshot, link]
-  where: not Link_p_nom_extendable AND Link_ramp_limit_down
-  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom
+  where: Link_ramp_limit_down
+  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
 ```
 
-$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \neg \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined}$$
-
-### `Link-p-ramp_limit_up`
-
-`Link_p_ramp_limit_up_ext`
-
-```yaml
-Link_p_ramp_limit_up_ext:
-  description: "`Link-p-ramp_limit_up` — an extendable link raises flow no faster than its limit of the chosen build"
-  foreach: [snapshot, link]
-  where: Link_p_nom_extendable AND Link_ramp_limit_up
-  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_ext
-```
-
-$$f_{t,l} - f_{t - 1,l} \le \mathrm{ru}^{f}_{l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{ru}^{f}_{l} \text{ is defined}$$
-
-### `Link-p-ramp_limit_down`
-
-`Link_p_ramp_limit_down_ext`
-
-```yaml
-Link_p_ramp_limit_down_ext:
-  description: "`Link-p-ramp_limit_down` — an extendable link lowers flow no faster than its limit of the chosen build"
-  foreach: [snapshot, link]
-  where: Link_p_nom_extendable AND Link_ramp_limit_down
-  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_ext
-```
-
-$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot F_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{ext}^{f}_{l} \wedge \mathrm{rd}^{f}_{l} \text{ is defined}$$
+$$f_{t - 1,l} - f_{t,l} \le \mathrm{rd}^{f}_{l} \cdot \widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L} \thinspace:\thinspace \mathrm{rd}^{f}_{l} \text{ is defined}$$
 
 ### `StorageUnit-ext-p_dispatch-lower`
 
@@ -2587,60 +2363,19 @@ $$H_{s} = \mathrm{h}^{\mathrm{nom,set}}_{s} \qquad \forall\thinspace s \in \math
 ```yaml
 StorageUnit_energy_balance:
   description: >-
-    `StorageUnit-energy_balance` — charge carried over less standing loss,
-    plus what is stored after its efficiency, less what dispatch draws down
-    before its own, plus inflow not spilled. The translated term vacates the
-    first snapshot, so this block builds every row but that one; the initial
-    block below is the boundary
+    `StorageUnit-energy_balance` — the charge carried in, plus what is
+    stored after its efficiency, less what dispatch draws down before its
+    own, plus inflow not spilled
   foreach: [snapshot, storage_unit]
-  where: not StorageUnit_cyclic_state_of_charge
   expression: >-
     StorageUnit_state_of_charge ==
-    StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
+    StorageUnit_charge_carried_in
     + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
     - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
     + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
 ```
 
-$$\mathit{soc}_{t,s} = \rho_{t,s} \cdot \mathit{soc}_{t - 1,s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{cyc}_{s}$$
-
-### `StorageUnit-energy_balance`
-
-`StorageUnit_energy_balance_initial`
-
-```yaml
-StorageUnit_energy_balance_initial:
-  description: "`StorageUnit-energy_balance` — the first snapshot opens on the given initial charge, which no standing loss has touched yet"
-  foreach: [snapshot, storage_unit]
-  where: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
-  expression: >-
-    StorageUnit_state_of_charge ==
-    StorageUnit_state_of_charge_initial
-    + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
-    - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
-    + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
-```
-
-$$\mathit{soc}_{t,s} = \mathrm{soc}^{0}_{s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0$$
-
-### `StorageUnit-energy_balance`
-
-`StorageUnit_energy_balance_cyclic`
-
-```yaml
-StorageUnit_energy_balance_cyclic:
-  description: "`StorageUnit-energy_balance` — a cyclic unit's first snapshot carries over from its last"
-  foreach: [snapshot, storage_unit]
-  where: StorageUnit_cyclic_state_of_charge
-  expression: >-
-    StorageUnit_state_of_charge ==
-    StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
-    + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
-    - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
-    + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
-```
-
-$$\mathit{soc}_{t,s} = \rho_{t,s} \cdot \mathit{soc}_{t \ominus 1,s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S} \thinspace:\thinspace \mathrm{cyc}_{s}$$
+$$\mathit{soc}_{t,s} = \overleftarrow{\mathit{soc}}_{t,s} + \eta^{-}_{s} \cdot h^{-}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t} - \frac{h^{+}_{t,s} \cdot \mathrm{w}^{\mathrm{sto}}_{t}}{\eta^{+}_{s}} + \left( \mathrm{inflow}_{t,s} - \mathit{spill}_{t,s} \right) \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S}$$
 
 ### `Store-fix-e-lower`
 
@@ -2746,53 +2481,15 @@ $$E_{v} = \mathrm{e}^{\mathrm{nom,set}}_{v} \qquad \forall\thinspace v \in \math
 
 ```yaml
 Store_energy_balance:
-  description: >-
-    `Store-energy_balance` — energy carried over less standing loss, less
-    what is delivered to the bus. The translated term vacates the first
-    snapshot; the initial block below is the boundary
+  description: "`Store-energy_balance` — the energy carried in, less what is delivered to the bus"
   foreach: [snapshot, store]
-  where: not Store_e_cyclic
   expression: >-
     Store_e ==
-    Store_retention * shift(Store_e, over=snapshot, offset=1)
+    Store_energy_carried_in
     - Store_p * snapshot_weightings_stores
 ```
 
-$$e_{t,v} = \rho^{e}_{t,v} \cdot e_{t - 1,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{cyc}^{e}_{v}$$
-
-### `Store-energy_balance`
-
-`Store_energy_balance_initial`
-
-```yaml
-Store_energy_balance_initial:
-  description: "`Store-energy_balance` — the first snapshot opens on the given initial energy, which no standing loss has touched yet"
-  foreach: [snapshot, store]
-  where: not Store_e_cyclic AND position(snapshot) == 0
-  expression: >-
-    Store_e ==
-    Store_e_initial
-    - Store_p * snapshot_weightings_stores
-```
-
-$$e_{t,v} = \mathrm{e}^{0}_{v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0$$
-
-### `Store-energy_balance`
-
-`Store_energy_balance_cyclic`
-
-```yaml
-Store_energy_balance_cyclic:
-  description: "`Store-energy_balance` — a cyclic store's first snapshot carries over from its last"
-  foreach: [snapshot, store]
-  where: Store_e_cyclic
-  expression: >-
-    Store_e ==
-    Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
-    - Store_p * snapshot_weightings_stores
-```
-
-$$e_{t,v} = \rho^{e}_{t,v} \cdot e_{t \ominus 1,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{cyc}^{e}_{v}$$
+$$e_{t,v} = \overleftarrow{e}_{t,v} - q_{t,v} \cdot \mathrm{w}^{\mathrm{sto}}_{t} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V}$$
 
 ### `Generator-p_set`
 

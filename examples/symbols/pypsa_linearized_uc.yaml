@@ -29,6 +29,8 @@ names:
   Generator_min_up_time: '\mathrm{UT}'
   Generator_min_down_time: '\mathrm{DT}'
   Generator_status_initial: '\mathrm{u}^{0}'
+  Generator_previous_status: '\overleftarrow{u}'
+  Generator_previous_p: '\overleftarrow{p}'
   Generator_must_stay_up: '\mathrm{hold}'
   Generator_start_up_cost: '\mathrm{c}^{\mathrm{up}}'
   Generator_shut_down_cost: '\mathrm{c}^{\mathrm{dn}}'

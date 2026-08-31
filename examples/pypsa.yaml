@@ -550,6 +550,93 @@ variables:
     where: Store_e_nom_extendable
 
 expressions:
+  Generator_previous_status:
+    description: >-
+      the commitment state a generator carries into a snapshot — the state it
+      brought into the horizon at the first, the previous snapshot's after that
+    foreach: [snapshot, generator]
+    cases:
+      opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
+    otherwise: shift(Generator_status, over=snapshot, offset=1)
+  Generator_previous_p:
+    description: >-
+      the output a generator carries into a snapshot — nothing at the start of
+      the horizon, which is why a unit that came in running carries no ramp row
+      there
+    foreach: [snapshot, generator]
+    cases:
+      opening: { when: "position(snapshot) == 0", expression: 0 }
+    otherwise: shift(Generator_p, over=snapshot, offset=1)
+  Generator_p_nom_effective:
+    description: the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise
+    foreach: [generator]
+    cases:
+      extendable: { when: Generator_p_nom_extendable, expression: Generator_p_nom_ext }
+    otherwise: Generator_p_nom
+  Generator_ramp_up_allowance:
+    description: >-
+      how far a generator may raise output between two snapshots — its ramp
+      limit of the build while it stays on, plus its start-up ramp in the
+      snapshot it turns on
+    foreach: [snapshot, generator]
+    cases:
+      committed:
+        when: Generator_committable
+        expression: >-
+          Generator_ramp_limit_up * Generator_p_nom * Generator_previous_status
+          + Generator_ramp_limit_start_up * Generator_p_nom
+          * (Generator_status - Generator_previous_status)
+    otherwise: Generator_ramp_limit_up * Generator_p_nom_effective
+  Generator_ramp_down_allowance:
+    description: >-
+      how far a generator may lower output between two snapshots — its ramp
+      limit of the build while it stays on, plus its shut-down ramp in the
+      snapshot it turns off
+    foreach: [snapshot, generator]
+    cases:
+      committed:
+        when: Generator_committable
+        expression: >-
+          Generator_ramp_limit_down * Generator_p_nom * Generator_status
+          + Generator_ramp_limit_shut_down * Generator_p_nom
+          * (Generator_previous_status - Generator_status)
+    otherwise: Generator_ramp_limit_down * Generator_p_nom_effective
+  Link_p_nom_effective:
+    description: the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise
+    foreach: [link]
+    cases:
+      extendable: { when: Link_p_nom_extendable, expression: Link_p_nom_ext }
+    otherwise: Link_p_nom
+  StorageUnit_charge_carried_in:
+    description: >-
+      the charge a unit opens a snapshot with — its last snapshot's less
+      standing loss where it is cyclic, the given initial charge at the start
+      of the horizon, which no standing loss has touched yet, and the previous
+      snapshot's less standing loss otherwise
+    foreach: [snapshot, storage_unit]
+    cases:
+      cyclic:
+        when: StorageUnit_cyclic_state_of_charge
+        expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+      opening:
+        when: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
+        expression: StorageUnit_state_of_charge_initial
+    otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
+  Store_energy_carried_in:
+    description: >-
+      the energy a store opens a snapshot with — its last snapshot's less
+      standing loss where it is cyclic, the given initial energy at the start
+      of the horizon, which no standing loss has touched yet, and the previous
+      snapshot's less standing loss otherwise
+    foreach: [snapshot, store]
+    cases:
+      cyclic:
+        when: Store_e_cyclic
+        expression: Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
+      opening:
+        when: not Store_e_cyclic AND position(snapshot) == 0
+        expression: Store_e_initial
+    otherwise: Store_retention * shift(Store_e, over=snapshot, offset=1)
   primary_energy:
     description: >-
       what a `primary_energy` row totals — weighted generator energy, less
@@ -711,28 +798,15 @@ constraints:
     where: Generator_committable AND not Generator_p_nom_extendable
     expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
   Generator_com_transition_start_up:
-    description: >-
-      `Generator-com-transition-start-up` — turning on is a start. The
-      translated term vacates the first snapshot; the initial block below
-      compares it against the given status instead
+    description: "`Generator-com-transition-start-up` — turning on is a start, counted against the state the unit carried into the snapshot"
     foreach: [snapshot, generator]
     where: Generator_committable
-    expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
-  Generator_com_transition_start_up_initial:
-    description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
-    foreach: [snapshot, generator]
-    where: Generator_committable AND position(snapshot) == 0
-    expression: Generator_start_up >= Generator_status - Generator_status_initial
+    expression: Generator_start_up >= Generator_status - Generator_previous_status
   Generator_com_transition_shut_down:
-    description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
+    description: "`Generator-com-transition-shut-down` — turning off is a stop, counted against the state the unit carried into the snapshot"
     foreach: [snapshot, generator]
     where: Generator_committable
-    expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
-  Generator_com_transition_shut_down_initial:
-    description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
-    foreach: [snapshot, generator]
-    where: Generator_committable AND position(snapshot) == 0
-    expression: Generator_shut_down >= Generator_status_initial - Generator_status
+    expression: Generator_shut_down >= Generator_previous_status - Generator_status
   Generator_com_up_time:
     description: >-
       `Generator-com-up-time` — a unit started within its own minimum up time
@@ -751,95 +825,30 @@ constraints:
     foreach: [snapshot, generator]
     where: Generator_committable AND Generator_must_stay_up
     expression: Generator_status == 1
-  Generator_p_ramp_limit_up_com:
-    description: >-
-      `Generator-p-ramp_limit_up` — a committed unit raises output no faster
-      than its limit while it was already on, and no further than its
-      start-up ramp in the snapshot it turns on
-    foreach: [snapshot, generator]
-    where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_up
-    expression: >-
-      Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-      Generator_ramp_limit_up * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
-      + Generator_ramp_limit_start_up * Generator_p_nom
-      * (Generator_status - shift(Generator_status, over=snapshot, offset=1))
-  Generator_p_ramp_limit_up_com_initial:
-    description: >-
-      `Generator-p-ramp_limit_up` — a unit that was off ramps its first
-      snapshot from an output of nothing; one already on brought an unknown
-      output, so it carries no row
-    foreach: [snapshot, generator]
-    where: >-
-      Generator_committable AND not Generator_p_nom_extendable
-      AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
-    expression: >-
-      Generator_p <=
-      Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
-      + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
-  Generator_p_ramp_limit_down_com:
-    description: >-
-      `Generator-p-ramp_limit_down` — a committed unit lowers output no
-      faster than its limit while it stays on, and no further than its
-      shut-down ramp in the snapshot it turns off
-    foreach: [snapshot, generator]
-    where: Generator_committable AND not Generator_p_nom_extendable AND Generator_ramp_limit_down
-    expression: >-
-      shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-      Generator_ramp_limit_down * Generator_p_nom * Generator_status
-      + Generator_ramp_limit_shut_down * Generator_p_nom
-      * (shift(Generator_status, over=snapshot, offset=1) - Generator_status)
-  Generator_p_ramp_limit_down_com_initial:
-    description: >-
-      `Generator-p-ramp_limit_down` — a unit that was off ramps its first
-      snapshot down from an output of nothing; one already on carries no row
-    foreach: [snapshot, generator]
-    where: >-
-      Generator_committable AND not Generator_p_nom_extendable
-      AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
-    expression: >-
-      -Generator_p <=
-      Generator_ramp_limit_down * Generator_p_nom * Generator_status
-      + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
   Generator_p_ramp_limit_up_run_big_m:
     description: >-
       `Generator-p-ramp_limit_up-run-bigM` — a committed extendable unit
       raises output no faster than its limit of the chosen build; the big M
       releases the row in the snapshot it turns on
     foreach: [snapshot, generator]
-    where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
-    expression: >-
-      Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-      Generator_ramp_limit_up * Generator_p_nom_ext
-      + Generator_big_m - Generator_big_m * shift(Generator_status, over=snapshot, offset=1)
-  Generator_p_ramp_limit_up_run_big_m_initial:
-    description: "`Generator-p-ramp_limit_up-run-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
-    foreach: [snapshot, generator]
     where: >-
-      Generator_committable AND Generator_p_nom_extendable
-      AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+      Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+      AND (position(snapshot) > 0 OR Generator_status_initial == 0)
     expression: >-
-      Generator_p <=
+      Generator_p - Generator_previous_p <=
       Generator_ramp_limit_up * Generator_p_nom_ext
-      + Generator_big_m - Generator_big_m * Generator_status_initial
+      + Generator_big_m - Generator_big_m * Generator_previous_status
   Generator_p_ramp_limit_up_start_big_m:
     description: >-
       `Generator-p-ramp_limit_up-start-bigM` — in the snapshot it turns on, a
       committed extendable unit ramps no further than its start-up ramp of
       the chosen build; the big M releases the row everywhere else
     foreach: [snapshot, generator]
-    where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
-    expression: >-
-      Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-      Generator_ramp_limit_start_up * Generator_p_nom_ext
-      + Generator_big_m - Generator_big_m * Generator_start_up
-  Generator_p_ramp_limit_up_start_big_m_initial:
-    description: "`Generator-p-ramp_limit_up-start-bigM` — a unit that was off ramps its first snapshot from nothing; one already on carries no row"
-    foreach: [snapshot, generator]
     where: >-
-      Generator_committable AND Generator_p_nom_extendable
-      AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+      Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_up
+      AND (position(snapshot) > 0 OR Generator_status_initial == 0)
     expression: >-
-      Generator_p <=
+      Generator_p - Generator_previous_p <=
       Generator_ramp_limit_start_up * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_start_up
   Generator_p_ramp_limit_down_run_big_m:
@@ -848,19 +857,11 @@ constraints:
       lowers output no faster than its limit of the chosen build; the big M
       releases the row in the snapshot it turns off
     foreach: [snapshot, generator]
-    where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
-    expression: >-
-      shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-      Generator_ramp_limit_down * Generator_p_nom_ext
-      + Generator_big_m - Generator_big_m * Generator_status
-  Generator_p_ramp_limit_down_run_big_m_initial:
-    description: "`Generator-p-ramp_limit_down-run-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
-    foreach: [snapshot, generator]
     where: >-
-      Generator_committable AND Generator_p_nom_extendable
-      AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+      Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+      AND (position(snapshot) > 0 OR Generator_status_initial == 0)
     expression: >-
-      -Generator_p <=
+      Generator_previous_p - Generator_p <=
       Generator_ramp_limit_down * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_status
   Generator_p_ramp_limit_down_shut_big_m:
@@ -869,19 +870,11 @@ constraints:
       a committed extendable unit ramps no further than its shut-down ramp of
       the chosen build; the big M releases the row everywhere else
     foreach: [snapshot, generator]
-    where: Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
-    expression: >-
-      shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-      Generator_ramp_limit_shut_down * Generator_p_nom_ext
-      + Generator_big_m - Generator_big_m * Generator_shut_down
-  Generator_p_ramp_limit_down_shut_big_m_initial:
-    description: "`Generator-p-ramp_limit_down-shut-bigM` — a unit that was off ramps its first snapshot down from nothing; one already on carries no row"
-    foreach: [snapshot, generator]
     where: >-
-      Generator_committable AND Generator_p_nom_extendable
-      AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+      Generator_committable AND Generator_p_nom_extendable AND Generator_ramp_limit_down
+      AND (position(snapshot) > 0 OR Generator_status_initial == 0)
     expression: >-
-      -Generator_p <=
+      Generator_previous_p - Generator_p <=
       Generator_ramp_limit_shut_down * Generator_p_nom_ext
       + Generator_big_m - Generator_big_m * Generator_shut_down
   Generator_p_nom_modularity:
@@ -1021,49 +1014,45 @@ constraints:
       power flow physical rather than transport
     foreach: [snapshot, cycle]
     expression: sum(Line_s * Line_cycle_weight, over=line) == 0
-  Generator_p_ramp_limit_up_fix:
+  Generator_p_ramp_limit_up:
     description: >-
-      `Generator-p-ramp_limit_up` — a fixed generator raises output no faster
-      than its limit. The translated term vacates the first snapshot, where a
-      plain optimize builds no row either
+      `Generator-p-ramp_limit_up` — a generator raises output no faster than
+      its ramp limit of the build, and a committed one no further than its
+      start-up ramp in the snapshot it turns on. A unit that came into the
+      horizon running brought an unknown output, so it carries no row at the
+      first snapshot — nor does any unit a big M releases instead
     foreach: [snapshot, generator]
-    where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
-    expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom
-  Generator_p_ramp_limit_down_fix:
-    description: "`Generator-p-ramp_limit_down` — a fixed generator lowers output no faster than its limit"
+    where: >-
+      Generator_ramp_limit_up
+      AND NOT (Generator_committable AND Generator_p_nom_extendable)
+      AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0))
+    expression: Generator_p - Generator_previous_p <= Generator_ramp_up_allowance
+  Generator_p_ramp_limit_down:
+    description: >-
+      `Generator-p-ramp_limit_down` — a generator lowers output no faster than
+      its ramp limit of the build, and a committed one no further than its
+      shut-down ramp in the snapshot it turns off. A unit that came into the
+      horizon running brought an unknown output, so it carries no row at the
+      first snapshot — nor does any unit a big M releases instead
     foreach: [snapshot, generator]
-    where: not Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
-    expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom
-  Generator_p_ramp_limit_up_ext:
-    description: "`Generator-p-ramp_limit_up` — an extendable generator raises output no faster than its limit of the chosen build"
-    foreach: [snapshot, generator]
-    where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_up
-    expression: Generator_p - shift(Generator_p, over=snapshot, offset=1) <= Generator_ramp_limit_up * Generator_p_nom_ext
-  Generator_p_ramp_limit_down_ext:
-    description: "`Generator-p-ramp_limit_down` — an extendable generator lowers output no faster than its limit of the chosen build"
-    foreach: [snapshot, generator]
-    where: Generator_p_nom_extendable AND not Generator_committable AND Generator_ramp_limit_down
-    expression: shift(Generator_p, over=snapshot, offset=1) - Generator_p <= Generator_ramp_limit_down * Generator_p_nom_ext
-  Link_p_ramp_limit_up_fix:
-    description: "`Link-p-ramp_limit_up` — a fixed link raises flow no faster than its limit"
+    where: >-
+      Generator_ramp_limit_down
+      AND NOT (Generator_committable AND Generator_p_nom_extendable)
+      AND (position(snapshot) > 0 OR (Generator_committable AND Generator_status_initial == 0))
+    expression: Generator_previous_p - Generator_p <= Generator_ramp_down_allowance
+  Link_p_ramp_limit_up:
+    description: >-
+      `Link-p-ramp_limit_up` — a link raises flow no faster than its limit of
+      the build. The translated term vacates the first snapshot, where a plain
+      optimize builds no row either
     foreach: [snapshot, link]
-    where: not Link_p_nom_extendable AND Link_ramp_limit_up
-    expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom
-  Link_p_ramp_limit_down_fix:
-    description: "`Link-p-ramp_limit_down` — a fixed link lowers flow no faster than its limit"
+    where: Link_ramp_limit_up
+    expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
+  Link_p_ramp_limit_down:
+    description: "`Link-p-ramp_limit_down` — a link lowers flow no faster than its limit of the build"
     foreach: [snapshot, link]
-    where: not Link_p_nom_extendable AND Link_ramp_limit_down
-    expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom
-  Link_p_ramp_limit_up_ext:
-    description: "`Link-p-ramp_limit_up` — an extendable link raises flow no faster than its limit of the chosen build"
-    foreach: [snapshot, link]
-    where: Link_p_nom_extendable AND Link_ramp_limit_up
-    expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_ext
-  Link_p_ramp_limit_down_ext:
-    description: "`Link-p-ramp_limit_down` — an extendable link lowers flow no faster than its limit of the chosen build"
-    foreach: [snapshot, link]
-    where: Link_p_nom_extendable AND Link_ramp_limit_down
-    expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_ext
+    where: Link_ramp_limit_down
+    expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
   StorageUnit_ext_p_dispatch_lower:
     description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
     foreach: [snapshot, storage_unit]
@@ -1113,36 +1102,13 @@ constraints:
     expression: StorageUnit_p_nom_ext == StorageUnit_p_nom_set
   StorageUnit_energy_balance:
     description: >-
-      `StorageUnit-energy_balance` — charge carried over less standing loss,
-      plus what is stored after its efficiency, less what dispatch draws down
-      before its own, plus inflow not spilled. The translated term vacates the
-      first snapshot, so this block builds every row but that one; the initial
-      block below is the boundary
+      `StorageUnit-energy_balance` — the charge carried in, plus what is
+      stored after its efficiency, less what dispatch draws down before its
+      own, plus inflow not spilled
     foreach: [snapshot, storage_unit]
-    where: not StorageUnit_cyclic_state_of_charge
     expression: >-
       StorageUnit_state_of_charge ==
-      StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
-      + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
-      - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
-      + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
-  StorageUnit_energy_balance_initial:
-    description: "`StorageUnit-energy_balance` — the first snapshot opens on the given initial charge, which no standing loss has touched yet"
-    foreach: [snapshot, storage_unit]
-    where: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
-    expression: >-
-      StorageUnit_state_of_charge ==
-      StorageUnit_state_of_charge_initial
-      + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
-      - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
-      + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
-  StorageUnit_energy_balance_cyclic:
-    description: "`StorageUnit-energy_balance` — a cyclic unit's first snapshot carries over from its last"
-    foreach: [snapshot, storage_unit]
-    where: StorageUnit_cyclic_state_of_charge
-    expression: >-
-      StorageUnit_state_of_charge ==
-      StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+      StorageUnit_charge_carried_in
       + StorageUnit_efficiency_store * StorageUnit_p_store * snapshot_weightings_stores
       - StorageUnit_p_dispatch * snapshot_weightings_stores / StorageUnit_efficiency_dispatch
       + (StorageUnit_inflow - StorageUnit_spill) * snapshot_weightings_stores
@@ -1182,31 +1148,11 @@ constraints:
     where: Store_e_nom_extendable AND Store_e_nom_set
     expression: Store_e_nom_ext == Store_e_nom_set
   Store_energy_balance:
-    description: >-
-      `Store-energy_balance` — energy carried over less standing loss, less
-      what is delivered to the bus. The translated term vacates the first
-      snapshot; the initial block below is the boundary
+    description: "`Store-energy_balance` — the energy carried in, less what is delivered to the bus"
     foreach: [snapshot, store]
-    where: not Store_e_cyclic
     expression: >-
       Store_e ==
-      Store_retention * shift(Store_e, over=snapshot, offset=1)
-      - Store_p * snapshot_weightings_stores
-  Store_energy_balance_initial:
-    description: "`Store-energy_balance` — the first snapshot opens on the given initial energy, which no standing loss has touched yet"
-    foreach: [snapshot, store]
-    where: not Store_e_cyclic AND position(snapshot) == 0
-    expression: >-
-      Store_e ==
-      Store_e_initial
-      - Store_p * snapshot_weightings_stores
-  Store_energy_balance_cyclic:
-    description: "`Store-energy_balance` — a cyclic store's first snapshot carries over from its last"
-    foreach: [snapshot, store]
-    where: Store_e_cyclic
-    expression: >-
-      Store_e ==
-      Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
+      Store_energy_carried_in
       - Store_p * snapshot_weightings_stores
   Generator_p_set:
     description: "`Generator-p_set` — output pinned to the given schedule, wherever one is given"
