@@ -425,7 +425,6 @@ each type is three blocks by sense.
 | [`tech_capacity_expansion_limit`](#tech_capacity_expansion_limit) | split | a block per sense                             |
 | `Bus-nom_min/max_{carrier}`           | out         | deprecated in PyPSA                               |
 | [`Carrier-growth_limit`](pypsa_multi_period.md) | done | rung 15, a file of its own |
-| `effect_limit`, priced effects        | open        | `effects.py` not inventoried                      |
 
 <!-- reference:rung_05_global_constraints:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `10282.833333333332`, 102 rows.
