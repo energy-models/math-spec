@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.55](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.54...v0.0.0-alpha.55) (2026-08-31)
+
+
+### Documentation
+
+* **ceiling:** load-time unit checking has its own refusal, where the data-prep row used to answer for it ([#272](https://github.com/energy-models/math-spec/issues/272)) ([8dfd17d](https://github.com/energy-models/math-spec/commit/8dfd17df17993f1209fe479734c3dee756fcc384))
+
 ## [0.0.0-alpha.54](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.53...v0.0.0-alpha.54) (2026-08-31)
 
 
