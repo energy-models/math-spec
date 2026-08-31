@@ -89,10 +89,10 @@ def build():
 | [`Link-fix-p-lower`](#link-fix-p-lower)             | done   |                                                            |
 | [`Link-fix-p-upper`](#link-fix-p-upper)             | done   |                                                            |
 | [`Bus-nodal_balance`](#bus-nodal_balance)           | done   | a loaded bus with nothing attached: PyPSA refuses, see X2  |
-| `Bus-meshed-*-nodal_balance`                        | split  | a linopy-speed split of the one balance row here — no fixture triggers it yet, so the row-for-row carry-over is unproven (#123) |
+| `Bus-meshed-*-nodal_balance`                        | out    | the same balance rows, dealt into linopy containers by how many component columns name a bus — `meshed_thresholds`, an `n.optimize()` keyword defaulting to `[30, 100, 400]`. Same rows, same duals, another name; a modeler whose engine wants the split states it, the file does not (#123) |
 | [`marginal_cost`](#objective)                       | done   |                                                            |
 | [`marginal_cost_quadratic`](pypsa_quadratic.md)     | done   | rung 10, a file of its own                                 |
-| `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — every fixture's constant is 0, so the netting is untested (#123) |
+| `objective_constant`                                | split  | an objective shift, compared net of `n._objective_constant` — rungs 11 and 13 carry a nonzero one, `21915277.52` and `160.0`, so the netting is under test |
 
 <!-- reference:rung_01_transport:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `7182.222222222223`, 45 rows.
@@ -677,14 +677,14 @@ def build():
 | --------------------------------------------- | ------ | ---------------------------------------------------------- |
 | [`{c}-n_mod`, `{c}-p_nom_modularity`](#generator-p_nom_modularity) | done |                                       |
 | [`{c}-*-p_nom-variable-upper`](#generator-status-p_nom-variable-upper) | done | a modular unit is on only where a module is built |
-| `{c}-*-p-fixed-upper`, modular                | split  | a fixed modular build is floored in data prep, see X1; its rows are the ordinary fix rows — no fixture fixes one yet, so the floor is unproven (#123) |
-| [`{c}-com-mod-p-lower/upper`](#generator-com-mod-p-lower) | done | one module's share, times the status          |
+| [`{c}-*-p-fixed-upper`, modular](#generator-status-p-fixed-upper) | done | the cap is the build's whole count of modules, `p_nom / p_nom_mod` in data prep, see X1; rung 8's `array` fixes one (#123) |
+| [`{c}-com-mod-p-lower/upper`](#generator-com-mod-p-lower) | done | one module's share, times the status — a fixed build too, beside its ordinary `com-p-*` rows |
 | [`{c}-com-ext-p-*` (big-M)](#generator-com-ext-p-upper-cap) | done | a cap row beside a big-M row; `M` is the build cap at full availability, data prep |
 | [`{c}-com-ext-p-lower-nonneg`](#generator-com-ext-p-lower-nonneg) | done | `(p_min_pu >= 0).all()` is prep        |
 | [`{c}-p-ramp_limit_*-bigM`](#generator-p-ramp_limit_up-run-bigm) | split | run and start rows up, run and shut rows down, each with an initial block #70 fuses |
 
 <!-- reference:rung_08_modular_big_m:begin -->
-> ✔ `pypsa 1.3.0` solves this rung's network at objective `19712.5`, 155 rows.
+> ✔ `pypsa 1.3.0` solves this rung's network at objective `15915.0`, 191 rows.
 
 <details markdown="1">
 <summary>The network, as PyPSA code</summary>
@@ -692,7 +692,7 @@ def build():
 `rung_08_modular_big_m.py`
 
 ```python
-"""Rung 8: modular and big-M — capacity in whole modules, and a committable unit whose capacity is also built."""
+"""Rung 8: modular and big-M — capacity in whole modules, built or already standing, and a committable unit whose capacity is also built."""
 
 from __future__ import annotations
 
@@ -740,6 +740,17 @@ def build():
         capital_cost=40,
         marginal_cost=15,
         p_min_pu=-0.2,
+        up_time_before=0,
+    )
+    n.add(
+        'Generator',
+        'array',
+        bus='mill',
+        committable=True,
+        p_nom=90,
+        p_nom_mod=30,
+        marginal_cost=12,
+        p_min_pu=0.2,
         up_time_before=0,
     )
     n.add('Load', 'mill_load', bus='mill', p_set=[40, 80, 120, 60])
@@ -1099,14 +1110,15 @@ def build():
 
 Where PyPSA refuses to build, parity means refusing too. None is a language
 gap; each is a data check not made yet, and where it should live — language,
-data prep, or harness — is one open question.
+data prep, or harness — is one open question. Line numbers are pinned pypsa
+1.3.0, the version the records above are from.
 
 | PyPSA raises                                 | on                                                | here                    | note |
 | -------------------------------------------- | ------------------------------------------------- | ----------------------- | ---- |
-| `ValueError`, `constraints.py:1449`          | fixed modular `p_nom` not a multiple of `p_nom_mod` | builds a smaller plant | X1   |
-| `ValueError`, `constraints.py:1192`          | load on a bus with nothing attached               | row not built, unserved | X2   |
-| `ValueError`, `optimize.py:430`              | no component carries a cost                       | feasibility problem     | X3   |
-| `NotImplementedError`, `global_constraints.py:339` | depletion with period weightings `!= 1`     | out                     |      |
+| `ValueError`, `constraints.py:1850`          | fixed modular `p_nom` not a multiple of `p_nom_mod` | a fractional module cap | X1   |
+| `ValueError`, `constraints.py:1557`          | load on a bus with nothing attached               | row not built, unserved | X2   |
+| `ValueError`, `optimize.py:436`              | no component carries a cost                       | feasibility problem     | X3   |
+| `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
 | `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | out                     |      |
 
 Duals and solutions are read back by the harness on the lpspec side:
@@ -1156,6 +1168,7 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $\mathrm{c}^{\mathrm{dn}}$ | `Generator_shut_down_cost` over $\mathcal{G}$ — cost of one stop |
 | $\mathrm{c}^{\mathrm{on}}$ | `Generator_stand_by_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one snapshot spent on |
 | $\mathrm{p}^{\mathrm{mod}}$ | `Generator_p_nom_mod` over $\mathcal{G}$ — the module size a build comes in whole numbers of; no value means the build is continuous |
+| $\mathrm{N}^{\mathrm{fix}}$ | `Generator_modules_installed` over $\mathcal{G}$ — how many whole modules a committable build has in place: `Generator_p_nom / Generator_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
 | $\mathrm{M}$ | `Generator_big_m` over $\mathcal{G}$ — a bound safely above any feasible output — the build cap at full availability, data prep |
 | $\mathrm{nonneg}$ | `Generator_p_min_pu_nonneg` over $\mathcal{G}$ — true where none of the generator's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep |
 | $\mathrm{ru}^{f}$ | `Link_ramp_limit_up` over $\mathcal{L}$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
@@ -2069,13 +2082,15 @@ $$p_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathc
 
 ```yaml
 Generator_com_mod_p_lower:
-  description: "`Generator-com-mod-p-lower` — a committed modular unit outputs at least its minimum of one module"
+  description: >-
+    `Generator-com-mod-p-lower` — a committed modular unit outputs at least
+    its minimum of one module, whether the build is fixed or a decision
   foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  where: Generator_committable AND Generator_p_nom_mod > 0
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_mod * Generator_status
 ```
 
-$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+$$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
 
 ### `Generator-com-mod-p-upper`
 
@@ -2083,13 +2098,15 @@ $$p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \
 
 ```yaml
 Generator_com_mod_p_upper:
-  description: "`Generator-com-mod-p-upper` — a committed modular unit outputs at most one module's share"
+  description: >-
+    `Generator-com-mod-p-upper` — a committed modular unit outputs at most
+    one module's share, whether the build is fixed or a decision
   foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_p_nom_extendable AND Generator_p_nom_mod > 0
+  where: Generator_committable AND Generator_p_nom_mod > 0
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_mod * Generator_status
 ```
 
-$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
+$$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \cdot u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0$$
 
 ### `Generator-status-p-fixed-upper`
 
@@ -2097,13 +2114,16 @@ $$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{mod}}_{g} \c
 
 ```yaml
 Generator_status_p_fixed_upper:
-  description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
+  description: >-
+    `Generator-status-p-fixed-upper` — a status is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
   foreach: [snapshot, generator]
   where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-  expression: Generator_status <= 1
+  expression: Generator_status <= Generator_modules_installed
 ```
 
-$$u_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+$$u_{t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 
 ### `Generator-start_up-p-fixed-upper`
 
@@ -2111,13 +2131,16 @@ $$u_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathc
 
 ```yaml
 Generator_start_up_p_fixed_upper:
-  description: "`Generator-start_up-p-fixed-upper` — a start is at most one, an explicit row as PyPSA writes it"
+  description: >-
+    `Generator-start_up-p-fixed-upper` — a start is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
   foreach: [snapshot, generator]
   where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-  expression: Generator_start_up <= 1
+  expression: Generator_start_up <= Generator_modules_installed
 ```
 
-$$\mathit{up}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+$$\mathit{up}_{t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 
 ### `Generator-shut_down-p-fixed-upper`
 
@@ -2125,13 +2148,16 @@ $$\mathit{up}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g 
 
 ```yaml
 Generator_shut_down_p_fixed_upper:
-  description: "`Generator-shut_down-p-fixed-upper` — a stop is at most one, an explicit row as PyPSA writes it"
+  description: >-
+    `Generator-shut_down-p-fixed-upper` — a stop is at most the modules in
+    place, an explicit row as PyPSA writes it: one where the build is not
+    modular, and the fixed build's whole count of modules where it is
   foreach: [snapshot, generator]
   where: Generator_committable AND NOT (Generator_p_nom_extendable AND Generator_p_nom_mod > 0)
-  expression: Generator_shut_down <= 1
+  expression: Generator_shut_down <= Generator_modules_installed
 ```
 
-$$\mathit{dn}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
+$$\mathit{dn}_{t,g} \le \mathrm{N}^{\mathrm{fix}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \neg \left( \mathrm{ext}_{g} \wedge \mathrm{p}^{\mathrm{mod}}_{g} > 0 \right)$$
 
 ### `Generator-status-p_nom-variable-upper`
 

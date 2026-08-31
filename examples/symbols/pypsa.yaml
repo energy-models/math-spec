@@ -40,6 +40,7 @@ names:
   Generator_stand_by_cost: '\mathrm{c}^{\mathrm{on}}'
   Generator_p_nom_mod: '\mathrm{p}^{\mathrm{mod}}'
   Generator_n_mod: "N"
+  Generator_modules_installed: '\mathrm{N}^{\mathrm{fix}}'
   Generator_big_m: '\mathrm{M}'
   Generator_p_min_pu_nonneg: '\mathrm{nonneg}'
   Link_ramp_limit_up: '\mathrm{ru}^{f}'
