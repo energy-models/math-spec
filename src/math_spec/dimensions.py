@@ -50,9 +50,11 @@ from math_spec.operators import BUILTINS, edge_error
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.where_parser import (
     DimensionComparisonNode,
+    DimensionMembershipNode,
     DimensionPositionNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterMembershipNode,
     VariableDefinedNode,
     WhereNode,
     _atom_dims,
@@ -521,7 +523,7 @@ def _check_where_dims(
     for atom in atoms(node):
         if not (outside := sorted(_atom_dims(atom, name_dims) - frame)):
             continue
-        if isinstance(atom, (ParameterDefinedNode, ParameterComparisonNode)):
+        if isinstance(atom, (ParameterDefinedNode, ParameterComparisonNode, ParameterMembershipNode)):
             raise DimensionError(
                 f"{context}: where-parameter '{atom.name}' has dims "
                 f'{outside} outside the frame {sorted(frame)}. Reducing '
@@ -534,7 +536,7 @@ def _check_where_dims(
                 f'reducing over an unlisted dim would silently widen it — say which '
                 f'reduction you mean.'
             )
-        if isinstance(atom, (DimensionComparisonNode, DimensionPositionNode)):
+        if isinstance(atom, (DimensionComparisonNode, DimensionMembershipNode, DimensionPositionNode)):
             raise DimensionError(
                 f"{context}: where-comparison on dimension '{atom.name}', which is not in the frame {sorted(frame)}."
             )

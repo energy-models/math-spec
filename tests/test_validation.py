@@ -276,6 +276,95 @@ class TestArithmeticDtype:
             )
 
 
+class TestMembership:
+    """`name in [...]` — the set form of a where-comparison, and how it refuses (#254)."""
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'variables.p.where': 'g in []'},
+                ('matches nothing', 'where: "False"'),
+                id='an-empty-list-is-an-always-false-mask',
+            ),
+            pytest.param(
+                {'variables.p.where': "g in ['a', 'a']"},
+                ('more than once', 'Drop the duplicate'),
+                id='a-repeated-element-selects-nothing-extra',
+            ),
+            pytest.param(
+                {'variables.p.where': 'g in [c]'},
+                ("names 'c'", 'data-driven membership (#258)', 'bool parameter'),
+                id='a-declared-name-among-the-elements',
+            ),
+            pytest.param(
+                {'variables.p.where': 'p in [1]'},
+                ('built before variables exist',),
+                id='a-variable-on-the-left',
+            ),
+            pytest.param(
+                {'variables.p.where': 'nope in [1]'},
+                ("'nope' not found",),
+                id='an-unknown-name-on-the-left',
+            ),
+            pytest.param(
+                {'variables.p.where': 'g in [3]'},
+                ('matches no label',),
+                id='a-number-against-a-str-dimension',
+            ),
+            pytest.param(
+                {'variables.p.where': 'lk in [3]'},
+                ('matches no label',),
+                id="a-number-against-a-lookup's-str-target",
+            ),
+            pytest.param(
+                {'variables.p.where': "flag in ['x']"},
+                ('matches nothing',),
+                id='a-label-against-a-bool-parameter',
+            ),
+            pytest.param(
+                {'dimensions.g': {'dtype': 'datetime'}, 'variables.p.where': 'g in [0, 1]'},
+                ('compares against the epoch',),
+                id='a-number-against-a-datetime-dimension-reads-as-the-epoch',
+            ),
+            pytest.param(
+                {'variables.p.where': 'c in [0, 0]'},
+                ('lists 0 more', 'Drop the duplicate'),
+                id='a-numeric-duplicate-renders-via-g-not-as-0-point-0',
+            ),
+            pytest.param(
+                {
+                    'dimensions.g': {'dtype': 'datetime'},
+                    'variables.p.where': "g in ['2030-01-01T00:00', '2030-01-01T00:00:00']",
+                },
+                ('more than once', 'Drop the duplicate'),
+                id='two-spellings-of-one-instant-are-a-duplicate-once-typed',
+            ),
+        ],
+    )
+    def test_a_membership_the_data_cannot_decide_is_refused(self, patch, fragments):
+        with pytest.raises(LanguageError) as exc:
+            _schema(**patch)
+        for fragment in fragments:
+            assert fragment in str(exc.value)
+
+    @pytest.mark.parametrize(
+        'patch',
+        [
+            pytest.param({'variables.p.where': 'c in [1.5, 2.5]'}, id='floats-against-a-float-parameter'),
+            pytest.param({'variables.p.where': "g in ['wind', 'solar']"}, id='labels-against-a-str-dimension'),
+            pytest.param({'variables.p.where': 'flag in [1]'}, id='a-number-against-a-bool-parameter'),
+            pytest.param(
+                {'dimensions.g': {'dtype': 'datetime'}, 'variables.p.where': "g in ['2030-01-01', '2040-01-01']"},
+                id='iso-dates-against-a-datetime-dimension',
+            ),
+        ],
+    )
+    def test_a_well_typed_membership_loads(self, patch):
+        """Float membership is allowed: the OR chain it stands in for permits exact float equality already (#254)."""
+        _schema(**patch)
+
+
 class TestVersion:
     """`version:` is refused when unknown, and does nothing else (#67)."""
 

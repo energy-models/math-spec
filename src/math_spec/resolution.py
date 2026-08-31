@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, assert_never, cast
 
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
@@ -52,16 +52,20 @@ from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
+    DimensionMembershipNode,
     DimensionPositionNode,
     LookupComparisonNode,
     LookupDefinedNode,
+    LookupMembershipNode,
     LookupPairComparisonNode,
     NotNode,
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterMembershipNode,
     TypedPredicateNode,
     UnresolvedComparisonNode,
+    UnresolvedMembershipNode,
     UnresolvedNameNode,
     UnresolvedPositionNode,
     VariableDefinedNode,
@@ -627,28 +631,44 @@ _HAS_TIME = re.compile(r'[T ]\d')
 
 
 def _typed_literal(
-    node: UnresolvedComparisonNode,
+    name: str,
+    value: float | str,
+    quoted: bool,
     dtype: str,
     context: str,
     errors: list[str],
 ) -> float | str | datetime.date | None:
-    """The comparison's literal, checked against the declared dtype.
+    """One literal, checked against the declared dtype of the name it is tested against.
 
-    Getting it wrong is silent: polars reads a datetime column against an
-    integer as an epoch offset, so ``snapshot > 0`` drops every coordinate
-    before 1970 without a word (#460). Returns ``None`` once it has recorded
-    an error, so the caller leaves the node unresolved.
+    The one home for the dtype rule a where-comparison and a where-membership
+    both run: a comparison passes its single value, a membership each element
+    of its list. Getting it wrong is silent: polars reads a datetime column
+    against an integer as an epoch offset, so ``snapshot > 0`` drops every
+    coordinate before 1970 without a word (#460). Returns ``None`` once it has
+    recorded an error, so the caller leaves the node unresolved.
+
+    Args:
+        name: The declared name the literal is tested against.
+        value: The literal — a number, or a string label.
+        quoted: Whether it arrived in quotes, which shapes the rewrite the
+            message names.
+        dtype: The declared dtype of *name*.
+        context: Where a message locates itself.
+        errors: Collected problems, appended to on a mismatch.
+
+    Returns:
+        The literal in the dtype's own type — a :class:`datetime.date` for a
+        datetime dimension — or ``None`` on a mismatch.
     """
-    value = node.value
     text = isinstance(value, str)
 
     if dtype == 'datetime':
         if not text:
             errors.append(
-                f"{context}: '{node.name}' is a datetime dimension, so comparing it to "
-                f'{value!r} compares against the epoch — {node.name} > 0 means "after '
-                f'1970-01-01", not what it looks like. Quote an ISO date instead: '
-                f"{node.name} {node.op} '2030-01-01'."
+                f"{context}: '{name}' is a datetime dimension, so comparing it to "
+                f'{value!r} compares against the epoch — {name} > 0 means "after '
+                f'1970-01-01", not what it looks like. Quote an ISO date instead, '
+                f"e.g. '2030-01-01'."
             )
             return None
         try:
@@ -659,22 +679,21 @@ def _typed_literal(
             )
         except ValueError:
             errors.append(
-                f"{context}: '{node.name}' is a datetime dimension and {value!r} is not an "
+                f"{context}: '{name}' is a datetime dimension and {value!r} is not an "
                 f"ISO date. Write '2030-01-01' or '2030-01-01T06:00'."
             )
             return None
 
     if dtype == 'str' and not text:
         errors.append(
-            f"{context}: '{node.name}' has dtype 'str', so comparing it to the number "
-            f'{value!r} matches no label. Quote it if it is one: {node.name} {node.op} '
-            f"'{value:g}'."
+            f"{context}: '{name}' has dtype 'str', so comparing it to the number "
+            f'{value!r} matches no label. Quote it if it is one, e.g. {f"{value:g}"!r}.'
         )
         return None
     if dtype in ('int', 'float', 'bool') and text:
+        fix = 'Drop the quotes if it is a number.' if quoted else 'Write it as a number if it is one.'
         errors.append(
-            f"{context}: '{node.name}' has dtype '{dtype}', so comparing it to the string "
-            f'{value!r} matches nothing. Drop the quotes if it is a number.'
+            f"{context}: '{name}' has dtype '{dtype}', so comparing it to the string {value!r} matches nothing. {fix}"
         )
         return None
     return value
@@ -738,6 +757,98 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
             f'where they map into the same dimension.'
         )
     return None
+
+
+def _variable_where_error(context: str, name: str) -> str:
+    """Why a variable may not sit where a where reads a value — the one home for the sentence a comparison and a membership share."""
+    return (
+        f"{context}: where references variable '{name}'. A where mask is built before "
+        f'variables exist — it may test parameters and dimension coordinates only.'
+    )
+
+
+def _declared_element_error(context: str, name: str, value: str, kind: str) -> str:
+    """Why a membership list may not name a declaration among its literals."""
+    return (
+        f"{context}: '{name} in [...]' names {value!r}, a declared "
+        f'{kind}, but a membership list takes literal labels only. A declared name on the '
+        f'right is data-driven membership (#258); quote {value!r} to keep it a fixed label, '
+        f'or precompute the test as a bool parameter and mask on that.'
+    )
+
+
+def _literal_repr(value: float | str | datetime.date) -> str:
+    """A typed where-literal as a refusal shows it — numbers via ``:g``, dates as ISO, labels quoted."""
+    if isinstance(value, str):
+        return repr(value)
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    return f'{value:g}'
+
+
+def _first_duplicate(
+    values: tuple[float | str | datetime.date, ...],
+) -> float | str | datetime.date | None:
+    """The first element that repeats an earlier one, or ``None`` — a repeat selects nothing extra."""
+    seen: set[float | str | datetime.date] = set()
+    for value in values:
+        if value in seen:
+            return value
+        seen.add(value)
+    return None
+
+
+def _resolve_membership(node: UnresolvedMembershipNode, ns: Namespace, context: str, errors: list[str]) -> WhereNode:
+    """Type ``name in [l1, l2, …]`` — the set form of a where-comparison.
+
+    The list carries literals only: empty selects no row and is refused for the
+    always-false mask it hides; a repeat says nothing; a declared name among the
+    elements is data-driven membership, which is #258. The left-hand side is the
+    same three kinds a comparison takes, each element checked against its dtype
+    by the one :func:`_typed_literal` a comparison runs.
+    """
+    if not node.elements:
+        errors.append(
+            f"{context}: '{node.name} in []' matches nothing — an always-false mask is a "
+            f'declaration with no rows. Write where: "False" if that is what is meant.'
+        )
+        return node
+
+    for value, quoted in node.elements:
+        if not quoted and isinstance(value, str) and (element_kind := ns.kind(value)) is not None:
+            errors.append(_declared_element_error(context, node.name, value, element_kind))
+            return node
+
+    kind = ns.kind(node.name)
+    typed: list[float | str | datetime.date] = []
+    if kind in ('parameter', 'dimension', 'lookup'):
+        dtype = ns.dtypes[node.name]
+        for value, quoted in node.elements:
+            one = _typed_literal(node.name, value, quoted, dtype, context, errors)
+            if one is None:
+                return node
+            typed.append(one)
+        if (duplicate := _first_duplicate(tuple(typed))) is not None:
+            errors.append(
+                f"{context}: '{node.name} in [...]' lists {_literal_repr(duplicate)} more than "
+                f'once, which selects nothing extra. Drop the duplicate.'
+            )
+            return node
+
+    match kind:
+        case 'parameter':
+            assert not any(isinstance(value, datetime.date) for value in typed)
+            return ParameterMembershipNode(node.name, cast('tuple[float | str, ...]', tuple(typed)))
+        case 'dimension':
+            return DimensionMembershipNode(node.name, tuple(typed))
+        case 'lookup':
+            return LookupMembershipNode(node.name, ns.over_of(node.name), tuple(typed))
+        case 'variable':
+            errors.append(_variable_where_error(context, node.name))
+            return node
+        case _:
+            errors.append(ns._unknown(node.name, context, allow_dims=True))
+            return node
 
 
 def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str, errors: list[str]) -> WhereNode:
@@ -829,7 +940,7 @@ def _resolve_where(
 
         kind = ns.kind(node.name)
         if kind in ('parameter', 'dimension', 'lookup'):
-            typed = _typed_literal(node, ns.dtypes[node.name], context, errors)
+            typed = _typed_literal(node.name, node.value, node.quoted, ns.dtypes[node.name], context, errors)
             if typed is None:
                 return node
             value = typed
@@ -843,15 +954,14 @@ def _resolve_where(
             case 'lookup':
                 return LookupComparisonNode(node.name, ns.over_of(node.name), node.op, value)
             case 'variable':
-                errors.append(
-                    f"{context}: where references variable '{node.name}'. A where "
-                    f'mask is built before variables exist — it may test parameters '
-                    f'and dimension coordinates only.'
-                )
+                errors.append(_variable_where_error(context, node.name))
                 return node
             case _:
                 errors.append(ns._unknown(node.name, context, allow_dims=True))
                 return node
+
+    if isinstance(node, UnresolvedMembershipNode):
+        return _resolve_membership(node, ns, context, errors)
 
     if isinstance(node, NotNode):
         return NotNode(_resolve_where(node.operand, ns, context, errors, self_variable))

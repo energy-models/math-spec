@@ -108,6 +108,9 @@ class TypstFormat:
     def cardinality(self, inner: str) -> str:
         return f'abs({inner})'
 
+    def set_braces(self, inner: str) -> str:
+        return f'{{{inner}}}'
+
     def fraction(self, numerator: str, denominator: str) -> str:
         return f'frac({numerator}, {denominator})'
 

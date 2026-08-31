@@ -58,6 +58,20 @@ class UnresolvedComparisonNode:
 
 
 @dataclass(frozen=True)
+class UnresolvedMembershipNode:
+    """``name in [l1, l2, …]`` before the name is checked. ``resolution.py`` types it.
+
+    Each element carries the scalar comparison's ``quoted`` flag, so resolution
+    refuses a bare word that names a declaration exactly as the scalar
+    right-hand side does — a set of literals is the whole construct; a name
+    among them is data-driven membership, which is #258.
+    """
+
+    name: str
+    elements: tuple[tuple[float | str, bool], ...]
+
+
+@dataclass(frozen=True)
 class UnresolvedPositionNode:
     """``position(dim) <op> i`` before the name is checked.
 
@@ -101,12 +115,28 @@ class ParameterComparisonNode:
 
 
 @dataclass(frozen=True)
+class ParameterMembershipNode:
+    """Keep the rows where a parameter's value is one of a set of literals."""
+
+    name: str
+    values: tuple[float | str, ...]
+
+
+@dataclass(frozen=True)
 class DimensionComparisonNode:
     """Compare a dimension's own coordinates against a literal."""
 
     name: str
     op: PredicateOperator
     value: float | str | datetime.date
+
+
+@dataclass(frozen=True)
+class DimensionMembershipNode:
+    """Keep the coordinates a dimension's own labels put in a set of literals."""
+
+    name: str
+    values: tuple[float | str | datetime.date, ...]
 
 
 @dataclass(frozen=True)
@@ -138,6 +168,19 @@ class LookupComparisonNode:
     over: str
     op: PredicateOperator
     value: float | str | datetime.date
+
+
+@dataclass(frozen=True)
+class LookupMembershipNode:
+    """Keep the rows a lookup's values put in a set of literals — ``period_of in [2030, 2040]``.
+
+    ``over`` is the dimension the lookup maps out of, copied off the
+    declaration during resolution so every consumer reads it here.
+    """
+
+    name: str
+    over: str
+    values: tuple[float | str | datetime.date, ...]
 
 
 @dataclass(frozen=True)
@@ -191,13 +234,17 @@ WhereNode = (
     BooleanLiteralNode
     | UnresolvedNameNode
     | UnresolvedComparisonNode
+    | UnresolvedMembershipNode
     | UnresolvedPositionNode
     | DimensionPositionNode
     | ParameterDefinedNode
     | VariableDefinedNode
     | ParameterComparisonNode
+    | ParameterMembershipNode
     | DimensionComparisonNode
+    | DimensionMembershipNode
     | LookupComparisonNode
+    | LookupMembershipNode
     | LookupPairComparisonNode
     | LookupDefinedNode
     | NotNode
@@ -209,18 +256,21 @@ WhereNode = (
 #: left-hand side is still a name the schema has not been asked about. The
 #: expression side has :data:`~math_spec.expression_parser.UnresolvedNode` for
 #: the same reason, and a pass meeting either ran before resolution.
-UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedPositionNode
+UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedMembershipNode | UnresolvedPositionNode
 
 #: Every predicate resolution has typed: it names a declaration and the kind is
 #: settled. Resolution passes these straight through, having nothing left to
 #: decide about them.
 TypedPredicateNode = (
     ParameterComparisonNode
+    | ParameterMembershipNode
     | ParameterDefinedNode
     | VariableDefinedNode
     | DimensionComparisonNode
+    | DimensionMembershipNode
     | DimensionPositionNode
     | LookupComparisonNode
+    | LookupMembershipNode
     | LookupPairComparisonNode
     | LookupDefinedNode
 )
@@ -298,11 +348,11 @@ def _atom_dims(atom: TypedPredicateNode, name_dims: Mapping[str, Sequence[str]])
     it.
     """
     match atom:
-        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
+        case ParameterComparisonNode() | ParameterMembershipNode() | ParameterDefinedNode() | VariableDefinedNode():
             return frozenset(name_dims.get(atom.name, ()))
-        case DimensionComparisonNode() | DimensionPositionNode():
+        case DimensionComparisonNode() | DimensionMembershipNode() | DimensionPositionNode():
             return frozenset({atom.name})
-        case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
+        case LookupComparisonNode() | LookupMembershipNode() | LookupPairComparisonNode() | LookupDefinedNode():
             return frozenset({atom.over})
         case _:
             assert_never(atom)
@@ -328,11 +378,29 @@ def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
     )
 
 
+def _literal_token(token: Any) -> tuple[float | str, bool]:
+    """One literal token as ``(value, quoted)`` — a number, a quoted label, or a bare word.
+
+    The one home for turning a raw grammar token into a typed literal plus its
+    quoted flag; a comparison's single right-hand side and a membership's list
+    both read one token at a time through it.
+    """
+    if isinstance(token, _Quoted):
+        return str(token), True
+    return (token if isinstance(token, float) else str(token)), False
+
+
 def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
     """``name <op> literal`` off the tokens the grammar captured, the quoted marker turned into a flag."""
     name, op, value = tokens
-    quoted = isinstance(value, _Quoted)
-    return UnresolvedComparisonNode(str(name), cast('PredicateOperator', op), str(value) if quoted else value, quoted)
+    value, quoted = _literal_token(value)
+    return UnresolvedComparisonNode(str(name), cast('PredicateOperator', op), value, quoted)
+
+
+def _membership(tokens: pp.ParseResults) -> UnresolvedMembershipNode:
+    """``name in [l1, l2, …]`` off the tokens the grammar captured; the list may be empty for resolution to refuse."""
+    name, *elements = tokens
+    return UnresolvedMembershipNode(str(name), tuple(_literal_token(e) for e in elements))
 
 
 def _build_where_grammar() -> pp.ParserElement:
@@ -366,16 +434,26 @@ def _build_where_grammar() -> pp.ParserElement:
     position_comparison = (position_call + comparator + position).set_parse_action(_position_comparison)
 
     comparison = (name + comparator + (number | quoted | name)).set_parse_action(_comparison)
+
+    IN = pp.Suppress(pp.CaselessKeyword('in'))
+    element = number | quoted | name.copy()
+    membership = (
+        name + IN + pp.Suppress('[') + pp.Optional(pp.DelimitedList(element)) + pp.Suppress(']')
+    ).set_parse_action(_membership)
+
     # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
 
     # `position_comparison` leads: it starts with a keyword that `existence`
     # would otherwise take for a bare name, and `comparison` for a parameter.
+    # `membership` precedes `comparison` and `existence`, which would take its
+    # name for a whole atom and leave `in [...]` for the parse to choke on.
     # See `DimensionPositionNode` for why it converts on the left (#32).
     atom = (
         true_lit
         | false_lit
         | position_comparison
+        | membership
         | comparison
         | existence
         | (pp.Suppress('(') + where_expr + pp.Suppress(')'))

@@ -161,6 +161,10 @@ $$\mathit{on}_{t,g} = 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \i
 
 $$\mathit{slack}_{t} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{zone\_of}(b) = \text{'}\mathrm{north}\text{'} \wedge \mathrm{zone\_of}(b) \neq \mathrm{area\_of}(b) \wedge \mathrm{zone\_of}(b) \text{ is defined}$$
 
+**`selected`**
+
+$$p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace t \in \{0,\enspace 3\} \vee \mathrm{zone\_of}(b) \in \{\text{'}\mathrm{north}\text{'},\enspace \text{'}\mathrm{south}\text{'}\} \vee \mathrm{min\_up}_{g} \in \{2,\enspace 3\}$$
+
 **`efficiency`**
 
 $$p_{t,g} \le \mathrm{eta}_{g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$

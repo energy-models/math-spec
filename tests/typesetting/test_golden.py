@@ -140,6 +140,7 @@ def _rendered_trees() -> Iterator[object]:
 UNRESOLVED = {
     'UnresolvedNameNode',
     'UnresolvedComparisonNode',
+    'UnresolvedMembershipNode',
     'UnresolvedPositionNode',
     'NameNode',
     'NameListNode',

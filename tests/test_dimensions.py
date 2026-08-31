@@ -205,6 +205,21 @@ def test_an_outer_product_is_legal_and_carries_both_dim_sets():
             id='where-comparison-on-a-dim-outside-the-frame',
         ),
         pytest.param(
+            {'variables.cap': {'foreach': ['generator'], 'where': 'load in [0, 1]'}},
+            r"where-parameter 'load' has dims \['bus', 'snapshot'\]",
+            id='where-membership-on-a-parameter-outside-the-frame',
+        ),
+        pytest.param(
+            {'variables.cap': {'foreach': ['generator'], 'where': 'snapshot in [0, 1]'}},
+            "where-comparison on dimension 'snapshot'",
+            id='where-membership-on-a-dim-outside-the-frame',
+        ),
+        pytest.param(
+            {'variables.cap': {'foreach': ['generator'], 'where': "snap_bus in ['x']"}},
+            "where-comparison on lookup 'snap_bus', which is over dimension 'snapshot'",
+            id='where-membership-on-a-lookup-outside-the-frame',
+        ),
+        pytest.param(
             {'variables.cap': {'foreach': ['generator'], 'bounds': {'lower': 0, 'upper': 'load'}}},
             r"bounds.upper parameter 'load' has dims \['bus', 'snapshot'\]",
             id='bound-parameter-dim-outside-foreach',
