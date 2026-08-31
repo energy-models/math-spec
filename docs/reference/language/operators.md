@@ -225,8 +225,10 @@ first coordinate is vacated and its row drops; `edge='wrap'` closes **each
 group** onto its own last, which is what a store that must return to its
 starting level every period asks for; `edge=v` puts `v` at each group's edge.
 
-It is the same `by=` as [`sum(by=)` and `at(by=)`](#sum), and takes a lookup
-**over the dimension being walked** — groups a row of that dimension is in.
+`by=` takes a **groupable** lookup — one declaring `into:` — **over the
+dimension being walked**, groups a row of that dimension is in. Its target is
+what a named `offset=` may vary over, so each group is reached by its own; a
+label space targets nothing and is refused ([#280](https://github.com/energy-models/math-spec/issues/280)).
 A coordinate the lookup sends nowhere is in no group, so it reaches nothing —
 and no `edge=` speaks for it. Reaching off a group's start is what a policy
 answers; belonging to no group is the null a partial lookup gives everywhere

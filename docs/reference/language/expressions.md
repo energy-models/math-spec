@@ -281,9 +281,10 @@ constraints:
     expression: soc == at(soc_initial, by=period_of)
 ```
 
-It is the same `by=` as [`sum(by=)` and `at(by=)`](operators.md), and takes a
-lookup **over the dimension being counted** — groups a row of that dimension is
-actually in. A row reads its own group's boundary, the broadcast `at(by=)`
+`by=` takes a lookup **over the dimension being counted** — groups a row of
+that dimension is actually in. Unlike [`sum(by=)` and `at(by=)`](operators.md)
+it need not be a _groupable_ one: counting inside a group lands no terms
+anywhere, so a label space partitions the rows just as well ([#280](https://github.com/energy-models/math-spec/issues/280)). A row reads its own group's boundary, the broadcast `at(by=)`
 already defines, and `-1` is each group's last however long that group is.
 Periods of different lengths therefore need nothing special, which is the case
 no single position along the whole axis can express.
