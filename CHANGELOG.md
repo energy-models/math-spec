@@ -17,6 +17,18 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.49](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.48...v0.0.0-alpha.49) (2026-08-31)
+
+
+### Features
+
+* **examples:** a link delivers to as many buses as its data declares, not two ([#273](https://github.com/energy-models/math-spec/issues/273)) ([0ece0d8](https://github.com/energy-models/math-spec/commit/0ece0d86794a86664e2596428df25e319eb6b56e))
+
+
+### Bug Fixes
+
+* **examples:** a committable modular unit that is not extendable gets the rows PyPSA builds for it ([#271](https://github.com/energy-models/math-spec/issues/271)) ([5af0ac8](https://github.com/energy-models/math-spec/commit/5af0ac8cb15271c4b6982e4397604fe3dfb5cb10))
+
 ## [0.0.0-alpha.48](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.47...v0.0.0-alpha.48) (2026-08-31)
 
 
