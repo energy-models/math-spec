@@ -53,6 +53,8 @@ class LatexFormat:
     notation: ClassVar[str] = 'latex'
     #: TeX's own em-dash ligature.
     dash: ClassVar[str] = '---'
+    #: Between the rows of a ``cases`` block.
+    cases_row: ClassVar[str] = r' \\ '
 
     operators: ClassVar[Mapping[str, str]] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
 
@@ -108,6 +110,10 @@ class LatexFormat:
 
     def fraction(self, numerator: str, denominator: str) -> str:
         return rf'\frac{{{numerator}}}{{{denominator}}}'
+
+    def cases(self, arms: list[tuple[str, str]]) -> str:
+        rows = self.cases_row.join(f'{value} & {condition}' for value, condition in arms)
+        return rf'\begin{{cases}} {rows} \end{{cases}}'
 
     def summation(self, domain: str, body: str) -> str:
         return rf'\sum_{{{domain}}} {body}'

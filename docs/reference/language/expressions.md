@@ -333,6 +333,142 @@ anything consumes the model, so a reference costs nothing at build time. It is
 lowered only when it is _read_, so a model with fifty named expressions that
 reads none pays for none.
 
+### `cases:` — one quantity, a value per region
+
+Some quantities have no single expression. The commitment state a unit carries
+into a snapshot has three regimes: `1` for a unit that is never switched off, an
+initial condition at the first snapshot, and the last snapshot's status
+everywhere else. Written at the constraint, those regimes fork the inequality
+three ways. Named here, the inequality is written once:
+
+```yaml
+expressions:
+  previous_status:
+    description: the commitment state a unit carries into a snapshot
+    foreach: [snapshot, generator]
+    cases:
+      always_on:
+        when: "not committable"
+        expression: 1
+      boundary:
+        when: "committable and position(snapshot) == 0"
+        expression: status_initial
+    otherwise: shift(status, over=snapshot, offset=1)
+constraints:
+  ramp_up:
+    foreach: [snapshot, generator]
+    expression: >-
+      p - shift(p, over=snapshot, offset=1, edge=0)
+      <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
+```
+
+One case is one row, and `otherwise:` is the last:
+
+$$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+**The shape.** A named expression carries exactly one of two things: an
+`expression:`, or a `cases:` block. A `cases:` block is a map of named cases,
+each with a `when:` and an `expression:`. Two keys sit beside it: the
+`otherwise:`, which carries whatever the cases leave, and the `foreach:`, which
+declares the dimensions all of them range over.
+
+Those dimensions are the block's **frame**, and one point of it — one snapshot
+for one generator, in the example above — is a **coordinate**. Every rule below
+is about which case owns which coordinate.
+
+#### The rules
+
+**No two cases may claim one coordinate.** One generator at one snapshot
+cannot have two previous statuses, so a file where two `when:` masks can hold
+at once is refused at load. The refusal comes before any data binds, and it
+names the pair, a coordinate they both claim, and the rewrite:
+
+> `Named expression 'previous_status'`: cases `always_on` and `boundary` both
+> claim the value where committable is false, the position of snapshot is 0. A
+> coordinate two cases claim has two values, so it has none — narrow one of the
+> two `when:` strings by the negation of the other, or drop the wider one and
+> let `otherwise:` carry that region.
+
+That is why `boundary` above says `committable and`.
+
+**A pair the check cannot decide is refused too**, and that refusal names its
+rewrite as well. The one that comes up is `position(snapshot) == 0` against
+`position(snapshot) == -1`. On an axis with a single member those two pick the
+same row, and how many members an axis has is data rather than declaration. So
+count from one end only.
+
+**`otherwise:` is the value wherever no `when` holds**, and it takes every
+coordinate the cases leave. It carries no mask of its own, so nothing narrows
+the frame it is written against. It is the one value that has to hold up at
+every coordinate — those where a parameter is absent or a label is unnamed
+included.
+
+**Covering a coordinate is not the same as having a value there**, and a case
+that claims a coordinate may still be empty at it. The `otherwise:` above shows
+how. Its `shift` carries no `edge=`, so it produces nothing at the first
+snapshot; `previous_status` is whole there only because every unit at that
+snapshot is claimed by `boundary` or by `always_on` instead. Close such a hole
+in one of three ways:
+
+- widen a `when` until it covers the coordinate the case drops out at,
+- give the `shift` an `edge=`,
+- or set `absence: zero` on a masked variable.
+
+Nothing catches one left open at load, because whether a case has a value there
+depends on the data.
+
+**`foreach:` is required with cases and refused without.** The dims of an
+uncased expression fall out of its body. The dims of a cased one cannot,
+because a case may be a single number while the condition that selects it
+ranges over dimensions — `always_on` above is exactly that. So the frame is
+declared. Each `when:` is held to it, the way a variable's or a constraint's
+mask is, and each case's value must sit inside it.
+
+**The dims of a reference are the declared `foreach`**, not the union of the
+cases: one narrower than the frame broadcasts, exactly as a parameter with
+fewer dims does.
+
+**`cases:` inside a `macros:` template is not supported.** The `otherwise:`
+would have to cover a frame the macro does not have until it is called.
+
+#### Why it is shaped this way
+
+A coordinate with two values has no single value, so it is no longer a
+quantity. The regimes are therefore kept apart by proof rather than ranked by
+position. That is what makes the cases readable in any order: each one says
+where it applies on its own terms, without the ones above it in mind. A tool
+that re-sorts the keys of a file cannot change what the file means.
+
+`otherwise:` is required because it makes the quantity whole without a second
+proof: it carries no condition, so there is no condition on it to fail. A
+coordinate that no `when` matched would have no value at all, and absence
+[spreads](absence.md), so any constraint reading the expression would lose rows
+it never masked.
+
+It is written beside `cases:` rather than inside them because it is not a
+region like they are. It is what is left over. And since it carries a value and
+nothing else, it is written as a bare value — the same shorthand `expressions:`
+itself takes.
+
+### How a cased expression prints
+
+Every other named expression is substituted where it is used, and prints
+nothing under its own name. A cased one is the exception, because it cannot be
+substituted legibly. Three cases are three rows tall, so whatever follows the
+name in the constraint would sit beside the **middle** row. The quantity would
+also print once per use, though the file writes it once.
+
+So a use prints the symbol, and the block above prints once under a
+**Definitions** heading between `Subject to` and `Variable domains`, in
+declaration order, where a paper states a quantity defined by region.
+
+A cased expression joins the symbol pool like any other quantity, so
+`--symbols` can rename one. Uncased ones stay out, since a table entry for one
+would never apply.
+
+[The unit commitment example](../../examples/commitment.md) is the whole model
+this section is drawn from.
+
 ## Macros
 
 A **parameterised** template. It has no dims until it is called, and each call

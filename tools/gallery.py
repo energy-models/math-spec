@@ -36,6 +36,7 @@ BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 #: fragments is what the reference pages already are.
 MODELS = {
     'dispatch.md': ROOT / 'examples' / 'dispatch.yaml',
+    'commitment.md': ROOT / 'examples' / 'commitment.yaml',
 }
 
 #: Page -> the model it shows one declaration at a time — its YAML, then the

@@ -111,6 +111,9 @@ class TypstFormat:
     def fraction(self, numerator: str, denominator: str) -> str:
         return f'frac({numerator}, {denominator})'
 
+    def cases(self, arms: list[tuple[str, str]]) -> str:
+        return 'cases({})'.format(', '.join(f'{value} & {condition}' for value, condition in arms))
+
     def summation(self, domain: str, body: str) -> str:
         return f'sum_({domain}) {body}'
 

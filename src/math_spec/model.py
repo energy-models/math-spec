@@ -14,11 +14,13 @@ Nothing here has seen data.
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, override
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, get_args, override
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
+    Field,
     PrivateAttr,
     ValidationError,
     ValidationInfo,
@@ -315,6 +317,37 @@ class MacroBlock(_StrictBlock):
         return self
 
 
+def _number_is_an_expression(value: Any) -> Any:
+    """``expression: 0`` is how a file writes a constant — YAML reads it as an int.
+
+    Booleans are left to fail: ``true`` is not arithmetic, and an error naming
+    the type reads better than one naming ``'True'``.
+    """
+    return str(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else value
+
+
+#: An expression string, or a number written as one.
+Expression = Annotated[str, BeforeValidator(_number_is_an_expression, json_schema_input_type=str | float)]
+
+
+class ExpressionCase(_StrictBlock):
+    """One region of a named expression: the value, and when it is the value.
+
+    Every case says where it applies. The value wherever none of them does is
+    the block's ``otherwise:``, which is written outside ``cases:`` because it
+    is not a region like these — it is what is left::
+
+        cases:
+          opening: { when: "position(snapshot) == 0", expression: p_max }
+        otherwise: 0
+    """
+
+    _label: ClassVar[str] = 'an expression case'
+
+    when: str
+    expression: Expression
+
+
 class ExpressionBlock(_StrictBlock):
     """A named quantity: one arithmetic expression, readable after a solve.
 
@@ -327,17 +360,85 @@ class ExpressionBlock(_StrictBlock):
           emissions:
             expression: sum(p * rate, over=generator)
             description: CO2 released, the quantity the cap bounds
+
+    A quantity whose value varies by **region** is written as ``cases:``
+    instead — one case per region over a declared ``foreach:``, no two of them
+    claiming one coordinate, and an ``otherwise:`` for the rest::
+
+        previous_status:
+          foreach: [snapshot, generator]
+          cases:
+            always_on: { when: "not committable", expression: 1 }
+            boundary:  { when: "committable and position(snapshot) == 0", expression: status_initial }
+          otherwise: shift(status, over=snapshot, offset=1)
+
+    So the constraint that needs it names it, rather than being forked into one
+    copy per regime.
     """
 
     _label: ClassVar[str] = 'a named expression'
 
-    expression: str
+    expression: Expression | None = None
+    #: The frame the cases are read over — required with them and refused
+    #: without, since no one case's body gives a cased expression its shape.
+    foreach: list[str] | None = None
+    #: The regions this quantity is defined by, keyed by the name labelling the
+    #: row it prints. Each ``when`` is proved apart from every other, so the
+    #: order is the page's rather than the meaning's.
+    cases: Annotated[dict[str, ExpressionCase], Field(min_length=1)] = {}
+    #: The value wherever no case's ``when`` holds, which is what makes the
+    #: quantity whole. Written as the bare value — it has nothing else to
+    #: carry — and printed as the last row, the one that reads "otherwise".
+    otherwise: Expression | None = None
     description: str | None = None
 
     @model_validator(mode='before')
     @classmethod
     def _from_string(cls, data: Any) -> Any:
         return {'expression': data} if isinstance(data, str) else data
+
+    @model_validator(mode='after')
+    def _one_form_or_the_other(self) -> Self:
+        """One ``expression:``, or ``cases:`` with the ``otherwise:`` and ``foreach:`` they need.
+
+        Each near-miss gets its own sentence, being a different mistake: both
+        forms is not knowing which wins, neither is an empty declaration, a
+        ``foreach:`` alone is a second answer to what the body already answers,
+        and ``cases:`` without ``otherwise:`` is a quantity with a hole in it.
+        """
+        if bool(self.cases) == (self.expression is not None):
+            got = 'both' if self.cases else 'neither'
+            msg = (
+                f'a named expression is one `expression:` or a set of `cases:`, and this has {got}. '
+                f'Cases are for a quantity whose value varies by region; one expression is everything else.'
+            )
+            raise ValueError(msg)
+        if self.cases and self.foreach is None:
+            msg = (
+                '`cases:` needs a `foreach:` — it is the frame the cases are read over, and no one '
+                "case's body gives it, since a case may be a scalar while the condition selecting it is not."
+            )
+            raise ValueError(msg)
+        if self.foreach is not None and not self.cases:
+            msg = (
+                '`foreach:` is only for a named expression with `cases:`. Without them the dims fall '
+                'out of the body, and declaring a second answer is a second thing to keep true.'
+            )
+            raise ValueError(msg)
+        if self.cases and self.otherwise is None:
+            msg = (
+                'a `cases:` block needs an `otherwise:` — the value wherever no `when` holds, and '
+                'the row that prints as "otherwise". Without it the quantity would have no value '
+                'there, and absence spreads to every constraint that names it.'
+            )
+            raise ValueError(msg)
+        if self.otherwise is not None and not self.cases:
+            msg = (
+                '`otherwise:` is what is left once the `cases:` have taken their regions, and there '
+                'are none here. A value that holds everywhere is a plain `expression:`.'
+            )
+            raise ValueError(msg)
+        return self
 
     @classmethod
     @override
@@ -346,7 +447,15 @@ class ExpressionBlock(_StrictBlock):
         return _also_written_as(core_schema, handler, {'type': 'string'})
 
     @model_serializer
-    def _as_written(self) -> str | dict[str, str]:
+    def _as_written(self) -> str | dict[str, Any]:
+        if self.cases:
+            written: dict[str, Any] = {'foreach': list(self.foreach or [])}
+            if self.description is not None:
+                written['description'] = self.description
+            written['cases'] = {name: case.model_dump() for name, case in self.cases.items()}
+            written['otherwise'] = self.otherwise
+            return written
+        assert self.expression is not None
         if self.description is None:
             return self.expression
         return {'expression': self.expression, 'description': self.description}
@@ -726,6 +835,7 @@ class Spec(_StrictBlock):
             *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
             *(('Variable', name, v.foreach) for name, v in self.variables.items()),
             *(('Constraint', name, c.foreach) for name, c in self.constraints.items()),
+            *(('Named expression', name, e.foreach or []) for name, e in self.expressions.items()),
         ]
         for kind, name, dims in frames:
             errors.extend(undeclared_dimension(kind, name, d) for d in dims if d not in self.dimensions)

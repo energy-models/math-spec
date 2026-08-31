@@ -16,11 +16,14 @@ position (operands, args, kwargs) accepts it and nothing else, and
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import pyparsing as pp
 
 from math_spec.errors import SchemaError
+
+if TYPE_CHECKING:
+    from math_spec.where_parser import WhereNode
 
 ComparisonOperator = Literal['<=', '>=', '==']
 
@@ -147,6 +150,60 @@ class FunctionCallNode:
     kwargs: dict[str, ArithmeticNode] = field(default_factory=dict)
 
 
+@dataclass
+class CaseArm:
+    """One region of a :class:`CasesNode`: where it applies, and the value there.
+
+    ``when`` is ``None`` on the **last** arm and only there — the block's
+    ``otherwise:``, which is what makes the quantity total without anything
+    having to prove it. Every other arm's ``when`` is proved apart from every
+    other arm's.
+    """
+
+    label: str
+    when: WhereNode | None
+    value: ArithmeticNode
+
+
+def case_context(name: str, label: str | None) -> str:
+    """Where an error inside one arm of a cased expression is reported: the declaration, not the use site.
+
+    A cased expression is expanded where its name stood, so the context in hand
+    at that point is the constraint's — and naming it would report a case on a
+    constraint that has none.
+
+    Args:
+        name: The named expression the arm belongs to.
+        label: The case's name, or ``None`` for the block's ``otherwise:``,
+            which is not a case and is not named as one.
+
+    Returns:
+        The context prefix an error message carries.
+    """
+    where = 'otherwise' if label is None else f"case '{label}'"
+    return f"Named expression '{name}', {where}"
+
+
+@dataclass
+class CasesNode:
+    """A value defined by region — a named expression's ``cases:``, inlined.
+
+    Built by :mod:`math_spec.expansion` where a reference to a cased expression
+    stood; there is no grammar for it, since a file writes the cases on the
+    declaration rather than at the use site.
+
+    Exactly one arm applies at every coordinate: no two ``when`` masks can hold
+    at once, which :mod:`math_spec.exclusivity` proves at load, and the last arm
+    — the block's ``otherwise:`` — carries no ``when`` and so takes whatever the
+    rest leave. So the arms may be read in any order; the file's is kept because
+    it is the order they print in. The frame is not carried here: it is on the
+    declaration, which every consumer needing it already holds.
+    """
+
+    name: str
+    arms: tuple[CaseArm, ...]
+
+
 ArithmeticNode = (
     NumberNode
     | NameNode
@@ -160,6 +217,7 @@ ArithmeticNode = (
     | UnaryOperatorNode
     | BinaryOperatorNode
     | FunctionCallNode
+    | CasesNode
 )
 
 
@@ -196,7 +254,7 @@ LeafNode = NumberNode | VariableNode | ParameterNode | KwargNode | UnresolvedNod
 
 #: Every node carrying sub-expressions, which is exactly what :func:`children`
 #: descends and the only place a walk recurses.
-BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode
+BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode | CasesNode
 
 
 def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
@@ -216,6 +274,9 @@ def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
         return (node.left, node.right)
     if isinstance(node, FunctionCallNode):
         return (*node.args, *node.kwargs.values())
+    if isinstance(node, CasesNode):
+        # the values only: a `when` is a mask over the frame, not a value in it
+        return tuple(arm.value for arm in node.arms)
     return ()
 
 

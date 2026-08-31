@@ -65,6 +65,10 @@ $$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm
 
 #### Subject to
 
+**`starts`**
+
+$$p_{t,g} \le \mathrm{startup\_cost}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
 **`balance`**
 
 $$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} = \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
@@ -176,6 +180,12 @@ $$\mathit{spill}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace
 **`never`**
 
 $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \bot$$
+
+#### Definitions
+
+**`startup_cost`**
+
+$$\mathrm{startup\_cost}_{t,g} = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{pos}(t) > 0 \wedge \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \cr 0 & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### Variable domains
 
