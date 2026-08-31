@@ -174,6 +174,25 @@ variables:
     bounds:
       lower: 0
 
+expressions:
+  Generator_previous_status:
+    description: >-
+      the commitment state a generator carries into a snapshot — the state it
+      brought into the horizon at the first, the previous snapshot's after that
+    foreach: [snapshot, generator]
+    cases:
+      opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
+    otherwise: shift(Generator_status, over=snapshot, offset=1)
+  Generator_previous_p:
+    description: >-
+      the output a generator carries into a snapshot — nothing at the start of
+      the horizon, which is why a unit that came in running carries no ramp row
+      there
+    foreach: [snapshot, generator]
+    cases:
+      opening: { when: "position(snapshot) == 0", expression: 0 }
+    otherwise: shift(Generator_p, over=snapshot, offset=1)
+
 constraints:
   Generator_fix_p_lower:
     description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
@@ -215,28 +234,15 @@ constraints:
     where: Generator_committable
     expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
   Generator_com_transition_start_up:
-    description: >-
-      `Generator-com-transition-start-up` — turning on is a start. The
-      translated term vacates the first snapshot; the initial block below
-      compares it against the given status instead
+    description: "`Generator-com-transition-start-up` — turning on is a start, counted against the state the unit carried into the snapshot"
     foreach: [snapshot, generator]
     where: Generator_committable
-    expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
-  Generator_com_transition_start_up_initial:
-    description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
-    foreach: [snapshot, generator]
-    where: Generator_committable AND position(snapshot) == 0
-    expression: Generator_start_up >= Generator_status - Generator_status_initial
+    expression: Generator_start_up >= Generator_status - Generator_previous_status
   Generator_com_transition_shut_down:
-    description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
+    description: "`Generator-com-transition-shut-down` — turning off is a stop, counted against the state the unit carried into the snapshot"
     foreach: [snapshot, generator]
     where: Generator_committable
-    expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
-  Generator_com_transition_shut_down_initial:
-    description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
-    foreach: [snapshot, generator]
-    where: Generator_committable AND position(snapshot) == 0
-    expression: Generator_shut_down >= Generator_status_initial - Generator_status
+    expression: Generator_shut_down >= Generator_previous_status - Generator_status
   Generator_com_up_time:
     description: >-
       `Generator-com-up-time` — a unit started within its own minimum up time
@@ -255,55 +261,38 @@ constraints:
     foreach: [snapshot, generator]
     where: Generator_committable AND Generator_must_stay_up
     expression: Generator_status == 1
-  Generator_p_ramp_limit_up_com:
+  Generator_p_ramp_limit_up:
     description: >-
       `Generator-p-ramp_limit_up` — a committed unit raises output no faster
       than its limit while it was already on, and no further than its
-      start-up ramp in the snapshot it turns on
-    foreach: [snapshot, generator]
-    where: Generator_committable AND Generator_ramp_limit_up
-    expression: >-
-      Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-      Generator_ramp_limit_up * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
-      + Generator_ramp_limit_start_up * Generator_p_nom
-      * (Generator_status - shift(Generator_status, over=snapshot, offset=1))
-  Generator_p_ramp_limit_up_com_initial:
-    description: >-
-      `Generator-p-ramp_limit_up` — a unit that was off ramps its first
-      snapshot from an output of nothing; one already on brought an unknown
-      output, so it carries no row
+      start-up ramp in the snapshot it turns on. A unit that came into the
+      horizon running brought an unknown output, so it carries no row at the
+      first snapshot
     foreach: [snapshot, generator]
     where: >-
-      Generator_committable
-      AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+      Generator_committable AND Generator_ramp_limit_up
+      AND (position(snapshot) > 0 OR Generator_status_initial == 0)
     expression: >-
-      Generator_p <=
-      Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
-      + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
-  Generator_p_ramp_limit_down_com:
+      Generator_p - Generator_previous_p <=
+      Generator_ramp_limit_up * Generator_p_nom * Generator_previous_status
+      + Generator_ramp_limit_start_up * Generator_p_nom
+      * (Generator_status - Generator_previous_status)
+  Generator_p_ramp_limit_down:
     description: >-
       `Generator-p-ramp_limit_down` — a committed unit lowers output no
       faster than its limit while it stays on, and no further than its
-      shut-down ramp in the snapshot it turns off
-    foreach: [snapshot, generator]
-    where: Generator_committable AND Generator_ramp_limit_down
-    expression: >-
-      shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-      Generator_ramp_limit_down * Generator_p_nom * Generator_status
-      + Generator_ramp_limit_shut_down * Generator_p_nom
-      * (shift(Generator_status, over=snapshot, offset=1) - Generator_status)
-  Generator_p_ramp_limit_down_com_initial:
-    description: >-
-      `Generator-p-ramp_limit_down` — a unit that was off ramps its first
-      snapshot down from an output of nothing; one already on carries no row
+      shut-down ramp in the snapshot it turns off. A unit that came into the
+      horizon running brought an unknown output, so it carries no row at the
+      first snapshot
     foreach: [snapshot, generator]
     where: >-
-      Generator_committable
-      AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+      Generator_committable AND Generator_ramp_limit_down
+      AND (position(snapshot) > 0 OR Generator_status_initial == 0)
     expression: >-
-      -Generator_p <=
+      Generator_previous_p - Generator_p <=
       Generator_ramp_limit_down * Generator_p_nom * Generator_status
-      + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
+      + Generator_ramp_limit_shut_down * Generator_p_nom
+      * (Generator_previous_status - Generator_status)
   Generator_status_p_fixed_upper:
     description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
     foreach: [snapshot, generator]

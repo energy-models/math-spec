@@ -269,30 +269,13 @@ $$p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \c
 
 ```yaml
 Generator_com_transition_start_up:
-  description: >-
-    `Generator-com-transition-start-up` — turning on is a start. The
-    translated term vacates the first snapshot; the initial block below
-    compares it against the given status instead
+  description: "`Generator-com-transition-start-up` — turning on is a start, counted against the state the unit carried into the snapshot"
   foreach: [snapshot, generator]
   where: Generator_committable
-  expression: Generator_start_up >= Generator_status - shift(Generator_status, over=snapshot, offset=1)
+  expression: Generator_start_up >= Generator_status - Generator_previous_status
 ```
 
-$$\mathit{up}_{t,g} \ge u_{t,g} - u_{t - 1,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
-
-### `Generator-com-transition-start-up`
-
-`Generator_com_transition_start_up_initial`
-
-```yaml
-Generator_com_transition_start_up_initial:
-  description: "`Generator-com-transition-start-up` — the first snapshot turns on against the status the unit brought in"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND position(snapshot) == 0
-  expression: Generator_start_up >= Generator_status - Generator_status_initial
-```
-
-$$\mathit{up}_{t,g} \ge u_{t,g} - \mathrm{u}^{0}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
+$$\mathit{up}_{t,g} \ge u_{t,g} - \overleftarrow{u}_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 ### `Generator-com-transition-shut-down`
 
@@ -300,27 +283,13 @@ $$\mathit{up}_{t,g} \ge u_{t,g} - \mathrm{u}^{0}_{g} \qquad \forall\thinspace t 
 
 ```yaml
 Generator_com_transition_shut_down:
-  description: "`Generator-com-transition-shut-down` — turning off is a stop; the first snapshot is the initial block's"
+  description: "`Generator-com-transition-shut-down` — turning off is a stop, counted against the state the unit carried into the snapshot"
   foreach: [snapshot, generator]
   where: Generator_committable
-  expression: Generator_shut_down >= shift(Generator_status, over=snapshot, offset=1) - Generator_status
+  expression: Generator_shut_down >= Generator_previous_status - Generator_status
 ```
 
-$$\mathit{dn}_{t,g} \ge u_{t - 1,g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
-
-### `Generator-com-transition-shut-down`
-
-`Generator_com_transition_shut_down_initial`
-
-```yaml
-Generator_com_transition_shut_down_initial:
-  description: "`Generator-com-transition-shut-down` — the first snapshot turns off against the status the unit brought in"
-  foreach: [snapshot, generator]
-  where: Generator_committable AND position(snapshot) == 0
-  expression: Generator_shut_down >= Generator_status_initial - Generator_status
-```
-
-$$\mathit{dn}_{t,g} \ge \mathrm{u}^{0}_{g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{pos}(t) = 0$$
+$$\mathit{dn}_{t,g} \ge \overleftarrow{u}_{t,g} - u_{t,g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 
 ### `Generator-com-up-time`
 
@@ -369,88 +338,53 @@ $$u_{t,g} = 1 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal
 
 ### `Generator-p-ramp_limit_up`
 
-`Generator_p_ramp_limit_up_com`
+`Generator_p_ramp_limit_up`
 
 ```yaml
-Generator_p_ramp_limit_up_com:
+Generator_p_ramp_limit_up:
   description: >-
     `Generator-p-ramp_limit_up` — a committed unit raises output no faster
     than its limit while it was already on, and no further than its
-    start-up ramp in the snapshot it turns on
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_ramp_limit_up
-  expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1) <=
-    Generator_ramp_limit_up * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
-    + Generator_ramp_limit_start_up * Generator_p_nom
-    * (Generator_status - shift(Generator_status, over=snapshot, offset=1))
-```
-
-$$p_{t,g} - p_{t - 1,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t - 1,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - u_{t - 1,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_up`
-
-`Generator_p_ramp_limit_up_com_initial`
-
-```yaml
-Generator_p_ramp_limit_up_com_initial:
-  description: >-
-    `Generator-p-ramp_limit_up` — a unit that was off ramps its first
-    snapshot from an output of nothing; one already on brought an unknown
-    output, so it carries no row
+    start-up ramp in the snapshot it turns on. A unit that came into the
+    horizon running brought an unknown output, so it carries no row at the
+    first snapshot
   foreach: [snapshot, generator]
   where: >-
-    Generator_committable
-    AND Generator_ramp_limit_up AND position(snapshot) == 0 AND Generator_status_initial == 0
+    Generator_committable AND Generator_ramp_limit_up
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
   expression: >-
-    Generator_p <=
-    Generator_ramp_limit_up * Generator_p_nom * Generator_status_initial
-    + Generator_ramp_limit_start_up * Generator_p_nom * (Generator_status - Generator_status_initial)
+    Generator_p - Generator_previous_p <=
+    Generator_ramp_limit_up * Generator_p_nom * Generator_previous_status
+    + Generator_ramp_limit_start_up * Generator_p_nom
+    * (Generator_status - Generator_previous_status)
 ```
 
-$$p_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \mathrm{u}^{0}_{g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \mathrm{u}^{0}_{g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+$$p_{t,g} - \overleftarrow{p}_{t,g} \le \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{t,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \overleftarrow{u}_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{ru}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)$$
 
 ### `Generator-p-ramp_limit_down`
 
-`Generator_p_ramp_limit_down_com`
+`Generator_p_ramp_limit_down`
 
 ```yaml
-Generator_p_ramp_limit_down_com:
+Generator_p_ramp_limit_down:
   description: >-
     `Generator-p-ramp_limit_down` — a committed unit lowers output no
     faster than its limit while it stays on, and no further than its
-    shut-down ramp in the snapshot it turns off
-  foreach: [snapshot, generator]
-  where: Generator_committable AND Generator_ramp_limit_down
-  expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p <=
-    Generator_ramp_limit_down * Generator_p_nom * Generator_status
-    + Generator_ramp_limit_shut_down * Generator_p_nom
-    * (shift(Generator_status, over=snapshot, offset=1) - Generator_status)
-```
-
-$$p_{t - 1,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t - 1,g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined}$$
-
-### `Generator-p-ramp_limit_down`
-
-`Generator_p_ramp_limit_down_com_initial`
-
-```yaml
-Generator_p_ramp_limit_down_com_initial:
-  description: >-
-    `Generator-p-ramp_limit_down` — a unit that was off ramps its first
-    snapshot down from an output of nothing; one already on carries no row
+    shut-down ramp in the snapshot it turns off. A unit that came into the
+    horizon running brought an unknown output, so it carries no row at the
+    first snapshot
   foreach: [snapshot, generator]
   where: >-
-    Generator_committable
-    AND Generator_ramp_limit_down AND position(snapshot) == 0 AND Generator_status_initial == 0
+    Generator_committable AND Generator_ramp_limit_down
+    AND (position(snapshot) > 0 OR Generator_status_initial == 0)
   expression: >-
-    -Generator_p <=
+    Generator_previous_p - Generator_p <=
     Generator_ramp_limit_down * Generator_p_nom * Generator_status
-    + Generator_ramp_limit_shut_down * Generator_p_nom * (Generator_status_initial - Generator_status)
+    + Generator_ramp_limit_shut_down * Generator_p_nom
+    * (Generator_previous_status - Generator_status)
 ```
 
-$$-p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \mathrm{u}^{0}_{g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \mathrm{pos}(t) = 0 \wedge \mathrm{u}^{0}_{g} = 0$$
+$$\overleftarrow{p}_{t,g} - p_{t,g} \le \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{t,g} - u_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{rd}_{g} \text{ is defined} \wedge \left( \mathrm{pos}(t) > 0 \vee \mathrm{u}^{0}_{g} = 0 \right)$$
 
 ### `Generator-status-p-fixed-upper`
 
