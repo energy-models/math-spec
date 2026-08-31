@@ -10,6 +10,7 @@ dimensions:
   bus: { index: n, set: '\mathcal{N}' }
   generator: { index: g, set: '\mathcal{G}' }
   link: { index: l, set: '\mathcal{L}' }
+  link_output: { index: o, set: '\mathcal{O}' }
   load: { index: d, set: '\mathcal{D}' }
   storage_unit: { index: s, set: '\mathcal{S}' }
   store: { index: v, set: '\mathcal{V}' }
@@ -51,7 +52,6 @@ names:
   Link_p_min_pu: '\underline{\mathrm{f}}'
   Link_p_max_pu: '\overline{\mathrm{f}}'
   Link_efficiency: '\eta'
-  Link_efficiency2: '\eta^{2}'
   Link_marginal_cost: '\mathrm{c}^{f}'
   Load_p_set: '\mathrm{load}'
   Generator_p_set: '\mathrm{p}^{\mathrm{set}}'

@@ -23,7 +23,12 @@ dimensions:
   generator:
     description: generating units, each on one bus
   link:
-    description: controllable connections, each from one bus to another
+    description: controllable connections, each from one bus to the buses it delivers to
+  link_output:
+    description: >-
+      a link's output ports, one label per port a link declares — PyPSA's
+      `bus1`, `bus2`, … columns read long, so a link of any number of output
+      ports is one term in the balance, data prep
   load:
     description: demands, each on one bus
 
@@ -75,8 +80,11 @@ parameters:
     description: most flow, per unit of nominal power
     dims: [snapshot, link]
   Link_efficiency:
-    description: share of the flow that arrives at the link's `Link_bus1` end
-    dims: [link]
+    description: >-
+      share of the flow that arrives at an output port, PyPSA's `efficiency`,
+      `efficiency2`, … read long — negative where that port consumes rather
+      than delivers
+    dims: [link_output]
   Link_marginal_cost:
     description: cost of one unit of flow
     dims: [snapshot, link]
@@ -93,9 +101,16 @@ lookups:
     description: the bus a link leaves
     over: link
     into: bus
-  Link_bus1:
-    description: the bus a link arrives at
-    over: link
+  Link_output_link:
+    description: the link an output port belongs to
+    over: link_output
+    into: link
+  Link_output_bus:
+    description: >-
+      the bus an output port delivers to — PyPSA's `bus1`, `bus2`, … columns.
+      A link of three output ports is three labels here rather than a third
+      lookup, so the file states any number of them
+    over: link_output
     into: bus
   Load_bus:
     description: the bus a load sits on
@@ -109,7 +124,8 @@ variables:
   Link_p:
     description: >-
       `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a
-      positive value withdraws there and injects at `Link_bus1`
+      positive value withdraws there and injects at every bus the link's
+      output ports deliver to
     foreach: [scenario, snapshot, link]
   Generator_p_nom_ext:
     description: >-
@@ -184,7 +200,7 @@ constraints:
     expression: >-
       sum(Generator_p, by=Generator_bus)
       - sum(Link_p, by=Link_bus0)
-      + sum(Link_p * Link_efficiency, by=Link_bus1)
+      + sum(at(Link_p, by=Link_output_link) * Link_efficiency, by=Link_output_bus)
       == sum(Load_p_set, by=Load_bus)
   CVaR_excess:
     description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"
