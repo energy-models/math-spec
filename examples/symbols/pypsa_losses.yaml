@@ -6,6 +6,7 @@
 notation: latex
 dimensions:
   link: { index: l, set: '\mathcal{L}' }
+  link_output: { index: o, set: '\mathcal{O}' }
   snapshot: { index: t, set: '\mathcal{T}' }
   bus: { index: n, set: '\mathcal{N}' }
   generator: { index: g, set: '\mathcal{G}' }

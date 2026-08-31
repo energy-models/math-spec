@@ -9,6 +9,7 @@ dimensions:
   bus: { index: n, set: '\mathcal{N}' }
   generator: { index: g, set: '\mathcal{G}' }
   link: { index: l, set: '\mathcal{L}' }
+  link_output: { index: o, set: '\mathcal{O}' }
   load: { index: d, set: '\mathcal{D}' }
   period: { index: y, set: '\mathcal{Y}' }
   carrier: { index: c, set: '\mathcal{C}' }
