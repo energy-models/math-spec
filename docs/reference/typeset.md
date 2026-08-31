@@ -43,12 +43,12 @@ The three functions take the same keywords; the CLI spells each as a flag.
 
 `-o FILE` writes to a file instead of stdout.
 
-The model's own `description:` opens the document either way — it is what the
+The model's own `description:` opens the document either way. It is what the
 file says it is, not a symbol table. A `piecewise:` block prints as the
 λ-formulation it _expands to_ rather than the sugar it was written as, because
-that is the math the solver receives. Where the math translates an index —
-`shift`, in any of its edge spellings — the document also prints a line saying
-what the notation for it means, so a reader meets no symbol the page has not
+that is the math the solver receives. Where the math translates an index, such
+as `shift` in any of its edge spellings, the document also prints a line
+saying what the notation means. A reader then meets no symbol the page has not
 defined.
 
 A model that does not compile does not print: typesetting runs the same
@@ -106,10 +106,11 @@ names:
 which is why `notation:` is required and why rendering a LaTeX table as Typst
 refuses rather than producing something that nearly works.
 
-**A key naming nothing in the model is an error**, with the near miss — not a
-symbol that silently never applies and a reader who never finds out.
+**A key naming nothing in the model is an error**, catching a near-miss typo.
+The alternative — a symbol that silently never applies — would leave a reader
+with no way to notice.
 
 **Presentation is not language.** Nothing in a symbol table changes what the
-file means, no solver reads it, and what a declaration _is_ stays the model's
+file means, and no solver reads it. What a declaration _is_ stays the model's
 own `description:` ([declarations](language/declarations.md)), which travels
 with the declaration and reaches every consumer.

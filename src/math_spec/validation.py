@@ -154,7 +154,7 @@ def _check_expression(
             f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
             f'Got: {expression!r}\n'
             f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
-            f'is settled before the solve — no lane builds a row for it. Name the variable it should '
+            f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
             f'bound, or drop the declaration and check the fact where the data is prepared.'
         )
     try:

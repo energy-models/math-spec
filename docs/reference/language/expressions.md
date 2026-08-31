@@ -27,7 +27,7 @@ Parentheses override. A float may carry an exponent (`1e5`, `2.5e-3`); a sign
 is always the unary operator's. A keyword given twice in one call is an error
 rather than the later one winning.
 
-## Degree 2 in the math, degree 1 beside it
+## Quadratic expressions
 
 **The objective and constraints take `variable * variable`.** So a quadratic
 cost, `sum(p * p * wear, over=g)`, and a quadratic row, `p * q >= floor`, are
@@ -67,13 +67,13 @@ both at load:
   `(1 + rate) ** period` is two factors wearing one and is refused where
   `growth ** period` is not. Bind the factor itself.
 
-### What it costs is a consumer's question
+### Convexity and pricing
 
 Saying it is one question; solving it is another
-([the ceiling](../../about/ceiling.md#capability-is-not-the-ceiling)). This
-language admits degree 2 in the objective and constraints and says nothing
-about which solver, lane or file format takes it — that is the consumer's
-axis, and each consumer answers for itself. Two things no consumer can answer
+([the ceiling](../../about/ceiling.md#solver-capability)). This language
+admits degree 2 in the objective and constraints and says nothing about which
+solver or file format takes it. That is the consumer's axis, and each
+consumer answers for itself. Two things no consumer can answer
 from the model alone, because both are properties of the _data_: whether a
 quadratic form is **convex**, and whether a quadratic row can be priced.
 

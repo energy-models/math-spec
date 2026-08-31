@@ -6,7 +6,7 @@ description: >-
   The quadratic class of a plain `n.optimize()`: PyPSA's
   `marginal_cost_quadratic`, stated on rung 1's transport surface in a file of
   its own. One model cannot carry a quadratic objective beside commitment's
-  integer variables and keep a HiGHS lane — degree is the model's property,
+  integer variables and still solve on HiGHS — degree is the model's property,
   not the data's — so the class a free solver takes as a QP lives here, and
   `examples/pypsa.yaml` stays the mixed-integer one. PyPSA also carries the
   attribute on storage units and stores; each is one more term of the same

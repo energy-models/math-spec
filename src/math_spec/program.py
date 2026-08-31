@@ -745,12 +745,12 @@ class Footprint:
     asks about one kind, and a construct admitted later widens a set rather
     than needing a field a consumer does not yet read.
 
-    Facts only. What a sink can ingest is a separate axis
-    (``docs/about/ceiling.md``, "Capability is not the ceiling"), where a
+    Facts only. What a consumer can ingest is a separate axis
+    (``docs/about/ceiling.md``, "Solver capability"), where a
     capability is neither a flat set nor one verdict per construct — so there
     is deliberately no verdict here to read instead of giving one.
 
-    Nothing below the kind, either: a sink that takes a window but not a
+    Nothing below the kind, either: a consumer that takes a window but not a
     wrapped one reads ``Window in shapes`` and then walks, because ``wrap``,
     ``partition`` and a named width are refinements without end and each is one
     line once the set has said where to look.

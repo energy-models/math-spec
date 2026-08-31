@@ -6,8 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Absence and `where`
 
 A `where:` does not zero a variable out. It leaves the variable **unbuilt** at
-the masked coordinates — no column, no value — and every rule on this page
-follows from that one fact.
+the masked coordinates: no column, no value.
 
 ```yaml
 dimensions:
@@ -33,11 +32,11 @@ There is no `p[old]`. What a `where:` may say is the
 | `shift(x, over=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))        |
 | a label a lookup does not map                | that label's group membership ([lookups](dimensions.md#lookups)) |
 
-Nothing else does. In particular **a missing parameter row is not absence**: a
-sparse table is a compressed dense one, and the missing row reads as the value
-that contributes nothing — `0` as a coefficient, `false` in a `where`. Where no
-such value exists the load is refused rather than guessed: a divisor, a
-`bounds:` entry, the whole constant side of a comparison, a
+Nothing else does. In particular **a missing parameter row is not absence**. A
+sparse table is read as the dense one it compresses, and the missing row reads
+as the value that contributes nothing: `0` as a coefficient, `false` in a
+`where`. Where no such value exists, the missing row is an error rather than a
+guess — a divisor, a `bounds:` entry, the whole constant side of a comparison, a
 [`piecewise:`](piecewise.md) breakpoint.
 
 ## How absence travels
@@ -61,12 +60,12 @@ constraints:
     expression: sum(x, over=g) + sum(y, over=g) >= 1 # x[old] is back in
 ```
 
-`each` has no row at `old` — not `x[old] >= 1`. `total` sums the summand where
+`each` has no row at `old`, not `x[old] >= 1`. `total` sums the summand where
 the summand exists, so `x[old]` goes with `y[old]`. `split` sums each operand
-over its own domain, so `x[old]` counts. Different questions; rewriting one into
-the other reads the absent `y[old]` as a zero.
+over its own domain, so `x[old]` counts. The two ask different questions.
+Rewriting one into the other reads the absent `y[old]` as a zero.
 
-The same rule next to a parameter is the asymmetry that bites:
+A missing parameter row does not drop the row:
 
 ```yaml
 constraints:
@@ -77,9 +76,9 @@ constraints:
 
 Where the _variable_ `y` is masked the row is gone. Where the _parameter_
 `rel_max` has no row it is `0`, and the row stands as `x <= 0`. To drop the row
-there instead, say so: `where: rel_max` on the constraint.
+there too, say so: `where: rel_max` on the constraint.
 
-Every operator falls on one side of that line, and one question puts it there:
+Every operator falls on one side of that line. One question puts it there:
 **does an output slot stand for several input slots, or for one?**
 
 | Operator                        | An output slot reads            | An absent input                      |
@@ -90,21 +89,18 @@ Every operator falls on one side of that line, and one question puts it there:
 | `shift(x, over=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
 | `at(x, by=lookup)`              | one position, through the map   | _is_ the output, so it spreads       |
 
-The three summing operators put several slots into one, so a missing slot is a
-shorter sum and the row survives — a window that reaches past the start of its
+The three summing operators put several slots into one. A missing slot is a
+shorter sum, and the row survives. A window that reaches past the start of its
 axis is short for the same reason, not absent. The other two are one slot for
-one, so there is nothing to sum over and absence rides straight through, which
-is why a bare `shift`'s vacated edge takes its row with it.
-
-Reading a summing operator as though it spread absence is the same error as
-rewriting `total` into `split` above, one operator down.
+one, so there is nothing to sum over and the absence passes through. That is why
+a bare `shift`'s vacated edge takes its row with it.
 
 ## What a missing coordinate means
 
-By default the masked coordinate has **no value**: a store that is not there
-has no state of charge, so a row needing it is not asserted. Some quantities
-are **zero** outside their mask — a reservoir with no inflow spills nothing —
-and that model wants its row. The variable says which:
+By default the masked coordinate has **no value**. A store that is not there has
+no state of charge, so a row needing it is not asserted. Some quantities are
+**zero** outside their mask. A reservoir with no inflow spills nothing, and that
+model wants its row. The variable says which:
 
 ```yaml
 variables:
@@ -124,22 +120,18 @@ constraints:
 At a storage with a store and no inflow, `balance` reads `inflow - soc == 0`.
 At one with inflow and no store, there is no row.
 
-`absence: zero` needs a `where:`, is the only fill a variable takes, and changes
-nothing inside a summing operator, which never propagated absence in the first
-place.
+`absence: zero` needs a `where:` and is the only fill a variable takes. It
+changes nothing inside a summing operator, which never propagated absence in the
+first place.
 
 ## A row with no variable terms is not built
 
-A missing parameter row can leave a row with nothing to decide — `0 == load` at
-a bus no generator sits on. Such a row is not built, whatever left it that
-shape. An expression that names no variable _in the file_ is different, and is
-refused at load where the message can quote the line.
+A missing parameter row can leave a row with nothing to decide, such as
+`0 == load` at a bus that no generator sits on. Such a row is not built,
+whatever left it that shape. An expression that names no variable _in the file_
+is different. It is refused at load, where the message can quote the line.
 
-Every row not built — by a mask, by a spread absence, by this rule — is reported
-by `diagnostics().omissions` as `(constraint, rows_not_built)`. A recurrence's
-first row is in there and is the boundary, not a bug.
-
-## Asking for the other reading
+## Common rewrites
 
 | You want                                       | You write                                                                                     |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------- |

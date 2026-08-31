@@ -5,14 +5,14 @@
 """The lowering pass: a resolved model in, a logical plan out.
 
 The plan is read back node by node rather than through the answer it produces:
-it is the contract both lanes are written against, so its *shape* is the thing
-under test here and what either lane then builds from it is not.
+it is the contract every consumer is written against, so its *shape* is the
+thing under test here and what a consumer then builds from it is not.
 
-Nothing in this module binds data, builds a model or names a lane. That is the
-point of it — the pass has one input and one output, both of them values, and a
-test that needed a solver to reach it would be testing the assembly instead.
-Lowering's verdict reaching a caller is ``test_language_boundary.py``; the two
-lanes agreeing about it is ``test_degree_parity.py`` and its siblings.
+Nothing in this module binds data, builds a model or names a consumer. That is
+the point of it — the pass has one input and one output, both of them values,
+and a test that needed a solver to reach it would be testing the assembly
+instead. What a consumer then builds from the plan is that consumer's own
+suite; this repository owns the plan they are all written against.
 """
 
 from __future__ import annotations
@@ -116,13 +116,13 @@ def test_lower_program_structure(dispatch_schema):
 
 @pytest.mark.parametrize('sense', [pytest.param('minimize', id='minimize'), pytest.param('maximize', id='maximize')])
 def test_the_objective_sense_crosses_untranslated(sense: str):
-    """One spelling from the file to the program, and each sink translates at its own edge.
+    """One spelling from the file to the program, and each consumer translates at its own edge.
 
     A second spelling here would be two names for one axis inside one package
     once the program is declared beside the language, and a stale one is not a
     type error: the sense is a ``Literal``, so a program built by hand with a
-    retired spelling reaches a sink whose comparison quietly fails and flips
-    the model rather than refusing it.
+    retired spelling reaches a consumer whose comparison quietly fails and
+    flips the model rather than refusing it.
 
     Both directions, because a translation reintroduced for one of them is what
     a single case would miss.
@@ -227,7 +227,7 @@ def test_a_folded_mask_reaches_the_declaration_the_shorter_spelling_would_have(d
 
 
 def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
-    """It used to be a scalar-False mask in the eager lane: a model that
+    """It used to be a scalar-False mask in an eager consumer: a model that
     builds, solves, and is silently empty. Resolution makes it a load error."""
     with pytest.raises(LanguageError, match="'no_such_param' not found"):
         where_of('no_such_param', Namespace.of(dispatch_schema), 't')
@@ -381,7 +381,7 @@ def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():
     """`divisor_parameters` flattens, and one caller cannot use the flat answer.
 
     A divisor has to have values wherever the row is built *and the numerator
-    exists*, so the eager lane narrows the mask by the variables in that
+    exists*, so an eager consumer narrows the mask by the variables in that
     quotient's own numerator — which needs the pair, not the union. Two
     quotients in one expression is the case a flattened set gets wrong.
     """
@@ -600,11 +600,12 @@ def _footprint_of(constraint: str, objective: str) -> Footprint:
 
 
 def test_the_footprint_says_which_position_a_quadratic_stands_in():
-    """A sink may take a quadratic objective and refuse a quadratic constraint.
+    """A consumer may take a quadratic objective and refuse a quadratic constraint.
 
-    One flag for both would collapse the distinction `ceiling.md` says sinks
-    actually make — quadratic is bounded "by convexity and again by what it
-    stands beside" — and leave the sink walking the program to recover it.
+    One flag for both would collapse the distinction `ceiling.md` says
+    consumers actually make — quadratic is bounded "by convexity and again by
+    what it stands beside" — and leave the consumer walking the program to
+    recover it.
     """
     assert _footprint_of('p <= 1', 'sum(p * p, over=g)').quadratic == {'objective'}
     assert _footprint_of('p * p <= 1', 'sum(p, over=g)').quadratic == {'constraint'}

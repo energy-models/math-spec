@@ -54,7 +54,7 @@ version: 0
 dimensions: ...
 ```
 
-**`0` means unstable, and that is the promise being made.** The surface may
+**`0` means unstable, and that is the promise.** The surface may
 change in any release, and saying so in the file is more honest than silence.
 `0` does not become `1` without a changelog entry naming what moved.
 
@@ -88,9 +88,9 @@ variable unbounded, a dropped `where:` leaves it unmasked.
   declaration named after a country code stops being one, so `no: {dtype: str}`
   is a dimension called `no` here.
 - **Implicit timestamps** (`2024-01-01`) and sexagesimal integers (`12:30` →
-  `750`) survive. Neither reaches a coordinate, which is data; a literal in a
-  `where` string is where one is read as a label, and there the `dtype` of the
-  name it is compared against catches it
+  `750`) survive. Neither reaches a coordinate, which is data. A literal in a
+  `where` string is read as a label instead, and there the `dtype` of the name
+  it is compared against catches it
   ([expressions](expressions.md#where-strings)).
 - **A duplicate key is a load error** naming both lines.
 - **`<<:` merge keys are honoured**, and a key the mapping declares itself

@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from math_spec.dimensions import _shift_over_data_message
 from math_spec.model import PIECEWISE_METHODS
 from tools import gallery, home_math, notation, spec_math
 
@@ -107,4 +108,20 @@ def test_a_card_body_is_indented_far_enough_to_stay_in_its_card(page: Path):
     shallow = [number for number, line in _card_bodies(page) if not line.startswith('    ')]
     assert not shallow, (
         f'{page.relative_to(ROOT)} lines {shallow}: a card body indented under four spaces leaves the list'
+    )
+
+
+def test_the_operators_page_quotes_the_shift_refusal_word_for_word():
+    """The page pastes the message the loader prints, and nothing else keeps the two in step.
+
+    A message rewritten in `dimensions.py` leaves the reference page quoting an
+    error no reader will ever see, which is worse than the prose the block
+    replaced.
+    """
+    quoted = _shift_over_data_message('ctx').removeprefix('ctx: ')
+    indented = '\n'.join('  ' + line if line else '' for line in quoted.split('\n'))
+    page = (ROOT / 'docs/reference/language/operators.md').read_text()
+    assert indented in page, (
+        'docs/reference/language/operators.md no longer quotes '
+        '`_shift_over_data_message` verbatim — paste the message as it prints, unwrapped'
     )

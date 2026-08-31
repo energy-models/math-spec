@@ -137,7 +137,7 @@ def _degree(node: ExpressionNode) -> int:
     (:func:`check_binary` has already refused a divisor carrying a variable);
     everything else — a sum, a reduction, a shape operator — is the highest
     degree beneath it. No data, so this answers at ``check`` time, which is
-    what stops a cubic from reaching a lane to be refused by whichever one
+    what stops a cubic from reaching a consumer to be refused by whichever one
     happens to notice.
     """
     if isinstance(node, VariableNode):
@@ -222,8 +222,8 @@ _REDUCTIONS = frozenset({'sum', 'sum_back'})
 def check_expression(node: ExpressionNode, context: str, *, ceiling: int = 1) -> None:
     """Apply :func:`check_binary` everywhere in *node*.
 
-    Degree only, deliberately: what a plan node can represent is a consuming
-    lane's question.
+    Degree only, deliberately: what a plan node can represent is a consumer's
+    question.
     """
     if isinstance(node, BinaryOperatorNode):
         check_binary(node, context, ceiling=ceiling)

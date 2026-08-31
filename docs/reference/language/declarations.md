@@ -5,11 +5,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Parameters, variables, constraints
 
-The four blocks that carry the math. Each block takes an optional
-`description:` — free text, never parsed, no length limit. Unlike a `#` comment
-it is part of the loaded model, so it reaches everything downstream: the
-[typeset](../typeset.md) legend prints the one on a dimension, parameter or
-variable.
+Parameters, variables, constraints and the objective are the four blocks that
+carry the math. Each block takes an optional `description:` — free text, never
+parsed, no length limit. Unlike a `#` comment it is part of the loaded model,
+so it reaches everything downstream: the [typeset](../typeset.md) legend
+prints the one on a dimension, parameter or variable.
 
 A description is **plain prose, in no notation**. Every output format sets the
 same words as text, escaping whatever its own syntax would otherwise read as
@@ -20,7 +20,7 @@ characters rather than as a symbol. Write the thing rather than its symbol —
 ## `parameters`
 
 Declared shape only; the numbers bind by name at run time, in whatever
-consumes the AST.
+consumes the AST (the parsed expression tree).
 
 ```yaml
 dimensions:
