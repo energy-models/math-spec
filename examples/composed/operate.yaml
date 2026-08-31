@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  The same system, operating a fleet somebody already built. The whole patch is
+  that capacity stops being a decision: the constraint that reads it is
+  untouched, and its cost becomes the sunk constant it is.
+variables:
+  gen_cap: null
+parameters:
+  gen_cap: { dims: [generator] }

@@ -36,9 +36,14 @@ generated YAML. `merge` is what that needs of the language: the templates in,
 ```python
 import math_spec as ms
 
-model = ms.merge({'generator': 'generator.yaml', 'demand': 'demand.yaml'}, description='a fleet')
-spec = ms.to_spec(model)  # one flat namespace, checked here and nowhere else
+library = {name: f'examples/composed/{name}.yaml' for name in ('base', 'generator', 'demand', 'storage')}
+
+model = ms.merge(library, description='a power system')
+'gen_cap' in ms.to_spec(model).variables  # True
 ```
+
+Those four files are in [`examples/composed/`](../../examples/composed.md), and
+none of them is a model: each names `flow`, which only `base.yaml` declares.
 
 **A fragment is not a model.** It is merged before it is validated, so a
 template may name what a sibling declares — a shared `bus`, the flow every
@@ -64,6 +69,64 @@ library keeps its templates apart by naming them apart, and the collision error
 is what holds it to that. Two of the same kind of thing — a battery and a
 pumped hydro — are not two fragments to keep apart but two **rows** of one
 dimension: merge the template once, and let the data carry both.
+
+### A base and its patches
+
+`merge` composes peers. `override` layers a base and the patches over it — what
+a framework ships and a project extends:
+
+```python
+operating = ms.override(model, {'operate': 'examples/composed/operate.yaml'})
+
+'gen_cap' in ms.to_spec(operating).parameters  # True
+```
+
+`operate.yaml` is four lines, and the whole of it is that capacity stops being a
+decision — every constraint expression and the objective are identical either
+side of it. That is
+[the example](../../examples/composed.md) in full.
+
+The two obey opposite laws and neither is a mode of the other: a name two peers
+declare is a collision, a name a patch declares is the point, and erroring on
+one cannot also mean winning with it.
+
+A patch says only what it changes. Declarations are laid over **field by
+field**, so naming one field keeps the rest of the declaration under it:
+
+```yaml
+constraints:
+  flow_out_max: { foreach: [node, tech, carrier, snapshot, investstep] }
+```
+
+**A declaration the patch sets to `null` is removed.** That is the one thing an
+ordered list of files cannot say for itself — a declaration a patch does not
+mention is left alone, so without a marker a deletion has no spelling:
+
+```yaml
+constraints:
+  no_longer_relevant: null
+variables:
+  cap: null # a decision becomes a number the next block declares
+parameters:
+  cap: { dims: [generator] }
+```
+
+The marker is **positional** and reaches no deeper: `constraints: {ramp: null}`
+removes the constraint, where `variables: {p: {where: null}}` sets that
+variable's mask to none, which is a value the schema already takes. Removing a
+declaration the base does not have is an error naming the near miss — a removal
+is a claim about what is there, and a stale one is a patch that no longer
+describes what it lands on.
+
+**A patch is not a model**, for the same reason a fragment is not: it is read
+before validation, so `null` never appears in a file anyone loads as a model
+and the schema gains no key. What a reviewer reads is the composed result —
+`Spec.to_yaml` on it is the artifact to diff against the base, which is the
+answer to a verb designed to collide.
+
+**Order is the instruction**, so this is the one verb here where the same
+arguments given differently mean a different model. Both take and return what
+the other does, so `override(merge({...}), patches)` is ordinary.
 
 ## `description`
 

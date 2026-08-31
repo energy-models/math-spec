@@ -35,10 +35,15 @@ def _block(lang: str) -> str:
 
 
 def _claims(code: str) -> list[tuple[str, object]]:
-    """Every ``expression  # value`` line, as the pair it asserts."""
+    """Every ``expression  # value`` line, as the pair it asserts.
+
+    Read off the line the expression *ends* on: prettier formats python inside a
+    fence too, so an expression long enough to wrap leaves its comment on a
+    different line from the one it starts on.
+    """
     lines = code.split('\n')
     return [
-        (ast.unparse(node.value), ast.literal_eval(lines[node.lineno - 1].partition('#')[2].strip()))
+        (ast.unparse(node.value), ast.literal_eval(lines[node.end_lineno - 1].partition('#')[2].strip()))
         for node in ast.parse(code).body
         if isinstance(node, ast.Expr)
     ]
