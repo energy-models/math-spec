@@ -68,6 +68,7 @@
 
 \paragraph{Subject to}
 \begin{align}
+\text{starts} && p_{t,g} & \le \mathrm{startup\_cost}_{t,g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{balance} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} & = \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
 \text{ramp} && p_{t,g} - p_{t \ominus 1,g} & \le p_{t - 1,g} + \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{edges} && p_{t \boxminus_{0} 1,g} & \le p_{t \boxplus_{0} 1,g} + \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
@@ -96,6 +97,11 @@
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \mathit{spill}_{t} \text{ exists} \\
 \text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot
+\end{align}
+
+\paragraph{Definitions}
+\begin{align}
+\text{startup\_cost} && \mathrm{startup\_cost}_{t,g} & = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{pos}(t) > 0 \wedge \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \\ 0 & \text{otherwise} \end{cases} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 \end{align}
 
 \paragraph{Variable domains}

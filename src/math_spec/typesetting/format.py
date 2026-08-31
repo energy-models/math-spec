@@ -168,6 +168,14 @@ class Format(Protocol):
 
     def summation(self, domain: str, body: str) -> str: ...
 
+    def cases(self, arms: list[tuple[str, str]]) -> str:
+        """A value defined by region: ``(value, condition)`` per arm, in order.
+
+        Both halves arrive rendered — which arm is the fallback is the walk's
+        to decide, and this only stacks the rows.
+        """
+        ...
+
     def apply(self, function: str, argument: str) -> str:
         """A coordinate map applied to an index: ``bus(g)``."""
         ...

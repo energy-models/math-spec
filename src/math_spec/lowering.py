@@ -37,6 +37,7 @@ from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -52,6 +53,7 @@ from math_spec.expression_parser import (
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
+from math_spec.where_parser import AndNode, NotNode, WhereNode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -61,6 +63,29 @@ if TYPE_CHECKING:
     from math_spec.model import Spec, _ExpandedSpec
 
 _SENSES = {'==', '<=', '>='}
+
+
+def _none_of(masks: list[WhereNode]) -> WhereNode:
+    """The region left over: where not one of *masks* holds.
+
+    The ``otherwise`` arm's own mask, built rather than written. An empty list
+    cannot reach here — ``cases:`` carries at least one case — so there is no
+    vacuous truth to spell.
+    """
+    remainder = _negated(masks[0])
+    for mask in masks[1:]:
+        remainder = AndNode(remainder, _negated(mask))
+    return remainder
+
+
+def _negated(mask: WhereNode) -> WhereNode:
+    """*mask* negated, cancelling a negation rather than stacking one.
+
+    ``not (not committable)`` is a term every consumer would evaluate twice to
+    reach the answer it started from. The regions are built here, so this is
+    the one place that can spell them without it.
+    """
+    return mask.operand if isinstance(mask, NotNode) else NotNode(mask)
 
 
 def to_program(spec: str | Path | dict[str, Any] | Spec | program.Program) -> program.Program:
@@ -203,14 +228,12 @@ def _lower_expression(schema: _ExpandedSpec, ns: Namespace, name: str) -> progra
     """Compile the named expression *name* into a program expression.
 
     Raises:
-        KeyError: No named expression called *name*.
         LanguageError: A construct outside the streaming language.
     """
-    expanded = schema
     context = f"named expression '{name}'"
-    ast = expression_of(expanded.expressions[name].expression, expanded, ns, context)
+    ast = expression_of(name, schema, ns, context)
     assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
-    return _Lowering(expanded, context).expr(ast)
+    return _Lowering(schema, context).expr(ast)
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +304,26 @@ class _Lowering:
                 raise LanguageError(f"{self.context}: built-in '{node.name}' declares no lowering case") from None
             return lower_call(self, node)
 
+        if isinstance(node, CasesNode):
+            return self._cases(node)
+
         assert_never(node)
+
+    def _cases(self, node: CasesNode) -> program.Cases:
+        """A cased expression, with every region carrying the mask it applies under.
+
+        The ``otherwise`` arm carries no ``when`` in the file; here it carries
+        the negation of every other region's, so a consumer adds regions rather
+        than working out which one is left. The language proved the rest apart
+        before this ran, so the negation is exactly the remainder and the
+        regions stay disjoint and total.
+        """
+        stated = [arm.when for arm in node.arms if arm.when is not None]
+        regions = []
+        for arm in node.arms:
+            when = arm.when if arm.when is not None else _none_of(stated)
+            regions.append(program.Region(when, self.expr(arm.value)))
+        return program.Cases(tuple(regions))
 
     def sum(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=lookup)``.

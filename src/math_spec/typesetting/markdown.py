@@ -36,6 +36,10 @@ class MarkdownFormat(LatexFormat):
     #: hyphens in the middle of a legend row.
     dash: ClassVar[str] = '\N{EM DASH}'
 
+    #: TeX's own row primitive, not ``\\``: Markdown's escape pass eats one of
+    #: those two backslashes, so MathJax would never break the row.
+    cases_row: ClassVar[str] = r' \cr '
+
     #: LaTeX's, except where the spelling uses a backslash before punctuation.
     #: GitHub runs Markdown's escape processing *inside* `$$`, so `\,` arrives
     #: as a literal comma and `\;` as a semicolon — `\forall\, s` renders as

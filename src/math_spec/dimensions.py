@@ -31,6 +31,7 @@ from math_spec.errors import DimensionError
 from math_spec.expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
@@ -43,6 +44,7 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
+    case_context,
 )
 from math_spec.operators import BUILTINS, edge_error
 from math_spec.resolution import Namespace, expression_of, where_of
@@ -103,6 +105,11 @@ def _dims(
 
     if isinstance(node, FunctionCallNode):
         return _dims_call(node, schema, context)
+
+    if isinstance(node, CasesNode):
+        # the declared frame, not the union of the cases: one narrower than it
+        # broadcasts, as a parameter with fewer dims does
+        return frozenset(schema.expressions[node.name].foreach or ())
 
     assert_never(node)
 
@@ -429,6 +436,17 @@ def check_schema(schema: Spec) -> None:
                         f'{sorted(frame)}.'
                     )
 
+    for ename, block in schema.expressions.items():
+        if not block.cases:
+            continue
+        frame = frozenset(block.foreach or [])
+        for case_name, case in block.cases.items():
+            context = case_context(ename, case_name)
+            _check_where_dims(where_of(case.when, ns, context), schema, frame, context)
+            _check_value_dims(case.expression, schema, ns, frame, context)
+        assert block.otherwise is not None
+        _check_value_dims(block.otherwise, schema, ns, frame, case_context(ename, None))
+
     for cname, cdef in schema.constraints.items():
         frame = frozenset(cdef.foreach)
         context = f"Constraint '{cname}'"
@@ -456,6 +474,26 @@ def check_schema(schema: Spec) -> None:
                 f'number. Wrap each additive term in its own sum(): '
                 f'`sum(p * cost) + sum(p_nom * capex)`.'
             )
+
+
+def _check_value_dims(
+    text: str,
+    schema: Spec,
+    ns: Namespace,
+    frame: frozenset[str],
+    context: str,
+) -> None:
+    """A region's value may only carry dims the frame does — the ``otherwise:`` included.
+
+    A wider one would give the quantity dims its declaration does not, which is
+    the second answer a ``foreach:`` exists to avoid.
+    """
+    got = dims_of(expression_of(text, schema, ns, context), schema, context)
+    if not got <= frame:
+        raise DimensionError(
+            f'{context}: the value carries dims {sorted(got - frame)} outside the foreach '
+            f'{sorted(frame)}. A case is a value within the frame — it cannot widen it.'
+        )
 
 
 def _check_where_dims(

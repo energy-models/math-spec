@@ -18,7 +18,16 @@ parameters:
 variables:
   p: { foreach: [t, g], bounds: { lower: 0, upper: 100 } }
   q: { foreach: [zone], bounds: { lower: 0, upper: 100 } }
+expressions:
+  by_region:
+    foreach: [t, g]
+    cases:
+      opening: { when: "position(t) == 0", expression: 0 }
+    otherwise: shift(p, over=t, offset=1, edge='wrap')
 constraints:
+  regional:
+    foreach: [t, g]
+    expression: "p - by_region <= 0"
   arithmetic:
     foreach: [t, g]
     expression: "-p + p * cost - p / cost + rate ** 2 <= 1"

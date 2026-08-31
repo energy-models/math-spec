@@ -24,6 +24,7 @@ from math_spec.errors import Advice
 from math_spec.program import (
     Add,
     At,
+    Cases,
     Constant,
     Divide,
     ExpressionNode,
@@ -167,5 +168,10 @@ def _walk(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> None:
         return
     if isinstance(node, Sum | GroupSum | At | Translate | Window):
         _walk(node.operand, sign, signs)
+        return
+    if isinstance(node, Cases):
+        # a selection, not a sum: whichever region applies stands where the whole value does
+        for region in node.regions:
+            _walk(region.value, sign, signs)
         return
     assert_never(node)
