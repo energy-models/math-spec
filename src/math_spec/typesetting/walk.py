@@ -13,7 +13,7 @@ of it is about syntax, so none is duplicated per format.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from math_spec.dimensions import dims_of
 from math_spec.expression_parser import (
@@ -75,10 +75,13 @@ _ATOM = 5
 _PREDICATES: dict[PredicateOperator, str] = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>': 'gt'}
 
 
-#: Edge policy -> the operator pair that renders it, backward then forward.
-#: Three policies get three spellings because they are three different
-#: equations at the boundary — the vacated row dropped, wrapped, or filled.
-_TRANSLATIONS = {
+#: What a translation does with the row the shift vacates. Three policies get
+#: three spellings because they are three different equations at the boundary.
+TranslationPolicy = Literal['plain', 'wrap', 'edge']
+
+#: Edge policy -> the operator pair that renders it, backward then forward —
+#: the vacated row dropped, wrapped, or filled.
+_TRANSLATIONS: dict[TranslationPolicy, tuple[str, str]] = {
     'plain': ('minus', 'plus'),
     'wrap': ('cyclic_minus', 'cyclic_plus'),
     'edge': ('edge_minus', 'edge_plus'),
@@ -112,7 +115,7 @@ class _Step:
     """
 
     by: int | str
-    policy: str
+    policy: TranslationPolicy
     fill: str = ''
     #: The rendered group a partitioned translation walks inside, if it has
     #: one. It rides the operator rather than the index: what changes is where
@@ -221,7 +224,7 @@ class Walk:
         self.namespace = namespace
         self.symbols = symbols
         self.format = fmt
-        self.policies: set[str] = set()
+        self.policies: set[TranslationPolicy] = set()
         self.grouped = False
         self.positions: set[str] = set()
         self.numeric_coordinates: set[str] = set()
