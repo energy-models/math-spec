@@ -69,7 +69,8 @@ def _check_duplicate_keys(node: yaml.Node, origin: str) -> None:
     """
     if isinstance(node, yaml.MappingNode):
         seen: dict[Any, int] = {}
-        for key_node, value_node in node.value:
+        pairs: list[tuple[yaml.Node, yaml.Node]] = node.value
+        for key_node, value_node in pairs:
             line = key_node.start_mark.line + 1
             if not isinstance(key_node, yaml.ScalarNode):
                 msg = f'{origin}:{line}: a key must be a scalar — a name, not a list or a mapping.'

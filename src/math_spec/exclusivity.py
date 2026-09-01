@@ -364,6 +364,8 @@ def _between(value: Any, following: Any, step: Any, *, discrete: bool) -> Any | 
     """
     if discrete:
         return value + step if following - value > step else None
+    # pyrefly: ignore[no-any-return-implicit] -- declaring `Any` would silence this and stop
+    # saying that the discrete branch has nothing to return.
     return (value + following) / 2.0
 
 
