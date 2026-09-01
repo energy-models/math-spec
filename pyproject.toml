@@ -157,20 +157,20 @@ preset = "strict"
 # than switched off so a lambda outside those grammars still has to say what
 # it takes.
 [tool.pyrefly.errors]
-implicit-import = true
-missing-import = true
-non-exhaustive-match = true
-not-required-key-access = true
-redundant-cast = true
-redundant-condition = true
-unknown-name = true
-unnecessary-comparison = true
-unnecessary-type-conversion = true
-unreachable = true
-unresolvable-dunder-all = true
-untyped-import = true
-unused-ignore = true
-variance-mismatch = true
+implicit-import = "error"
+missing-import = "error"
+non-exhaustive-match = "error"
+not-required-key-access = "error"
+redundant-cast = "error"
+redundant-condition = "error"
+unknown-name = "error"
+unnecessary-comparison = "error"
+unnecessary-type-conversion = "error"
+unreachable = "error"
+unresolvable-dunder-all = "error"
+untyped-import = "error"
+unused-ignore = "error"
+variance-mismatch = "error"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

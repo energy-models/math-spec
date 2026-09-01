@@ -29,7 +29,7 @@ The rules a lowered program then carries:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, assert_never, cast
+from typing import TYPE_CHECKING, assert_never
 
 import math_spec.program as program
 from math_spec.dimensions import dims_of
@@ -136,7 +136,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
 
     variables = {}
     for vname, vdef in expanded.variables.items():
-        variable_type = cast('program.VariableType', vdef.domain)
+        variable_type = vdef.domain
         if variable_type == 'binary':
             lower, upper = program.Constant(0.0), program.Constant(1.0)
         else:
@@ -147,7 +147,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
             lower=lower,
             upper=upper,
             variable_type=variable_type,
-            absence=cast('program.VariableAbsence', vdef.absence),
+            absence=vdef.absence,
         )
 
     constraints = {}
@@ -195,7 +195,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         sname: program.SosDeclaration(
             sdef.variable,
             sdef.over,
-            sos_type=cast('Literal[1, 2]', sdef.type),
+            sos_type=sdef.type,
             big_m=sdef.big_m,
         )
         for sname, sdef in expanded.sos.items()
