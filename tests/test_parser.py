@@ -200,7 +200,7 @@ def test_conjuncts_flattens_the_and_spine(text, expected):
 @pytest.mark.parametrize(
     'text',
     ['a OR b', 'NOT a', 'a AND b OR c', 'NOT (a AND b)'],
-    ids=['or', 'not', 'or-of-ands', 'not-of-and'],
+    ids=['or', 'not', 'or-of-and', 'not-of-and'],
 )
 def test_conjuncts_does_not_split_or_or_not(text):
     """The split stops at the first node that is not an `AND`: an `OR` or a `NOT` is one
