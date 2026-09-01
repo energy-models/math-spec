@@ -374,11 +374,6 @@ def _bound_expression(value: float | str) -> program.ExpressionNode:
     return program.Constant(value)
 
 
-#: Where a missing value has no reading that contributes nothing, and so is
-#: refused rather than filled — the two positions named in rule 8.
-_NO_READING_FOR_ABSENCE = 'a bound', 'a divisor'
-
-
 def _refuse_a_mask_where_absence_has_no_reading(
     parameters: Mapping[str, program.ParameterDeclaration],
     variables: Mapping[str, program.VariableDeclaration],
@@ -399,14 +394,14 @@ def _refuse_a_mask_where_absence_has_no_reading(
     so a parameter reaching one through a macro or a named expression is caught
     on the same footing as one written there directly.
     """
+    bounds = tuple(node for vdef in variables.values() for node in (vdef.lower, vdef.upper))
     every = (
-        *(node for vdef in variables.values() for node in (vdef.lower, vdef.upper)),
+        *bounds,
         *(node for cdef in constraints.values() for node in (cdef.lhs, cdef.rhs)),
         *((objective.expression,) if objective is not None else ()),
         *expressions.values(),
     )
-    bounded = program.parameters_of(*(node for vdef in variables.values() for node in (vdef.lower, vdef.upper)))
-    positions = dict.fromkeys(bounded, 'a bound')
+    positions = dict.fromkeys(program.parameters_of(*bounds), 'a bound')
     positions |= dict.fromkeys(program.divisor_parameters(*every), 'a divisor')
     for name, position in sorted(positions.items()):
         if parameters[name].coverage == 'masked':
