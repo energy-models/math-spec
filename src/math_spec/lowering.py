@@ -53,7 +53,6 @@ from math_spec.expression_parser import (
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import AndNode, NotNode, WhereNode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -65,27 +64,17 @@ if TYPE_CHECKING:
 _SENSES = {'==', '<=', '>='}
 
 
-def _none_of(masks: list[WhereNode]) -> WhereNode:
+def _none_of(masks: list[program.Mask]) -> program.Mask:
     """The region left over: where not one of *masks* holds.
 
     The ``otherwise`` arm's own mask, built rather than written. An empty list
     cannot reach here — ``cases:`` carries at least one case — so there is no
     vacuous truth to spell.
     """
-    remainder = _negated(masks[0])
+    remainder = ~masks[0]
     for mask in masks[1:]:
-        remainder = AndNode(remainder, _negated(mask))
+        remainder = remainder & ~mask
     return remainder
-
-
-def _negated(mask: WhereNode) -> WhereNode:
-    """*mask* negated, cancelling a negation rather than stacking one.
-
-    ``not (not committable)`` is a term every consumer would evaluate twice to
-    reach the answer it started from. The regions are built here, so this is
-    the one place that can spell them without it.
-    """
-    return mask.operand if isinstance(mask, NotNode) else NotNode(mask)
 
 
 def to_program(spec: str | Path | dict[str, Any] | Spec | program.Program) -> program.Program:
@@ -317,11 +306,14 @@ class _Lowering:
         than working out which one is left. The language proved the rest apart
         before this ran, so the negation is exactly the remainder and the
         regions stay disjoint and total.
+
+        Every ``when`` arrives folded from resolution, and an arm that folded
+        to a literal was refused at load — so no literal reaches a region.
         """
-        stated = [arm.when for arm in node.arms if arm.when is not None]
+        stated = [program.Mask(arm.when) for arm in node.arms if arm.when is not None]
         regions = []
         for arm in node.arms:
-            when = arm.when if arm.when is not None else _none_of(stated)
+            when = program.Mask(arm.when) if arm.when is not None else _none_of(stated)
             regions.append(program.Region(when, self.expr(arm.value)))
         return program.Cases(tuple(regions))
 

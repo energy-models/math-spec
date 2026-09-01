@@ -33,13 +33,19 @@ one has to be *called* to be got right:
   a line a consumer could write; they are here so two consumers cannot write it
   differently.
 
-A mask is the language's own resolved ``where`` node
-(:mod:`math_spec.where_parser`) rather than a second set spelling the same
-predicates — one home, so the two cannot come to disagree about what a
-comparison is. Its literals are already decided: a mask admitting every row
-arrives as ``None`` and one admitting none as ``BooleanLiteralNode(False)``, so
-that node stands at the root of a mask or nowhere in it, and no consumer needs
-a constant folder of its own to agree with the others about which rows exist.
+A mask arrives as a :class:`Mask`: the language's own resolved ``where`` node
+(the :data:`WhereNode` vocabulary below) as its ``root``, with the questions
+the language answers about it carried beside it — one home, so two consumers
+cannot come to disagree about what a comparison is or which dims a mask
+restricts. Its literals are already decided: a declaration's mask admitting
+every row arrives as ``None``, one admitting none with
+``BooleanLiteralNode(False)`` as its root, and a case arm whose mask folds to
+a literal is refused at load — nothing the data decides is left in it. A mask
+a consumer derives (``~``, ``&``, ``|``) may fold to the
+always-true literal, the algebra being total over masks; construction folds,
+so a boolean literal stands at the root of a mask or nowhere in it, and no
+consumer needs a constant folder of its own to agree with the others about
+which rows exist.
 
 The declaration vocabularies are the language's own for the same reason
 (:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
@@ -64,12 +70,10 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
 from math_spec.errors import did_you_mean
-from math_spec.where_parser import AndNode
 
 if TYPE_CHECKING:
+    import datetime
     from collections.abc import Iterator
-
-    from math_spec.where_parser import WhereNode
 
 
 #: What ``math_spec.program`` promises. The package's ``__all__`` exports this
@@ -80,19 +84,23 @@ if TYPE_CHECKING:
 __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
+    'AndNode',
     'At',
     'AtLeastTwo',
+    'BooleanLiteralNode',
     'Cases',
     'Check',
-    'ComparisonOperator',
+    'ConnectiveWhereNode',
     'Constant',
     'ConstraintDeclaration',
     'ConstraintSense',
     'Contiguous',
     'Curved',
     'Derivation',
+    'DimensionComparisonNode',
     'DimensionDeclaration',
     'DimensionDtype',
+    'DimensionPositionNode',
     'Divide',
     'Expression',
     'ExpressionNode',
@@ -102,32 +110,43 @@ __all__ = [
     'GroupSum',
     'Increasing',
     'LastOf',
+    'LookupComparisonNode',
     'LookupDeclaration',
+    'LookupDefinedNode',
+    'LookupPairComparisonNode',
+    'Mask',
     'MaskOf',
     'Multiply',
     'Negate',
+    'NotNode',
     'ObjectiveDeclaration',
     'ObjectiveSense',
+    'OrNode',
     'Parameter',
+    'ParameterComparisonNode',
     'ParameterDeclaration',
+    'ParameterDefinedNode',
     'ParameterDtype',
     'PiecewiseDeclaration',
     'Power',
+    'PredicateOperator',
     'Program',
     'QuadraticPosition',
     'Region',
     'SosDeclaration',
     'Sum',
     'Translate',
+    'TypedPredicateNode',
     'Variable',
     'VariableAbsence',
     'VariableDeclaration',
+    'VariableDefinedNode',
     'VariableType',
+    'WhereNode',
     'Window',
     'carries_variable',
     'check_message',
     'children',
-    'conjuncts',
     'divisor_parameters',
     'fan_in',
     'is_quadratic',
@@ -160,7 +179,6 @@ QuadraticPosition = Literal['objective', 'constraint']
 #: ``QUADRATIC_POSITIONS <= handled`` is how one says it covers every position
 #: and hears about it when the language admits another.
 QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
-ComparisonOperator = Literal['==', '!=', '<=', '>=', '<', '>']
 
 #: What a dimension's labels are — the language's own vocabulary
 #: (:data:`~math_spec.model.DimensionDtype`), under the name a consumer reads
@@ -413,10 +431,11 @@ class Region:
     ``otherwise:`` included — its mask is the negation of the others, resolved
     once here rather than by each consumer in turn. A consumer builds a region
     without holding the rest in mind, and both facts it needs are on the region
-    it is reading.
+    it is reading. The mask is a :class:`Mask`, the same carrier a
+    declaration's ``where`` arrives in.
     """
 
-    when: WhereNode
+    when: Mask
     value: ExpressionNode
 
 
@@ -727,7 +746,7 @@ class ParameterDeclaration:
 @dataclass(frozen=True)
 class VariableDeclaration:
     dims: tuple[str, ...]
-    where: WhereNode | None = None
+    where: Mask | None = None
     lower: ExpressionNode = field(default_factory=lambda: Constant(float('-inf')))
     upper: ExpressionNode = field(default_factory=lambda: Constant(float('inf')))
     variable_type: VariableType = 'continuous'
@@ -747,7 +766,7 @@ class ConstraintDeclaration:
     lhs: ExpressionNode
     sense: ConstraintSense
     rhs: ExpressionNode
-    where: WhereNode | None = None
+    where: Mask | None = None
 
 
 @dataclass(frozen=True)
@@ -1001,17 +1020,372 @@ def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
     return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
 
 
-def conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
-    """The predicates a mask joins with ``AND``, its ``AND`` spine flattened.
+# ---------------------------------------------------------------------------
+# the resolved where vocabulary
+# ---------------------------------------------------------------------------
 
-    ``a AND b AND c`` gives three, and a mask that is not an ``AND`` gives
+
+PredicateOperator = Literal['<=', '>=', '==', '!=', '<', '>']
+
+
+@dataclass(frozen=True)
+class BooleanLiteralNode:
+    value: bool
+
+
+@dataclass(frozen=True)
+class ParameterDefinedNode:
+    """True wherever the named parameter is non-null and finite.
+
+    ``dims`` is the parameter's own, copied off the declaration during
+    resolution the way a lookup leaf carries ``over`` — so a consumer reads the
+    dims a leaf is read through here rather than looking the declaration up
+    again.
+    """
+
+    name: str
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class VariableDefinedNode:
+    """True at the coordinates where the named variable exists.
+
+    The variable counterpart of :class:`ParameterDefinedNode`, and spelled the
+    same way — a bare name. A parameter's bare name asks whether it has a value
+    here; a variable's asks whether it exists here. ``dims`` is the variable's
+    frame, copied off the declaration during resolution.
+    """
+
+    name: str
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ParameterComparisonNode:
+    """Compare a parameter against a literal, element-wise.
+
+    ``dims`` is the parameter's own, copied off the declaration during
+    resolution — see :class:`ParameterDefinedNode`.
+    """
+
+    name: str
+    op: PredicateOperator
+    value: float | str
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DimensionComparisonNode:
+    """Compare a dimension's own coordinates against a literal."""
+
+    name: str
+    op: PredicateOperator
+    value: float | str | datetime.date
+
+
+@dataclass(frozen=True)
+class DimensionPositionNode:
+    """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
+
+    Both sides are integers, negative counting from the end; comparing
+    coordinates against the label *at* a position would read differently on an
+    axis whose coordinates do not arrive sorted (#32). With ``by`` the position
+    is counted within each group the lookup makes.
+    """
+
+    name: str
+    op: PredicateOperator
+    position: int
+    by: str | None = None
+
+
+@dataclass(frozen=True)
+class LookupComparisonNode:
+    """Compare a lookup's values against a literal — ``period_of == 2030``.
+
+    ``over`` is the dimension the lookup maps out of, copied off the
+    declaration during resolution so the frame check and every consumer read it
+    here rather than looking the lookup up again.
+    """
+
+    name: str
+    over: str
+    op: PredicateOperator
+    value: float | str | datetime.date
+
+
+@dataclass(frozen=True)
+class LookupPairComparisonNode:
+    """Compare two lookups over one dimension — ``from != to``.
+
+    The one comparison whose both sides are structure: two maps out of the
+    same dimension, tested row by row on that dimension's own table. Over
+    different dims there is no row to compare them on, which resolution
+    refuses.
+    """
+
+    name: str
+    other: str
+    over: str
+    op: PredicateOperator
+
+
+@dataclass(frozen=True)
+class LookupDefinedNode:
+    """True where the named lookup has a value — the partial-lookup case.
+
+    A lookup may be partial: a null says the label belongs to no group (a
+    generator on no bus, a line with one open end). This is how a declaration
+    asks for the labels that *do* map, spelled as a bare name exactly as a
+    parameter's definedness is.
+    """
+
+    name: str
+    over: str
+
+
+@dataclass(frozen=True)
+class NotNode:
+    operand: WhereNode
+
+
+@dataclass(frozen=True)
+class AndNode:
+    left: WhereNode
+    right: WhereNode
+
+
+@dataclass(frozen=True)
+class OrNode:
+    left: WhereNode
+    right: WhereNode
+
+
+#: Every resolved predicate node — what a lowered mask's ``root`` is built of.
+#: The parser's ``Unresolved*`` nodes are not members: they live with the
+#: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
+#: before anything here is asked.
+WhereNode = (
+    BooleanLiteralNode
+    | DimensionPositionNode
+    | ParameterDefinedNode
+    | VariableDefinedNode
+    | ParameterComparisonNode
+    | DimensionComparisonNode
+    | LookupComparisonNode
+    | LookupPairComparisonNode
+    | LookupDefinedNode
+    | NotNode
+    | AndNode
+    | OrNode
+)
+
+#: Every predicate resolution has typed: it names a declaration and the kind is
+#: settled. Resolution passes these straight through, having nothing left to
+#: decide about them.
+TypedPredicateNode = (
+    ParameterComparisonNode
+    | ParameterDefinedNode
+    | VariableDefinedNode
+    | DimensionComparisonNode
+    | DimensionPositionNode
+    | LookupComparisonNode
+    | LookupPairComparisonNode
+    | LookupDefinedNode
+)
+
+#: The boolean connectives — the only where nodes carrying other where nodes,
+#: and so the only place a walk over a predicate recurses. The grammar builds
+#: these classes directly, over leaves still unresolved, so a pre-resolution
+#: tree shares them — the transient impurity resolution normalizes away.
+ConnectiveWhereNode = NotNode | AndNode | OrNode
+
+
+def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
+    """Every node in *where* that reads a declaration, connectives removed.
+
+    A predicate is a tree of :data:`ConnectiveWhereNode` over leaves that each
+    name one declaration, so every question about what a mask *reads* is asked
+    of the leaves and answered by taking them together — through
+    :class:`Mask`, the one door. A boolean literal reads nothing and yields
+    nothing.
+
+    The unresolved arm is live, not type-dead: ``parse_where``'s annotation
+    over-claims, so a consumer can hand this a tree the type system cannot
+    see is unresolved — unlike the typesetter's retired twin, whose input was
+    resolved by construction.
+
+    Raises:
+        AssertionError: An unresolved node, which is a pass running before
+            resolution rather than a predicate with a property to read.
+    """
+    if isinstance(where, NotNode):
+        yield from _atoms(where.operand)
+    elif isinstance(where, (AndNode, OrNode)):
+        yield from _atoms(where.left)
+        yield from _atoms(where.right)
+    elif isinstance(where, BooleanLiteralNode):
+        return
+    elif isinstance(where, TypedPredicateNode):
+        yield where
+    else:
+        msg = f'{type(where).__name__} reached a predicate walk unresolved.'
+        raise AssertionError(msg)
+
+
+def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
+    """One leaf's dims — the rule :attr:`Mask.dims` is the union of.
+
+    A parameter or variable leaf carries its own dims off the declaration; a
+    comparison on a dimension is read through that dimension, and a lookup
+    through the dimension it maps out of — the dim it leaves, not the one it
+    lands in. Separate from the union because the load-time frame check
+    reports per leaf. Closed by ``assert_never``: a predicate node added
+    without a reading is a type error here, at the one place that has to grow
+    a branch, rather than a wrong dim set at the first model to use it.
+    """
+    match atom:
+        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
+            return frozenset(atom.dims)
+        case DimensionComparisonNode() | DimensionPositionNode():
+            return frozenset({atom.name})
+        case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
+            return frozenset({atom.over})
+        case _:
+            assert_never(atom)
+
+
+def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
+    """One leaf's declarations, its dimension apart — the rule :attr:`Mask.names_read` is the union of.
+
+    A comparison on a dimension names no declaration — a coordinate is not
+    data to feed — and a lookup pair names both maps it compares.
+    ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
+    node added without a reading is a type error at this one branch rather
+    than a name silently dropped at the first model to use it.
+    """
+    match atom:
+        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
+            return frozenset({atom.name})
+        case LookupComparisonNode() | LookupDefinedNode():
+            return frozenset({atom.name})
+        case LookupPairComparisonNode():
+            return frozenset({atom.name, atom.other})
+        case DimensionComparisonNode() | DimensionPositionNode():
+            return frozenset()
+        case _:
+            assert_never(atom)
+
+
+def _conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
+    """The flatten rule behind :attr:`Mask.conjuncts` — the one home of the split.
+
+    ``a AND b AND c`` gives three, and a predicate that is not an ``AND`` gives
     itself. The walk stops at the first node that is not an ``AND``: the
     conjuncts of ``a AND (b OR c)`` are ``a`` and ``b OR c``, and of
     ``NOT (a AND b)`` the single ``NOT`` — neither an ``OR`` nor a ``NOT`` is a
-    claim the mask makes on its own, so neither is split. A consumer asks the
-    split here rather than re-deriving it, so two cannot disagree on what a
-    conjunct is.
+    claim the predicate makes on its own, so neither is split.
     """
     if isinstance(where, AndNode):
-        return conjuncts(where.left) + conjuncts(where.right)
+        return _conjuncts(where.left) + _conjuncts(where.right)
     return (where,)
+
+
+def _fold(node: WhereNode) -> WhereNode:
+    """*node* with every connective a literal or a double negation decides evaluated away.
+
+    ``X AND True`` is ``X``, ``X OR True`` is every row, ``X AND False`` is
+    none, ``NOT True`` is ``False`` and ``NOT NOT X`` is ``X``. What survives
+    is a predicate over data, or the one literal the whole mask reduces to —
+    the invariant :class:`Mask` applies at construction, so it holds wherever
+    a mask is built.
+    """
+    if isinstance(node, NotNode):
+        operand = _fold(node.operand)
+        if isinstance(operand, BooleanLiteralNode):
+            return BooleanLiteralNode(not operand.value)
+        if isinstance(operand, NotNode):
+            return operand.operand
+        return NotNode(operand)
+    if isinstance(node, AndNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return right if left.value else left
+        if isinstance(right, BooleanLiteralNode):
+            return left if right.value else right
+        return AndNode(left, right)
+    if isinstance(node, OrNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return left if left.value else right
+        if isinstance(right, BooleanLiteralNode):
+            return right if right.value else left
+        return OrNode(left, right)
+    return node
+
+
+@dataclass(frozen=True)
+class Mask:
+    """A resolved ``where`` and the questions the language answers about it.
+
+    ``root`` is the predicate an engine dispatches on with ``isinstance`` to
+    build the mask against data; every question is derived from it, so a mask
+    cannot disagree with itself. Wrap any resolved predicate — a declaration's
+    own, or one built from resolved pieces (``~``, ``&``, ``|``) —
+    and ask it here, so two consumers cannot answer differently.
+
+    Construction folds: a literal or a double negation a connective decides is
+    evaluated away, so a boolean literal stands at the root or nowhere, and a
+    consumer can check emptiness in O(1). Construction also refuses an
+    unresolved tree outright — ``parse_where``'s annotation over-claims, and a
+    mask that silently answered no atoms, no names and no dims for one would
+    be the divergence this class exists to prevent.
+
+    Attributes:
+        root: The resolved predicate the mask restricts rows by, folded.
+    """
+
+    root: WhereNode
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, 'root', _fold(self.root))
+        # building the tuple is the refusal: the walk raises on an unresolved leaf
+        _ = self.atoms
+
+    @property
+    def conjuncts(self) -> tuple[WhereNode, ...]:
+        """The predicates the mask joins with ``AND`` — its ``AND`` spine flattened, stopping at an ``OR`` or a ``NOT``."""
+        return _conjuncts(self.root)
+
+    @property
+    def names_read(self) -> frozenset[str]:
+        """The parameters, lookups and variables the mask names."""
+        return frozenset(name for atom in _atoms(self.root) for name in _atom_names(atom))
+
+    @property
+    def atoms(self) -> tuple[TypedPredicateNode, ...]:
+        """The mask's leaves, connectives removed."""
+        return tuple(_atoms(self.root))
+
+    @property
+    def dims(self) -> frozenset[str]:
+        """The dims the mask is read at — the union of what each leaf carries.
+
+        Empty for a mask over nothing but literals. Read off the leaves, which
+        resolution stamped with their declarations' dims, so a predicate built
+        from resolved pieces answers exactly as a declaration's own does.
+        """
+        return frozenset(dim for atom in _atoms(self.root) for dim in _atom_dims(atom))
+
+    def __invert__(self) -> Mask:
+        """The mask admitting exactly the rows this one refuses — construction folds a double negation or a literal flip."""
+        return Mask(NotNode(self.root))
+
+    def __and__(self, other: Mask) -> Mask:
+        """Both masks at once — construction absorbs a literal side rather than burying it."""
+        return Mask(AndNode(self.root, other.root))
+
+    def __or__(self, other: Mask) -> Mask:
+        """Either mask — construction absorbs a literal side rather than burying it."""
+        return Mask(OrNode(self.root, other.root))

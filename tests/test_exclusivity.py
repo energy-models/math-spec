@@ -17,14 +17,15 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
+from math_spec._where_parser import parse_where
 from math_spec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Frame, overlapping
+from math_spec.program import AndNode, NotNode, OrNode
 from math_spec.resolution import Namespace, resolve_where
 from math_spec.validation import to_spec
-from math_spec.where_parser import AndNode, NotNode, OrNode, parse_where
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
-    from math_spec.where_parser import WhereNode
+    from math_spec.program import WhereNode
 
 #: A storage model carrying one atom of every kind a `when` can be built from.
 #: Every axis takes its coordinates from data, so nothing here sizes one.

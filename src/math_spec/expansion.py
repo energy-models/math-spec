@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, assert_never, overload
 
+from math_spec._where_parser import parse_where
 from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     ArithmeticNode,
@@ -27,7 +28,6 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
-from math_spec.where_parser import parse_where
 
 if TYPE_CHECKING:
     from collections.abc import Callable

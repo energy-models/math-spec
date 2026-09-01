@@ -32,13 +32,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
-from math_spec.resolution import (
-    expression_of,
-    where_of,
-)
-from math_spec.typesetting.format import Entry, Glossary, Line
-from math_spec.typesetting.symbols import printed_expressions
-from math_spec.where_parser import (
+from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -46,14 +40,20 @@ from math_spec.where_parser import (
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
+    Mask,
     NotNode,
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
-    UnresolvedWhereNode,
     VariableDefinedNode,
     WhereNode,
 )
+from math_spec.resolution import (
+    expression_of,
+    where_of,
+)
+from math_spec.typesetting.format import Entry, Glossary, Line
+from math_spec.typesetting.symbols import printed_expressions
 
 if TYPE_CHECKING:
     import datetime
@@ -464,23 +464,20 @@ class Walk:
 
     def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
         if isinstance(node, BooleanLiteralNode):
-            assert not node.value, 'resolution folds a True literal away before anything prints it'
+            assert not node.value, 'an always-true mask is folded away or refused before anything prints it'
             return self.op('false'), _ATOM
 
         if isinstance(node, ParameterDefinedNode):
-            block = self.schema.parameters[node.name]
-            indexed = ctx.indexed(self.symbols.name[node.name], list(block.dims))
-            if block.dtype == 'bool':
+            indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
+            if self.schema.parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
             return f'{indexed} {self.format.prose(" is defined")}', 2
 
         if isinstance(node, VariableDefinedNode):
-            dims = list(self.schema.variables[node.name].foreach)
-            return f'{ctx.indexed(self.symbols.name[node.name], dims)} {self.format.prose(" exists")}', 2
+            return f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}', 2
 
         if isinstance(node, ParameterComparisonNode):
-            dims = list(self.schema.parameters[node.name].dims)
-            left = ctx.indexed(self.symbols.name[node.name], dims)
+            left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             return f'{left} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
 
         if isinstance(node, DimensionComparisonNode):
@@ -519,10 +516,6 @@ class Walk:
             sides = [self.where(node.left, ctx, need=0), self.where(node.right, ctx, need=0)]
             return self.format.joined(sides, self.op('or')), 0
 
-        if isinstance(node, UnresolvedWhereNode):
-            msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'
-            raise AssertionError(msg)
-
         assert_never(node)
 
     def literal(self, value: float | str | datetime.date) -> str:
@@ -546,14 +539,14 @@ class Walk:
             size = self.format.subscript(size, [grouping])
         return f'{self.format.cardinality(size)} {self.op("minus")} {self.number(-at)}'
 
-    def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
+    def conjoined(self, ctx: _Context, *masks: Mask | None) -> str:
         """The mask on a quantifier, as one condition.
 
         A mask every row passes arrives as ``None`` — resolution folds it,
         so this prints what a program carries — and a quantifier with no
         condition prints none.
         """
-        kept = [n for n in nodes if n is not None]
+        kept = [mask.root for mask in masks if mask is not None]
         parts = [self.where(n, ctx, need=1 if len(kept) > 1 else 0) for n in kept]
         return self.format.joined(parts, self.op('and')) if parts else ''
 
