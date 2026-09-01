@@ -963,3 +963,14 @@ def test_an_expression_too_deep_to_walk_fails_as_a_language_error(patch, nests):
     """
     with pytest.raises(LanguageError, match='past the 100 levels'):
         to_spec(override(DISPATCH_MODEL, **patch))
+
+
+def test_a_name_may_open_with_an_underscore():
+    """`expressions.md` said a name opens with a letter while the schema and the grammar both admitted `_`, so the page refused what the language accepts."""
+    schema = to_spec(
+        override(
+            DISPATCH_MODEL, **{'parameters._reserve': {'dims': ['generator']}, 'variables.p.where': '_reserve > 0'}
+        )
+    )
+
+    assert '_reserve' in schema.parameters, 'a leading underscore is a name, as NAME and the schema both say'

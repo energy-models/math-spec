@@ -13,6 +13,7 @@ have caught it. So the blocks are generated, and this is what makes
 
 from __future__ import annotations
 
+import re
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -107,4 +108,25 @@ def test_a_card_body_is_indented_far_enough_to_stay_in_its_card(page: Path):
     shallow = [number for number, line in _card_bodies(page) if not line.startswith('    ')]
     assert not shallow, (
         f'{page.relative_to(ROOT)} lines {shallow}: a card body indented under four spaces leaves the list'
+    )
+
+
+def test_the_published_grammar_spells_a_name_the_way_the_code_reads_one():
+    """The page said a name opens with a letter; `NAME` has always admitted `_`, and `_x + 1` parsed.
+
+    The EBNF on that page is the language's published definition, and
+    `expression_parser.NAME` is the one the loader and the schema both apply —
+    `model.py` validates every declaration name against it. A page that refuses
+    what the language accepts is the drift this asks about; it went unnoticed
+    because nothing compared the two.
+    """
+    from math_spec.expression_parser import NAME
+
+    page = (ROOT / 'docs' / 'reference' / 'language' / 'expressions.md').read_text()
+    published = re.search(r'^NAME\s*::=\s*(.+)$', page, re.MULTILINE)
+    assert published is not None, 'the expressions page no longer publishes a NAME production'
+
+    assert published.group(1).strip() == NAME, (
+        f'docs/reference/language/expressions.md publishes NAME as {published.group(1).strip()!r}, '
+        f'and expression_parser.NAME is {NAME!r} — the page and the loader must spell a name the same way'
     )

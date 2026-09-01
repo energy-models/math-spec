@@ -17,7 +17,7 @@ unary_op    ::= "+" | "-"       binary_op ::= "+" | "-" | "*" | "/" | "**"
 COMPARATOR  ::= "<=" | ">=" | "=="
 function_call ::= NAME "(" [pos_arg ("," pos_arg)*] ["," kwarg ("," kwarg)*] ")"
 kwarg       ::= NAME "=" (arithmetic | QUOTED | "[" NAME ("," NAME)* "]")
-NAME        ::= [a-zA-Z][a-zA-Z0-9_]*
+NAME        ::= [a-zA-Z_][a-zA-Z0-9_]*
 NUMBER      ::= integer | float | "inf" | ".inf"
 ```
 
