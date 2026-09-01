@@ -5,8 +5,8 @@
 """Name resolution — the pass that makes the core AST fully typed.
 
 Parsers emit unresolved names; this module rewrites each into the typed node
-its kind asks for, so the AST reaching a consumer holds none. Done once here,
-every consumer scopes identically by construction. The rules live in the
+its kind asks for, so the tree the rest of the package reads holds none. Done
+once here, every reader scopes identically by construction. The rules live in the
 language reference; the namespace is flat, and macro formals are the one scope.
 """
 
@@ -181,15 +181,15 @@ class Namespace:
 
 
 # ---------------------------------------------------------------------------
-# the seam a consumer uses
+# the seam the rest of the package uses
 # ---------------------------------------------------------------------------
 
 
 def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ParsedNode:
-    """Parse, expand and resolve *text* — the only way a consumer gets an AST.
+    """Parse, expand and resolve *text* — the one path to a resolved spec-side tree.
 
-    ``validation.py`` runs the same path at load time, so a consumer calling
-    this gets a *typed* tree off a result already known to be clean, without
+    ``validation.py`` runs the same path at load time, so a later caller
+    gets a *typed* tree off a result already known to be clean, without
     duplicating the pass.
 
     Raises:

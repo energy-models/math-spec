@@ -96,7 +96,7 @@ def chosen_expressions(schema: _ExpandedSpec) -> frozenset[str]:
     A ``when`` does not move one: a variable there asks whether the variable
     *exists*, which the model settles when it is built. Only a value reaching a
     variable does — through a second cased expression's arms too, since
-    :func:`~math_spec.expression_of` expands those where the name stood.
+    :func:`~math_spec.resolution.expression_of` expands those where the name stood.
     """
     namespace = Namespace.of(schema)
     return frozenset(

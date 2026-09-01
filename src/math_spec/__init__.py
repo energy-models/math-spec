@@ -6,10 +6,10 @@
 
 Two public states — a :class:`~math_spec.model.Spec` is what the file *says*,
 a :class:`~math_spec.program.Program` is what it *means* — and a conversion to
-each. Everything between them is package-private: both grammars and the AST
-they build (``_expression_parser``, ``_where_parser``), because a consumer
-reads a program, whose vocabulary lives in ``program`` beside everything else
-it dispatches on. ``__all__`` is the public surface, pinned by
+each. The grammars and the AST they build are package-private
+(``_expression_parser``, ``_where_parser``), because a consumer reads a
+program, whose vocabulary lives in ``program`` beside everything else it
+dispatches on. ``__all__`` is the public surface, pinned by
 ``tests/test_public_surface.py``.
 """
 
