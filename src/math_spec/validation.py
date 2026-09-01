@@ -113,7 +113,7 @@ def validate_expressions(schema: Spec) -> None:
         context = f"Named expression '{ename}'"
         if not block.cases:
             assert block.expression is not None
-            _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=1)
+            _check_expression(block.expression, schema, ns, context, errors, comparison=False, check_degree=False)
             continue
         found = len(errors)
         masks: dict[str, WhereNode] = {}
@@ -121,9 +121,11 @@ def validate_expressions(schema: Spec) -> None:
             arm_context = case_context(ename, case_name)
             if (mask := _check_where(case.when, ns, arm_context, errors)) is not None:
                 masks[case_name] = mask
-            _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=1)
+            _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, check_degree=False)
         assert block.otherwise is not None
-        _check_expression(block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, ceiling=1)
+        _check_expression(
+            block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, check_degree=False
+        )
         if len(errors) == found:
             errors.extend(f'{context}: {problem}' for problem in overlapping(masks, schema))
 
@@ -157,9 +159,17 @@ def _check_expression(
     errors: list[str],
     *,
     comparison: bool,
-    ceiling: int,
+    ceiling: int = 1,
+    check_degree: bool = True,
 ) -> None:
-    """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171)."""
+    """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
+
+    ``check_degree`` is off for an ``expressions:`` entry's body: degree is a
+    rule about the position that *reads* the math, so it fires on the expanded
+    tree of every constraint, objective, bound, where and piecewise link, and
+    an entry's declaration only decides its grade
+    (:func:`math_spec.degree.is_postsolve_grade`).
+    """
     try:
         ast = parse_and_expand(expression, schema, context)
     except ValueError as e:
@@ -184,6 +194,8 @@ def _check_expression(
             f'is settled before the solve — no lane builds a row for it. Name the variable it should '
             f'bound, or drop the declaration and check the fact where the data is prepared.'
         )
+    if not check_degree:
+        return
     try:
         check_expression(resolved, context, ceiling=ceiling)
     except LanguageError as e:

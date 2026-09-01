@@ -14,7 +14,9 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
+from math_spec.lowering import to_program
 from math_spec.resolution import Namespace, where_of
+from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
 from math_spec.where_parser import DimensionPositionNode
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
@@ -25,6 +27,9 @@ if TYPE_CHECKING:
 
 def _schema(**patch) -> Spec:
     return to_spec(override(SMALL_MODEL, **patch))
+
+
+_NONLINEAR_ENTRY = {'expressions': {'bad': 'c / sum(p)'}}
 
 
 class TestValidateExpressions:
@@ -62,11 +67,6 @@ class TestValidateExpressions:
                 id='a-variable-under-a-power',
             ),
             pytest.param(
-                {'expressions': {'sq': 'p * p'}},
-                ("Named expression 'sq'", 'which is degree 2'),
-                id='a-quadratic-named-expression',
-            ),
-            pytest.param(
                 {'constraints': {'cap': {'foreach': ['g'], 'where': 'c >', 'expression': 'p <= c'}}},
                 ('Failed to parse where string',),
                 id='a-malformed-where-string',
@@ -101,6 +101,73 @@ class TestValidateExpressions:
         msg = str(exc_info.value)
         assert "'nope' not found" in msg
         assert 'exactly one comparison' in msg
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p <= bad'}}},
+                ("Constraint 'cap'", 'the divisor contains variables, which is not affine'),
+                id='constraint',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(bad)'}},
+                ('The objective', 'the divisor contains variables, which is not affine'),
+                id='objective',
+            ),
+        ],
+    )
+    def test_a_nonlinear_entry_is_refused_where_the_math_reads_it(self, patch, fragments):
+        """The refusal a nonlinear body once earned at its own declaration now fires where the math reads it.
+
+        `bad` (a variable divisor) loads on its own — its grade is decided, not
+        refused (see `TestExpressionGrade`). The constraint and the objective
+        read it and hit the divisor ban at their own ceiling, which is the whole
+        point of grading rather than banning at declaration. The piecewise-link
+        position is `test_a_link_reading_a_nonlinear_entry_is_refused`; a bound
+        and a where, which reference no expression at all, are
+        `test_a_bound_or_where_cannot_name_an_expression`.
+        """
+        with pytest.raises(LanguageError) as exc:
+            _schema(**_NONLINEAR_ENTRY, **patch)
+        for fragment in fragments:
+            assert fragment in str(exc.value)
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragment'),
+        [
+            pytest.param(
+                {'variables.p.bounds': {'lower': 'bad'}},
+                "'bad' is not a declared parameter",
+                id='bound',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'where': 'bad > 0', 'expression': 'p <= c'}}},
+                "'bad' not found",
+                id='where',
+            ),
+        ],
+    )
+    def test_a_bound_or_where_cannot_name_an_expression(self, patch, fragment):
+        """A bound and a where reference parameters/variables, never a named expression, so the name fails to resolve regardless of the entry's grade."""
+        with pytest.raises(LanguageError) as exc:
+            _schema(**_NONLINEAR_ENTRY, **patch)
+        assert fragment in str(exc.value)
+
+    def test_an_unreferenced_nonlinear_entry_loads_typesets_and_grades_postsolve(self):
+        """A nonlinear entry nothing reads is accepted, printed, and graded post-solve — the deliberate cost of grading over banning.
+
+        This is the C1 silent-typo case made visible instead of denied: a body
+        the math would refuse (here a variable divisor) is legal on its own
+        because it is arithmetic over solved numbers, so a typo that leaves it
+        unread is not caught by the loader. The language pays that cost openly —
+        the entry loads, appears in the typeset Post-solve section, and reports
+        its grade — rather than degree-checking a declaration nothing consumes.
+        """
+        model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
+        assert 'lcoe' in to_program(model).postsolve_names, 'the unread body is graded post-solve'
+        rendered = to_markdown(model)
+        assert 'Post-solve' in rendered and 'lcoe' in rendered, 'and it prints in the Post-solve section'
 
 
 class TestDimensionKwargs:

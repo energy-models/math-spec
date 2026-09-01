@@ -151,9 +151,11 @@ ConstraintSense = Literal['==', '<=', '>=']
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
 ObjectiveSense = Literal['minimize', 'maximize']
 
-#: Where a degree-2 product may stand. An objective and a constraint take
-#: ``variable * variable``; a bound, a named expression and a ``piecewise:``
-#: link are read affinely (``math_spec.degree``), so those are the two.
+#: Where a degree-2 product may stand in the math a solver sees. An objective
+#: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
+#: link are read affinely (``math_spec.degree``), so those are the two. A
+#: post-solve-grade entry (:attr:`Program.postsolve_names`) is not a position
+#: here: its body reaches no solver.
 QuadraticPosition = Literal['objective', 'constraint']
 
 #: The set form, for a consumer pinning its own table against the vocabulary:
@@ -247,9 +249,13 @@ class Multiply(Expression):
     """Product of two operands.
 
     Affine where at least one factor is variable-free. **Degree 2 where neither
-    is**, which the language allows in the objective alone
-    (``math_spec.degree``) — so a consumer that cannot represent a quadratic
-    term is told which position it is compiling rather than assuming it.
+    is**, which in the math a solver ingests the language allows in the
+    objective alone (``math_spec.degree``) — so a consumer that cannot
+    represent a quadratic term is told which position it is compiling rather
+    than assuming it. A node reached from a post-solve-grade entry
+    (:attr:`Program.postsolve_names`) carries no such bound: that body may
+    multiply any number of variables, the degree rules lifting for arithmetic
+    nothing ingests.
     """
 
     left: ExpressionNode
@@ -258,12 +264,16 @@ class Multiply(Expression):
 
 @dataclass(frozen=True)
 class Power(Expression):
-    """``base ** exponent``, both variable-free.
+    """``base ** exponent``.
 
-    Degree 0 in variables wherever it appears, so no consumer has to ask what
-    position it stands in: the language refuses a variable anywhere under it
-    (``math_spec.degree``), which is what lets this fold to one number per
-    coordinate like any other parameter arithmetic.
+    In the math a solver ingests, both sides are variable-free: the language
+    refuses a variable anywhere under it (``math_spec.degree``), so wherever
+    it appears in the program a solver sees it is degree 0 and folds to one
+    number per coordinate like any other parameter arithmetic. A node reached
+    from a post-solve-grade entry (:attr:`Program.postsolve_names`) carries no
+    such guarantee — that body may raise to a variable exponent
+    (``growth ** spare``), the degree rules lifting for arithmetic nothing
+    ingests.
     """
 
     base: ExpressionNode
@@ -272,7 +282,14 @@ class Power(Expression):
 
 @dataclass(frozen=True)
 class Divide(Expression):
-    """Quotient ``numerator / divisor``. The divisor must be variable-free."""
+    """Quotient ``numerator / divisor``.
+
+    In the math a solver ingests, the divisor is variable-free
+    (``math_spec.degree``). A node reached from a post-solve-grade entry
+    (:attr:`Program.postsolve_names`) carries no such guarantee — that body
+    may divide by a variable (``sum(p * cost) / sum(p)``), the degree rules
+    lifting for arithmetic nothing ingests.
+    """
 
     numerator: ExpressionNode
     divisor: ExpressionNode
@@ -859,6 +876,13 @@ class Program:
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     named_expressions: Mapping[str, ExpressionNode] = MappingProxyType({})
+    #: The entries of :attr:`named_expressions` whose body is post-solve grade
+    #: (:func:`math_spec.degree.is_postsolve_grade`): arithmetic over solved
+    #: numbers, readable only after a solve, carrying none of the degree
+    #: guarantees the math holds — a variable divisor or exponent, a product
+    #: above degree 2. The math a solver sees never reads one, the degree rules
+    #: at every reading position having refused it at load.
+    postsolve_names: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to.

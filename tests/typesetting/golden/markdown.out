@@ -232,3 +232,9 @@ $$0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\
 **`weight sos`**
 
 $$\left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\thinspace t \in \mathcal{T}$$
+
+#### Post-solve
+
+**`lcoe`**
+
+$$\mathit{lcoe} = \frac{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g}}$$

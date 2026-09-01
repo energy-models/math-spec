@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from math_spec._yaml import read_yaml
-from math_spec.degree import carries_variable
+from math_spec.degree import carries_variable, is_postsolve_grade
 from math_spec.errors import SchemaError, did_you_mean
 from math_spec.resolution import Namespace, expression_of
 
@@ -89,6 +89,23 @@ def printed_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
     return tuple(name for name, block in schema.expressions.items() if block.cases)
 
 
+def postsolve_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
+    """The entries graded post-solve, in declaration order — the Post-solve section's rows.
+
+    Graded on the resolved, expanded body
+    (:func:`math_spec.degree.is_postsolve_grade`), the same predicate lowering
+    asks, so the page and the program cannot come to disagree about a body. A
+    cased entry is not here whatever its grade: it prints as the definition
+    block :func:`printed_expressions` already places.
+    """
+    namespace = Namespace.of(schema)
+    return tuple(
+        name
+        for name, block in schema.expressions.items()
+        if not block.cases and is_postsolve_grade(expression_of(name, schema, namespace, f"named expression '{name}'"))
+    )
+
+
 def chosen_expressions(schema: _ExpandedSpec) -> frozenset[str]:
     """The cased expressions the solver decides, rather than is handed.
 
@@ -141,8 +158,9 @@ class Symbols:
             )
             raise SchemaError(msg)
         printed = printed_expressions(schema)
-        chosen = frozenset(schema.variables) | chosen_expressions(schema)
-        names = (*schema.parameters, *schema.variables, *printed)
+        postsolve = postsolve_expressions(schema)
+        chosen = frozenset(schema.variables) | chosen_expressions(schema) | frozenset(postsolve)
+        names = (*schema.parameters, *schema.variables, *printed, *postsolve)
         declared = frozenset(names)
 
         #: Names whose symbol came from the table rather than the derivation;
@@ -263,7 +281,13 @@ class SymbolTable:
     def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
-        everything = dims | set(schema.parameters) | set(schema.variables) | set(printed_expressions(schema))
+        everything = (
+            dims
+            | set(schema.parameters)
+            | set(schema.variables)
+            | set(printed_expressions(schema))
+            | set(postsolve_expressions(schema))
+        )
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),

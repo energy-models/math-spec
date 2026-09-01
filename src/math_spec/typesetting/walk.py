@@ -37,7 +37,7 @@ from math_spec.resolution import (
     where_of,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line
-from math_spec.typesetting.symbols import printed_expressions
+from math_spec.typesetting.symbols import postsolve_expressions, printed_expressions
 from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
@@ -688,6 +688,34 @@ class Walk:
             lines.append(Line(label=name, left=left, right=right, condition=condition))
             if name in sets:
                 lines.append(self._sos(name, sets[name], ctx))
+        return lines
+
+    def postsolve(self) -> list[Line]:
+        """One line per post-solve-grade entry — a derived quantity equated to its body.
+
+        A post-solve entry *defines* a value, so it prints as ``symbol = body``:
+        the right side says what the left is, which is why it needs no legend
+        entry the way a variable does. The symbol is derived like a variable's,
+        italic for a quantity the model computes rather than is given, and
+        subscripted by the dims its body carries. A math-grade entry prints
+        nothing here — it is inlined wherever it is read, exactly as every
+        entry is in the equations above.
+        """
+        lines = []
+        for name in postsolve_expressions(self.schema):
+            context = f"named expression '{name}'"
+            node = expression_of(name, self.schema, self.namespace, context)
+            assert not isinstance(node, ComparisonNode), f'{context}: a named body is arithmetic, not a comparison'
+            dims = self._sorted(dims_of(node, self.schema, context))
+            ctx = self.context(frame=dims)
+            lines.append(
+                Line(
+                    label=name,
+                    left=ctx.indexed(self.symbols.name[name], dims),
+                    right=f'{self.op("equal")} {self.arithmetic(node, ctx)}',
+                    condition=self.quantifier(dims, ''),
+                )
+            )
         return lines
 
     def _sos(self, name: str, block: SosBlock, ctx: _Context) -> Line:
