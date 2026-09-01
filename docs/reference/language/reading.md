@@ -110,8 +110,11 @@ leaves, connectives removed; and `.dims` the dimensions it is read at — read
 off the leaves, which resolution stamped with their declarations' dims the way
 a lookup leaf carries the dimension it maps out of. So a predicate a consumer
 builds from resolved pieces answers exactly as a declaration's own does: wrap
-it in `Mask`, or build it there — `.negated()` cancels a double negation
-rather than stacking one, and `&` joins two masks under one `AND`. A consumer
+it in `Mask`, or build it there — `.negated()` cancels a double negation and
+flips a literal root rather than stacking a `NOT`, and `&` joins two masks
+under one `AND`, a `False` root dominating and a `True` root absorbed — so a
+boolean literal stands at a mask's root or nowhere, derived or carried alike.
+A consumer
 asks the mask rather than re-deriving any of these from `.root`, so two cannot
 come to disagree about what a conjunct, a name or a comparison is. A
 `Region`'s `when` arrives in the same carrier, and the node classes a `.root`

@@ -74,7 +74,7 @@ def _none_of(masks: list[program.Mask]) -> program.Mask:
     remainder = masks[0].negated()
     for mask in masks[1:]:
         remainder = remainder & mask.negated()
-    return program.Mask(_fold(remainder.root))
+    return remainder
 
 
 def _mask(

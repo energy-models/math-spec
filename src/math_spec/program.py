@@ -39,10 +39,13 @@ the language answers about it carried beside it — one home, so two consumers
 cannot come to disagree about what a comparison is or which dims a mask
 restricts. Its literals are already decided: a mask admitting every row
 arrives as ``None`` and one admitting none with ``BooleanLiteralNode(False)``
-as its root — except a :class:`Region`'s ``when``, which cannot be absent and
-so carries an always-true literal at its root instead. Either way a boolean
-literal stands at the root of a mask or nowhere in it, and no consumer needs
-a constant folder of its own to agree with the others about which rows exist.
+as its root — except a :class:`Region`'s ``when``, which cannot be absent,
+and a mask derived by :meth:`Mask.negated` or ``&``, whose algebra is total
+over masks: each carries an always-true literal at its root instead. Either
+way a boolean literal stands at the root of a mask or nowhere in it — the
+algebra flips and absorbs literals rather than burying one — and no consumer
+needs a constant folder of its own to agree with the others about which rows
+exist.
 
 The declaration vocabularies are the language's own for the same reason
 (:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
@@ -1333,14 +1336,25 @@ class Mask:
         return frozenset(dim for atom in _atoms(self.root) for dim in _atom_dims(atom))
 
     def negated(self) -> Mask:
-        """The mask admitting exactly the rows this one refuses, a double negation cancelled.
+        """The mask admitting exactly the rows this one refuses, folded.
 
         ``not (not committable)`` is a term every consumer would evaluate
         twice to reach the answer it started from, so the fold lives here,
-        once.
+        once. A literal root flips its value rather than gaining a ``NOT``,
+        so a literal stays at the root or nowhere.
         """
+        if isinstance(self.root, BooleanLiteralNode):
+            return Mask(BooleanLiteralNode(not self.root.value))
         return Mask(self.root.operand) if isinstance(self.root, NotNode) else Mask(NotNode(self.root))
 
     def __and__(self, other: Mask) -> Mask:
-        """Both masks at once — the roots joined under one ``AND``."""
+        """Both masks at once — the roots joined under one ``AND``, literals absorbed.
+
+        A ``False`` root dominates and a ``True`` root is the other side, so
+        the conjunction never buries a literal under the ``AND``.
+        """
+        if isinstance(self.root, BooleanLiteralNode):
+            return other if self.root.value else self
+        if isinstance(other.root, BooleanLiteralNode):
+            return self if other.root.value else other
         return Mask(AndNode(self.root, other.root))

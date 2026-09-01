@@ -332,6 +332,43 @@ def test_negating_a_mask_cancels_a_double_negation():
     assert Mask(NotNode(x)).negated() == Mask(x), 'a negation is cancelled, not stacked'
 
 
+def test_the_mask_algebra_folds_a_literal_at_the_root():
+    """`negated` flips a literal and `&` absorbs one, so a derived mask keeps the root invariant.
+
+    Lowering's own remainder hits this: a `when: 'False'` arm is legal — it
+    overlaps nothing, so exclusivity passes — and an unfolded algebra built
+    `NOT False AND …`, an embedded literal the module contract says no
+    consumer should need a folder for.
+    """
+    x = ParameterDefinedNode('committable', ('g',))
+    empty, every = Mask(BooleanLiteralNode(False)), Mask(BooleanLiteralNode(True))
+
+    assert empty.negated() == every, 'the empty mask negated admits every row, with no NOT stacked'
+    assert every.negated() == empty, 'and back again'
+    assert empty & Mask(x) == empty, 'a False root dominates the conjunction'
+    assert Mask(x) & empty == empty, 'from either side'
+    assert every & Mask(x) == Mask(x), 'a True root is the other side'
+    assert Mask(x) & every == Mask(x), 'from either side too'
+
+
+def test_a_never_true_case_arm_adds_nothing_to_the_remainder():
+    """`when: 'False'` is legal — it overlaps nothing — and the remainder ignores it."""
+    schema = schema_of(
+        CASED,
+        **{
+            'expressions.previous.cases': {
+                'never': {'when': 'False', 'expression': 1},
+                'on': {'when': 'committable', 'expression': 'initial'},
+            },
+        },
+    )
+    *_, remainder = _cases_in(lower_program(expand_piecewise(schema))).regions
+
+    assert remainder.when == Mask(NotNode(ParameterDefinedNode('committable', ('g',)))), (
+        'NOT False folds away rather than standing in the conjunction'
+    )
+
+
 def test_a_mask_over_an_unresolved_tree_refuses_to_answer():
     """`parse_where` output is typed as resolved, but its leaves are not — and `Mask` is not where that gets fixed.
 
