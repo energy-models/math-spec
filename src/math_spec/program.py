@@ -90,7 +90,6 @@ __all__ = [
     'BooleanLiteralNode',
     'Cases',
     'Check',
-    'ComparisonOperator',
     'ConnectiveWhereNode',
     'Constant',
     'ConstraintDeclaration',
@@ -180,7 +179,6 @@ QuadraticPosition = Literal['objective', 'constraint']
 #: ``QUADRATIC_POSITIONS <= handled`` is how one says it covers every position
 #: and hears about it when the language admits another.
 QUADRATIC_POSITIONS = frozenset(get_args(QuadraticPosition))
-ComparisonOperator = Literal['==', '!=', '<=', '>=', '<', '>']
 
 #: What a dimension's labels are — the language's own vocabulary
 #: (:data:`~math_spec.model.DimensionDtype`), under the name a consumer reads
