@@ -364,6 +364,22 @@ def test_mask_construction_folds_so_a_literal_stands_at_the_root_or_nowhere():
     assert Mask(x) | every == every, 'a True root dominates the OR'
 
 
+def test_a_held_leaf_walk_is_taken_after_the_fold_absorbed_a_branch():
+    """`atoms` is held from construction, and construction folds first — so the fold's losses are not in it.
+
+    The fold does not only rearrange: `x AND False` drops `x`'s leaf
+    entirely. A walk held before it would answer that mask with a leaf the
+    root no longer carries, and `dims` and `names_read` read the same held
+    walk — three answers wrong at once, for a mask admitting no row at all.
+    """
+    absorbed = Mask(AndNode(BooleanLiteralNode(False), ParameterDefinedNode('committable', ('g',))))
+
+    assert absorbed.root == BooleanLiteralNode(False), 'the False side dominates the AND at the door'
+    assert absorbed.atoms == (), 'the absorbed leaf is not among them'
+    assert absorbed.names_read == frozenset(), 'nor named'
+    assert absorbed.dims == frozenset(), 'nor read at any dim'
+
+
 def test_a_mask_over_an_unresolved_tree_is_refused_at_construction():
     """`parse_where` output is typed as resolved, but its leaves are not — and `Mask` is not where that gets fixed.
 
