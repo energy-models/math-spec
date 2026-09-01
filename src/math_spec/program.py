@@ -1350,8 +1350,18 @@ class Mask:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, 'root', _fold(self.root))
-        # building the tuple is the refusal: the walk raises on an unresolved leaf
+        # holding the tuple is the refusal, and the fold above has to have run:
+        # it drops the leaves of a branch a literal absorbed
         _ = self.atoms
+
+    @cached_property
+    def atoms(self) -> tuple[TypedPredicateNode, ...]:
+        """The mask's leaves, connectives removed — the one walk the other questions read.
+
+        Held rather than re-walked: construction takes this walk anyway, to
+        refuse an unresolved tree, and a mask cannot change afterwards.
+        """
+        return tuple(_atoms(self.root))
 
     @property
     def conjuncts(self) -> tuple[WhereNode, ...]:
@@ -1361,12 +1371,7 @@ class Mask:
     @property
     def names_read(self) -> frozenset[str]:
         """The parameters, lookups and variables the mask names."""
-        return frozenset(name for atom in _atoms(self.root) for name in _atom_names(atom))
-
-    @property
-    def atoms(self) -> tuple[TypedPredicateNode, ...]:
-        """The mask's leaves, connectives removed."""
-        return tuple(_atoms(self.root))
+        return frozenset(name for atom in self.atoms for name in _atom_names(atom))
 
     @property
     def dims(self) -> frozenset[str]:
@@ -1376,7 +1381,7 @@ class Mask:
         resolution stamped with their declarations' dims, so a predicate built
         from resolved pieces answers exactly as a declaration's own does.
         """
-        return frozenset(dim for atom in _atoms(self.root) for dim in _atom_dims(atom))
+        return frozenset(dim for atom in self.atoms for dim in _atom_dims(atom))
 
     def __invert__(self) -> Mask:
         """The mask admitting exactly the rows this one refuses — construction folds a double negation or a literal flip."""
