@@ -64,6 +64,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
 from math_spec.errors import did_you_mean
+from math_spec.where_parser import AndNode
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -126,6 +127,7 @@ __all__ = [
     'carries_variable',
     'check_message',
     'children',
+    'conjuncts',
     'divisor_parameters',
     'fan_in',
     'is_quadratic',
@@ -997,3 +999,19 @@ def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
     rows a declaration builds.
     """
     return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
+
+
+def conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
+    """The predicates a mask joins with ``AND``, its ``AND`` spine flattened.
+
+    ``a AND b AND c`` gives three, and a mask that is not an ``AND`` gives
+    itself. The walk stops at the first node that is not an ``AND``: the
+    conjuncts of ``a AND (b OR c)`` are ``a`` and ``b OR c``, and of
+    ``NOT (a AND b)`` the single ``NOT`` — neither an ``OR`` nor a ``NOT`` is a
+    claim the mask makes on its own, so neither is split. A consumer asks the
+    split here rather than re-deriving it, so two cannot disagree on what a
+    conjunct is.
+    """
+    if isinstance(where, AndNode):
+        return conjuncts(where.left) + conjuncts(where.right)
+    return (where,)

@@ -103,7 +103,10 @@ means the caller binds it.
 dispatched on with `isinstance` and read, which is why what ships beside them
 is the walk (`children()`) and not builders. A mask is the language's own
 resolved `where` node rather than a second set spelling the same predicates —
-one home, so the two cannot come to disagree about what a comparison is.
+one home, so the two cannot come to disagree about what a comparison is. What it
+joins with `AND` is read with `conjuncts()`, which flattens the `AND` spine and
+stops at an `OR` or a `NOT`, so a consumer asking which predicates a mask makes
+one at a time never re-derives the split.
 
 ## Asking what a program uses
 
