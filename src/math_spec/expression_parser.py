@@ -16,6 +16,7 @@ position (operands, args, kwargs) accepts it and nothing else, and
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import pyparsing as pp
@@ -23,6 +24,8 @@ import pyparsing as pp
 from math_spec.errors import SchemaError
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from math_spec.program import WhereNode
 
 ComparisonOperator = Literal['<=', '>=', '==']
@@ -32,12 +35,12 @@ ComparisonOperator = Literal['<=', '>=', '==']
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class NumberNode:
     value: float
 
 
-@dataclass
+@dataclass(frozen=True)
 class NameNode:
     """An unresolved token — a name whose *kind* is not yet known.
 
@@ -50,21 +53,21 @@ class NameNode:
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class VariableNode:
     """A resolved reference to a declared decision variable."""
 
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParameterNode:
     """A resolved reference to a declared parameter."""
 
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class DimensionNode:
     """A resolved reference to a declared dimension.
 
@@ -75,7 +78,7 @@ class DimensionNode:
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class NameListNode:
     """A bracketed list of names in a kwarg value — ``sum(x, by=[a, b])``.
 
@@ -90,7 +93,7 @@ class NameListNode:
         return shown(self.names)
 
 
-@dataclass
+@dataclass(frozen=True)
 class LookupNode:
     """A resolved reference to one or more declared lookups, legal only in a kwarg value.
 
@@ -109,7 +112,7 @@ class LookupNode:
         return shown(self.names)
 
 
-@dataclass
+@dataclass(frozen=True)
 class KeywordNode:
     """A quoted closed keyword in a kwarg value — ``shift(..., edge='wrap')``.
 
@@ -119,7 +122,7 @@ class KeywordNode:
     value: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class EdgeNode:
     """A resolved edge policy, legal only as an ``edge=`` value.
 
@@ -130,27 +133,39 @@ class EdgeNode:
     policy: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class UnaryOperatorNode:
     op: str
     operand: ArithmeticNode
 
 
-@dataclass
+@dataclass(frozen=True)
 class BinaryOperatorNode:
     op: str
     left: ArithmeticNode
     right: ArithmeticNode
 
 
-@dataclass
+@dataclass(frozen=True)
 class FunctionCallNode:
+    """An operator or macro call — like every node, unrewritable once built.
+
+    ``kwargs`` is copied behind a read-only view at construction, so neither a
+    holder of the mapping passed in nor a reader of the node can rewrite an
+    argument under another pass; it is excluded from the hash because a
+    mapping has none, which is lawful — equal nodes still hash equal on
+    ``name`` and ``args``.
+    """
+
     name: str
-    args: list[ArithmeticNode] = field(default_factory=list)
-    kwargs: dict[str, ArithmeticNode] = field(default_factory=dict)
+    args: tuple[ArithmeticNode, ...] = ()
+    kwargs: Mapping[str, ArithmeticNode] = field(default_factory=dict, hash=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, 'kwargs', MappingProxyType(dict(self.kwargs)))
 
 
-@dataclass
+@dataclass(frozen=True)
 class CaseArm:
     """One region of a :class:`CasesNode`: where it applies, and the value there.
 
@@ -184,7 +199,7 @@ def case_context(name: str, label: str | None) -> str:
     return f"Named expression '{name}', {where}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CasesNode:
     """A value defined by region — a named expression's ``cases:``, inlined.
 
@@ -221,7 +236,7 @@ ArithmeticNode = (
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ComparisonNode:
     op: ComparisonOperator
     left: ArithmeticNode
@@ -352,7 +367,7 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
             kwargs[k] = v
         else:
             args.append(item)
-    return FunctionCallNode(name=name, args=args, kwargs=kwargs)
+    return FunctionCallNode(name=name, args=tuple(args), kwargs=kwargs)
 
 
 def _make_left_assoc(tokens: pp.ParseResults) -> Any:

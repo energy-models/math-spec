@@ -338,7 +338,7 @@ def _resolve_arith(
         shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
         if shape_error is not None:
             errors.append(f'{context}: {shape_error}')
-        args = [_resolve_arith(a, ns, context, errors) for a in node.args]
+        args = tuple(_resolve_arith(a, ns, context, errors) for a in node.args)
         kwargs: dict[str, ArithmeticNode] = {}
         for key, value in node.kwargs.items():
             if key in builtin.edge_kwargs:
