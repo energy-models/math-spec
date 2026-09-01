@@ -202,9 +202,11 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
 
     ``None`` for no mask, however the file spelled it: :func:`resolve_where`
     folds, so a mask that admits every row is dropped here and one that admits
-    none arrives as a mask over ``BooleanLiteralNode(False)``. A ``Mask`` is
-    the only shape a resolved where travels in past resolution, so every
-    reader — a program, a typeset page — gets the same predicate.
+    none arrives as a mask over ``BooleanLiteralNode(False)``. Every mask a
+    :class:`~math_spec.program.Program` carries comes through here or through
+    :func:`_arm_when`, whose node lowering wraps — so a consumer meets a
+    resolved where only as a ``Mask``, and every reader of one — a program, a
+    typeset page — gets the same predicate.
 
     Raises:
         LanguageError: Listing every problem the predicate has.
@@ -221,15 +223,18 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
     return Mask(resolved)
 
 
-def _arm_mask(
+def _arm_when(
     when: WhereNode | UnresolvedWhereNode | None, ns: Namespace, context: str, errors: list[str]
 ) -> WhereNode | None:
-    """A case arm's mask through :func:`resolve_where` — a literal kept rather than dropped.
+    """A case arm's resolved ``when`` through :func:`resolve_where` — a literal kept rather than dropped.
 
-    ``where_of`` drops an always-true declaration mask to ``None``, but a
-    ``None`` ``when`` on an arm *means* the ``otherwise`` arm, so the folded
-    literal survives here — for validation to refuse with its rewrite, since
-    an arm the data cannot decide is not a case.
+    A node rather than a :class:`~math_spec.program.Mask`: an arm belongs to
+    the AST between resolution and lowering, and lowering is what wraps it into
+    the :class:`~math_spec.program.Region` a consumer reads. ``where_of`` drops
+    an always-true declaration mask to ``None``, but a ``None`` ``when`` on an
+    arm *means* the ``otherwise`` arm, so the folded literal survives here —
+    for validation to refuse with its rewrite, since an arm the data cannot
+    decide is not a case.
     """
     return None if when is None else resolve_where(when, ns, context, errors, None)
 
@@ -371,7 +376,7 @@ def _resolve_arith(
         arms = []
         for arm in node.arms:
             arm_context = case_context(node.name, None if arm.when is None else arm.label)
-            when = _arm_mask(arm.when, ns, arm_context, errors)
+            when = _arm_when(arm.when, ns, arm_context, errors)
             arms.append(CaseArm(arm.label, when, _resolve_arith(arm.value, ns, arm_context, errors)))
         return CasesNode(node.name, tuple(arms))
 

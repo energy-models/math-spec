@@ -270,8 +270,9 @@ def _subject_of(node: WhereNode) -> Subject | None:
         case LookupPairComparisonNode(name=name, other=other):
             return Subject('lookup_pair', name, other)
         case _:
-            # As in `dimensions.py` and the typesetter: an unresolved node here
-            # is a caller that skipped `resolve_where`, not a model to refuse.
+            # As in `program._atoms`, which `Mask` exhausts at construction: an
+            # unresolved node here is a caller that skipped `resolve_where`,
+            # not a model to refuse.
             msg = f'{type(node).__name__} reached the exclusivity check unresolved.'
             raise AssertionError(msg)
 
