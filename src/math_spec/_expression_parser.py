@@ -2,11 +2,13 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""pyparsing-based expression parser for math expressions.
+"""pyparsing-based parser for expression strings — grammar and the spec-side AST, package-private.
 
-Parses strings like ``sum(p * cost, over=generator) == load`` into an AST
-that can be evaluated against a namespace of linopy variables and xarray
-parameters.
+Parses strings like ``sum(p * cost, over=generator) == load`` into an AST,
+whose name leaves resolution then retypes in place. No consumer parses an
+expression string — the front door is ``to_spec``, and what a consumer reads
+is a program, whose own expression vocabulary lives in
+:mod:`math_spec.program`.
 
 ``ArithmeticNode`` is the arithmetic-only union: every nested expression
 position (operands, args, kwargs) accepts it and nothing else, and
@@ -253,7 +255,11 @@ class ComparisonNode:
     right: ArithmeticNode
 
 
-ExpressionNode = ArithmeticNode | ComparisonNode
+#: A whole spec-side expression tree — parse output, and the resolved tree
+#: resolution rebuilds over the same classes. Named apart from
+#: :data:`math_spec.program.ExpressionNode`, the lowered vocabulary a
+#: consumer reads.
+ParsedNode = ArithmeticNode | ComparisonNode
 
 
 def shown(names: tuple[str, ...]) -> str:
@@ -282,7 +288,7 @@ LeafNode = NumberNode | VariableNode | ParameterNode | KwargNode | UnresolvedNod
 BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode | CasesNode
 
 
-def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
+def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
     """The sub-expressions of *node* — the structural half of any walk.
 
     Every pass that recurses the whole tree and acts only at certain leaves
@@ -435,7 +441,7 @@ def _named_rewrite(text: str, loc: int) -> str | None:
     return None
 
 
-def parse_expression(text: str) -> ExpressionNode:
+def parse_expression(text: str) -> ParsedNode:
     """Parse a math expression string into an AST.
 
     Raises:
@@ -451,4 +457,4 @@ def parse_expression(text: str) -> ExpressionNode:
         hint = f'{rewrite}\n' if rewrite is not None else ''
         msg = f'Failed to parse expression: {text!r}\n{hint}{e}'
         raise SchemaError(msg) from e
-    return cast('ExpressionNode', result[0])
+    return cast('ParsedNode', result[0])

@@ -16,6 +16,28 @@ import datetime
 import re
 from typing import TYPE_CHECKING, Literal, assert_never, cast
 
+from math_spec._expression_parser import (
+    ArithmeticNode,
+    BinaryOperatorNode,
+    CaseArm,
+    CasesNode,
+    ComparisonNode,
+    DimensionNode,
+    EdgeNode,
+    FunctionCallNode,
+    KeywordNode,
+    KwargNode,
+    LookupNode,
+    NameListNode,
+    NameNode,
+    NumberNode,
+    ParameterNode,
+    ParsedNode,
+    UnaryOperatorNode,
+    VariableNode,
+    case_context,
+    shown,
+)
 from math_spec._where_parser import (
     UnresolvedComparisonNode,
     UnresolvedNameNode,
@@ -25,28 +47,6 @@ from math_spec._where_parser import (
 )
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
-from math_spec.expression_parser import (
-    ArithmeticNode,
-    BinaryOperatorNode,
-    CaseArm,
-    CasesNode,
-    ComparisonNode,
-    DimensionNode,
-    EdgeNode,
-    ExpressionNode,
-    FunctionCallNode,
-    KeywordNode,
-    KwargNode,
-    LookupNode,
-    NameListNode,
-    NameNode,
-    NumberNode,
-    ParameterNode,
-    UnaryOperatorNode,
-    VariableNode,
-    case_context,
-    shown,
-)
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
     BUILTINS,
@@ -185,7 +185,7 @@ class Namespace:
 # ---------------------------------------------------------------------------
 
 
-def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ExpressionNode:
+def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ParsedNode:
     """Parse, expand and resolve *text* — the only way a consumer gets an AST.
 
     ``validation.py`` runs the same path at load time, so a consumer calling
@@ -251,11 +251,11 @@ def _arm_when(
 
 
 def resolve_expression(
-    node: ExpressionNode,
+    node: ParsedNode,
     ns: Namespace,
     context: str,
     errors: list[str],
-) -> ExpressionNode | None:
+) -> ParsedNode | None:
     """Rewrite every ``NameNode`` under *node* to a typed node.
 
     Operator *call shapes* are checked here too (``operators.call_shape_error``).
@@ -269,7 +269,7 @@ def resolve_expression(
     """
     before = len(errors)
     if isinstance(node, ComparisonNode):
-        resolved: ExpressionNode = ComparisonNode(
+        resolved: ParsedNode = ComparisonNode(
             node.op,
             _resolve_arith(node.left, ns, context, errors),
             _resolve_arith(node.right, ns, context, errors),

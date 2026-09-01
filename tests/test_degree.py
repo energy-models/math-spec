@@ -13,8 +13,8 @@ from __future__ import annotations
 import pytest
 
 from math_spec import LanguageError
+from math_spec._expression_parser import NameNode
 from math_spec.degree import carries_variable, check_binary, check_expression, is_quadratic
-from math_spec.expression_parser import NameNode
 from math_spec.resolution import Namespace, expression_of
 from tests.fixtures import SMALL_MODEL, schema_of
 

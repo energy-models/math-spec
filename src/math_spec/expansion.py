@@ -13,21 +13,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, assert_never, overload
 
-from math_spec._where_parser import parse_where
-from math_spec.errors import SchemaError
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     CaseArm,
     CasesNode,
     ComparisonNode,
-    ExpressionNode,
     FunctionCallNode,
     LeafNode,
     NameNode,
+    ParsedNode,
     UnaryOperatorNode,
     parse_expression,
 )
+from math_spec._where_parser import parse_where
+from math_spec.errors import SchemaError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from math_spec.model import ExpressionBlock, MacroBlock, Spec
 
 
-def parse_and_expand(text: str, schema: Spec, context: str = 'expression') -> ExpressionNode:
+def parse_and_expand(text: str, schema: Spec, context: str = 'expression') -> ParsedNode:
     """Parse *text* and expand named sub-expressions and macros to core AST."""
     return expand(parse_expression(text), schema, context)
 
@@ -51,8 +51,8 @@ def expand(
 
 
 def expand(
-    node: ExpressionNode, schema: Spec, context: str = 'expression', *, shadow: frozenset[str] = frozenset()
-) -> ExpressionNode:
+    node: ParsedNode, schema: Spec, context: str = 'expression', *, shadow: frozenset[str] = frozenset()
+) -> ParsedNode:
     """Expand all named sub-expressions and macro calls under *node*.
 
     Expansion never changes the shape of the root: a comparison stays a

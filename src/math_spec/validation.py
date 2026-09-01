@@ -9,13 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, assert_never
 
-from math_spec._yaml import read_yaml
-from math_spec.degree import carries_variable, check_expression
-from math_spec.dimensions import check_schema
-from math_spec.errors import LanguageError, SchemaError
-from math_spec.exclusivity import overlapping
-from math_spec.expansion import expand, parse_and_expand, parse_template
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     CasesNode,
@@ -31,6 +25,12 @@ from math_spec.expression_parser import (
     VariableNode,
     case_context,
 )
+from math_spec._yaml import read_yaml
+from math_spec.degree import carries_variable, check_expression
+from math_spec.dimensions import check_schema
+from math_spec.errors import LanguageError, SchemaError
+from math_spec.exclusivity import overlapping
+from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
 from math_spec.program import BooleanLiteralNode

@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pyparsing as pp
 
+from math_spec._expression_parser import NAME, REAL
 from math_spec.errors import SchemaError
-from math_spec.expression_parser import NAME, REAL
 from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode
 
 if TYPE_CHECKING:
@@ -73,7 +73,7 @@ class UnresolvedPositionNode:
 
 #: What resolution rewrites away on the where side — the three nodes whose
 #: left-hand side is still a name the schema has not been asked about. The
-#: expression side has :data:`~math_spec.expression_parser.UnresolvedNode` for
+#: expression side has :data:`~math_spec._expression_parser.UnresolvedNode` for
 #: the same reason, and a pass meeting either ran before resolution.
 UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedPositionNode
 
