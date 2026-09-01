@@ -101,14 +101,14 @@ means the caller binds it.
 
 **Nothing here is built by hand.** The program's nodes are exported to be
 dispatched on with `isinstance` and read, which is why what ships beside them
-is the walk (`children()`) and not builders. A mask is the language's own
-resolved `where` node rather than a second set spelling the same predicates —
-one home, so the two cannot come to disagree about what a comparison is. What it
-joins with `AND` is read with `conjuncts()`, which flattens the `AND` spine and
-stops at an `OR` or a `NOT`, so a consumer asking which predicates a mask makes
-one at a time never re-derives the split. Which declarations those predicates
-name is `names_read()`, and which dimensions they are read at `dims_read()` — a
-mask asked what it reads rather than each consumer walking its leaves.
+is the walk (`children()`) and not builders. A mask is `Mask`: the language's
+own resolved `where` as its `.root` — the node an engine still dispatches on
+with `isinstance` — and the questions asked of it carried beside it, the way a
+dimension carries `.maps`. `.conjuncts` flattens the `AND` spine and stops at an
+`OR` or a `NOT`; `.names_read` gives the declarations the mask names, and
+`.dims_read` the dimensions it is read at. A consumer asks the mask rather than
+re-deriving any of these from `.root`, so two cannot come to disagree about what
+a conjunct, a name or a comparison is.
 
 ## Asking what a program uses
 

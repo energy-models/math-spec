@@ -64,12 +64,12 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
 from math_spec.errors import did_you_mean
-from math_spec.where_parser import AndNode
+from math_spec.where_parser import AndNode, atoms, dims_read, names_read
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
-    from math_spec.where_parser import WhereNode
+    from math_spec.where_parser import TypedPredicateNode, WhereNode
 
 
 #: What ``math_spec.program`` promises. The package's ``__all__`` exports this
@@ -103,6 +103,7 @@ __all__ = [
     'Increasing',
     'LastOf',
     'LookupDeclaration',
+    'Mask',
     'MaskOf',
     'Multiply',
     'Negate',
@@ -727,7 +728,7 @@ class ParameterDeclaration:
 @dataclass(frozen=True)
 class VariableDeclaration:
     dims: tuple[str, ...]
-    where: WhereNode | None = None
+    where: Mask | None = None
     lower: ExpressionNode = field(default_factory=lambda: Constant(float('-inf')))
     upper: ExpressionNode = field(default_factory=lambda: Constant(float('inf')))
     variable_type: VariableType = 'continuous'
@@ -747,7 +748,7 @@ class ConstraintDeclaration:
     lhs: ExpressionNode
     sense: ConstraintSense
     rhs: ExpressionNode
-    where: WhereNode | None = None
+    where: Mask | None = None
 
 
 @dataclass(frozen=True)
@@ -1015,3 +1016,50 @@ def conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
     if isinstance(where, AndNode):
         return conjuncts(where.left) + conjuncts(where.right)
     return (where,)
+
+
+@dataclass(frozen=True)
+class Mask:
+    """A resolved ``where`` and the questions asked of it — a mask, first-class.
+
+    ``root`` is the predicate node the ``where`` field used to hold, unchanged:
+    an engine still dispatches on it with ``isinstance`` to build the mask
+    against data. The properties are what the *language* answers about a mask,
+    asked here so two consumers cannot answer differently — the reason
+    :meth:`DimensionDeclaration.maps` sits on the declaration rather than in
+    each consumer, one component over.
+
+    Attributes:
+        root: The resolved predicate the mask restricts rows by.
+    """
+
+    root: WhereNode
+
+    @property
+    def conjuncts(self) -> tuple[WhereNode, ...]:
+        """The predicates the mask joins with ``AND`` — :func:`conjuncts` of the root."""
+        return conjuncts(self.root)
+
+    @property
+    def names_read(self) -> frozenset[str]:
+        """The parameters, lookups and variables the mask names — :func:`~math_spec.where_parser.names_read` of the root."""
+        return names_read(self.root)
+
+    @property
+    def atoms(self) -> tuple[TypedPredicateNode, ...]:
+        """The mask's leaves, connectives removed — :func:`~math_spec.where_parser.atoms` of the root."""
+        return tuple(atoms(self.root))
+
+    def dims_read(self, name_dims: Mapping[str, Sequence[str]]) -> frozenset[str]:
+        """The dims the mask is read at — :func:`~math_spec.where_parser.dims_read` of the root.
+
+        A method, not a property, because the answer needs each name's dims,
+        which the root alone does not carry.
+
+        Args:
+            name_dims: Every declared name to the dims it is read through.
+
+        Returns:
+            The dims read, empty for a mask over nothing but literals.
+        """
+        return dims_read(self.root, name_dims)

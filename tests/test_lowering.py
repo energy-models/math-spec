@@ -41,6 +41,7 @@ from math_spec.program import (
     Footprint,
     GroupSum,
     LookupDeclaration,
+    Mask,
     Multiply,
     Negate,
     Parameter,
@@ -103,7 +104,7 @@ def test_lower_program_structure(dispatch_schema):
     ((vname, v),) = program.variables.items()
     assert vname == 'p'
     assert v.dims == ('snapshot', 'generator')
-    assert v.where == ParameterComparisonNode('p_max', '>', 0.0)
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0))
     assert v.upper == Parameter('p_max')
 
     ((cname, c),) = program.constraints.items()
@@ -242,7 +243,7 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
     """A consumer handed a program could invert the mask another one reads.
 
     The where nodes were plain dataclasses while every declaration embedding
-    them was frozen, so `variable.where.op = '!='` rewrote `p_max > 0` into
+    them was frozen, so `variable.where.root.op = '!='` rewrote `p_max > 0` into
     `p_max != 0` on the shared object — two consumers disagreeing about one
     file, which is the failure a program exists to prevent. It also left
     hashability depending on the file: an unmasked declaration hashed and a
@@ -250,12 +251,29 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
     """
     program = lower_program(expand_piecewise(dispatch_schema))
     (v,) = program.variables.values()
-    assert v.where == ParameterComparisonNode('p_max', '>', 0.0)
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0))
 
     with pytest.raises(FrozenInstanceError):
-        v.where.op = '!='
-    assert v.where == ParameterComparisonNode('p_max', '>', 0.0), 'the mask the file wrote, unchanged'
+        v.where.root.op = '!='
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0)), 'the mask the file wrote, unchanged'
     assert isinstance(hash(v), int), 'a masked declaration hashes like an unmasked one'
+
+
+def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_schema):
+    """The `where` a lowering carries is a `Mask`, and its questions are its root's.
+
+    A consumer asks the mask — `where.names_read`, `where.conjuncts` — the way it
+    asks a dimension `dimension.maps`, rather than reaching for a free function
+    with the raw node.
+    """
+    program = lower_program(expand_piecewise(dispatch_schema))
+    (v,) = program.variables.values()
+    root = ParameterComparisonNode('p_max', '>', 0.0)
+
+    assert v.where == Mask(root)
+    assert v.where.names_read == {'p_max'}, 'the declarations the mask names'
+    assert v.where.conjuncts == (root,), 'a mask that is not an AND is its own only conjunct'
+    assert v.where.atoms == (root,), 'a single leaf, connectives removed'
 
 
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
