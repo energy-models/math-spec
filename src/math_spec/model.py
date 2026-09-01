@@ -14,6 +14,7 @@ Nothing here has seen data.
 from __future__ import annotations
 
 import math
+import re
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, get_args, override
 
 from pydantic import (
@@ -31,6 +32,7 @@ from pydantic import (
 )
 
 from math_spec.errors import did_you_mean, schema_error
+from math_spec.expression_parser import NAME
 from math_spec.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
@@ -789,6 +791,32 @@ class Spec(_StrictBlock):
         import yaml
 
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
+
+    @model_validator(mode='after')
+    def _names_are_names(self) -> Spec:
+        """Every declaration is keyed by something an expression could write.
+
+        Read off the model's own mappings rather than a list of sections, so a
+        section added later cannot be forgotten here — every mapping a Spec
+        carries is keyed by a declaration name.
+
+        An unwritable name is worse than unreachable. ``points: ''`` named a
+        parameter no expression can, and the expansion's ``if mask:`` read it
+        as a block masking nothing, so the weights came out unmasked.
+        """
+        errors = [
+            f'{section}: {name!r} is not a name. A declaration is named the way an expression '
+            f'writes it — a letter or an underscore, then letters, digits or underscores — so '
+            f'nothing can refer to this one. Rename it.'
+            for section, value in self
+            if isinstance(value, dict)
+            for name in value
+            if not re.fullmatch(NAME, name)
+        ]
+        if errors:
+            raise ValueError('\n'.join(errors))
+
+        return self
 
     @model_validator(mode='after')
     def _validate_references(self) -> Spec:

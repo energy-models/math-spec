@@ -315,7 +315,7 @@ def _build_grammar() -> pp.ParserElement:
     # pyrefly: ignore[implicit-any-lambda]
     number = inf_literal | pp.Regex(rf'{REAL}|\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
 
-    name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
+    name = pp.Regex(NAME)
 
     quoted = (pp.QuotedString("'") | pp.QuotedString('"')).set_parse_action(lambda t: KeywordNode(str(t[0])))
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
@@ -383,6 +383,10 @@ def _make_power(tokens: pp.ParseResults) -> Any:
     items = list(tokens)
     return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
+
+#: What an expression writes to refer to a declaration, and so what a
+#: declaration may be named.
+NAME = r'[a-zA-Z_][a-zA-Z0-9_]*'
 
 #: A float — a fractional part or an exponent. A sign is the unary operator's.
 REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'

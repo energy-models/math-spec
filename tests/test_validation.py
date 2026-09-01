@@ -868,3 +868,71 @@ class TestANumberIsAnExpression:
         """`true` is not arithmetic, and an error naming the type reads better than one naming `'True'`."""
         with pytest.raises(SchemaError, match='valid string'):
             _schema(**{'expressions.always': {'expression': True}})
+
+
+class TestADeclarationIsNamed:
+    """A declaration's key must be a name the expression grammar could write.
+
+    Nothing checked it, so `parameters: {'': {...}}` loaded, and a piecewise
+    block naming it under `points:` had its mask silently dropped —
+    `if mask:` in the expansion read a declared parameter as "this block
+    masks nothing", and the weights came out unmasked. Every unwritable name
+    has the same shape: a declaration no expression can reach, in a language
+    whose promise is that the file decides.
+    """
+
+    @pytest.mark.parametrize(
+        'name',
+        [
+            pytest.param('', id='empty'),
+            pytest.param(' ', id='a-space'),
+            pytest.param('a b', id='two-words'),
+            pytest.param('1x', id='leading-digit'),
+            pytest.param('a-b', id='a-hyphen'),
+            pytest.param('a.b', id='a-dot'),
+        ],
+    )
+    @pytest.mark.parametrize(
+        'section',
+        [
+            'dimensions',
+            'lookups',
+            'parameters',
+            'variables',
+            'expressions',
+            'macros',
+            'constraints',
+            'piecewise',
+            'sos',
+        ],
+    )
+    def test_a_name_no_expression_could_write_is_refused(self, section: str, name: str):
+        declarations: dict[str, Any] = {
+            'dimensions': {'dtype': 'str'},
+            'lookups': {'over': 'g', 'into': 'h'},
+            'parameters': {'dims': ['g']},
+            'variables': {'foreach': ['g']},
+            'expressions': {'expression': 'c'},
+            'macros': {'args': ['x'], 'template': 'x * 2'},
+            'constraints': {'foreach': ['g'], 'expression': 'p <= c'},
+            'piecewise': {'over': 'g', 'links': [['p', 'c'], ['q', 'c']], 'method': 'convex'},
+            'sos': {'variable': 'p', 'over': 'g', 'type': 1},
+        }
+        model = copy.deepcopy(SMALL_MODEL)
+        model.setdefault(section, {})[name] = declarations[section]
+        with pytest.raises(LanguageError, match='is not a name'):
+            to_spec(model)
+
+    def test_the_message_names_the_rewrite(self):
+        model = copy.deepcopy(SMALL_MODEL)
+        model['parameters']['a b'] = {'dims': ['g']}
+        with pytest.raises(LanguageError) as caught:
+            to_spec(model)
+        message = str(caught.value)
+        assert "'a b'" in message, 'the offending name is quoted'
+        assert 'letter or an underscore' in message, (
+            'the message says what a name may be, not only that this is not one'
+        )
+
+    def test_an_ordinary_name_still_loads(self):
+        assert 'headroom_2' in _schema(**{'parameters.headroom_2': {'dims': ['g']}}).parameters
