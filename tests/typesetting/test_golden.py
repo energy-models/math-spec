@@ -184,8 +184,6 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 UNREACHABLE = {
     'if isinstance(node, UnresolvedNode | KwargNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
-    'if isinstance(node, UnresolvedWhereNode):',
-    "msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'",
     'if not isinstance(node, ComparisonNode):',
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
     'raise AssertionError(msg)',

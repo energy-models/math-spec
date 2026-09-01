@@ -2,12 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""pyparsing-based parser for where strings — grammar and the unresolved AST.
+"""pyparsing-based parser for where strings — grammar and the unresolved AST, package-private.
 
 Parses strings like ``"p_max > 0 AND NOT is_must_run"`` into an AST. The
 resolved node vocabulary lives in :mod:`math_spec.program` beside the rest of
 what a consumer dispatches on; what stays here is the grammar and the
-``Unresolved*`` nodes it emits, which resolution rewrites away.
+``Unresolved*`` nodes it emits, which resolution rewrites away. No consumer
+parses a where string — the front door is ``to_spec``, and what a consumer
+reads is a program.
 """
 
 from __future__ import annotations

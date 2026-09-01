@@ -1152,7 +1152,7 @@ class OrNode:
 
 #: Every resolved predicate node — what a lowered mask's ``root`` is built of.
 #: The parser's ``Unresolved*`` nodes are not members: they live with the
-#: grammar in :mod:`math_spec.where_parser`, and resolution rewrites them away
+#: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
 #: before anything here is asked.
 WhereNode = (
     BooleanLiteralNode

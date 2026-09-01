@@ -11,6 +11,12 @@ Nothing here resolves names — a parse result still holds raw
 import pytest
 
 import math_spec.program as program_module
+from math_spec._where_parser import (
+    UnresolvedComparisonNode,
+    UnresolvedNameNode,
+    UnresolvedPositionNode,
+    parse_where,
+)
 from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     BinaryOperatorNode,
@@ -23,12 +29,6 @@ from math_spec.expression_parser import (
     parse_expression,
 )
 from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, _conjuncts
-from math_spec.where_parser import (
-    UnresolvedComparisonNode,
-    UnresolvedNameNode,
-    UnresolvedPositionNode,
-    parse_where,
-)
 
 
 def test_the_grammar_builds_the_program_s_own_node_classes():

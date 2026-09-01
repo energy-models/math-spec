@@ -16,6 +16,13 @@ import datetime
 import re
 from typing import TYPE_CHECKING, assert_never, cast
 
+from math_spec._where_parser import (
+    UnresolvedComparisonNode,
+    UnresolvedNameNode,
+    UnresolvedPositionNode,
+    UnresolvedWhereNode,
+    parse_where,
+)
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
 from math_spec.expression_parser import (
@@ -63,13 +70,6 @@ from math_spec.program import (
     TypedPredicateNode,
     VariableDefinedNode,
     WhereNode,
-)
-from math_spec.where_parser import (
-    UnresolvedComparisonNode,
-    UnresolvedNameNode,
-    UnresolvedPositionNode,
-    UnresolvedWhereNode,
-    parse_where,
 )
 
 if TYPE_CHECKING:
@@ -623,6 +623,31 @@ def resolve_where(
     before = len(errors)
     resolved = _resolve_where(node, ns, context, errors, self_variable)
     return None if len(errors) > before else cast('WhereNode', resolved)
+
+
+def resolve_where_text(
+    text: str | None,
+    ns: Namespace,
+    context: str,
+    errors: list[str],
+    self_variable: str | None = None,
+) -> WhereNode | None:
+    """Parse and resolve one mask, appending each problem to *errors*.
+
+    The error-collecting twin of :func:`where_of`, for the load-time pass that
+    reports every problem in a file at once — and the one door validation
+    reads a where string through, so the parser stays this module's business.
+    Returns ``None`` where there is no mask to read, and where reading it
+    failed.
+    """
+    if text is None:
+        return None
+    try:
+        node = parse_where(text)
+    except ValueError as e:
+        errors.append(f'{context}: {e}')
+        return None
+    return resolve_where(node, ns, context, errors, self_variable)
 
 
 #: An ISO literal carrying a time-of-day, which decides date vs datetime.

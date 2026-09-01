@@ -33,8 +33,7 @@ from math_spec.expression_parser import (
 )
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
-from math_spec.resolution import Namespace, resolve_expression, resolve_where
-from math_spec.where_parser import parse_where
+from math_spec.resolution import Namespace, resolve_expression, resolve_where_text
 
 if TYPE_CHECKING:
     from math_spec.program import WhereNode
@@ -122,7 +121,7 @@ def validate_expressions(schema: Spec) -> None:
         masks: dict[str, WhereNode] = {}
         for case_name, case in block.cases.items():
             arm_context = case_context(ename, case_name)
-            if (mask := _check_where(case.when, ns, arm_context, errors)) is not None:
+            if (mask := resolve_where_text(case.when, ns, arm_context, errors)) is not None:
                 masks[case_name] = mask
             _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=1)
         assert block.otherwise is not None
@@ -131,11 +130,11 @@ def validate_expressions(schema: Spec) -> None:
             errors.extend(f'{context}: {problem}' for problem in overlapping(masks, schema))
 
     for vname, vdef in schema.variables.items():
-        _check_where(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
+        resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
 
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
-        _check_where(cdef.where, ns, context, errors)
+        resolve_where_text(cdef.where, ns, context, errors)
         _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
 
     if schema.objective is not None:
@@ -191,26 +190,6 @@ def _check_expression(
         check_expression(resolved, context, ceiling=ceiling)
     except LanguageError as e:
         errors.append(str(e))
-
-
-def _check_where(
-    text: str | None,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    self_variable: str | None = None,
-) -> WhereNode | None:
-    """Parse and resolve one mask, returning it — ``None`` where there is none to read, and where reading it failed."""
-    if text is None:
-        return None
-    try:
-        node = parse_where(text)
-    except ValueError as e:
-        errors.append(f'{context}: {e}')
-        return None
-    found = len(errors)
-    resolved = resolve_where(node, ns, context, errors, self_variable)
-    return resolved if len(errors) == found else None
 
 
 def _names_in(value: ArithmeticNode) -> tuple[str, ...]:

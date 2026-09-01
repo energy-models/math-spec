@@ -53,7 +53,6 @@ from math_spec.resolution import (
 )
 from math_spec.typesetting.format import Entry, Glossary, Line
 from math_spec.typesetting.symbols import printed_expressions
-from math_spec.where_parser import UnresolvedWhereNode
 
 if TYPE_CHECKING:
     import datetime
@@ -518,10 +517,6 @@ class Walk:
         if isinstance(node, OrNode):
             sides = [self.where(node.left, ctx, need=0), self.where(node.right, ctx, need=0)]
             return self.format.joined(sides, self.op('or')), 0
-
-        if isinstance(node, UnresolvedWhereNode):
-            msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'
-            raise AssertionError(msg)
 
         assert_never(node)
 
