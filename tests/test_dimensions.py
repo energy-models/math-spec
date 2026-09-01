@@ -17,7 +17,7 @@ import pytest
 from math_spec.dimensions import DimensionError, _check_where_dims, _name_dims, check_schema, dims_of
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import dims_read
+from math_spec.where_parser import LookupPairComparisonNode, dims_read, names_read
 from tests.fixtures import OPERATOR_PROBES, override, schema_of
 
 if TYPE_CHECKING:
@@ -337,3 +337,44 @@ def test_the_frame_check_and_the_reading_walk_the_same_leaves():
     assert dims_read(where, _name_dims(schema)) == {'generator'}, 'read at the generator axis'
     with pytest.raises(DimensionError, match=r"where-parameter 'p_max' has dims \['generator'\]"):
         _check_where_dims(where, schema, frozenset({'snapshot'}), 'test')
+
+
+@pytest.mark.parametrize(
+    ('predicate', 'expected'),
+    [
+        pytest.param('p_max > 0', {'p_max'}, id='a-parameter-comparison-names-the-parameter'),
+        pytest.param('spinup', {'spinup'}, id='a-parameter-bare-names-the-parameter'),
+        pytest.param('p', {'p'}, id='a-variable-bare-names-the-variable'),
+        pytest.param('snap_bus == "b1"', {'snap_bus'}, id='a-lookup-comparison-names-the-lookup'),
+        pytest.param('gen_bus', {'gen_bus'}, id='a-lookup-bare-names-the-lookup'),
+        pytest.param('snapshot == 0', set(), id='a-dimension-names-nothing-it-is-a-coordinate'),
+        pytest.param('position(snapshot) == 0', set(), id='a-position-names-nothing'),
+        pytest.param('p_max > 0 AND snapshot == 0', {'p_max'}, id='a-conjunction-drops-the-dimension-side'),
+        pytest.param('p_max > 0 AND snap_bus == "b1"', {'p_max', 'snap_bus'}, id='a-conjunction-unions-both-names'),
+        pytest.param('NOT p_max > 0', {'p_max'}, id='a-negation-names-what-it-negates'),
+        pytest.param('False', set(), id='a-literal-names-nothing'),
+    ],
+)
+def test_a_predicate_names_the_declarations_its_leaves_test(predicate, expected):
+    """The name rule for the predicate side, the complement of `dims_read`'s dim rule.
+
+    A dimension names no declaration — it is a coordinate, not data to feed —
+    so `names_read` drops it where `dims_read` keeps it, and the two together
+    say of a leaf both where it is read and what it reads.
+    """
+    schema = to_spec(BASE)
+    where = where_of(predicate, Namespace.of(schema), 'test')
+
+    assert where is not None, 'a predicate the connectives cannot settle survives the fold'
+    assert names_read(where) == expected, f'{predicate!r} names {expected}'
+
+
+def test_names_read_takes_both_sides_of_a_lookup_pair():
+    """The one leaf that names two declarations — two maps compared on the dimension they share.
+
+    BASE has one lookup per dimension, so the pair is built directly rather than
+    resolved from a predicate string.
+    """
+    where = LookupPairComparisonNode('from_bus', 'to_bus', 'line', '!=')
+
+    assert names_read(where) == {'from_bus', 'to_bus'}, 'a lookup pair names both maps it compares'
