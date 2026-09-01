@@ -24,7 +24,7 @@ import pyparsing as pp
 from math_spec.errors import SchemaError
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
     from math_spec.program import WhereNode
 
@@ -394,6 +394,48 @@ def _make_power(tokens: pp.ParseResults) -> Any:
     return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
 
+#: How deep a tree the language admits, and so how long a chain of terms one
+#: expression may write out. Every pass over an expression recurses — expansion
+#: spends three Python frames per node — so a deeper tree exhausts the
+#: interpreter's stack, which is a crash rather than the ``LanguageError``
+#: ``to_spec`` promises. The deepest expression in this repository is 18, and
+#: the whole pipeline survives 300 on a default stack: the gap is the room a
+#: caller's own frames need (#359).
+MAX_DEPTH = 100
+
+
+def depth[T](node: T, child_of: Callable[[T], tuple[T, ...]]) -> int:
+    """How many nodes deep *node* is, walked with an explicit stack.
+
+    Iterative deliberately: this measurement is what refuses a tree too deep to
+    recurse over, so recursing to take it would be the crash it prevents.
+    """
+    deepest, pending = 0, [(node, 1)]
+    while pending:
+        current, reached = pending.pop()
+        deepest = max(deepest, reached)
+        pending.extend((child, reached + 1) for child in child_of(current))
+    return deepest
+
+
+def too_deep_message(kind: str, text: str, found: int | None, rewrite: str) -> str:
+    """The refusal both grammars raise, so the two say the same thing about the same limit.
+
+    Args:
+        kind: What was being read — the noun the message opens with.
+        text: The source, truncated in the message when it is long.
+        found: The measured depth, or ``None`` where the parser ran out of
+            stack before a tree existed to measure.
+        rewrite: What to write instead, which differs per grammar.
+    """
+    shown_text = text if len(text) <= 60 else f'{text[:60]}…'
+    measured = f'nests {found} deep' if found is not None else 'nests deeper'
+    return (
+        f'{kind} {measured}, past the {MAX_DEPTH} levels the language admits: {shown_text!r}\n'
+        f'Every pass over it recurses, so a deeper tree exhausts the interpreter rather than failing here. {rewrite}'
+    )
+
+
 #: What an expression writes to refer to a declaration, and so what a
 #: declaration may be named.
 NAME = r'[a-zA-Z_][a-zA-Z0-9_]*'
@@ -435,6 +477,15 @@ def _named_rewrite(text: str, loc: int) -> str | None:
     return None
 
 
+#: The rewrite an over-deep expression is given. Writing the terms out is
+#: what ``sum`` exists to replace, so the refusal points at the language's own
+#: answer before it offers the general one.
+_DEEP_REWRITE = (
+    'Reduce over a dimension with sum() rather than writing the terms out, or name an intermediate '
+    'quantity under expressions: and refer to it by name.'
+)
+
+
 def parse_expression(text: str) -> ExpressionNode:
     """Parse a math expression string into an AST.
 
@@ -451,4 +502,10 @@ def parse_expression(text: str) -> ExpressionNode:
         hint = f'{rewrite}\n' if rewrite is not None else ''
         msg = f'Failed to parse expression: {text!r}\n{hint}{e}'
         raise SchemaError(msg) from e
-    return cast('ExpressionNode', result[0])
+    except RecursionError:
+        raise SchemaError(too_deep_message('An expression', text, None, _DEEP_REWRITE)) from None
+    node = cast('ExpressionNode', result[0])
+    found = depth(node, children)
+    if found > MAX_DEPTH:
+        raise SchemaError(too_deep_message('An expression', text, found, _DEEP_REWRITE))
+    return node

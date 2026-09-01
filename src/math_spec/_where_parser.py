@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, cast
 import pyparsing as pp
 
 from math_spec.errors import SchemaError
-from math_spec.expression_parser import NAME, REAL
+from math_spec.expression_parser import MAX_DEPTH, NAME, REAL, depth, too_deep_message
 from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode
 
 if TYPE_CHECKING:
@@ -219,6 +219,24 @@ def _named_rewrite(text: str, loc: int) -> str | None:
     return None
 
 
+#: The rewrite an over-deep where string is given. A long chain of predicates
+#: is a test the file could carry as data instead, which is the language's own
+#: answer before the general one.
+_DEEP_REWRITE = (
+    'Declare a parameter or lookup carrying part of the test and name that here, or split the '
+    'declaration into two, each masked by one half.'
+)
+
+
+def _connective_children(node: WhereNode | UnresolvedWhereNode) -> tuple[WhereNode | UnresolvedWhereNode, ...]:
+    """The connectives are the only where nodes carrying other where nodes, so a walk recurses only here."""
+    if isinstance(node, NotNode):
+        return (node.operand,)
+    if isinstance(node, (AndNode, OrNode)):
+        return (node.left, node.right)
+    return ()
+
+
 def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
 
@@ -243,4 +261,10 @@ def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
         if _INDEX_CALL.search(text):
             msg += _INDEX_REWRITE
         raise SchemaError(msg) from e
-    return cast('WhereNode | UnresolvedWhereNode', result[0])
+    except RecursionError:
+        raise SchemaError(too_deep_message('A where string', text, None, _DEEP_REWRITE)) from None
+    node = cast('WhereNode | UnresolvedWhereNode', result[0])
+    found = depth(node, _connective_children)
+    if found > MAX_DEPTH:
+        raise SchemaError(too_deep_message('A where string', text, found, _DEEP_REWRITE))
+    return node

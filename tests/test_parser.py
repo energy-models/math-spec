@@ -365,3 +365,46 @@ def test_an_unrelated_parse_failure_says_nothing_about_positions():
     with pytest.raises(SchemaError) as excinfo:
         parse_where('p_max >')
     assert 'position()' not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    ('text', 'parse', 'rewrite'),
+    [
+        pytest.param(
+            ' + '.join(['x'] * 400),
+            parse_expression,
+            r'sum\(\) rather than writing the terms out',
+            id='a-long-chain-of-terms',
+        ),
+        pytest.param(
+            '(' * 300 + 'x' + ')' * 300,
+            parse_expression,
+            r'sum\(\) rather than writing the terms out',
+            id='parentheses-nested-past-the-parser',
+        ),
+        pytest.param(
+            ' AND '.join(['p'] * 400), parse_where, r'carrying part of the test', id='a-long-chain-of-predicates'
+        ),
+    ],
+)
+def test_a_tree_too_deep_to_walk_is_refused_with_its_rewrite(text, parse, rewrite):
+    """These raised `RecursionError` out of `to_spec`, which documents `LanguageError` — a crash, not a refusal.
+
+    Two failures, one limit. A long chain parses fine and builds a tree the
+    passes over it cannot recurse; parentheses nested that far exhaust the
+    stack inside pyparsing before a tree exists to measure. Both are the file
+    nesting deeper than anything can walk, so both get the one message.
+    """
+    with pytest.raises(SchemaError, match='past the 100 levels'):
+        parse(text)
+    with pytest.raises(SchemaError, match=rewrite):
+        parse(text)
+
+
+def test_the_depth_the_repository_writes_is_nowhere_near_the_limit():
+    """The cap is only a cap if it is far above what a model says; 100 is chosen against a deepest-in-tree of 18."""
+    from math_spec.expression_parser import MAX_DEPTH, children, depth
+
+    written = parse_expression('sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective)')
+    assert depth(written, children) < MAX_DEPTH // 4, 'a real expression sits well inside the limit'
+    assert depth(parse_expression(' + '.join(['x'] * 99)), children) <= MAX_DEPTH, 'and the limit itself is admitted'
