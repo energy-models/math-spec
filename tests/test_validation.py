@@ -659,16 +659,22 @@ class TestExpressionCases:
     @pytest.mark.parametrize(
         ('when', 'fragment'),
         [
-            pytest.param('position(snapshot) == 0 OR True', 'admits every row', id='folds-to-every-row'),
-            pytest.param('False', 'admits no row', id='admits-no-row'),
+            pytest.param(
+                'position(snapshot) == 0 OR True',
+                'no other arm can hold anywhere',
+                id='folds-to-every-row',
+            ),
+            pytest.param('False', 'this arm never applies', id='admits-no-row'),
         ],
     )
     def test_an_arm_the_data_cannot_decide_is_refused(self, when: str, fragment: str):
         """A mask that folds to a literal is not a case, and the refusal names the rewrite.
 
-        `True` makes every other arm — the `otherwise` included — unreachable,
-        `False` never applies, and the typesetter has no region to draw for
-        either; nothing the data decides is left, so the file decides at load.
+        The arms are kept apart by proof rather than ranked, so an always-true
+        one is not an arm that shadows the rest — it is one no other arm can be
+        proved apart from, and it leaves `otherwise:` nothing. An always-false
+        one never applies. Either way nothing the data decides is left, and the
+        typesetter has no region to draw.
         """
         model = _cased(cases={'opening': {'when': when, 'expression': 'p_max'}})
         with pytest.raises(SchemaError, match=fragment):

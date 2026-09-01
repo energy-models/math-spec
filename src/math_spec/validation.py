@@ -124,14 +124,7 @@ def validate_expressions(schema: Spec) -> None:
             arm_context = case_context(ename, case_name)
             if (mask := resolve_where_text(case.when, ns, arm_context, errors)) is not None:
                 if isinstance(mask, BooleanLiteralNode):
-                    errors.append(
-                        f'{arm_context}: the mask admits every row, so every other arm — the '
-                        f'`otherwise` included — is unreachable. Write the expression without '
-                        f'`cases:`, or narrow the `when`.'
-                        if mask.value
-                        else f'{arm_context}: the mask admits no row, so this arm never applies. '
-                        f'Delete the arm, or widen the `when`.'
-                    )
+                    errors.append(_constant_arm(arm_context, value=mask.value))
                 else:
                     masks[case_name] = mask
             _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=1)
@@ -160,6 +153,23 @@ def validate_expressions(schema: Spec) -> None:
 def _prefixed(context: str, e: ValueError) -> str:
     """*e* under *context*, once — expansion errors already carry it."""
     return str(e) if str(e).startswith(context) else f'{context}: {e}'
+
+
+def _constant_arm(context: str, *, value: bool) -> str:
+    """The refusal for a case arm whose mask the connectives already decided.
+
+    Cases are proved apart rather than ranked, so an always-true arm is not
+    one that shadows the arms under it — it is one no other arm can be proved
+    apart from, and the ``otherwise`` it leaves is empty. An always-false arm
+    is the plainer half: nothing to apply to.
+    """
+    if value:
+        return (
+            f'{context}: the mask admits every row, so no other arm can hold anywhere '
+            f'and `otherwise:` covers nothing. Write the expression without `cases:`, '
+            f'or narrow the `when`.'
+        )
+    return f'{context}: the mask admits no row, so this arm never applies. Delete the arm, or widen the `when`.'
 
 
 def _check_expression(
