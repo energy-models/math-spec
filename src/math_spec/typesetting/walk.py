@@ -54,7 +54,7 @@ from math_spec.resolution import (
     expression_of,
     where_of,
 )
-from math_spec.typesetting.format import Entry, Glossary, Line
+from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
 from math_spec.typesetting.symbols import printed_expressions
 
 if TYPE_CHECKING:
@@ -72,7 +72,14 @@ if TYPE_CHECKING:
 _PRECEDENCE: dict[BinaryOperator, int] = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 3}
 _ATOM = 5
 
-_PREDICATES: dict[PredicateOperator, str] = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>': 'gt'}
+_PREDICATES: dict[PredicateOperator, OperatorName] = {
+    '==': 'equal',
+    '!=': 'ne',
+    '<=': 'le',
+    '>=': 'ge',
+    '<': 'lt',
+    '>': 'gt',
+}
 
 
 #: What a translation does with the row the shift vacates. Three policies get
@@ -81,7 +88,7 @@ TranslationPolicy = Literal['plain', 'wrap', 'edge']
 
 #: Edge policy -> the operator pair that renders it, backward then forward —
 #: the vacated row dropped, wrapped, or filled.
-_TRANSLATIONS: dict[TranslationPolicy, tuple[str, str]] = {
+_TRANSLATIONS: dict[TranslationPolicy, tuple[OperatorName, OperatorName]] = {
     'plain': ('minus', 'plus'),
     'wrap': ('cyclic_minus', 'cyclic_plus'),
     'edge': ('edge_minus', 'edge_plus'),
@@ -229,7 +236,7 @@ class Walk:
         self.positions: set[str] = set()
         self.numeric_coordinates: set[str] = set()
 
-    def op(self, name: str) -> str:
+    def op(self, name: OperatorName) -> str:
         return self.format.operators[name]
 
     def translation(self, step: _Step) -> str:
@@ -339,7 +346,7 @@ class Walk:
         negated_factor = op == '*' and isinstance(operand, UnaryOperatorNode) and operand.op == '-'
         need = _ATOM if negated_factor else _PRECEDENCE[op] + (1 if op == '-' else 0)
         right = self.arithmetic(operand, ctx, need=need)
-        names = {'*': 'cdot', '+': 'plus', '-': 'minus'}
+        names: dict[BinaryOperator, OperatorName] = {'*': 'cdot', '+': 'plus', '-': 'minus'}
         return self.format.joined([left, right], self.op(names[op])), precedence
 
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
