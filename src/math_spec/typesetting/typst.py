@@ -19,7 +19,7 @@ from math_spec.typesetting.format import OPERATOR_SPELLINGS
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from math_spec.typesetting.format import Entry, Line, Notation
+    from math_spec.typesetting.format import Entry, Line, Notation, OperatorName
 
 _PREAMBLE = """#set page(margin: 2.5cm)
 #set text(size: 11pt)
@@ -62,7 +62,7 @@ class TypstFormat:
     #: Typst applies the same substitution TeX does.
     dash: ClassVar[str] = '---'
 
-    operators: ClassVar[Mapping[str, str]] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
+    operators: ClassVar[Mapping[OperatorName, str]] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
 
     # -- atoms -------------------------------------------------------------
 
