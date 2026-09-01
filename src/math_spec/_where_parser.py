@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, cast
 
 import pyparsing as pp
@@ -219,8 +220,14 @@ def _named_rewrite(text: str, loc: int) -> str | None:
     return None
 
 
+@lru_cache(maxsize=4096)
 def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
+
+    Shared between equal strings rather than rebuilt, for the reason
+    :func:`~math_spec.expression_parser.parse_expression` is: a where node is
+    unrewritable once built, and a model repeats the same predicate across the
+    declarations it applies to.
 
     The connectives and literals are the resolved vocabulary's own; the leaves
     naming declarations are ``Unresolved*`` nodes, and the return type says so.

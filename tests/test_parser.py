@@ -365,3 +365,27 @@ def test_an_unrelated_parse_failure_says_nothing_about_positions():
     with pytest.raises(SchemaError) as excinfo:
         parse_where('p_max >')
     assert 'position()' not in str(excinfo.value)
+
+
+def test_a_string_parses_to_one_shared_tree():
+    """A model writes the same expression far more often than it writes distinct ones, and parses each twice over — once to validate the file, once to lower it.
+
+    Sharing the tree rather than rebuilding it is what makes that cheap, and it
+    is safe for exactly the reason
+    `test_a_lowered_mask_cannot_be_rewritten_in_place` proves: a node cannot be
+    rewritten, so two declarations holding one tree cannot disagree about it.
+    Drop the memo and this passes on `==` alone — `is` is the claim.
+    """
+    text = 'sum(p * cost, over=generator) == load'
+    assert parse_expression(text) is parse_expression(text), 'the same expression string parses to one tree'
+    assert parse_where('p_max > 0') is parse_where('p_max > 0'), 'and so does the same where string'
+
+    with pytest.raises(FrozenInstanceError):
+        parse_expression(text).left = NumberNode(0.0)
+
+
+def test_a_parse_failure_is_raised_every_time_it_is_asked_for():
+    """A memo that cached the failure would hand the second caller a traceback from the first, and the message names the rewrite for the string in hand."""
+    for _ in range(2):
+        with pytest.raises(SchemaError, match=r"power is written '\*\*'"):
+            parse_expression('p ^ 2')
