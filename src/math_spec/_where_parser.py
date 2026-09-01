@@ -197,6 +197,28 @@ _INDEX_REWRITE = (
 )
 
 
+def _named_rewrite(text: str, loc: int) -> str | None:
+    """The rewrite for a predictable mistake at the parse failure, or ``None``.
+
+    The connective habits of pandas and C — ``&``, ``|``, ``~``, ``!``,
+    doubled or not — and a lone ``=``. Keyed on the token standing where the
+    grammar gave up, as the expression grammar's ``_named_rewrite`` is, so a
+    diagnosis never fires on a where string that parses; ``!=``, ``<`` and
+    ``>`` are legal here, so only the tokens no predicate admits are
+    diagnosed.
+    """
+    rest = text[loc:].lstrip()
+    if rest.startswith('&'):
+        return "'&' is not the conjunction — both predicates at once is written AND."
+    if rest.startswith('|'):
+        return "'|' is not the disjunction — either predicate is written OR."
+    if rest.startswith(('~', '!')) and not rest.startswith('!='):
+        return f"'{rest[0]}' is not the negation — it is written NOT, before the predicate."
+    if rest.startswith('=') and not rest.startswith('=='):
+        return "'=' compares nothing — equality is written ==."
+    return None
+
+
 def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
 
@@ -207,12 +229,17 @@ def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     is built.
 
     Raises:
-        SchemaError: If *text* is not a where string of the language.
+        SchemaError: If *text* is not a where string of the language. A
+            predictable mistake — ``&``/``|``/``~``/``!`` for a connective, a
+            lone ``=``, the retired ``index()`` — is named with its rewrite
+            beside the grammar's own complaint.
     """
     try:
         result = _WHERE_GRAMMAR.parse_string(text, parse_all=True)
     except pp.ParseException as e:
-        msg = f'Failed to parse where string: {text!r}\n{e}'
+        rewrite = _named_rewrite(text, e.loc)
+        hint = f'{rewrite}\n' if rewrite is not None else ''
+        msg = f'Failed to parse where string: {text!r}\n{hint}{e}'
         if _INDEX_CALL.search(text):
             msg += _INDEX_REWRITE
         raise SchemaError(msg) from e

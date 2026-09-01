@@ -332,6 +332,35 @@ def test_the_old_index_spelling_names_its_rewrite():
     assert "write 'position(dim) == i'" in str(excinfo.value)
 
 
+@pytest.mark.parametrize(
+    ('text', 'rewrite'),
+    [
+        pytest.param('p_max > 0 & committable', r'written AND', id='ampersand'),
+        pytest.param('p_max > 0 && committable', r'written AND', id='doubled-ampersand'),
+        pytest.param('p_max > 0 | committable', r'written OR', id='pipe'),
+        pytest.param('p_max > 0 || committable', r'written OR', id='doubled-pipe'),
+        pytest.param('~committable', r'written NOT, before the predicate', id='tilde'),
+        pytest.param('!committable', r'written NOT, before the predicate', id='bang'),
+        pytest.param('status = 0', r'equality is written ==', id='a-lone-equals'),
+    ],
+)
+def test_a_where_parse_failure_names_the_rewrite(text, rewrite):
+    """The connective habits of pandas and C are refused with their rewrite, not the grammar's complaint alone.
+
+    The expression side got this in #332; a where string invites the same
+    habits harder — `&`, `|` and `~` are exactly how the masks these strings
+    describe are written in pandas.
+    """
+    with pytest.raises(SchemaError, match=rewrite):
+        parse_where(text)
+
+
+def test_a_legal_where_operator_is_never_diagnosed():
+    """`!=`, `<` and `>` are predicates here, unlike on the expression side, so no diagnosis may fire on them."""
+    assert parse_where('status != 0') == UnresolvedComparisonNode('status', '!=', 0.0)
+    assert parse_where('p_max < 5') == UnresolvedComparisonNode('p_max', '<', 5.0)
+
+
 def test_an_unrelated_parse_failure_says_nothing_about_positions():
     with pytest.raises(SchemaError) as excinfo:
         parse_where('p_max >')
