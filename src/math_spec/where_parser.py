@@ -308,6 +308,48 @@ def _atom_dims(atom: TypedPredicateNode, name_dims: Mapping[str, Sequence[str]])
             assert_never(atom)
 
 
+def names_read(where: WhereNode) -> frozenset[str]:
+    """Which declarations *where* names — the parameters, lookups and variables its leaves test.
+
+    The name rule to :func:`dims_read`'s dim rule, and its complement: a leaf is
+    read *at* a dimension and *of* a declaration, and where ``dims_read`` gives
+    the first this gives the second. A comparison on a dimension names no
+    declaration — a coordinate is not data to feed — so it adds nothing here;
+    its dimension is ``dims_read``'s. A lookup pair names both maps it compares.
+
+    A consumer asking which parameters a mask gates on — whether the corpus
+    ever varies one, say — asks it here rather than walking the leaves itself,
+    the ``what-counts-as-language.md`` rule that two consumers must not answer
+    it differently.
+
+    Returns:
+        The parameter, lookup and variable names read, empty for a predicate
+        over nothing but literals and dimensions.
+    """
+    return frozenset(name for atom in atoms(where) for name in _atom_names(atom))
+
+
+def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
+    """One leaf's declarations, its dimension apart — the rule :func:`names_read` is the union of.
+
+    Private and ``assert_never``-closed for the reasons :func:`_atom_dims` is:
+    the union is the only answer a caller wants, and a predicate node added
+    without a reading is a type error at this one branch rather than a name
+    silently dropped at the first model to use it.
+    """
+    match atom:
+        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
+            return frozenset({atom.name})
+        case LookupComparisonNode() | LookupDefinedNode():
+            return frozenset({atom.name})
+        case LookupPairComparisonNode():
+            return frozenset({atom.name, atom.other})
+        case DimensionComparisonNode() | DimensionPositionNode():
+            return frozenset()
+        case _:
+            assert_never(atom)
+
+
 # ---------------------------------------------------------------------------
 # Grammar
 # ---------------------------------------------------------------------------

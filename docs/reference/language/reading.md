@@ -106,7 +106,9 @@ resolved `where` node rather than a second set spelling the same predicates —
 one home, so the two cannot come to disagree about what a comparison is. What it
 joins with `AND` is read with `conjuncts()`, which flattens the `AND` spine and
 stops at an `OR` or a `NOT`, so a consumer asking which predicates a mask makes
-one at a time never re-derives the split.
+one at a time never re-derives the split. Which declarations those predicates
+name is `names_read()`, and which dimensions they are read at `dims_read()` — a
+mask asked what it reads rather than each consumer walking its leaves.
 
 ## Asking what a program uses
 
