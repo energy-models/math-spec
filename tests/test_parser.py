@@ -132,6 +132,33 @@ def test_an_unparseable_expression_is_an_error():
         parse_expression('a +')
 
 
+@pytest.mark.parametrize(
+    ('text', 'rewrite'),
+    [
+        pytest.param('p < p_max', r'the senses are <=, >= and ==\. Write the bound inclusive', id='strict-less'),
+        pytest.param('p > 0', r'the senses are <=, >= and ==\. Write the bound inclusive', id='strict-greater'),
+        pytest.param('status != 0', r'write the test in where:, where != is legal', id='not-equals-is-a-where-matter'),
+        pytest.param('p = p_max', r'Equality between two sides is written ==', id='a-lone-equals'),
+        pytest.param('p ^ 2', r"power is written '\*\*', not '\^'", id='caret-for-power'),
+        pytest.param('0 <= p <= p_max', r'Split the chain into two constraints', id='a-chained-comparison'),
+    ],
+)
+def test_a_parse_failure_names_the_rewrite(text, rewrite):
+    """The predictable mistakes are refused with their rewrite, not the grammar's complaint alone.
+
+    The message rule everywhere else in the language — an error names the
+    rewrite — stops at the parser's raw `Expected end of text, found '<'`
+    otherwise, on the one door a model author is most likely to hit.
+    """
+    with pytest.raises(SchemaError, match=rewrite):
+        parse_expression(text)
+
+
+def test_a_failure_with_no_diagnosis_still_shows_the_grammar_s_complaint():
+    with pytest.raises(SchemaError, match='Expected'):
+        parse_expression('a +')
+
+
 def test_an_exponent_may_be_negated_and_a_negation_stacked():
     assert parse_expression('2 ** -1').right == UnaryOperatorNode('-', NumberNode(1))
     assert parse_expression('--x') == UnaryOperatorNode('-', UnaryOperatorNode('-', NameNode('x')))

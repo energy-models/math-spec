@@ -390,15 +390,51 @@ REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
 _GRAMMAR = _build_grammar()
 
 
+def _named_rewrite(text: str, loc: int) -> str | None:
+    """The rewrite for a predictable mistake at the parse failure, or ``None``.
+
+    Keyed on the token standing where the grammar gave up, so a diagnosis
+    never fires on an expression that parses — ``over=d`` inside a call is
+    legal and reaches no failure, while a lone ``=`` between two sides does.
+    A two-character token is tested before its one-character prefix.
+    """
+    rest = text[loc:].lstrip()
+    if rest.startswith(('<=', '>=', '==')):
+        return (
+            f"'{rest[:2]}' follows a complete comparison, and an expression carries "
+            f'one comparison, at the top. Split the chain into two constraints.'
+        )
+    if rest.startswith('!='):
+        return (
+            "'!=' is not a constraint sense — the senses are <=, >= and ==. "
+            'Holding rows apart is a where matter: write the test in where:, where != is legal.'
+        )
+    if rest.startswith(('<', '>')):
+        return f"'{rest[0]}' is not a constraint sense — the senses are <=, >= and ==. Write the bound inclusive."
+    if rest.startswith('='):
+        return (
+            "'=' on its own is how a kwarg is written inside a call, like sum(x, over=d). "
+            'Equality between two sides is written ==.'
+        )
+    if rest.startswith('^'):
+        return "power is written '**', not '^'."
+    return None
+
+
 def parse_expression(text: str) -> ExpressionNode:
     """Parse a math expression string into an AST.
 
     Raises:
-        SchemaError: If *text* is not an expression of the language.
+        SchemaError: If *text* is not an expression of the language. A
+            predictable mistake — a strict or chained comparison, ``!=``, a
+            lone ``=``, ``^`` for power — is named with its rewrite before the
+            grammar's own complaint.
     """
     try:
         result = _GRAMMAR.parse_string(text, parse_all=True)
     except pp.ParseException as e:
-        msg = f'Failed to parse expression: {text!r}\n{e}'
+        rewrite = _named_rewrite(text, e.loc)
+        hint = f'{rewrite}\n' if rewrite is not None else ''
+        msg = f'Failed to parse expression: {text!r}\n{hint}{e}'
         raise SchemaError(msg) from e
     return cast('ExpressionNode', result[0])
