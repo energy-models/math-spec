@@ -29,6 +29,7 @@ The rules a lowered program then carries:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, Literal, assert_never, cast
 
 import math_spec.program as program
@@ -272,6 +273,11 @@ class _Lowering:
     schema: _ExpandedSpec
     context: str
 
+    @cached_property
+    def name_dims(self) -> dict[str, tuple[str, ...]]:
+        """Every declared name to its dims, computed once per walk — what every mask built here reads."""
+        return _name_dims(self.schema)
+
     def expr(self, node: ArithmeticNode) -> program.ExpressionNode:
         """Rewrite one resolved core-AST expression as a program expression.
 
@@ -338,7 +344,7 @@ class _Lowering:
         regions stay disjoint and total.
         """
         stated = [arm.when for arm in node.arms if arm.when is not None]
-        name_dims = _name_dims(self.schema)
+        name_dims = self.name_dims
         regions = []
         for arm in node.arms:
             when = arm.when if arm.when is not None else _none_of(stated)
