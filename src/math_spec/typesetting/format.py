@@ -21,10 +21,18 @@ Two rules make the split hold:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Protocol
+from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, get_args
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+#: The language a symbol table's entries are written in, and the one a format
+#: reads them as. Markdown is absent because its math is MathJax's, so it reads
+#: ``latex``; nothing translates between the two.
+Notation = Literal['latex', 'typst']
+
+#: The set form, for the sidecar that has to check a string against it.
+NOTATIONS = frozenset(get_args(Notation))
 
 #: Every operator a walk can emit, by the name the walk uses for it, with its
 #: LaTeX spelling first and its Typst spelling second — one row per operator,
@@ -106,9 +114,8 @@ class Format(Protocol):
 
     #: File suffix, for the CLI's default output name.
     suffix: ClassVar[str]
-    #: The notation a symbol table must be written in — ``latex`` or ``typst``;
-    #: markdown reads ``latex``, its math being MathJax's.
-    notation: ClassVar[str]
+    #: The notation a symbol table must be written in.
+    notation: ClassVar[Notation]
     #: Spelling for each of :data:`OPERATOR_NAMES`.
     operators: ClassVar[Mapping[str, str]]
     #: The em dash in prose: TeX and Typst read ``---`` as one, Markdown does not.
