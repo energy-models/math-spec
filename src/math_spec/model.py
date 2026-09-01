@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, get_args, override
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, cast, get_args, override
 
 from pydantic import (
     BaseModel,
@@ -561,7 +561,7 @@ class PiecewiseBlock(_StrictBlock):
     @classmethod
     def _check_method(cls, v: Any, handler: ValidatorFunctionWrapHandler) -> PiecewiseMethod:
         try:
-            return handler(v)
+            return cast('PiecewiseMethod', handler(v))
         except ValidationError:
             options = '\n'.join(f'  {name}: {what}' for name, what in PIECEWISE_METHODS.items())
             msg = f'unknown piecewise method {v!r}. The formulations are:\n{options}'
@@ -711,7 +711,7 @@ class Spec(_StrictBlock):
     #: The :class:`_ExpandedSpec` built from this model. Owned entirely — written
     #: and read — by :func:`~math_spec.piecewise.expand_piecewise`; only
     #: the slot lives here.
-    _expansion: Any = PrivateAttr(default=None)
+    _expansion: _ExpandedSpec | None = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
@@ -776,7 +776,7 @@ class Spec(_StrictBlock):
         []`` is a scalar). On the serializer so that ``model_dump``,
         :meth:`to_dict` and :meth:`to_yaml` agree.
         """
-        return _without_absence(handler(self))
+        return cast('dict[str, Any]', _without_absence(handler(self)))
 
     def to_dict(self) -> dict[str, Any]:
         """The model as plain data. ``to_spec(m.to_dict())`` reproduces it."""

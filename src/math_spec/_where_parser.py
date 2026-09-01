@@ -176,9 +176,9 @@ def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResult
 
     def fold(tokens: pp.ParseResults) -> Any:
         items = list(tokens)
-        result = items[0]
+        result: WhereNode | UnresolvedWhereNode = items[0]
         for item in items[1:]:
-            result = node_type(result, item)
+            result = node_type(cast('WhereNode', result), item)
         return result
 
     return fold

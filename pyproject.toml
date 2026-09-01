@@ -142,6 +142,10 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 python-version = "3.12"
 project-includes = ["src/math_spec"]
 preset = "strict"
+# A callable taking `*args: Any, **kwargs: Any` otherwise matches every
+# signature, which is how a parse action or a validator with the wrong shape
+# gets passed without a word. Nothing in src/ relies on the loose reading.
+strict-callable-subtyping = true
 
 # Warn-by-default rules promoted to error, so a regression fails the gate
 # instead of scrolling past. All of these are already clean; each one is a
@@ -159,11 +163,14 @@ preset = "strict"
 [tool.pyrefly.errors]
 implicit-import = "error"
 missing-import = "error"
+no-any-return-explicit = "error"
+no-any-return-implicit = "error"
 non-exhaustive-match = "error"
 not-required-key-access = "error"
 redundant-cast = "error"
 redundant-condition = "error"
 unknown-name = "error"
+unknown-variable-type = "error"
 unnecessary-comparison = "error"
 unnecessary-type-conversion = "error"
 unreachable = "error"

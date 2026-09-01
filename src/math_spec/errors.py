@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import difflib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Literal, get_args
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from pydantic import ValidationError
 
 
 #: Which pass an :class:`Advice` comes from. Closed, like the operator set: a
@@ -88,7 +90,7 @@ def did_you_mean(name: str, known: Iterable[str], *, label: str = 'Declared') ->
     return f'{label}: {", ".join(candidates) or "nothing"}.'
 
 
-def schema_error(exc: Any) -> LanguageError:
+def schema_error(exc: ValidationError) -> LanguageError:
     """A pydantic ``ValidationError`` as one of ours, keeping the class.
 
     Pydantic wraps whatever a validator raises, so our own class cannot reach
@@ -99,7 +101,7 @@ def schema_error(exc: Any) -> LanguageError:
     errors = exc.errors()
     lines = []
     for error in errors:
-        message = str(error.get('msg', '')).removeprefix('Value error, ')
+        message = error.get('msg', '').removeprefix('Value error, ')
         where = '.'.join(str(part) for part in error.get('loc', ()))
         lines.append(f'{where}: {message}' if where else message)
     text = '\n'.join(lines) or str(exc)
