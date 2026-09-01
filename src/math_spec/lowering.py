@@ -51,7 +51,7 @@ from math_spec.expression_parser import (
     VariableNode,
 )
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
-from math_spec.resolution import Namespace, expression_of, where_of
+from math_spec.resolution import Namespace, _fold, expression_of, where_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
@@ -74,7 +74,7 @@ def _none_of(masks: list[program.Mask]) -> program.Mask:
     remainder = masks[0].negated()
     for mask in masks[1:]:
         remainder = remainder & mask.negated()
-    return remainder
+    return program.Mask(_fold(remainder.root))
 
 
 def _mask(
@@ -322,11 +322,15 @@ class _Lowering:
         than working out which one is left. The language proved the rest apart
         before this ran, so the negation is exactly the remainder and the
         regions stay disjoint and total.
+
+        Every ``when`` is folded, because a case arm's mask resolves without
+        the fold ``where_of`` gives a declaration's: an always-true arm keeps
+        its literal at the root, and the literal stands nowhere deeper.
         """
-        stated = [program.Mask(arm.when) for arm in node.arms if arm.when is not None]
+        stated = [program.Mask(_fold(arm.when)) for arm in node.arms if arm.when is not None]
         regions = []
         for arm in node.arms:
-            when = program.Mask(arm.when) if arm.when is not None else _none_of(stated)
+            when = program.Mask(_fold(arm.when)) if arm.when is not None else _none_of(stated)
             regions.append(program.Region(when, self.expr(arm.value)))
         return program.Cases(tuple(regions))
 

@@ -290,7 +290,7 @@ def test_a_mask_answers_the_dims_it_is_read_at():
     """`Mask.dims` is read off the leaves, which resolution stamped with their declarations' dims.
 
     The dims of a mask need every name's own dims, which only the spec knows.
-    `Mask.dims_read(name_dims)` asked the consumer to supply that mapping, and
+    `dims_read(name_dims)` asked the consumer to supply that mapping, and
     the only canonical builder was private — a hand-rolled one that missed a
     name narrowed the answer silently. The leaf carrying its own dims removes
     the question, for a declaration's mask and a synthetic predicate alike.
@@ -873,6 +873,30 @@ def test_a_region_s_when_is_a_mask_with_its_own_dims():
     assert always_on.when.dims == frozenset({'g'}), "`not committable` reads the parameter's dims"
     assert boundary.when.dims == frozenset({'g', 't'}), 'the position comparison adds its dimension'
     assert remainder.when.dims == frozenset({'g', 't'}), 'the remainder reads every dim the stated cases do'
+
+
+def test_a_literal_case_mask_is_folded_to_the_root():
+    """A region's `when` keeps a literal at its root or nowhere — the module's own claim.
+
+    A case arm's mask resolves without the fold `where_of` gives a
+    declaration's, so `when: 'True'` reached the program as a literal the
+    remainder then buried under a `NOT` — a consumer met
+    `NotNode(BooleanLiteralNode(True))` and needed the constant folder the
+    contract says nobody needs.
+    """
+    schema = schema_of(
+        CASED,
+        **{
+            'expressions.previous.cases': {'always': {'when': 'True', 'expression': 1}},
+            'expressions.previous.otherwise': 'initial',
+        },
+    )
+    always, remainder = _cases_in(lower_program(expand_piecewise(schema))).regions
+
+    assert always.when.root == BooleanLiteralNode(True), 'the always-true arm keeps its literal at the root'
+    assert remainder.when.root == BooleanLiteralNode(False), (
+        'the remainder of an always-true arm is the empty mask, folded — not a NOT over a literal'
+    )
 
 
 def test_the_lowered_regions_are_still_proved_apart():

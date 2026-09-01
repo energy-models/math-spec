@@ -39,9 +39,10 @@ the language answers about it carried beside it — one home, so two consumers
 cannot come to disagree about what a comparison is or which dims a mask
 restricts. Its literals are already decided: a mask admitting every row
 arrives as ``None`` and one admitting none with ``BooleanLiteralNode(False)``
-as its root, so that node stands at the root of a mask or nowhere in it, and
-no consumer needs a constant folder of its own to agree with the others about
-which rows exist.
+as its root — except a :class:`Region`'s ``when``, which cannot be absent and
+so carries an always-true literal at its root instead. Either way a boolean
+literal stands at the root of a mask or nowhere in it, and no consumer needs
+a constant folder of its own to agree with the others about which rows exist.
 
 The declaration vocabularies are the language's own for the same reason
 (:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
