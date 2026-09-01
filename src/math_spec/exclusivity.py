@@ -48,8 +48,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from math_spec.resolution import Namespace
-from math_spec.where_parser import (
+from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -63,12 +62,13 @@ from math_spec.where_parser import (
     ParameterDefinedNode,
     VariableDefinedNode,
 )
+from math_spec.resolution import Namespace
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
     from math_spec.model import Spec
-    from math_spec.where_parser import PredicateOperator, WhereNode
+    from math_spec.program import PredicateOperator, WhereNode
 
 #: The product of the pair's subjects' cells is enumerated, so the bound is on
 #: the product rather than on any one subject. Two real masks carry two to four

@@ -46,7 +46,7 @@ dependencies = [
   # every model error to SchemaError.
   "pydantic>=2.1",
   # The two grammars — `expression:` and `where:` are strings to the schema and
-  # are parsed here (expression_parser.py, where_parser.py).
+  # are parsed here (expression_parser.py, _where_parser.py).
   "pyparsing>=3.1",
   "pyyaml>=6.0",
 ]
@@ -115,7 +115,7 @@ extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
   "T20",
   "D",
 ] # likewise a generator, and only reachable as a command
-"src/math_spec/where_parser.py" = [
+"src/math_spec/_where_parser.py" = [
   "N806",
 ] # grammar tokens (NOT/AND/OR) are named after keywords
 "docs/static/hooks.py" = ["PERF401", "RUF015", "D"]

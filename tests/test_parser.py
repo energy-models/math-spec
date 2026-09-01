@@ -10,6 +10,13 @@ Nothing here resolves names — a parse result still holds raw
 
 import pytest
 
+import math_spec.program as program_module
+from math_spec._where_parser import (
+    UnresolvedComparisonNode,
+    UnresolvedNameNode,
+    UnresolvedPositionNode,
+    parse_where,
+)
 from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     BinaryOperatorNode,
@@ -21,17 +28,21 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
-from math_spec.program import conjuncts
-from math_spec.where_parser import (
-    AndNode,
-    BooleanLiteralNode,
-    NotNode,
-    OrNode,
-    UnresolvedComparisonNode,
-    UnresolvedNameNode,
-    UnresolvedPositionNode,
-    parse_where,
-)
+from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, _conjuncts
+
+
+def test_the_grammar_builds_the_program_s_own_node_classes():
+    """The connectives and literals in a parse are `math_spec.program`'s classes.
+
+    The parser constructs the resolved vocabulary's connectives directly, so a
+    consumer's `isinstance` against the program's classes holds on any tree —
+    two homes for `AndNode` would make it hold on neither.
+    """
+    tree = parse_where('a AND NOT b OR True')
+    assert type(tree) is program_module.OrNode
+    assert type(tree.left) is program_module.AndNode
+    assert type(tree.left.right) is program_module.NotNode
+    assert type(tree.right) is program_module.BooleanLiteralNode
 
 
 @pytest.mark.parametrize(
@@ -192,9 +203,11 @@ def test_and_binds_tighter_than_or():
     ids=['single', 'pair', 'chain'],
 )
 def test_conjuncts_flattens_the_and_spine(text, expected):
-    """A chain the grammar left-folds into nested `AndNode`s comes back flat, so a
-    consumer asks for the conjuncts rather than re-deriving the flatten rule (#312)."""
-    assert [n.name for n in conjuncts(parse_where(text))] == expected
+    """A chain the grammar left-folds into nested `AndNode`s comes back flat (#312).
+
+    `_conjuncts` is the one home of the flatten rule; `Mask.conjuncts` is the
+    door a consumer asks it through."""
+    assert [n.name for n in _conjuncts(parse_where(text))] == expected
 
 
 @pytest.mark.parametrize(
@@ -205,7 +218,7 @@ def test_conjuncts_flattens_the_and_spine(text, expected):
 def test_conjuncts_does_not_split_or_or_not(text):
     """The split stops at the first node that is not an `AND`: an `OR` or a `NOT` is one
     claim the mask makes, so the whole node is a single conjunct."""
-    result = conjuncts(parse_where(text))
+    result = _conjuncts(parse_where(text))
     assert result == (parse_where(text),), 'a non-AND top node is its own only conjunct'
 
 

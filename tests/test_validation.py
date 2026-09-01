@@ -14,9 +14,9 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
+from math_spec.program import DimensionPositionNode
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import DimensionPositionNode
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
 
 if TYPE_CHECKING:
@@ -332,7 +332,9 @@ class TestPositionResolves:
         ids=['first', 'first of each period', 'first of each season, by a label space'],
     )
     def test_it_resolves(self, mask: str, position: int, by: str | None):
-        node = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        assert resolved is not None
+        node = resolved.root
         assert isinstance(node, DimensionPositionNode)
         assert node.name == 'snapshot'
         assert node.position == position
@@ -653,6 +655,24 @@ class TestExpressionCases:
         block = to_spec(_cased()).expressions['headroom']
         assert list(block.cases) == ['opening']
         assert block.otherwise == '0'
+
+    @pytest.mark.parametrize(
+        ('when', 'fragment'),
+        [
+            pytest.param('position(snapshot) == 0 OR True', 'admits every row', id='folds-to-every-row'),
+            pytest.param('False', 'admits no row', id='admits-no-row'),
+        ],
+    )
+    def test_an_arm_the_data_cannot_decide_is_refused(self, when: str, fragment: str):
+        """A mask that folds to a literal is not a case, and the refusal names the rewrite.
+
+        `True` makes every other arm — the `otherwise` included — unreachable,
+        `False` never applies, and the typesetter has no region to draw for
+        either; nothing the data decides is left, so the file decides at load.
+        """
+        model = _cased(cases={'opening': {'when': when, 'expression': 'p_max'}})
+        with pytest.raises(SchemaError, match=fragment):
+            to_spec(model)
 
     def test_it_round_trips(self):
         """The mapping form goes back out as it came in, `otherwise:` and all."""

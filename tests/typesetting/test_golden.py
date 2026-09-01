@@ -17,11 +17,11 @@ import pytest
 
 from math_spec.expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
+from math_spec.program import WhereNode
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.validation import to_spec
-from math_spec.where_parser import WhereNode
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
 
@@ -127,10 +127,10 @@ def _rendered_trees() -> Iterator[object]:
     for name, block in schema.constraints.items():
         yield expression_of(block.expression, schema, namespace, f'constraint {name!r}')
         if (mask := where_of(block.where, namespace, f'constraint {name!r}')) is not None:
-            yield mask
+            yield mask.root
     for name, block in schema.variables.items():
         if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
-            yield mask
+            yield mask.root
 
 
 #: What resolution never hands the walk: the three nodes it types away, and the
@@ -184,8 +184,6 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 UNREACHABLE = {
     'if isinstance(node, UnresolvedNode | KwargNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
-    'if isinstance(node, UnresolvedWhereNode):',
-    "msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'",
     'if not isinstance(node, ComparisonNode):',
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
     'raise AssertionError(msg)',

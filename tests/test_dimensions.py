@@ -14,10 +14,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
-from math_spec.dimensions import DimensionError, _check_where_dims, _name_dims, check_schema, dims_of
+from math_spec.dimensions import DimensionError, _check_where_dims, check_schema, dims_of
+from math_spec.program import LookupPairComparisonNode, Mask
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import dims_read
 from tests.fixtures import OPERATOR_PROBES, override, schema_of
 
 if TYPE_CHECKING:
@@ -305,12 +305,11 @@ def test_a_predicate_is_read_at_the_coordinates_its_leaves_are_read_at(predicate
     """
     schema = to_spec(BASE)
     ns = Namespace.of(schema)
-    name_dims = _name_dims(schema)
 
     where = where_of(predicate, ns, 'test')
 
     assert where is not None, 'a predicate the connectives cannot settle survives the fold'
-    assert dims_read(where, name_dims) == expected, f'{predicate!r} reads {expected}'
+    assert where.dims == expected, f'{predicate!r} reads {expected}'
 
 
 def test_a_predicate_that_admits_every_row_has_no_leaves_left_to_read():
@@ -324,7 +323,7 @@ def test_the_frame_check_and_the_reading_walk_the_same_leaves():
     """One rule, two readers — the check reports per leaf and so cannot take the union.
 
     A predicate outside the frame is refused by the *name* of the leaf that
-    left it, and that leaf is one `dims_read` counted: a check passing a mask
+    left it, and that leaf is one `Mask.dims` counted: a check passing a mask
     the builder then reads wider would be the divergence this shares a walk to
     prevent.
     """
@@ -334,6 +333,47 @@ def test_the_frame_check_and_the_reading_walk_the_same_leaves():
     where = where_of('p_max > 0', ns, 'test')
     assert where is not None
 
-    assert dims_read(where, _name_dims(schema)) == {'generator'}, 'read at the generator axis'
+    assert where.dims == {'generator'}, 'read at the generator axis'
     with pytest.raises(DimensionError, match=r"where-parameter 'p_max' has dims \['generator'\]"):
-        _check_where_dims(where, schema, frozenset({'snapshot'}), 'test')
+        _check_where_dims(where, frozenset({'snapshot'}), 'test')
+
+
+@pytest.mark.parametrize(
+    ('predicate', 'expected'),
+    [
+        pytest.param('p_max > 0', {'p_max'}, id='a-parameter-comparison-names-the-parameter'),
+        pytest.param('spinup', {'spinup'}, id='a-parameter-bare-names-the-parameter'),
+        pytest.param('p', {'p'}, id='a-variable-bare-names-the-variable'),
+        pytest.param('snap_bus == "b1"', {'snap_bus'}, id='a-lookup-comparison-names-the-lookup'),
+        pytest.param('gen_bus', {'gen_bus'}, id='a-lookup-bare-names-the-lookup'),
+        pytest.param('snapshot == 0', set(), id='a-dimension-names-nothing-it-is-a-coordinate'),
+        pytest.param('position(snapshot) == 0', set(), id='a-position-names-nothing'),
+        pytest.param('p_max > 0 AND snapshot == 0', {'p_max'}, id='a-conjunction-drops-the-dimension-side'),
+        pytest.param('p_max > 0 AND snap_bus == "b1"', {'p_max', 'snap_bus'}, id='a-conjunction-unions-both-names'),
+        pytest.param('NOT p_max > 0', {'p_max'}, id='a-negation-names-what-it-negates'),
+        pytest.param('False', set(), id='a-literal-names-nothing'),
+    ],
+)
+def test_a_predicate_names_the_declarations_its_leaves_test(predicate, expected):
+    """The name rule for the predicate side, the complement of `Mask.dims`'s dim rule.
+
+    A dimension names no declaration — it is a coordinate, not data to feed —
+    so `names_read` drops it where `dims` keeps it, and the two together
+    say of a leaf both where it is read and what it reads.
+    """
+    schema = to_spec(BASE)
+    where = where_of(predicate, Namespace.of(schema), 'test')
+
+    assert where is not None, 'a predicate the connectives cannot settle survives the fold'
+    assert where.names_read == expected, f'{predicate!r} names {expected}'
+
+
+def test_names_read_takes_both_sides_of_a_lookup_pair():
+    """The one leaf that names two declarations — two maps compared on the dimension they share.
+
+    BASE has one lookup per dimension, so the pair is built directly rather than
+    resolved from a predicate string.
+    """
+    where = LookupPairComparisonNode('from_bus', 'to_bus', 'line', '!=')
+
+    assert Mask(where).names_read == {'from_bus', 'to_bus'}, 'a lookup pair names both maps it compares'
