@@ -88,6 +88,17 @@ def _negated(mask: WhereNode) -> WhereNode:
     return mask.operand if isinstance(mask, NotNode) else NotNode(mask)
 
 
+def _mask(where: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> program.Mask | None:
+    """The resolved ``where`` wrapped as a :class:`~math_spec.program.Mask`, or ``None`` where it folds away.
+
+    ``where_of`` folds an always-true predicate to ``None``; a mask with no
+    predicate is no mask, so the declaration carries ``None`` there rather than
+    a mask over ``True``.
+    """
+    node = where_of(where, ns, context, self_variable=self_variable)
+    return program.Mask(node) if node is not None else None
+
+
 def to_program(spec: str | Path | dict[str, Any] | Spec | program.Program) -> program.Program:
     """*spec* as a :class:`~math_spec.program.Program` — the public door.
 
@@ -154,7 +165,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
         variables[vname] = program.VariableDeclaration(
             tuple(vdef.foreach),
-            where=where_of(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
+            where=_mask(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
             lower=lower,
             upper=upper,
             variable_type=variable_type,
@@ -163,7 +174,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
 
     constraints = {}
     for cname, cdef in expanded.constraints.items():
-        where = where_of(cdef.where, ns, f"constraint '{cname}'")
+        where = _mask(cdef.where, ns, f"constraint '{cname}'")
         ast = expression_of(cdef.expression, expanded, ns, f"constraint '{cname}'")
         if not isinstance(ast, ComparisonNode):
             raise LanguageError(
