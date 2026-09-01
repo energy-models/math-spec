@@ -1211,10 +1211,11 @@ def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     :class:`Mask`, the one door. A boolean literal reads nothing and yields
     nothing.
 
-    The unresolved arm is live, not type-dead: ``parse_where``'s annotation
-    over-claims, so a consumer can hand this a tree the type system cannot
-    see is unresolved — unlike the typesetter's retired twin, whose input was
-    resolved by construction.
+    The unresolved arm is live, not type-dead. Inside the package the type
+    checker reaches it — :func:`~math_spec._where_parser.parse_where` says the
+    shape it returns — but a consumer runs none of ours over its own code, and
+    a mask that silently answered nothing for a tree it could not read would
+    be exactly the divergence this walk exists to prevent.
 
     Raises:
         AssertionError: An unresolved node, which is a pass running before
@@ -1338,9 +1339,10 @@ class Mask:
     Construction folds: a literal or a double negation a connective decides is
     evaluated away, so a boolean literal stands at the root or nowhere, and a
     consumer can check emptiness in O(1). Construction also refuses an
-    unresolved tree outright — ``parse_where``'s annotation over-claims, and a
-    mask that silently answered no atoms, no names and no dims for one would
-    be the divergence this class exists to prevent.
+    unresolved tree outright: a mask that silently answered no atoms, no names
+    and no dims for one would be the divergence this class exists to prevent,
+    and a consumer's hand-built tree is not something a type checker here can
+    reach.
 
     Attributes:
         root: The resolved predicate the mask restricts rows by, folded.

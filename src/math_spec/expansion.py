@@ -159,6 +159,7 @@ def _parse_cased(name: str, block: ExpressionBlock, context: str) -> CasesNode:
     arms = []
     for label, case in block.cases.items():
         value = _parse_body(case.expression, f"named expression '{name}', case '{label}'", context)
+        # pyrefly: ignore[bad-argument-type]  # the field is typed as resolution leaves it
         arms.append(CaseArm(label, parse_where(case.when), value))
     assert block.otherwise is not None
     fallback = _parse_body(block.otherwise, f"named expression '{name}', otherwise", context)
