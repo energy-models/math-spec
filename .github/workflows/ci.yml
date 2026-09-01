@@ -50,7 +50,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up pixi
-        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f # v0.10.0
+        uses: prefix-dev/setup-pixi@f00437f565399d418b0acc85936d12c1fb668347 # v0.10.1
         with:
           # `--locked`: pixi.lock is the environment, and a run that quietly
           # re-solved would not be testing what a contributor has.
@@ -64,7 +64,7 @@ jobs:
       # is not a conda package. Keyed on the lockfile so a tectonic upgrade
       # gets a fresh bundle rather than a stale one.
       - name: Cache the tectonic bundle
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/Tectonic
           key: tectonic-${{ runner.os }}-${{ hashFiles('pixi.lock') }}
