@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.60](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.59...v0.0.0-alpha.60) (2026-09-01)
+
+
+### Bug Fixes
+
+* **language:** the language reference states which case arms are refused, and the refusal says what actually breaks ([#336](https://github.com/energy-models/math-spec/issues/336)) ([01920d1](https://github.com/energy-models/math-spec/commit/01920d1be4f6dbd6965f6f0e7e683543384cc744))
+
 ## [0.0.0-alpha.59](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.58...v0.0.0-alpha.59) (2026-09-01)
 
 
