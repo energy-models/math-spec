@@ -381,13 +381,13 @@ def test_a_held_leaf_walk_is_taken_after_the_fold_absorbed_a_branch():
 
 
 def test_a_mask_over_an_unresolved_tree_is_refused_at_construction():
-    """`parse_where` output is typed as resolved, but its leaves are not — and `Mask` is not where that gets fixed.
+    """A tree whose leaves are unresolved is refused where it is wrapped, not where it is read.
 
-    The guard is live, unlike the typesetter's retired twin whose input came
-    resolved from `where_of`: any consumer can wrap raw parse output. Refusing
-    at construction closes every door at once — an accepted mask whose
-    `conjuncts` handed back unresolved leaves while `atoms` raised would be
-    half a refusal.
+    `parse_where` says the shape it returns, so inside the package this is a
+    type error too — but a consumer runs none of our checks, and any consumer
+    can wrap raw parse output. Refusing at construction closes every door at
+    once: an accepted mask whose `conjuncts` handed back unresolved leaves
+    while `atoms` raised would be half a refusal.
     """
     with pytest.raises(AssertionError, match='reached a predicate walk unresolved'):
         Mask(parse_where('a AND b'))

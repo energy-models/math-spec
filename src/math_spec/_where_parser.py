@@ -197,12 +197,14 @@ _INDEX_REWRITE = (
 )
 
 
-def parse_where(text: str) -> WhereNode:
-    """Parse a where string into an AST.
+def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
+    """Parse a where string into an AST, its leaves still unresolved.
 
-    The connectives and literals are the resolved vocabulary's own, but the
-    leaves naming declarations come back as ``Unresolved*`` nodes — the
-    annotation is the type the tree has once resolution types every leaf.
+    The connectives and literals are the resolved vocabulary's own; the leaves
+    naming declarations are ``Unresolved*`` nodes, and the return type says so.
+    Only :func:`~math_spec.resolution.resolve_where` takes a tree this shape —
+    a :class:`~math_spec.program.Mask` refuses one, and now says so before it
+    is built.
 
     Raises:
         SchemaError: If *text* is not a where string of the language.
@@ -214,4 +216,4 @@ def parse_where(text: str) -> WhereNode:
         if _INDEX_CALL.search(text):
             msg += _INDEX_REWRITE
         raise SchemaError(msg) from e
-    return cast('WhereNode', result[0])
+    return cast('WhereNode | UnresolvedWhereNode', result[0])
