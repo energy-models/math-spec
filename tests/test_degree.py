@@ -190,3 +190,38 @@ def test_a_dual_carries_no_variable():
 def test_a_body_reading_a_dual_grades_post_solve():
     """A dual is a number only a solve produces, so the entry reading one is post-solve grade even where its arithmetic is affine."""
     assert is_postsolve_grade(_dual_ast('dual(lim) * c')) is True
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        pytest.param('dual(lim)', id='bare'),
+        pytest.param('sum(dual(lim), over=g)', id='under-a-reduction'),
+    ],
+)
+def test_a_nested_dual_grades_post_solve(text):
+    """`calls_dual` recurses through a reduction's argument, not only the top node."""
+    assert is_postsolve_grade(_dual_ast(text)) is True
+
+
+def test_a_dual_inside_a_cased_arm_grades_post_solve():
+    """`calls_dual` recurses through a `CasesNode` arm, not only the top node.
+
+    The reference resolves straight to the `CasesNode` expansion.py builds, so
+    this also guards that `children()` walking its arm values reaches a dual a
+    non-recursive check — one that only inspected the node it was handed —
+    would miss.
+    """
+    schema = schema_of(
+        SMALL_MODEL,
+        **{
+            'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'},
+            'expressions.dcase': {
+                'foreach': ['g'],
+                'cases': {'flagged': {'when': 'flag', 'expression': 'dual(lim)'}},
+                'otherwise': 0,
+            },
+        },
+    )
+    ast = expression_of('dcase', schema, Namespace.of(schema), 'test')
+    assert is_postsolve_grade(ast) is True
