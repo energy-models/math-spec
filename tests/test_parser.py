@@ -21,6 +21,7 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
+from math_spec.program import conjuncts
 from math_spec.where_parser import (
     AndNode,
     BooleanLiteralNode,
@@ -179,6 +180,33 @@ def test_and_binds_tighter_than_or():
     assert parse_where('a OR b AND c') == OrNode(
         UnresolvedNameNode('a'), AndNode(UnresolvedNameNode('b'), UnresolvedNameNode('c'))
     )
+
+
+@pytest.mark.parametrize(
+    ('text', 'expected'),
+    [
+        ('a', ['a']),
+        ('a AND b', ['a', 'b']),
+        ('a AND b AND c', ['a', 'b', 'c']),
+    ],
+    ids=['single', 'pair', 'chain'],
+)
+def test_conjuncts_flattens_the_and_spine(text, expected):
+    """A chain the grammar left-folds into nested `AndNode`s comes back flat, so a
+    consumer asks for the conjuncts rather than re-deriving the flatten rule (#312)."""
+    assert [n.name for n in conjuncts(parse_where(text))] == expected
+
+
+@pytest.mark.parametrize(
+    'text',
+    ['a OR b', 'NOT a', 'a AND b OR c', 'NOT (a AND b)'],
+    ids=['or', 'not', 'or-of-ands', 'not-of-and'],
+)
+def test_conjuncts_does_not_split_or_or_not(text):
+    """The split stops at the first node that is not an `AND`: an `OR` or a `NOT` is one
+    claim the mask makes, so the whole node is a single conjunct."""
+    result = conjuncts(parse_where(text))
+    assert result == (parse_where(text),), 'a non-AND top node is its own only conjunct'
 
 
 @pytest.mark.parametrize(
