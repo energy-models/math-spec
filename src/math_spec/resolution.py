@@ -70,6 +70,7 @@ from math_spec.program import (
     TypedPredicateNode,
     VariableDefinedNode,
     WhereNode,
+    _fold,
 )
 
 if TYPE_CHECKING:
@@ -220,33 +221,17 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
     return folded
 
 
-def _fold(node: WhereNode) -> WhereNode:
-    """*node* with every literal a connective decides evaluated away.
+def _arm_mask(
+    when: WhereNode | UnresolvedWhereNode | None, ns: Namespace, context: str, errors: list[str]
+) -> WhereNode | None:
+    """A case arm's mask, resolved and folded — a literal kept rather than dropped.
 
-    ``X AND True`` is ``X``, ``X OR True`` is every row, ``X AND False`` is
-    none, and ``NOT True`` is ``False``. What survives is a predicate over
-    data, or the one literal the whole mask reduces to.
+    ``where_of`` drops an always-true declaration mask to ``None``, but a
+    ``None`` ``when`` on an arm *means* the ``otherwise`` arm, so the literal
+    survives the fold here — for validation to refuse with its rewrite, since
+    an arm the data cannot decide is not a case.
     """
-    if isinstance(node, NotNode):
-        operand = _fold(node.operand)
-        if isinstance(operand, BooleanLiteralNode):
-            return BooleanLiteralNode(not operand.value)
-        return NotNode(operand)
-    if isinstance(node, AndNode):
-        left, right = _fold(node.left), _fold(node.right)
-        if isinstance(left, BooleanLiteralNode):
-            return right if left.value else left
-        if isinstance(right, BooleanLiteralNode):
-            return left if right.value else right
-        return AndNode(left, right)
-    if isinstance(node, OrNode):
-        left, right = _fold(node.left), _fold(node.right)
-        if isinstance(left, BooleanLiteralNode):
-            return left if left.value else right
-        if isinstance(right, BooleanLiteralNode):
-            return right if right.value else left
-        return OrNode(left, right)
-    return node
+    return None if when is None else _fold(_resolved_child(when, ns, context, errors, None))
 
 
 # ---------------------------------------------------------------------------
@@ -383,13 +368,10 @@ def _resolve_arith(
         return node
 
     if isinstance(node, CasesNode):
-        # the arm's mask is folded here, the way `where_of` folds a
-        # declaration's — but an always-true arm keeps its literal rather than
-        # dropping to None, which downstream means the `otherwise` arm
         arms = []
         for arm in node.arms:
             arm_context = case_context(node.name, None if arm.when is None else arm.label)
-            when = None if arm.when is None else _fold(_resolved_child(arm.when, ns, arm_context, errors, None))
+            when = _arm_mask(arm.when, ns, arm_context, errors)
             arms.append(CaseArm(arm.label, when, _resolve_arith(arm.value, ns, arm_context, errors)))
         return CasesNode(node.name, tuple(arms))
 

@@ -49,6 +49,7 @@ from math_spec.program import (
     Multiply,
     Negate,
     NotNode,
+    OrNode,
     Parameter,
     ParameterComparisonNode,
     ParameterDefinedNode,
@@ -205,6 +206,11 @@ def test_a_compound_where_lowers_to_something(dispatch_schema):
         pytest.param('NOT False', None, id='not-false-is-no-mask'),
         pytest.param('NOT (p_max > 0 AND False)', None, id='a-branch-folded-away-folds-the-one-above-it'),
         pytest.param(
+            'NOT (NOT p_max)',
+            ParameterDefinedNode('p_max', ('generator',)),
+            id='a-double-negation-cancels-on-the-load-path',
+        ),
+        pytest.param(
             '(p_max > 0 OR True) AND load',
             ParameterDefinedNode('load', ('snapshot',)),
             id='an-absorbed-side-takes-its-own-branch-with-it',
@@ -332,53 +338,41 @@ def test_negating_a_mask_cancels_a_double_negation():
     assert Mask(NotNode(x)).negated() == Mask(x), 'a negation is cancelled, not stacked'
 
 
-def test_the_mask_algebra_folds_a_literal_at_the_root():
-    """`negated` flips a literal and `&` absorbs one, so a derived mask keeps the root invariant.
+def test_mask_construction_folds_so_a_literal_stands_at_the_root_or_nowhere():
+    """The fold lives in the constructor, so the invariant holds however a mask is built.
 
-    Lowering's own remainder hits this: a `when: 'False'` arm is legal — it
-    overlaps nothing, so exclusivity passes — and an unfolded algebra built
-    `NOT False AND …`, an embedded literal the module contract says no
-    consumer should need a folder for.
+    Folding only in `negated`/`&` left the front door open: `Mask(OrNode(True,
+    x))` — the composition the docs invite — carried exactly the buried
+    literal the module contract says cannot exist.
     """
     x = ParameterDefinedNode('committable', ('g',))
     empty, every = Mask(BooleanLiteralNode(False)), Mask(BooleanLiteralNode(True))
+
+    assert Mask(OrNode(BooleanLiteralNode(True), x)) == every, 'a True side absorbs the OR at the door'
+    assert Mask(AndNode(BooleanLiteralNode(False), x)) == empty, 'a False side dominates the AND at the door'
+    assert Mask(NotNode(BooleanLiteralNode(True))) == empty, 'NOT over a literal flips at the door'
+    assert Mask(NotNode(NotNode(x))) == Mask(x), 'a double negation cancels at the door'
 
     assert empty.negated() == every, 'the empty mask negated admits every row, with no NOT stacked'
     assert every.negated() == empty, 'and back again'
     assert empty & Mask(x) == empty, 'a False root dominates the conjunction'
     assert Mask(x) & empty == empty, 'from either side'
     assert every & Mask(x) == Mask(x), 'a True root is the other side'
-    assert Mask(x) & every == Mask(x), 'from either side too'
+    assert Mask(x) | empty == Mask(x), 'a False root is the other side of an OR'
+    assert Mask(x) | every == every, 'a True root dominates the OR'
 
 
-def test_a_never_true_case_arm_adds_nothing_to_the_remainder():
-    """`when: 'False'` is legal — it overlaps nothing — and the remainder ignores it."""
-    schema = schema_of(
-        CASED,
-        **{
-            'expressions.previous.cases': {
-                'never': {'when': 'False', 'expression': 1},
-                'on': {'when': 'committable', 'expression': 'initial'},
-            },
-        },
-    )
-    *_, remainder = _cases_in(lower_program(expand_piecewise(schema))).regions
-
-    assert remainder.when == Mask(NotNode(ParameterDefinedNode('committable', ('g',)))), (
-        'NOT False folds away rather than standing in the conjunction'
-    )
-
-
-def test_a_mask_over_an_unresolved_tree_refuses_to_answer():
+def test_a_mask_over_an_unresolved_tree_is_refused_at_construction():
     """`parse_where` output is typed as resolved, but its leaves are not — and `Mask` is not where that gets fixed.
 
     The guard is live, unlike the typesetter's retired twin whose input came
-    resolved from `where_of`: any consumer can wrap raw parse output, and
-    without the refusal the walk would yield no atoms and every question would
-    answer empty, silently.
+    resolved from `where_of`: any consumer can wrap raw parse output. Refusing
+    at construction closes every door at once — an accepted mask whose
+    `conjuncts` handed back unresolved leaves while `atoms` raised would be
+    half a refusal.
     """
     with pytest.raises(AssertionError, match='reached a predicate walk unresolved'):
-        _ = Mask(parse_where('a AND b')).atoms
+        Mask(parse_where('a AND b'))
 
 
 def test_a_mask_over_a_scalar_reads_no_dims():
@@ -910,30 +904,6 @@ def test_a_region_s_when_is_a_mask_with_its_own_dims():
     assert always_on.when.dims == frozenset({'g'}), "`not committable` reads the parameter's dims"
     assert boundary.when.dims == frozenset({'g', 't'}), 'the position comparison adds its dimension'
     assert remainder.when.dims == frozenset({'g', 't'}), 'the remainder reads every dim the stated cases do'
-
-
-def test_a_literal_case_mask_is_folded_to_the_root():
-    """A region's `when` keeps a literal at its root or nowhere — the module's own claim.
-
-    A case arm's mask resolved without the fold `where_of` gives a
-    declaration's, so `when: 'committable OR True'` reached the program with
-    the literal buried in the `OR`, and the remainder buried another under a
-    `NOT` — a consumer needed the constant folder the contract says nobody
-    needs. Resolution folds the arm now, and the mask algebra the remainder.
-    """
-    schema = schema_of(
-        CASED,
-        **{
-            'expressions.previous.cases': {'always': {'when': 'committable OR True', 'expression': 1}},
-            'expressions.previous.otherwise': 'initial',
-        },
-    )
-    always, remainder = _cases_in(lower_program(expand_piecewise(schema))).regions
-
-    assert always.when.root == BooleanLiteralNode(True), 'the always-true arm folds to its literal, at the root'
-    assert remainder.when.root == BooleanLiteralNode(False), (
-        'the remainder of an always-true arm is the empty mask, folded — not a NOT over a literal'
-    )
 
 
 def test_the_lowered_regions_are_still_proved_apart():

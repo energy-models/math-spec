@@ -654,6 +654,24 @@ class TestExpressionCases:
         assert list(block.cases) == ['opening']
         assert block.otherwise == '0'
 
+    @pytest.mark.parametrize(
+        ('when', 'fragment'),
+        [
+            pytest.param('position(snapshot) == 0 OR True', 'admits every row', id='folds-to-every-row'),
+            pytest.param('False', 'admits no row', id='admits-no-row'),
+        ],
+    )
+    def test_an_arm_the_data_cannot_decide_is_refused(self, when: str, fragment: str):
+        """A mask that folds to a literal is not a case, and the refusal names the rewrite.
+
+        `True` makes every other arm — the `otherwise` included — unreachable,
+        `False` never applies, and the typesetter has no region to draw for
+        either; nothing the data decides is left, so the file decides at load.
+        """
+        model = _cased(cases={'opening': {'when': when, 'expression': 'p_max'}})
+        with pytest.raises(SchemaError, match=fragment):
+            to_spec(model)
+
     def test_it_round_trips(self):
         """The mapping form goes back out as it came in, `otherwise:` and all."""
         schema = to_spec(_cased(description='what is spare'))

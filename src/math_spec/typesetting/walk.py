@@ -463,23 +463,20 @@ class Walk:
 
     def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
         if isinstance(node, BooleanLiteralNode):
-            assert not node.value, 'resolution folds a True literal away before anything prints it'
+            assert not node.value, 'an always-true mask is folded away or refused before anything prints it'
             return self.op('false'), _ATOM
 
         if isinstance(node, ParameterDefinedNode):
-            block = self.schema.parameters[node.name]
-            indexed = ctx.indexed(self.symbols.name[node.name], list(block.dims))
-            if block.dtype == 'bool':
+            indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
+            if self.schema.parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
             return f'{indexed} {self.format.prose(" is defined")}', 2
 
         if isinstance(node, VariableDefinedNode):
-            dims = list(self.schema.variables[node.name].foreach)
-            return f'{ctx.indexed(self.symbols.name[node.name], dims)} {self.format.prose(" exists")}', 2
+            return f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}', 2
 
         if isinstance(node, ParameterComparisonNode):
-            dims = list(self.schema.parameters[node.name].dims)
-            left = ctx.indexed(self.symbols.name[node.name], dims)
+            left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             return f'{left} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
 
         if isinstance(node, DimensionComparisonNode):

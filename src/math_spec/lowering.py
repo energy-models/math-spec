@@ -323,8 +323,8 @@ class _Lowering:
         before this ran, so the negation is exactly the remainder and the
         regions stay disjoint and total.
 
-        Every ``when`` arrives folded from resolution — an always-true arm
-        keeps its literal at the root, and the literal stands nowhere deeper.
+        Every ``when`` arrives folded from resolution, and an arm that folded
+        to a literal was refused at load — so no literal reaches a region.
         """
         stated = [program.Mask(arm.when) for arm in node.arms if arm.when is not None]
         regions = []

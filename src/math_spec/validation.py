@@ -33,6 +33,7 @@ from math_spec.expression_parser import (
 )
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
+from math_spec.program import BooleanLiteralNode, _fold
 from math_spec.resolution import Namespace, resolve_expression, resolve_where_text
 
 if TYPE_CHECKING:
@@ -122,7 +123,18 @@ def validate_expressions(schema: Spec) -> None:
         for case_name, case in block.cases.items():
             arm_context = case_context(ename, case_name)
             if (mask := resolve_where_text(case.when, ns, arm_context, errors)) is not None:
-                masks[case_name] = mask
+                folded = _fold(mask)
+                if isinstance(folded, BooleanLiteralNode):
+                    errors.append(
+                        f'{arm_context}: the mask admits every row, so every other arm — the '
+                        f'`otherwise` included — is unreachable. Write the expression without '
+                        f'`cases:`, or narrow the `when`.'
+                        if folded.value
+                        else f'{arm_context}: the mask admits no row, so this arm never applies. '
+                        f'Delete the arm, or widen the `when`.'
+                    )
+                else:
+                    masks[case_name] = folded
             _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=1)
         assert block.otherwise is not None
         _check_expression(block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, ceiling=1)

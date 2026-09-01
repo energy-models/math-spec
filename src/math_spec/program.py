@@ -37,15 +37,15 @@ A mask arrives as a :class:`Mask`: the language's own resolved ``where`` node
 (the :data:`WhereNode` vocabulary below) as its ``root``, with the questions
 the language answers about it carried beside it — one home, so two consumers
 cannot come to disagree about what a comparison is or which dims a mask
-restricts. Its literals are already decided: a mask admitting every row
-arrives as ``None`` and one admitting none with ``BooleanLiteralNode(False)``
-as its root — except a :class:`Region`'s ``when``, which cannot be absent,
-and a mask derived by :meth:`Mask.negated` or ``&``, whose algebra is total
-over masks: each carries an always-true literal at its root instead. Either
-way a boolean literal stands at the root of a mask or nowhere in it — the
-algebra flips and absorbs literals rather than burying one — and no consumer
-needs a constant folder of its own to agree with the others about which rows
-exist.
+restricts. Its literals are already decided: a declaration's mask admitting
+every row arrives as ``None``, one admitting none with
+``BooleanLiteralNode(False)`` as its root, and a case arm whose mask folds to
+a literal is refused at load — nothing the data decides is left in it. A mask
+a consumer derives (:meth:`Mask.negated`, ``&``, ``|``) may fold to the
+always-true literal, the algebra being total over masks; construction folds,
+so a boolean literal stands at the root of a mask or nowhere in it, and no
+consumer needs a constant folder of its own to agree with the others about
+which rows exist.
 
 The declaration vocabularies are the language's own for the same reason
 (:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
@@ -1294,6 +1294,39 @@ def _conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
     return (where,)
 
 
+def _fold(node: WhereNode) -> WhereNode:
+    """*node* with every connective a literal or a double negation decides evaluated away.
+
+    ``X AND True`` is ``X``, ``X OR True`` is every row, ``X AND False`` is
+    none, ``NOT True`` is ``False`` and ``NOT NOT X`` is ``X``. What survives
+    is a predicate over data, or the one literal the whole mask reduces to —
+    the invariant :class:`Mask` applies at construction, so it holds wherever
+    a mask is built.
+    """
+    if isinstance(node, NotNode):
+        operand = _fold(node.operand)
+        if isinstance(operand, BooleanLiteralNode):
+            return BooleanLiteralNode(not operand.value)
+        if isinstance(operand, NotNode):
+            return operand.operand
+        return NotNode(operand)
+    if isinstance(node, AndNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return right if left.value else left
+        if isinstance(right, BooleanLiteralNode):
+            return left if right.value else right
+        return AndNode(left, right)
+    if isinstance(node, OrNode):
+        left, right = _fold(node.left), _fold(node.right)
+        if isinstance(left, BooleanLiteralNode):
+            return left if left.value else right
+        if isinstance(right, BooleanLiteralNode):
+            return right if right.value else left
+        return OrNode(left, right)
+    return node
+
+
 @dataclass(frozen=True)
 class Mask:
     """A resolved ``where`` and the questions the language answers about it.
@@ -1301,14 +1334,27 @@ class Mask:
     ``root`` is the predicate an engine dispatches on with ``isinstance`` to
     build the mask against data; every question is derived from it, so a mask
     cannot disagree with itself. Wrap any resolved predicate — a declaration's
-    own, or one built from resolved pieces (:meth:`negated`, ``&``) — and ask
-    it here, so two consumers cannot answer differently.
+    own, or one built from resolved pieces (:meth:`negated`, ``&``, ``|``) —
+    and ask it here, so two consumers cannot answer differently.
+
+    Construction folds: a literal or a double negation a connective decides is
+    evaluated away, so a boolean literal stands at the root or nowhere, and a
+    consumer can check emptiness in O(1). Construction also refuses an
+    unresolved tree outright — ``parse_where``'s annotation over-claims, and a
+    mask that silently answered no atoms, no names and no dims for one would
+    be the divergence this class exists to prevent.
 
     Attributes:
-        root: The resolved predicate the mask restricts rows by.
+        root: The resolved predicate the mask restricts rows by, folded.
     """
 
     root: WhereNode
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, 'root', _fold(self.root))
+        # exhausting the walk is the refusal: _atoms raises on an unresolved leaf
+        for _atom in _atoms(self.root):
+            pass
 
     @property
     def conjuncts(self) -> tuple[WhereNode, ...]:
@@ -1336,25 +1382,13 @@ class Mask:
         return frozenset(dim for atom in _atoms(self.root) for dim in _atom_dims(atom))
 
     def negated(self) -> Mask:
-        """The mask admitting exactly the rows this one refuses, folded.
-
-        ``not (not committable)`` is a term every consumer would evaluate
-        twice to reach the answer it started from, so the fold lives here,
-        once. A literal root flips its value rather than gaining a ``NOT``,
-        so a literal stays at the root or nowhere.
-        """
-        if isinstance(self.root, BooleanLiteralNode):
-            return Mask(BooleanLiteralNode(not self.root.value))
-        return Mask(self.root.operand) if isinstance(self.root, NotNode) else Mask(NotNode(self.root))
+        """The mask admitting exactly the rows this one refuses — construction folds a double negation or a literal flip."""
+        return Mask(NotNode(self.root))
 
     def __and__(self, other: Mask) -> Mask:
-        """Both masks at once — the roots joined under one ``AND``, literals absorbed.
-
-        A ``False`` root dominates and a ``True`` root is the other side, so
-        the conjunction never buries a literal under the ``AND``.
-        """
-        if isinstance(self.root, BooleanLiteralNode):
-            return other if self.root.value else self
-        if isinstance(other.root, BooleanLiteralNode):
-            return self if other.root.value else other
+        """Both masks at once — construction absorbs a literal side rather than burying it."""
         return Mask(AndNode(self.root, other.root))
+
+    def __or__(self, other: Mask) -> Mask:
+        """Either mask — construction absorbs a literal side rather than burying it."""
+        return Mask(OrNode(self.root, other.root))
