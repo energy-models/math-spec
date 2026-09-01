@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import textwrap
 
+from math_spec import to_spec
 from math_spec.typesetting import to_latex, to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
@@ -49,9 +50,11 @@ symbols = {
     },
 }
 
-ms.to_latex('dispatch.yaml', symbols=symbols)  # amsmath align
-ms.to_typst('dispatch.yaml')  # compiles without a TeX toolchain
-ms.to_markdown('dispatch.yaml')  # renders as-is on GitHub
+spec = ms.to_spec('dispatch.yaml')  # read and checked once, then printed three ways
+
+ms.to_latex(spec, symbols=symbols)  # amsmath align
+ms.to_typst(spec)  # compiles without a TeX toolchain
+ms.to_markdown(spec)  # renders as-is on GitHub
 ```
 
 `symbols` is optional — drop it and the same model prints as
@@ -79,9 +82,10 @@ def tab(title: str, body: str) -> str:
 
 def block() -> str:
     """The three tabs, in the order a reader meets them."""
+    spec = to_spec(MODEL)
     symbols = sidecar_for(MODEL)
-    printed = to_markdown(MODEL, symbols=symbols, numbered=False)
-    latex = to_latex(MODEL, symbols=symbols, numbered=False)
+    printed = to_markdown(spec, symbols=symbols, numbered=False)
+    latex = to_latex(spec, symbols=symbols, numbered=False)
     return '\n\n'.join(
         (
             tab('The math', printed.strip()),

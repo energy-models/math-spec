@@ -78,7 +78,10 @@ def typeset(
     """Render *model*'s math in *fmt*.
 
     Args:
-        model: Anything :func:`math_spec.to_spec` accepts.
+        model: Anything :func:`math_spec.to_spec` accepts. A
+            :class:`~math_spec.model.Spec` is rendered as it stands, so
+            printing one model in several formats reads and checks the file
+            once rather than once per format.
         fmt: What spells the math — one of :data:`FORMATS`.
         symbols: How names print, as a :class:`SymbolTable`, a path or a
             mapping. Names it does not carry are derived, and it must be
