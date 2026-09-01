@@ -63,6 +63,7 @@ from math_spec.program import (
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
+    Mask,
     NotNode,
     OrNode,
     ParameterComparisonNode,
@@ -86,7 +87,7 @@ class Namespace:
     walk through several stores.
     """
 
-    __slots__ = ('dimensions', 'dims', 'dtypes', 'lookups', 'parameters', 'variables')
+    __slots__ = ('dimensions', 'dtypes', 'leaf_dims', 'lookups', 'parameters', 'variables')
 
     def __init__(
         self,
@@ -95,7 +96,7 @@ class Namespace:
         dimensions: Iterable[str],
         lookups: Mapping[str, tuple[str, str | None]],
         dtypes: Mapping[str, str],
-        dims: Mapping[str, tuple[str, ...]],
+        leaf_dims: Mapping[str, tuple[str, ...]],
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
@@ -109,7 +110,7 @@ class Namespace:
         #: parameter or variable name -> the dims it is read through —
         #: parameters by their ``dims``, variables by their frame. Stamped onto
         #: each leaf a where names, the way a lookup leaf carries ``over``.
-        self.dims: dict[str, tuple[str, ...]] = dict(dims)
+        self.leaf_dims: dict[str, tuple[str, ...]] = dict(leaf_dims)
 
     def groupable(self) -> dict[str, str]:
         """The lookups a ``by=`` may name: name -> the dimension it maps into.
@@ -196,14 +197,14 @@ def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> Expre
     return resolved
 
 
-def where_of(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> WhereNode | None:
-    """Parse, resolve and fold a where string — ``None`` for no mask, however the file spelled it.
+def where_of(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> Mask | None:
+    """Parse and resolve a where string into the :class:`~math_spec.program.Mask` a declaration carries.
 
-    Every constant the connectives decide is folded away, so a mask that
-    admits every row arrives as ``None`` and one that admits none as
-    ``BooleanLiteralNode(False)``; that node stands at the root of a mask or
-    nowhere in it, and every reader — a program, a typeset page — gets the
-    same predicate.
+    ``None`` for no mask, however the file spelled it: :func:`resolve_where`
+    folds, so a mask that admits every row is dropped here and one that admits
+    none arrives as a mask over ``BooleanLiteralNode(False)``. A ``Mask`` is
+    the only shape a resolved where travels in past resolution, so every
+    reader — a program, a typeset page — gets the same predicate.
 
     Raises:
         LanguageError: Listing every problem the predicate has.
@@ -215,23 +216,22 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
     if errors:
         raise LanguageError('\n'.join(errors))
     assert resolved is not None
-    folded = _fold(resolved)
-    if isinstance(folded, BooleanLiteralNode) and folded.value:
+    if isinstance(resolved, BooleanLiteralNode) and resolved.value:
         return None
-    return folded
+    return Mask(resolved)
 
 
 def _arm_mask(
     when: WhereNode | UnresolvedWhereNode | None, ns: Namespace, context: str, errors: list[str]
 ) -> WhereNode | None:
-    """A case arm's mask, resolved and folded — a literal kept rather than dropped.
+    """A case arm's mask through :func:`resolve_where` — a literal kept rather than dropped.
 
     ``where_of`` drops an always-true declaration mask to ``None``, but a
-    ``None`` ``when`` on an arm *means* the ``otherwise`` arm, so the literal
-    survives the fold here — for validation to refuse with its rewrite, since
+    ``None`` ``when`` on an arm *means* the ``otherwise`` arm, so the folded
+    literal survives here — for validation to refuse with its rewrite, since
     an arm the data cannot decide is not a case.
     """
-    return None if when is None else _fold(_resolved_child(when, ns, context, errors, None))
+    return None if when is None else resolve_where(when, ns, context, errors, None)
 
 
 # ---------------------------------------------------------------------------
@@ -601,22 +601,24 @@ def _ungroupable(
 
 
 def resolve_where(
-    node: WhereNode,
+    node: WhereNode | UnresolvedWhereNode,
     ns: Namespace,
     context: str,
     errors: list[str],
     self_variable: str | None = None,
 ) -> WhereNode | None:
-    """Rewrite a parsed where AST into typed predicates.
+    """Rewrite a parsed where AST into typed predicates, folded.
 
     Both parameters and dimensions are legal here — a where-string is a
     predicate over the frame, and the frame carries its own coordinates. What
     is *not* legal is an unknown name: read as "scalar False" it would mask
-    every row out and produce an empty model in silence.
+    every row out and produce an empty model in silence. The result is folded
+    at this one door, so every reader of a resolved tree — the prover, the
+    program, a typeset page — gets the same predicate by construction.
     """
     before = len(errors)
     resolved = _resolve_where(node, ns, context, errors, self_variable)
-    return None if len(errors) > before else cast('WhereNode', resolved)
+    return None if len(errors) > before else _fold(cast('WhereNode', resolved))
 
 
 def resolve_where_text(
@@ -824,7 +826,7 @@ def _resolve_where(
     if isinstance(node, UnresolvedNameNode):
         match ns.kind(node.name):
             case 'parameter':
-                return ParameterDefinedNode(node.name, ns.dims[node.name])
+                return ParameterDefinedNode(node.name, ns.leaf_dims[node.name])
             case 'dimension':
                 errors.append(
                     f"{context}: '{node.name}' is a dimension, and a bare dimension "
@@ -842,7 +844,7 @@ def _resolve_where(
                         f'exists. Test a parameter, or another variable declared before it.'
                     )
                     return node
-                return VariableDefinedNode(node.name, ns.dims[node.name])
+                return VariableDefinedNode(node.name, ns.leaf_dims[node.name])
             case _:
                 errors.append(ns._unknown(node.name, context, allow_dims=True))
                 return node
@@ -871,7 +873,7 @@ def _resolve_where(
         match kind:
             case 'parameter':
                 assert not isinstance(value, datetime.date)
-                return ParameterComparisonNode(node.name, node.op, value, ns.dims[node.name])
+                return ParameterComparisonNode(node.name, node.op, value, ns.leaf_dims[node.name])
             case 'dimension':
                 return DimensionComparisonNode(node.name, node.op, value)
             case 'lookup':

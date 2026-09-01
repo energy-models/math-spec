@@ -40,6 +40,7 @@ from math_spec.program import (
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
+    Mask,
     NotNode,
     OrNode,
     ParameterComparisonNode,
@@ -538,14 +539,14 @@ class Walk:
             size = self.format.subscript(size, [grouping])
         return f'{self.format.cardinality(size)} {self.op("minus")} {self.number(-at)}'
 
-    def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
+    def conjoined(self, ctx: _Context, *masks: Mask | None) -> str:
         """The mask on a quantifier, as one condition.
 
         A mask every row passes arrives as ``None`` — resolution folds it,
         so this prints what a program carries — and a quantifier with no
         condition prints none.
         """
-        kept = [n for n in nodes if n is not None]
+        kept = [mask.root for mask in masks if mask is not None]
         parts = [self.where(n, ctx, need=1 if len(kept) > 1 else 0) for n in kept]
         return self.format.joined(parts, self.op('and')) if parts else ''
 

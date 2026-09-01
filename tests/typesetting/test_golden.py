@@ -127,10 +127,10 @@ def _rendered_trees() -> Iterator[object]:
     for name, block in schema.constraints.items():
         yield expression_of(block.expression, schema, namespace, f'constraint {name!r}')
         if (mask := where_of(block.where, namespace, f'constraint {name!r}')) is not None:
-            yield mask
+            yield mask.root
     for name, block in schema.variables.items():
         if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
-            yield mask
+            yield mask.root
 
 
 #: What resolution never hands the walk: the three nodes it types away, and the

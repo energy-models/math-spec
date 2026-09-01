@@ -41,7 +41,7 @@ restricts. Its literals are already decided: a declaration's mask admitting
 every row arrives as ``None``, one admitting none with
 ``BooleanLiteralNode(False)`` as its root, and a case arm whose mask folds to
 a literal is refused at load — nothing the data decides is left in it. A mask
-a consumer derives (:meth:`Mask.negated`, ``&``, ``|``) may fold to the
+a consumer derives (``~``, ``&``, ``|``) may fold to the
 always-true literal, the algebra being total over masks; construction folds,
 so a boolean literal stands at the root of a mask or nowhere in it, and no
 consumer needs a constant folder of its own to agree with the others about
@@ -1332,7 +1332,7 @@ class Mask:
     ``root`` is the predicate an engine dispatches on with ``isinstance`` to
     build the mask against data; every question is derived from it, so a mask
     cannot disagree with itself. Wrap any resolved predicate — a declaration's
-    own, or one built from resolved pieces (:meth:`negated`, ``&``, ``|``) —
+    own, or one built from resolved pieces (``~``, ``&``, ``|``) —
     and ask it here, so two consumers cannot answer differently.
 
     Construction folds: a literal or a double negation a connective decides is
@@ -1350,9 +1350,8 @@ class Mask:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, 'root', _fold(self.root))
-        # exhausting the walk is the refusal: _atoms raises on an unresolved leaf
-        for _atom in _atoms(self.root):
-            pass
+        # building the tuple is the refusal: the walk raises on an unresolved leaf
+        _ = self.atoms
 
     @property
     def conjuncts(self) -> tuple[WhereNode, ...]:
@@ -1379,7 +1378,7 @@ class Mask:
         """
         return frozenset(dim for atom in _atoms(self.root) for dim in _atom_dims(atom))
 
-    def negated(self) -> Mask:
+    def __invert__(self) -> Mask:
         """The mask admitting exactly the rows this one refuses — construction folds a double negation or a literal flip."""
         return Mask(NotNode(self.root))
 

@@ -309,7 +309,7 @@ def test_a_predicate_is_read_at_the_coordinates_its_leaves_are_read_at(predicate
     where = where_of(predicate, ns, 'test')
 
     assert where is not None, 'a predicate the connectives cannot settle survives the fold'
-    assert Mask(where).dims == expected, f'{predicate!r} reads {expected}'
+    assert where.dims == expected, f'{predicate!r} reads {expected}'
 
 
 def test_a_predicate_that_admits_every_row_has_no_leaves_left_to_read():
@@ -333,7 +333,7 @@ def test_the_frame_check_and_the_reading_walk_the_same_leaves():
     where = where_of('p_max > 0', ns, 'test')
     assert where is not None
 
-    assert Mask(where).dims == {'generator'}, 'read at the generator axis'
+    assert where.dims == {'generator'}, 'read at the generator axis'
     with pytest.raises(DimensionError, match=r"where-parameter 'p_max' has dims \['generator'\]"):
         _check_where_dims(where, frozenset({'snapshot'}), 'test')
 
@@ -365,7 +365,7 @@ def test_a_predicate_names_the_declarations_its_leaves_test(predicate, expected)
     where = where_of(predicate, Namespace.of(schema), 'test')
 
     assert where is not None, 'a predicate the connectives cannot settle survives the fold'
-    assert Mask(where).names_read == expected, f'{predicate!r} names {expected}'
+    assert where.names_read == expected, f'{predicate!r} names {expected}'
 
 
 def test_names_read_takes_both_sides_of_a_lookup_pair():

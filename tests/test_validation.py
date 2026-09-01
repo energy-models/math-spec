@@ -332,7 +332,9 @@ class TestPositionResolves:
         ids=['first', 'first of each period', 'first of each season, by a label space'],
     )
     def test_it_resolves(self, mask: str, position: int, by: str | None):
-        node = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        assert resolved is not None
+        node = resolved.root
         assert isinstance(node, DimensionPositionNode)
         assert node.name == 'snapshot'
         assert node.position == position

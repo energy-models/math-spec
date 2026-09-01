@@ -110,7 +110,7 @@ leaves, connectives removed; and `.dims` the dimensions it is read at — read
 off the leaves, which resolution stamped with their declarations' dims the way
 a lookup leaf carries the dimension it maps out of. So a predicate a consumer
 builds from resolved pieces answers exactly as a declaration's own does: wrap
-it in `Mask`, or build it there with `.negated()`, `&` and `|`. Construction
+it in `Mask`, or build it there with `~`, `&` and `|`. Construction
 folds — a double negation cancels, a literal flips or is absorbed rather than
 buried — so a boolean literal stands at a mask's root or nowhere, derived or
 carried alike, and a tree with unresolved leaves is refused at the door. A

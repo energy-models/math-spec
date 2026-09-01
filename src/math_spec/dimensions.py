@@ -53,14 +53,13 @@ from math_spec.program import (
     ParameterComparisonNode,
     ParameterDefinedNode,
     VariableDefinedNode,
-    WhereNode,
     _atom_dims,
-    _atoms,
 )
 from math_spec.resolution import Namespace, expression_of, where_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
+    from math_spec.program import Mask
 
 
 def dims_of(
@@ -497,7 +496,7 @@ def _check_value_dims(
 
 
 def _check_where_dims(
-    node: WhereNode | None,
+    mask: Mask | None,
     frame: frozenset[str],
     context: str,
 ) -> None:
@@ -513,10 +512,10 @@ def _check_where_dims(
     per leaf: a reader told only that the predicate leaves the frame would
     still have to work out which half of it did.
     """
-    if node is None:
+    if mask is None:
         return
 
-    for atom in _atoms(node):
+    for atom in mask.atoms:
         if not (outside := sorted(_atom_dims(atom) - frame)):
             continue
         if isinstance(atom, (ParameterDefinedNode, ParameterComparisonNode)):

@@ -171,7 +171,8 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
     ],
 )
 def test_where_lowering(dispatch_schema, where, expected):
-    assert where_of(where, Namespace.of(dispatch_schema), 't') == expected
+    mask = where_of(where, Namespace.of(dispatch_schema), 't')
+    assert (mask.root if mask is not None else None) == expected, 'the Mask carries exactly the resolved predicate'
 
 
 def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
@@ -234,7 +235,8 @@ def test_a_literal_is_folded_wherever_it_stands(dispatch_schema, where, expected
     What the table asserts between the rows: a `BooleanLiteralNode` is a node
     a consumer meets at the root or nowhere.
     """
-    assert where_of(where, Namespace.of(dispatch_schema), 't') == expected
+    mask = where_of(where, Namespace.of(dispatch_schema), 't')
+    assert (mask.root if mask is not None else None) == expected, 'folded at resolution, however the file spelled it'
 
 
 def test_a_folded_mask_reaches_the_declaration_the_shorter_spelling_would_have(dispatch_schema):
@@ -334,8 +336,8 @@ def test_negating_a_mask_cancels_a_double_negation():
     """
     x = ParameterDefinedNode('committable', ('g',))
 
-    assert Mask(x).negated() == Mask(NotNode(x)), 'a plain predicate gains one NOT'
-    assert Mask(NotNode(x)).negated() == Mask(x), 'a negation is cancelled, not stacked'
+    assert ~Mask(x) == Mask(NotNode(x)), 'a plain predicate gains one NOT'
+    assert ~Mask(NotNode(x)) == Mask(x), 'a negation is cancelled, not stacked'
 
 
 def test_mask_construction_folds_so_a_literal_stands_at_the_root_or_nowhere():
@@ -353,8 +355,8 @@ def test_mask_construction_folds_so_a_literal_stands_at_the_root_or_nowhere():
     assert Mask(NotNode(BooleanLiteralNode(True))) == empty, 'NOT over a literal flips at the door'
     assert Mask(NotNode(NotNode(x))) == Mask(x), 'a double negation cancels at the door'
 
-    assert empty.negated() == every, 'the empty mask negated admits every row, with no NOT stacked'
-    assert every.negated() == empty, 'and back again'
+    assert ~empty == every, 'the empty mask negated admits every row, with no NOT stacked'
+    assert ~every == empty, 'and back again'
     assert empty & Mask(x) == empty, 'a False root dominates the conjunction'
     assert Mask(x) & empty == empty, 'from either side'
     assert every & Mask(x) == Mask(x), 'a True root is the other side'
