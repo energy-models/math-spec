@@ -82,6 +82,10 @@ keep the LP, its duals and its warm start.
 
 ## Name resolution
 
+**A name is a letter or an underscore, then letters, digits or underscores** —
+the spelling an expression uses to refer to one. A declaration keyed by
+anything else is a load error, because nothing in the file could ever write it.
+
 **One flat namespace** covers dimensions, parameters, variables, named
 expressions, macros and the built-in operators. A collision is a load error
 naming both declarations — there is no shadowing, because under it declaring a

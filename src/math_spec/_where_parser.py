@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, cast
 import pyparsing as pp
 
 from math_spec.errors import SchemaError
-from math_spec.expression_parser import REAL
+from math_spec.expression_parser import NAME, REAL
 from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode
 
 if TYPE_CHECKING:
@@ -121,7 +121,7 @@ def _build_where_grammar() -> pp.ParserElement:
     # pyrefly: ignore[implicit-any-lambda]
     position = pp.Regex(r'-?\d+').set_parse_action(lambda t: int(t[0]))
 
-    name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
+    name = pp.Regex(NAME)
 
     quoted = (pp.QuotedString("'", esc_char='\\') | pp.QuotedString('"', esc_char='\\')).set_parse_action(
         lambda t: _Quoted(t[0])
