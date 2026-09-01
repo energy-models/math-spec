@@ -25,6 +25,7 @@ import pytest
 
 import math_spec.program as program_module
 from math_spec import LanguageError, Spec
+from math_spec._where_parser import parse_where
 from math_spec.exclusivity import overlapping
 from math_spec.expression_parser import FunctionCallNode, NumberNode
 from math_spec.lowering import _Lowering, lower_program
@@ -47,6 +48,7 @@ from math_spec.program import (
     Mask,
     Multiply,
     Negate,
+    NotNode,
     Parameter,
     ParameterComparisonNode,
     ParameterDefinedNode,
@@ -102,7 +104,7 @@ def test_lower_program_structure(dispatch_schema):
     ((vname, v),) = program.variables.items()
     assert vname == 'p'
     assert v.dims == ('snapshot', 'generator')
-    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0), frozenset({'generator'}))
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0, ('generator',)))
     assert v.upper == Parameter('p_max')
 
     ((cname, c),) = program.constraints.items()
@@ -159,7 +161,7 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
     [
         pytest.param(None, None, id='no-where-at-all'),
         pytest.param('True', None, id='True-is-no-mask'),
-        pytest.param('p_max', ParameterDefinedNode('p_max'), id='a-bare-parameter-name'),
+        pytest.param('p_max', ParameterDefinedNode('p_max', ('generator',)), id='a-bare-parameter-name'),
         pytest.param(
             'snapshot > 5',
             DimensionComparisonNode('snapshot', '>', 5),
@@ -187,8 +189,16 @@ def test_a_compound_where_lowers_to_something(dispatch_schema):
     ('where', 'expected'),
     [
         pytest.param('False', BooleanLiteralNode(False), id='the-empty-declaration-keeps-its-own-spelling'),
-        pytest.param('p_max > 0 AND True', ParameterComparisonNode('p_max', '>', 0.0), id='and-true-is-the-other-side'),
-        pytest.param('p_max > 0 OR False', ParameterComparisonNode('p_max', '>', 0.0), id='or-false-is-the-other-side'),
+        pytest.param(
+            'p_max > 0 AND True',
+            ParameterComparisonNode('p_max', '>', 0.0, ('generator',)),
+            id='and-true-is-the-other-side',
+        ),
+        pytest.param(
+            'p_max > 0 OR False',
+            ParameterComparisonNode('p_max', '>', 0.0, ('generator',)),
+            id='or-false-is-the-other-side',
+        ),
         pytest.param('p_max > 0 OR True', None, id='or-true-is-no-mask-at-all'),
         pytest.param('p_max > 0 AND False', BooleanLiteralNode(False), id='and-false-is-the-empty-declaration'),
         pytest.param('NOT True', BooleanLiteralNode(False), id='not-true-is-false'),
@@ -196,7 +206,7 @@ def test_a_compound_where_lowers_to_something(dispatch_schema):
         pytest.param('NOT (p_max > 0 AND False)', None, id='a-branch-folded-away-folds-the-one-above-it'),
         pytest.param(
             '(p_max > 0 OR True) AND load',
-            ParameterDefinedNode('load'),
+            ParameterDefinedNode('load', ('snapshot',)),
             id='an-absorbed-side-takes-its-own-branch-with-it',
         ),
     ],
@@ -249,11 +259,11 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
     """
     program = lower_program(expand_piecewise(dispatch_schema))
     (v,) = program.variables.values()
-    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0), frozenset({'generator'}))
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0, ('generator',)))
 
     with pytest.raises(FrozenInstanceError):
         v.where.root.op = '!='
-    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0), frozenset({'generator'})), (
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0, ('generator',))), (
         'the mask the file wrote, unchanged'
     )
     assert isinstance(hash(v), int), 'a masked declaration hashes like an unmasked one'
@@ -268,21 +278,22 @@ def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_schema):
     """
     program = lower_program(expand_piecewise(dispatch_schema))
     (v,) = program.variables.values()
-    root = ParameterComparisonNode('p_max', '>', 0.0)
+    root = ParameterComparisonNode('p_max', '>', 0.0, ('generator',))
 
-    assert v.where == Mask(root, frozenset({'generator'}))
+    assert v.where == Mask(root)
     assert v.where.names_read == {'p_max'}, 'the declarations the mask names'
     assert v.where.conjuncts == (root,), 'a mask that is not an AND is its own only conjunct'
     assert v.where.atoms == (root,), 'a single leaf, connectives removed'
 
 
-def test_a_mask_carries_the_dims_it_is_read_at():
-    """`Mask.dims` is resolved at lowering, so no consumer rebuilds the name-to-dims mapping.
+def test_a_mask_answers_the_dims_it_is_read_at():
+    """`Mask.dims` is read off the leaves, which resolution stamped with their declarations' dims.
 
     The dims of a mask need every name's own dims, which only the spec knows.
     `Mask.dims_read(name_dims)` asked the consumer to supply that mapping, and
     the only canonical builder was private — a hand-rolled one that missed a
-    name narrowed the answer silently. Storing the answer removes the question.
+    name narrowed the answer silently. The leaf carrying its own dims removes
+    the question, for a declaration's mask and a synthetic predicate alike.
     """
     schema = schema_of(SMALL_MODEL, **{'variables.q.where': "lk == 'east' and position(h) == 0"})
     lowered = lower_program(expand_piecewise(schema))
@@ -290,6 +301,47 @@ def test_a_mask_carries_the_dims_it_is_read_at():
     assert lowered.variables['q'].where.dims == frozenset({'g', 'h'}), (
         'a lookup is read at the dim it maps out of, a position at its own dimension'
     )
+
+
+def test_a_synthetic_predicate_answers_its_own_dims():
+    """A tree built from resolved pieces answers like a declaration's own mask.
+
+    A consumer builds region complements and conjunctions — `NotNode(root)`,
+    `AndNode(a, b)` — with no declaration behind them. Because the leaves carry
+    their dims, wrapping any such tree in `Mask` answers without a name-to-dims
+    mapping, which is what let the mapping die everywhere.
+    """
+    a = ParameterComparisonNode('p_max', '>', 0.0, ('generator',))
+    b = ParameterDefinedNode('load', ('snapshot',))
+
+    assert Mask(NotNode(a)).dims == {'generator'}, 'negation keeps the dims it negates'
+    assert (Mask(a) & Mask(b)).dims == {'generator', 'snapshot'}, 'conjunction unions both sides'
+    assert (Mask(a) & Mask(b)).root == AndNode(a, b), 'the conjunction joins the roots under one AND'
+
+
+def test_negating_a_mask_cancels_a_double_negation():
+    """`not (not x)` is a term every consumer would evaluate twice to reach `x`.
+
+    The fold lived privately in the lowering and a consumer negating a region
+    re-derived it without the fold — one rule, two homes, one wrong. `negated`
+    is its one home now.
+    """
+    x = ParameterDefinedNode('committable', ('g',))
+
+    assert Mask(x).negated() == Mask(NotNode(x)), 'a plain predicate gains one NOT'
+    assert Mask(NotNode(x)).negated() == Mask(x), 'a negation is cancelled, not stacked'
+
+
+def test_a_mask_over_an_unresolved_tree_refuses_to_answer():
+    """`parse_where` output is typed as resolved, but its leaves are not — and `Mask` is not where that gets fixed.
+
+    The guard is live, unlike the typesetter's retired twin whose input came
+    resolved from `where_of`: any consumer can wrap raw parse output, and
+    without the refusal the walk would yield no atoms and every question would
+    answer empty, silently.
+    """
+    with pytest.raises(AssertionError, match='reached a predicate walk unresolved'):
+        _ = Mask(parse_where('a AND b')).atoms
 
 
 def test_a_mask_over_a_scalar_reads_no_dims():
@@ -313,7 +365,7 @@ def test_a_constraint_where_is_a_mask_like_a_variable_s():
     lowered = lower_program(expand_piecewise(schema))
     (c,) = lowered.constraints.values()
 
-    assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0), frozenset({'snapshot'}))
+    assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0, ('snapshot',)))
 
 
 def test_atoms_and_conjuncts_answer_different_questions():
@@ -485,7 +537,7 @@ FAN_IN = {
     At(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
-    Cases((Region(Mask(ParameterDefinedNode('c'), frozenset({'g'})), Variable('p')),)): 'one-to-one',
+    Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',
 }
 
 
@@ -802,7 +854,7 @@ def test_the_fallback_region_carries_the_mask_the_file_left_unwritten():
     assert isinstance(remainder.when.root, AndNode), (
         'two stated cases, so the remainder is a conjunction of two negations'
     )
-    assert remainder.when.root.left == ParameterDefinedNode('committable'), (
+    assert remainder.when.root.left == ParameterDefinedNode('committable', ('g',)), (
         'the negation of `not committable` is the term itself, not a second `not` around it'
     )
 

@@ -85,7 +85,7 @@ class Namespace:
     walk through several stores.
     """
 
-    __slots__ = ('dimensions', 'dtypes', 'lookups', 'parameters', 'variables')
+    __slots__ = ('dimensions', 'dims', 'dtypes', 'lookups', 'parameters', 'variables')
 
     def __init__(
         self,
@@ -94,6 +94,7 @@ class Namespace:
         dimensions: Iterable[str],
         lookups: Mapping[str, tuple[str, str | None]],
         dtypes: Mapping[str, str],
+        dims: Mapping[str, tuple[str, ...]],
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
@@ -104,6 +105,10 @@ class Namespace:
         #: lookup name -> ``(over, into)``; ``into`` is ``None`` for a label
         #: space, which owns its values.
         self.lookups: dict[str, tuple[str, str | None]] = dict(lookups)
+        #: parameter or variable name -> the dims it is read through —
+        #: parameters by their ``dims``, variables by their frame. Stamped onto
+        #: each leaf a where names, the way a lookup leaf carries ``over``.
+        self.dims: dict[str, tuple[str, ...]] = dict(dims)
 
     def groupable(self) -> dict[str, str]:
         """The lookups a ``by=`` may name: name -> the dimension it maps into.
@@ -130,6 +135,10 @@ class Namespace:
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
                 **{n: schema.dimensions[lk.into].dtype for n, lk in schema.lookups.items() if lk.into is not None},
                 **{n: lk.dtype for n, lk in schema.lookups.items() if lk.dtype is not None},
+            },
+            {
+                **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
+                **{v: tuple(vd.foreach) for v, vd in schema.variables.items()},
             },
         )
 
@@ -830,7 +839,7 @@ def _resolve_where(
     if isinstance(node, UnresolvedNameNode):
         match ns.kind(node.name):
             case 'parameter':
-                return ParameterDefinedNode(node.name)
+                return ParameterDefinedNode(node.name, ns.dims[node.name])
             case 'dimension':
                 errors.append(
                     f"{context}: '{node.name}' is a dimension, and a bare dimension "
@@ -848,7 +857,7 @@ def _resolve_where(
                         f'exists. Test a parameter, or another variable declared before it.'
                     )
                     return node
-                return VariableDefinedNode(node.name)
+                return VariableDefinedNode(node.name, ns.dims[node.name])
             case _:
                 errors.append(ns._unknown(node.name, context, allow_dims=True))
                 return node
@@ -877,7 +886,7 @@ def _resolve_where(
         match kind:
             case 'parameter':
                 assert not isinstance(value, datetime.date)
-                return ParameterComparisonNode(node.name, node.op, value)
+                return ParameterComparisonNode(node.name, node.op, value, ns.dims[node.name])
             case 'dimension':
                 return DimensionComparisonNode(node.name, node.op, value)
             case 'lookup':

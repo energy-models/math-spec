@@ -103,16 +103,20 @@ means the caller binds it.
 dispatched on with `isinstance` and read, which is why what ships beside them
 is the walk (`children()`) and not builders. A mask is `Mask`: the language's
 own resolved `where` as its `.root` — the node an engine still dispatches on
-with `isinstance` — and the questions asked of it carried beside it, the way a
-dimension carries `.maps`. `.conjuncts` flattens the `AND` spine and stops at an
-`OR` or a `NOT`; `.names_read` gives the declarations the mask names; `.atoms`
-its leaves, connectives removed; and `.dims` the dimensions it is read at —
-resolved at lowering, where every name's own dims are known, so no consumer
-rebuilds that mapping. A consumer asks the mask rather than re-deriving any of
-these from `.root`, so two cannot come to disagree about what a conjunct, a
-name or a comparison is. A `Region`'s `when` arrives in the same carrier, and
-the node classes a `.root` is built of live in `math_spec.program` beside every
-other node a consumer dispatches on.
+with `isinstance` — and every question derived from it, the way a dimension
+carries `.maps`. `.conjuncts` flattens the `AND` spine and stops at an `OR` or
+a `NOT`; `.names_read` gives the declarations the mask names; `.atoms` its
+leaves, connectives removed; and `.dims` the dimensions it is read at — read
+off the leaves, which resolution stamped with their declarations' dims the way
+a lookup leaf carries the dimension it maps out of. So a predicate a consumer
+builds from resolved pieces answers exactly as a declaration's own does: wrap
+it in `Mask`, or build it there — `.negated()` cancels a double negation
+rather than stacking one, and `&` joins two masks under one `AND`. A consumer
+asks the mask rather than re-deriving any of these from `.root`, so two cannot
+come to disagree about what a conjunct, a name or a comparison is. A
+`Region`'s `when` arrives in the same carrier, and the node classes a `.root`
+is built of live in `math_spec.program` beside every other node a consumer
+dispatches on.
 
 ## Asking what a program uses
 
