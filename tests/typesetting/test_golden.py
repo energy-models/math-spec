@@ -111,10 +111,10 @@ def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells():
 
 
 def _nodes(tree: object) -> Iterator[object]:
-    """Every dataclass node in *tree*, the root first, through fields holding one, a list or a dict of them."""
+    """Every dataclass node in *tree*, the root first, through fields holding one, a tuple or a mapping of them."""
     yield tree
     for value in vars(tree).values():
-        for child in value.values() if isinstance(value, dict) else value if isinstance(value, list) else [value]:
+        for child in value.values() if isinstance(value, Mapping) else value if isinstance(value, tuple) else [value]:
             if is_dataclass(child):
                 yield from _nodes(child)
 
@@ -146,6 +146,12 @@ UNRESOLVED = {
     'KeywordNode',
 }
 
+#: A dataclass the walk steps *through* rather than renders: an arm has no
+#: branch of its own — its ``when`` and ``value`` do. Not a member of any node
+#: union, so it is subtracted from what the tree walk finds rather than added
+#: to what the vocabulary declares.
+CARRIERS = {'CaseArm'}
+
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     """A construct added to the language is a case this fixture owes output for.
@@ -155,7 +161,7 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     differently — ``at`` and ``sum(by=)`` both print a coordinate map — so a
     walk arm no fixture reaches is one whose output nobody has ever read.
     """
-    kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)}
+    kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)} - CARRIERS
     declared = {node.__name__ for node in (*get_args(WhereNode), *get_args(ArithmeticNode), ComparisonNode)}
     assert kinds == declared - UNRESOLVED, (
         f'tests/typesetting/golden/model.yaml reaches {sorted(kinds - declared)} and misses '

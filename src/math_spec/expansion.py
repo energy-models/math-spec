@@ -106,7 +106,7 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
     if isinstance(node, FunctionCallNode):
         return FunctionCallNode(
             node.name,
-            [recurse(a) for a in node.args],
+            tuple(recurse(a) for a in node.args),
             {k: recurse(v) for k, v in node.kwargs.items()},
         )
     if isinstance(node, CasesNode):

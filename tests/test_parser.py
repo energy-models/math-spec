@@ -8,6 +8,8 @@ Nothing here resolves names — a parse result still holds raw
 ``NameNode``/``Unresolved*`` nodes.
 """
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 import math_spec.program as program_module
@@ -99,6 +101,30 @@ def test_a_call_carries_its_positional_and_keyword_arguments():
     assert len(node.args) == 1
     assert isinstance(node.args[0], BinaryOperatorNode), 'the argument is an expression, not just a name'
     assert 'over' in node.kwargs
+
+
+def test_a_parsed_expression_cannot_be_rewritten_under_another_pass():
+    """A pass handed a parsed tree could rewrite the operand another one reads.
+
+    The expression nodes were plain dataclasses while every where and program
+    node was frozen (#197): `node.op = '<='` flipped a shared comparison and
+    `node.kwargs['over'] = ...` re-aimed a reduction, with no error anywhere.
+    A caller's own dict is copied on the way in, so holding it is not a
+    back door either.
+    """
+    node = parse_expression('sum(p * cost, over=generator) == load')
+
+    with pytest.raises(FrozenInstanceError):
+        node.op = '>='
+    call = node.left
+    with pytest.raises(TypeError, match='does not support item assignment'):
+        call.kwargs['over'] = NameNode('snapshot')
+
+    passed = {'over': NameNode('generator')}
+    built = FunctionCallNode('sum', (NameNode('p'),), passed)
+    passed['over'] = NameNode('snapshot')
+    assert built.kwargs == {'over': NameNode('generator')}, 'the dict handed in was copied, not aliased'
+    assert isinstance(hash(built), int), 'kwargs sits outside the hash, so a call hashes like every other node'
 
 
 def test_an_unparseable_expression_is_an_error():
