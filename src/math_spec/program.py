@@ -4,9 +4,9 @@
 
 """The program: what a file declares, with names resolved and shapes fixed.
 
-A :class:`Program` is a complete declarative description of a linear program
-over named tidy tables — every declaration a file makes, and no data in it at
-all. Data is bound against these declarations by whatever builds the model;
+A :class:`Program` is a complete declarative description of a mathematical
+program — every declaration a file makes, and no data in it at all. Data is
+bound against these declarations by whatever builds the model;
 :func:`~math_spec.lowering.to_program` is what produces one from a spec.
 
 **It is the second public state, and the one a consumer reads.** A
@@ -834,7 +834,7 @@ def _declared[Declaration](items: Mapping[str, Declaration], name: str, kind: st
 
 @dataclass(frozen=True, kw_only=True)
 class Program:
-    """A complete linear program over named tidy tables.
+    """A complete declarative description of a mathematical program, with no data in it.
 
     Every group of declarations is keyed by the name the file wrote, in the
     order it wrote them, and is read-only: the mappings are wrapped at
