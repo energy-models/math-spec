@@ -1002,7 +1002,7 @@ def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
 
 
 def conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
-    """The predicates a mask ANDs together, its ``AND`` spine flattened.
+    """The predicates a mask joins with ``AND``, its ``AND`` spine flattened.
 
     ``a AND b AND c`` gives three, and a mask that is not an ``AND`` gives
     itself. The walk stops at the first node that is not an ``AND``: the
