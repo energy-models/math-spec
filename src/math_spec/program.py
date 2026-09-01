@@ -58,7 +58,7 @@ balance = GroupSum(Variable("p"), over="generator", coordinate=("bus",), into=("
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, fields
 from functools import cached_property
 from types import MappingProxyType
@@ -69,7 +69,7 @@ from math_spec.errors import did_you_mean
 
 if TYPE_CHECKING:
     import datetime
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator
 
 
 #: What ``math_spec.program`` promises. The package's ``__all__`` exports this
@@ -114,6 +114,7 @@ __all__ = [
     'Mask',
     'MaskOf',
     'Multiply',
+    'NameDims',
     'Negate',
     'NotNode',
     'ObjectiveDeclaration',
@@ -1186,6 +1187,11 @@ TypedPredicateNode = (
 #: and so the only place a walk over a predicate recurses.
 ConnectiveWhereNode = NotNode | AndNode | OrNode
 
+#: Every declared name to the dims it is read through — parameters by their
+#: ``dims``, variables by their frame, one flat mapping because the language
+#: has one flat namespace. What :func:`dims_read` takes.
+NameDims = Mapping[str, Sequence[str]]
+
 
 def atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     """Every node in *where* that reads a declaration, connectives removed.
@@ -1213,7 +1219,7 @@ def atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
         raise AssertionError(msg)
 
 
-def dims_read(where: WhereNode, name_dims: Mapping[str, Sequence[str]]) -> frozenset[str]:
+def dims_read(where: WhereNode, name_dims: NameDims) -> frozenset[str]:
     """Which dims *where* reads, given what each declared name is read through.
 
     The dim rule for the predicate side, stated once: **a mask is read at the
@@ -1230,9 +1236,7 @@ def dims_read(where: WhereNode, name_dims: Mapping[str, Sequence[str]]) -> froze
 
     Args:
         where: A resolved predicate.
-        name_dims: Every declared name to the dims it is read through —
-            parameters by their ``dims`` and variables by their ``foreach``,
-            one flat mapping because the language has one flat namespace.
+        name_dims: What each declared name is read through — :data:`NameDims`.
 
     Returns:
         The dims read, which is empty for a predicate over nothing but
@@ -1241,7 +1245,7 @@ def dims_read(where: WhereNode, name_dims: Mapping[str, Sequence[str]]) -> froze
     return frozenset(dim for atom in atoms(where) for dim in _atom_dims(atom, name_dims))
 
 
-def _atom_dims(atom: TypedPredicateNode, name_dims: Mapping[str, Sequence[str]]) -> frozenset[str]:
+def _atom_dims(atom: TypedPredicateNode, name_dims: NameDims) -> frozenset[str]:
     """One leaf's dims — the rule :func:`dims_read` is the union of.
 
     Private because a caller wanting one leaf's answer wants the whole

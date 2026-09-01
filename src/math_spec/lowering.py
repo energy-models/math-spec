@@ -57,7 +57,7 @@ from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable
     from pathlib import Path
     from typing import Any
 
@@ -92,7 +92,7 @@ def _negated(mask: WhereNode) -> WhereNode:
 def _mask(
     where: str | None,
     ns: Namespace,
-    name_dims: Mapping[str, Sequence[str]],
+    name_dims: program.NameDims,
     context: str,
     self_variable: str | None = None,
 ) -> program.Mask | None:
@@ -274,7 +274,7 @@ class _Lowering:
     context: str
 
     @cached_property
-    def name_dims(self) -> dict[str, tuple[str, ...]]:
+    def name_dims(self) -> program.NameDims:
         """Every declared name to its dims, computed once per walk — what every mask built here reads."""
         return _name_dims(self.schema)
 

@@ -50,6 +50,7 @@ from math_spec.operators import BUILTINS, edge_error
 from math_spec.program import (
     DimensionComparisonNode,
     DimensionPositionNode,
+    NameDims,
     ParameterComparisonNode,
     ParameterDefinedNode,
     VariableDefinedNode,
@@ -546,7 +547,7 @@ def _check_where_dims(
         )
 
 
-def _name_dims(schema: Spec) -> dict[str, tuple[str, ...]]:
+def _name_dims(schema: Spec) -> NameDims:
     """Every declared name to the dims it is read through — what :func:`~math_spec.program.dims_read` takes."""
     return {
         **{name: tuple(pdef.dims) for name, pdef in schema.parameters.items()},
