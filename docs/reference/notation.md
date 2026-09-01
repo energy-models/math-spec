@@ -503,6 +503,16 @@ $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace
 
 ### Definitions
 
+#### `lcoe`
+
+a divisor carrying a variable, so the entry grades post-solve and prints under its own name rather than inlining
+
+```yaml
+lcoe: sum(p * cost) / sum(p)
+```
+
+$$\mathit{lcoe} = \frac{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g}}$$
+
 #### `startup_cost`
 
 a quantity defined by region: no two cases overlap, and `otherwise` is the rest
