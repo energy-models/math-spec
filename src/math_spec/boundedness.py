@@ -48,9 +48,12 @@ if TYPE_CHECKING:
 #: appearing with both signs (which may cancel), a divisor carrying one.
 Sign = Literal['+', '-'] | None
 
+#: Which of a variable's two bounds a term drives it toward.
+BoundSide = Literal['lower', 'upper']
+
 #: The bound value that leaves each side open. A ``lower`` of ``+inf`` is not
 #: this — that model is empty, not unbounded — so the match is by value.
-_OPEN = {'lower': -math.inf, 'upper': math.inf}
+_OPEN: dict[BoundSide, float] = {'lower': -math.inf, 'upper': math.inf}
 
 
 def unbounded_notes(program: Program) -> list[Advice]:
@@ -81,7 +84,7 @@ def unbounded_notes(program: Program) -> list[Advice]:
     for vname, sign in signs.items():
         if sign is None or vname in constrained:
             continue
-        side = 'lower' if minimize == (sign == '+') else 'upper'
+        side: BoundSide = 'lower' if minimize == (sign == '+') else 'upper'
         if _is_open(program.variables[vname], side):
             notes.append(
                 Advice(
@@ -97,7 +100,7 @@ def unbounded_notes(program: Program) -> list[Advice]:
     return notes
 
 
-def _is_open(vdef: VariableDeclaration, side: str) -> bool:
+def _is_open(vdef: VariableDeclaration, side: BoundSide) -> bool:
     """Whether *vdef* declares nothing at all on *side*.
 
     A bound naming a parameter is finite or not by data this pass does not
