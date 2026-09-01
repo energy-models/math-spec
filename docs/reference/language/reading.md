@@ -105,10 +105,12 @@ is the walk (`children()`) and not builders. A mask is `Mask`: the language's
 own resolved `where` as its `.root` — the node an engine still dispatches on
 with `isinstance` — and the questions asked of it carried beside it, the way a
 dimension carries `.maps`. `.conjuncts` flattens the `AND` spine and stops at an
-`OR` or a `NOT`; `.names_read` gives the declarations the mask names, and
-`.dims_read` the dimensions it is read at. A consumer asks the mask rather than
-re-deriving any of these from `.root`, so two cannot come to disagree about what
-a conjunct, a name or a comparison is.
+`OR` or a `NOT`; `.names_read` gives the declarations the mask names; `.atoms`
+its leaves, connectives removed; and `.dims` the dimensions it is read at —
+resolved at lowering, where every name's own dims are known, so no consumer
+rebuilds that mapping. A consumer asks the mask rather than re-deriving any of
+these from `.root`, so two cannot come to disagree about what a conjunct, a
+name or a comparison is. A `Region`'s `when` arrives in the same carrier.
 
 ## Asking what a program uses
 

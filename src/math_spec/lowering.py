@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, assert_never, cast
 
 import math_spec.program as program
-from math_spec.dimensions import dims_of
+from math_spec.dimensions import _name_dims, dims_of
 from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
     ArithmeticNode,
@@ -53,10 +53,10 @@ from math_spec.expression_parser import (
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import AndNode, NotNode, WhereNode
+from math_spec.where_parser import AndNode, NotNode, WhereNode, dims_read
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping, Sequence
     from pathlib import Path
     from typing import Any
 
@@ -88,15 +88,22 @@ def _negated(mask: WhereNode) -> WhereNode:
     return mask.operand if isinstance(mask, NotNode) else NotNode(mask)
 
 
-def _mask(where: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> program.Mask | None:
+def _mask(
+    where: str | None,
+    ns: Namespace,
+    name_dims: Mapping[str, Sequence[str]],
+    context: str,
+    self_variable: str | None = None,
+) -> program.Mask | None:
     """The resolved ``where`` wrapped as a :class:`~math_spec.program.Mask`, or ``None`` where it folds away.
 
     ``where_of`` folds an always-true predicate to ``None``; a mask with no
     predicate is no mask, so the declaration carries ``None`` there rather than
-    a mask over ``True``.
+    a mask over ``True``. The mask's ``dims`` are resolved here, the one moment
+    that holds both the predicate and every name's own dims.
     """
     node = where_of(where, ns, context, self_variable=self_variable)
-    return program.Mask(node) if node is not None else None
+    return program.Mask(node, dims_read(node, name_dims)) if node is not None else None
 
 
 def to_program(spec: str | Path | dict[str, Any] | Spec | program.Program) -> program.Program:
@@ -146,6 +153,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
     """
     expanded = schema
     ns = Namespace.of(expanded)
+    name_dims = _name_dims(expanded)
     derivations = {
         name: how
         for block, ex in expanded.expanded_piecewise.items()
@@ -165,7 +173,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
         variables[vname] = program.VariableDeclaration(
             tuple(vdef.foreach),
-            where=_mask(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
+            where=_mask(vdef.where, ns, name_dims, f"variable '{vname}'", self_variable=vname),
             lower=lower,
             upper=upper,
             variable_type=variable_type,
@@ -174,7 +182,7 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
 
     constraints = {}
     for cname, cdef in expanded.constraints.items():
-        where = _mask(cdef.where, ns, f"constraint '{cname}'")
+        where = _mask(cdef.where, ns, name_dims, f"constraint '{cname}'")
         ast = expression_of(cdef.expression, expanded, ns, f"constraint '{cname}'")
         if not isinstance(ast, ComparisonNode):
             raise LanguageError(
@@ -330,10 +338,11 @@ class _Lowering:
         regions stay disjoint and total.
         """
         stated = [arm.when for arm in node.arms if arm.when is not None]
+        name_dims = _name_dims(self.schema)
         regions = []
         for arm in node.arms:
             when = arm.when if arm.when is not None else _none_of(stated)
-            regions.append(program.Region(when, self.expr(arm.value)))
+            regions.append(program.Region(program.Mask(when, dims_read(when, name_dims)), self.expr(arm.value)))
         return program.Cases(tuple(regions))
 
     def sum(self, node: FunctionCallNode) -> program.ExpressionNode:

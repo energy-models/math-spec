@@ -33,13 +33,15 @@ one has to be *called* to be got right:
   a line a consumer could write; they are here so two consumers cannot write it
   differently.
 
-A mask is the language's own resolved ``where`` node
-(:mod:`math_spec.where_parser`) rather than a second set spelling the same
-predicates — one home, so the two cannot come to disagree about what a
-comparison is. Its literals are already decided: a mask admitting every row
-arrives as ``None`` and one admitting none as ``BooleanLiteralNode(False)``, so
-that node stands at the root of a mask or nowhere in it, and no consumer needs
-a constant folder of its own to agree with the others about which rows exist.
+A mask arrives as a :class:`Mask`: the language's own resolved ``where`` node
+(:mod:`math_spec.where_parser`) as its ``root``, with the questions the
+language answers about it carried beside it — one home, so two consumers
+cannot come to disagree about what a comparison is or which dims a mask
+restricts. Its literals are already decided: a mask admitting every row
+arrives as ``None`` and one admitting none with ``BooleanLiteralNode(False)``
+as its root, so that node stands at the root of a mask or nowhere in it, and
+no consumer needs a constant folder of its own to agree with the others about
+which rows exist.
 
 The declaration vocabularies are the language's own for the same reason
 (:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
@@ -64,10 +66,10 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
 from math_spec.errors import did_you_mean
-from math_spec.where_parser import AndNode, atoms, dims_read, names_read
+from math_spec.where_parser import AndNode, atoms, names_read
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator
 
     from math_spec.where_parser import TypedPredicateNode, WhereNode
 
@@ -128,7 +130,6 @@ __all__ = [
     'carries_variable',
     'check_message',
     'children',
-    'conjuncts',
     'divisor_parameters',
     'fan_in',
     'is_quadratic',
@@ -414,10 +415,11 @@ class Region:
     ``otherwise:`` included — its mask is the negation of the others, resolved
     once here rather than by each consumer in turn. A consumer builds a region
     without holding the rest in mind, and both facts it needs are on the region
-    it is reading.
+    it is reading. The mask is a :class:`Mask`, the same carrier a
+    declaration's ``where`` arrives in.
     """
 
-    when: WhereNode
+    when: Mask
     value: ExpressionNode
 
 
@@ -1002,43 +1004,44 @@ def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
     return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
 
 
-def conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
-    """The predicates a mask joins with ``AND``, its ``AND`` spine flattened.
+def _conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
+    """The flatten rule behind :attr:`Mask.conjuncts` — the one home of the split.
 
-    ``a AND b AND c`` gives three, and a mask that is not an ``AND`` gives
+    ``a AND b AND c`` gives three, and a predicate that is not an ``AND`` gives
     itself. The walk stops at the first node that is not an ``AND``: the
     conjuncts of ``a AND (b OR c)`` are ``a`` and ``b OR c``, and of
     ``NOT (a AND b)`` the single ``NOT`` — neither an ``OR`` nor a ``NOT`` is a
-    claim the mask makes on its own, so neither is split. A consumer asks the
-    split here rather than re-deriving it, so two cannot disagree on what a
-    conjunct is.
+    claim the predicate makes on its own, so neither is split.
     """
     if isinstance(where, AndNode):
-        return conjuncts(where.left) + conjuncts(where.right)
+        return _conjuncts(where.left) + _conjuncts(where.right)
     return (where,)
 
 
 @dataclass(frozen=True)
 class Mask:
-    """A resolved ``where`` and the questions asked of it — a mask, first-class.
+    """A resolved ``where`` and the questions the language answers about it.
 
-    ``root`` is the predicate node the ``where`` field used to hold, unchanged:
-    an engine still dispatches on it with ``isinstance`` to build the mask
-    against data. The properties are what the *language* answers about a mask,
-    asked here so two consumers cannot answer differently — the reason
-    :meth:`DimensionDeclaration.maps` sits on the declaration rather than in
-    each consumer, one component over.
+    ``root`` is the predicate an engine dispatches on with ``isinstance`` to
+    build the mask against data. The rest is answered or carried here so two
+    consumers cannot answer differently.
 
     Attributes:
         root: The resolved predicate the mask restricts rows by.
+        dims: The dims the mask is read at — a parameter through its own dims,
+            a variable through its frame, a dimension comparison through that
+            dimension, a lookup through the dim it maps out of. Resolved at
+            lowering, where every name's dims are known; empty for a mask over
+            nothing but literals.
     """
 
     root: WhereNode
+    dims: frozenset[str]
 
     @property
     def conjuncts(self) -> tuple[WhereNode, ...]:
-        """The predicates the mask joins with ``AND`` — :func:`conjuncts` of the root."""
-        return conjuncts(self.root)
+        """The predicates the mask joins with ``AND`` — its ``AND`` spine flattened, stopping at an ``OR`` or a ``NOT``."""
+        return _conjuncts(self.root)
 
     @property
     def names_read(self) -> frozenset[str]:
@@ -1049,17 +1052,3 @@ class Mask:
     def atoms(self) -> tuple[TypedPredicateNode, ...]:
         """The mask's leaves, connectives removed — :func:`~math_spec.where_parser.atoms` of the root."""
         return tuple(atoms(self.root))
-
-    def dims_read(self, name_dims: Mapping[str, Sequence[str]]) -> frozenset[str]:
-        """The dims the mask is read at — :func:`~math_spec.where_parser.dims_read` of the root.
-
-        A method, not a property, because the answer needs each name's dims,
-        which the root alone does not carry.
-
-        Args:
-            name_dims: Every declared name to the dims it is read through.
-
-        Returns:
-            The dims read, empty for a mask over nothing but literals.
-        """
-        return dims_read(self.root, name_dims)

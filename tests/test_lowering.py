@@ -104,7 +104,7 @@ def test_lower_program_structure(dispatch_schema):
     ((vname, v),) = program.variables.items()
     assert vname == 'p'
     assert v.dims == ('snapshot', 'generator')
-    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0))
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0), frozenset({'generator'}))
     assert v.upper == Parameter('p_max')
 
     ((cname, c),) = program.constraints.items()
@@ -251,11 +251,13 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_schema):
     """
     program = lower_program(expand_piecewise(dispatch_schema))
     (v,) = program.variables.values()
-    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0))
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0), frozenset({'generator'}))
 
     with pytest.raises(FrozenInstanceError):
         v.where.root.op = '!='
-    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0)), 'the mask the file wrote, unchanged'
+    assert v.where == Mask(ParameterComparisonNode('p_max', '>', 0.0), frozenset({'generator'})), (
+        'the mask the file wrote, unchanged'
+    )
     assert isinstance(hash(v), int), 'a masked declaration hashes like an unmasked one'
 
 
@@ -270,10 +272,60 @@ def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_schema):
     (v,) = program.variables.values()
     root = ParameterComparisonNode('p_max', '>', 0.0)
 
-    assert v.where == Mask(root)
+    assert v.where == Mask(root, frozenset({'generator'}))
     assert v.where.names_read == {'p_max'}, 'the declarations the mask names'
     assert v.where.conjuncts == (root,), 'a mask that is not an AND is its own only conjunct'
     assert v.where.atoms == (root,), 'a single leaf, connectives removed'
+
+
+def test_a_mask_carries_the_dims_it_is_read_at():
+    """`Mask.dims` is resolved at lowering, so no consumer rebuilds the name-to-dims mapping.
+
+    The dims of a mask need every name's own dims, which only the spec knows.
+    `Mask.dims_read(name_dims)` asked the consumer to supply that mapping, and
+    the only canonical builder was private — a hand-rolled one that missed a
+    name narrowed the answer silently. Storing the answer removes the question.
+    """
+    schema = schema_of(SMALL_MODEL, **{'variables.q.where': "lk == 'east' and position(h) == 0"})
+    lowered = lower_program(expand_piecewise(schema))
+
+    assert lowered.variables['q'].where.dims == frozenset({'g', 'h'}), (
+        'a lookup is read at the dim it maps out of, a position at its own dimension'
+    )
+
+
+def test_a_mask_over_a_scalar_reads_no_dims():
+    schema = schema_of(SMALL_MODEL, **{'variables.p.where': 'k > 0'})
+    lowered = lower_program(expand_piecewise(schema))
+
+    assert lowered.variables['p'].where.dims == frozenset(), 'a scalar parameter is read at no coordinate'
+
+
+def test_an_unwritten_where_lowers_to_none_not_an_empty_mask():
+    lowered = lower_program(expand_piecewise(schema_of(DISPATCH_MODEL)))
+    (v,) = lowered.variables.values()
+    (c,) = lowered.constraints.values()
+
+    assert v.where is None, 'no `where:` in the file means no mask, not a mask over nothing'
+    assert c.where is None, 'the constraint arm makes the same fold'
+
+
+def test_a_constraint_where_is_a_mask_like_a_variable_s():
+    schema = schema_of(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'})
+    lowered = lower_program(expand_piecewise(schema))
+    (c,) = lowered.constraints.values()
+
+    assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0), frozenset({'snapshot'}))
+
+
+def test_atoms_and_conjuncts_answer_different_questions():
+    """`atoms` crosses the `OR` that `conjuncts` stops at, so the two differ on `a and (b or c)`."""
+    schema = schema_of(SMALL_MODEL, **{'variables.p.where': 'flag and (c > 0 or k > 0)'})
+    lowered = lower_program(expand_piecewise(schema))
+    mask = lowered.variables['p'].where
+
+    assert len(mask.conjuncts) == 2, 'the OR is one conjunct, not two'
+    assert len(mask.atoms) == 3, 'the leaves of both OR arms, connectives removed'
 
 
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
@@ -435,7 +487,7 @@ FAN_IN = {
     At(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
-    Cases((Region(ParameterDefinedNode('c'), Variable('p')),)): 'one-to-one',
+    Cases((Region(Mask(ParameterDefinedNode('c'), frozenset({'g'})), Variable('p')),)): 'one-to-one',
 }
 
 
@@ -749,10 +801,28 @@ def test_the_fallback_region_carries_the_mask_the_file_left_unwritten():
     program = lower_program(expand_piecewise(schema_of(CASED)))
     remainder = _cases_in(program).regions[-1]
 
-    assert isinstance(remainder.when, AndNode), 'two stated cases, so the remainder is a conjunction of two negations'
-    assert remainder.when.left == ParameterDefinedNode('committable'), (
+    assert isinstance(remainder.when.root, AndNode), (
+        'two stated cases, so the remainder is a conjunction of two negations'
+    )
+    assert remainder.when.root.left == ParameterDefinedNode('committable'), (
         'the negation of `not committable` is the term itself, not a second `not` around it'
     )
+
+
+def test_a_region_s_when_is_a_mask_with_its_own_dims():
+    """`Region.when` arrives in the same carrier as a declaration's `where`.
+
+    It was the one mask left as a bare node, so a helper written over `Mask`
+    branched on where a mask came from — the divergence the carrier exists to
+    prevent. The synthesized remainder gets its dims like any stated case.
+    """
+    lowered = lower_program(expand_piecewise(schema_of(CASED)))
+    always_on, boundary, remainder = _cases_in(lowered).regions
+
+    assert all(isinstance(r.when, Mask) for r in (always_on, boundary, remainder))
+    assert always_on.when.dims == frozenset({'g'}), "`not committable` reads the parameter's dims"
+    assert boundary.when.dims == frozenset({'g', 't'}), 'the position comparison adds its dimension'
+    assert remainder.when.dims == frozenset({'g', 't'}), 'the remainder reads every dim the stated cases do'
 
 
 def test_the_lowered_regions_are_still_proved_apart():
@@ -764,7 +834,7 @@ def test_the_lowered_regions_are_still_proved_apart():
     """
     spec = schema_of(CASED)
     regions = _cases_in(lower_program(expand_piecewise(spec))).regions
-    named = {f'region{i}': r.when for i, r in enumerate(regions)}
+    named = {f'region{i}': r.when.root for i, r in enumerate(regions)}
 
     assert list(overlapping(named, spec)) == [], 'no two lowered regions can claim one coordinate'
 
