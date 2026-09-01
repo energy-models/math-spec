@@ -23,7 +23,7 @@ import pyparsing as pp
 from math_spec.errors import SchemaError
 
 if TYPE_CHECKING:
-    from math_spec.where_parser import WhereNode
+    from math_spec.where_parser import UnresolvedWhereNode
 
 ComparisonOperator = Literal['<=', '>=', '==']
 
@@ -161,7 +161,7 @@ class CaseArm:
     """
 
     label: str
-    when: WhereNode | None
+    when: UnresolvedWhereNode | None
     value: ArithmeticNode
 
 

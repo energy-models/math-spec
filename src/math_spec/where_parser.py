@@ -187,11 +187,36 @@ class OrNode:
     right: WhereNode
 
 
+@dataclass(frozen=True)
+class UnresolvedNotNode:
+    """``NOT`` before resolution — its operand is still a parse tree. Rebuilt as :class:`NotNode`."""
+
+    operand: UnresolvedWhereNode
+
+
+@dataclass(frozen=True)
+class UnresolvedAndNode:
+    """``AND`` before resolution — its sides are still parse trees. Rebuilt as :class:`AndNode`."""
+
+    left: UnresolvedWhereNode
+    right: UnresolvedWhereNode
+
+
+@dataclass(frozen=True)
+class UnresolvedOrNode:
+    """``OR`` before resolution — its sides are still parse trees. Rebuilt as :class:`OrNode`."""
+
+    left: UnresolvedWhereNode
+    right: UnresolvedWhereNode
+
+
+#: A predicate after resolution: every leaf names a declaration and the kind is
+#: settled, and the connectives carry only other resolved predicates. This is
+#: what a consumer of a program reads, and the reason it never has to consider
+#: an unresolved node — :func:`~math_spec.resolution.where_of` raises before it
+#: could return one.
 WhereNode = (
     BooleanLiteralNode
-    | UnresolvedNameNode
-    | UnresolvedComparisonNode
-    | UnresolvedPositionNode
     | DimensionPositionNode
     | ParameterDefinedNode
     | VariableDefinedNode
@@ -205,11 +230,21 @@ WhereNode = (
     | OrNode
 )
 
-#: What resolution rewrites away on the where side — the three nodes whose
-#: left-hand side is still a name the schema has not been asked about. The
-#: expression side has :data:`~math_spec.expression_parser.UnresolvedNode` for
-#: the same reason, and a pass meeting either ran before resolution.
-UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedPositionNode
+#: A predicate straight off the grammar, before resolution has typed its
+#: leaves: the parse tree :func:`parse_where` returns and
+#: :func:`~math_spec.resolution.resolve_where` consumes. Its connectives carry
+#: only other parse trees, the mirror of :data:`WhereNode`'s. The expression
+#: side has :data:`~math_spec.expression_parser.UnresolvedNode` for the same
+#: reason, and a pass meeting either ran before resolution.
+UnresolvedWhereNode = (
+    BooleanLiteralNode
+    | UnresolvedNameNode
+    | UnresolvedComparisonNode
+    | UnresolvedPositionNode
+    | UnresolvedNotNode
+    | UnresolvedAndNode
+    | UnresolvedOrNode
+)
 
 #: Every predicate resolution has typed: it names a declaration and the kind is
 #: settled. Resolution passes these straight through, having nothing left to
@@ -241,20 +276,14 @@ def atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     A predicate is a tree of :data:`ConnectiveWhereNode` over leaves that each
     name one declaration, so every question about what a mask *reads* is asked
     of the leaves and answered by taking them together. A boolean literal reads
-    nothing and yields nothing.
-
-    Raises:
-        AssertionError: An unresolved node, which is a pass running before
-            resolution rather than a predicate with a property to read.
+    nothing and yields nothing, and *where* being resolved, an unresolved node
+    is not a case to consider — the type forbids it.
     """
     if isinstance(where, NotNode):
         yield from atoms(where.operand)
     elif isinstance(where, (AndNode, OrNode)):
         yield from atoms(where.left)
         yield from atoms(where.right)
-    elif isinstance(where, UnresolvedWhereNode):
-        msg = f'{type(where).__name__} reached a predicate walk unresolved.'
-        raise AssertionError(msg)
     elif not isinstance(where, BooleanLiteralNode):
         yield where
 
@@ -425,21 +454,21 @@ def _build_where_grammar() -> pp.ParserElement:
 
     NOT = pp.CaselessKeyword('NOT').suppress()
     # pyrefly: ignore[implicit-any-lambda]
-    not_expr = (NOT + atom).set_parse_action(lambda t: NotNode(t[0])) | atom
+    not_expr = (NOT + atom).set_parse_action(lambda t: UnresolvedNotNode(t[0])) | atom
 
     AND = pp.CaselessKeyword('AND').suppress()
     and_expr = not_expr + pp.ZeroOrMore(AND + not_expr)
-    and_expr.set_parse_action(_folder(AndNode))
+    and_expr.set_parse_action(_folder(UnresolvedAndNode))
 
     OR = pp.CaselessKeyword('OR').suppress()
     or_expr = and_expr + pp.ZeroOrMore(OR + and_expr)
-    or_expr.set_parse_action(_folder(OrNode))
+    or_expr.set_parse_action(_folder(UnresolvedOrNode))
 
     where_expr <<= or_expr
     return where_expr
 
 
-def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResults], Any]:
+def _folder(node_type: type[UnresolvedAndNode] | type[UnresolvedOrNode]) -> Callable[[pp.ParseResults], Any]:
     """A parse action left-folding a flat operator chain into *node_type*.
 
     ``AND`` and ``OR`` differ only in the node they build; the fold is the
@@ -469,7 +498,7 @@ _INDEX_REWRITE = (
 )
 
 
-def parse_where(text: str) -> WhereNode:
+def parse_where(text: str) -> UnresolvedWhereNode:
     """Parse a where string into an AST.
 
     Raises:
@@ -482,4 +511,4 @@ def parse_where(text: str) -> WhereNode:
         if _INDEX_CALL.search(text):
             msg += _INDEX_REWRITE
         raise SchemaError(msg) from e
-    return cast('WhereNode', result[0])
+    return cast('UnresolvedWhereNode', result[0])

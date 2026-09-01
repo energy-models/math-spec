@@ -60,10 +60,13 @@ from math_spec.where_parser import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
-    TypedPredicateNode,
+    UnresolvedAndNode,
     UnresolvedComparisonNode,
     UnresolvedNameNode,
+    UnresolvedNotNode,
+    UnresolvedOrNode,
     UnresolvedPositionNode,
+    UnresolvedWhereNode,
     VariableDefinedNode,
     WhereNode,
     parse_where,
@@ -604,7 +607,7 @@ def _ungroupable(
 
 
 def resolve_where(
-    node: WhereNode,
+    node: UnresolvedWhereNode,
     ns: Namespace,
     context: str,
     errors: list[str],
@@ -754,7 +757,7 @@ def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str,
             f"{context}: position() counts along a dimension's coordinates, and "
             f"'{node.dimension}' is {was}.\n  Dimensions: {sorted(ns.dimensions)}"
         )
-        return node
+        return BooleanLiteralNode(False)
     if node.by is None:
         return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
     call = f'position({node.dimension}, by={node.by})'
@@ -766,7 +769,7 @@ def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str,
             f'inside a group lands no terms, unlike sum(by=) and at(by=).\n'
             f'  Lookups: {sorted(ns.lookups)}'
         )
-        return node
+        return BooleanLiteralNode(False)
     over = ns.over_of(node.by)
     if over != node.dimension:
         errors.append(
@@ -774,17 +777,20 @@ def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str,
             f"lookup over '{over}'. No row of '{node.dimension}' carries it, so there is no "
             f"position within a group to name — group by a lookup over '{node.dimension}'."
         )
-        return node
+        return BooleanLiteralNode(False)
     return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
 
 
 def _resolve_where(
-    node: WhereNode, ns: Namespace, context: str, errors: list[str], self_variable: str | None = None
+    node: UnresolvedWhereNode, ns: Namespace, context: str, errors: list[str], self_variable: str | None = None
 ) -> WhereNode:
-    if isinstance(node, BooleanLiteralNode):
-        return node
+    """Rewrite one parse node into a resolved predicate, recording every problem it has.
 
-    if isinstance(node, TypedPredicateNode):
+    A leaf the schema cannot type has no resolved form, so the error is
+    appended and a discarded placeholder returned — :func:`resolve_where` drops
+    the whole tree once ``errors`` grew, so what the placeholder is never shows.
+    """
+    if isinstance(node, BooleanLiteralNode):
         return node
 
     if isinstance(node, UnresolvedNameNode):
@@ -797,7 +803,7 @@ def _resolve_where(
                     f'name is true at every coordinate — the mask has no effect. '
                     f'Remove it, or compare it: where: "{node.name} > 0".'
                 )
-                return node
+                return BooleanLiteralNode(False)
             case 'lookup':
                 return LookupDefinedNode(node.name, ns.over_of(node.name))
             case 'variable':
@@ -807,11 +813,11 @@ def _resolve_where(
                         f'where, which nothing can answer — the mask is what decides where it '
                         f'exists. Test a parameter, or another variable declared before it.'
                     )
-                    return node
+                    return BooleanLiteralNode(False)
                 return VariableDefinedNode(node.name)
             case _:
                 errors.append(ns._unknown(node.name, context, allow_dims=True))
-                return node
+                return BooleanLiteralNode(False)
 
     if isinstance(node, UnresolvedPositionNode):
         return _resolve_position(node, ns, context, errors)
@@ -822,16 +828,16 @@ def _resolve_where(
             if rhs_kind == 'lookup' and ns.kind(node.name) == 'lookup':
                 if (refusal := _lookup_pair_error(context, node, value, ns)) is not None:
                     errors.append(refusal)
-                    return node
+                    return BooleanLiteralNode(False)
                 return LookupPairComparisonNode(node.name, value, ns.over_of(node.name), node.op)
             errors.append(_declared_rhs_error(context, node, value, rhs_kind))
-            return node
+            return BooleanLiteralNode(False)
 
         kind = ns.kind(node.name)
         if kind in ('parameter', 'dimension', 'lookup'):
             typed = _typed_literal(node, ns.dtypes[node.name], context, errors)
             if typed is None:
-                return node
+                return BooleanLiteralNode(False)
             value = typed
 
         match kind:
@@ -848,19 +854,19 @@ def _resolve_where(
                     f'mask is built before variables exist — it may test parameters '
                     f'and dimension coordinates only.'
                 )
-                return node
+                return BooleanLiteralNode(False)
             case _:
                 errors.append(ns._unknown(node.name, context, allow_dims=True))
-                return node
+                return BooleanLiteralNode(False)
 
-    if isinstance(node, NotNode):
+    if isinstance(node, UnresolvedNotNode):
         return NotNode(_resolve_where(node.operand, ns, context, errors, self_variable))
-    if isinstance(node, AndNode):
+    if isinstance(node, UnresolvedAndNode):
         return AndNode(
             _resolve_where(node.left, ns, context, errors, self_variable),
             _resolve_where(node.right, ns, context, errors, self_variable),
         )
-    if isinstance(node, OrNode):
+    if isinstance(node, UnresolvedOrNode):
         return OrNode(
             _resolve_where(node.left, ns, context, errors, self_variable),
             _resolve_where(node.right, ns, context, errors, self_variable),
