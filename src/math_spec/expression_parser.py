@@ -16,6 +16,7 @@ position (operands, args, kwargs) accepts it and nothing else, and
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -435,8 +436,15 @@ def _named_rewrite(text: str, loc: int) -> str | None:
     return None
 
 
+@lru_cache(maxsize=4096)
 def parse_expression(text: str) -> ExpressionNode:
     """Parse a math expression string into an AST.
+
+    The same string parses to the same tree, and a node is unrewritable once
+    built, so the tree is shared rather than rebuilt — a model writes its
+    expressions far more often than it writes distinct ones, and every
+    expression is parsed twice over, once to validate the file and once to
+    lower it.
 
     Raises:
         SchemaError: If *text* is not an expression of the language. A
