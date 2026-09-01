@@ -32,9 +32,12 @@ from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
+    AndNode,
     At,
+    BooleanLiteralNode,
     Cases,
     Constant,
+    DimensionComparisonNode,
     DimensionDeclaration,
     Divide,
     ExpressionNode,
@@ -45,6 +48,8 @@ from math_spec.program import (
     Multiply,
     Negate,
     Parameter,
+    ParameterComparisonNode,
+    ParameterDefinedNode,
     Power,
     Program,
     Region,
@@ -59,13 +64,6 @@ from math_spec.program import (
     walk,
 )
 from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.where_parser import (
-    AndNode,
-    BooleanLiteralNode,
-    DimensionComparisonNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
-)
 from tests.fixtures import DISPATCH_MODEL, SMALL_MODEL, override, schema_of
 
 if TYPE_CHECKING:

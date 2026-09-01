@@ -2,38 +2,34 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""pyparsing-based parser for where strings — grammar and AST only.
+"""pyparsing-based parser for where strings — grammar and the unresolved AST.
 
-Parses strings like ``"p_max > 0 AND NOT is_must_run"`` into an AST. What a
-mask *means* is the consumer's business: it evaluates the AST against the data
-it holds.
+Parses strings like ``"p_max > 0 AND NOT is_must_run"`` into an AST. The
+resolved node vocabulary lives in :mod:`math_spec.program` beside the rest of
+what a consumer dispatches on; what stays here is the grammar and the
+``Unresolved*`` nodes it emits, which resolution rewrites away.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, assert_never, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pyparsing as pp
 
 from math_spec.errors import SchemaError
 from math_spec.expression_parser import REAL
+from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode
 
 if TYPE_CHECKING:
-    import datetime
-    from collections.abc import Callable, Iterator, Mapping, Sequence
+    from collections.abc import Callable
 
-PredicateOperator = Literal['<=', '>=', '==', '!=', '<', '>']
+    from math_spec.program import PredicateOperator, WhereNode
 
 # ---------------------------------------------------------------------------
 # AST nodes
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class BooleanLiteralNode:
-    value: bool
 
 
 @dataclass(frozen=True)
@@ -63,7 +59,8 @@ class UnresolvedPositionNode:
 
     Kept apart from :class:`UnresolvedComparisonNode` because its left-hand
     side is not a name but an *application* to one, which no bare name can
-    carry. ``resolution.py`` types it into :class:`DimensionPositionNode`.
+    carry. ``resolution.py`` types it into
+    :class:`~math_spec.program.DimensionPositionNode`.
     """
 
     dimension: str
@@ -72,282 +69,11 @@ class UnresolvedPositionNode:
     by: str | None = None
 
 
-@dataclass(frozen=True)
-class ParameterDefinedNode:
-    """True wherever the named parameter is non-null and finite."""
-
-    name: str
-
-
-@dataclass(frozen=True)
-class VariableDefinedNode:
-    """True at the coordinates where the named variable exists.
-
-    The variable counterpart of :class:`ParameterDefinedNode`, and spelled the
-    same way — a bare name. A parameter's bare name asks whether it has a value
-    here; a variable's asks whether it exists here.
-    """
-
-    name: str
-
-
-@dataclass(frozen=True)
-class ParameterComparisonNode:
-    """Compare a parameter against a literal, element-wise."""
-
-    name: str
-    op: PredicateOperator
-    value: float | str
-
-
-@dataclass(frozen=True)
-class DimensionComparisonNode:
-    """Compare a dimension's own coordinates against a literal."""
-
-    name: str
-    op: PredicateOperator
-    value: float | str | datetime.date
-
-
-@dataclass(frozen=True)
-class DimensionPositionNode:
-    """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
-
-    Both sides are integers, negative counting from the end; comparing
-    coordinates against the label *at* a position would read differently on an
-    axis whose coordinates do not arrive sorted (#32). With ``by`` the position
-    is counted within each group the lookup makes.
-    """
-
-    name: str
-    op: PredicateOperator
-    position: int
-    by: str | None = None
-
-
-@dataclass(frozen=True)
-class LookupComparisonNode:
-    """Compare a lookup's values against a literal — ``period_of == 2030``.
-
-    ``over`` is the dimension the lookup maps out of, copied off the
-    declaration during resolution so the frame check and every consumer read it
-    here rather than looking the lookup up again.
-    """
-
-    name: str
-    over: str
-    op: PredicateOperator
-    value: float | str | datetime.date
-
-
-@dataclass(frozen=True)
-class LookupPairComparisonNode:
-    """Compare two lookups over one dimension — ``from != to``.
-
-    The one comparison whose both sides are structure: two maps out of the
-    same dimension, tested row by row on that dimension's own table. Over
-    different dims there is no row to compare them on, which resolution
-    refuses.
-    """
-
-    name: str
-    other: str
-    over: str
-    op: PredicateOperator
-
-
-@dataclass(frozen=True)
-class LookupDefinedNode:
-    """True where the named lookup has a value — the partial-lookup case.
-
-    A lookup may be partial: a null says the label belongs to no group (a
-    generator on no bus, a line with one open end). This is how a declaration
-    asks for the labels that *do* map, spelled as a bare name exactly as a
-    parameter's definedness is.
-    """
-
-    name: str
-    over: str
-
-
-@dataclass(frozen=True)
-class NotNode:
-    operand: WhereNode
-
-
-@dataclass(frozen=True)
-class AndNode:
-    left: WhereNode
-    right: WhereNode
-
-
-@dataclass(frozen=True)
-class OrNode:
-    left: WhereNode
-    right: WhereNode
-
-
-WhereNode = (
-    BooleanLiteralNode
-    | UnresolvedNameNode
-    | UnresolvedComparisonNode
-    | UnresolvedPositionNode
-    | DimensionPositionNode
-    | ParameterDefinedNode
-    | VariableDefinedNode
-    | ParameterComparisonNode
-    | DimensionComparisonNode
-    | LookupComparisonNode
-    | LookupPairComparisonNode
-    | LookupDefinedNode
-    | NotNode
-    | AndNode
-    | OrNode
-)
-
 #: What resolution rewrites away on the where side — the three nodes whose
 #: left-hand side is still a name the schema has not been asked about. The
 #: expression side has :data:`~math_spec.expression_parser.UnresolvedNode` for
 #: the same reason, and a pass meeting either ran before resolution.
 UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedPositionNode
-
-#: Every predicate resolution has typed: it names a declaration and the kind is
-#: settled. Resolution passes these straight through, having nothing left to
-#: decide about them.
-TypedPredicateNode = (
-    ParameterComparisonNode
-    | ParameterDefinedNode
-    | VariableDefinedNode
-    | DimensionComparisonNode
-    | DimensionPositionNode
-    | LookupComparisonNode
-    | LookupPairComparisonNode
-    | LookupDefinedNode
-)
-
-#: The boolean connectives — the only where nodes carrying other where nodes,
-#: and so the only place a walk over a predicate recurses.
-ConnectiveWhereNode = NotNode | AndNode | OrNode
-
-
-# ---------------------------------------------------------------------------
-# What a predicate reads
-# ---------------------------------------------------------------------------
-
-
-def atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
-    """Every node in *where* that reads a declaration, connectives removed.
-
-    A predicate is a tree of :data:`ConnectiveWhereNode` over leaves that each
-    name one declaration, so every question about what a mask *reads* is asked
-    of the leaves and answered by taking them together. A boolean literal reads
-    nothing and yields nothing.
-
-    Raises:
-        AssertionError: An unresolved node, which is a pass running before
-            resolution rather than a predicate with a property to read.
-    """
-    if isinstance(where, NotNode):
-        yield from atoms(where.operand)
-    elif isinstance(where, (AndNode, OrNode)):
-        yield from atoms(where.left)
-        yield from atoms(where.right)
-    elif isinstance(where, UnresolvedWhereNode):
-        msg = f'{type(where).__name__} reached a predicate walk unresolved.'
-        raise AssertionError(msg)
-    elif not isinstance(where, BooleanLiteralNode):
-        yield where
-
-
-def dims_read(where: WhereNode, name_dims: Mapping[str, Sequence[str]]) -> frozenset[str]:
-    """Which dims *where* reads, given what each declared name is read through.
-
-    The dim rule for the predicate side, stated once: **a mask is read at the
-    coordinates its leaves are read at**. A parameter is read through its own
-    dims, a variable through the frame it is declared over, a comparison on a
-    dimension through that dimension, and a lookup through the dimension it
-    maps out of — a lookup being read on the dim it leaves, not the one it
-    lands in.
-
-    A consumer masking rows needs this to know which coordinates a mask can
-    restrict, and answering it separately is the mistake
-    ``what-counts-as-language.md`` forbids: two consumers deciding differently
-    would mask the same model differently, with no error anywhere.
-
-    Args:
-        where: A resolved predicate.
-        name_dims: Every declared name to the dims it is read through —
-            parameters by their ``dims`` and variables by their ``foreach``,
-            one flat mapping because the language has one flat namespace.
-
-    Returns:
-        The dims read, which is empty for a predicate over nothing but
-        literals.
-    """
-    return frozenset(dim for atom in atoms(where) for dim in _atom_dims(atom, name_dims))
-
-
-def _atom_dims(atom: TypedPredicateNode, name_dims: Mapping[str, Sequence[str]]) -> frozenset[str]:
-    """One leaf's dims — the rule :func:`dims_read` is the union of.
-
-    Private because a caller wanting one leaf's answer wants the whole
-    predicate's, and separate because the load-time frame check reports per
-    leaf and so cannot take the union. Closed by ``assert_never``: a predicate
-    node added without a reading is a type error here, at the one place that
-    has to grow a branch, rather than a wrong dim set at the first model to use
-    it.
-    """
-    match atom:
-        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
-            return frozenset(name_dims.get(atom.name, ()))
-        case DimensionComparisonNode() | DimensionPositionNode():
-            return frozenset({atom.name})
-        case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
-            return frozenset({atom.over})
-        case _:
-            assert_never(atom)
-
-
-def names_read(where: WhereNode) -> frozenset[str]:
-    """Which declarations *where* names — the parameters, lookups and variables its leaves test.
-
-    The name rule to :func:`dims_read`'s dim rule, and its complement: a leaf is
-    read *at* a dimension and *of* a declaration, and where ``dims_read`` gives
-    the first this gives the second. A comparison on a dimension names no
-    declaration — a coordinate is not data to feed — so it adds nothing here;
-    its dimension is ``dims_read``'s. A lookup pair names both maps it compares.
-
-    A consumer asking which parameters a mask gates on — whether the corpus
-    ever varies one, say — asks it here rather than walking the leaves itself,
-    the ``what-counts-as-language.md`` rule that two consumers must not answer
-    it differently.
-
-    Returns:
-        The parameter, lookup and variable names read, empty for a predicate
-        over nothing but literals and dimensions.
-    """
-    return frozenset(name for atom in atoms(where) for name in _atom_names(atom))
-
-
-def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
-    """One leaf's declarations, its dimension apart — the rule :func:`names_read` is the union of.
-
-    Private and ``assert_never``-closed for the reasons :func:`_atom_dims` is:
-    the union is the only answer a caller wants, and a predicate node added
-    without a reading is a type error at this one branch rather than a name
-    silently dropped at the first model to use it.
-    """
-    match atom:
-        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
-            return frozenset({atom.name})
-        case LookupComparisonNode() | LookupDefinedNode():
-            return frozenset({atom.name})
-        case LookupPairComparisonNode():
-            return frozenset({atom.name, atom.other})
-        case DimensionComparisonNode() | DimensionPositionNode():
-            return frozenset()
-        case _:
-            assert_never(atom)
 
 
 # ---------------------------------------------------------------------------
@@ -471,6 +197,10 @@ _INDEX_REWRITE = (
 
 def parse_where(text: str) -> WhereNode:
     """Parse a where string into an AST.
+
+    The connectives and literals are the resolved vocabulary's own, but the
+    leaves naming declarations come back as ``Unresolved*`` nodes — the
+    annotation is the type the tree has once resolution types every leaf.
 
     Raises:
         SchemaError: If *text* is not a where string of the language.

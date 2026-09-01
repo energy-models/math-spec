@@ -17,11 +17,11 @@ import pytest
 
 from math_spec.expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
+from math_spec.program import WhereNode
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.validation import to_spec
-from math_spec.where_parser import WhereNode
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
 

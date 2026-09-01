@@ -10,6 +10,7 @@ Nothing here resolves names — a parse result still holds raw
 
 import pytest
 
+import math_spec.program as program_module
 from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     BinaryOperatorNode,
@@ -21,17 +22,27 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
-from math_spec.program import _conjuncts
+from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, _conjuncts
 from math_spec.where_parser import (
-    AndNode,
-    BooleanLiteralNode,
-    NotNode,
-    OrNode,
     UnresolvedComparisonNode,
     UnresolvedNameNode,
     UnresolvedPositionNode,
     parse_where,
 )
+
+
+def test_the_grammar_builds_the_program_s_own_node_classes():
+    """The connectives and literals in a parse are `math_spec.program`'s classes.
+
+    The parser constructs the resolved vocabulary's connectives directly, so a
+    consumer's `isinstance` against the program's classes holds on any tree —
+    two homes for `AndNode` would make it hold on neither.
+    """
+    tree = parse_where('a AND NOT b OR True')
+    assert type(tree) is program_module.OrNode
+    assert type(tree.left) is program_module.AndNode
+    assert type(tree.left.right) is program_module.NotNode
+    assert type(tree.right) is program_module.BooleanLiteralNode
 
 
 @pytest.mark.parametrize(

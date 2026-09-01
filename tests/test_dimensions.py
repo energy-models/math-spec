@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 
 from math_spec.dimensions import DimensionError, _check_where_dims, _name_dims, check_schema, dims_of
+from math_spec.program import LookupPairComparisonNode, dims_read, names_read
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import LookupPairComparisonNode, dims_read, names_read
 from tests.fixtures import OPERATOR_PROBES, override, schema_of
 
 if TYPE_CHECKING:

@@ -52,9 +52,9 @@ from math_spec.expression_parser import (
     VariableNode,
 )
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
+from math_spec.program import AndNode, NotNode, WhereNode, dims_read
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import AndNode, NotNode, WhereNode, dims_read
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence

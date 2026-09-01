@@ -47,8 +47,7 @@ from math_spec.expression_parser import (
     case_context,
 )
 from math_spec.operators import BUILTINS, edge_error
-from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.where_parser import (
+from math_spec.program import (
     DimensionComparisonNode,
     DimensionPositionNode,
     ParameterComparisonNode,
@@ -58,6 +57,7 @@ from math_spec.where_parser import (
     _atom_dims,
     atoms,
 )
+from math_spec.resolution import Namespace, expression_of, where_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
@@ -508,7 +508,7 @@ def _check_where_dims(
     *open*, silently including everything. It is rejected here, at load time.
 
     **Which dims a leaf reads is not decided here.** That is
-    :func:`~math_spec.where_parser.dims_read`'s rule, and this walks the same
+    :func:`~math_spec.program.dims_read`'s rule, and this walks the same
     leaves by the same reading, so a mask cannot be checked against one answer
     and built against another. What is decided here is the wording, and the
     wording is per leaf: a reader told only that the predicate leaves the frame
@@ -547,7 +547,7 @@ def _check_where_dims(
 
 
 def _name_dims(schema: Spec) -> dict[str, tuple[str, ...]]:
-    """Every declared name to the dims it is read through — what :func:`~math_spec.where_parser.dims_read` takes."""
+    """Every declared name to the dims it is read through — what :func:`~math_spec.program.dims_read` takes."""
     return {
         **{name: tuple(pdef.dims) for name, pdef in schema.parameters.items()},
         **{name: tuple(vdef.foreach) for name, vdef in schema.variables.items()},

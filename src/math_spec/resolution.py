@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, assert_never, cast
 
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
@@ -48,7 +48,7 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
-from math_spec.where_parser import (
+from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -61,11 +61,14 @@ from math_spec.where_parser import (
     ParameterComparisonNode,
     ParameterDefinedNode,
     TypedPredicateNode,
+    VariableDefinedNode,
+    WhereNode,
+)
+from math_spec.where_parser import (
     UnresolvedComparisonNode,
     UnresolvedNameNode,
     UnresolvedPositionNode,
-    VariableDefinedNode,
-    WhereNode,
+    UnresolvedWhereNode,
     parse_where,
 )
 
@@ -374,7 +377,7 @@ def _resolve_arith(
         arms = []
         for arm in node.arms:
             arm_context = case_context(node.name, None if arm.when is None else arm.label)
-            when = None if arm.when is None else _resolve_where(arm.when, ns, arm_context, errors)
+            when = None if arm.when is None else _resolved_child(arm.when, ns, arm_context, errors, None)
             arms.append(CaseArm(arm.label, when, _resolve_arith(arm.value, ns, arm_context, errors)))
         return CasesNode(node.name, tuple(arms))
 
@@ -619,7 +622,7 @@ def resolve_where(
     """
     before = len(errors)
     resolved = _resolve_where(node, ns, context, errors, self_variable)
-    return None if len(errors) > before else resolved
+    return None if len(errors) > before else cast('WhereNode', resolved)
 
 
 #: An ISO literal carrying a time-of-day, which decides date vs datetime.
@@ -740,7 +743,9 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
     return None
 
 
-def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str, errors: list[str]) -> WhereNode:
+def _resolve_position(
+    node: UnresolvedPositionNode, ns: Namespace, context: str, errors: list[str]
+) -> DimensionPositionNode | UnresolvedPositionNode:
     """Type ``position(dim[, by=lookup]) <op> i``.
 
     The name has to be a dimension, the one thing with an order to count
@@ -779,8 +784,18 @@ def _resolve_position(node: UnresolvedPositionNode, ns: Namespace, context: str,
 
 
 def _resolve_where(
-    node: WhereNode, ns: Namespace, context: str, errors: list[str], self_variable: str | None = None
-) -> WhereNode:
+    node: WhereNode | UnresolvedWhereNode,
+    ns: Namespace,
+    context: str,
+    errors: list[str],
+    self_variable: str | None = None,
+) -> WhereNode | UnresolvedWhereNode:
+    """One node typed, or returned unresolved with its refusal appended to *errors*.
+
+    An unresolved node only comes back on an error path, and
+    :func:`resolve_where` discards the whole tree once *errors* grew — which is
+    what lets :func:`_resolved_child` type a connective's children as resolved.
+    """
     if isinstance(node, BooleanLiteralNode):
         return node
 
@@ -854,16 +869,33 @@ def _resolve_where(
                 return node
 
     if isinstance(node, NotNode):
-        return NotNode(_resolve_where(node.operand, ns, context, errors, self_variable))
+        return NotNode(_resolved_child(node.operand, ns, context, errors, self_variable))
     if isinstance(node, AndNode):
         return AndNode(
-            _resolve_where(node.left, ns, context, errors, self_variable),
-            _resolve_where(node.right, ns, context, errors, self_variable),
+            _resolved_child(node.left, ns, context, errors, self_variable),
+            _resolved_child(node.right, ns, context, errors, self_variable),
         )
     if isinstance(node, OrNode):
         return OrNode(
-            _resolve_where(node.left, ns, context, errors, self_variable),
-            _resolve_where(node.right, ns, context, errors, self_variable),
+            _resolved_child(node.left, ns, context, errors, self_variable),
+            _resolved_child(node.right, ns, context, errors, self_variable),
         )
 
     assert_never(node)
+
+
+def _resolved_child(
+    node: WhereNode | UnresolvedWhereNode,
+    ns: Namespace,
+    context: str,
+    errors: list[str],
+    self_variable: str | None,
+) -> WhereNode:
+    """A child predicate, typed as resolved.
+
+    An unresolved node only survives with its refusal in *errors*, and every
+    entry point — :func:`resolve_where`, :func:`resolve_expression` — discards
+    its result once *errors* grew, so a tree rebuilt over one never escapes.
+    That invariant is what the cast claims.
+    """
+    return cast('WhereNode', _resolve_where(node, ns, context, errors, self_variable))

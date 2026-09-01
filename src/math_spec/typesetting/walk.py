@@ -32,13 +32,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
-from math_spec.resolution import (
-    expression_of,
-    where_of,
-)
-from math_spec.typesetting.format import Entry, Glossary, Line
-from math_spec.typesetting.symbols import printed_expressions
-from math_spec.where_parser import (
+from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -50,10 +44,16 @@ from math_spec.where_parser import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
-    UnresolvedWhereNode,
     VariableDefinedNode,
     WhereNode,
 )
+from math_spec.resolution import (
+    expression_of,
+    where_of,
+)
+from math_spec.typesetting.format import Entry, Glossary, Line
+from math_spec.typesetting.symbols import printed_expressions
+from math_spec.where_parser import UnresolvedWhereNode
 
 if TYPE_CHECKING:
     import datetime

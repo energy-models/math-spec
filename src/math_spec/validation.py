@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, assert_never
+from typing import TYPE_CHECKING, Any, assert_never
 
 from math_spec._yaml import read_yaml
 from math_spec.degree import carries_variable, check_expression
@@ -34,7 +34,10 @@ from math_spec.expression_parser import (
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
 from math_spec.resolution import Namespace, resolve_expression, resolve_where
-from math_spec.where_parser import WhereNode, parse_where
+from math_spec.where_parser import parse_where
+
+if TYPE_CHECKING:
+    from math_spec.program import WhereNode
 
 
 def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:

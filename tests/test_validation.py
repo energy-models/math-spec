@@ -14,9 +14,9 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
+from math_spec.program import DimensionPositionNode
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import DimensionPositionNode
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
 
 if TYPE_CHECKING:

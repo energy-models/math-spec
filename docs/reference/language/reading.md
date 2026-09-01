@@ -110,7 +110,9 @@ its leaves, connectives removed; and `.dims` the dimensions it is read at —
 resolved at lowering, where every name's own dims are known, so no consumer
 rebuilds that mapping. A consumer asks the mask rather than re-deriving any of
 these from `.root`, so two cannot come to disagree about what a conjunct, a
-name or a comparison is. A `Region`'s `when` arrives in the same carrier.
+name or a comparison is. A `Region`'s `when` arrives in the same carrier, and
+the node classes a `.root` is built of live in `math_spec.program` beside every
+other node a consumer dispatches on.
 
 ## Asking what a program uses
 
