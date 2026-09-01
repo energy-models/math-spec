@@ -321,7 +321,7 @@ def _edge_fill(edge: ArithmeticNode | None, context: str) -> float | None:
         return None
     if not isinstance(edge, NumberNode):
         raise DimensionError(f'{context}: {edge_error("shift", "...")}')
-    return float(edge.value)
+    return edge.value
 
 
 def _named_offset_edge_message(name: str) -> str:

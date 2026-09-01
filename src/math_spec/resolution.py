@@ -682,9 +682,9 @@ def _typed_literal(
             return None
         try:
             return (
-                datetime.datetime.fromisoformat(str(value))
-                if _HAS_TIME.search(str(value))
-                else datetime.date.fromisoformat(str(value))
+                datetime.datetime.fromisoformat(value)
+                if _HAS_TIME.search(value)
+                else datetime.date.fromisoformat(value)
             )
         except ValueError:
             errors.append(
