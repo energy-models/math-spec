@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import TYPE_CHECKING, assert_never, cast
+from typing import TYPE_CHECKING, Literal, assert_never, cast
 
 from math_spec._where_parser import (
     UnresolvedComparisonNode,
@@ -77,7 +77,13 @@ from math_spec.program import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from math_spec.model import Spec
+    from math_spec.model import DeclaredDtype, Spec
+
+
+#: What a name a file may write turns out to be. Answered by
+#: :meth:`Namespace.kind`, so a pass reading a name switches over this rather
+#: than over the stores it would otherwise have to try in order.
+DeclarationKind = Literal['variable', 'parameter', 'dimension', 'lookup']
 
 
 class Namespace:
@@ -95,7 +101,7 @@ class Namespace:
         parameters: Iterable[str],
         dimensions: Iterable[str],
         lookups: Mapping[str, tuple[str, str | None]],
-        dtypes: Mapping[str, str],
+        dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
     ) -> None:
         self.variables = frozenset(variables)
@@ -103,7 +109,7 @@ class Namespace:
         self.dimensions = frozenset(dimensions)
         #: name -> declared dtype, for dimensions, parameters and lookups alike;
         #: what a where comparison checks its literal against.
-        self.dtypes: dict[str, str] = dict(dtypes)
+        self.dtypes: dict[str, DeclaredDtype] = dict(dtypes)
         #: lookup name -> ``(over, into)``; ``into`` is ``None`` for a label
         #: space, which owns its values.
         self.lookups: dict[str, tuple[str, str | None]] = dict(lookups)
@@ -144,8 +150,8 @@ class Namespace:
             },
         )
 
-    def kind(self, name: str) -> str | None:
-        """``'variable'`` | ``'parameter'`` | ``'dimension'`` | ``'lookup'`` | ``None``."""
+    def kind(self, name: str) -> DeclarationKind | None:
+        """What *name* was declared as, or ``None`` where the file declares it nowhere."""
         if name in self.variables:
             return 'variable'
         if name in self.parameters:
@@ -657,7 +663,7 @@ _HAS_TIME = re.compile(r'[T ]\d')
 
 def _typed_literal(
     node: UnresolvedComparisonNode,
-    dtype: str,
+    dtype: DeclaredDtype,
     context: str,
     errors: list[str],
 ) -> float | str | datetime.date | None:
@@ -829,7 +835,11 @@ def _resolve_where(
         return node
 
     if isinstance(node, UnresolvedNameNode):
-        match ns.kind(node.name):
+        kind = ns.kind(node.name)
+        if kind is None:
+            errors.append(ns._unknown(node.name, context, allow_dims=True))
+            return node
+        match kind:
             case 'parameter':
                 return ParameterDefinedNode(node.name, ns.leaf_dims[node.name])
             case 'dimension':
@@ -838,7 +848,6 @@ def _resolve_where(
                     f'name is true at every coordinate — the mask has no effect. '
                     f'Remove it, or compare it: where: "{node.name} > 0".'
                 )
-                return node
             case 'lookup':
                 return LookupDefinedNode(node.name, ns.over_of(node.name))
             case 'variable':
@@ -848,11 +857,9 @@ def _resolve_where(
                         f'where, which nothing can answer — the mask is what decides where it '
                         f'exists. Test a parameter, or another variable declared before it.'
                     )
-                    return node
-                return VariableDefinedNode(node.name, ns.leaf_dims[node.name])
-            case _:
-                errors.append(ns._unknown(node.name, context, allow_dims=True))
-                return node
+                else:
+                    return VariableDefinedNode(node.name, ns.leaf_dims[node.name])
+        return node
 
     if isinstance(node, UnresolvedPositionNode):
         return _resolve_position(node, ns, context, errors)
@@ -869,6 +876,9 @@ def _resolve_where(
             return node
 
         kind = ns.kind(node.name)
+        if kind is None:
+            errors.append(ns._unknown(node.name, context, allow_dims=True))
+            return node
         if kind in ('parameter', 'dimension', 'lookup'):
             typed = _typed_literal(node, ns.dtypes[node.name], context, errors)
             if typed is None:
@@ -889,10 +899,7 @@ def _resolve_where(
                     f'mask is built before variables exist — it may test parameters '
                     f'and dimension coordinates only.'
                 )
-                return node
-            case _:
-                errors.append(ns._unknown(node.name, context, allow_dims=True))
-                return node
+        return node
 
     if isinstance(node, NotNode):
         return NotNode(_resolved_child(node.operand, ns, context, errors, self_variable))

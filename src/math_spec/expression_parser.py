@@ -28,7 +28,17 @@ if TYPE_CHECKING:
 
     from math_spec.program import WhereNode
 
+#: The relation a comparison may carry — the three an expression may be
+#: written with, which is what a constraint's sense is read off.
 ComparisonOperator = Literal['<=', '>=', '==']
+
+#: The sign a unary operator applies to its operand.
+UnaryOperator = Literal['+', '-']
+
+#: The arithmetic a binary operator may spell. Closed by the grammar, and the
+#: vocabulary a renderer dispatching on :attr:`BinaryOperatorNode.op`
+#: switches over — it keeps no list of its own.
+BinaryOperator = Literal['+', '-', '*', '/', '**']
 
 # ---------------------------------------------------------------------------
 # AST nodes
@@ -135,13 +145,13 @@ class EdgeNode:
 
 @dataclass(frozen=True)
 class UnaryOperatorNode:
-    op: str
+    op: UnaryOperator
     operand: ArithmeticNode
 
 
 @dataclass(frozen=True)
 class BinaryOperatorNode:
-    op: str
+    op: BinaryOperator
     left: ArithmeticNode
     right: ArithmeticNode
 

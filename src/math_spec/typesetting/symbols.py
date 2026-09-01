@@ -17,18 +17,19 @@ import string
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from math_spec._yaml import read_yaml
 from math_spec.degree import carries_variable
 from math_spec.errors import SchemaError, did_you_mean
 from math_spec.resolution import Namespace, expression_of
+from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from math_spec.model import ExpressionBlock, _ExpandedSpec
-    from math_spec.typesetting.format import Format
+    from math_spec.typesetting.format import Format, Notation
 
 __all__ = ['SymbolTable', 'Symbols']
 
@@ -208,11 +209,11 @@ class SymbolTable:
     An entry naming nothing in the model is an error naming the near miss.
 
     Attributes:
-        notation: The language the entries are written in, ``latex`` or
-            ``typst``; :meth:`load` lower-cases it.
+        notation: The language the entries are written in; :meth:`load`
+            lower-cases it.
     """
 
-    notation: str
+    notation: Notation
     indices: dict[str, str] = field(default_factory=dict)
     sets: dict[str, str] = field(default_factory=dict)
     names: dict[str, str] = field(default_factory=dict)
@@ -234,7 +235,7 @@ class SymbolTable:
             msg = "symbol table: 'notation:' is required — latex or typst, the language the entries are written in."
             raise SchemaError(msg)
         notation = str(raw['notation']).lower()
-        if notation not in ('latex', 'typst'):
+        if notation not in NOTATIONS:
             msg = f'symbol table: unknown notation {raw["notation"]!r}. Valid notations: latex, typst.'
             raise SchemaError(msg)
 
@@ -254,7 +255,7 @@ class SymbolTable:
                 sets[dim] = str(spec['set'])
 
         return cls(
-            notation=notation,
+            notation=cast('Notation', notation),
             indices=indices,
             sets=sets,
             names={k: str(v) for k, v in (raw.get('names') or {}).items()},

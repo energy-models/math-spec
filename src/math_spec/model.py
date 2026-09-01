@@ -90,6 +90,11 @@ DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 #: indexes by.
 ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
+#: What a *name* a where comparison tests may be — a parameter's dtype or a
+#: dimension's, since a lookup's is its target's. The union rather than either
+#: half, because a mask names all three kinds and reads the dtype the same way.
+DeclaredDtype = ParameterDtype | DimensionDtype
+
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
 
@@ -124,7 +129,7 @@ DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
 #: The parameter dtypes that stand where a number belongs — a coefficient, a
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
-NUMERIC_DTYPES = frozenset({'float', 'int'})
+NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
 VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
 VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
 CURVATURES = frozenset(get_args(Curvature))

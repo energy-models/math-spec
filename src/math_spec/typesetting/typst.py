@@ -19,7 +19,7 @@ from math_spec.typesetting.format import OPERATOR_SPELLINGS
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from math_spec.typesetting.format import Entry, Line
+    from math_spec.typesetting.format import Entry, Line, Notation
 
 _PREAMBLE = """#set page(margin: 2.5cm)
 #set text(size: 11pt)
@@ -58,7 +58,7 @@ class TypstFormat:
     """
 
     suffix: ClassVar[str] = '.typ'
-    notation: ClassVar[str] = 'typst'
+    notation: ClassVar[Notation] = 'typst'
     #: Typst applies the same substitution TeX does.
     dash: ClassVar[str] = '---'
 

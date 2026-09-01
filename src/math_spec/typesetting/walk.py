@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, assert_never
 from math_spec.dimensions import dims_of
 from math_spec.expression_parser import (
     ArithmeticNode,
+    BinaryOperator,
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
@@ -45,6 +46,7 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    PredicateOperator,
     VariableDefinedNode,
     WhereNode,
 )
@@ -67,10 +69,10 @@ if TYPE_CHECKING:
 #: Operator precedence, for deciding brackets. A reduction sits at the bottom
 #: with ``+``: an unbracketed sum reads as capturing whatever follows it, so as
 #: a factor it has to be bracketed.
-_PRECEDENCE = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 3}
+_PRECEDENCE: dict[BinaryOperator, int] = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 3}
 _ATOM = 5
 
-_PREDICATES = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>': 'gt'}
+_PREDICATES: dict[PredicateOperator, str] = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>': 'gt'}
 
 
 #: Edge policy -> the operator pair that renders it, backward then forward.
