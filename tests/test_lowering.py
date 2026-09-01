@@ -915,22 +915,22 @@ def test_a_region_s_when_is_a_mask_with_its_own_dims():
 def test_a_literal_case_mask_is_folded_to_the_root():
     """A region's `when` keeps a literal at its root or nowhere — the module's own claim.
 
-    A case arm's mask resolves without the fold `where_of` gives a
-    declaration's, so `when: 'True'` reached the program as a literal the
-    remainder then buried under a `NOT` — a consumer met
-    `NotNode(BooleanLiteralNode(True))` and needed the constant folder the
-    contract says nobody needs.
+    A case arm's mask resolved without the fold `where_of` gives a
+    declaration's, so `when: 'committable OR True'` reached the program with
+    the literal buried in the `OR`, and the remainder buried another under a
+    `NOT` — a consumer needed the constant folder the contract says nobody
+    needs. Resolution folds the arm now, and the mask algebra the remainder.
     """
     schema = schema_of(
         CASED,
         **{
-            'expressions.previous.cases': {'always': {'when': 'True', 'expression': 1}},
+            'expressions.previous.cases': {'always': {'when': 'committable OR True', 'expression': 1}},
             'expressions.previous.otherwise': 'initial',
         },
     )
     always, remainder = _cases_in(lower_program(expand_piecewise(schema))).regions
 
-    assert always.when.root == BooleanLiteralNode(True), 'the always-true arm keeps its literal at the root'
+    assert always.when.root == BooleanLiteralNode(True), 'the always-true arm folds to its literal, at the root'
     assert remainder.when.root == BooleanLiteralNode(False), (
         'the remainder of an always-true arm is the empty mask, folded — not a NOT over a literal'
     )

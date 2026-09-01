@@ -51,7 +51,7 @@ from math_spec.expression_parser import (
     VariableNode,
 )
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
-from math_spec.resolution import Namespace, _fold, expression_of, where_of
+from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
@@ -323,14 +323,13 @@ class _Lowering:
         before this ran, so the negation is exactly the remainder and the
         regions stay disjoint and total.
 
-        Every ``when`` is folded, because a case arm's mask resolves without
-        the fold ``where_of`` gives a declaration's: an always-true arm keeps
-        its literal at the root, and the literal stands nowhere deeper.
+        Every ``when`` arrives folded from resolution — an always-true arm
+        keeps its literal at the root, and the literal stands nowhere deeper.
         """
-        stated = [program.Mask(_fold(arm.when)) for arm in node.arms if arm.when is not None]
+        stated = [program.Mask(arm.when) for arm in node.arms if arm.when is not None]
         regions = []
         for arm in node.arms:
-            when = program.Mask(_fold(arm.when)) if arm.when is not None else _none_of(stated)
+            when = program.Mask(arm.when) if arm.when is not None else _none_of(stated)
             regions.append(program.Region(when, self.expr(arm.value)))
         return program.Cases(tuple(regions))
 

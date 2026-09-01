@@ -383,10 +383,13 @@ def _resolve_arith(
         return node
 
     if isinstance(node, CasesNode):
+        # the arm's mask is folded here, the way `where_of` folds a
+        # declaration's — but an always-true arm keeps its literal rather than
+        # dropping to None, which downstream means the `otherwise` arm
         arms = []
         for arm in node.arms:
             arm_context = case_context(node.name, None if arm.when is None else arm.label)
-            when = None if arm.when is None else _resolved_child(arm.when, ns, arm_context, errors, None)
+            when = None if arm.when is None else _fold(_resolved_child(arm.when, ns, arm_context, errors, None))
             arms.append(CaseArm(arm.label, when, _resolve_arith(arm.value, ns, arm_context, errors)))
         return CasesNode(node.name, tuple(arms))
 
