@@ -19,6 +19,7 @@ from typing import Any
 import pytest
 
 import math_spec as ms
+from math_spec.program import Reach
 
 FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yaml'
 
@@ -80,21 +81,83 @@ def test_a_model_the_axis_ties_together_names_what_ties_it(patch, fragment):
 
 
 @pytest.mark.parametrize(
-    ('patch', 'named'),
+    ('patch', 'reach'),
     [
-        pytest.param(_rows('p >= shift(p, over=h, offset=1, by=day_of, edge=0)'), 'day_of', id='a-shift-inside-groups'),
-        pytest.param(_rows('p >= shift(p, over=h, offset=width, edge=0)'), 'width', id='an-offset-from-data'),
-        pytest.param(_rows('sum_back(p, over=h, within=width) >= 0'), 'width', id='a-width-from-data'),
+        pytest.param(
+            _rows('p >= shift(p, over=h, offset=1, by=day_of, edge=0)'),
+            Reach("constraint 'k'", 'day_of', 'partition'),
+            id='a-shift-inside-groups',
+        ),
+        pytest.param(
+            _rows('p >= shift(p, over=h, offset=width, edge=0)'),
+            Reach("constraint 'k'", 'width', 'offset'),
+            id='an-offset-from-data',
+        ),
+        pytest.param(
+            _rows('sum_back(p, over=h, within=width) >= 0'),
+            Reach("constraint 'k'", 'width', 'width'),
+            id='a-width-from-data',
+        ),
     ],
 )
-def test_a_reach_only_data_can_say_names_what_says_it(patch, named):
-    """A driver holding the data can compute this reach itself — the max of an
-    offset parameter, the runs a partition makes — so the verdict names the
-    parameter or lookup rather than refusing the model."""
+def test_a_reach_only_data_can_say_names_what_says_it(patch, reach):
+    """The verdict names the parameter or lookup and what it stands as, rather
+    than refusing the model, so a driver holding the data knows what to read
+    and `resolved` knows how to fold it."""
     verdict = _verdict(**patch)
     assert not verdict.windowable, 'undecided until data binds'
-    assert verdict.undecided["constraint 'k'"] == named, 'the report names what the driver has to read'
+    assert verdict.undecided == (reach,), 'the report names what the driver has to read, once'
     assert not verdict.coupled, 'and nothing structural ties the axis'
+
+
+@pytest.mark.parametrize(
+    ('patch', 'extremes', 'behind', 'ahead'),
+    [
+        pytest.param(
+            _rows('p >= shift(p, over=h, offset=width, edge=0)'), (1, 3), 3, 0, id='offsets-behind-read-by-the-greatest'
+        ),
+        pytest.param(
+            _rows('p >= shift(p, over=h, offset=width, edge=0)'), (-3, -1), 0, 3, id='offsets-ahead-read-by-the-least'
+        ),
+        pytest.param(
+            _rows('p >= shift(p, over=h, offset=width, edge=0)'), (-2, 4), 4, 2, id='a-mixed-offset-reads-both'
+        ),
+        pytest.param(_rows('sum_back(p, over=h, within=width) >= 0'), (2, 5), 4, 0, id='a-width-reads-one-less-behind'),
+        pytest.param(
+            _rows('shift(p, over=h, offset=width, edge=0) + sum_back(p, over=h, within=width) >= 0'),
+            (-1, 4),
+            4,
+            1,
+            id='a-parameter-named-twice-folds-by-its-widest-reach',
+        ),
+    ],
+)
+def test_a_named_reach_resolves_to_the_overlap_its_values_need(patch, extremes, behind, ahead):
+    """The rule turning a value into a reach lives here and nowhere in a driver:
+    the driver reads the least and greatest value and hands them over."""
+    verdict = _verdict(**patch).resolved({'width': extremes})
+    assert verdict.windowable, 'with every named reach folded in, nothing is undecided'
+    assert (verdict.behind, verdict.ahead) == (behind, ahead), 'the values decide the overlap, by their sign'
+
+
+def test_resolving_keeps_the_static_reach_and_what_a_lookup_decides():
+    verdict = _verdict(
+        constraints={
+            'fixed': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=2, edge=0)'},
+            'named': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=width, edge=0)'},
+            'grouped': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=1, by=day_of, edge=0)'},
+        }
+    ).resolved({'width': (0, 1)})
+    assert verdict.behind == 2, 'a folded value never narrows what the model reads on its own'
+    assert verdict.undecided == (Reach("constraint 'grouped'", 'day_of', 'partition'),), (
+        'a reach a lookup decides is not a value and stays undecided'
+    )
+    assert not verdict.windowable, 'so the axis is still not windowable'
+
+
+def test_resolving_a_name_nothing_waits_on_is_refused():
+    with pytest.raises(KeyError, match="'depth' is not a parameter an undecided reach along 'h' waits on"):
+        _verdict(**_rows('p >= shift(p, over=h, offset=width, edge=0)')).resolved({'depth': (0, 1)})
 
 
 def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
@@ -102,7 +165,9 @@ def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
     chooses, so how far that reaches along `zone` is the lookup's data to say."""
     verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of) <= 0'))
     assert not verdict.windowable and not verdict.coupled, 'undecided until the lookup binds'
-    assert verdict.undecided["constraint 'k'"] == 'zone_of', 'the report names the lookup a driver has to read'
+    assert verdict.undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
+        'the report names the lookup a driver has to read'
+    )
 
 
 @pytest.mark.parametrize(

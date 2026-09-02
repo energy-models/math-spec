@@ -20,7 +20,7 @@ one: ``docs/reference/language/reading.md``.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 from functools import cached_property
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
@@ -86,6 +86,7 @@ __all__ = [
     'PredicateOperator',
     'Program',
     'QuadraticPosition',
+    'Reach',
     'Region',
     'Separability',
     'SosDeclaration',
@@ -705,6 +706,23 @@ def _declared[Declaration](items: Mapping[str, Declaration], name: str, kind: st
 
 
 @dataclass(frozen=True)
+class Reach:
+    """One read along an axis whose distance only data can say.
+
+    Attributes:
+        label: The declaration reading, as the lowering's messages label it.
+        name: The parameter or lookup that says how far.
+        kind: ``offset`` and ``width`` are a parameter's values, which
+            :meth:`Separability.resolved` folds in; ``partition`` and
+            ``coordinate`` are a lookup's groups, which it does not.
+    """
+
+    label: str
+    name: str
+    kind: Literal['offset', 'width', 'partition', 'coordinate']
+
+
+@dataclass(frozen=True)
 class Separability:
     """What building one dimension a window at a time asks of a driver, and what it would break.
 
@@ -730,11 +748,10 @@ class Separability:
             translation, a set. No window satisfies these, and no rewrite here
             would keep the model's meaning, so the remedy is named rather than
             applied.
-        undecided: Each declaration whose reach along the axis only data can
-            say, to the parameter or lookup that says it — a named offset or
-            width, a partition whose groups a window may cut, a read through a
-            lookup at a coordinate the data chooses. With data bound, the reach
-            is the driver's to compute.
+        undecided: Each read along the axis whose reach only data can say —
+            a named offset or width, a partition whose groups a window may
+            cut, a read through a lookup at a coordinate the data chooses.
+            :meth:`resolved` folds a parameter's values in.
         restarts: Each declaration counting a position along the axis, which a
             window restarts at its first row. Whether that is wanted — a seed
             once per window, or once per horizon — is the modeller's, so it is
@@ -745,7 +762,7 @@ class Separability:
     behind: int
     ahead: int
     coupled: Mapping[str, str]
-    undecided: Mapping[str, str]
+    undecided: tuple[Reach, ...]
     restarts: Mapping[str, str]
 
     @property
@@ -769,6 +786,44 @@ class Separability:
         where it restarts.
         """
         return self.windowable and not self.behind and not self.ahead and not self.restarts
+
+    def resolved(self, extremes: Mapping[str, tuple[int, int]]) -> Separability:
+        """The same verdict with each named offset or width folded into :attr:`behind` and :attr:`ahead`.
+
+        A driver holding the data reads the least and greatest value of each
+        parameter an :attr:`undecided` reach names and hands them here, so the
+        rule that turns a value into a reach — a negative offset reads ahead,
+        a positive one behind, a width reads behind by one less — has one
+        home. A parameter named twice folds once, by its widest reach.
+
+        Args:
+            extremes: Parameter name to the least and greatest of its values.
+                A reach through a lookup — a partition, a coordinate — cannot
+                be folded this way and stays undecided, as does a parameter
+                left out.
+
+        Raises:
+            KeyError: A name no undecided reach along this axis waits on.
+        """
+        waiting = {reach.name for reach in self.undecided if reach.kind in ('offset', 'width')}
+        for name in extremes:
+            if name not in waiting:
+                raise KeyError(
+                    f"'{name}' is not a parameter an undecided reach along '{self.dimension}' waits on. "
+                    + did_you_mean(name, sorted(waiting))
+                )
+        behind, ahead = self.behind, self.ahead
+        remaining: list[Reach] = []
+        for reach in self.undecided:
+            if reach.name not in extremes or reach.kind not in ('offset', 'width'):
+                remaining.append(reach)
+                continue
+            least, most = extremes[reach.name]
+            if reach.kind == 'width':
+                behind = max(behind, most - 1)
+            else:
+                behind, ahead = max(behind, most), max(ahead, -least)
+        return replace(self, behind=behind, ahead=ahead, undecided=tuple(remaining))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1302,11 +1357,17 @@ def _separabilities(program: Program) -> dict[str, Separability]:
     behind = dict.fromkeys(program.dimensions, 0)
     ahead = dict.fromkeys(program.dimensions, 0)
     reasons: dict[str, dict[str, dict[str, list[str]]]] = {
-        kind: {dimension: {} for dimension in program.dimensions} for kind in ('coupled', 'undecided', 'restarts')
+        kind: {dimension: {} for dimension in program.dimensions} for kind in ('coupled', 'restarts')
     }
+    undecided: dict[str, dict[Reach, None]] = {dimension: {} for dimension in program.dimensions}
 
     def report(kind: str, dimension: str, label: str, reason: str) -> None:
         reasons[kind][dimension].setdefault(label, []).append(reason)
+
+    def waits_on(
+        dimension: str, label: str, name: str, kind: Literal['offset', 'width', 'partition', 'coordinate']
+    ) -> None:
+        undecided[dimension][Reach(label, name, kind)] = None
 
     for label, nodes, mask, reductions_couple in program._built_blocks():
         masks: list[Mask | None] = [mask]
@@ -1332,7 +1393,7 @@ def _separabilities(program: Program) -> dict[str, Separability]:
             elif isinstance(node, At):
                 for dimension in node.into:
                     for lookup in node.coordinate:
-                        report('undecided', dimension, label, lookup)
+                        waits_on(dimension, label, lookup, 'coordinate')
             elif isinstance(node, (Translate, Window)):
                 dimension = node.dimension
                 if node.wrap:
@@ -1345,10 +1406,10 @@ def _separabilities(program: Program) -> dict[str, Separability]:
                     )
                     continue
                 if node.partition is not None:
-                    report('undecided', dimension, label, node.partition)
+                    waits_on(dimension, label, node.partition, 'partition')
                 reach = node.offset if isinstance(node, Translate) else node.width
                 if isinstance(reach, str):
-                    report('undecided', dimension, label, reach)
+                    waits_on(dimension, label, reach, 'offset' if isinstance(node, Translate) else 'width')
                 elif isinstance(node, Window):
                     behind[dimension] = max(behind[dimension], reach - 1)
                 elif reach > 0:
@@ -1377,7 +1438,7 @@ def _separabilities(program: Program) -> dict[str, Separability]:
             behind=behind[dimension],
             ahead=ahead[dimension],
             coupled=joined('coupled', dimension),
-            undecided=joined('undecided', dimension),
+            undecided=tuple(undecided[dimension]),
             restarts=joined('restarts', dimension),
         )
         for dimension in program.dimensions

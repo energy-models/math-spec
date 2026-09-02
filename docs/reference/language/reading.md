@@ -196,10 +196,15 @@ the dash, the one modelling change that would lift it: a horizon total becomes
 a rolling `sum_back`, a wrap becomes an opening-state seed, a grouping is
 windowed along the dimension it groups into. No window satisfies a coupling and
 no rewrite keeps the model's meaning, so the remedy is named and not applied.
-`undecided` names each declaration whose reach only the data can say, to the
-parameter or lookup that says it: an offset or width taken from a parameter, a
-shift inside the groups a lookup makes, a read through a lookup with `at()`; a
-driver holding the data computes the reach from it. `restarts` names each
+`undecided` lists each read whose reach only the data can say — a `Reach` of
+the declaration, the parameter or lookup, and what it stands as: an `offset` or
+`width` taken from a parameter, a `partition` a shift is grouped by, a
+`coordinate` read through `at()`. A driver holding the data reads the least and
+greatest value of each named parameter and hands them to `resolved`, which
+folds them in and returns the same verdict with those reads decided — the rule
+that a negative offset reads ahead, a positive one behind, and a width reads
+behind by one less, has one home. A reach a lookup decides is not a value, so
+it stays undecided and the driver refuses or resolves it itself. `restarts` names each
 declaration counting a `position()` along the axis, which a window restarts at
 its first row. `windowable` is false while anything is coupled or undecided; a
 restart does not count against it.
