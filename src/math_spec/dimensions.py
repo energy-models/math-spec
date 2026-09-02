@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, NamedTuple, assert_never
 
-from math_spec.degree import carries_variable
+import math_spec.degree as degree
 from math_spec.errors import DimensionError
 from math_spec.expression_parser import (
     ArithmeticNode,
@@ -305,7 +305,7 @@ def _check_edge(node: FunctionCallNode, context: str) -> None:
     if isinstance(edge, EdgeNode):
         return
     fill = _edge_fill(edge, context)
-    has_var = carries_variable(node.args[0])
+    has_var = degree.carries_variable(node.args[0])
     if has_var and fill is not None and fill != 0:
         raise DimensionError(
             f'{context}: shift(edge={fill:g}) over an expression containing a variable — only '

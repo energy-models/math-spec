@@ -9,8 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, assert_never
 
+import math_spec.degree as degree
 from math_spec._yaml import read_yaml
-from math_spec.degree import carries_variable, check_expression
 from math_spec.dimensions import check_schema
 from math_spec.errors import LanguageError, SchemaError
 from math_spec.exclusivity import overlapping
@@ -199,7 +199,7 @@ def _check_expression(
     resolved = resolve_expression(ast, ns, context, errors)
     if resolved is None:
         return
-    if isinstance(resolved, ComparisonNode) and not carries_variable(resolved):
+    if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
         errors.append(
             f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
             f'Got: {expression!r}\n'
@@ -208,7 +208,7 @@ def _check_expression(
             f'bound, or drop the declaration and check the fact where the data is prepared.'
         )
     try:
-        check_expression(resolved, context, ceiling=ceiling)
+        degree.check_expression(resolved, context, ceiling=ceiling)
     except LanguageError as e:
         errors.append(str(e))
 

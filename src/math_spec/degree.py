@@ -38,9 +38,10 @@ from math_spec.expression_parser import (
 
 
 def carries_variable(node: ExpressionNode) -> bool:
-    """Whether *node* contains a decision variable.
+    """Whether *node* contains a decision variable, over the core AST.
 
-    An unresolved node reaching here is a resolution bug, so it is refused
+    :func:`math_spec.program.carries_variable` answers the same question over a
+    program. An unresolved node reaching here is a resolution bug, so it is refused
     rather than silently answered.
     """
     if isinstance(node, VariableNode):
