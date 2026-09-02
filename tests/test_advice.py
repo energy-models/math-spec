@@ -31,7 +31,7 @@ LABEL_SPACE = override(
 
 
 @pytest.mark.parametrize(
-    ('patch', 'expected'),
+    ('patch', 'fragments'),
     [
         pytest.param(
             {},
@@ -39,21 +39,27 @@ LABEL_SPACE = override(
             id='a-target-nothing-reaches-is-a-label-space',
         ),
         pytest.param({'lookups': {}}, ["dimension 'h' is never used"], id='a-dimension-nothing-reaches-is-unused'),
-        pytest.param(
-            {'constraints': {'cap': {'foreach': ['h'], 'expression': 'sum(p, by=lk) <= k'}}},
-            [],
-            id='grouping-into-it-makes-it-an-axis',
-        ),
-        pytest.param({'variables.r': {'foreach': ['h']}}, [], id='indexing-by-it-makes-it-an-axis'),
     ],
 )
-def test_a_dimension_that_is_never_an_axis_is_named(patch, expected):
-    notes = advice(override(LABEL_SPACE, **patch))
-    assert len(notes) == (1 if expected else 0), 'one dimension is never an axis, so one piece of advice or none'
-    for fragment in expected:
-        assert fragment in str(notes[0])
-    if expected:
-        assert (notes[0].kind, notes[0].subject) == ('never-an-axis', 'h')
+def test_a_dimension_that_is_never_an_axis_is_named(patch, fragments):
+    (note,) = advice(override(LABEL_SPACE, **patch))
+    assert (note.kind, note.subject) == ('never-an-axis', 'h')
+    for fragment in fragments:
+        assert fragment in str(note)
+
+
+@pytest.mark.parametrize(
+    'patch',
+    [
+        pytest.param(
+            {'constraints': {'cap': {'foreach': ['h'], 'expression': 'sum(p, by=lk) <= k'}}},
+            id='grouping-into-it',
+        ),
+        pytest.param({'variables.r': {'foreach': ['h']}}, id='indexing-by-it'),
+    ],
+)
+def test_a_dimension_something_reaches_is_an_axis(patch):
+    assert not advice(override(LABEL_SPACE, **patch)), 'a dimension a declaration indexes or groups into is an axis'
 
 
 #: A model with one note of each kind: `h` is a label space, and `p` is driven
@@ -86,13 +92,7 @@ def _written(model: dict, tmp_path: Path) -> Path:
     ],
 )
 def test_the_answer_does_not_turn_on_which_state_it_is_asked_of(form, tmp_path):
-    """A `Program` was advised of one kind and every other input of two (#210).
-
-    The unboundedness pass read the file, and the arm that had already lowered
-    skipped it — so a consumer that lowers first, which is every consumer,
-    since lowering is what it wanted the program for, got the shorter answer
-    and no signal that a rule had been skipped.
-    """
+    """A `Program` was advised of one kind and every other input of two (#210), with no signal that a rule had been skipped."""
     assert [(n.kind, n.subject) for n in advice(form(BOTH_KINDS, tmp_path))] == [
         ('never-an-axis', 'h'),
         ('unbounded', 'p'),

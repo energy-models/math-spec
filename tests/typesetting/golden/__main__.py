@@ -4,24 +4,21 @@
 
 """Regenerate the committed golden output.
 
-    pixi run python -m tests.typesetting.golden
-
-Then **read the diff**. That is the review: a golden file is only worth having
-if a change to it is looked at, and the reason the output is generated rather
-than hand-written is that the diff is where human judgement belongs — at
-review time, not at authoring time.
+pixi run python -m tests.typesetting.golden
 """
 
 from __future__ import annotations
 
+from math_spec import to_spec
 from math_spec.typesetting import FORMATS, typeset
 from tests.typesetting.golden import MODEL, path_for
 
 
 def main() -> int:
+    model = to_spec(MODEL)
     for name, fmt in FORMATS.items():
         path = path_for(name)
-        path.write_text(typeset(MODEL, fmt, standalone=True))
+        path.write_text(typeset(model, fmt, standalone=True))
         print(f'wrote {path}')
     return 0
 

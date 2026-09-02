@@ -22,25 +22,26 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from math_spec.errors import LanguageError
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     BinaryOperatorNode,
     BranchNode,
-    ExpressionNode,
     FunctionCallNode,
     KwargNode,
     NumberNode,
     ParameterNode,
+    ParsedNode,
     UnresolvedNode,
     VariableNode,
     children,
 )
+from math_spec.errors import LanguageError
 
 
-def carries_variable(node: ExpressionNode) -> bool:
-    """Whether *node* contains a decision variable.
+def carries_variable(node: ParsedNode) -> bool:
+    """Whether *node* contains a decision variable, over the core AST.
 
-    An unresolved node reaching here is a resolution bug, so it is refused
+    :func:`math_spec.program.carries_variable` answers the same question over a
+    program. An unresolved node reaching here is a resolution bug, so it is refused
     rather than silently answered.
     """
     if isinstance(node, VariableNode):
@@ -55,7 +56,7 @@ def carries_variable(node: ExpressionNode) -> bool:
     assert_never(node)
 
 
-def _adds(node: ExpressionNode) -> bool:
+def _adds(node: ParsedNode) -> bool:
     """Whether *node* adds anywhere inside it.
 
     Anywhere, not only at its head: every operator over a variable-free
@@ -70,23 +71,7 @@ def _adds(node: ExpressionNode) -> bool:
     return False
 
 
-def is_quadratic(node: ExpressionNode) -> bool:
-    """Whether *node* multiplies two variable-carrying operands.
-
-    What :func:`check_binary` refuses at ``ceiling=1``, asked of a whole
-    expression rather than of one node.
-    """
-    if (
-        isinstance(node, BinaryOperatorNode)
-        and node.op == '*'
-        and carries_variable(node.left)
-        and carries_variable(node.right)
-    ):
-        return True
-    return any(is_quadratic(child) for child in children(node))
-
-
-def check_binary(node: BinaryOperatorNode, context: str | None = None, *, ceiling: int = 1) -> None:
+def check_binary(node: BinaryOperatorNode, context: str, *, ceiling: int) -> None:
     """Check that *node* stays inside the degree its position allows.
 
     Args:
@@ -130,7 +115,7 @@ def check_binary(node: BinaryOperatorNode, context: str | None = None, *, ceilin
     _check_single_term_factor(node, where)
 
 
-def _degree(node: ExpressionNode) -> int:
+def _degree(node: ParsedNode) -> int:
     """The polynomial degree *node* stands for, counted structurally.
 
     A product adds its factors' degrees and a division keeps the dividend's
@@ -159,7 +144,6 @@ def _above_the_ceiling_message(where: str, degree: int) -> str:
 
 
 def _a_variable_under_a_power_message(where: str) -> str:
-    """A variable base is a degree question; a variable exponent has no degree until the data arrives."""
     return (
         f'{where}`**` is not in the language over variables: it takes a base and an exponent that '
         f'carry none.\n'
@@ -170,7 +154,6 @@ def _a_variable_under_a_power_message(where: str) -> str:
 
 
 def _degree_two_here_message(where: str) -> str:
-    """Names the position, not the math — the same product is admissible one declaration away."""
     return (
         f'{where}both factors of a product contain variables, which is degree 2. '
         f'The **objective and constraints** take that; a bound, a named expression '
@@ -195,21 +178,22 @@ def _check_single_term_factor(node: BinaryOperatorNode, where: str) -> None:
     )
 
 
-def _multi_term(node: ExpressionNode) -> bool:
+def _multi_term(node: ParsedNode) -> bool:
     """Whether *node* stands for more than one variable term at a coordinate.
 
     A reduction does, and so does an addition of two variable-carrying
     operands; a product is multi-term exactly when one of its factors is, a
     coefficient not multiplying the count. Structural, so it needs no data.
     """
-    if isinstance(node, FunctionCallNode):
-        if node.name in _REDUCTIONS and any(carries_variable(a) for a in node.args):
-            return True
-        return any(_multi_term(c) for c in children(node))
-    if isinstance(node, BinaryOperatorNode):
-        if node.op in ('+', '-') and carries_variable(node.left) and carries_variable(node.right):
-            return True
-        return _multi_term(node.left) or _multi_term(node.right)
+    if isinstance(node, FunctionCallNode) and node.name in _REDUCTIONS and any(carries_variable(a) for a in node.args):
+        return True
+    if (
+        isinstance(node, BinaryOperatorNode)
+        and node.op in ('+', '-')
+        and carries_variable(node.left)
+        and carries_variable(node.right)
+    ):
+        return True
     return any(_multi_term(c) for c in children(node))
 
 
@@ -219,7 +203,7 @@ def _multi_term(node: ExpressionNode) -> bool:
 _REDUCTIONS = frozenset({'sum', 'sum_back'})
 
 
-def check_expression(node: ExpressionNode, context: str, *, ceiling: int = 1) -> None:
+def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> None:
     """Apply :func:`check_binary` everywhere in *node*.
 
     Degree only, deliberately: what a plan node can represent is a consuming

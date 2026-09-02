@@ -16,12 +16,14 @@ from math_spec.validation import to_spec
 if TYPE_CHECKING:
     from math_spec import Spec
 
+EXAMPLES = Path(__file__).resolve().parent.parent / 'examples'
+
 #: One construct per file; `tools/spec_math.py` renders the operator reference
 #: from the same directory, so a probe added for the page is swept here too.
-OPERATOR_PROBES = sorted((Path(__file__).resolve().parent.parent / 'examples' / 'operators').glob('*.yaml'))
+OPERATOR_PROBES = sorted((EXAMPLES / 'operators').glob('*.yaml'))
 
-#: The same math as ``examples/dispatch.yaml``, as a dict a test can vary with
-#: :func:`override`.
+#: ``examples/dispatch.yaml`` without its ``where:`` and with the constraint
+#: named ``balance``, as a dict a test can vary with :func:`override`.
 DISPATCH_MODEL: dict[str, Any] = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
     'parameters': {

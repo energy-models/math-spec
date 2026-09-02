@@ -12,6 +12,7 @@ import pytest
 
 from math_spec import SchemaError, to_latex, to_spec, typeset
 from math_spec.piecewise import expand_piecewise
+from math_spec.resolution import Namespace
 from math_spec.typesetting.symbols import chosen_expressions, printed_expressions
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
 from tests.fixtures import override
@@ -37,26 +38,37 @@ CASED = override(
     },
 )
 
-
-def _sections(rendered: str) -> list[str]:
-    """The section titles the render printed, in order."""
-    return [title for title in ('Objective', 'Subject to', 'Definitions', 'Variable domains') if title in rendered]
+#: One cased expression reached only through another's case. `opening_cost` has
+#: no variable of its own — its route to one runs through `headroom`.
+_NESTED = override(
+    CASED,
+    **{
+        'expressions.headroom.cases.opening.expression': 'p',
+        'expressions.opening_cost.foreach': ['snapshot', 'generator'],
+        'expressions.opening_cost.cases': {
+            'opening': {'when': 'position(snapshot) == 0', 'expression': 'headroom * cost'},
+        },
+        'expressions.opening_cost.otherwise': 0,
+        'constraints.spare.expression': 'p <= opening_cost',
+    },
+)
 
 
 @EVERY_FORMAT
 def test_a_cased_expression_is_the_exception_that_keeps_its_name(fmt: Format):
-    """It prints once, as a definition, and its uses name it.
-
-    The other way round — the block inlined at each use — is what the AST does
+    """The other way round — the block inlined at each use — is what the AST does
     and the wrong thing to print: a block three arms tall puts whatever follows
-    it beside its middle row.
-    """
+    it beside its middle row."""
     rendered = typeset(CASED, fmt, legend=False)
-    # counted indexed, because Typst spells a row label and an upright symbol
-    # the same way and only the symbol carries the dims
     indexed = fmt.subscript(fmt.upright('headroom'), ['t', 'g'])
-    assert rendered.count(indexed) == 2, 'one use and one definition, no more'
-    assert _sections(rendered) == ['Objective', 'Subject to', 'Definitions', 'Variable domains']
+    assert rendered.count(indexed) == 2, (
+        'one use and one definition, no more — counted indexed, because Typst spells a row label and an upright '
+        'symbol the same way and only the symbol carries the dims'
+    )
+    sections = [title for title in ('Objective', 'Subject to', 'Definitions', 'Variable domains') if title in rendered]
+    assert sections == ['Objective', 'Subject to', 'Definitions', 'Variable domains'], (
+        'the definition has a section of its own, after the constraints and before the domains'
+    )
 
 
 @EVERY_FORMAT
@@ -77,40 +89,29 @@ def test_a_declared_definition_prints_whether_or_not_a_row_names_it(fmt: Format)
 
 
 @EVERY_FORMAT
-def test_a_case_is_given_when_its_values_are_however_its_regions_are_chosen(fmt: Format):
-    """A `when` mentioning a variable does not make the quantity one.
-
-    The mask asks whether the variable *exists* at a coordinate, which the
-    model settles when it is built; only a value reaching one is a quantity the
-    solver returns.
-    """
-    masked = override(
-        CASED,
-        **{'expressions.headroom.cases': {'running': {'when': 'p', 'expression': 'p_max'}}},
-    )
-    rendered = typeset(masked, fmt, legend=False)
-    assert fmt.upright('headroom') in rendered, 'every case is a parameter, so the quantity is given'
-    assert fmt.italic('headroom') not in rendered
-
-
-@EVERY_FORMAT
-def test_a_case_reaching_a_variable_is_chosen(fmt: Format):
-    """One case holding a variable is enough: the solver decides the quantity."""
-    decided = override(CASED, **{'expressions.headroom.cases.opening.expression': 'p'})
-    assert fmt.italic('headroom') in typeset(decided, fmt, legend=False)
-
-
-@EVERY_FORMAT
-def test_the_fallback_reaching_a_variable_is_chosen(fmt: Format):
-    """The `otherwise:` is a value of the quantity like any case's.
-
-    `previous_status` in the commitment example is this shape and no other: its
-    two cases are a constant and a parameter, and the variable is in the
-    fallback alone. Read only the cases and the block prints upright, which
-    says the model was handed a quantity it in fact solves for.
-    """
-    decided = override(CASED, **{'expressions.headroom.otherwise': 'p'})
-    assert fmt.italic('headroom') in typeset(decided, fmt, legend=False)
+@pytest.mark.parametrize(
+    ('patch', 'chosen'),
+    [
+        pytest.param(
+            {'expressions.headroom.cases': {'running': {'when': 'p', 'expression': 'p_max'}}},
+            False,
+            id='a-when-naming-a-variable-leaves-it-given',
+        ),
+        pytest.param({'expressions.headroom.cases.opening.expression': 'p'}, True, id='a-case-reaching-a-variable'),
+        pytest.param({'expressions.headroom.otherwise': 'p'}, True, id='the-fallback-reaching-a-variable'),
+    ],
+)
+def test_a_cased_expression_is_chosen_when_a_value_reaching_it_is(fmt: Format, patch: dict, chosen: bool):
+    """A `when` mentioning a variable does not make the quantity one: the mask
+    asks whether the variable *exists* at a coordinate, which the model settles
+    when it is built. Only a value reaching one is a quantity the solver
+    returns, and one case holding a variable is enough. The `otherwise:` is a
+    value of the quantity like any case's, so a walk reading only the cases
+    prints a solved quantity upright."""
+    rendered = typeset(override(CASED, **patch), fmt, legend=False)
+    italic, upright = (fmt.subscript(face('headroom'), ['t', 'g']) for face in (fmt.italic, fmt.upright))
+    assert (italic in rendered) is chosen, 'the quantity is chosen exactly when a value reaching it holds a variable'
+    assert (upright in rendered) is not chosen, 'and given otherwise, however its regions are chosen'
 
 
 @EVERY_FORMAT
@@ -118,23 +119,9 @@ def test_a_definition_naming_another_one_prints_both(fmt: Format):
     """The cases are walked too, so the collection runs to a fixpoint."""
     rendered = typeset(_NESTED, fmt, legend=False)
     assert fmt.italic('headroom') in rendered, 'the inner definition was reached through a case'
-    assert rendered.count(fmt.subscript(fmt.italic('opening_cost'), ['t', 'g'])) == 2
-
-
-#: One cased expression reached only through another's case. `opening_cost` has
-#: no variable of its own — its route to one runs through `headroom`.
-_NESTED = override(
-    CASED,
-    **{
-        'expressions.headroom.cases.opening.expression': 'p',
-        'expressions.opening_cost.foreach': ['snapshot', 'generator'],
-        'expressions.opening_cost.cases': {
-            'opening': {'when': 'position(snapshot) == 0', 'expression': 'headroom * cost'},
-        },
-        'expressions.opening_cost.otherwise': 0,
-        'constraints.spare.expression': 'p <= opening_cost',
-    },
-)
+    assert rendered.count(fmt.subscript(fmt.italic('opening_cost'), ['t', 'g'])) == 2, (
+        'the outer definition and its one use'
+    )
 
 
 def test_a_variable_reached_through_another_cased_expression_still_prints_chosen():
@@ -145,8 +132,9 @@ def test_a_variable_reached_through_another_cased_expression_still_prints_chosen
     one upright — a quantity the solver decides, set as one the model was handed.
     """
     schema = expand_piecewise(to_spec(_NESTED))
-    assert chosen_expressions(schema) == {'headroom', 'opening_cost'}
-    assert r'\mathit{opening\_cost}' in to_latex(_NESTED, legend=False)
+    assert chosen_expressions(schema, Namespace.of(schema)) == {'headroom', 'opening_cost'}, (
+        'the chain is followed to its end, so both are chosen'
+    )
 
 
 def test_the_table_may_rename_a_cased_expression_but_not_a_plain_one():

@@ -2,22 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""pyparsing-based expression parser for math expressions.
+"""The core AST every pass reads, and the pyparsing grammar that builds it — package-private.
 
-Parses strings like ``sum(p * cost, over=generator) == load`` into an AST
-that can be evaluated against a namespace of linopy variables and xarray
-parameters.
-
-``ArithmeticNode`` is the arithmetic-only union: every nested expression
-position (operands, args, kwargs) accepts it and nothing else, and
-``ComparisonNode`` appears only at the top of a parsed expression.
+Arithmetic nests anywhere; a comparison appears only at the top of a parsed
+expression.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, assert_never, cast, get_args
 
 import pyparsing as pp
 
@@ -40,6 +36,13 @@ UnaryOperator = Literal['+', '-']
 #: switches over — it keeps no list of its own.
 BinaryOperator = Literal['+', '-', '*', '/', '**']
 
+#: What an expression writes to refer to a declaration, and so what a
+#: declaration may be named.
+NAME = r'[a-zA-Z_][a-zA-Z0-9_]*'
+
+#: A float — a fractional part or an exponent. A sign is the unary operator's.
+REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
+
 # ---------------------------------------------------------------------------
 # AST nodes
 # ---------------------------------------------------------------------------
@@ -52,13 +55,7 @@ class NumberNode:
 
 @dataclass(frozen=True)
 class NameNode:
-    """An unresolved token — a name whose *kind* is not yet known.
-
-    The parser cannot know whether ``p`` is a variable, a parameter or a
-    dimension; only the schema knows. ``resolution.py`` rewrites every one of
-    these into one of the typed nodes below, so a NameNode never reaches a
-    backend. If you find one there, resolution was skipped.
-    """
+    """A bare name whose kind only the schema knows; resolution rewrites every one into a typed node."""
 
     name: str
 
@@ -134,13 +131,7 @@ class KeywordNode:
 
 @dataclass(frozen=True)
 class EdgeNode:
-    """A resolved edge policy, legal only as an ``edge=`` value.
-
-    A *number* in the same position stays a :class:`NumberNode`: the value the
-    vacated positions contribute.
-    """
-
-    policy: str
+    """The resolved ``edge='wrap'``; a number in the same position stays a :class:`NumberNode`."""
 
 
 @dataclass(frozen=True)
@@ -158,13 +149,10 @@ class BinaryOperatorNode:
 
 @dataclass(frozen=True)
 class FunctionCallNode:
-    """An operator or macro call — like every node, unrewritable once built.
+    """An operator or macro call.
 
-    ``kwargs`` is copied behind a read-only view at construction, so neither a
-    holder of the mapping passed in nor a reader of the node can rewrite an
-    argument under another pass; it is excluded from the hash because a
-    mapping has none, which is lawful — equal nodes still hash equal on
-    ``name`` and ``args``.
+    ``kwargs`` is held behind a read-only view and excluded from the hash;
+    equal nodes still hash equal on ``name`` and ``args``.
     """
 
     name: str
@@ -191,16 +179,11 @@ class CaseArm:
 
 
 def case_context(name: str, label: str | None) -> str:
-    """Where an error inside one arm of a cased expression is reported: the declaration, not the use site.
-
-    A cased expression is expanded where its name stood, so the context in hand
-    at that point is the constraint's — and naming it would report a case on a
-    constraint that has none.
+    """The context an error inside one arm of a cased expression is reported under.
 
     Args:
         name: The named expression the arm belongs to.
-        label: The case's name, or ``None`` for the block's ``otherwise:``,
-            which is not a case and is not named as one.
+        label: The case's name, or ``None`` for the block's ``otherwise:``.
 
     Returns:
         The context prefix an error message carries.
@@ -211,18 +194,12 @@ def case_context(name: str, label: str | None) -> str:
 
 @dataclass(frozen=True)
 class CasesNode:
-    """A value defined by region — a named expression's ``cases:``, inlined.
+    """A value defined by region — a named expression's ``cases:``, inlined where its name stood.
 
-    Built by :mod:`math_spec.expansion` where a reference to a cased expression
-    stood; there is no grammar for it, since a file writes the cases on the
-    declaration rather than at the use site.
-
-    Exactly one arm applies at every coordinate: no two ``when`` masks can hold
-    at once, which :mod:`math_spec.exclusivity` proves at load, and the last arm
-    — the block's ``otherwise:`` — carries no ``when`` and so takes whatever the
-    rest leave. So the arms may be read in any order; the file's is kept because
-    it is the order they print in. The frame is not carried here: it is on the
-    declaration, which every consumer needing it already holds.
+    Exactly one arm applies at every coordinate, which :mod:`math_spec.exclusivity`
+    proves at load; the last arm is the block's ``otherwise:`` and carries no
+    ``when``. The arms are in file order. The frame is not carried here: it is
+    on the declaration.
     """
 
     name: str
@@ -253,7 +230,10 @@ class ComparisonNode:
     right: ArithmeticNode
 
 
-ExpressionNode = ArithmeticNode | ComparisonNode
+#: A whole spec-side expression tree — parse output and the resolved tree alike.
+#: Named apart from :data:`math_spec.program.ExpressionNode`, the lowered
+#: vocabulary a consumer reads.
+ParsedNode = ArithmeticNode | ComparisonNode
 
 
 def shown(names: tuple[str, ...]) -> str:
@@ -271,7 +251,7 @@ KwargNode = DimensionNode | LookupNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
-#: downstream means the expression skipped :func:`~math_spec.expression_of`.
+#: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
 UnresolvedNode = NameNode | NameListNode | KeywordNode
 
 #: Every leaf — nothing below it to descend into.
@@ -282,16 +262,14 @@ LeafNode = NumberNode | VariableNode | ParameterNode | KwargNode | UnresolvedNod
 BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode | CasesNode
 
 
-def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
+def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
     """The sub-expressions of *node* — the structural half of any walk.
 
     Every pass that recurses the whole tree and acts only at certain leaves
-    goes through here, so a node added later reaches all of them. A pass whose
-    *answer* differs per node type dispatches itself and keeps its
-    ``assert_never``; this is for the ones that only need to get everywhere.
-
-    An operator's kwargs are children too — a dimension or coordinate is an
+    goes through here, so a node added later reaches all of them. An
+    operator's kwargs are children too — a dimension or coordinate is an
     ordinary node in a kwarg value, which is what lets a macro bind a formal.
+    A case arm's ``when`` is not: it is a mask over the frame, not a value in it.
     """
     if isinstance(node, UnaryOperatorNode):
         return (node.operand,)
@@ -300,9 +278,31 @@ def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
     if isinstance(node, FunctionCallNode):
         return (*node.args, *node.kwargs.values())
     if isinstance(node, CasesNode):
-        # the values only: a `when` is a mask over the frame, not a value in it
         return tuple(arm.value for arm in node.arms)
     return ()
+
+
+def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], ArithmeticNode]) -> ArithmeticNode:
+    """*node* rebuilt with *recurse* applied to each of its :func:`children`; a leaf comes back as is.
+
+    A case arm's ``when`` is a mask over the frame, not a value in it, and is
+    carried across unchanged.
+    """
+    if isinstance(node, LeafNode):
+        return node
+    if isinstance(node, UnaryOperatorNode):
+        return UnaryOperatorNode(node.op, recurse(node.operand))
+    if isinstance(node, BinaryOperatorNode):
+        return BinaryOperatorNode(node.op, recurse(node.left), recurse(node.right))
+    if isinstance(node, FunctionCallNode):
+        return FunctionCallNode(
+            node.name,
+            tuple(recurse(a) for a in node.args),
+            {k: recurse(v) for k, v in node.kwargs.items()},
+        )
+    if isinstance(node, CasesNode):
+        return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
+    assert_never(node)
 
 
 # ---------------------------------------------------------------------------
@@ -311,14 +311,7 @@ def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
 
 
 def _build_grammar() -> pp.ParserElement:
-    """Build the pyparsing grammar for math expressions.
-
-    ``inf`` is a ``pp.Keyword``, not a ``pp.Literal``: a ``Literal`` matches a
-    prefix, so it would eat the first three characters of ``inflow`` and leave
-    the parser meeting ``low`` where it expects the end of the expression. A
-    quoted value or a bracketed list of names is admitted only in a kwarg
-    value; a comparison appears at most once, and only at the top.
-    """
+    """``inf`` is a ``pp.Keyword`` rather than a ``pp.Literal``, which would match the prefix of ``inflow``."""
     arith = pp.Forward()
 
     inf_literal = (pp.Keyword('.inf') | pp.Keyword('inf')).set_parse_action(lambda: NumberNode(float('inf')))
@@ -353,18 +346,14 @@ def _build_grammar() -> pp.ParserElement:
 
     arith <<= add_sub
 
-    comparator = pp.one_of('<= >= ==')
+    comparator = pp.one_of(list(get_args(ComparisonOperator)))
     return (arith + pp.Optional(comparator + arith)).set_parse_action(
         lambda t: ComparisonNode(t[1], t[0], t[2]) if len(t) == 3 else t[0]
     )
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
-    """Build a FunctionCallNode from parsed tokens.
-
-    A ParseResults element is untyped, so the callee is cast; the grammar
-    guarantees an identifier in position 0.
-    """
+    """The callee is cast: a ParseResults element is untyped, and the grammar guarantees an identifier in position 0."""
     name = cast('str', tokens[0])
     args = []
     kwargs = {}
@@ -381,7 +370,6 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
 
 
 def _make_left_assoc(tokens: pp.ParseResults) -> Any:
-    """Fold tokens into a left-associative BinaryOperatorNode chain."""
     result, *rest = tokens
     for op, right in zip(rest[::2], rest[1::2], strict=True):
         result = BinaryOperatorNode(op, result, right)
@@ -392,6 +380,9 @@ def _make_power(tokens: pp.ParseResults) -> Any:
     """A base and at most one exponent — right-associative, since the exponent is itself a ``unary``."""
     items = list(tokens)
     return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
+
+
+_GRAMMAR = _build_grammar()
 
 
 #: How deep a tree the language admits, and so how long a chain of terms one
@@ -418,44 +409,57 @@ def depth[T](node: T, child_of: Callable[[T], tuple[T, ...]]) -> int:
     return deepest
 
 
-def too_deep_message(kind: str, text: str, found: int | None, rewrite: str) -> str:
+def _too_deep(what: str, text: str, found: int | None, rewrite: str) -> str:
     """The refusal both grammars raise, so the two say the same thing about the same limit.
 
-    Args:
-        kind: What was being read — the noun the message opens with.
-        text: The source, truncated in the message when it is long.
-        found: The measured depth, or ``None`` where the parser ran out of
-            stack before a tree existed to measure.
-        rewrite: What to write instead, which differs per grammar.
+    *found* is ``None`` where the parser ran out of stack before a tree existed
+    to measure.
     """
-    shown_text = text if len(text) <= 60 else f'{text[:60]}…'
+    shown = text if len(text) <= 60 else f'{text[:60]}…'
     measured = f'nests {found} deep' if found is not None else 'nests deeper'
     return (
-        f'{kind} {measured}, past the {MAX_DEPTH} levels the language admits: {shown_text!r}\n'
+        f'The {what} {measured}, past the {MAX_DEPTH} levels the language admits: {shown!r}\n'
         f'Every pass over it recurses, so a deeper tree exhausts the interpreter rather than failing here. {rewrite}'
     )
 
 
-#: What an expression writes to refer to a declaration, and so what a
-#: declaration may be named.
-NAME = r'[a-zA-Z_][a-zA-Z0-9_]*'
+def parse_text(
+    grammar: pp.ParserElement,
+    text: str,
+    what: str,
+    rewrite: Callable[[str, int], str | None],
+    child_of: Callable[[Any], tuple[Any, ...]],
+    deep_rewrite: str,
+) -> Any:
+    """Parse the whole of *text* with *grammar*, or raise :class:`SchemaError` naming *what* failed to parse.
 
-#: A float — a fractional part or an exponent. A sign is the unary operator's.
-REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
-
-_GRAMMAR = _build_grammar()
+    *rewrite* is asked for the predictable mistake at the failure position; its
+    sentence, if any, precedes the grammar's own complaint. A tree nesting past
+    :data:`MAX_DEPTH`, measured through *child_of*, is refused with
+    *deep_rewrite* — and so is one the parser itself ran out of stack on.
+    """
+    try:
+        result = grammar.parse_string(text, parse_all=True)
+    except pp.ParseException as e:
+        hint = rewrite(text, e.loc)
+        msg = f'Failed to parse {what}: {text!r}\n{f"{hint}\n" if hint is not None else ""}{e}'
+        raise SchemaError(msg) from e
+    except RecursionError:
+        raise SchemaError(_too_deep(what, text, None, deep_rewrite)) from None
+    node = result[0]
+    found = depth(node, child_of)
+    if found > MAX_DEPTH:
+        raise SchemaError(_too_deep(what, text, found, deep_rewrite))
+    return node
 
 
 def _named_rewrite(text: str, loc: int) -> str | None:
-    """The rewrite for a predictable mistake at the parse failure, or ``None``.
+    """The rewrite for a predictable mistake at the token where the grammar gave up, or ``None``.
 
-    Keyed on the token standing where the grammar gave up, so a diagnosis
-    never fires on an expression that parses — ``over=d`` inside a call is
-    legal and reaches no failure, while a lone ``=`` between two sides does.
     A two-character token is tested before its one-character prefix.
     """
     rest = text[loc:].lstrip()
-    if rest.startswith(('<=', '>=', '==')):
+    if rest.startswith(get_args(ComparisonOperator)):
         return (
             f"'{rest[:2]}' follows a complete comparison, and an expression carries "
             f'one comparison, at the top. Split the chain into two constraints.'
@@ -486,7 +490,8 @@ _DEEP_REWRITE = (
 )
 
 
-def parse_expression(text: str) -> ExpressionNode:
+@lru_cache(maxsize=4096)
+def parse_expression(text: str) -> ParsedNode:
     """Parse a math expression string into an AST.
 
     Raises:
@@ -495,17 +500,4 @@ def parse_expression(text: str) -> ExpressionNode:
             lone ``=``, ``^`` for power — is named with its rewrite before the
             grammar's own complaint.
     """
-    try:
-        result = _GRAMMAR.parse_string(text, parse_all=True)
-    except pp.ParseException as e:
-        rewrite = _named_rewrite(text, e.loc)
-        hint = f'{rewrite}\n' if rewrite is not None else ''
-        msg = f'Failed to parse expression: {text!r}\n{hint}{e}'
-        raise SchemaError(msg) from e
-    except RecursionError:
-        raise SchemaError(too_deep_message('An expression', text, None, _DEEP_REWRITE)) from None
-    node = cast('ExpressionNode', result[0])
-    found = depth(node, children)
-    if found > MAX_DEPTH:
-        raise SchemaError(too_deep_message('An expression', text, found, _DEEP_REWRITE))
-    return node
+    return cast('ParsedNode', parse_text(_GRAMMAR, text, 'expression', _named_rewrite, children, _DEEP_REWRITE))

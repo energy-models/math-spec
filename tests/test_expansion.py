@@ -10,9 +10,9 @@ from functools import partial
 
 import pytest
 
+from math_spec._expression_parser import parse_expression
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
-from math_spec.expression_parser import parse_expression
 from tests.fixtures import DISPATCH_MODEL, schema_of
 
 WEIGHTED_SUM = {
@@ -96,7 +96,9 @@ schema = partial(schema_of, DISPATCH_MODEL)
     ],
 )
 def test_a_call_expands_to_core_ast(expressions, macros, call, want):
-    assert parse_and_expand(call, schema(expressions=expressions, macros=macros)) == parse_expression(want)
+    assert parse_and_expand(call, schema(expressions=expressions, macros=macros), 'expression') == parse_expression(
+        want
+    )
 
 
 @pytest.mark.parametrize(
@@ -120,7 +122,7 @@ def test_a_bad_named_expression_is_refused_at_load(expressions, match):
 def test_a_refusal_names_its_context_once():
     with pytest.raises(LanguageError) as exc:
         schema(expressions={'a': 'a + 1'})
-    assert str(exc.value).count("Named expression 'a'") == 1, str(exc.value)
+    assert str(exc.value).count("Named expression 'a'") == 1, 'the context is prefixed once, not once per pass'
 
 
 @pytest.mark.parametrize(
@@ -132,7 +134,7 @@ def test_a_refusal_names_its_context_once():
 )
 def test_macro_arity_errors(call, match):
     with pytest.raises(LanguageError, match=match):
-        parse_and_expand(call, schema(macros={'ws': WEIGHTED_SUM}))
+        parse_and_expand(call, schema(macros={'ws': WEIGHTED_SUM}), 'expression')
 
 
 @pytest.mark.parametrize(

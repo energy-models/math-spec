@@ -82,6 +82,8 @@ LP = override(
         'variables.running': {'foreach': ['snapshot'], 'domain': 'binary'},
     },
 )
+#: The ``lp`` curve masked by one of its own values-parameters, so every check a block can carry is on it.
+LP_MASKED = override(LP, **{'piecewise.cost_curve.points': 'bp_x'})
 #: Two dims in the frame, so the emitted ``foreach`` has an order to get wrong.
 TWO_DIM = override(
     raw_of(NONCONVEX_YAML),
@@ -100,7 +102,7 @@ TWO_DIM = override(
 def test_expansion_emits_the_lambda_declarations():
     expanded = expand_piecewise(schema_of(NONCONVEX_YAML))
 
-    assert not expanded.piecewise
+    assert not expanded.piecewise, 'the block is spent once its declarations are emitted'
     assert 'cost_curve_lam' in expanded.variables
     assert expanded.variables['cost_curve_seg'].domain == 'binary'
     assert set(expanded.constraints) >= {
@@ -110,7 +112,7 @@ def test_expansion_emits_the_lambda_declarations():
         'cost_curve_link0',
         'cost_curve_link1',
         'balance',
-    }
+    }, "the adjacency formulation's five rows, one link each, beside the constraint the file wrote"
 
 
 def test_an_emitted_set_may_not_collide_with_a_declared_one():
@@ -134,10 +136,6 @@ def test_the_file_is_not_an_expansion_and_the_expansion_is():
     assert isinstance(expand_piecewise(schema), _ExpandedSpec)
 
 
-def test_a_curve_stated_as_lines_expands_to_an_expanded_spec():
-    assert isinstance(expand_piecewise(schema_of(LP)), _ExpandedSpec)
-
-
 def test_expansion_is_memoised_and_idempotent():
     """One object from every call: validation already built the expansion, and an `_ExpandedSpec` is its own."""
     schema = schema_of(NONCONVEX_YAML)
@@ -158,7 +156,13 @@ def test_an_expansion_will_not_be_built_around_a_curve():
         _ExpandedSpec.model_validate(raw_of(NONCONVEX_YAML))
 
 
-@pytest.mark.parametrize('order', [['snapshot', 'generator', 'bp'], ['generator', 'snapshot', 'bp']])
+@pytest.mark.parametrize(
+    'order',
+    [
+        pytest.param(['snapshot', 'generator', 'bp'], id='snapshot-first'),
+        pytest.param(['generator', 'snapshot', 'bp'], id='generator-first'),
+    ],
+)
 def test_the_emitted_foreach_follows_declaration_order(order):
     """The frame is a set until something orders it, and a set iterates the
     same way for the same names within one process — so a run that reads the
@@ -261,8 +265,8 @@ def test_a_malformed_block_is_refused(model, patch, match):
 @pytest.mark.parametrize(
     ('link_expression', 'message'),
     [
-        ('p ** 2', 'over variables'),
-        ('p * p', 'both factors of a product contain variables'),
+        pytest.param('p ** 2', 'over variables', id='a-power-of-a-variable'),
+        pytest.param('p * p', 'both factors of a product contain variables', id='a-product-of-variables'),
     ],
 )
 def test_a_link_outside_the_language_is_named_where_the_user_wrote_it(link_expression, message):
@@ -308,9 +312,7 @@ _CURVATURE_CASES = [
 
 @pytest.mark.parametrize(('raw', 'expected'), _CURVATURE_CASES)
 def test_a_method_names_the_curvature_it_is_exact_for(raw, expected):
-    """The consumer holding the breakpoints checks the shape; this says what to
-    check for. It is the block's own semantics, so it is answered here rather
-    than re-derived by every repository that binds data to a curve."""
+    """The consumer holding the breakpoints checks the shape; this says what to check for."""
     answer = next((c.curvature for c in to_program(raw).piecewise['cost_curve'].checks if isinstance(c, Curved)), None)
     assert answer == expected
     assert answer is None or answer in CURVATURES, (
@@ -337,7 +339,7 @@ def test_an_emitted_parameter_says_how_it_is_filled():
     derivation that fills it, and every parameter the file declared carries
     none.
     """
-    program = lower_program(expand_piecewise(schema_of(LP, **{'piecewise.cost_curve.points': 'bp_x'})))
+    program = lower_program(expand_piecewise(schema_of(LP_MASKED)))
 
     assert {n: p.derivation for n, p in program.parameters.items() if p.derivation is not None} == {
         'cost_curve_points': MaskOf('cost_curve', 'bp_x'),
@@ -362,12 +364,8 @@ def test_a_file_supplied_mask_derives_nothing():
 
 
 def test_a_block_is_kept_as_the_checks_a_consumer_binding_it_runs():
-    """What a block assumes of its numbers used to be readable only off the file.
-
-    A consumer asserted the data conditions in its own words, against names
-    it re-spelled; each condition now arrives carrying its own subjects.
-    """
-    curve = to_program(override(LP, **{'piecewise.cost_curve.points': 'bp_x'})).piecewise['cost_curve']
+    """Every condition a curve puts on its data arrives carrying its own subjects."""
+    curve = to_program(LP_MASKED).piecewise['cost_curve']
 
     assert curve.breakpoints == ('bp_x', 'bp_y'), 'the values parameters, in link order'
     assert set(curve.checks) == {
@@ -383,7 +381,7 @@ def test_a_block_is_kept_as_the_checks_a_consumer_binding_it_runs():
 
 @pytest.mark.parametrize('kind', get_args(Check), ids=lambda k: k.__name__)
 def test_every_check_has_a_sentence(kind):
-    curve = to_program(override(LP, **{'piecewise.cost_curve.points': 'bp_x'})).piecewise['cost_curve']
+    curve = to_program(LP_MASKED).piecewise['cost_curve']
     check = next((c for c in curve.checks if isinstance(c, kind)), None)
     assert check is not None, 'the fixture is the block that assumes everything'
     assert check_message('cost_curve', curve, check).startswith("piecewise 'cost_curve':")

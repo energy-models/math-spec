@@ -2,14 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The generated half of the documentation, held to what generates it.
-
-The site shows models beside the math the typesetter prints from them. Written
-by hand, that math would be a claim nothing checks — on a site whose subject is
-the math a file means, and in a repository that owns the renderer which would
-have caught it. So the blocks are generated, and this is what makes
-"generated" true of the committed files rather than of scripts nobody runs.
-"""
+"""The committed pages a generator writes, held to their generator."""
 
 from __future__ import annotations
 
@@ -64,13 +57,10 @@ def test_every_generator_is_asked():
 
 
 def test_every_piecewise_method_has_a_model_on_the_notation_page():
-    """What the page's `_curves()` claims: one row per `method:`, all of them.
-
-    `PIECEWISE_METHODS` is the closed set, so a method added to the language
-    lands here as a missing key rather than as a section quietly showing three
-    of four formulations.
-    """
-    assert set(notation.PIECEWISE) == set(PIECEWISE_METHODS)
+    """What the page's `_curves()` claims: one row per `method:`, all of them."""
+    assert set(notation.PIECEWISE) == set(PIECEWISE_METHODS), (
+        'a method added to the language lands here as a missing key rather than as a formulation the page omits'
+    )
 
 
 def _card_bodies(page: Path) -> list[tuple[int, str]]:
@@ -120,7 +110,7 @@ def test_the_published_grammar_spells_a_name_the_way_the_code_reads_one():
     what the language accepts is the drift this asks about; it went unnoticed
     because nothing compared the two.
     """
-    from math_spec.expression_parser import NAME
+    from math_spec._expression_parser import NAME
 
     page = (ROOT / 'docs' / 'reference' / 'language' / 'expressions.md').read_text()
     published = re.search(r'^NAME\s*::=\s*(.+)$', page, re.MULTILINE)

@@ -2,13 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Which symbol each declared name prints as — and the sidecar that overrides it.
+"""Which symbol each declared name prints as, and the sidecar that overrides it.
 
-Derivation aims at *unambiguous*, not beautiful, so a model prints with no
-setup; :class:`SymbolTable` is where a reader makes it conventional, in a file
-of its own, since presentation is not language. What a declaration *is* stays
-``description:`` on the declaration. This module decides *which* symbol a name
-gets; a :class:`~math_spec.typesetting.format.Format` decides how it is written.
+This module decides *which* symbol a name gets; a :class:`~math_spec.typesetting.format.Format` decides how it is written.
 """
 
 from __future__ import annotations
@@ -19,16 +15,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+import math_spec.degree as degree
 from math_spec._yaml import read_yaml
-from math_spec.degree import carries_variable
 from math_spec.errors import SchemaError, did_you_mean
-from math_spec.resolution import Namespace, expression_of
+from math_spec.resolution import expression_of
 from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from math_spec.model import ExpressionBlock, _ExpandedSpec
+    from math_spec.resolution import Namespace
     from math_spec.typesetting.format import Format, Notation
 
 __all__ = ['SymbolTable', 'Symbols']
@@ -90,20 +87,19 @@ def printed_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
     return tuple(name for name, block in schema.expressions.items() if block.cases)
 
 
-def chosen_expressions(schema: _ExpandedSpec) -> frozenset[str]:
+def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset[str]:
     """The cased expressions the solver decides, rather than is handed.
 
     A ``when`` does not move one: a variable there asks whether the variable
     *exists*, which the model settles when it is built. Only a value reaching a
     variable does — through a second cased expression's arms too, since
-    :func:`~math_spec.expression_of` expands those where the name stood.
+    :func:`~math_spec.resolution.expression_of` expands those where the name stood.
     """
-    namespace = Namespace.of(schema)
     return frozenset(
         name
         for name in printed_expressions(schema)
         if any(
-            carries_variable(expression_of(text, schema, namespace, f"expression '{name}', {where}"))
+            degree.carries_variable(expression_of(text, schema, namespace, f"expression '{name}', {where}"))
             for text, where in _values_of(schema.expressions[name])
         )
     )
@@ -134,7 +130,7 @@ class Symbols:
         SchemaError: If *table* is written in a notation *fmt* does not read.
     """
 
-    def __init__(self, schema: _ExpandedSpec, fmt: Format, table: SymbolTable) -> None:
+    def __init__(self, schema: _ExpandedSpec, namespace: Namespace, fmt: Format, table: SymbolTable) -> None:
         if table.notation != fmt.notation:
             msg = (
                 f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
@@ -142,13 +138,11 @@ class Symbols:
             )
             raise SchemaError(msg)
         printed = printed_expressions(schema)
-        chosen = frozenset(schema.variables) | chosen_expressions(schema)
+        chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace)
         names = (*schema.parameters, *schema.variables, *printed)
         declared = frozenset(names)
 
-        #: Names whose symbol came from the table rather than the derivation;
-        #: the convention note quotes only the others, a table being free to
-        #: map a parameter to an italic symbol.
+        #: Names the table spelled; the convention note quotes only derived symbols.
         self.overridden = frozenset(table.names) & declared
         self.name: dict[str, str] = {
             name: table.names[name]

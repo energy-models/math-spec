@@ -2,18 +2,13 @@
 #
 # SPDX-License-Identifier: MIT
 
-r"""GitHub-flavoured Markdown. The format that renders where the docs already live.
-
-Markdown has no math of its own — GitHub delegates to MathJax, which reads
-LaTeX — so the math is :class:`LatexFormat`'s and only the document layer
-differs. It exists so `docs/examples/` does not write its math by hand with
-nothing checking it against the model — see `test_the_gallery_math_is_current`.
-"""
+"""GitHub-flavoured Markdown. GitHub renders math with MathJax, so the math is :class:`LatexFormat`'s and only the document layer differs."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar, override
 
+from math_spec.typesetting.format import paragraphs
 from math_spec.typesetting.latex import LatexFormat
 
 if TYPE_CHECKING:
@@ -30,7 +25,6 @@ def _cell(text: str) -> str:
 class MarkdownFormat(LatexFormat):
     """See :class:`math_spec.typesetting.format.Format`. Math is LaTeX's; prose is not."""
 
-    suffix: ClassVar[str] = '.md'
     #: The character, not TeX's ligature: no Markdown renderer this output
     #: is aimed at substitutes one, so `---` reaches the reader as three
     #: hyphens in the middle of a legend row.
@@ -40,11 +34,8 @@ class MarkdownFormat(LatexFormat):
     #: those two backslashes, so MathJax would never break the row.
     cases_row: ClassVar[str] = r' \cr '
 
-    #: LaTeX's, except where the spelling uses a backslash before punctuation.
-    #: GitHub runs Markdown's escape processing *inside* `$$`, so `\,` arrives
-    #: as a literal comma and `\;` as a semicolon — `\forall\, s` renders as
-    #: "∀, s". Letter-named macros (`\thinspace`, `\quad`) pass through
-    #: untouched, and MathJax treats them identically.
+    #: LaTeX's, with letter-named spacing macros: GitHub's escape pass runs inside
+    #: ``$$`` and turns ``\,`` into a bare comma, while ``\thinspace`` passes through.
     operators: ClassVar[Mapping[OperatorName, str]] = {
         **LatexFormat.operators,
         'forall': r'\forall\thinspace',
@@ -102,5 +93,5 @@ class MarkdownFormat(LatexFormat):
     @override
     def document(self, blocks: list[str], *, standalone: bool) -> str:
         """No preamble: ``standalone`` adds the heading a fragment is pasted under."""
-        body = '\n\n'.join(blocks) + '\n'
+        body = paragraphs(blocks)
         return f'## The math\n\n{body}' if standalone else body
