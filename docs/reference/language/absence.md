@@ -33,11 +33,15 @@ There is no `p[old]`. What a `where:` may say is the
 | `shift(x, over=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))        |
 | a label a lookup does not map                | that label's group membership ([lookups](dimensions.md#lookups)) |
 
-Nothing else does. In particular **a missing parameter row is not absence**: a
-sparse table is a compressed dense one, and the missing row reads as the value
-that contributes nothing — `0` as a coefficient, `false` in a `where`. Where no
-such value exists the load is refused rather than guessed: a divisor, a
-`bounds:` entry, the whole constant side of a comparison, a
+Nothing else does. In particular **a missing parameter row is not absence**,
+and what it is instead is the parameter's
+[`coverage`](declarations.md) to say. Under `total`, the default, a
+coordinate the `dims` reach with no row is an error when data binds, naming the
+coordinate — a row lost in preparation, not a mask. Under `masked` the sparse
+table is a compressed dense one, and the missing row reads as the value that
+contributes nothing — `0` as a coefficient, `false` in a `where`. Where no such
+value exists the bind is refused rather than guessed: a divisor, a `bounds:`
+entry, the whole constant side of a comparison, a
 [`piecewise:`](piecewise.md) breakpoint.
 
 ## How absence travels
