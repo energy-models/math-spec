@@ -46,8 +46,10 @@ consumer implements them rather than choosing them.
 **The dimension's own source supplies its members.** They are read from the key
 named after the dimension, and from nothing else: a parameter's table is read
 for values, never for labels, and a lookup's map is not a claim about which
-members exist. A dimension nothing supplies is an error naming it, not an empty
-axis — an axis with no members would delete every row indexed by it, silently.
+members exist. A dimension a declaration reaches and nothing supplies is an
+error naming it, not an empty axis — an axis with no members would delete every
+row indexed by it, silently. A declared dimension no declaration reaches asks
+nothing of the data, and needs no source.
 
 **Their order is the order that source gives them**, first row first. It is not
 sorted, and nothing about a label's type changes that: an axis of strings, of
