@@ -92,8 +92,8 @@ def typeset(
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
         postsolve: Append the Post-solve section — the entries whose body is
-            post-solve grade, read only after a solve. Off leaves them out,
-            and a model with none prints no section either way.
+            post-solve grade, a shape the math does not read. Off leaves them
+            out, and a model with none prints no section either way.
         numbered: Number the equations.
 
     Returns:

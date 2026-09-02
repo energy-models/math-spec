@@ -165,9 +165,13 @@ class TestValidateExpressions:
         its grade — rather than degree-checking a declaration nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert 'lcoe' in to_program(model).postsolve_names, 'the unread body is graded post-solve'
+        assert 'lcoe' in to_program(model).named_expressions, (
+            'the unread nonlinear body loads rather than being refused'
+        )
         rendered = to_markdown(model)
-        assert 'Post-solve' in rendered and 'lcoe' in rendered, 'and it prints in the Post-solve section'
+        assert 'Post-solve' in rendered and 'lcoe' in rendered, (
+            'and its grade shows: it prints in the Post-solve section'
+        )
 
 
 class TestDimensionKwargs:

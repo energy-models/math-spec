@@ -32,7 +32,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
 import math_spec.program as program
-from math_spec.degree import is_postsolve_grade
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError
 from math_spec.expression_parser import (
@@ -202,13 +201,10 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         for sname, sdef in expanded.sos.items()
     }
     expressions: dict[str, program.ExpressionNode] = {}
-    postsolve_names: list[str] = []
     for name in expanded.expressions:
         context = f"named expression '{name}'"
         ast = expression_of(name, expanded, ns, context)
         assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
-        if is_postsolve_grade(ast):
-            postsolve_names.append(name)
         expressions[name] = _Lowering(expanded, context).expr(ast)
     return program.Program(
         parameters=parameters,
@@ -219,7 +215,6 @@ def lower_program(schema: _ExpandedSpec) -> program.Program:
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
         named_expressions=expressions,
-        postsolve_names=frozenset(postsolve_names),
     )
 
 
