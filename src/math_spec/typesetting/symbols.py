@@ -93,11 +93,11 @@ def printed_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
 def postsolve_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
     """The entries graded post-solve, in declaration order — the Post-solve section's rows.
 
-    Graded on the resolved, expanded body
-    (:func:`math_spec.degree.is_postsolve_grade`), the same predicate lowering
-    asks, so the page and the program cannot come to disagree about a body. A
-    cased entry is not here whatever its grade: it prints as the definition
-    block :func:`printed_expressions` already places.
+    Graded on the resolved, expanded body by
+    :func:`math_spec.degree.is_postsolve_grade`, the grade's one home, so the
+    page and any consumer that asks the same predicate cannot disagree about a
+    body. A cased entry is not here whatever its grade: it prints as the
+    definition block :func:`printed_expressions` already places.
     """
     namespace = Namespace.of(schema)
     return tuple(

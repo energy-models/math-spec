@@ -42,10 +42,11 @@ over=g)` is refused: that is every term of one against every term of the
   is one term. Factors carrying different dims are fine: `x * y * link`
   broadcasts and joins through the table that couples them.
 - **Degree stops at 2.** `p * p * p` is refused where `p * p` is not.
-- **Everything beside the math stays affine** — a bound, a named expression and
-  a `piecewise:` link. Each is read affinely by something downstream: a bound
-  is a number per column, a named expression is evaluated after a solve, and a
-  link expands into declarations that must themselves be affine.
+- **Everything beside the math stays affine** — a bound, a `piecewise:` link,
+  and a math-grade named expression. A bound is a number per column, a link
+  expands into declarations that must themselves be affine, and a math-grade
+  named expression is the affine form the math substitutes. A named expression
+  whose body breaks the affine rules is **post-solve grade** instead (below).
 
 `/` needs a variable-free divisor everywhere, and a single factor rather than a
 sum — both decided at load time, since neither depends on the numbers that

@@ -148,12 +148,10 @@ agree on the sign.
 A post-solve-grade entry is **observable**, like a math-grade one: after a
 solve, a consumer reads its value back over its own dims, which fall out of
 its body exactly as a math-grade entry's do — no `foreach`, no `where`. The
-difference is only _when_: a math-grade entry can be read before the solve as
-a linear form a sink ingests, a post-solve-grade one only after, as the
-arithmetic over solved numbers it is. Where a masked row leaves a solved
-quantity absent, the post-solve value is absent there too — the null reading a
-lookup gets
-([absence](absence.md#post-solve-values-follow-the-rows-that-were-built)).
+difference is _what the math may read_: a math-grade entry is a linear form a
+sink ingests, so the objective, a constraint or a bound can name it; a
+post-solve-grade entry is a shape the math cannot read that way, so nothing in
+the model does. That is about the shape, not about when the value exists: `(1 + rate) ** period`, with no variable in it, is a number before any solve and post-solve grade all the same, because `**` over a sum is not a form the math reads. Where a masked row leaves a solved quantity absent, the post-solve value is absent there too — the null reading a lookup gets ([absence](absence.md#post-solve-values-follow-the-rows-that-were-built)).
 
 Nothing in this repository evaluates a post-solve-grade body; computing the
 number is a consumer's business
