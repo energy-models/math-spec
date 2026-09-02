@@ -2,23 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""LaTeX (amsmath). The format that lands in a journal.
-
-Verbose source and a toolchain to compile it, in exchange for being the one
-target a paper actually accepts. CI compiles every example with a two-package
-TeX, which is also a check that the preamble stays installable from a small one.
-"""
+"""LaTeX (amsmath). The preamble must stay installable from a two-package TeX, which is what CI compiles with."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from math_spec.typesetting.format import OPERATOR_SPELLINGS
+from math_spec.typesetting.format import OPERATOR_SPELLINGS, aligned_rows, paragraphs
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from math_spec.typesetting.format import Entry, Line
+    from math_spec.typesetting.format import Entry, Line, Notation, OperatorName
 
 _ESCAPES = {
     '\\': r'\textbackslash{}',
@@ -49,14 +44,12 @@ def _escape(text: str) -> str:
 class LatexFormat:
     """See :class:`math_spec.typesetting.format.Format`."""
 
-    suffix: ClassVar[str] = '.tex'
-    notation: ClassVar[str] = 'latex'
+    notation: ClassVar[Notation] = 'latex'
     #: TeX's own em-dash ligature.
     dash: ClassVar[str] = '---'
-    #: Between the rows of a ``cases`` block.
     cases_row: ClassVar[str] = r' \\ '
 
-    operators: ClassVar[Mapping[str, str]] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
+    operators: ClassVar[Mapping[OperatorName, str]] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
 
     # -- atoms -------------------------------------------------------------
 
@@ -76,13 +69,7 @@ class LatexFormat:
         return rf'\text{{{_escape(text)}}}'
 
     def quoted(self, label: str) -> str:
-        r"""The quotes in text mode, the label itself upright in math mode.
-
-        Not one ``\text{'label'}``: MathJax renders ``\_`` inside ``\text``
-        as a literal backslash, and this format is what `to_markdown` inherits
-        — in math mode the escape works everywhere, which is how every name
-        already prints.
-        """
+        r"""The quotes in text mode and the label upright in math mode, since MathJax renders ``\_`` inside ``\text`` literally."""
         return rf"\text{{'}}{self.upright(label)}\text{{'}}"
 
     def mono(self, text: str) -> str:
@@ -128,13 +115,7 @@ class LatexFormat:
 
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
         environment = 'align' if numbered else 'align*'
-        rows = [
-            f'{self.prose(line.label) if line.label else ""} && {line.left} & {line.right} && {line.condition}'.rstrip(
-                ' &'
-            )
-            for line in lines
-        ]
-        body = ' \\\\\n'.join(rows)
+        body = ' \\\\\n'.join(aligned_rows(lines, self, gap=' && '))
         return f'\\begin{{{environment}}}\n{body}\n\\end{{{environment}}}'
 
     def glossary(self, title: str, entries: list[Entry]) -> str:
@@ -148,5 +129,5 @@ class LatexFormat:
         return f'\\noindent {text}'
 
     def document(self, blocks: list[str], *, standalone: bool) -> str:
-        body = '\n\n'.join(blocks) + '\n'
+        body = paragraphs(blocks)
         return f'{_PREAMBLE}\n{body}\n\\end{{document}}\n' if standalone else body

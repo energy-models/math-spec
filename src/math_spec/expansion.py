@@ -2,62 +2,45 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Named sub-expressions and macros, both declared in the YAML and expanded into the AST before anything reads the expression.
-
-There is no Python operator registry: the built-in set is closed, macros cover
-composition, and math the language cannot say goes in a declared ``escape:``
-island (#38).
-"""
+"""Named sub-expressions and macros, expanded into the core AST before anything reads the expression."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, assert_never, overload
+from typing import TYPE_CHECKING, overload
 
+from math_spec._where_parser import parse_where
 from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     ArithmeticNode,
-    BinaryOperatorNode,
     CaseArm,
     CasesNode,
     ComparisonNode,
     ExpressionNode,
     FunctionCallNode,
-    LeafNode,
     NameNode,
-    UnaryOperatorNode,
     parse_expression,
+    with_children,
 )
-from math_spec.where_parser import parse_where
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from math_spec.model import ExpressionBlock, MacroBlock, Spec
 
 
-def parse_and_expand(text: str, schema: Spec, context: str = 'expression') -> ExpressionNode:
+def parse_and_expand(text: str, schema: Spec, context: str) -> ExpressionNode:
     """Parse *text* and expand named sub-expressions and macros to core AST."""
     return expand(parse_expression(text), schema, context)
 
 
 @overload
-def expand(
-    node: ArithmeticNode, schema: Spec, context: str = ..., *, shadow: frozenset[str] = ...
-) -> ArithmeticNode: ...
+def expand(node: ArithmeticNode, schema: Spec, context: str, *, shadow: frozenset[str] = ...) -> ArithmeticNode: ...
 @overload
-def expand(
-    node: ComparisonNode, schema: Spec, context: str = ..., *, shadow: frozenset[str] = ...
-) -> ComparisonNode: ...
+def expand(node: ComparisonNode, schema: Spec, context: str, *, shadow: frozenset[str] = ...) -> ComparisonNode: ...
 
 
-def expand(
-    node: ExpressionNode, schema: Spec, context: str = 'expression', *, shadow: frozenset[str] = frozenset()
-) -> ExpressionNode:
+def expand(node: ExpressionNode, schema: Spec, context: str, *, shadow: frozenset[str] = frozenset()) -> ExpressionNode:
     """Expand all named sub-expressions and macro calls under *node*.
 
-    Expansion never changes the shape of the root: a comparison stays a
-    comparison, an arithmetic node stays arithmetic. The overloads say so, so
-    callers holding an ``ArithmeticNode`` keep it across the call.
+    A comparison stays a comparison and an arithmetic node stays arithmetic.
 
     Args:
         node: The parsed expression.
@@ -83,36 +66,7 @@ def macro_signature(name: str, macro: MacroBlock) -> str:
 
 def parse_template(name: str, macro: MacroBlock, context: str) -> ArithmeticNode:
     """Parse a macro template, rejecting comparisons."""
-    body = parse_expression(macro.template)
-    if isinstance(body, ComparisonNode):
-        msg = f"{context}: macro '{name}' template must not contain a comparison operator. Got: {macro.template!r}"
-        raise SchemaError(msg)
-    return body
-
-
-def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], ArithmeticNode]) -> ArithmeticNode:
-    """Rebuild *node* with *recurse* applied to each child.
-
-    The structural half of a tree walk, shared by the two walks below: they
-    differ only in what they do at NameNode and FunctionCallNode, and duplicating
-    the other four cases is how the two drift apart.
-    """
-    if isinstance(node, LeafNode):
-        return node
-    if isinstance(node, UnaryOperatorNode):
-        return UnaryOperatorNode(node.op, recurse(node.operand))
-    if isinstance(node, BinaryOperatorNode):
-        return BinaryOperatorNode(node.op, recurse(node.left), recurse(node.right))
-    if isinstance(node, FunctionCallNode):
-        return FunctionCallNode(
-            node.name,
-            [recurse(a) for a in node.args],
-            {k: recurse(v) for k, v in node.kwargs.items()},
-        )
-    if isinstance(node, CasesNode):
-        # the values only: a `when` is a mask over the frame, checked where the cases are declared
-        return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
-    assert_never(node)
+    return _parse_body(macro.template, f"macro '{name}' template", context)
 
 
 def _expand(
@@ -137,7 +91,7 @@ def _expand(
         _cycle(node.name, 'macro')
         return _expand_macro(node, schema, context, stack, shadow)
 
-    return _descend(node, lambda child: _expand(child, schema, context, stack, shadow))
+    return with_children(node, lambda child: _expand(child, schema, context, stack, shadow))
 
 
 def _parse_named(name: str, schema: Spec, context: str) -> ArithmeticNode:
@@ -149,16 +103,11 @@ def _parse_named(name: str, schema: Spec, context: str) -> ArithmeticNode:
 
 
 def _parse_cased(name: str, block: ExpressionBlock, context: str) -> CasesNode:
-    """A cased expression, as the node that stands where its name was.
-
-    The arms come out in file order, which is the order they print in, and
-    carry unresolved ``when`` masks — expansion runs before resolution, so
-    :mod:`math_spec.resolution` types those along with everything else. The
-    block's ``otherwise:`` becomes the last arm, the only one with no mask.
-    """
+    """A cased expression as the node that stands where its name was: the arms in file order, ``otherwise:`` last."""
     arms = []
     for label, case in block.cases.items():
         value = _parse_body(case.expression, f"named expression '{name}', case '{label}'", context)
+        # pyrefly: ignore[bad-argument-type]  # the field is typed as resolution leaves it
         arms.append(CaseArm(label, parse_where(case.when), value))
     assert block.otherwise is not None
     fallback = _parse_body(block.otherwise, f"named expression '{name}', otherwise", context)
@@ -215,4 +164,4 @@ def _substitute(node: ArithmeticNode, bindings: dict[str, ArithmeticNode]) -> Ar
     """Replace formal-name NameNodes in *node* with their bound subtrees."""
     if isinstance(node, NameNode) and node.name in bindings:
         return bindings[node.name]
-    return _descend(node, lambda child: _substitute(child, bindings))
+    return with_children(node, lambda child: _substitute(child, bindings))

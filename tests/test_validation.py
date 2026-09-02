@@ -14,9 +14,9 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
+from math_spec.program import DimensionPositionNode
 from math_spec.resolution import Namespace, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import DimensionPositionNode
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
 
 if TYPE_CHECKING:
@@ -27,7 +27,283 @@ def _schema(**patch) -> Spec:
     return to_spec(override(SMALL_MODEL, **patch))
 
 
+def _refusal(model: dict[str, Any] = SMALL_MODEL, **patch: Any) -> str:
+    """The message `to_spec` refuses *model* patched with — and it has to refuse."""
+    with pytest.raises(LanguageError) as caught:
+        to_spec(override(model, **patch))
+    return str(caught.value)
+
+
 class TestValidateExpressions:
+    def test_the_objective_and_a_constraint_take_degree_two(self):
+        _schema(
+            constraints={'floor': {'foreach': ['g'], 'expression': 'p * p >= 1'}},
+            objective={'expression': 'sum(p * p * c, over=g)'},
+        )
+
+    def test_multiple_errors_collected(self):
+        message = _refusal(
+            constraints={
+                'a': {'foreach': ['g'], 'expression': 'nope <= 1'},
+                'b': {'foreach': ['g'], 'expression': 'p + 1'},
+            },
+        )
+        assert "'nope' not found" in message
+        assert 'exactly one comparison' in message, 'the second fault is reported beside the first, not behind it'
+
+
+def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str, Any]:
+    """A model over (snapshot, generator), with `zone` a lookup into `bus`.
+
+    `zone` deliberately targets a dim `p` does *not* carry: grouping into
+    one it already has needs that dim twice, which is its own error.
+    `season` is a label space over the same dim, for the refusals below.
+    An explicit ``foreach=[]`` is a scalar constraint; ``None`` is the
+    default frame over `snapshot`.
+    """
+    return {
+        'dimensions': {
+            'snapshot': {'dtype': 'int'},
+            'bus': {'dtype': 'str'},
+            'generator': {'dtype': 'str'},
+        },
+        'lookups': {
+            'zone': {'over': 'generator', 'into': 'bus'},
+            'season': {'over': 'generator', 'dtype': 'str'},
+        },
+        'parameters': {'load': {'dims': ['snapshot']}},
+        'variables': {'p': {'foreach': ['snapshot', 'generator']}},
+        'constraints': {'c': {'foreach': ['snapshot'] if foreach is None else foreach, 'expression': expression}},
+    }
+
+
+class TestDimensionKwargs:
+    """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, over=snapshto)` used to load."""
+
+    @pytest.mark.parametrize(
+        ('expression', 'fragments'),
+        [
+            pytest.param('sum(p, over=snapshto) == load', ('silent no-op', 'sum(over=snapshto)'), id='sum-over-typo'),
+            pytest.param(
+                'sum(p, by=bus) == load',
+                ("'bus' is a dimension, and by= takes a lookup",),
+                id='by-names-a-dimension',
+            ),
+            pytest.param(
+                'sum(p, by=zne) == load',
+                ('does not name a lookup', "Did you mean 'zone'?"),
+                id='by-lookup-typo',
+            ),
+            pytest.param(
+                'shift(p, over=snapshto, offset=1) == load',
+                ('does not name a declared dimension',),
+                id='shift-over-typo',
+            ),
+        ],
+    )
+    def test_a_dim_kwarg_typo_is_rejected(self, expression, fragments):
+        message = _refusal(_kwarg_model(expression))
+        for fragment in fragments:
+            assert fragment in message
+
+    @pytest.mark.parametrize(
+        ('expression', 'foreach'),
+        [
+            pytest.param('sum(p, over=generator) == load', ['snapshot'], id='a-sum'),
+            pytest.param('sum(p, by=zone) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
+            pytest.param(
+                "shift(p, over=snapshot, offset=1, edge='wrap') == load",
+                ['snapshot', 'generator'],
+                id='a-wrapping-shift',
+            ),
+            pytest.param('shift(p, over=snapshot, offset=1) == load', ['snapshot', 'generator'], id='a-bare-shift'),
+        ],
+    )
+    def test_declared_dimensions_still_pass(self, expression, foreach):
+        to_spec(_kwarg_model(expression, foreach))
+
+    @pytest.mark.parametrize(
+        'expression',
+        [
+            pytest.param('sum(p, by=season) == load', id='sum'),
+            pytest.param('at(p, by=season) == load', id='at'),
+            pytest.param('shift(p, over=generator, offset=1, by=season) == load', id='shift'),
+        ],
+    )
+    def test_a_label_space_is_refused_wherever_by_needs_a_target(self, expression):
+        """Every `by=` but `position`'s reaches a target dimension: `sum` and `at` to
+        place terms on it, `shift` so a named `offset=` may vary per group. A label
+        space targets nothing, so all three refuse it and name the promotion (#280)."""
+        message = _refusal(_kwarg_model(expression, ['snapshot', 'bus']))
+        assert 'is a label space' in message, 'the refusal names the kind, not just the name'
+        assert 'season_of' in message, 'and it spells the promotion out'
+
+    def test_macro_formals_are_not_mistaken_for_dimensions(self):
+        """A formal in a dim position is legal inside the template body."""
+        _schema(
+            macros={
+                'ws': {'args': ['array', 'weights'], 'kwargs': ['over'], 'template': 'sum(array * weights, over=over)'}
+            },
+            objective={'sense': 'minimize', 'expression': 'ws(p, c, over=g)'},
+        )
+
+    @pytest.mark.parametrize(
+        ('dtype', 'where', 'match'),
+        [
+            ('datetime', 'g > 0', 'compares against the epoch'),
+            ('str', 'g > 3', 'matches no label'),
+            ('int', "g > 'x'", 'matches nothing'),
+            ('datetime', "g > 'not-a-date'", 'is not an ISO date'),
+        ],
+    )
+    def test_a_where_comparison_must_match_the_declared_dtype(self, dtype, where, match):
+        """The same guard one construct over (#460): polars reads `snapshot > 0` on a
+        datetime as "after the epoch" and silently drops every earlier coordinate."""
+        with pytest.raises(LanguageError, match=match):
+            _schema(**{'dimensions.g': {'dtype': dtype}, 'variables.p.where': where})
+
+
+class TestArithmeticDtype:
+    """A name in a value position has to be a number, which its `dtype` says.
+
+    The dtype rules reached the `where` and `offset=` positions and not an
+    ordinary value, so a label stood as a coefficient and the file declared a
+    model no consumer could build.
+    """
+
+    @staticmethod
+    def _schema_with_typed_a(dtype: str, expression: str) -> Spec:
+        """`SMALL_MODEL` plus a parameter `a` of *dtype*, standing in the constraint *expression*."""
+        return _schema(
+            **{
+                'parameters.a': {'dims': ['g'], 'dtype': dtype},
+                'constraints': {'cap': {'foreach': ['g'], 'expression': expression}},
+            }
+        )
+
+    @pytest.mark.parametrize('dtype', ['str', 'bool'])
+    @pytest.mark.parametrize(
+        'expression',
+        [
+            pytest.param('a * p <= c', id='a-coefficient'),
+            pytest.param('p / a <= c', id='a-divisor'),
+            pytest.param('p + a <= c', id='a-term'),
+            pytest.param('-a * p <= c', id='a-negated-factor'),
+            pytest.param('sum(a * p, over=g) <= 1', id='under-an-operator'),
+        ],
+    )
+    def test_a_label_or_a_flag_is_not_a_value(self, dtype, expression):
+        with pytest.raises(LanguageError, match=f'declared dtype: {dtype}'):
+            self._schema_with_typed_a(dtype, expression)
+
+    @pytest.mark.parametrize('dtype', ['float', 'int'])
+    def test_a_number_is(self, dtype):
+        self._schema_with_typed_a(dtype, 'a * p <= c')
+
+    @pytest.mark.parametrize(
+        ('dtype', 'where'),
+        [
+            ('str', "a == 'wind'"),
+            ('bool', 'a'),
+            ('bool', 'NOT a'),
+        ],
+    )
+    def test_the_position_it_is_declared_for_still_takes_it(self, dtype, where):
+        """The refusal is about arithmetic, not the dtype: selecting with a label and masking with a flag stay."""
+        _schema(**{'parameters.a': {'dims': ['g'], 'dtype': dtype}, 'variables.p.where': where})
+
+    def test_a_named_amount_keeps_its_own_sentence(self):
+        """`offset=` has a stricter rule of its own — a count of positions is integral — and that sentence arrives."""
+        with pytest.raises(LanguageError, match='counts positions along'):
+            _schema(
+                **{
+                    'parameters.lag': {'dims': [], 'dtype': 'str'},
+                    'objective': {'expression': "sum(shift(p, over=g, offset=lag, edge='wrap'))"},
+                }
+            )
+
+
+class TestVersion:
+    """`version:` is refused when unknown, and does nothing else (#67)."""
+
+    @pytest.mark.parametrize('top', [pytest.param({}, id='absent'), pytest.param({'version': 0}, id='zero')])
+    def test_absent_and_zero_are_the_unstable_surface(self, top):
+        assert _schema(**top).version == 0
+
+    def test_an_unknown_version_is_refused_not_interpreted(self):
+        message = _refusal(version=1)
+        assert 'declares version 1' in message
+        assert 'understands [0]' in message, 'the error has to say what this reader can read'
+        assert 'Upgrade math_spec' in message, 'and what to do about it'
+
+    def test_the_version_gates_no_behaviour(self):
+        """Two files differing only in a declared supported version build the same model."""
+        assert _schema().model_dump(exclude={'version'}) == _schema(version=0).model_dump(exclude={'version'})
+
+
+#: `position(dim)` needs a lookup over *that* dimension, so one over it and one into it.
+POSITION_SCHEMA = to_spec(
+    {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int'}},
+        'lookups': {
+            'period_of': {'over': 'snapshot', 'into': 'period'},
+            'starts_at': {'over': 'period', 'into': 'snapshot'},
+            'season': {'over': 'snapshot', 'dtype': 'str'},
+        },
+        'parameters': {'load': {'dims': ['snapshot']}},
+        'variables': {'p': {'foreach': ['snapshot']}},
+    }
+)
+
+
+class TestPositionResolves:
+    """`position(dim)` — the conversion #32 put on the left-hand side.
+
+    A `by=` has to be a lookup over *that* dimension, and that is the whole
+    test: a lookup over anything else carries no row for a position to be a
+    position in. Unlike `sum`, `at` and `shift`, it does not have to be a
+    *groupable* one — counting inside a group lands no terms, so a label
+    space partitions the rows perfectly well (#280).
+    """
+
+    @pytest.mark.parametrize(
+        ('mask', 'position', 'by'),
+        [
+            ('position(snapshot) == 0', 0, None),
+            ('position(snapshot, by=period_of) == 0', 0, 'period_of'),
+            ('position(snapshot, by=season) == 0', 0, 'season'),
+        ],
+        ids=['first', 'first of each period', 'first of each season, by a label space'],
+    )
+    def test_it_resolves(self, mask: str, position: int, by: str | None):
+        resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        assert resolved is not None
+        node = resolved.root
+        assert isinstance(node, DimensionPositionNode)
+        assert node.name == 'snapshot'
+        assert node.position == position
+        assert node.by == by
+
+    @pytest.mark.parametrize(
+        ('mask', 'fragments'),
+        [
+            ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
+            ('position(nope) == 0', ["'nope' is not declared"]),
+            ('position(snapshot, by=load) == 0', ['groups by', '``by=`` takes a lookup']),
+            ('position(snapshot, by=starts_at) == 0', ["along 'snapshot'", "lookup over 'period'"]),
+        ],
+        ids=['a parameter', 'undeclared', 'by= is not a lookup', 'by= is over another dim'],
+    )
+    def test_it_refuses(self, mask: str, fragments: list[str]):
+        with pytest.raises(LanguageError) as excinfo:
+            where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        for fragment in fragments:
+            assert fragment in str(excinfo.value)
+
+
+class TestRulesDecidedWithoutData:
+    """Every refusal the schema or the resolver makes with no data bound, one row each."""
+
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
         [
@@ -74,293 +350,8 @@ class TestValidateExpressions:
             pytest.param(
                 {'constraints': {'cap': {'foreach': ['g'], 'where': 'not_a_param > 0', 'expression': 'p <= c'}}},
                 ("'not_a_param' not found",),
-                id='an-unknown-name-in-a-where-used-to-evaluate-to-false',
+                id='an-unknown-name-in-a-where',
             ),
-        ],
-    )
-    def test_a_bad_declaration_is_refused_at_load(self, patch, fragments):
-        with pytest.raises(LanguageError) as exc:
-            _schema(**patch)
-        for fragment in fragments:
-            assert fragment in str(exc.value)
-
-    def test_the_objective_and_a_constraint_take_degree_two(self):
-        _schema(
-            constraints={'floor': {'foreach': ['g'], 'expression': 'p * p >= 1'}},
-            objective={'expression': 'sum(p * p * c, over=g)'},
-        )
-
-    def test_multiple_errors_collected(self):
-        with pytest.raises(LanguageError) as exc_info:
-            _schema(
-                constraints={
-                    'a': {'foreach': ['g'], 'expression': 'nope <= 1'},
-                    'b': {'foreach': ['g'], 'expression': 'p + 1'},
-                },
-            )
-        msg = str(exc_info.value)
-        assert "'nope' not found" in msg
-        assert 'exactly one comparison' in msg
-
-
-class TestDimensionKwargs:
-    """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, over=snapshto)` used to load."""
-
-    @staticmethod
-    def _schema(expression: str, foreach: list[str] | None = None) -> Spec:
-        """A model over (snapshot, generator), with `zone` a lookup into `bus`.
-
-        `zone` deliberately targets a dim `p` does *not* carry: grouping into
-        one it already has needs that dim twice, which is its own error.
-        `season` is a label space over the same dim, for the refusals below.
-        """
-        foreach = ['snapshot'] if foreach is None else foreach  # an explicit [] is a scalar constraint
-        return to_spec(
-            {
-                'dimensions': {
-                    'snapshot': {'dtype': 'int'},
-                    'bus': {'dtype': 'str'},
-                    'generator': {'dtype': 'str'},
-                },
-                'lookups': {
-                    'zone': {'over': 'generator', 'into': 'bus'},
-                    'season': {'over': 'generator', 'dtype': 'str'},
-                },
-                'parameters': {'load': {'dims': ['snapshot']}},
-                'variables': {'p': {'foreach': ['snapshot', 'generator']}},
-                'constraints': {'c': {'foreach': foreach, 'expression': expression}},
-            }
-        )
-
-    @pytest.mark.parametrize(
-        ('expression', 'fragments'),
-        [
-            pytest.param('sum(p, over=snapshto) == load', ('silent no-op', 'sum(over=snapshto)'), id='sum-over-typo'),
-            pytest.param(
-                'sum(p, by=bus) == load',
-                ("'bus' is a dimension, and by= takes a lookup",),
-                id='by-names-a-dimension',
-            ),
-            pytest.param(
-                'sum(p, by=zne) == load',
-                ('does not name a lookup', "Lookups: ['zone']"),
-                id='by-lookup-typo',
-            ),
-            pytest.param(
-                'shift(p, over=snapshto, offset=1) == load',
-                ('does not name a declared dimension',),
-                id='shift-over-typo',
-            ),
-        ],
-    )
-    def test_a_dim_kwarg_typo_is_rejected(self, expression, fragments):
-        with pytest.raises(LanguageError) as exc:
-            self._schema(expression)
-        for fragment in fragments:
-            assert fragment in str(exc.value)
-
-    @pytest.mark.parametrize(
-        ('expression', 'foreach'),
-        [
-            pytest.param('sum(p, over=generator) == load', ['snapshot'], id='a-sum'),
-            pytest.param('sum(p, by=zone) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
-            pytest.param(
-                "shift(p, over=snapshot, offset=1, edge='wrap') == load",
-                ['snapshot', 'generator'],
-                id='a-wrapping-shift',
-            ),
-            pytest.param('shift(p, over=snapshot, offset=1) == load', ['snapshot', 'generator'], id='a-bare-shift'),
-        ],
-    )
-    def test_declared_dimensions_still_pass(self, expression, foreach):
-        self._schema(expression, foreach)
-
-    @pytest.mark.parametrize(
-        'expression',
-        [
-            pytest.param('sum(p, by=season) == load', id='sum'),
-            pytest.param('at(p, by=season) == load', id='at'),
-            pytest.param('shift(p, over=generator, offset=1, by=season) == load', id='shift'),
-        ],
-    )
-    def test_a_label_space_is_refused_wherever_by_needs_a_target(self, expression):
-        """Every `by=` but `position`'s reaches a target dimension: `sum` and `at` to
-        place terms on it, `shift` so a named `offset=` may vary per group. A label
-        space targets nothing, so all three refuse it and name the promotion (#280)."""
-        with pytest.raises(LanguageError) as exc:
-            self._schema(expression, ['snapshot', 'bus'])
-        assert 'is a label space' in str(exc.value), 'the refusal names the kind, not just the name'
-        assert 'season_of' in str(exc.value), 'and it spells the promotion out'
-
-    def test_macro_formals_are_not_mistaken_for_dimensions(self):
-        """A formal in a dim position is legal inside the template body."""
-        _schema(
-            macros={
-                'ws': {'args': ['array', 'weights'], 'kwargs': ['over'], 'template': 'sum(array * weights, over=over)'}
-            },
-            objective={'sense': 'minimize', 'expression': 'ws(p, c, over=g)'},
-        )
-
-    @pytest.mark.parametrize(
-        ('dtype', 'where', 'match'),
-        [
-            ('datetime', 'g > 0', 'compares against the epoch'),
-            ('str', 'g > 3', 'matches no label'),
-            ('int', "g > 'x'", 'matches nothing'),
-            ('datetime', "g > 'not-a-date'", 'is not an ISO date'),
-        ],
-    )
-    def test_a_where_comparison_must_match_the_declared_dtype(self, dtype, where, match):
-        """The same guard one construct over (#460): polars reads `snapshot > 0` on a
-        datetime as "after the epoch" and silently drops every earlier coordinate."""
-        with pytest.raises(LanguageError, match=match):
-            _schema(**{'dimensions.g': {'dtype': dtype}, 'variables.p.where': where})
-
-
-class TestArithmeticDtype:
-    """A name in a value position has to be a number, which its `dtype` says.
-
-    The dtype rules reached the `where` and `offset=` positions and not an
-    ordinary value, so a label stood as a coefficient and the file declared a
-    model no consumer could build.
-    """
-
-    @staticmethod
-    def _schema(dtype: str, expression: str) -> Spec:
-        return _schema(
-            **{
-                'parameters.a': {'dims': ['g'], 'dtype': dtype},
-                'constraints': {'cap': {'foreach': ['g'], 'expression': expression}},
-            }
-        )
-
-    @pytest.mark.parametrize('dtype', ['str', 'bool'])
-    @pytest.mark.parametrize(
-        'expression',
-        [
-            pytest.param('a * p <= c', id='a-coefficient'),
-            pytest.param('p / a <= c', id='a-divisor'),
-            pytest.param('p + a <= c', id='a-term'),
-            pytest.param('-a * p <= c', id='a-negated-factor'),
-            pytest.param('sum(a * p, over=g) <= 1', id='under-an-operator'),
-        ],
-    )
-    def test_a_label_or_a_flag_is_not_a_value(self, dtype, expression):
-        with pytest.raises(LanguageError, match=f'declared dtype: {dtype}'):
-            self._schema(dtype, expression)
-
-    @pytest.mark.parametrize('dtype', ['float', 'int'])
-    def test_a_number_is(self, dtype):
-        self._schema(dtype, 'a * p <= c')
-
-    @pytest.mark.parametrize(
-        ('dtype', 'where'),
-        [
-            ('str', "a == 'wind'"),
-            ('bool', 'a'),
-            ('bool', 'NOT a'),
-        ],
-    )
-    def test_the_position_it_is_declared_for_still_takes_it(self, dtype, where):
-        """The refusal is about arithmetic, not the dtype: selecting with a label and masking with a flag stay."""
-        _schema(**{'parameters.a': {'dims': ['g'], 'dtype': dtype}, 'variables.p.where': where})
-
-    def test_a_named_amount_keeps_its_own_sentence(self):
-        """`offset=` has a stricter rule of its own — a count of positions is integral — and that sentence arrives."""
-        with pytest.raises(LanguageError, match='counts positions along'):
-            _schema(
-                **{
-                    'parameters.lag': {'dims': [], 'dtype': 'str'},
-                    'objective': {'expression': "sum(shift(p, over=g, offset=lag, edge='wrap'))"},
-                }
-            )
-
-
-class TestVersion:
-    """`version:` is refused when unknown, and does nothing else (#67)."""
-
-    @pytest.mark.parametrize('top', [pytest.param({}, id='absent'), pytest.param({'version': 0}, id='zero')])
-    def test_absent_and_zero_are_the_unstable_surface(self, top):
-        assert _schema(**top).version == 0
-
-    def test_an_unknown_version_is_refused_not_interpreted(self):
-        with pytest.raises(LanguageError) as exc:
-            _schema(version=1)
-
-        message = str(exc.value)
-        assert 'declares version 1' in message
-        assert 'understands [0]' in message, 'the error has to say what this reader can read'
-        assert 'Upgrade math_spec' in message, 'and what to do about it'
-
-    def test_the_version_gates_no_behaviour(self):
-        """Two files differing only in a declared supported version build the same model."""
-        assert _schema().model_dump(exclude={'version'}) == _schema(version=0).model_dump(exclude={'version'})
-
-
-#: `position(dim)` needs a lookup over *that* dimension, so one over it and one into it.
-POSITION_SCHEMA = to_spec(
-    {
-        'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int'}},
-        'lookups': {
-            'period_of': {'over': 'snapshot', 'into': 'period'},
-            'starts_at': {'over': 'period', 'into': 'snapshot'},
-            'season': {'over': 'snapshot', 'dtype': 'str'},
-        },
-        'parameters': {'load': {'dims': ['snapshot']}},
-        'variables': {'p': {'foreach': ['snapshot']}},
-    }
-)
-
-
-class TestPositionResolves:
-    """`position(dim)` — the conversion #32 put on the left-hand side.
-
-    A `by=` has to be a lookup over *that* dimension, and that is the whole
-    test: a lookup over anything else carries no row for a position to be a
-    position in. Unlike `sum`, `at` and `shift`, it does not have to be a
-    *groupable* one — counting inside a group lands no terms, so a label
-    space partitions the rows perfectly well (#280).
-    """
-
-    @pytest.mark.parametrize(
-        ('mask', 'position', 'by'),
-        [
-            ('position(snapshot) == 0', 0, None),
-            ('position(snapshot, by=period_of) == 0', 0, 'period_of'),
-            ('position(snapshot, by=season) == 0', 0, 'season'),
-        ],
-        ids=['first', 'first of each period', 'first of each season, by a label space'],
-    )
-    def test_it_resolves(self, mask: str, position: int, by: str | None):
-        node = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
-        assert isinstance(node, DimensionPositionNode)
-        assert node.name == 'snapshot'
-        assert node.position == position
-        assert node.by == by
-
-    @pytest.mark.parametrize(
-        ('mask', 'fragments'),
-        [
-            ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
-            ('position(nope) == 0', ["'nope' is not declared"]),
-            ('position(snapshot, by=load) == 0', ['groups by', '``by=`` takes a lookup']),
-            ('position(snapshot, by=starts_at) == 0', ["along 'snapshot'", "lookup over 'period'"]),
-        ],
-        ids=['a parameter', 'undeclared', 'by= is not a lookup', 'by= is over another dim'],
-    )
-    def test_it_refuses(self, mask: str, fragments: list[str]):
-        with pytest.raises(LanguageError) as excinfo:
-            where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
-        for fragment in fragments:
-            assert fragment in str(excinfo.value)
-
-
-class TestRulesDecidedWithoutData:
-    """Every refusal the schema or the resolver makes with no data bound, one row each."""
-
-    @pytest.mark.parametrize(
-        ('patch', 'fragments'),
-        [
             pytest.param(
                 {'sos': {'s': {'variable': 'p', 'over': 'z', 'type': 1}}},
                 ("undeclared dimension 'z'",),
@@ -576,15 +567,15 @@ class TestRulesDecidedWithoutData:
         ],
     )
     def test_a_rule_decided_without_data(self, patch, fragments):
-        with pytest.raises(LanguageError) as exc:
-            _schema(**patch)
+        message = _refusal(**patch)
         for fragment in fragments:
-            assert fragment in str(exc.value)
+            assert fragment in message
 
 
 class TestTheFrontDoor:
     def test_a_list_of_models_is_not_a_model(self):
-        with pytest.raises(TypeError, match='one file, one dict or one Spec, never a list'):
+        """Composition is Python's, not the file's (#30) — and the refusal is the package's own, so the CLI's one except catches it."""
+        with pytest.raises(SchemaError, match='one file, one dict or one Spec, never a list'):
             to_spec([DISPATCH_MODEL, DISPATCH_MODEL])
 
     def test_a_loaded_model_passes_through_as_itself(self):
@@ -608,8 +599,8 @@ class TestTheFrontDoor:
     def test_an_empty_list_survives_the_round_trip(self):
         """`foreach: []` is a scalar declaration, not an absence — stripping it would put the variable on every dim it names."""
         model = _schema(**{'variables.p.foreach': []})
-        assert model.to_dict()['variables']['p']['foreach'] == []
-        assert to_spec(model.to_dict()).variables['p'].foreach == []
+        assert model.to_dict()['variables']['p']['foreach'] == [], 'the empty frame is written out, not dropped'
+        assert to_spec(model.to_dict()).variables['p'].foreach == [], 'and reads back as the scalar it declares'
 
     def test_an_empty_section_is_not_written(self):
         written = to_spec(DISPATCH_MODEL).to_yaml()
@@ -635,15 +626,21 @@ CASED_BASE = {
 OPENING = {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}}
 
 
+def _headroom(block: dict[str, Any]) -> dict[str, Any]:
+    """`CASED_BASE` with *block* as its one named expression, `headroom`."""
+    return {**copy.deepcopy(CASED_BASE), 'expressions': {'headroom': block}}
+
+
 def _cased(cases: dict[str, Any] | None = None, **block: Any) -> dict[str, Any]:
-    """`CASED_BASE` with one cased expression named `headroom`."""
-    declared = {
-        'foreach': ['snapshot', 'generator'],
-        'cases': OPENING if cases is None else cases,
-        'otherwise': 0,
-        **block,
-    }
-    return {**copy.deepcopy(CASED_BASE), 'expressions': {'headroom': declared}}
+    """`_headroom` over a cased block: `OPENING` or *cases*, an `otherwise:` of 0, and *block* on top."""
+    return _headroom(
+        {
+            'foreach': ['snapshot', 'generator'],
+            'cases': OPENING if cases is None else cases,
+            'otherwise': 0,
+            **block,
+        }
+    )
 
 
 class TestExpressionCases:
@@ -651,8 +648,25 @@ class TestExpressionCases:
 
     def test_a_cased_expression_loads(self):
         block = to_spec(_cased()).expressions['headroom']
-        assert list(block.cases) == ['opening']
+        assert list(block.cases) == ['opening'], 'the one case, under the name the file gave it'
         assert block.otherwise == '0'
+
+    @pytest.mark.parametrize(
+        ('when', 'fragment'),
+        [
+            pytest.param(
+                'position(snapshot) == 0 OR True',
+                'no other arm can hold anywhere',
+                id='folds-to-every-row',
+            ),
+            pytest.param('False', 'this arm never applies', id='admits-no-row'),
+        ],
+    )
+    def test_an_arm_the_data_cannot_decide_is_refused(self, when: str, fragment: str):
+        """A mask that folds to a literal is not a case, and the refusal names the rewrite."""
+        model = _cased(cases={'opening': {'when': when, 'expression': 'p_max'}})
+        with pytest.raises(SchemaError, match=fragment):
+            to_spec(model)
 
     def test_it_round_trips(self):
         """The mapping form goes back out as it came in, `otherwise:` and all."""
@@ -660,13 +674,11 @@ class TestExpressionCases:
         assert to_spec(schema.to_dict()).to_yaml() == schema.to_yaml()
 
     def test_the_fallback_is_written_as_the_bare_value(self):
-        """`otherwise:` carries nothing but its value, so a mapping around it would be ceremony.
-
-        The same shorthand `expressions:` itself takes, and a number is how a
-        constant region is spelled — YAML reads `otherwise: 0` as an int.
-        """
+        """`otherwise:` carries nothing but its value, so a mapping around it would be ceremony."""
         written = to_spec(_cased()).to_dict()['expressions']['headroom']
-        assert written['cases'] == {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}}
+        assert written['cases'] == {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}}, (
+            'a case goes back out as the mapping it came in as'
+        )
         assert written['otherwise'] == '0'
 
     @pytest.mark.parametrize(
@@ -697,9 +709,8 @@ class TestExpressionCases:
         ],
     )
     def test_the_two_forms_do_not_mix(self, block: dict[str, Any], fragment: str):
-        model = {**copy.deepcopy(CASED_BASE), 'expressions': {'headroom': block}}
         with pytest.raises(SchemaError, match=re.escape(fragment)):
-            to_spec(model)
+            to_spec(_headroom(block))
 
     @pytest.mark.parametrize(
         ('cases', 'message'),
@@ -717,12 +728,7 @@ class TestExpressionCases:
         ],
     )
     def test_the_schema_itself_states_the_shape_of_a_case(self, cases: dict[str, Any], message: str):
-        """Every case says where it applies, and a block carries one — both the closed schema's own error.
-
-        Neither is a rule this module writes a sentence for: `when:` is
-        required, and an empty `cases:` beside an `otherwise:` is the one value
-        everywhere that `expression:` already says.
-        """
+        """Every case says where it applies, and a block carries one — both the closed schema's own error."""
         with pytest.raises(SchemaError, match=re.escape(message)):
             to_spec(_cased(cases))
 
@@ -741,7 +747,9 @@ class TestExpressionCases:
             'gas': {'when': "generator == 'gas'", 'expression': 'p_max'},
             'opening': {'when': "generator != 'gas' and position(snapshot) == 0", 'expression': 'p_max * 2'},
         }
-        assert list(to_spec(_cased(cases)).expressions['headroom'].cases) == ['gas', 'opening']
+        assert list(to_spec(_cased(cases)).expressions['headroom'].cases) == ['gas', 'opening'], (
+            'both cases load, in the order the file wrote them'
+        )
 
     def test_a_pair_that_cannot_be_decided_is_refused_as_an_overlap_is(self):
         """`snapshot` declares no `values:`, so 0 and -1 are one row on a one-member axis."""
@@ -764,7 +772,9 @@ class TestExpressionCases:
 
     def test_a_when_may_not_test_a_dim_outside_the_frame(self):
         """The same rule a variable's or a constraint's mask is held to."""
-        with pytest.raises(DimensionError, match="'snapshot', which is not in the frame"):
+        with pytest.raises(
+            DimensionError, match=r"where-dimension 'snapshot' reads dims \['snapshot'\] outside the frame"
+        ):
             to_spec(_cased(foreach=['generator']))
 
     def test_an_unknown_name_in_a_case_is_a_load_error(self):
@@ -798,10 +808,7 @@ class TestExpressionCases:
             name: {'foreach': ['snapshot', 'generator'], 'expression': f'p <= headroom + {n}'}
             for n, name in enumerate(('cap', 'floor'))
         }
-        with pytest.raises(SchemaError) as caught:
-            to_spec(model)
-
-        message = str(caught.value)
+        message = _refusal(model)
         assert message.count("'nope' not found") == 1, 'two constraints read it; the fault is reported once'
         assert "Named expression 'headroom', case 'opening'" in message
         assert 'Constraint' not in message, "the arm is the declaration's, not the use site's"
@@ -814,10 +821,7 @@ class TestExpressionCases:
         """
         model = _cased(otherwise='nope')
         model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
-        with pytest.raises(SchemaError) as caught:
-            to_spec(model)
-
-        message = str(caught.value)
+        message = _refusal(model)
         assert "Named expression 'headroom', otherwise: 'nope' not found" in message
         assert "case 'otherwise'" not in message, 'the fallback is not one of the cases'
 
@@ -848,3 +852,69 @@ class TestANumberIsAnExpression:
         """`true` is not arithmetic, and an error naming the type reads better than one naming `'True'`."""
         with pytest.raises(SchemaError, match='valid string'):
             _schema(**{'expressions.always': {'expression': True}})
+
+
+class TestADeclarationIsNamed:
+    """A declaration's key must be a name the expression grammar could write.
+
+    Nothing checked it, so `parameters: {'': {...}}` loaded, and a piecewise
+    block naming it under `points:` had its mask silently dropped —
+    `if mask:` in the expansion read a declared parameter as "this block
+    masks nothing", and the weights came out unmasked. Every unwritable name
+    has the same shape: a declaration no expression can reach, in a language
+    whose promise is that the file decides.
+    """
+
+    @pytest.mark.parametrize(
+        'name',
+        [
+            pytest.param('', id='empty'),
+            pytest.param(' ', id='a-space'),
+            pytest.param('a b', id='two-words'),
+            pytest.param('1x', id='leading-digit'),
+            pytest.param('a-b', id='a-hyphen'),
+            pytest.param('a.b', id='a-dot'),
+        ],
+    )
+    @pytest.mark.parametrize(
+        'section',
+        [
+            'dimensions',
+            'lookups',
+            'parameters',
+            'variables',
+            'expressions',
+            'macros',
+            'constraints',
+            'piecewise',
+            'sos',
+        ],
+    )
+    def test_a_name_no_expression_could_write_is_refused(self, section: str, name: str):
+        declarations: dict[str, Any] = {
+            'dimensions': {'dtype': 'str'},
+            'lookups': {'over': 'g', 'into': 'h'},
+            'parameters': {'dims': ['g']},
+            'variables': {'foreach': ['g']},
+            'expressions': {'expression': 'c'},
+            'macros': {'args': ['x'], 'template': 'x * 2'},
+            'constraints': {'foreach': ['g'], 'expression': 'p <= c'},
+            'piecewise': {'over': 'g', 'links': [['p', 'c'], ['q', 'c']], 'method': 'convex'},
+            'sos': {'variable': 'p', 'over': 'g', 'type': 1},
+        }
+        model = copy.deepcopy(SMALL_MODEL)
+        model.setdefault(section, {})[name] = declarations[section]
+        with pytest.raises(LanguageError, match='is not a name'):
+            to_spec(model)
+
+    def test_the_message_names_the_rewrite(self):
+        model = copy.deepcopy(SMALL_MODEL)
+        model['parameters']['a b'] = {'dims': ['g']}
+        message = _refusal(model)
+        assert "'a b'" in message, 'the offending name is quoted'
+        assert 'letter or an underscore' in message, (
+            'the message says what a name may be, not only that this is not one'
+        )
+
+    def test_an_ordinary_name_still_loads(self):
+        assert 'headroom_2' in _schema(**{'parameters.headroom_2': {'dims': ['g']}}).parameters

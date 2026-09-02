@@ -2,11 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Dim sets are a type system, checked before any data is bound.
-
-Every case here used to build a model and solve it — wrongly, or larger than
-the file reads as. None of them needs data to be caught.
-"""
+"""Dim sets are a type system, checked before any data is bound."""
 
 from __future__ import annotations
 
@@ -14,11 +10,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
-from math_spec.dimensions import DimensionError, _check_where_dims, _name_dims, check_schema, dims_of
+from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
+from math_spec.program import LookupPairComparisonNode, Mask
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from math_spec.where_parser import dims_read
-from tests.fixtures import OPERATOR_PROBES, override, schema_of
+from tests.fixtures import override, schema_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
@@ -67,6 +63,11 @@ def _dims(expr: str) -> frozenset[str]:
     return dims_of(expression_of(expr, s, Namespace.of(s), 't'), s, 't')
 
 
+@pytest.fixture
+def namespace() -> Namespace:
+    return Namespace.of(_schema())
+
+
 # ---------------------------------------------------------------------------
 # the rules
 # ---------------------------------------------------------------------------
@@ -88,9 +89,16 @@ def _dims(expr: str) -> frozenset[str]:
         ("shift(p, over=snapshot, offset=1, edge='wrap')", {'snapshot', 'generator'}),
         ("shift(p, over=snapshot, offset=spinup, edge='wrap')", {'snapshot', 'generator'}),
         ('sum_back(p, over=snapshot, within=spinup)', {'snapshot', 'generator'}),
-        # the same offset a `by=` makes readable: one lag per group it maps into
-        ("shift(p, over=snapshot, offset=bus_lead, edge='wrap', by=snap_bus)", {'snapshot', 'generator'}),
-        ('sum_back(p, over=snapshot, within=bus_lead, by=snap_bus)', {'snapshot', 'generator'}),
+        pytest.param(
+            "shift(p, over=snapshot, offset=bus_lead, edge='wrap', by=snap_bus)",
+            {'snapshot', 'generator'},
+            id='a-by-makes-an-offset-over-another-dim-readable-one-lag-per-group',
+        ),
+        pytest.param(
+            'sum_back(p, over=snapshot, within=bus_lead, by=snap_bus)',
+            {'snapshot', 'generator'},
+            id='a-by-makes-a-width-over-another-dim-readable-one-window-per-group',
+        ),
         pytest.param('p + 1', {'snapshot', 'generator'}, id='a-scalar-broadcasts'),
     ],
 )
@@ -173,7 +181,9 @@ def test_an_outer_product_is_legal_and_carries_both_dim_sets():
     piecewise epigraph, which multiplies a per-segment slope by a per-snapshot
     variable on purpose. The guard is the constraint rule below: the *frame*
     has to declare the result."""
-    assert _dims('cost + load') == {'generator', 'snapshot', 'bus'}
+    assert _dims('cost + load') == {'generator', 'snapshot', 'bus'}, (
+        'a binary operator unions its two sides rather than requiring one to contain the other'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -196,12 +206,12 @@ def test_an_outer_product_is_legal_and_carries_both_dim_sets():
         ),
         pytest.param(
             {'variables.cap': {'foreach': ['generator'], 'where': 'load > 0'}},
-            r"where-parameter 'load' has dims \['bus', 'snapshot'\]",
+            r"where-parameter 'load' reads dims \['bus', 'snapshot'\]",
             id='where-dim-outside-the-frame',
         ),
         pytest.param(
             {'variables.cap': {'foreach': ['generator'], 'where': 'snapshot > 0'}},
-            "where-comparison on dimension 'snapshot'",
+            "where-dimension 'snapshot'",
             id='where-comparison-on-a-dim-outside-the-frame',
         ),
         pytest.param(
@@ -216,19 +226,11 @@ def test_an_ill_dimensioned_declaration_is_rejected(patch, match):
         _schema(**patch)
 
 
-@pytest.mark.parametrize('path', OPERATOR_PROBES, ids=lambda p: p.name)
-def test_every_operator_probe_typechecks(path):
-    check_schema(schema_of(path))
-
-
 class TestTheEdgeRulesAreDecidedAtLoad:
-    """`to_spec` refuses what `to_program` used to, so the two cannot disagree.
+    """A file accepted by one door and refused by the next is the bug these close (#193).
 
-    Every rule here is decidable from the file — whether the operand carries a
-    variable, whether the offset is named, what the edge is written as. A file
-    accepted by one door and refused by the next is the bug these close (#193):
-    a repository of models compiled in CI would pass, and only a consumer that
-    built them would find out.
+    Every rule here is decidable from the file: whether the operand carries a
+    variable, whether the offset is named, what the edge is written as.
     """
 
     BASE: ClassVar[dict[str, Any]] = {
@@ -244,20 +246,38 @@ class TestTheEdgeRulesAreDecidedAtLoad:
             to_spec(raw)
         return str(caught.value)
 
-    def test_a_shift_over_data_with_no_edge_is_refused_by_to_spec(self):
-        assert 'leaves vacated positions with no value' in self._refused('p <= shift(cap, over=g, offset=1)')
-
-    def test_a_named_offset_with_no_edge_is_refused_by_to_spec(self):
-        assert 'per-entity offset cannot say yet' in self._refused('p <= shift(p, over=t, offset=lead)')
-
-    def test_a_nonzero_edge_over_a_variable_is_refused_by_to_spec(self):
-        assert 'only fill=0 is representable' in self._refused('p <= shift(p, over=t, offset=1, edge=2)')
-
-    def test_a_numeric_edge_on_a_window_is_refused_by_to_spec(self):
-        assert "takes 'wrap' or nothing" in self._refused('p <= sum_back(p, over=t, within=2, edge=0)')
-
-    def test_a_fractional_amount_is_refused_by_to_spec(self):
-        assert 'must be a whole number' in self._refused("p <= shift(p, over=t, offset=1.5, edge='wrap')")
+    @pytest.mark.parametrize(
+        ('expression', 'fragment'),
+        [
+            pytest.param(
+                'p <= shift(cap, over=g, offset=1)',
+                'leaves vacated positions with no value',
+                id='a-shift-over-data-with-no-edge',
+            ),
+            pytest.param(
+                'p <= shift(p, over=t, offset=lead)',
+                'per-entity offset cannot say yet',
+                id='a-named-offset-with-no-edge',
+            ),
+            pytest.param(
+                'p <= shift(p, over=t, offset=1, edge=2)',
+                'only fill=0 is representable',
+                id='a-nonzero-edge-over-a-variable',
+            ),
+            pytest.param(
+                'p <= sum_back(p, over=t, within=2, edge=0)',
+                "takes 'wrap' or nothing",
+                id='a-numeric-edge-on-a-window',
+            ),
+            pytest.param(
+                "p <= shift(p, over=t, offset=1.5, edge='wrap')",
+                'must be a whole number',
+                id='a-fractional-amount',
+            ),
+        ],
+    )
+    def test_an_edge_rule_is_refused_by_to_spec(self, expression, fragment):
+        assert fragment in self._refused(expression)
 
     @pytest.mark.parametrize('width', ['0', '1.5', '-2'], ids=['zero', 'fractional', 'negative'])
     def test_a_literal_width_below_one_is_refused_by_to_spec(self, width):
@@ -275,8 +295,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         literal zero vacates none, so there is nothing for an `edge=` to answer
         for. A *named* offset may be zero in the data and is not known here.
         """
-        raw = override(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, over=g, offset=0)'})
-        assert to_spec(raw) is not None, 'a zero step is none at all, so no edge policy is owed'
+        to_spec(override(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, over=g, offset=0)'}))
 
 
 # ---------------------------------------------------------------------------
@@ -296,44 +315,65 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         pytest.param('False', set(), id='a-literal-reads-nothing'),
     ],
 )
-def test_a_predicate_is_read_at_the_coordinates_its_leaves_are_read_at(predicate, expected):
-    """The dim rule for the predicate side, which a consumer masking rows needs.
-
-    Stated here rather than in whichever engine builds the mask: two consumers
-    answering it differently would restrict the same model differently, with no
-    error anywhere to say which was meant.
-    """
-    schema = to_spec(BASE)
-    ns = Namespace.of(schema)
-    name_dims = _name_dims(schema)
-
-    where = where_of(predicate, ns, 'test')
+def test_a_predicate_is_read_at_the_coordinates_its_leaves_are_read_at(namespace, predicate, expected):
+    """The dim rule for the predicate side."""
+    where = where_of(predicate, namespace, 'test')
 
     assert where is not None, 'a predicate the connectives cannot settle survives the fold'
-    assert dims_read(where, name_dims) == expected, f'{predicate!r} reads {expected}'
+    assert where.dims == expected
 
 
-def test_a_predicate_that_admits_every_row_has_no_leaves_left_to_read():
+def test_a_predicate_that_admits_every_row_has_no_leaves_left_to_read(namespace):
     """`where_of` folds an always-true mask to `None`, so there is no node to ask."""
-    schema = to_spec(BASE)
-
-    assert where_of('True', Namespace.of(schema), 'test') is None, 'folded away, not a predicate over nothing'
+    assert where_of('True', namespace, 'test') is None, 'folded away, not a predicate over nothing'
 
 
-def test_the_frame_check_and_the_reading_walk_the_same_leaves():
+def test_the_frame_check_and_the_reading_walk_the_same_leaves(namespace):
     """One rule, two readers — the check reports per leaf and so cannot take the union.
 
     A predicate outside the frame is refused by the *name* of the leaf that
-    left it, and that leaf is one `dims_read` counted: a check passing a mask
+    left it, and that leaf is one `Mask.dims` counted: a check passing a mask
     the builder then reads wider would be the divergence this shares a walk to
     prevent.
     """
-    schema = to_spec(BASE)
-    ns = Namespace.of(schema)
-
-    where = where_of('p_max > 0', ns, 'test')
+    where = where_of('p_max > 0', namespace, 'test')
     assert where is not None
 
-    assert dims_read(where, _name_dims(schema)) == {'generator'}, 'read at the generator axis'
-    with pytest.raises(DimensionError, match=r"where-parameter 'p_max' has dims \['generator'\]"):
-        _check_where_dims(where, schema, frozenset({'snapshot'}), 'test')
+    assert where.dims == {'generator'}, 'read at the generator axis'
+    with pytest.raises(DimensionError, match=r"where-parameter 'p_max' reads dims \['generator'\]"):
+        _check_where_dims(where, frozenset({'snapshot'}), 'test')
+
+
+@pytest.mark.parametrize(
+    ('predicate', 'expected'),
+    [
+        pytest.param('p_max > 0', {'p_max'}, id='a-parameter-comparison-names-the-parameter'),
+        pytest.param('spinup', {'spinup'}, id='a-parameter-bare-names-the-parameter'),
+        pytest.param('p', {'p'}, id='a-variable-bare-names-the-variable'),
+        pytest.param('snap_bus == "b1"', {'snap_bus'}, id='a-lookup-comparison-names-the-lookup'),
+        pytest.param('gen_bus', {'gen_bus'}, id='a-lookup-bare-names-the-lookup'),
+        pytest.param('snapshot == 0', set(), id='a-dimension-names-nothing-it-is-a-coordinate'),
+        pytest.param('position(snapshot) == 0', set(), id='a-position-names-nothing'),
+        pytest.param('p_max > 0 AND snapshot == 0', {'p_max'}, id='a-conjunction-drops-the-dimension-side'),
+        pytest.param('p_max > 0 AND snap_bus == "b1"', {'p_max', 'snap_bus'}, id='a-conjunction-unions-both-names'),
+        pytest.param('NOT p_max > 0', {'p_max'}, id='a-negation-names-what-it-negates'),
+        pytest.param('False', set(), id='a-literal-names-nothing'),
+    ],
+)
+def test_a_predicate_names_the_declarations_its_leaves_test(namespace, predicate, expected):
+    """A dimension names no declaration — it is a coordinate — so `names_read` drops it where `dims` keeps it."""
+    where = where_of(predicate, namespace, 'test')
+
+    assert where is not None, 'a predicate the connectives cannot settle survives the fold'
+    assert where.names_read == expected
+
+
+def test_names_read_takes_both_sides_of_a_lookup_pair():
+    """The one leaf that names two declarations — two maps compared on the dimension they share.
+
+    BASE has one lookup per dimension, so the pair is built directly rather than
+    resolved from a predicate string.
+    """
+    where = LookupPairComparisonNode('from_bus', 'to_bus', 'line', '!=')
+
+    assert Mask(where).names_read == {'from_bus', 'to_bus'}, 'a lookup pair names both maps it compares'

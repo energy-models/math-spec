@@ -2,15 +2,15 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Load-time validation: every expression and where string is parsed, expanded and resolved through the same pass the backends use, collecting every problem rather than raising on the first."""
+"""Load-time validation: the front door, and the pass that decides every expression."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, assert_never
+from typing import TYPE_CHECKING, Any, assert_never
 
+import math_spec.degree as degree
 from math_spec._yaml import read_yaml
-from math_spec.degree import carries_variable, check_expression
 from math_spec.dimensions import check_schema
 from math_spec.errors import LanguageError, SchemaError
 from math_spec.exclusivity import overlapping
@@ -33,8 +33,11 @@ from math_spec.expression_parser import (
 )
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
-from math_spec.resolution import Namespace, resolve_expression, resolve_where
-from math_spec.where_parser import WhereNode, parse_where
+from math_spec.program import BooleanLiteralNode
+from math_spec.resolution import Namespace, resolve_expression, resolve_where_text
+
+if TYPE_CHECKING:
+    from math_spec.program import WhereNode
 
 
 def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
@@ -54,8 +57,8 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
         LanguageError: Anything the language does not accept.
     """
     if isinstance(model, (list, tuple)):
-        msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict (#30).'
-        raise TypeError(msg)
+        msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
+        raise SchemaError(msg)
     if isinstance(model, Spec):
         return model
     return Spec.model_validate(model if isinstance(model, dict) else read_yaml(Path(model)))
@@ -107,7 +110,7 @@ def validate_expressions(schema: Spec) -> None:
             f'ambiguous with the dimension itself.'
             for f in sorted(formals & ns.dimensions)
         )
-        _check_template_names(body_ast, macro.template, context, ns, formals, errors)
+        _check_template_names(body_ast, context, ns, formals, errors)
 
     for ename, block in schema.expressions.items():
         context = f"Named expression '{ename}'"
@@ -119,20 +122,23 @@ def validate_expressions(schema: Spec) -> None:
         masks: dict[str, WhereNode] = {}
         for case_name, case in block.cases.items():
             arm_context = case_context(ename, case_name)
-            if (mask := _check_where(case.when, ns, arm_context, errors)) is not None:
-                masks[case_name] = mask
+            if (mask := resolve_where_text(case.when, ns, arm_context, errors)) is not None:
+                if isinstance(mask, BooleanLiteralNode):
+                    errors.append(_constant_arm(arm_context, value=mask.value))
+                else:
+                    masks[case_name] = mask
             _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=1)
         assert block.otherwise is not None
         _check_expression(block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, ceiling=1)
         if len(errors) == found:
-            errors.extend(f'{context}: {problem}' for problem in overlapping(masks, schema))
+            errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
 
     for vname, vdef in schema.variables.items():
-        _check_where(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
+        resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
 
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
-        _check_where(cdef.where, ns, context, errors)
+        resolve_where_text(cdef.where, ns, context, errors)
         _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
 
     if schema.objective is not None:
@@ -147,6 +153,23 @@ def validate_expressions(schema: Spec) -> None:
 def _prefixed(context: str, e: ValueError) -> str:
     """*e* under *context*, once — expansion errors already carry it."""
     return str(e) if str(e).startswith(context) else f'{context}: {e}'
+
+
+def _constant_arm(context: str, *, value: bool) -> str:
+    """The refusal for a case arm whose mask the connectives already decided.
+
+    Cases are proved apart rather than ranked, so an always-true arm is not
+    one that shadows the arms under it — it is one no other arm can be proved
+    apart from, and the ``otherwise`` it leaves is empty. An always-false arm
+    is the plainer half: nothing to apply to.
+    """
+    if value:
+        return (
+            f'{context}: the mask admits every row, so no other arm can hold anywhere '
+            f'and `otherwise:` covers nothing. Write the expression without `cases:`, '
+            f'or narrow the `when`.'
+        )
+    return f'{context}: the mask admits no row, so this arm never applies. Delete the arm, or widen the `when`.'
 
 
 def _check_expression(
@@ -176,7 +199,7 @@ def _check_expression(
     resolved = resolve_expression(ast, ns, context, errors)
     if resolved is None:
         return
-    if isinstance(resolved, ComparisonNode) and not carries_variable(resolved):
+    if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
         errors.append(
             f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
             f'Got: {expression!r}\n'
@@ -185,29 +208,9 @@ def _check_expression(
             f'bound, or drop the declaration and check the fact where the data is prepared.'
         )
     try:
-        check_expression(resolved, context, ceiling=ceiling)
+        degree.check_expression(resolved, context, ceiling=ceiling)
     except LanguageError as e:
         errors.append(str(e))
-
-
-def _check_where(
-    text: str | None,
-    ns: Namespace,
-    context: str,
-    errors: list[str],
-    self_variable: str | None = None,
-) -> WhereNode | None:
-    """Parse and resolve one mask, returning it — ``None`` where there is none to read, and where reading it failed."""
-    if text is None:
-        return None
-    try:
-        node = parse_where(text)
-    except ValueError as e:
-        errors.append(f'{context}: {e}')
-        return None
-    found = len(errors)
-    resolved = resolve_where(node, ns, context, errors, self_variable)
-    return resolved if len(errors) == found else None
 
 
 def _names_in(value: ArithmeticNode) -> tuple[str, ...]:
@@ -219,34 +222,30 @@ def _names_in(value: ArithmeticNode) -> tuple[str, ...]:
 
 def _check_template_names(
     node: ArithmeticNode,
-    template: str,
     context: str,
     ns: Namespace,
     formals: frozenset[str],
     errors: list[str],
 ) -> None:
-    """Name-check a macro body treating formals as bound — not resolution, since a formal has no kind until a call site binds it."""
+    """Name-check a macro body treating formals as bound — not resolution, since a formal has no kind until a call site binds it.
+
+    A case arm's value only: its ``when`` is the declaration's, checked there.
+    """
     if isinstance(node, NumberNode | VariableNode | ParameterNode | KwargNode | KeywordNode | NameListNode):
         return
 
     if isinstance(node, NameNode):
         if node.name not in formals and ns.kind(node.name) is None:
-            errors.append(
-                f"{context}: '{node.name}' not found in template {template!r}.\n"
-                f'  Formals:    {sorted(formals)}\n'
-                f'  Variables:  {sorted(ns.variables)}\n'
-                f'  Parameters: {sorted(ns.parameters)}\n'
-                f"Check for typos, or ensure '{node.name}' is declared."
-            )
+            errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
         return
 
     if isinstance(node, UnaryOperatorNode):
-        _check_template_names(node.operand, template, context, ns, formals, errors)
+        _check_template_names(node.operand, context, ns, formals, errors)
         return
 
     if isinstance(node, BinaryOperatorNode):
-        _check_template_names(node.left, template, context, ns, formals, errors)
-        _check_template_names(node.right, template, context, ns, formals, errors)
+        _check_template_names(node.left, context, ns, formals, errors)
+        _check_template_names(node.right, context, ns, formals, errors)
         return
 
     if isinstance(node, FunctionCallNode):
@@ -254,31 +253,30 @@ def _check_template_names(
         if builtin is None:
             errors.append(f'{context}: {unknown_operator_message(node.name)}')
         for arg in node.args:
-            _check_template_names(arg, template, context, ns, formals, errors)
-        dimension_kwargs, lookup_kwargs, edge_kwargs = (
-            (builtin.dimension_kwargs, builtin.lookup_kwargs, builtin.edge_kwargs) if builtin else ((), (), ())
-        )
+            _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():
-            if kwarg in dimension_kwargs:
-                if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
-                    errors.append(
-                        f'{context}: {node.name}({kwarg}={value.name}) does not name a '
-                        f'declared dimension or a formal of this macro.'
+            match builtin.kind_of(kwarg) if builtin else 'value':
+                case 'dimension':
+                    if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
+                        errors.append(
+                            f'{context}: {node.name}({kwarg}={value.name}) does not name a '
+                            f'declared dimension or a formal of this macro.'
+                        )
+                case 'lookup':
+                    errors.extend(
+                        f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
+                        for one in _names_in(value)
+                        if one not in formals and ns.kind(one) != 'lookup'
                     )
-            elif kwarg in lookup_kwargs:
-                errors.extend(
-                    f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
-                    for one in _names_in(value)
-                    if one not in formals and ns.kind(one) != 'lookup'
-                )
-            elif kwarg not in edge_kwargs:
-                _check_template_names(value, template, context, ns, formals, errors)
+                case 'value':
+                    _check_template_names(value, context, ns, formals, errors)
+                case 'edge':
+                    pass  # a keyword or a number: nothing in it to name
         return
 
     if isinstance(node, CasesNode):
-        # the values only: a `when` is the declaration's, checked there
         for arm in node.arms:
-            _check_template_names(arm.value, template, context, ns, formals, errors)
+            _check_template_names(arm.value, context, ns, formals, errors)
         return
 
     assert_never(node)

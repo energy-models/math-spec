@@ -38,9 +38,10 @@ from math_spec.expression_parser import (
 
 
 def carries_variable(node: ExpressionNode) -> bool:
-    """Whether *node* contains a decision variable.
+    """Whether *node* contains a decision variable, over the core AST.
 
-    An unresolved node reaching here is a resolution bug, so it is refused
+    :func:`math_spec.program.carries_variable` answers the same question over a
+    program. An unresolved node reaching here is a resolution bug, so it is refused
     rather than silently answered.
     """
     if isinstance(node, VariableNode):
@@ -70,23 +71,7 @@ def _adds(node: ExpressionNode) -> bool:
     return False
 
 
-def is_quadratic(node: ExpressionNode) -> bool:
-    """Whether *node* multiplies two variable-carrying operands.
-
-    What :func:`check_binary` refuses at ``ceiling=1``, asked of a whole
-    expression rather than of one node.
-    """
-    if (
-        isinstance(node, BinaryOperatorNode)
-        and node.op == '*'
-        and carries_variable(node.left)
-        and carries_variable(node.right)
-    ):
-        return True
-    return any(is_quadratic(child) for child in children(node))
-
-
-def check_binary(node: BinaryOperatorNode, context: str | None = None, *, ceiling: int = 1) -> None:
+def check_binary(node: BinaryOperatorNode, context: str, *, ceiling: int) -> None:
     """Check that *node* stays inside the degree its position allows.
 
     Args:
@@ -159,7 +144,6 @@ def _above_the_ceiling_message(where: str, degree: int) -> str:
 
 
 def _a_variable_under_a_power_message(where: str) -> str:
-    """A variable base is a degree question; a variable exponent has no degree until the data arrives."""
     return (
         f'{where}`**` is not in the language over variables: it takes a base and an exponent that '
         f'carry none.\n'
@@ -170,7 +154,6 @@ def _a_variable_under_a_power_message(where: str) -> str:
 
 
 def _degree_two_here_message(where: str) -> str:
-    """Names the position, not the math — the same product is admissible one declaration away."""
     return (
         f'{where}both factors of a product contain variables, which is degree 2. '
         f'The **objective and constraints** take that; a bound, a named expression '
@@ -202,14 +185,15 @@ def _multi_term(node: ExpressionNode) -> bool:
     operands; a product is multi-term exactly when one of its factors is, a
     coefficient not multiplying the count. Structural, so it needs no data.
     """
-    if isinstance(node, FunctionCallNode):
-        if node.name in _REDUCTIONS and any(carries_variable(a) for a in node.args):
-            return True
-        return any(_multi_term(c) for c in children(node))
-    if isinstance(node, BinaryOperatorNode):
-        if node.op in ('+', '-') and carries_variable(node.left) and carries_variable(node.right):
-            return True
-        return _multi_term(node.left) or _multi_term(node.right)
+    if isinstance(node, FunctionCallNode) and node.name in _REDUCTIONS and any(carries_variable(a) for a in node.args):
+        return True
+    if (
+        isinstance(node, BinaryOperatorNode)
+        and node.op in ('+', '-')
+        and carries_variable(node.left)
+        and carries_variable(node.right)
+    ):
+        return True
     return any(_multi_term(c) for c in children(node))
 
 
