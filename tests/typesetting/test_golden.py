@@ -17,11 +17,11 @@ import pytest
 
 from math_spec.expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
+from math_spec.program import WhereNode
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.validation import to_spec
-from math_spec.where_parser import WhereNode
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
 
@@ -111,10 +111,10 @@ def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells():
 
 
 def _nodes(tree: object) -> Iterator[object]:
-    """Every dataclass node in *tree*, the root first, through fields holding one, a list or a dict of them."""
+    """Every dataclass node in *tree*, the root first, through fields holding one, a tuple or a mapping of them."""
     yield tree
     for value in vars(tree).values():
-        for child in value.values() if isinstance(value, dict) else value if isinstance(value, list) else [value]:
+        for child in value.values() if isinstance(value, Mapping) else value if isinstance(value, tuple) else [value]:
             if is_dataclass(child):
                 yield from _nodes(child)
 
@@ -127,10 +127,10 @@ def _rendered_trees() -> Iterator[object]:
     for name, block in schema.constraints.items():
         yield expression_of(block.expression, schema, namespace, f'constraint {name!r}')
         if (mask := where_of(block.where, namespace, f'constraint {name!r}')) is not None:
-            yield mask
+            yield mask.root
     for name, block in schema.variables.items():
         if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
-            yield mask
+            yield mask.root
 
 
 #: What resolution never hands the walk: the three nodes it types away, and the
@@ -146,6 +146,12 @@ UNRESOLVED = {
     'KeywordNode',
 }
 
+#: A dataclass the walk steps *through* rather than renders: an arm has no
+#: branch of its own — its ``when`` and ``value`` do. Not a member of any node
+#: union, so it is subtracted from what the tree walk finds rather than added
+#: to what the vocabulary declares.
+CARRIERS = {'CaseArm'}
+
 
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     """A construct added to the language is a case this fixture owes output for.
@@ -155,7 +161,7 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     differently — ``at`` and ``sum(by=)`` both print a coordinate map — so a
     walk arm no fixture reaches is one whose output nobody has ever read.
     """
-    kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)}
+    kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)} - CARRIERS
     declared = {node.__name__ for node in (*get_args(WhereNode), *get_args(ArithmeticNode), ComparisonNode)}
     assert kinds == declared - UNRESOLVED, (
         f'tests/typesetting/golden/model.yaml reaches {sorted(kinds - declared)} and misses '
@@ -184,8 +190,6 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 UNREACHABLE = {
     'if isinstance(node, UnresolvedNode | KwargNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
-    'if isinstance(node, UnresolvedWhereNode):',
-    "msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'",
     'if not isinstance(node, ComparisonNode):',
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
     'raise AssertionError(msg)',

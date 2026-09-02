@@ -17,6 +17,70 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.66](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.65...v0.0.0-alpha.66) (2026-09-01)
+
+
+### Performance
+
+* a model loads, lowers and typesets three to eight times faster ([#357](https://github.com/energy-models/math-spec/issues/357)) ([ea6fe79](https://github.com/energy-models/math-spec/commit/ea6fe798c85118750294b642463b16aa0935065f))
+
+## [0.0.0-alpha.65](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.64...v0.0.0-alpha.65) (2026-09-01)
+
+
+### Refactoring
+
+* **language:** a translation policy and a bound's side name the values they can be, rather than being a string ([#354](https://github.com/energy-models/math-spec/issues/354)) ([d212157](https://github.com/energy-models/math-spec/commit/d2121572496bf7e624cfa5e38c348cfbed4b71ad))
+* **typesetting:** a format spells the operators the language names, rather than any string a walk happens to ask for ([#352](https://github.com/energy-models/math-spec/issues/352)) ([12b4041](https://github.com/energy-models/math-spec/commit/12b404126dbe00e28ad16b4736dbe90dfda833d0))
+
+## [0.0.0-alpha.64](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.63...v0.0.0-alpha.64) (2026-09-01)
+
+
+### Features
+
+* **parser:** a refused where string names the rewrite for pandas and C connective habits ([#346](https://github.com/energy-models/math-spec/issues/346)) ([3dbd9b2](https://github.com/energy-models/math-spec/commit/3dbd9b261dd82fc5cd52924ecdd03b18ddd88c14))
+
+## [0.0.0-alpha.63](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.62...v0.0.0-alpha.63) (2026-09-01)
+
+
+### Refactoring
+
+* **language:** an operator, a declaration kind and a notation name the values they can be, rather than being a string ([#345](https://github.com/energy-models/math-spec/issues/345)) ([3f3f858](https://github.com/energy-models/math-spec/commit/3f3f8581baabc51882ad4e1d97fb774ae1944dc3))
+
+## [0.0.0-alpha.62](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.61...v0.0.0-alpha.62) (2026-09-01)
+
+
+### Bug Fixes
+
+* **language:** a declaration named what no expression could write is refused, rather than loading unreferenceable ([#340](https://github.com/energy-models/math-spec/issues/340)) ([b865bc1](https://github.com/energy-models/math-spec/commit/b865bc15fde7e5a7714cdf809f5f0b9e6e6f44e5))
+
+## [0.0.0-alpha.61](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.60...v0.0.0-alpha.61) (2026-09-01)
+
+
+### Performance
+
+* **program:** a mask walks its leaves once and every question reads that walk ([#338](https://github.com/energy-models/math-spec/issues/338)) ([337d169](https://github.com/energy-models/math-spec/commit/337d1697724980356c8d911bf21242a19a6f517a))
+
+## [0.0.0-alpha.60](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.59...v0.0.0-alpha.60) (2026-09-01)
+
+
+### Bug Fixes
+
+* **language:** the language reference states which case arms are refused, and the refusal says what actually breaks ([#336](https://github.com/energy-models/math-spec/issues/336)) ([01920d1](https://github.com/energy-models/math-spec/commit/01920d1be4f6dbd6965f6f0e7e683543384cc744))
+
+## [0.0.0-alpha.59](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.58...v0.0.0-alpha.59) (2026-09-01)
+
+
+### Bug Fixes
+
+* **parser:** a parsed expression cannot be rewritten under another pass ([#329](https://github.com/energy-models/math-spec/issues/329)) ([fcfb7b8](https://github.com/energy-models/math-spec/commit/fcfb7b8a3e2c66cd03da316994154b9c2dd493d0))
+
+## [0.0.0-alpha.58](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.57...v0.0.0-alpha.58) (2026-09-01)
+
+
+### Features
+
+* **program:** a resolved where is a first-class Mask whose leaves carry their dims, and the where grammar is package-private ([#327](https://github.com/energy-models/math-spec/issues/327)) ([53cc352](https://github.com/energy-models/math-spec/commit/53cc3522e917a5849ce3150585c2c9e05a8ea162))
+
 ## [0.0.0-alpha.57](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.56...v0.0.0-alpha.57) (2026-09-01)
 
 

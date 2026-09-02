@@ -14,7 +14,8 @@ Nothing here has seen data.
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, get_args, override
+import re
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, cast, get_args, override
 
 from pydantic import (
     BaseModel,
@@ -31,6 +32,7 @@ from pydantic import (
 )
 
 from math_spec.errors import did_you_mean, schema_error
+from math_spec.expression_parser import NAME
 from math_spec.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
@@ -88,6 +90,11 @@ DimensionDtype = Literal['float', 'int', 'str', 'datetime']
 #: indexes by.
 ParameterDtype = Literal['float', 'int', 'bool', 'str']
 
+#: What a *name* a where comparison tests may be — a parameter's dtype or a
+#: dimension's, since a lookup's is its target's. The union rather than either
+#: half, because a mask names all three kinds and reads the dtype the same way.
+DeclaredDtype = ParameterDtype | DimensionDtype
+
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
 
@@ -122,7 +129,7 @@ DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
 #: The parameter dtypes that stand where a number belongs — a coefficient, a
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
-NUMERIC_DTYPES = frozenset({'float', 'int'})
+NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})
 VARIABLE_DOMAINS = frozenset(get_args(VariableDomain))
 VARIABLE_ABSENCE = frozenset(get_args(VariableAbsence))
 CURVATURES = frozenset(get_args(Curvature))
@@ -559,7 +566,7 @@ class PiecewiseBlock(_StrictBlock):
     @classmethod
     def _check_method(cls, v: Any, handler: ValidatorFunctionWrapHandler) -> PiecewiseMethod:
         try:
-            return handler(v)
+            return cast('PiecewiseMethod', handler(v))
         except ValidationError:
             options = '\n'.join(f'  {name}: {what}' for name, what in PIECEWISE_METHODS.items())
             msg = f'unknown piecewise method {v!r}. The formulations are:\n{options}'
@@ -709,7 +716,7 @@ class Spec(_StrictBlock):
     #: The :class:`_ExpandedSpec` built from this model. Owned entirely — written
     #: and read — by :func:`~math_spec.piecewise.expand_piecewise`; only
     #: the slot lives here.
-    _expansion: Any = PrivateAttr(default=None)
+    _expansion: _ExpandedSpec | None = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
     #: the field is additive. **0 means unstable** — the surface may change in
@@ -774,7 +781,7 @@ class Spec(_StrictBlock):
         []`` is a scalar). On the serializer so that ``model_dump``,
         :meth:`to_dict` and :meth:`to_yaml` agree.
         """
-        return _without_absence(handler(self))
+        return cast('dict[str, Any]', _without_absence(handler(self)))
 
     def to_dict(self) -> dict[str, Any]:
         """The model as plain data. ``to_spec(m.to_dict())`` reproduces it."""
@@ -789,6 +796,32 @@ class Spec(_StrictBlock):
         import yaml
 
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
+
+    @model_validator(mode='after')
+    def _names_are_names(self) -> Spec:
+        """Every declaration is keyed by something an expression could write.
+
+        Read off the model's own mappings rather than a list of sections, so a
+        section added later cannot be forgotten here — every mapping a Spec
+        carries is keyed by a declaration name.
+
+        An unwritable name is worse than unreachable. ``points: ''`` named a
+        parameter no expression can, and the expansion's ``if mask:`` read it
+        as a block masking nothing, so the weights came out unmasked.
+        """
+        errors = [
+            f'{section}: {name!r} is not a name. A declaration is named the way an expression '
+            f'writes it — a letter or an underscore, then letters, digits or underscores — so '
+            f'nothing can refer to this one. Rename it.'
+            for section, value in self
+            if isinstance(value, dict)
+            for name in value
+            if not re.fullmatch(NAME, name)
+        ]
+        if errors:
+            raise ValueError('\n'.join(errors))
+
+        return self
 
     @model_validator(mode='after')
     def _validate_references(self) -> Spec:

@@ -47,20 +47,19 @@ from math_spec.expression_parser import (
     case_context,
 )
 from math_spec.operators import BUILTINS, edge_error
-from math_spec.resolution import Namespace, expression_of, where_of
-from math_spec.where_parser import (
+from math_spec.program import (
     DimensionComparisonNode,
     DimensionPositionNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
     VariableDefinedNode,
-    WhereNode,
     _atom_dims,
-    atoms,
 )
+from math_spec.resolution import Namespace, expression_of, where_of
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
+    from math_spec.program import Mask
 
 
 def dims_of(
@@ -322,7 +321,7 @@ def _edge_fill(edge: ArithmeticNode | None, context: str) -> float | None:
         return None
     if not isinstance(edge, NumberNode):
         raise DimensionError(f'{context}: {edge_error("shift", "...")}')
-    return float(edge.value)
+    return edge.value
 
 
 def _named_offset_edge_message(name: str) -> str:
@@ -424,7 +423,7 @@ def check_schema(schema: Spec) -> None:
     for vname, vdef in schema.variables.items():
         frame = frozenset(vdef.foreach)
         context = f"Variable '{vname}'"
-        _check_where_dims(where_of(vdef.where, ns, context), schema, frame, context)
+        _check_where_dims(where_of(vdef.where, ns, context), frame, context)
         for side in ('lower', 'upper'):
             bound = getattr(vdef.bounds, side)
             if isinstance(bound, str):
@@ -442,7 +441,7 @@ def check_schema(schema: Spec) -> None:
         frame = frozenset(block.foreach or [])
         for case_name, case in block.cases.items():
             context = case_context(ename, case_name)
-            _check_where_dims(where_of(case.when, ns, context), schema, frame, context)
+            _check_where_dims(where_of(case.when, ns, context), frame, context)
             _check_value_dims(case.expression, schema, ns, frame, context)
         assert block.otherwise is not None
         _check_value_dims(block.otherwise, schema, ns, frame, case_context(ename, None))
@@ -450,7 +449,7 @@ def check_schema(schema: Spec) -> None:
     for cname, cdef in schema.constraints.items():
         frame = frozenset(cdef.foreach)
         context = f"Constraint '{cname}'"
-        _check_where_dims(where_of(cdef.where, ns, context), schema, frame, context)
+        _check_where_dims(where_of(cdef.where, ns, context), frame, context)
         got = dims_of(expression_of(cdef.expression, schema, ns, context), schema, context)
         if got != frame:
             stray, missing = sorted(got - frame), sorted(frame - got)
@@ -497,8 +496,7 @@ def _check_value_dims(
 
 
 def _check_where_dims(
-    node: WhereNode | None,
-    schema: Spec,
+    mask: Mask | None,
     frame: frozenset[str],
     context: str,
 ) -> None:
@@ -508,18 +506,17 @@ def _check_where_dims(
     *open*, silently including everything. It is rejected here, at load time.
 
     **Which dims a leaf reads is not decided here.** That is
-    :func:`~math_spec.where_parser.dims_read`'s rule, and this walks the same
-    leaves by the same reading, so a mask cannot be checked against one answer
-    and built against another. What is decided here is the wording, and the
-    wording is per leaf: a reader told only that the predicate leaves the frame
-    would still have to work out which half of it did.
+    :func:`~math_spec.program._atom_dims`'s rule over what resolution stamped
+    on the leaf, so a mask cannot be checked against one answer and built
+    against another. What is decided here is the wording, and the wording is
+    per leaf: a reader told only that the predicate leaves the frame would
+    still have to work out which half of it did.
     """
-    if node is None:
+    if mask is None:
         return
 
-    name_dims = _name_dims(schema)
-    for atom in atoms(node):
-        if not (outside := sorted(_atom_dims(atom, name_dims) - frame)):
+    for atom in mask.atoms:
+        if not (outside := sorted(_atom_dims(atom) - frame)):
             continue
         if isinstance(atom, (ParameterDefinedNode, ParameterComparisonNode)):
             raise DimensionError(
@@ -544,11 +541,3 @@ def _check_where_dims(
             f'read on the dim it maps out of, so that dim has to be one the '
             f'declaration ranges over.'
         )
-
-
-def _name_dims(schema: Spec) -> dict[str, tuple[str, ...]]:
-    """Every declared name to the dims it is read through — what :func:`~math_spec.where_parser.dims_read` takes."""
-    return {
-        **{name: tuple(pdef.dims) for name, pdef in schema.parameters.items()},
-        **{name: tuple(vdef.foreach) for name, vdef in schema.variables.items()},
-    }

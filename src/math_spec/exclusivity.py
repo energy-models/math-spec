@@ -48,8 +48,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from math_spec.resolution import Namespace
-from math_spec.where_parser import (
+from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -63,12 +62,13 @@ from math_spec.where_parser import (
     ParameterDefinedNode,
     VariableDefinedNode,
 )
+from math_spec.resolution import Namespace
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
-    from math_spec.model import Spec
-    from math_spec.where_parser import PredicateOperator, WhereNode
+    from math_spec.model import DeclaredDtype, Spec
+    from math_spec.program import PredicateOperator, WhereNode
 
 #: The product of the pair's subjects' cells is enumerated, so the bound is on
 #: the product rather than on any one subject. Two real masks carry two to four
@@ -78,7 +78,7 @@ CELL_BUDGET = 8192
 
 #: The dtypes an ordering is decided against. Everything else compares only
 #: with == and !=, which need no order on the values.
-_ORDERED_DTYPES = ('float', 'int', 'datetime')
+_ORDERED_DTYPES: tuple[DeclaredDtype, ...] = ('float', 'int', 'datetime')
 
 
 class Undecidable(Exception):  # noqa: N818
@@ -119,7 +119,7 @@ def overlapping(cases: Mapping[str, WhereNode], schema: Spec) -> Iterator[str]:
             )
 
 
-def _witness(first: WhereNode, second: WhereNode, dtypes: Mapping[str, str]) -> str | None:
+def _witness(first: WhereNode, second: WhereNode, dtypes: Mapping[str, DeclaredDtype]) -> str | None:
     """A coordinate both masks claim, rendered — ``None`` where no cell holds both."""
     frame = _Frame.of([first, second], dtypes)
     if frame.size > CELL_BUDGET:
@@ -194,7 +194,7 @@ class _Frame:
     subjects: dict[int, Subject]
 
     @classmethod
-    def of(cls, masks: Iterable[WhereNode], dtypes: Mapping[str, str]) -> _Frame:
+    def of(cls, masks: Iterable[WhereNode], dtypes: Mapping[str, DeclaredDtype]) -> _Frame:
         values: dict[Subject, set[Any]] = {}
         subjects: dict[int, Subject] = {}
         for mask in masks:
@@ -228,7 +228,7 @@ def _walk(node: WhereNode) -> Iterator[WhereNode]:
         yield node
 
 
-def _observe(node: WhereNode, subject: Subject, values: set[Any], dtypes: Mapping[str, str]) -> None:
+def _observe(node: WhereNode, subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> None:
     """Record what *node* says about its subject: a position, or a literal."""
     if isinstance(node, DimensionPositionNode):
         # Every comparator reads here: `position()` converts the dimension to
@@ -270,13 +270,14 @@ def _subject_of(node: WhereNode) -> Subject | None:
         case LookupPairComparisonNode(name=name, other=other):
             return Subject('lookup_pair', name, other)
         case _:
-            # As in `dimensions.py` and the typesetter: an unresolved node here
-            # is a caller that skipped `resolve_where`, not a model to refuse.
+            # As in `program._atoms`, which `Mask` exhausts at construction: an
+            # unresolved node here is a caller that skipped `resolve_where`,
+            # not a model to refuse.
             msg = f'{type(node).__name__} reached the exclusivity check unresolved.'
             raise AssertionError(msg)
 
 
-def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, str]) -> list[Cell]:
+def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> list[Cell]:
     """Every region *subject*'s value can sit in — ordinary values first.
 
     The order is the order :func:`_witness` searches, so a refusal names an
@@ -312,7 +313,7 @@ def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, str]) ->
     return cells
 
 
-def _numeric(dtype: str | None, literals: set[Any]) -> bool:
+def _numeric(dtype: DeclaredDtype | None, literals: set[Any]) -> bool:
     """Is this subject a magnitude? The declaration says so where it is known."""
     if dtype is not None:
         return dtype in ('float', 'int')
@@ -363,6 +364,8 @@ def _between(value: Any, following: Any, step: Any, *, discrete: bool) -> Any | 
     """
     if discrete:
         return value + step if following - value > step else None
+    # pyrefly: ignore[no-any-return-implicit] -- declaring `Any` would silence this and stop
+    # saying that the discrete branch has nothing to return.
     return (value + following) / 2.0
 
 

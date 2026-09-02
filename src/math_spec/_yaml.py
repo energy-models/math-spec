@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -43,15 +43,29 @@ from math_spec.errors import SchemaError
 _BOOL_1_2 = re.compile(r'^(?:true|True|TRUE|false|False|FALSE)$')
 
 
-class _StrictLoader(yaml.SafeLoader):
+if TYPE_CHECKING:
+    #: Typed as PyYAML's own loader, because typeshed declares ``CSafeLoader``
+    #: unconditionally while the attribute is absent from a PyYAML built
+    #: without libyaml — a source install, where the fallback below is the
+    #: whole point. Every member this module touches is declared on both.
+    _BaseLoader = yaml.SafeLoader
+else:
+    # libyaml's scanner where the install has one. It is the same document: both
+    # classes drive the Python `Resolver` — so the 1.2 boolean table below reaches
+    # either — and the same `SafeConstructor`, and both hand back a node tree
+    # carrying the marks `_check_duplicate_keys` reports lines from.
+    _BaseLoader = getattr(yaml, 'CSafeLoader', yaml.SafeLoader)
+
+
+class _StrictLoader(_BaseLoader):
     """SafeLoader with 1.2 booleans. Duplicate keys are checked on the nodes."""
 
 
-#: The resolver table is rebuilt, not edited in place: it is inherited from
-#: ``SafeLoader``, and mutating it would reconfigure PyYAML for the whole process.
+#: The resolver table is rebuilt, not edited in place: it is inherited from the
+#: safe loader, and mutating it would reconfigure PyYAML for the whole process.
 _StrictLoader.yaml_implicit_resolvers = {
     ch: [(tag, rx) for tag, rx in pairs if tag != 'tag:yaml.org,2002:bool']
-    for ch, pairs in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    for ch, pairs in _BaseLoader.yaml_implicit_resolvers.items()
 }
 _StrictLoader.add_implicit_resolver('tag:yaml.org,2002:bool', _BOOL_1_2, list('tTfF'))
 
@@ -69,7 +83,8 @@ def _check_duplicate_keys(node: yaml.Node, origin: str) -> None:
     """
     if isinstance(node, yaml.MappingNode):
         seen: dict[Any, int] = {}
-        for key_node, value_node in node.value:
+        pairs: list[tuple[yaml.Node, yaml.Node]] = node.value
+        for key_node, value_node in pairs:
             line = key_node.start_mark.line + 1
             if not isinstance(key_node, yaml.ScalarNode):
                 msg = f'{origin}:{line}: a key must be a scalar — a name, not a list or a mapping.'

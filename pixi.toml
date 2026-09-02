@@ -60,6 +60,10 @@ pytest-xdist = ">=3.8"
 # that reports one more thing turns a green branch red without a commit. Held
 # to the same version the lint feature pins ruff to.
 pyrefly = "==1.2.0"
+# yaml ships no annotations of its own, and `untyped-import` is an error: the
+# stubs are what make the two `import yaml` lines in src/ answerable rather
+# than suppressed.
+types-pyyaml = ">=6.0"
 [feature.test.pypi-dependencies]
 # The PyPI bindings, which compile in-process — not conda-forge's `typst`,
 # which is the CLI binary and cannot be imported. Three compile tests in

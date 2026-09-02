@@ -31,7 +31,11 @@ if TYPE_CHECKING:
 def test_a_format_spells_every_operator_the_walk_can_emit(fmt: Format):
     """A missing spelling is a KeyError deep in a walk, on whichever model
     first happens to use that operator. Checking the table instead makes it a
-    failure the format's own author sees."""
+    failure the format's own author sees.
+
+    This is also what keeps `OperatorName` and `OPERATOR_SPELLINGS` in step:
+    a spelling for a name the vocabulary does not have is a type error at its
+    own row, and a name with no spelling anywhere is this."""
     assert set(fmt.operators) == OPERATOR_NAMES
 
 

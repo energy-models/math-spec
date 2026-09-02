@@ -13,11 +13,12 @@ of it is about syntax, so none is duplicated per format.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from math_spec.dimensions import dims_of
 from math_spec.expression_parser import (
     ArithmeticNode,
+    BinaryOperator,
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
@@ -32,13 +33,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
-from math_spec.resolution import (
-    expression_of,
-    where_of,
-)
-from math_spec.typesetting.format import Entry, Glossary, Line
-from math_spec.typesetting.symbols import postsolve_expressions, printed_expressions
-from math_spec.where_parser import (
+from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
@@ -46,14 +41,21 @@ from math_spec.where_parser import (
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
+    Mask,
     NotNode,
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
-    UnresolvedWhereNode,
+    PredicateOperator,
     VariableDefinedNode,
     WhereNode,
 )
+from math_spec.resolution import (
+    expression_of,
+    where_of,
+)
+from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
+from math_spec.typesetting.symbols import postsolve_expressions, printed_expressions
 
 if TYPE_CHECKING:
     import datetime
@@ -67,16 +69,26 @@ if TYPE_CHECKING:
 #: Operator precedence, for deciding brackets. A reduction sits at the bottom
 #: with ``+``: an unbracketed sum reads as capturing whatever follows it, so as
 #: a factor it has to be bracketed.
-_PRECEDENCE = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 3}
+_PRECEDENCE: dict[BinaryOperator, int] = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 3}
 _ATOM = 5
 
-_PREDICATES = {'==': 'equal', '!=': 'ne', '<=': 'le', '>=': 'ge', '<': 'lt', '>': 'gt'}
+_PREDICATES: dict[PredicateOperator, OperatorName] = {
+    '==': 'equal',
+    '!=': 'ne',
+    '<=': 'le',
+    '>=': 'ge',
+    '<': 'lt',
+    '>': 'gt',
+}
 
 
-#: Edge policy -> the operator pair that renders it, backward then forward.
-#: Three policies get three spellings because they are three different
-#: equations at the boundary — the vacated row dropped, wrapped, or filled.
-_TRANSLATIONS = {
+#: What a translation does with the row the shift vacates. Three policies get
+#: three spellings because they are three different equations at the boundary.
+TranslationPolicy = Literal['plain', 'wrap', 'edge']
+
+#: Edge policy -> the operator pair that renders it, backward then forward —
+#: the vacated row dropped, wrapped, or filled.
+_TRANSLATIONS: dict[TranslationPolicy, tuple[OperatorName, OperatorName]] = {
     'plain': ('minus', 'plus'),
     'wrap': ('cyclic_minus', 'cyclic_plus'),
     'edge': ('edge_minus', 'edge_plus'),
@@ -110,7 +122,7 @@ class _Step:
     """
 
     by: int | str
-    policy: str
+    policy: TranslationPolicy
     fill: str = ''
     #: The rendered group a partitioned translation walks inside, if it has
     #: one. It rides the operator rather than the index: what changes is where
@@ -219,12 +231,12 @@ class Walk:
         self.namespace = namespace
         self.symbols = symbols
         self.format = fmt
-        self.policies: set[str] = set()
+        self.policies: set[TranslationPolicy] = set()
         self.grouped = False
         self.positions: set[str] = set()
         self.numeric_coordinates: set[str] = set()
 
-    def op(self, name: str) -> str:
+    def op(self, name: OperatorName) -> str:
         return self.format.operators[name]
 
     def translation(self, step: _Step) -> str:
@@ -334,7 +346,7 @@ class Walk:
         negated_factor = op == '*' and isinstance(operand, UnaryOperatorNode) and operand.op == '-'
         need = _ATOM if negated_factor else _PRECEDENCE[op] + (1 if op == '-' else 0)
         right = self.arithmetic(operand, ctx, need=need)
-        names = {'*': 'cdot', '+': 'plus', '-': 'minus'}
+        names: dict[BinaryOperator, OperatorName] = {'*': 'cdot', '+': 'plus', '-': 'minus'}
         return self.format.joined([left, right], self.op(names[op])), precedence
 
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
@@ -464,23 +476,20 @@ class Walk:
 
     def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
         if isinstance(node, BooleanLiteralNode):
-            assert not node.value, 'resolution folds a True literal away before anything prints it'
+            assert not node.value, 'an always-true mask is folded away or refused before anything prints it'
             return self.op('false'), _ATOM
 
         if isinstance(node, ParameterDefinedNode):
-            block = self.schema.parameters[node.name]
-            indexed = ctx.indexed(self.symbols.name[node.name], list(block.dims))
-            if block.dtype == 'bool':
+            indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
+            if self.schema.parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
             return f'{indexed} {self.format.prose(" is defined")}', 2
 
         if isinstance(node, VariableDefinedNode):
-            dims = list(self.schema.variables[node.name].foreach)
-            return f'{ctx.indexed(self.symbols.name[node.name], dims)} {self.format.prose(" exists")}', 2
+            return f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}', 2
 
         if isinstance(node, ParameterComparisonNode):
-            dims = list(self.schema.parameters[node.name].dims)
-            left = ctx.indexed(self.symbols.name[node.name], dims)
+            left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             return f'{left} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
 
         if isinstance(node, DimensionComparisonNode):
@@ -519,10 +528,6 @@ class Walk:
             sides = [self.where(node.left, ctx, need=0), self.where(node.right, ctx, need=0)]
             return self.format.joined(sides, self.op('or')), 0
 
-        if isinstance(node, UnresolvedWhereNode):
-            msg = f'{type(node).__name__} reached the typesetter; resolve the where string first.'
-            raise AssertionError(msg)
-
         assert_never(node)
 
     def literal(self, value: float | str | datetime.date) -> str:
@@ -546,16 +551,14 @@ class Walk:
             size = self.format.subscript(size, [grouping])
         return f'{self.format.cardinality(size)} {self.op("minus")} {self.number(-at)}'
 
-    def conjoined(self, ctx: _Context, *nodes: WhereNode | None) -> str:
-        """The mask on a quantifier, as one condition.
+    def condition(self, ctx: _Context, mask: Mask | None) -> str:
+        """The mask on a quantifier, printed.
 
         A mask every row passes arrives as ``None`` — resolution folds it,
         so this prints what a program carries — and a quantifier with no
         condition prints none.
         """
-        kept = [n for n in nodes if n is not None]
-        parts = [self.where(n, ctx, need=1 if len(kept) > 1 else 0) for n in kept]
-        return self.format.joined(parts, self.op('and')) if parts else ''
+        return '' if mask is None else self.where(mask.root, ctx)
 
     def quantifier(self, dims: list[str], condition: str) -> str:
         if not dims and not condition:
@@ -593,7 +596,7 @@ class Walk:
                 msg = f'{context}: expected a comparison, got {type(node).__name__}'
                 raise AssertionError(msg)
             ctx = self.context(frame=block.foreach)
-            condition = self.conjoined(ctx, where_of(block.where, self.namespace, context))
+            condition = self.condition(ctx, where_of(block.where, self.namespace, context))
             lines.append(
                 Line(
                     label=name,
@@ -666,7 +669,7 @@ class Walk:
             ctx = self.context(frame=block.foreach)
             symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
             where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
-            condition = self.quantifier(list(block.foreach), self.conjoined(ctx, where))
+            condition = self.quantifier(list(block.foreach), self.condition(ctx, where))
             lower, upper = block.bounds.lower, block.bounds.upper
 
             if block.domain == 'binary':

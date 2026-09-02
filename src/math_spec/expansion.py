@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, assert_never, overload
 
+from math_spec._where_parser import parse_where
 from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     ArithmeticNode,
@@ -27,7 +28,6 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
-from math_spec.where_parser import parse_where
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -106,7 +106,7 @@ def _descend(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arithmeti
     if isinstance(node, FunctionCallNode):
         return FunctionCallNode(
             node.name,
-            [recurse(a) for a in node.args],
+            tuple(recurse(a) for a in node.args),
             {k: recurse(v) for k, v in node.kwargs.items()},
         )
     if isinstance(node, CasesNode):
@@ -159,6 +159,7 @@ def _parse_cased(name: str, block: ExpressionBlock, context: str) -> CasesNode:
     arms = []
     for label, case in block.cases.items():
         value = _parse_body(case.expression, f"named expression '{name}', case '{label}'", context)
+        # pyrefly: ignore[bad-argument-type]  # the field is typed as resolution leaves it
         arms.append(CaseArm(label, parse_where(case.when), value))
     assert block.otherwise is not None
     fallback = _parse_body(block.otherwise, f"named expression '{name}', otherwise", context)

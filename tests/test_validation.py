@@ -15,10 +15,10 @@ import pytest
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
 from math_spec.lowering import to_program
+from math_spec.program import DimensionPositionNode
 from math_spec.resolution import Namespace, where_of
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
-from math_spec.where_parser import DimensionPositionNode
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
 
 if TYPE_CHECKING:
@@ -399,7 +399,9 @@ class TestPositionResolves:
         ids=['first', 'first of each period', 'first of each season, by a label space'],
     )
     def test_it_resolves(self, mask: str, position: int, by: str | None):
-        node = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
+        assert resolved is not None
+        node = resolved.root
         assert isinstance(node, DimensionPositionNode)
         assert node.name == 'snapshot'
         assert node.position == position
@@ -721,6 +723,30 @@ class TestExpressionCases:
         assert list(block.cases) == ['opening']
         assert block.otherwise == '0'
 
+    @pytest.mark.parametrize(
+        ('when', 'fragment'),
+        [
+            pytest.param(
+                'position(snapshot) == 0 OR True',
+                'no other arm can hold anywhere',
+                id='folds-to-every-row',
+            ),
+            pytest.param('False', 'this arm never applies', id='admits-no-row'),
+        ],
+    )
+    def test_an_arm_the_data_cannot_decide_is_refused(self, when: str, fragment: str):
+        """A mask that folds to a literal is not a case, and the refusal names the rewrite.
+
+        The arms are kept apart by proof rather than ranked, so an always-true
+        one is not an arm that shadows the rest — it is one no other arm can be
+        proved apart from, and it leaves `otherwise:` nothing. An always-false
+        one never applies. Either way nothing the data decides is left, and the
+        typesetter has no region to draw.
+        """
+        model = _cased(cases={'opening': {'when': when, 'expression': 'p_max'}})
+        with pytest.raises(SchemaError, match=fragment):
+            to_spec(model)
+
     def test_it_round_trips(self):
         """The mapping form goes back out as it came in, `otherwise:` and all."""
         schema = to_spec(_cased(description='what is spare'))
@@ -915,3 +941,71 @@ class TestANumberIsAnExpression:
         """`true` is not arithmetic, and an error naming the type reads better than one naming `'True'`."""
         with pytest.raises(SchemaError, match='valid string'):
             _schema(**{'expressions.always': {'expression': True}})
+
+
+class TestADeclarationIsNamed:
+    """A declaration's key must be a name the expression grammar could write.
+
+    Nothing checked it, so `parameters: {'': {...}}` loaded, and a piecewise
+    block naming it under `points:` had its mask silently dropped —
+    `if mask:` in the expansion read a declared parameter as "this block
+    masks nothing", and the weights came out unmasked. Every unwritable name
+    has the same shape: a declaration no expression can reach, in a language
+    whose promise is that the file decides.
+    """
+
+    @pytest.mark.parametrize(
+        'name',
+        [
+            pytest.param('', id='empty'),
+            pytest.param(' ', id='a-space'),
+            pytest.param('a b', id='two-words'),
+            pytest.param('1x', id='leading-digit'),
+            pytest.param('a-b', id='a-hyphen'),
+            pytest.param('a.b', id='a-dot'),
+        ],
+    )
+    @pytest.mark.parametrize(
+        'section',
+        [
+            'dimensions',
+            'lookups',
+            'parameters',
+            'variables',
+            'expressions',
+            'macros',
+            'constraints',
+            'piecewise',
+            'sos',
+        ],
+    )
+    def test_a_name_no_expression_could_write_is_refused(self, section: str, name: str):
+        declarations: dict[str, Any] = {
+            'dimensions': {'dtype': 'str'},
+            'lookups': {'over': 'g', 'into': 'h'},
+            'parameters': {'dims': ['g']},
+            'variables': {'foreach': ['g']},
+            'expressions': {'expression': 'c'},
+            'macros': {'args': ['x'], 'template': 'x * 2'},
+            'constraints': {'foreach': ['g'], 'expression': 'p <= c'},
+            'piecewise': {'over': 'g', 'links': [['p', 'c'], ['q', 'c']], 'method': 'convex'},
+            'sos': {'variable': 'p', 'over': 'g', 'type': 1},
+        }
+        model = copy.deepcopy(SMALL_MODEL)
+        model.setdefault(section, {})[name] = declarations[section]
+        with pytest.raises(LanguageError, match='is not a name'):
+            to_spec(model)
+
+    def test_the_message_names_the_rewrite(self):
+        model = copy.deepcopy(SMALL_MODEL)
+        model['parameters']['a b'] = {'dims': ['g']}
+        with pytest.raises(LanguageError) as caught:
+            to_spec(model)
+        message = str(caught.value)
+        assert "'a b'" in message, 'the offending name is quoted'
+        assert 'letter or an underscore' in message, (
+            'the message says what a name may be, not only that this is not one'
+        )
+
+    def test_an_ordinary_name_still_loads(self):
+        assert 'headroom_2' in _schema(**{'parameters.headroom_2': {'dims': ['g']}}).parameters

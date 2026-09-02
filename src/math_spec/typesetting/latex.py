@@ -18,7 +18,7 @@ from math_spec.typesetting.format import OPERATOR_SPELLINGS
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from math_spec.typesetting.format import Entry, Line
+    from math_spec.typesetting.format import Entry, Line, Notation, OperatorName
 
 _ESCAPES = {
     '\\': r'\textbackslash{}',
@@ -50,13 +50,13 @@ class LatexFormat:
     """See :class:`math_spec.typesetting.format.Format`."""
 
     suffix: ClassVar[str] = '.tex'
-    notation: ClassVar[str] = 'latex'
+    notation: ClassVar[Notation] = 'latex'
     #: TeX's own em-dash ligature.
     dash: ClassVar[str] = '---'
     #: Between the rows of a ``cases`` block.
     cases_row: ClassVar[str] = r' \\ '
 
-    operators: ClassVar[Mapping[str, str]] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
+    operators: ClassVar[Mapping[OperatorName, str]] = {name: latex for name, (latex, _) in OPERATOR_SPELLINGS.items()}
 
     # -- atoms -------------------------------------------------------------
 

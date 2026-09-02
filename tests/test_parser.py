@@ -8,8 +8,17 @@ Nothing here resolves names — a parse result still holds raw
 ``NameNode``/``Unresolved*`` nodes.
 """
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
+import math_spec.program as program_module
+from math_spec._where_parser import (
+    UnresolvedComparisonNode,
+    UnresolvedNameNode,
+    UnresolvedPositionNode,
+    parse_where,
+)
 from math_spec.errors import SchemaError
 from math_spec.expression_parser import (
     BinaryOperatorNode,
@@ -21,17 +30,21 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
-from math_spec.program import conjuncts
-from math_spec.where_parser import (
-    AndNode,
-    BooleanLiteralNode,
-    NotNode,
-    OrNode,
-    UnresolvedComparisonNode,
-    UnresolvedNameNode,
-    UnresolvedPositionNode,
-    parse_where,
-)
+from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, _conjuncts
+
+
+def test_the_grammar_builds_the_program_s_own_node_classes():
+    """The connectives and literals in a parse are `math_spec.program`'s classes.
+
+    The parser constructs the resolved vocabulary's connectives directly, so a
+    consumer's `isinstance` against the program's classes holds on any tree —
+    two homes for `AndNode` would make it hold on neither.
+    """
+    tree = parse_where('a AND NOT b OR True')
+    assert type(tree) is program_module.OrNode
+    assert type(tree.left) is program_module.AndNode
+    assert type(tree.left.right) is program_module.NotNode
+    assert type(tree.right) is program_module.BooleanLiteralNode
 
 
 @pytest.mark.parametrize(
@@ -90,8 +103,59 @@ def test_a_call_carries_its_positional_and_keyword_arguments():
     assert 'over' in node.kwargs
 
 
+def test_a_parsed_expression_cannot_be_rewritten_under_another_pass():
+    """A pass handed a parsed tree could rewrite the operand another one reads.
+
+    The expression nodes were plain dataclasses while every where and program
+    node was frozen (#197): `node.op = '<='` flipped a shared comparison and
+    `node.kwargs['over'] = ...` re-aimed a reduction, with no error anywhere.
+    A caller's own dict is copied on the way in, so holding it is not a
+    back door either.
+    """
+    node = parse_expression('sum(p * cost, over=generator) == load')
+
+    with pytest.raises(FrozenInstanceError):
+        node.op = '>='
+    call = node.left
+    with pytest.raises(TypeError, match='does not support item assignment'):
+        call.kwargs['over'] = NameNode('snapshot')
+
+    passed = {'over': NameNode('generator')}
+    built = FunctionCallNode('sum', (NameNode('p'),), passed)
+    passed['over'] = NameNode('snapshot')
+    assert built.kwargs == {'over': NameNode('generator')}, 'the dict handed in was copied, not aliased'
+    assert isinstance(hash(built), int), 'kwargs sits outside the hash, so a call hashes like every other node'
+
+
 def test_an_unparseable_expression_is_an_error():
     with pytest.raises(SchemaError, match='Failed to parse'):
+        parse_expression('a +')
+
+
+@pytest.mark.parametrize(
+    ('text', 'rewrite'),
+    [
+        pytest.param('p < p_max', r'the senses are <=, >= and ==\. Write the bound inclusive', id='strict-less'),
+        pytest.param('p > 0', r'the senses are <=, >= and ==\. Write the bound inclusive', id='strict-greater'),
+        pytest.param('status != 0', r'write the test in where:, where != is legal', id='not-equals-is-a-where-matter'),
+        pytest.param('p = p_max', r'Equality between two sides is written ==', id='a-lone-equals'),
+        pytest.param('p ^ 2', r"power is written '\*\*', not '\^'", id='caret-for-power'),
+        pytest.param('0 <= p <= p_max', r'Split the chain into two constraints', id='a-chained-comparison'),
+    ],
+)
+def test_a_parse_failure_names_the_rewrite(text, rewrite):
+    """The predictable mistakes are refused with their rewrite, not the grammar's complaint alone.
+
+    The message rule everywhere else in the language — an error names the
+    rewrite — stops at the parser's raw `Expected end of text, found '<'`
+    otherwise, on the one door a model author is most likely to hit.
+    """
+    with pytest.raises(SchemaError, match=rewrite):
+        parse_expression(text)
+
+
+def test_a_failure_with_no_diagnosis_still_shows_the_grammar_s_complaint():
+    with pytest.raises(SchemaError, match='Expected'):
         parse_expression('a +')
 
 
@@ -192,9 +256,11 @@ def test_and_binds_tighter_than_or():
     ids=['single', 'pair', 'chain'],
 )
 def test_conjuncts_flattens_the_and_spine(text, expected):
-    """A chain the grammar left-folds into nested `AndNode`s comes back flat, so a
-    consumer asks for the conjuncts rather than re-deriving the flatten rule (#312)."""
-    assert [n.name for n in conjuncts(parse_where(text))] == expected
+    """A chain the grammar left-folds into nested `AndNode`s comes back flat (#312).
+
+    `_conjuncts` is the one home of the flatten rule; `Mask.conjuncts` is the
+    door a consumer asks it through."""
+    assert [n.name for n in _conjuncts(parse_where(text))] == expected
 
 
 @pytest.mark.parametrize(
@@ -205,7 +271,7 @@ def test_conjuncts_flattens_the_and_spine(text, expected):
 def test_conjuncts_does_not_split_or_or_not(text):
     """The split stops at the first node that is not an `AND`: an `OR` or a `NOT` is one
     claim the mask makes, so the whole node is a single conjunct."""
-    result = conjuncts(parse_where(text))
+    result = _conjuncts(parse_where(text))
     assert result == (parse_where(text),), 'a non-AND top node is its own only conjunct'
 
 
@@ -266,7 +332,60 @@ def test_the_old_index_spelling_names_its_rewrite():
     assert "write 'position(dim) == i'" in str(excinfo.value)
 
 
+@pytest.mark.parametrize(
+    ('text', 'rewrite'),
+    [
+        pytest.param('p_max > 0 & committable', r'written AND', id='ampersand'),
+        pytest.param('p_max > 0 && committable', r'written AND', id='doubled-ampersand'),
+        pytest.param('p_max > 0 | committable', r'written OR', id='pipe'),
+        pytest.param('p_max > 0 || committable', r'written OR', id='doubled-pipe'),
+        pytest.param('~committable', r'written NOT, before the predicate', id='tilde'),
+        pytest.param('!committable', r'written NOT, before the predicate', id='bang'),
+        pytest.param('status = 0', r'equality is written ==', id='a-lone-equals'),
+    ],
+)
+def test_a_where_parse_failure_names_the_rewrite(text, rewrite):
+    """The connective habits of pandas and C are refused with their rewrite, not the grammar's complaint alone.
+
+    The expression side got this in #332; a where string invites the same
+    habits harder — `&`, `|` and `~` are exactly how the masks these strings
+    describe are written in pandas.
+    """
+    with pytest.raises(SchemaError, match=rewrite):
+        parse_where(text)
+
+
+def test_a_legal_where_operator_is_never_diagnosed():
+    """`!=`, `<` and `>` are predicates here, unlike on the expression side, so no diagnosis may fire on them."""
+    assert parse_where('status != 0') == UnresolvedComparisonNode('status', '!=', 0.0)
+    assert parse_where('p_max < 5') == UnresolvedComparisonNode('p_max', '<', 5.0)
+
+
 def test_an_unrelated_parse_failure_says_nothing_about_positions():
     with pytest.raises(SchemaError) as excinfo:
         parse_where('p_max >')
     assert 'position()' not in str(excinfo.value)
+
+
+def test_a_string_parses_to_one_shared_tree():
+    """A model writes the same expression far more often than it writes distinct ones, and parses each twice over — once to validate the file, once to lower it.
+
+    Sharing the tree rather than rebuilding it is what makes that cheap, and it
+    is safe for exactly the reason
+    `test_a_lowered_mask_cannot_be_rewritten_in_place` proves: a node cannot be
+    rewritten, so two declarations holding one tree cannot disagree about it.
+    Drop the memo and this passes on `==` alone — `is` is the claim.
+    """
+    text = 'sum(p * cost, over=generator) == load'
+    assert parse_expression(text) is parse_expression(text), 'the same expression string parses to one tree'
+    assert parse_where('p_max > 0') is parse_where('p_max > 0'), 'and so does the same where string'
+
+    with pytest.raises(FrozenInstanceError):
+        parse_expression(text).left = NumberNode(0.0)
+
+
+def test_a_parse_failure_is_raised_every_time_it_is_asked_for():
+    """A memo that cached the failure would hand the second caller a traceback from the first, and the message names the rewrite for the string in hand."""
+    for _ in range(2):
+        with pytest.raises(SchemaError, match=r"power is written '\*\*'"):
+            parse_expression('p ^ 2')

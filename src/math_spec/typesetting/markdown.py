@@ -19,7 +19,7 @@ from math_spec.typesetting.latex import LatexFormat
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from math_spec.typesetting.format import Entry, Line
+    from math_spec.typesetting.format import Entry, Line, OperatorName
 
 
 def _cell(text: str) -> str:
@@ -45,7 +45,7 @@ class MarkdownFormat(LatexFormat):
     #: as a literal comma and `\;` as a semicolon — `\forall\, s` renders as
     #: "∀, s". Letter-named macros (`\thinspace`, `\quad`) pass through
     #: untouched, and MathJax treats them identically.
-    operators: ClassVar[Mapping[str, str]] = {
+    operators: ClassVar[Mapping[OperatorName, str]] = {
         **LatexFormat.operators,
         'forall': r'\forall\thinspace',
         'such_that': r'\thinspace:\thinspace',

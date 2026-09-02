@@ -21,10 +21,54 @@ Two rules make the split hold:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Protocol
+from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, get_args
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+#: The language a symbol table's entries are written in, and the one a format
+#: reads them as. Markdown is absent because its math is MathJax's, so it reads
+#: ``latex``; nothing translates between the two.
+Notation = Literal['latex', 'typst']
+
+#: The set form, for the sidecar that has to check a string against it.
+NOTATIONS = frozenset(get_args(Notation))
+
+#: Every operator a walk can name. A walk asks for one by name and a format
+#: spells it, so neither keeps a list of its own; the spellings are below, one
+#: row per name, and a name with no row is a type error at that row's table.
+OperatorName = Literal[
+    'cdot',
+    'plus',
+    'minus',
+    'equal',
+    'le',
+    'ge',
+    'lt',
+    'gt',
+    'ne',
+    'in',
+    'and',
+    'or',
+    'not',
+    'false',
+    'forall',
+    'such_that',
+    'infinity',
+    'cyclic_minus',
+    'cyclic_plus',
+    'edge_minus',
+    'edge_plus',
+    'times',
+    'maps_to',
+    'reals',
+    'integers',
+    'binary_set',
+    'sos_set',
+    'position',
+    'minimize',
+    'maximize',
+]
 
 #: Every operator a walk can emit, by the name the walk uses for it, with its
 #: LaTeX spelling first and its Typst spelling second — one row per operator,
@@ -33,7 +77,7 @@ if TYPE_CHECKING:
 #: ``maps_to`` is the → in a coordinate map, and the three translations are
 #: three models: plain leaves the vacated position absent, ``cyclic_*`` wraps,
 #: ``edge_*`` fills it with the value it carries as a subscript.
-OPERATOR_SPELLINGS: dict[str, tuple[str, str]] = {
+OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
     'cdot': (r'\cdot', 'dot'),
     'plus': ('+', '+'),
     'minus': ('-', '-'),
@@ -66,8 +110,8 @@ OPERATOR_SPELLINGS: dict[str, tuple[str, str]] = {
     'maximize': (r'\max', 'max'),
 }
 
-#: The operator vocabulary itself.
-OPERATOR_NAMES = frozenset(OPERATOR_SPELLINGS)
+#: The set form, for the test pinning each format's table against the vocabulary.
+OPERATOR_NAMES = frozenset(get_args(OperatorName))
 
 
 @dataclass(frozen=True)
@@ -106,11 +150,10 @@ class Format(Protocol):
 
     #: File suffix, for the CLI's default output name.
     suffix: ClassVar[str]
-    #: The notation a symbol table must be written in — ``latex`` or ``typst``;
-    #: markdown reads ``latex``, its math being MathJax's.
-    notation: ClassVar[str]
+    #: The notation a symbol table must be written in.
+    notation: ClassVar[Notation]
     #: Spelling for each of :data:`OPERATOR_NAMES`.
-    operators: ClassVar[Mapping[str, str]]
+    operators: ClassVar[Mapping[OperatorName, str]]
     #: The em dash in prose: TeX and Typst read ``---`` as one, Markdown does not.
     dash: ClassVar[str]
 

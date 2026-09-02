@@ -128,14 +128,15 @@ builds reads the second.
 That seam is [one page](docs/reference/language/reading.md), and it is the whole
 of it.
 
-And the same file says, in print:
+And that same `spec` says, in print — read and checked once, then printed
+three ways:
 
 ```python
 symbols = 'dispatch.symbols.yaml'  # optional: a dict, a path, or a SymbolTable
 
-ms.to_latex('dispatch.yaml', symbols=symbols)  # amsmath align
-ms.to_typst('dispatch.yaml')  # compiles without a TeX toolchain
-ms.to_markdown('dispatch.yaml')  # renders as-is on GitHub
+ms.to_latex(spec, symbols=symbols)  # amsmath align
+ms.to_typst(spec)  # compiles without a TeX toolchain
+ms.to_markdown(spec)  # renders as-is on GitHub
 ```
 
 Drop the symbol table and the same model prints as $\mathit{load}_t$,

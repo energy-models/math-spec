@@ -49,7 +49,7 @@ math carries because a sink must build it all lift for a body nothing ingests:
   zero the quotient is absent there, the null a masked row leaves
   ([absence](absence.md#post-solve-values-follow-the-rows-that-were-built)).
 - **A divisor, a base or an exponent may be a sum.** The math refuses `x / (a +
-  b)` and `(1 + rate) ** period` even with no variable in sight, because a
+b)` and `(1 + rate) ** period` even with no variable in sight, because a
   quotient compiles to one reciprocal factor and neither operator distributes
   over `+`. A post-solve-grade body compiles to nothing, so the precompute a
   math-grade entry needs — `(1 + rate) ** period` bound as a parameter — is no
@@ -78,7 +78,7 @@ behind a call.
 ## The math never reads one — checked where the math reads
 
 An entry's declaration is not degree-checked at all — there is nothing to
-check it *against* until something reads it. Degree is a rule about the
+check it _against_ until something reads it. Degree is a rule about the
 position doing the reading, so it fires again, unconditionally, on the
 expanded tree of **every** constraint, the objective, each bound, `where`
 string and piecewise link — the same rules and the same messages that would
@@ -102,7 +102,7 @@ after the solve, never for feeding one.
 A post-solve-grade entry is **observable**, like a math-grade one: after a
 solve, a consumer reads its value back over its own dims, which fall out of
 its body exactly as a math-grade entry's do — no `foreach`, no `where`. The
-difference is only *when*: a math-grade entry can be read before the solve as
+difference is only _when_: a math-grade entry can be read before the solve as
 a linear form a sink ingests, a post-solve-grade one only after, as the
 arithmetic over solved numbers it is. Where a masked row leaves a solved
 quantity absent, the post-solve value is absent there too — the null reading a
@@ -112,6 +112,6 @@ lookup gets
 Nothing in this repository evaluates a post-solve-grade body; computing the
 number is a consumer's business
 ([what counts as language](../../about/what-counts-as-language.md)). The
-language's job is to say, once and unambiguously, what the number *is* — and
+language's job is to say, once and unambiguously, what the number _is_ — and
 [typeset](../typeset.md) prints it that way too, as `lcoe = system_cost /
 delivered`, whatever names it inlines from.

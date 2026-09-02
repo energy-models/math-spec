@@ -389,3 +389,6 @@ $RECYCLE.BIN/
 # the built site; `site_dir` in mkdocs.yml is `.docs`, and Read the Docs builds
 # it from source, so it is never committed.
 .docs/
+
+# internal development stays untracked
+dev/

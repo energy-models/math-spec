@@ -195,9 +195,11 @@ Only the notation is a choice, and **How** shows the one that was made here.
         },
     }
 
-    ms.to_latex('dispatch.yaml', symbols=symbols)  # amsmath align
-    ms.to_typst('dispatch.yaml')  # compiles without a TeX toolchain
-    ms.to_markdown('dispatch.yaml')  # renders as-is on GitHub
+    spec = ms.to_spec('dispatch.yaml')  # read and checked once, then printed three ways
+
+    ms.to_latex(spec, symbols=symbols)  # amsmath align
+    ms.to_typst(spec)  # compiles without a TeX toolchain
+    ms.to_markdown(spec)  # renders as-is on GitHub
     ```
 
     `symbols` is optional — drop it and the same model prints as

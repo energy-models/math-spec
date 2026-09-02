@@ -17,10 +17,17 @@ question is whether the notation is right, rather than how to print it.
 ```python
 import math_spec as ms
 
-print(ms.to_latex('model.yaml'))  # amsmath align
-print(ms.to_typst('model.yaml'))  # compiles without a TeX toolchain
-print(ms.to_markdown('model.yaml'))  # renders as-is on GitHub
+spec = ms.to_spec('model.yaml')  # read and checked once, then printed three ways
+
+print(ms.to_latex(spec))  # amsmath align
+print(ms.to_typst(spec))  # compiles without a TeX toolchain
+print(ms.to_markdown(spec))  # renders as-is on GitHub
 ```
+
+Each of the three takes what `to_spec` takes — a path, the YAML, a mapping —
+and reads it. Hand it the `Spec` instead and the file is read and checked once
+rather than once per format, which is also how a `Spec` you already hold gets
+printed without a second trip through the loader.
 
 Or from a shell, where this belongs in a Makefile next to `pdflatex`:
 

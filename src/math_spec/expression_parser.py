@@ -16,6 +16,8 @@ position (operands, args, kwargs) accepts it and nothing else, and
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import pyparsing as pp
@@ -23,21 +25,33 @@ import pyparsing as pp
 from math_spec.errors import SchemaError
 
 if TYPE_CHECKING:
-    from math_spec.where_parser import WhereNode
+    from collections.abc import Mapping
 
+    from math_spec.program import WhereNode
+
+#: The relation a comparison may carry — the three an expression may be
+#: written with, which is what a constraint's sense is read off.
 ComparisonOperator = Literal['<=', '>=', '==']
+
+#: The sign a unary operator applies to its operand.
+UnaryOperator = Literal['+', '-']
+
+#: The arithmetic a binary operator may spell. Closed by the grammar, and the
+#: vocabulary a renderer dispatching on :attr:`BinaryOperatorNode.op`
+#: switches over — it keeps no list of its own.
+BinaryOperator = Literal['+', '-', '*', '/', '**']
 
 # ---------------------------------------------------------------------------
 # AST nodes
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class NumberNode:
     value: float
 
 
-@dataclass
+@dataclass(frozen=True)
 class NameNode:
     """An unresolved token — a name whose *kind* is not yet known.
 
@@ -50,21 +64,21 @@ class NameNode:
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class VariableNode:
     """A resolved reference to a declared decision variable."""
 
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParameterNode:
     """A resolved reference to a declared parameter."""
 
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class DimensionNode:
     """A resolved reference to a declared dimension.
 
@@ -75,7 +89,7 @@ class DimensionNode:
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class NameListNode:
     """A bracketed list of names in a kwarg value — ``sum(x, by=[a, b])``.
 
@@ -90,7 +104,7 @@ class NameListNode:
         return shown(self.names)
 
 
-@dataclass
+@dataclass(frozen=True)
 class LookupNode:
     """A resolved reference to one or more declared lookups, legal only in a kwarg value.
 
@@ -109,7 +123,7 @@ class LookupNode:
         return shown(self.names)
 
 
-@dataclass
+@dataclass(frozen=True)
 class KeywordNode:
     """A quoted closed keyword in a kwarg value — ``shift(..., edge='wrap')``.
 
@@ -119,7 +133,7 @@ class KeywordNode:
     value: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class EdgeNode:
     """A resolved edge policy, legal only as an ``edge=`` value.
 
@@ -130,27 +144,39 @@ class EdgeNode:
     policy: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class UnaryOperatorNode:
-    op: str
+    op: UnaryOperator
     operand: ArithmeticNode
 
 
-@dataclass
+@dataclass(frozen=True)
 class BinaryOperatorNode:
-    op: str
+    op: BinaryOperator
     left: ArithmeticNode
     right: ArithmeticNode
 
 
-@dataclass
+@dataclass(frozen=True)
 class FunctionCallNode:
+    """An operator or macro call — like every node, unrewritable once built.
+
+    ``kwargs`` is copied behind a read-only view at construction, so neither a
+    holder of the mapping passed in nor a reader of the node can rewrite an
+    argument under another pass; it is excluded from the hash because a
+    mapping has none, which is lawful — equal nodes still hash equal on
+    ``name`` and ``args``.
+    """
+
     name: str
-    args: list[ArithmeticNode] = field(default_factory=list)
-    kwargs: dict[str, ArithmeticNode] = field(default_factory=dict)
+    args: tuple[ArithmeticNode, ...] = ()
+    kwargs: Mapping[str, ArithmeticNode] = field(default_factory=dict, hash=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, 'kwargs', MappingProxyType(dict(self.kwargs)))
 
 
-@dataclass
+@dataclass(frozen=True)
 class CaseArm:
     """One region of a :class:`CasesNode`: where it applies, and the value there.
 
@@ -184,7 +210,7 @@ def case_context(name: str, label: str | None) -> str:
     return f"Named expression '{name}', {where}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CasesNode:
     """A value defined by region — a named expression's ``cases:``, inlined.
 
@@ -221,7 +247,7 @@ ArithmeticNode = (
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ComparisonNode:
     op: ComparisonOperator
     left: ArithmeticNode
@@ -300,7 +326,7 @@ def _build_grammar() -> pp.ParserElement:
     # pyrefly: ignore[implicit-any-lambda]
     number = inf_literal | pp.Regex(rf'{REAL}|\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
 
-    name = pp.Regex(r'[a-zA-Z_][a-zA-Z0-9_]*')
+    name = pp.Regex(NAME)
 
     quoted = (pp.QuotedString("'") | pp.QuotedString('"')).set_parse_action(lambda t: KeywordNode(str(t[0])))
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
@@ -352,7 +378,7 @@ def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
             kwargs[k] = v
         else:
             args.append(item)
-    return FunctionCallNode(name=name, args=args, kwargs=kwargs)
+    return FunctionCallNode(name=name, args=tuple(args), kwargs=kwargs)
 
 
 def _make_left_assoc(tokens: pp.ParseResults) -> Any:
@@ -369,21 +395,68 @@ def _make_power(tokens: pp.ParseResults) -> Any:
     return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
 
+#: What an expression writes to refer to a declaration, and so what a
+#: declaration may be named.
+NAME = r'[a-zA-Z_][a-zA-Z0-9_]*'
+
 #: A float — a fractional part or an exponent. A sign is the unary operator's.
 REAL = r'\d+\.\d*([eE][+-]?\d+)?|\d+[eE][+-]?\d+'
 
 _GRAMMAR = _build_grammar()
 
 
+def _named_rewrite(text: str, loc: int) -> str | None:
+    """The rewrite for a predictable mistake at the parse failure, or ``None``.
+
+    Keyed on the token standing where the grammar gave up, so a diagnosis
+    never fires on an expression that parses — ``over=d`` inside a call is
+    legal and reaches no failure, while a lone ``=`` between two sides does.
+    A two-character token is tested before its one-character prefix.
+    """
+    rest = text[loc:].lstrip()
+    if rest.startswith(('<=', '>=', '==')):
+        return (
+            f"'{rest[:2]}' follows a complete comparison, and an expression carries "
+            f'one comparison, at the top. Split the chain into two constraints.'
+        )
+    if rest.startswith('!='):
+        return (
+            "'!=' is not a constraint sense — the senses are <=, >= and ==. "
+            'Holding rows apart is a where matter: write the test in where:, where != is legal.'
+        )
+    if rest.startswith(('<', '>')):
+        return f"'{rest[0]}' is not a constraint sense — the senses are <=, >= and ==. Write the bound inclusive."
+    if rest.startswith('='):
+        return (
+            "'=' on its own is how a kwarg is written inside a call, like sum(x, over=d). "
+            'Equality between two sides is written ==.'
+        )
+    if rest.startswith('^'):
+        return "power is written '**', not '^'."
+    return None
+
+
+@lru_cache(maxsize=4096)
 def parse_expression(text: str) -> ExpressionNode:
     """Parse a math expression string into an AST.
 
+    The same string parses to the same tree, and a node is unrewritable once
+    built, so the tree is shared rather than rebuilt — a model writes its
+    expressions far more often than it writes distinct ones, and every
+    expression is parsed twice over, once to validate the file and once to
+    lower it.
+
     Raises:
-        SchemaError: If *text* is not an expression of the language.
+        SchemaError: If *text* is not an expression of the language. A
+            predictable mistake — a strict or chained comparison, ``!=``, a
+            lone ``=``, ``^`` for power — is named with its rewrite before the
+            grammar's own complaint.
     """
     try:
         result = _GRAMMAR.parse_string(text, parse_all=True)
     except pp.ParseException as e:
-        msg = f'Failed to parse expression: {text!r}\n{e}'
+        rewrite = _named_rewrite(text, e.loc)
+        hint = f'{rewrite}\n' if rewrite is not None else ''
+        msg = f'Failed to parse expression: {text!r}\n{hint}{e}'
         raise SchemaError(msg) from e
     return cast('ExpressionNode', result[0])
