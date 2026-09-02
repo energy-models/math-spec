@@ -2,20 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-r"""The seam between *what* a model says and *how* a format spells it.
+"""The seam between *what* a model says and *how* a format spells it.
 
-One walk, many formats. :mod:`math_spec.typesetting.walk` decides where a bracket is needed,
-which dimension a reduction binds and where a mask belongs; a :class:`Format`
-decides only that a sum is ``\sum_{…}`` or ``sum_(…)``.
-
-Two rules make the split hold:
-
-- **Everything a walk emits is *bare math*.** No ``$``, no environment; a
-  format wraps it with :meth:`Format.math` to embed it in prose, so the walk
-  never knows which mode it is in.
-- **A format spells; it never decides.** No method takes an AST node or a
-  schema. If a format had to look at the model, the question belongs in the
-  walk.
+The split, and each module's role in it, are in ``README.md`` beside this file.
 """
 
 from __future__ import annotations
@@ -148,14 +137,14 @@ class Glossary:
 class Format(Protocol):
     """How one output format spells what a walk emits."""
 
-    #: File suffix, for the CLI's default output name.
-    suffix: ClassVar[str]
     #: The notation a symbol table must be written in.
     notation: ClassVar[Notation]
     #: Spelling for each of :data:`OPERATOR_NAMES`.
     operators: ClassVar[Mapping[OperatorName, str]]
     #: The em dash in prose: TeX and Typst read ``---`` as one, Markdown does not.
     dash: ClassVar[str]
+    #: Between the rows of a ``cases`` block.
+    cases_row: ClassVar[str]
 
     # -- atoms -------------------------------------------------------------
 
@@ -204,7 +193,7 @@ class Format(Protocol):
     def parenthesise(self, inner: str) -> str: ...
 
     def cardinality(self, inner: str) -> str:
-        """How many members a set has: ``|T|``. A fence, so not an infix entry in :data:`OPERATOR_NAMES`."""
+        """An absolute-value fence: ``|x|``."""
         ...
 
     def fraction(self, numerator: str, denominator: str) -> str: ...
@@ -212,15 +201,11 @@ class Format(Protocol):
     def summation(self, domain: str, body: str) -> str: ...
 
     def cases(self, arms: list[tuple[str, str]]) -> str:
-        """A value defined by region: ``(value, condition)`` per arm, in order.
-
-        Both halves arrive rendered — which arm is the fallback is the walk's
-        to decide, and this only stacks the rows.
-        """
+        """A value defined by region: ``(value, condition)`` per arm, in order."""
         ...
 
     def apply(self, function: str, argument: str) -> str:
-        """A coordinate map applied to an index: ``bus(g)``."""
+        """A function applied to an argument: ``f(x)``."""
         ...
 
     def joined(self, parts: list[str], operator: str) -> str:
@@ -240,3 +225,18 @@ class Format(Protocol):
         ...
 
     def document(self, blocks: list[str], *, standalone: bool) -> str: ...
+
+
+def aligned_rows(lines: list[Line], fmt: Format, *, gap: str) -> list[str]:
+    """One alignment row per line — label, left, right, condition — *gap* around the relation, trailing empty cells stripped."""
+    return [
+        f'{fmt.prose(line.label) if line.label else ""}{gap}{line.left} & {line.right}{gap}{line.condition}'.rstrip(
+            ' &'
+        )
+        for line in lines
+    ]
+
+
+def paragraphs(blocks: list[str]) -> str:
+    """*blocks* separated by blank lines, ending in a newline."""
+    return '\n\n'.join(blocks) + '\n'

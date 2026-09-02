@@ -935,7 +935,7 @@ def test_the_lowered_regions_are_still_proved_apart():
     regions = _cases_in(lower_program(expand_piecewise(spec))).regions
     named = {f'region{i}': r.when.root for i, r in enumerate(regions)}
 
-    assert list(overlapping(named, spec)) == [], 'no two lowered regions can claim one coordinate'
+    assert list(overlapping(named, Namespace.of(spec).dtypes)) == [], 'no two lowered regions can claim one coordinate'
 
 
 def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():

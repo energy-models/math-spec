@@ -196,12 +196,12 @@ def test_an_outer_product_is_legal_and_carries_both_dim_sets():
         ),
         pytest.param(
             {'variables.cap': {'foreach': ['generator'], 'where': 'load > 0'}},
-            r"where-parameter 'load' has dims \['bus', 'snapshot'\]",
+            r"where-parameter 'load' reads dims \['bus', 'snapshot'\]",
             id='where-dim-outside-the-frame',
         ),
         pytest.param(
             {'variables.cap': {'foreach': ['generator'], 'where': 'snapshot > 0'}},
-            "where-comparison on dimension 'snapshot'",
+            "where-dimension 'snapshot'",
             id='where-comparison-on-a-dim-outside-the-frame',
         ),
         pytest.param(
@@ -334,7 +334,7 @@ def test_the_frame_check_and_the_reading_walk_the_same_leaves():
     assert where is not None
 
     assert where.dims == {'generator'}, 'read at the generator axis'
-    with pytest.raises(DimensionError, match=r"where-parameter 'p_max' has dims \['generator'\]"):
+    with pytest.raises(DimensionError, match=r"where-parameter 'p_max' reads dims \['generator'\]"):
         _check_where_dims(where, frozenset({'snapshot'}), 'test')
 
 

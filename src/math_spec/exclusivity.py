@@ -4,39 +4,12 @@
 
 """Can two of a named expression's cases claim one coordinate? Decided without data.
 
-A named expression with ``cases:`` is one quantity whose value varies by
-region — the regime a unit is in, which end of the horizon a row sits at. It is
-*one* quantity only if no coordinate is claimed twice, and nothing about the
-data decides that — so it is decided at load, and a file leaving two cases free
-to collide does not load.
-
-The other half of being a quantity — a value *everywhere* — is the block's
-shape rather than anything proved: the ``otherwise:`` beside the cases takes
-whatever they leave. Only the ``when`` strings are checked, and only
-against each other, pair by pair: ``when_i AND when_j`` unsatisfiable.
-
-Every atom in the where-grammar talks about exactly one **subject** — a
-parameter, a dimension's coordinates, a dimension's *rank*, a lookup, a pair of
-lookups. Atoms with different subjects are independent; atoms sharing one are
-not, and that is where a propositional reading goes wrong: on ``kind ==
-'battery'`` and ``kind == 'h2'`` it invents a world where both hold and reports
-an overlap that no data can produce.
-
-So each subject is split into **cells** — finitely many regions its value can
-sit in, chosen so that every atom over that subject is constant on each cell.
-The cells of the pair's subjects are multiplied out and both masks evaluated on
-each. A cell where both are true is a witness. Because the cells cover every
-value a subject can take, "no witness" is a proof and not a sample.
-
-Independence between subjects is an **over**-approximation: the product of
-cells contains worlds the data may never produce, so a spurious world can only
-manufacture a witness, never hide one. Every outcome here is therefore
-conservative — this refuses case sets that would have been fine, and admits
-none that would not.
-
-A pair the procedure will not reason about is refused exactly as an overlapping
-one is, and the refusal names the rewrite: a checker that guesses where it
-cannot decide buys nothing over no checker.
+Each ``when`` is read over cells: regions of one subject's value on which every
+atom is constant. The cells of the pair's subjects are multiplied out, both
+masks are evaluated on each, and a cell where both hold is a witness.
+Independence between subjects over-approximates, so it can manufacture a
+witness but never hide one. The rule itself is stated in
+``docs/reference/language/expressions.md``.
 """
 
 from __future__ import annotations
@@ -46,7 +19,7 @@ import itertools
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, assert_never, cast
 
 from math_spec.program import (
     AndNode,
@@ -56,24 +29,21 @@ from math_spec.program import (
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
+    Mask,
     NotNode,
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
     VariableDefinedNode,
 )
-from math_spec.resolution import Namespace
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
-    from math_spec.model import DeclaredDtype, Spec
-    from math_spec.program import PredicateOperator, WhereNode
+    from math_spec.model import DeclaredDtype
+    from math_spec.program import PredicateOperator, TypedPredicateNode, WhereNode
 
-#: The product of the pair's subjects' cells is enumerated, so the bound is on
-#: the product rather than on any one subject. Two real masks carry two to four
-#: atoms between them; a pair that blows this is telling you it is several
-#: expressions.
+#: The most cells one pair may multiply out to; a pair past it is several expressions.
 CELL_BUDGET = 8192
 
 #: The dtypes an ordering is decided against. Everything else compares only
@@ -85,21 +55,20 @@ class Undecidable(Exception):  # noqa: N818
     """A pair this procedure will not reason about. Carries the rewrite."""
 
 
-def overlapping(cases: Mapping[str, WhereNode], schema: Spec) -> Iterator[str]:
+def overlapping(cases: Mapping[str, WhereNode], dtypes: Mapping[str, DeclaredDtype]) -> Iterator[str]:
     """One refusal per pair of cases that could both claim a coordinate.
 
     Args:
         cases: The ``when`` of every case, keyed by the case's name. The
             block's ``otherwise`` is not among them: it claims what the rest
             leave, so it overlaps nothing by construction.
-        schema: Read for the dtype of every name a mask compares against.
+        dtypes: The declared dtype of every name a mask compares against.
 
     Yields:
         A sentence per pair, naming both cases and either a coordinate they
         both claim or what stopped the pair being decided. Empty where every
         pair is proved apart.
     """
-    dtypes = Namespace.of(schema).dtypes
     for (first, left), (second, right) in itertools.combinations(cases.items(), 2):
         try:
             witness = _witness(left, right, dtypes)
@@ -121,7 +90,8 @@ def overlapping(cases: Mapping[str, WhereNode], schema: Spec) -> Iterator[str]:
 
 def _witness(first: WhereNode, second: WhereNode, dtypes: Mapping[str, DeclaredDtype]) -> str | None:
     """A coordinate both masks claim, rendered — ``None`` where no cell holds both."""
-    frame = _Frame.of([first, second], dtypes)
+    masks = (Mask(first), Mask(second))
+    frame = _Frame.of(masks, dtypes)
     if frame.size > CELL_BUDGET:
         msg = (
             f'{frame.size} regions to check exceeds the budget of {CELL_BUDGET} — '
@@ -129,7 +99,7 @@ def _witness(first: WhereNode, second: WhereNode, dtypes: Mapping[str, DeclaredD
         )
         raise Undecidable(msg)
     for cell in frame.cells():
-        if _evaluate(first, cell, frame) and _evaluate(second, cell, frame):
+        if all(_evaluate(mask.root, cell, frame) for mask in masks):
             return frame.witness(cell)
     return None
 
@@ -142,15 +112,13 @@ def _witness(first: WhereNode, second: WhereNode, dtypes: Mapping[str, DeclaredD
 class Special(Enum):
     """Values a cell can hold that are not values of the subject's own type."""
 
-    #: No row in the table. A null compares false whatever the comparator, and
-    #: is not `defined`.
+    #: No row in the table: compares false under every comparator, and is not `defined`.
     NULL = 'null'
-    #: A magnitude, and the one that is a *value* everywhere else but is not
-    #: `defined` — see the bare-name row of the where-string table.
+    #: A magnitude every comparison reads normally, and the one that is not `defined`.
     POS_INF = '+inf'
+    #: Its negative twin.
     NEG_INF = '-inf'
-    #: A label none of the masks names. Stands for every such label at once,
-    #: which they cannot tell apart.
+    #: A label none of the masks names — every such label at once.
     OTHER = 'other'
 
 
@@ -184,23 +152,20 @@ class Subject:
 class _Frame:
     """The cells to check, and what reading an atom on one of them needs.
 
-    ``subjects`` is keyed by ``id(node)`` because the where-AST nodes are
-    ``@dataclass`` with ``eq=True`` and so unhashable. It is a memo of a pure
-    function: without it every atom re-derives and re-allocates its subject once
-    per cell, which is the hot path here.
+    ``subjects`` is keyed by ``id(node)``: the where nodes are ``@dataclass``
+    with ``eq=True`` and so unhashable. The memo is valid while the masks are alive.
     """
 
     domains: dict[Subject, list[Cell]]
     subjects: dict[int, Subject]
 
     @classmethod
-    def of(cls, masks: Iterable[WhereNode], dtypes: Mapping[str, DeclaredDtype]) -> _Frame:
+    def of(cls, masks: Iterable[Mask], dtypes: Mapping[str, DeclaredDtype]) -> _Frame:
         values: dict[Subject, set[Any]] = {}
         subjects: dict[int, Subject] = {}
         for mask in masks:
-            for node in _walk(mask):
-                if (subject := _subject_of(node)) is None:
-                    continue
+            for node in mask.atoms:
+                subject = _subject_of(node)
                 subjects[id(node)] = subject
                 _observe(node, subject, values.setdefault(subject, set()), dtypes)
         return cls({s: _cells_for(s, seen, dtypes) for s, seen in values.items()}, subjects)
@@ -217,22 +182,13 @@ class _Frame:
         return ', '.join(f'{subject} is {_shown(subject, value)}' for subject, value in cell.items())
 
 
-def _walk(node: WhereNode) -> Iterator[WhereNode]:
-    """Every atom in *node*; the connectives are stepped through."""
-    if isinstance(node, NotNode):
-        yield from _walk(node.operand)
-    elif isinstance(node, AndNode | OrNode):
-        yield from _walk(node.left)
-        yield from _walk(node.right)
-    else:
-        yield node
+def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> None:
+    """Record what *node* says about its subject: a position, or a literal.
 
-
-def _observe(node: WhereNode, subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> None:
-    """Record what *node* says about its subject: a position, or a literal."""
+    ``position()`` converts the dimension to an integer, so an ordering over a
+    rank is an ordering of integers and every comparator is admitted there.
+    """
     if isinstance(node, DimensionPositionNode):
-        # Every comparator reads here: `position()` converts the dimension to
-        # an integer, so an ordering is an ordering of integers (#32).
         values.add(node.position)
     elif isinstance(node, LookupPairComparisonNode):
         if node.op not in ('==', '!='):
@@ -253,10 +209,8 @@ def _observe(node: WhereNode, subject: Subject, values: set[Any], dtypes: Mappin
         values.add(node.value)
 
 
-def _subject_of(node: WhereNode) -> Subject | None:
+def _subject_of(node: TypedPredicateNode) -> Subject:
     match node:
-        case BooleanLiteralNode():
-            return None
         case ParameterDefinedNode(name=name) | ParameterComparisonNode(name=name):
             return Subject('param', name)
         case VariableDefinedNode(name=name):
@@ -270,11 +224,7 @@ def _subject_of(node: WhereNode) -> Subject | None:
         case LookupPairComparisonNode(name=name, other=other):
             return Subject('lookup_pair', name, other)
         case _:
-            # As in `program._atoms`, which `Mask` exhausts at construction: an
-            # unresolved node here is a caller that skipped `resolve_where`,
-            # not a model to refuse.
-            msg = f'{type(node).__name__} reached the exclusivity check unresolved.'
-            raise AssertionError(msg)
+            assert_never(node)
 
 
 def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> list[Cell]:
@@ -301,16 +251,20 @@ def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, Declared
     cells: list[Cell] = list(
         _ordered_cells(values, discrete=dated or dtype == 'int') if numeric or dated else _label_cells(values)
     )
-    # A dimension's coordinates are its own index, so there is no null among
-    # them; everything else may be absent, and absence is a region of its own
-    # because a null compares false and is not `defined`.
-    if subject.kind != 'dim':
-        cells.append(Special.NULL)
-        if numeric:
-            # `defined` excludes an infinity, so it needs a region where every
-            # comparison still reads normally but the bare name is false.
-            cells.extend([Special.NEG_INF, Special.POS_INF])
+    cells.extend(_absence_cells(subject, numeric=numeric))
     return cells
+
+
+def _absence_cells(subject: Subject, *, numeric: bool) -> list[Cell]:
+    """The regions where *subject* has no ordinary value.
+
+    A dimension's coordinates have no null. ``defined`` excludes an infinity,
+    so a magnitude needs a region where every comparison still reads normally
+    and the bare name is false.
+    """
+    if subject.kind == 'dim':
+        return []
+    return [Special.NULL, Special.NEG_INF, Special.POS_INF] if numeric else [Special.NULL]
 
 
 def _numeric(dtype: DeclaredDtype | None, literals: set[Any]) -> bool:
@@ -352,15 +306,9 @@ def _step(value: Any) -> Any:
 
 
 def _between(value: Any, following: Any, step: Any, *, discrete: bool) -> Any | None:
-    """A value strictly between two literals, where the type admits one.
+    """A value strictly between two literals, or ``None`` where the type admits none.
 
-    A continuous magnitude always admits one — the midpoint. A **discrete**
-    subject, an ``int`` or a date, need not: between 0 and 1 there is no
-    integer and between two adjacent days no date, so the gap has to be wider
-    than one unit before there is anything in it to stand for. A midpoint
-    invented there is a coordinate the subject cannot take, and the only thing
-    it can do is manufacture a witness — refusing ``n < 1`` against ``n > 0``,
-    which no integer claims twice, at a coordinate named ``0.5``.
+    A discrete subject — an ``int`` or a date — has one only where the gap is wider than one unit.
     """
     if discrete:
         return value + step if following - value > step else None
@@ -442,13 +390,11 @@ def _evaluate(node: WhereNode, cell: dict[Subject, Cell], frame: _Frame) -> bool
             return _atom(node, cell, frame)
 
 
-def _atom(node: WhereNode, cell: dict[Subject, Cell], frame: _Frame) -> bool:
+def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], frame: _Frame) -> bool:
     subject = frame.subjects[id(node)]
     value = cell[subject]
     match node:
         case ParameterDefinedNode() | LookupDefinedNode():
-            # What `defined` means is the declaration's to say: a bool is its
-            # own answer, and a number has to be finite as well.
             if isinstance(value, bool):
                 return value
             return value not in (Special.NULL, Special.POS_INF, Special.NEG_INF)
@@ -459,41 +405,32 @@ def _atom(node: WhereNode, cell: dict[Subject, Cell], frame: _Frame) -> bool:
         case DimensionPositionNode(op=op, position=position):
             return _compare(value, op, position)
         case ParameterComparisonNode(op=op, value=literal) | LookupComparisonNode(op=op, value=literal):
-            # A null compares false, whatever the comparator.
             if value is Special.NULL:
                 return False
             return _compare(value, op, literal)
         case DimensionComparisonNode(op=op, value=literal):
             return _compare(value, op, literal)
         case _:
-            msg = f'{type(node).__name__} reached the exclusivity check unresolved.'
-            raise AssertionError(msg)
+            assert_never(node)
 
 
 def _compare(value: Cell, op: PredicateOperator, literal: Any) -> bool:
     """One atom's truth in one cell. Both sides are already this cell's frame."""
     if isinstance(value, Special):
         if value is Special.OTHER:
-            # A label none of the masks names sorts nowhere; `_observe` has
-            # already refused the ordering that would reach the second arm.
+            # a label none of the masks names sorts nowhere
             if op in ('==', '!='):
                 return op == '!='
             msg = f'a label neither case names is ordered with {op!r} — compare labels with == or != instead'
             raise Undecidable(msg)
         magnitude = math.inf if value is Special.POS_INF else -math.inf
-        return _numeric_compare(magnitude, op, float(literal))
+        return _ordered(magnitude, op, float(literal))
     if isinstance(value, int | float) and isinstance(literal, int | float) and not isinstance(value, bool):
-        return _numeric_compare(float(value), op, float(literal))
-    if type(value) is not type(literal) and not isinstance(value, type(literal)):
-        # Unreachable while one declared dtype types every literal of a subject.
-        if op in ('==', '!='):
-            return op == '!='
-        msg = f'{value!r} is ordered against {literal!r}, and the two carry no order — compare them with == or !='
-        raise Undecidable(msg)
-    return _numeric_compare(value, op, literal)
+        return _ordered(float(value), op, float(literal))
+    return _ordered(value, op, literal)
 
 
-def _numeric_compare(left: Any, op: PredicateOperator, right: Any) -> bool:
+def _ordered(left: Any, op: PredicateOperator, right: Any) -> bool:
     match op:
         case '==':
             return bool(left == right)

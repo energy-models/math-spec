@@ -4,26 +4,15 @@
 
 """How this project reads a YAML file.
 
-`yaml.safe_load` implements YAML 1.1, and two of its rules are actively wrong
-for a language whose scalars are user data. The loader is the only layer that
-can see them, so both are fixed here:
+`yaml.safe_load` implements YAML 1.1, and two of its rules are wrong for a
+language whose scalars are user data; both are fixed here:
 
 - **1.2 booleans.** ``on``/``off``/``yes``/``no``/``y``/``n`` are ordinary
   names in this language — a country code as a dimension, a mode as a lookup.
-  YAML 1.1 resolves them to ``True``/``False``, so the declaration the file
-  writes is not the one that reaches the schema. Only ``true``/``false`` are
+  YAML 1.1 resolves them to ``True``/``False``; only ``true``/``false`` are
   booleans here, which is the YAML 1.2 core schema.
 - **Duplicate keys.** 1.1 lets the last one win silently, discarding a
   declaration the file plainly contains.
-
-Two further 1.1 coercions survive on purpose — the implicit timestamp
-(``2024-01-01`` → ``date``) and sexagesimal ints (``12:30`` → ``750``). Neither
-reaches a coordinate, which is data and never written here; a literal on the
-other side of a ``where`` comparison is where one would be read as a label, and
-there it is checked against the declared ``dtype`` (``resolution.py``).
-``dtype: datetime`` is implemented — a label needs only an order and equality,
-and nothing does arithmetic on a coordinate — so the timestamp coercion is the
-*useful* reading there, not a hazard to route around.
 
 The output is plain ``dict``/``str``: no loader wrapper reaches the schema
 or the AST.
@@ -44,16 +33,10 @@ _BOOL_1_2 = re.compile(r'^(?:true|True|TRUE|false|False|FALSE)$')
 
 
 if TYPE_CHECKING:
-    #: Typed as PyYAML's own loader, because typeshed declares ``CSafeLoader``
-    #: unconditionally while the attribute is absent from a PyYAML built
-    #: without libyaml — a source install, where the fallback below is the
-    #: whole point. Every member this module touches is declared on both.
+    # Typed as SafeLoader: typeshed declares CSafeLoader unconditionally, and a PyYAML without libyaml lacks it.
     _BaseLoader = yaml.SafeLoader
 else:
-    # libyaml's scanner where the install has one. It is the same document: both
-    # classes drive the Python `Resolver` — so the 1.2 boolean table below reaches
-    # either — and the same `SafeConstructor`, and both hand back a node tree
-    # carrying the marks `_check_duplicate_keys` reports lines from.
+    # Same document either way: both drive the Python Resolver and SafeConstructor.
     _BaseLoader = getattr(yaml, 'CSafeLoader', yaml.SafeLoader)
 
 
@@ -61,8 +44,7 @@ class _StrictLoader(_BaseLoader):
     """SafeLoader with 1.2 booleans. Duplicate keys are checked on the nodes."""
 
 
-#: The resolver table is rebuilt, not edited in place: it is inherited from the
-#: safe loader, and mutating it would reconfigure PyYAML for the whole process.
+# Rebuilt rather than edited: the table is inherited, and mutating it reconfigures PyYAML process-wide.
 _StrictLoader.yaml_implicit_resolvers = {
     ch: [(tag, rx) for tag, rx in pairs if tag != 'tag:yaml.org,2002:bool']
     for ch, pairs in _BaseLoader.yaml_implicit_resolvers.items()
@@ -109,16 +91,11 @@ def _check_duplicate_keys(node: yaml.Node, origin: str) -> None:
 
 def read_yaml(path: Path | str) -> dict[str, Any]:
     """Read *path* off disk and parse it, in YAML 1.2's reading of scalars."""
-    return parse_yaml(Path(path).read_text(), str(path))
+    return parse_yaml(Path(path).read_text(encoding='utf-8'), str(path))
 
 
 def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
     """Parse YAML *text* as a mapping of sections.
-
-    The half of :func:`read_yaml` that does not touch the filesystem, so a
-    caller holding the text rather than the path — a test fixture, a doc block
-    — resolves scalars the same way. ``yaml.safe_load`` is 1.1 and would read
-    ``no`` as a boolean, which is the divergence this module exists to remove.
 
     Args:
         text: The YAML source.

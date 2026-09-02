@@ -13,6 +13,7 @@ import pytest
 
 from math_spec.errors import LanguageError
 from math_spec.piecewise import expand_piecewise
+from math_spec.resolution import Namespace
 from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
@@ -495,14 +496,14 @@ def test_nothing_the_model_is_given_prints_italic():
     lands in one of these two nets.
     """
     schema = expand_piecewise(to_spec(golden.MODEL))
-    chosen = set(schema.variables) | chosen_expressions(schema)
+    chosen = set(schema.variables) | chosen_expressions(schema, Namespace.of(schema))
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
     assert italic <= chosen, (
         f'{sorted(italic - chosen)} print italic and are not quantities the solver decides — '
         f'upright is what the model is given'
     )
 
-    symbols = Symbols(schema, LATEX, SymbolTable('latex'))
+    symbols = Symbols(schema, Namespace.of(schema), LATEX, SymbolTable('latex'))
     given = {name: symbols.name[name] for name in schema.parameters}
     assert all(symbol.startswith(r'\mathrm{') for symbol in given.values()), (
         f'derived upright for every parameter, but got {sorted(s for s in given.values() if "mathrm" not in s)}'

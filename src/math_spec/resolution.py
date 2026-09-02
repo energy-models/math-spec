@@ -5,9 +5,8 @@
 """Name resolution — the pass that makes the core AST fully typed.
 
 Parsers emit unresolved names; this module rewrites each into the typed node
-its kind asks for, so the AST reaching a consumer holds none. Done once here,
-every consumer scopes identically by construction. The rules live in the
-language reference; the namespace is flat, and macro formals are the one scope.
+its kind asks for, so the AST reaching a consumer holds none. The rules live in
+the language reference.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ from math_spec._where_parser import (
     UnresolvedWhereNode,
     parse_where,
 )
-from math_spec.errors import LanguageError
+from math_spec.errors import LanguageError, did_you_mean
 from math_spec.expansion import parse_and_expand
 from math_spec.expression_parser import (
     ArithmeticNode,
@@ -71,7 +70,6 @@ from math_spec.program import (
     TypedPredicateNode,
     VariableDefinedNode,
     WhereNode,
-    _fold,
 )
 
 if TYPE_CHECKING:
@@ -89,8 +87,7 @@ DeclarationKind = Literal['variable', 'parameter', 'dimension', 'lookup']
 class Namespace:
     """The declared names of one schema, by kind.
 
-    Flat by construction: :meth:`kind` is a single lookup, not an ordered
-    walk through several stores.
+    A name has one kind: model.py refuses one declared under two sections.
     """
 
     __slots__ = ('dimensions', 'dtypes', 'leaf_dims', 'lookups', 'parameters', 'variables')
@@ -170,8 +167,17 @@ class Namespace:
         """The dimension *lookup*'s values are labels of, ``None`` for a label space."""
         return self.lookups[lookup][1]
 
-    def _unknown(self, name: str, context: str, *, allow_dims: bool) -> str:
-        shown = (
+    def unknown(self, name: str, context: str, *, allow_dims: bool, formals: Iterable[str] = ()) -> str:
+        """The refusal for a *name* declared nowhere, listing what it could have been.
+
+        Args:
+            name: The name the file wrote.
+            context: The declaration it was found in.
+            allow_dims: Whether a dimension would have been accepted there.
+            formals: A macro's formals, listed first when there are any.
+        """
+        shown: list[tuple[str, Iterable[str]]] = [('Formals', formals)] if formals else []
+        shown += (
             [('Parameters', self.parameters), ('Dimensions', self.dimensions)]
             if allow_dims
             else [('Variables', self.variables), ('Parameters', self.parameters)]
@@ -188,10 +194,6 @@ class Namespace:
 def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ExpressionNode:
     """Parse, expand and resolve *text* — the only way a consumer gets an AST.
 
-    ``validation.py`` runs the same path at load time, so a consumer calling
-    this gets a *typed* tree off a result already known to be clean, without
-    duplicating the pass.
-
     Raises:
         LanguageError: Listing every problem the text has.
     """
@@ -206,43 +208,20 @@ def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> Expre
 def where_of(text: str | None, ns: Namespace, context: str, self_variable: str | None = None) -> Mask | None:
     """Parse and resolve a where string into the :class:`~math_spec.program.Mask` a declaration carries.
 
-    ``None`` for no mask, however the file spelled it: :func:`resolve_where`
-    folds, so a mask that admits every row is dropped here and one that admits
-    none arrives as a mask over ``BooleanLiteralNode(False)``. Every mask a
-    :class:`~math_spec.program.Program` carries comes through here or through
-    :func:`_arm_when`, whose node lowering wraps — so a consumer meets a
-    resolved where only as a ``Mask``, and every reader of one — a program, a
-    typeset page — gets the same predicate.
+    ``None`` for no mask, however the file spelled it: a mask that admits every
+    row is dropped, and one that admits none arrives as a mask over
+    ``BooleanLiteralNode(False)``.
 
     Raises:
         LanguageError: Listing every problem the predicate has.
     """
-    if text is None:
-        return None
     errors: list[str] = []
-    resolved = resolve_where(parse_where(text), ns, context, errors, self_variable)
+    resolved = resolve_where_text(text, ns, context, errors, self_variable)
     if errors:
         raise LanguageError('\n'.join(errors))
-    assert resolved is not None
-    if isinstance(resolved, BooleanLiteralNode) and resolved.value:
+    if resolved is None or (isinstance(resolved, BooleanLiteralNode) and resolved.value):
         return None
     return Mask(resolved)
-
-
-def _arm_when(
-    when: WhereNode | UnresolvedWhereNode | None, ns: Namespace, context: str, errors: list[str]
-) -> WhereNode | None:
-    """A case arm's resolved ``when`` through :func:`resolve_where` — a literal kept rather than dropped.
-
-    A node rather than a :class:`~math_spec.program.Mask`: an arm belongs to
-    the AST between resolution and lowering, and lowering is what wraps it into
-    the :class:`~math_spec.program.Region` a consumer reads. ``where_of`` drops
-    an always-true declaration mask to ``None``, but a ``None`` ``when`` on an
-    arm *means* the ``otherwise`` arm, so the folded literal survives here —
-    for validation to refuse with its rewrite, since an arm the data cannot
-    decide is not a case.
-    """
-    return None if when is None else resolve_where(when, ns, context, errors, None)
 
 
 # ---------------------------------------------------------------------------
@@ -256,11 +235,7 @@ def resolve_expression(
     context: str,
     errors: list[str],
 ) -> ExpressionNode | None:
-    """Rewrite every ``NameNode`` under *node* to a typed node.
-
-    Operator *call shapes* are checked here too (``operators.call_shape_error``).
-    Arity is a language rule, and this is the pass every consumer goes through,
-    so no consumer has to state a signature a second time.
+    """Rewrite every ``NameNode`` under *node* to a typed node, checking operator call shapes on the way.
 
     Returns:
         The typed tree, or ``None`` once anything failed — appending to
@@ -328,7 +303,7 @@ def _resolve_arith(
                 )
                 return node
             case _:
-                errors.append(ns._unknown(node.name, context, allow_dims=False))
+                errors.append(ns.unknown(node.name, context, allow_dims=False))
                 return node
 
     if isinstance(node, UnaryOperatorNode):
@@ -352,14 +327,15 @@ def _resolve_arith(
         args = tuple(_resolve_arith(a, ns, context, errors) for a in node.args)
         kwargs: dict[str, ArithmeticNode] = {}
         for key, value in node.kwargs.items():
-            if key in builtin.edge_kwargs:
-                kwargs[key] = _resolve_edge(value, context, node.name, errors)
-            elif key in builtin.dimension_kwargs:
-                kwargs[key] = _resolve_dim_ref(value, ns, context, node.name, key, errors)
-            elif key in builtin.lookup_kwargs:
-                kwargs[key] = _resolve_lookup_ref(value, ns, context, node.name, key, errors)
-            else:
-                kwargs[key] = _resolve_amount(value, ns, context, node.name, key, errors)
+            match builtin.kind_of(key):
+                case 'edge':
+                    kwargs[key] = _resolve_edge(value, context, node.name, errors)
+                case 'dimension':
+                    kwargs[key] = _resolve_dim_ref(value, ns, context, node.name, key, errors)
+                case 'lookup':
+                    kwargs[key] = _resolve_lookup_ref(value, ns, context, node.name, key, errors)
+                case 'value':
+                    kwargs[key] = _resolve_amount(value, ns, context, node.name, key, errors)
         return FunctionCallNode(node.name, args, kwargs)
 
     if isinstance(node, KeywordNode):
@@ -382,7 +358,7 @@ def _resolve_arith(
         arms = []
         for arm in node.arms:
             arm_context = case_context(node.name, None if arm.when is None else arm.label)
-            when = _arm_when(arm.when, ns, arm_context, errors)
+            when = None if arm.when is None else resolve_where(arm.when, ns, arm_context, errors)
             arms.append(CaseArm(arm.label, when, _resolve_arith(arm.value, ns, arm_context, errors)))
         return CasesNode(node.name, tuple(arms))
 
@@ -409,16 +385,21 @@ def _not_a_number(name: str, dtype: str, context: str) -> str:
     )
 
 
-def _undeclared_dim(context: str, operator: str, shown: str, name: str, ns: Namespace) -> str:
+def _undeclared_dim(context: str, operator: str, call: str, name: str, ns: Namespace) -> str:
     return (
-        f'{context}: {operator}({shown}) does not name a declared dimension.\n'
-        f'  Dimensions: {sorted(ns.dimensions)}\n'
+        f'{context}: {operator}({call}) does not name a declared dimension. '
+        f'{did_you_mean(name, ns.dimensions, label="Dimensions")}\n'
         f"Declare '{name}' under 'dimensions:', or fix the typo — an unknown "
         f'dimension makes {operator}() a silent no-op rather than an error.'
     )
 
 
-def _unsigned(value: ArithmeticNode) -> ArithmeticNode:
+def _declared_as(ns: Namespace, name: str) -> str:
+    kind = ns.kind(name)
+    return f'a {kind}' if kind else 'not declared'
+
+
+def _without_sign(value: ArithmeticNode) -> ArithmeticNode:
     """*value* under its sign, if it carries one."""
     return value.operand if isinstance(value, UnaryOperatorNode) else value
 
@@ -447,7 +428,7 @@ def _resolve_amount(
     """
     if (literal := _literal(value)) is not None:
         return literal
-    if not isinstance(_unsigned(value), NameNode):
+    if not isinstance(_without_sign(value), NameNode):
         errors.append(
             f'{context}: {operator}({key}=) takes a number or the name of an integer parameter. '
             f'Precompute it as a parameter.'
@@ -467,11 +448,9 @@ def _resolve_edge(
     Takes no namespace: the keyword set is closed, so a name here is a typo
     rather than a lookup.
     """
-    if isinstance(value, EdgeNode):
-        return value
     if isinstance(value, KeywordNode):
         if value.value == EDGE_WRAP:
-            return EdgeNode(EDGE_WRAP)
+            return EdgeNode()
         errors.append(f'{context}: {edge_error(operator, repr(value.value))}')
         return value
     if isinstance(value, NameNode):
@@ -501,8 +480,6 @@ def _resolve_dim_ref(
     errors: list[str],
 ) -> ArithmeticNode:
     """Resolve an operator kwarg whose *value* must name a declared dimension."""
-    if isinstance(value, DimensionNode):
-        return value
     if not isinstance(value, NameNode):
         errors.append(f'{context}: {operator}({key}=...) must name a dimension.')
         return value
@@ -529,8 +506,6 @@ def _resolve_lookup_ref(
     share the dim they are over and must not target the same dim twice —
     both checked here, where the declarations are still in hand.
     """
-    if isinstance(value, LookupNode):
-        return value
     if isinstance(value, NameListNode):
         names = value.names
     elif isinstance(value, NameNode):
@@ -598,9 +573,9 @@ def _ungroupable(
             f"{context}: {operator}({key}={name}): '{name}' is a dimension, and "
             f'{key}= takes a lookup — the named map out of a dimension.\n{hint}'
         )
-    listing = f'  Lookups: {sorted(groupable)}' if groupable else '  No lookups are declared.'
     return (
-        f'{context}: {operator}({key}={name}) does not name a lookup.\n{listing}\n'
+        f'{context}: {operator}({key}={name}) does not name a lookup. '
+        f'{did_you_mean(name, groupable, label="Lookups")}\n'
         f"Declare it under 'lookups:' — {name}: {{over: <the dimension it maps "
         f'out of>, into: <the dimension its values are labels of>}}.'
     )
@@ -618,18 +593,16 @@ def resolve_where(
     errors: list[str],
     self_variable: str | None = None,
 ) -> WhereNode | None:
-    """Rewrite a parsed where AST into typed predicates, folded.
+    """Rewrite a parsed where AST into typed predicates, folded as :class:`~math_spec.program.Mask` folds.
 
-    Both parameters and dimensions are legal here — a where-string is a
-    predicate over the frame, and the frame carries its own coordinates. What
-    is *not* legal is an unknown name: read as "scalar False" it would mask
-    every row out and produce an empty model in silence. The result is folded
-    at this one door, so every reader of a resolved tree — the prover, the
-    program, a typeset page — gets the same predicate by construction.
+    Returns:
+        The typed tree — a mask admitting every row or none comes back as the
+        one ``BooleanLiteralNode`` — or ``None`` once anything failed, with the
+        problems appended to *errors*.
     """
     before = len(errors)
     resolved = _resolve_where(node, ns, context, errors, self_variable)
-    return None if len(errors) > before else _fold(cast('WhereNode', resolved))
+    return None if len(errors) > before else Mask(cast('WhereNode', resolved)).root
 
 
 def resolve_where_text(
@@ -639,13 +612,10 @@ def resolve_where_text(
     errors: list[str],
     self_variable: str | None = None,
 ) -> WhereNode | None:
-    """Parse and resolve one mask, appending each problem to *errors*.
+    """Parse and resolve one where string as :func:`resolve_where` does, a parse failure appended to *errors*.
 
-    The error-collecting twin of :func:`where_of`, for the load-time pass that
-    reports every problem in a file at once — and the one door validation
-    reads a where string through, so the parser stays this module's business.
-    Returns ``None`` where there is no mask to read, and where reading it
-    failed.
+    Returns:
+        ``None`` where there is no mask to read, and where reading it failed.
     """
     if text is None:
         return None
@@ -717,25 +687,28 @@ def _typed_literal(
 
 def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str, kind: str) -> str:
     """Why the right-hand side of a where-comparison may not name a declaration."""
-    shown = f"'{node.name} {node.op} {value}'"
+    comparison = f"'{node.name} {node.op} {value}'"
     if kind == 'parameter':
         return (
-            f'{context}: {shown} compares two parameters, which is not in the '
+            f'{context}: {comparison} compares two parameters, which is not in the '
             f'language — a where-comparison tests one parameter or dimension against '
             f'a literal. Precompute the comparison as a boolean parameter in data '
             f'prep and test that.'
         )
     if kind == 'variable':
-        return f'{context}: {shown} compares against variable {value!r}. A where mask is built before variables exist.'
+        return (
+            f'{context}: {comparison} compares against variable {value!r}. '
+            f'A where mask is built before variables exist.'
+        )
     if kind == 'lookup':
         return (
-            f'{context}: {shown} compares {node.name!r} against lookup {value!r}, and a '
+            f'{context}: {comparison} compares {node.name!r} against lookup {value!r}, and a '
             f'lookup is structure rather than data — every other comparison tests a name '
             f'against a literal. A lookup on the right-hand side is the one exception, and '
             f'only where the left-hand side is a lookup sharing its dimension and its target.'
         )
     return (
-        f'{context}: {shown} compares against dimension {value!r}, which the RHS reads '
+        f'{context}: {comparison} compares against dimension {value!r}, which the RHS reads '
         f'as the literal coordinate {value!r} and so masks everything out. Comparing two '
         f'dimensions is not in the language; if {value!r} is a coordinate rather than the '
         f'dimension, rename one of the two.'
@@ -755,11 +728,11 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
     the same one, or no value of one is ever a value of the other. Both wrong
     answers are silent, and a build's data library decides which one.
     """
-    shown = f"'{node.name} {node.op} {other}'"
+    comparison = f"'{node.name} {node.op} {other}'"
     left_over, right_over = ns.over_of(node.name), ns.over_of(other)
     if left_over != right_over:
         return (
-            f'{context}: {shown} compares lookups over different dimensions '
+            f'{context}: {comparison} compares lookups over different dimensions '
             f"('{left_over}' and '{right_over}') — there is no row carrying both, so the "
             f'comparison has nothing to test. Two lookups may be compared only where they '
             f'map out of the same dimension.'
@@ -767,7 +740,7 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
     left, right = ns.into_of(node.name), ns.into_of(other)
     if left is None or right is None or left != right:
         return (
-            f'{context}: {shown} compares {_label_set_of(ns, node.name)} with '
+            f'{context}: {comparison} compares {_label_set_of(ns, node.name)} with '
             f'{_label_set_of(ns, other)}. No value of one is ever a value of the other, so '
             f'the predicate can only mask everything out. Two lookups may be compared only '
             f'where they map into the same dimension.'
@@ -785,23 +758,21 @@ def _resolve_position(
     carries a group for a position to be counted in.
     """
     if node.dimension not in ns.dimensions:
-        kind = ns.kind(node.dimension)
-        was = f'a {kind}' if kind else 'not declared'
         errors.append(
             f"{context}: position() counts along a dimension's coordinates, and "
-            f"'{node.dimension}' is {was}.\n  Dimensions: {sorted(ns.dimensions)}"
+            f"'{node.dimension}' is {_declared_as(ns, node.dimension)}. "
+            f'{did_you_mean(node.dimension, ns.dimensions, label="Dimensions")}'
         )
         return node
     if node.by is None:
         return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
     call = f'position({node.dimension}, by={node.by})'
-    if (kind := ns.kind(node.by)) != 'lookup':
-        was = f'a {kind}' if kind else 'not declared'
+    if ns.kind(node.by) != 'lookup':
         errors.append(
-            f"{context}: '{call}' groups by '{node.by}', which is {was}. "
+            f"{context}: '{call}' groups by '{node.by}', which is {_declared_as(ns, node.by)}. "
             f'``by=`` takes a lookup over that dimension — either kind, since counting '
-            f'inside a group lands no terms, unlike sum(by=) and at(by=).\n'
-            f'  Lookups: {sorted(ns.lookups)}'
+            f'inside a group lands no terms, unlike sum(by=) and at(by=). '
+            f'{did_you_mean(node.by, ns.lookups, label="Lookups")}'
         )
         return node
     over = ns.over_of(node.by)
@@ -837,7 +808,7 @@ def _resolve_where(
     if isinstance(node, UnresolvedNameNode):
         kind = ns.kind(node.name)
         if kind is None:
-            errors.append(ns._unknown(node.name, context, allow_dims=True))
+            errors.append(ns.unknown(node.name, context, allow_dims=True))
             return node
         match kind:
             case 'parameter':
@@ -877,7 +848,7 @@ def _resolve_where(
 
         kind = ns.kind(node.name)
         if kind is None:
-            errors.append(ns._unknown(node.name, context, allow_dims=True))
+            errors.append(ns.unknown(node.name, context, allow_dims=True))
             return node
         if kind in ('parameter', 'dimension', 'lookup'):
             typed = _typed_literal(node, ns.dtypes[node.name], context, errors)
@@ -926,9 +897,7 @@ def _resolved_child(
 ) -> WhereNode:
     """A child predicate, typed as resolved.
 
-    An unresolved node only survives with its refusal in *errors*, and every
-    entry point — :func:`resolve_where`, :func:`resolve_expression` — discards
-    its result once *errors* grew, so a tree rebuilt over one never escapes.
-    That invariant is what the cast claims.
+    An unresolved one survives only with its refusal in *errors*, and
+    :func:`resolve_where` then discards the tree.
     """
     return cast('WhereNode', _resolve_where(node, ns, context, errors, self_variable))

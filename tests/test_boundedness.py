@@ -101,7 +101,7 @@ THROUGH_EACH_OPERATOR = {
 
 @pytest.mark.parametrize('builtin', sorted(BUILTIN_NAMES))
 def test_every_operator_hands_its_sign_to_its_operand(builtin):
-    """`_walk` gives all four built-ins one arm, on a claim each of them has to keep.
+    """`_record_signs` gives all four built-ins one arm, on a claim each of them has to keep.
 
     The claim is that every operator sums its argument's terms with coefficient
     1 — being a reduction, a re-index or a window — so the sign passes through
@@ -111,7 +111,7 @@ def test_every_operator_hands_its_sign_to_its_operand(builtin):
     """
     assert builtin in THROUGH_EACH_OPERATOR, (
         f"the built-in '{builtin}' has no case here. Add the objective that drives a free variable "
-        f'through it — or, if it does not hand its sign to its operand, split the shape-node arm of `_walk`.'
+        f'through it — or, if it does not hand its sign to its operand, split the shape-node arm of `_record_signs`.'
     )
     notes = _notes(**THROUGH_EACH_OPERATOR[builtin])
     assert len(notes) == 1, 'one variable is driven and unopposed, so one note'

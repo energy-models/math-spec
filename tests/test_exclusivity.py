@@ -19,7 +19,7 @@ import pytest
 
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Frame, overlapping
-from math_spec.program import AndNode, NotNode, OrNode
+from math_spec.program import AndNode, Mask, NotNode, OrNode
 from math_spec.resolution import Namespace, resolve_where
 from math_spec.validation import to_spec
 
@@ -57,7 +57,7 @@ def schema() -> Spec:
 def refusals(schema: Spec, cases: dict[str, str]) -> list[str]:
     """Resolve each case's `when` against *schema*, then decide every pair."""
     namespace = Namespace.of(schema)
-    return list(overlapping({name: _mask(when, namespace, name) for name, when in cases.items()}, schema))
+    return list(overlapping({name: _mask(when, namespace, name) for name, when in cases.items()}, namespace.dtypes))
 
 
 def _mask(text: str, namespace: Namespace, name: str) -> WhereNode:
@@ -285,12 +285,12 @@ class TestSoundness:
         proved = 0
         for _ in range(2000):
             first, second = self._mask(rng, atoms), self._mask(rng, atoms)
-            if list(overlapping({'a': first, 'b': second}, schema)):
+            if list(overlapping({'a': first, 'b': second}, dtypes)):
                 continue
             proved += 1
             # The same frame the check built, so ground truth reads each atom
             # the way it did — what differs is the grid, which is finer.
-            frame = _Frame.of([first, second], dtypes)
+            frame = _Frame.of([Mask(first), Mask(second)], dtypes)
             for point in grid:
                 both = _evaluate(first, point, frame) and _evaluate(second, point, frame)
                 assert not both, f'both cases claim {point} — the cells hid a witness'

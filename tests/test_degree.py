@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from math_spec import LanguageError
-from math_spec.degree import carries_variable, check_binary, check_expression, is_quadratic
+from math_spec.degree import carries_variable, check_binary, check_expression
 from math_spec.expression_parser import NameNode
 from math_spec.resolution import Namespace, expression_of
 from tests.fixtures import SMALL_MODEL, schema_of
@@ -94,26 +94,11 @@ def test_degree_two_is_one_term_against_one_term_and_no_higher(text, fragment):
     assert fragment in str(exc.value)
 
 
-def test_the_context_is_optional_and_prefixes_the_sentence():
+def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare():
     with pytest.raises(LanguageError, match=r"^Constraint 'k': both factors"):
-        check_binary(_ast('p * q'), "Constraint 'k'")
+        check_binary(_ast('p * q'), "Constraint 'k'", ceiling=1)
     with pytest.raises(LanguageError, match=r'^both factors'):
-        check_binary(_ast('p * q'))
-
-
-@pytest.mark.parametrize(
-    ('text', 'quadratic'),
-    [
-        pytest.param('p * q', True, id='a-product'),
-        pytest.param('sum(p * c * q, over=g)', True, id='under-a-reduction'),
-        pytest.param('c + shift(p * q, over=g, offset=1)', True, id='under-an-operator'),
-        pytest.param('p * c', False, id='affine'),
-        pytest.param('p + q', False, id='a-sum-is-not-a-product'),
-        pytest.param('c ** 2', False, id='no-variable'),
-    ],
-)
-def test_is_quadratic_finds_a_product_of_variables_anywhere(text, quadratic):
-    assert is_quadratic(_ast(text)) is quadratic
+        check_binary(_ast('p * q'), '', ceiling=1)
 
 
 def test_carries_variable_refuses_an_unresolved_name():

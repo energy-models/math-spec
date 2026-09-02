@@ -86,6 +86,9 @@ _PREDICATES: dict[PredicateOperator, OperatorName] = {
 #: three spellings because they are three different equations at the boundary.
 TranslationPolicy = Literal['plain', 'wrap', 'edge']
 
+#: The positional forms an equation can print, each of which the legend explains once.
+PositionForm = Literal['plain', 'grouped', 'from_end']
+
 #: Edge policy -> the operator pair that renders it, backward then forward —
 #: the vacated row dropped, wrapped, or filled.
 _TRANSLATIONS: dict[TranslationPolicy, tuple[OperatorName, OperatorName]] = {
@@ -93,9 +96,6 @@ _TRANSLATIONS: dict[TranslationPolicy, tuple[OperatorName, OperatorName]] = {
     'wrap': ('cyclic_minus', 'cyclic_plus'),
     'edge': ('edge_minus', 'edge_plus'),
 }
-
-
-PRIME = "'"
 
 
 def _amount(node: ArithmeticNode) -> int | str:
@@ -124,9 +124,7 @@ class _Step:
     by: int | str
     policy: TranslationPolicy
     fill: str = ''
-    #: The rendered group a partitioned translation walks inside, if it has
-    #: one. It rides the operator rather than the index: what changes is where
-    #: the axis ends, not which coordinate is being written.
+    #: The rendered group a partitioned translation walks inside, or empty.
     within: str = ''
 
     def merged(self, other: _Step) -> _Step | None:
@@ -155,10 +153,7 @@ class _Context:
 
     walk: Walk
     offsets: dict[str, tuple[_Step, ...]] = field(default_factory=dict)
-    #: dim -> the subscript that replaces its own index. ``at`` re-indexes its
-    #: operand exactly as ``shift`` does, so it shows up at the *leaves* too —
-    #: but through a coordinate rather than an offset, so it renders as an
-    #: application, ``period(t)``, and not as arithmetic on the index.
+    #: dim -> the rendered subscript that replaces its index, as ``at`` re-indexes a leaf.
     pullbacks: dict[str, str] = field(default_factory=dict)
     #: Every dimension whose index is in use here — the frame, then one entry
     #: per reduction entered — so a reduction over one takes a fresh dummy.
@@ -180,7 +175,8 @@ class _Context:
         once per enclosing use of the same dimension, so ``sum(q, by=bus_of)``
         under ``∀ g`` sums over ``g'`` and its condition can still name ``g``.
         """
-        dummy = f'{self.walk.symbols.index[dim]}{PRIME * self.bound.count(dim)}'
+        primes = "'" * self.bound.count(dim)
+        dummy = f'{self.walk.symbols.index[dim]}{primes}'
         body = _Context(self.walk, self.offsets, {**self.pullbacks, dim: dummy}, (*self.bound, dim))
         return dummy, body
 
@@ -199,7 +195,7 @@ class _Context:
                 continue
             base = self.walk.format.parenthesise(text) if translated else text
             amount = self.walk.symbols.name[step.by] if isinstance(step.by, str) else str(abs(step.by))
-            text = f'{base} {self.walk.translation(step)} {amount}'
+            text = f'{base} {self.walk._translation(step)} {amount}'
             translated = True
         return text
 
@@ -221,9 +217,9 @@ class Walk:
 
     Stateful only in what it has *noticed* — which edge policies appeared,
     whether a translation was counted inside a group, which positional forms
-    printed, and which dimensions were compared against a coordinate that is a
-    number; every one of them something the legend has to explain once the
-    equations print it.
+    printed, and which dimensions were compared against a number. The equation
+    methods run before the legend methods, because the legend names only the
+    symbols the equations printed.
     """
 
     def __init__(self, schema: _ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
@@ -233,22 +229,21 @@ class Walk:
         self.format = fmt
         self.policies: set[TranslationPolicy] = set()
         self.grouped = False
-        self.positions: set[str] = set()
+        self.positions: set[PositionForm] = set()
         self.numeric_coordinates: set[str] = set()
 
-    def op(self, name: OperatorName) -> str:
+    def _op(self, name: OperatorName) -> str:
         return self.format.operators[name]
 
-    def translation(self, step: _Step) -> str:
+    def _translation(self, step: _Step) -> str:
         """The operator for one translation, its fill below and its group above.
 
-        Two subscripts is a TeX error rather than a rendering (#1165), and
-        comma-joined in one, ``0,season_of(t)`` said nothing about which was
-        the fill and which the group. A named offset is always backward, since
-        ``offset=-p`` is refused at load.
+        Two slots, because one subscript holding both says nothing about which
+        is the fill and which the group. A named offset is always backward,
+        since ``offset=-p`` is refused at load.
         """
         backward, forward = _TRANSLATIONS[step.policy]
-        operator = self.op(backward if isinstance(step.by, str) or step.by > 0 else forward)
+        operator = self._op(backward if isinstance(step.by, str) or step.by > 0 else forward)
         if step.fill:
             operator = self.format.subscript(operator, [step.fill])
         if not step.within:
@@ -256,27 +251,27 @@ class Walk:
         self.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def lookup(self, name: str, index: str) -> str:
+    def _lookup(self, name: str, index: str) -> str:
         """A coordinate map applied to an index: ``bus(g)``."""
         return self.format.apply(self.format.upright(name), index)
 
-    def context(self, frame: Iterable[str] = ()) -> _Context:
+    def _context(self, frame: Iterable[str] = ()) -> _Context:
         return _Context(self, bound=tuple(frame))
 
-    def number(self, value: float) -> str:
+    def _number(self, value: float) -> str:
         if value == float('inf'):
-            return self.op('infinity')
+            return self._op('infinity')
         if value == int(value):
             return str(int(value))
         mantissa, _, exponent = repr(value).partition('e')
         if not exponent:
             return mantissa
         power = self.format.superscript('10', str(int(exponent)))
-        return power if mantissa == '1' else f'{mantissa} {self.op("times")} {power}'
+        return power if mantissa == '1' else f'{mantissa} {self._op("times")} {power}'
 
     # -- arithmetic --------------------------------------------------------
 
-    def arithmetic(self, node: ArithmeticNode, ctx: _Context, *, need: int = 0) -> str:
+    def _expression(self, node: ArithmeticNode, ctx: _Context, *, need: int = 0) -> str:
         text, precedence = self._arithmetic(node, ctx)
         return self.format.parenthesise(text) if precedence < need else text
 
@@ -289,7 +284,7 @@ class Walk:
         rendering decision.
         """
         if isinstance(node, NumberNode):
-            return self.number(node.value), _ATOM if node.value >= 0 else 1
+            return self._number(node.value), _ATOM if node.value >= 0 else 1
 
         if isinstance(node, ParameterNode):
             return ctx.indexed(self.symbols.name[node.name], list(self.schema.parameters[node.name].dims)), _ATOM
@@ -302,7 +297,7 @@ class Walk:
                 return self._arithmetic(node.operand, ctx)
             text, precedence = self._arithmetic(node.operand, ctx)
             operand = self.format.parenthesise(text) if precedence < 2 else text
-            return f'{self.op("minus")}{operand}', 2
+            return f'{self._op("minus")}{operand}', 2
 
         if isinstance(node, BinaryOperatorNode):
             return self._binary(node, ctx)
@@ -311,7 +306,6 @@ class Walk:
             return self._call(node, ctx)
 
         if isinstance(node, CasesNode):
-            # the symbol, not the block: :meth:`definitions` prints that, once
             return ctx.indexed(self.symbols.name[node.name], self._frame(node.name)), _ATOM
 
         if isinstance(node, UnresolvedNode | KwargNode):
@@ -328,26 +322,26 @@ class Walk:
         does not. A negation folds into the sign beside it — ``a + -b`` is
         ``a - b`` and ``a - -b`` is ``a + b`` — and as a factor it is
         bracketed, since ``a · -b`` is a spelling nobody reads. A power is
-        atomic to everything but another power, ``x^{a}^{b}`` being a LaTeX
-        error.
+        atomic to everything but another power, a stacked superscript being
+        ambiguous.
         """
         if node.op == '/':
-            top = self.arithmetic(node.left, ctx)
-            bottom = self.arithmetic(node.right, ctx)
+            top = self._expression(node.left, ctx)
+            bottom = self._expression(node.right, ctx)
             return self.format.fraction(top, bottom), _ATOM
         if node.op == '**':
-            base = self.arithmetic(node.left, ctx, need=_PRECEDENCE['**'] + 1)
-            return self.format.superscript(base, self.arithmetic(node.right, ctx)), _PRECEDENCE['**']
+            base = self._expression(node.left, ctx, need=_PRECEDENCE['**'] + 1)
+            return self.format.superscript(base, self._expression(node.right, ctx)), _PRECEDENCE['**']
         precedence = _PRECEDENCE[node.op]
-        left = self.arithmetic(node.left, ctx, need=precedence)
+        left = self._expression(node.left, ctx, need=precedence)
         operand, op = node.right, node.op
         if op in ('+', '-') and (unsigned := _unsigned(operand)) is not None:
             operand, op = unsigned, '-' if op == '+' else '+'
         negated_factor = op == '*' and isinstance(operand, UnaryOperatorNode) and operand.op == '-'
         need = _ATOM if negated_factor else _PRECEDENCE[op] + (1 if op == '-' else 0)
-        right = self.arithmetic(operand, ctx, need=need)
+        right = self._expression(operand, ctx, need=need)
         names: dict[BinaryOperator, OperatorName] = {'*': 'cdot', '+': 'plus', '-': 'minus'}
-        return self.format.joined([left, right], self.op(names[op])), precedence
+        return self.format.joined([left, right], self._op(names[op])), precedence
 
     def _call(self, node: FunctionCallNode, ctx: _Context) -> tuple[str, int]:
         """Render an operator: a translation at the leaves, or a summation.
@@ -372,44 +366,44 @@ class Walk:
             step = _Step(1, policy, within=self._group(node.kwargs.get('by'), over.name))
             self.policies.add(step.policy)
             source, inner = ctx.reducing(over.name)
-            lag = f'{ctx.subscript(over.name)} {self.translation(step)} {source}'
+            lag = f'{ctx.subscript(over.name)} {self._translation(step)} {source}'
             domain = (
-                f'{source} {self.op("in")} {self.symbols.set[over.name]} {self.op("such_that")} '
-                f'0 {self.op("le")} {lag} {self.op("lt")} {self._width(node.kwargs["within"])}'
+                f'{source} {self._op("in")} {self.symbols.set[over.name]} {self._op("such_that")} '
+                f'0 {self._op("le")} {lag} {self._op("lt")} {self._width(node.kwargs["within"])}'
             )
-            body = self.reduction_body(node.args[0], inner)
+            body = self._reduction_body(node.args[0], inner)
             return self.format.summation(domain, body), _PRECEDENCE['+']
 
         if node.name == 'at':
             by = node.kwargs['by']
             assert isinstance(by, LookupNode)
             for name, into in zip(by.names, by.into, strict=True):
-                ctx = ctx.pulled_back(into, self.lookup(name, ctx.subscript(by.dimension)))
+                ctx = ctx.pulled_back(into, self._lookup(name, ctx.subscript(by.dimension)))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, LookupNode)
             dummy, inner = ctx.reducing(by.dimension)
             conditions = [
-                f'{self.lookup(name, dummy)} {self.op("equal")} {ctx.subscript(into)}'
+                f'{self._lookup(name, dummy)} {self._op("equal")} {ctx.subscript(into)}'
                 for name, into in zip(by.names, by.into, strict=True)
             ]
             domain = (
-                f'{self.membership(by.dimension, dummy)} {self.op("such_that")} '
-                f'{self.format.joined(conditions, self.op("and"))}'
+                f'{self._membership(by.dimension, dummy)} {self._op("such_that")} '
+                f'{self.format.joined(conditions, self._op("and"))}'
             )
         elif (over := node.kwargs.get('over')) is not None:
             assert isinstance(over, DimensionNode)
             dummy, inner = ctx.reducing(over.name)
-            domain = self.membership(over.name, dummy)
+            domain = self._membership(over.name, dummy)
         else:
             memberships = []
             inner = ctx
             for d in self._sorted(dims_of(node.args[0], self.schema, 'a sum')):
                 dummy, inner = inner.reducing(d)
-                memberships.append(self.membership(d, dummy))
+                memberships.append(self._membership(d, dummy))
             domain = self.format.joined(memberships, '')
-        return self.format.summation(domain, self.reduction_body(node.args[0], inner)), _PRECEDENCE['+']
+        return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A ``by=`` as the superscript its translation operator carries.
@@ -421,7 +415,7 @@ class Walk:
         if by is None:
             return ''
         assert isinstance(by, LookupNode)
-        return self.lookup(by.names[0], self.symbols.index[dim])
+        return self._lookup(by.names[0], self.symbols.index[dim])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``within=``: a number, or a parameter's own symbol.
@@ -434,7 +428,7 @@ class Walk:
         if isinstance(node, ParameterNode):
             return self.symbols.name[node.name]
         assert isinstance(node, NumberNode)
-        return self.number(node.value)
+        return self._number(node.value)
 
     def _step(self, by: int | str, edge: ArithmeticNode | None) -> _Step:
         """Which of the three edge policies this ``shift`` asked for.
@@ -449,35 +443,33 @@ class Walk:
         if edge is None:
             return _Step(by, 'plain')
         assert isinstance(edge, NumberNode)
-        return _Step(by, 'edge', self.number(edge.value))
+        return _Step(by, 'edge', self._number(edge.value))
 
-    def membership(self, dim: str, index: str | None = None) -> str:
-        return f'{index or self.symbols.index[dim]} {self.op("in")} {self.symbols.set[dim]}'
+    def _membership(self, dim: str, index: str | None = None) -> str:
+        return f'{index or self.symbols.index[dim]} {self._op("in")} {self.symbols.set[dim]}'
 
-    def reduction_body(self, node: ArithmeticNode, ctx: _Context) -> str:
+    def _reduction_body(self, node: ArithmeticNode, ctx: _Context) -> str:
         """What sits to the right of a sum, bracketed only where it must be.
 
         A sum binds everything up to the next ``+`` or ``-`` at its own level,
         so an additive body needs the bracket and nothing else does — including
-        a nested reduction, which is unambiguous. The precedence rule would
-        bracket that too, and a renderer that brackets everything is one nobody
-        trusts to bracket the thing that matters.
+        a nested reduction, which is unambiguous.
         """
         additive = isinstance(node, UnaryOperatorNode) or (
             isinstance(node, BinaryOperatorNode) and node.op in ('+', '-')
         )
-        return self.arithmetic(node, ctx, need=2 if additive else 0)
+        return self._expression(node, ctx, need=2 if additive else 0)
 
     # -- where strings -----------------------------------------------------
 
-    def where(self, node: WhereNode, ctx: _Context, *, need: int = 0) -> str:
+    def _predicate(self, node: WhereNode, ctx: _Context, *, need: int = 0) -> str:
         text, precedence = self._where(node, ctx)
         return self.format.parenthesise(text) if precedence < need else text
 
     def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
         if isinstance(node, BooleanLiteralNode):
             assert not node.value, 'an always-true mask is folded away or refused before anything prints it'
-            return self.op('false'), _ATOM
+            return self._op('false'), _ATOM
 
         if isinstance(node, ParameterDefinedNode):
             indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
@@ -490,85 +482,85 @@ class Walk:
 
         if isinstance(node, ParameterComparisonNode):
             left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
-            return f'{left} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+            return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
 
         if isinstance(node, DimensionComparisonNode):
-            if isinstance(node.value, (int, float)):
+            if isinstance(node.value, int | float):
                 self.numeric_coordinates.add(node.name)
-            return f'{ctx.subscript(node.name)} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+            return f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
 
         if isinstance(node, DimensionPositionNode):
-            grouping = None if node.by is None else self.lookup(node.by, ctx.subscript(node.name))
-            place = self.position(ctx.subscript(node.name), grouping)
-            ordinal = self.ordinal(node.name, node.position, grouping)
-            return f'{place} {self.op(_PREDICATES[node.op])} {ordinal}', 2
+            grouping = None if node.by is None else self._lookup(node.by, ctx.subscript(node.name))
+            place = self._position(ctx.subscript(node.name), grouping)
+            ordinal = self._ordinal(node.name, node.position, grouping)
+            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', 2
 
         if isinstance(node, LookupComparisonNode):
-            applied = self.lookup(node.name, ctx.subscript(node.over))
-            return f'{applied} {self.op(_PREDICATES[node.op])} {self.literal(node.value)}', 2
+            applied = self._lookup(node.name, ctx.subscript(node.over))
+            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
 
         if isinstance(node, LookupPairComparisonNode):
             index = ctx.subscript(node.over)
-            left = self.lookup(node.name, index)
-            right = self.lookup(node.other, index)
-            return f'{left} {self.op(_PREDICATES[node.op])} {right}', 2
+            left = self._lookup(node.name, index)
+            right = self._lookup(node.other, index)
+            return f'{left} {self._op(_PREDICATES[node.op])} {right}', 2
 
         if isinstance(node, LookupDefinedNode):
-            applied = self.lookup(node.name, ctx.subscript(node.over))
+            applied = self._lookup(node.name, ctx.subscript(node.over))
             return f'{applied} {self.format.prose(" is defined")}', 2
 
         if isinstance(node, NotNode):
-            return f'{self.op("not")} {self.where(node.operand, ctx, need=3)}', 3
+            return f'{self._op("not")} {self._predicate(node.operand, ctx, need=3)}', 3
 
         if isinstance(node, AndNode):
-            sides = [self.where(node.left, ctx, need=1), self.where(node.right, ctx, need=1)]
-            return self.format.joined(sides, self.op('and')), 1
+            sides = [self._predicate(node.left, ctx, need=1), self._predicate(node.right, ctx, need=1)]
+            return self.format.joined(sides, self._op('and')), 1
 
         if isinstance(node, OrNode):
-            sides = [self.where(node.left, ctx, need=0), self.where(node.right, ctx, need=0)]
-            return self.format.joined(sides, self.op('or')), 0
+            sides = [self._predicate(node.left, ctx, need=0), self._predicate(node.right, ctx, need=0)]
+            return self.format.joined(sides, self._op('or')), 0
 
         assert_never(node)
 
-    def literal(self, value: float | str | datetime.date) -> str:
-        return self.number(value) if isinstance(value, (int, float)) else self.format.quoted(str(value))
+    def _literal(self, value: float | str | datetime.date) -> str:
+        return self._number(value) if isinstance(value, int | float) else self.format.quoted(str(value))
 
-    def position(self, index: str, grouping: str | None) -> str:
+    def _position(self, index: str, grouping: str | None) -> str:
         """``position(dim)`` applied to the row, *grouping* as a subscript — as an argument it read as a second position."""
         self.positions.add('grouped' if grouping is not None else 'plain')
-        symbol = self.op('position')
+        symbol = self._op('position')
         if grouping is not None:
             symbol = self.format.subscript(symbol, [grouping])
         return self.format.apply(symbol, index)
 
-    def ordinal(self, dimension: str, at: int, grouping: str | None) -> str:
+    def _ordinal(self, dimension: str, at: int, grouping: str | None) -> str:
         """The position compared against; a negative one counts back from the size of the set it is a position in — the group's where grouped."""
         if at >= 0:
-            return self.number(at)
+            return self._number(at)
         self.positions.add('from_end')
         size = self.symbols.set[dimension]
         if grouping is not None:
             size = self.format.subscript(size, [grouping])
-        return f'{self.format.cardinality(size)} {self.op("minus")} {self.number(-at)}'
+        return f'{self.format.cardinality(size)} {self._op("minus")} {self._number(-at)}'
 
-    def condition(self, ctx: _Context, mask: Mask | None) -> str:
+    def _condition(self, ctx: _Context, mask: Mask | None) -> str:
         """The mask on a quantifier, printed.
 
         A mask every row passes arrives as ``None`` — resolution folds it,
         so this prints what a program carries — and a quantifier with no
         condition prints none.
         """
-        return '' if mask is None else self.where(mask.root, ctx)
+        return '' if mask is None else self._predicate(mask.root, ctx)
 
-    def quantifier(self, dims: list[str], condition: str) -> str:
+    def _quantifier(self, dims: list[str], condition: str) -> str:
         if not dims and not condition:
             return ''
-        over = self.format.joined([self.membership(d) for d in dims], '')
+        over = self.format.joined([self._membership(d) for d in dims], '')
         if not condition:
-            return f'{self.op("forall")} {over}'
+            return f'{self._op("forall")} {over}'
         if not over:
             return f'{self.format.prose("where ")} {condition}'
-        return f'{self.op("forall")} {over} {self.op("such_that")} {condition}'
+        return f'{self._op("forall")} {over} {self._op("such_that")} {condition}'
 
     # -- declarations ------------------------------------------------------
 
@@ -582,10 +574,10 @@ class Walk:
         block = self.schema.objective
         if block is None:
             return []
-        sense = self.op('minimize' if block.sense == 'minimize' else 'maximize')
+        sense = self._op('minimize' if block.sense == 'minimize' else 'maximize')
         node = expression_of(block.expression, self.schema, self.namespace, 'the objective')
         assert not isinstance(node, ComparisonNode)
-        return [Line(label='', left=sense, right=self.arithmetic(node, self.context()))]
+        return [Line(label='', left=sense, right=self._expression(node, self._context()))]
 
     def constraints(self) -> list[Line]:
         lines = []
@@ -595,14 +587,14 @@ class Walk:
             if not isinstance(node, ComparisonNode):
                 msg = f'{context}: expected a comparison, got {type(node).__name__}'
                 raise AssertionError(msg)
-            ctx = self.context(frame=block.foreach)
-            condition = self.condition(ctx, where_of(block.where, self.namespace, context))
+            ctx = self._context(frame=block.foreach)
+            condition = self._condition(ctx, where_of(block.where, self.namespace, context))
             lines.append(
                 Line(
                     label=name,
-                    left=self.arithmetic(node.left, ctx),
-                    right=f'{self.op(_PREDICATES[node.op])} {self.arithmetic(node.right, ctx)}',
-                    condition=self.quantifier(list(block.foreach), condition),
+                    left=self._expression(node.left, ctx),
+                    right=f'{self._op(_PREDICATES[node.op])} {self._expression(node.right, ctx)}',
+                    condition=self._quantifier(list(block.foreach), condition),
                 )
             )
         return lines
@@ -610,27 +602,21 @@ class Walk:
     def definitions(self) -> list[Line]:
         """One line per cased expression, in declaration order, defining it.
 
-        Inlining the block where its name stood is what the AST does and the
-        wrong thing to print: three arms are three rows tall, so whatever
-        follows sits beside the middle one. So a use prints the symbol and the
-        block prints here, as a paper states a quantity defined by region.
-
-        Every declared one prints, used or not — the rule a variable's domain
-        follows, and what keeps this section independent of the others having
-        run.
+        A use prints the symbol and the block prints here, as a paper states a
+        quantity defined by region. Every declared one prints, used or not.
         """
         lines = []
         for name in printed_expressions(self.schema):
             node = expression_of(name, self.schema, self.namespace, f"expression '{name}'")
             assert isinstance(node, CasesNode)
             frame = self._frame(name)
-            ctx = self.context(frame)
+            ctx = self._context(frame)
             lines.append(
                 Line(
                     label=name,
                     left=ctx.indexed(self.symbols.name[name], frame),
-                    right=f'{self.op("equal")} {self.format.cases(self._arms(node, ctx))}',
-                    condition=self.quantifier(frame, ''),
+                    right=f'{self._op("equal")} {self.format.cases(self._arms(node, ctx))}',
+                    condition=self._quantifier(frame, ''),
                 )
             )
         return lines
@@ -650,9 +636,9 @@ class Walk:
             when = (
                 self.format.prose('otherwise')
                 if arm.when is None
-                else f'{self.format.prose("if ")} {self.where(arm.when, ctx, need=1)}'
+                else f'{self.format.prose("if ")} {self._predicate(arm.when, ctx, need=1)}'
             )
-            arms.append((self.arithmetic(arm.value, ctx), when))
+            arms.append((self._expression(arm.value, ctx), when))
         return arms
 
     def variables(self) -> list[Line]:
@@ -666,53 +652,48 @@ class Walk:
         sets = {block.variable: block for block in self.schema.sos.values()}
         lines = []
         for name, block in self.schema.variables.items():
-            ctx = self.context(frame=block.foreach)
+            ctx = self._context(frame=block.foreach)
             symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
             where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
-            condition = self.quantifier(list(block.foreach), self.condition(ctx, where))
+            condition = self._quantifier(list(block.foreach), self._condition(ctx, where))
             lower, upper = block.bounds.lower, block.bounds.upper
 
             if block.domain == 'binary':
-                left, right = symbol, f'{self.op("in")} {self.op("binary_set")}'
+                left, right = symbol, f'{self._op("in")} {self._op("binary_set")}'
             else:
                 below, above = lower == float('-inf'), upper == float('inf')
                 if below and above:
-                    domain = self.op('integers' if block.domain == 'integer' else 'reals')
-                    left, right = symbol, f'{self.op("in")} {domain}'
+                    domain = self._op('integers' if block.domain == 'integer' else 'reals')
+                    left, right = symbol, f'{self._op("in")} {domain}'
                 elif below:
-                    left, right = symbol, f'{self.op("le")} {self._bound(ctx, upper)}'
+                    left, right = symbol, f'{self._op("le")} {self._bound(ctx, upper)}'
                 elif above:
-                    left, right = symbol, f'{self.op("ge")} {self._bound(ctx, lower)}'
+                    left, right = symbol, f'{self._op("ge")} {self._bound(ctx, lower)}'
                 else:
-                    left = f'{self._bound(ctx, lower)} {self.op("le")} {symbol}'
-                    right = f'{self.op("le")} {self._bound(ctx, upper)}'
+                    left = f'{self._bound(ctx, lower)} {self._op("le")} {symbol}'
+                    right = f'{self._op("le")} {self._bound(ctx, upper)}'
                 if block.domain == 'integer' and not (below and above):
-                    right = f'{right}, {symbol} {self.op("in")} {self.op("integers")}'
+                    right = f'{right}, {symbol} {self._op("in")} {self._op("integers")}'
             lines.append(Line(label=name, left=left, right=right, condition=condition))
             if name in sets:
                 lines.append(self._sos(name, sets[name], ctx))
         return lines
 
     def _sos(self, name: str, block: SosBlock, ctx: _Context) -> Line:
-        """``(x_{s,o})_{o ∈ O} ∈ SOS2  ∀ s ∈ S`` — the family, and its order.
-
-        The set runs along one dim and there is one of it per coordinate of the
-        rest, which is exactly the split between the subscript on the family
-        and the quantifier beside it.
-        """
+        """The variable's family along the set's dim, as one member of the SOS set, quantified over the other dims."""
         foreach = self.schema.variables[name].foreach
         family = self.format.parenthesise(ctx.indexed(self.symbols.name[name], list(foreach)))
         return Line(
             label=f'{name} sos',
-            left=self.format.subscript(family, [self.membership(block.over)]),
-            right=f'{self.op("in")} {self.op("sos_set")}{block.type}',
-            condition=self.quantifier([d for d in foreach if d != block.over], ''),
+            left=self.format.subscript(family, [self._membership(block.over)]),
+            right=f'{self._op("in")} {self._op("sos_set")}{block.type}',
+            condition=self._quantifier([d for d in foreach if d != block.over], ''),
         )
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
         if isinstance(value, str):
             return ctx.indexed(self.symbols.name[value], list(self.schema.parameters[value].dims))
-        return self.number(value)
+        return self._number(value)
 
     def _sorted(self, dims: frozenset[str]) -> list[str]:
         order = list(self.schema.dimensions)
@@ -748,7 +729,7 @@ class Walk:
     def _over(self, dims: list[str]) -> str:
         if not dims:
             return ' (scalar)'
-        product = self.format.joined([self.symbols.set[d] for d in dims], self.op('times'))
+        product = self.format.joined([self.symbols.set[d] for d in dims], self._op('times'))
         return f' over {self.format.math(product)}'
 
     def _coords(self, dim: str) -> str:
@@ -768,7 +749,7 @@ class Walk:
         if targeted:
             maps = self.format.joined(
                 [
-                    f'{self.format.upright(c)}: {self.symbols.set[dim]} {self.op("maps_to")} {self.symbols.set[target]}'
+                    f'{self.format.upright(c)}: {self.symbols.set[dim]} {self._op("maps_to")} {self.symbols.set[target]}'
                     for c, target in targeted.items()
                 ],
                 '',
@@ -801,15 +782,10 @@ class Walk:
         ]
 
     def translation_notes(self) -> list[str]:
-        """A sentence for each translation symbol the model actually printed.
-
-        Only those: a legend explaining a symbol that is nowhere on the page is
-        a dead end, and plain ``t-k`` needs no note until something else stands
-        beside it.
-        """
+        """A sentence for each translation symbol the model printed; plain ``t-k`` needs none."""
         notes = []
         if 'wrap' in self.policies:
-            cyclic = self.format.math(f't {self.op("cyclic_minus")} k')
+            cyclic = self.format.math(f't {self._op("cyclic_minus")} k')
             notes.append(
                 f'{cyclic} denotes cyclic translation: index {self.format.math("t-k")} taken modulo the size of '
                 f'the dimension ({self.format.mono("roll")}). Plain {self.format.math("t-k")} '
@@ -817,21 +793,21 @@ class Walk:
                 f'the edge are simply absent.'
             )
         if 'edge' in self.policies:
-            filled = self.format.math(f't {self.format.subscript(self.op("edge_minus"), ["v"])} k')
+            filled = self.format.math(f't {self.format.subscript(self._op("edge_minus"), ["v"])} k')
             notes.append(
                 f'{filled} denotes translation with {self.format.math("v")} standing where index '
                 f'{self.format.math("t-k")} leaves the dimension ({self.format.mono("shift(edge=v)")}), so the row '
                 f'at that boundary is built and carries {self.format.math("v")} rather than being dropped.'
             )
         if self.grouped:
-            applied = self.lookup('lookup', 't')
-            counted = self.format.math(f't {self.format.superscript(self.op("cyclic_minus"), applied)} k')
+            applied = self._lookup('lookup', 't')
+            counted = self.format.math(f't {self.format.superscript(self._op("cyclic_minus"), applied)} k')
             note = (
                 f'{counted} denotes a translation counted inside the group a lookup puts {self.format.math("t")} '
                 f'in ({self.format.mono("shift(by=lookup)")}), so a term never crosses out of its own group.'
             )
             if 'edge' in self.policies:
-                both = self.format.superscript(self.format.subscript(self.op('edge_minus'), ['v']), applied)
+                both = self.format.superscript(self.format.subscript(self._op('edge_minus'), ['v']), applied)
                 note += (
                     f' The two modifiers take different slots {self.format.dash} the group above, the fill '
                     f'below {self.format.dash} so {self.format.math(f"t {both} k")} is both at once.'
@@ -840,16 +816,11 @@ class Walk:
         return notes
 
     def position_notes(self) -> list[str]:
-        """A sentence for each positional symbol the model actually printed.
-
-        The first is what the page cannot go without: a reader arrives from
-        papers where the index *is* the ordinal, so a page printing both
-        ``pos(t) = 0`` and ``t >= 3`` has to say once which is the position.
-        """
+        """A sentence for each positional symbol the model printed; the first says which of ``pos(t)`` and ``t`` is the position."""
         notes = []
         if self.positions:
             index = self.format.math('t')
-            place = self.format.math(self.format.apply(self.op('position'), 't'))
+            place = self.format.math(self.format.apply(self._op('position'), 't'))
             dash = self.format.dash
             notes.append(
                 f"{place} denotes where index {index} sits along its dimension's own order {dash} the order "
@@ -858,8 +829,8 @@ class Walk:
                 f'labels and {place} against positions.'
             )
         if 'grouped' in self.positions:
-            applied = self.lookup('lookup', 't')
-            grouped = self.format.math(self.format.apply(self.format.subscript(self.op('position'), [applied]), 't'))
+            applied = self._lookup('lookup', 't')
+            grouped = self.format.math(self.format.apply(self.format.subscript(self._op('position'), [applied]), 't'))
             group = self.format.math(self.format.subscript(self.format.script('T'), [applied]))
             notes.append(
                 f'{grouped} counts within the group a lookup puts {self.format.math("t")} in: the subscript names '
@@ -867,7 +838,7 @@ class Walk:
             )
         if 'from_end' in self.positions:
             size = self.format.cardinality(self.format.script('T'))
-            last = self.format.math(f'{size} {self.op("minus")} {self.number(1)}')
+            last = self.format.math(f'{size} {self._op("minus")} {self._number(1)}')
             notes.append(
                 f'{self.format.math(size)} denotes the size of the set being counted along, and a position '
                 f'counted from the end prints against it {self.format.dash} {last} is the last position, one '

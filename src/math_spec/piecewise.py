@@ -4,38 +4,16 @@
 
 """Expand ``piecewise:`` blocks into plain variables and constraints.
 
-A ``piecewise:`` block becomes ordinary affine declarations before anything
-reads the model. The λ convex-combination method needs only the breakpoint
-parameters themselves, no derived data. For a block
-
-    piecewise:
-      curve:
-        over: bp
-        links:
-          - [power, power_bp]
-          - [fuel * eff, fuel_bp, "<="]
-
-with F = the union of the links' dims, it emits:
-
-    variables:
-      curve_lam(F, bp)  in [0, 1]
-      curve_seg(F, bp)  binary                            (method: adjacency)
-    constraints:
-      curve_convexity(F):     sum(curve_lam, over=bp) == 1
-      curve_pick(F):          sum(curve_seg, over=bp) == 1        (method: adjacency)
-      curve_adjacency(F, bp): curve_lam <= curve_seg + shift(curve_seg, over=bp, offset=1, edge=0)
-      curve_link0(F):         (power) == sum(curve_lam * power_bp, over=bp)
-      curve_link1(F):         (fuel * eff) <= sum(curve_lam * fuel_bp, over=bp)
-
-Only the restriction on λ varies (:data:`~math_spec.model.PIECEWISE_METHODS`);
-``lp`` emits no weights at all. A link expression is judged before expansion,
-so ``p * p`` is refused against the link the user wrote rather than
-``curve_link0``.
+A block becomes ordinary affine declarations before anything reads the model,
+under names prefixed with the block's own; what each method emits is tabled in
+``docs/reference/language/piecewise.md``. A link expression is judged before
+expansion, so a refusal names the link the file wrote rather than an emitted
+constraint.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any, NamedTuple
 
 from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
@@ -57,21 +35,78 @@ from math_spec.program import (
 )
 from math_spec.resolution import Namespace, resolve_expression
 
-if TYPE_CHECKING:
-    from collections.abc import Sequence
+
+def _nominated(pw: PiecewiseBlock) -> str | None:
+    """The block's own values parameter ``points:`` names, so the mask is derived from it — or ``None``."""
+    return pw.points if pw.points in {link.values for link in pw.links} else None
 
 
-def _mask_of(block: str, pw: PiecewiseBlock) -> str | None:
-    """The parameter a block masks its weights with, or ``None`` for a whole curve.
+#: The suffix on the second gate row, where the gate variable does not exist.
+_UNGATED = '_ungated'
 
-    ``points:`` may name the mask itself, or one of the block's own values
-    parameters — "the curve runs as far as this does" — in which case the
-    mask is derived from that parameter when data binds, under the name this
-    returns.
+
+class _Emitted(NamedTuple):
+    """Every name one block's expansion may write — the emitters and the collision check read one spelling.
+
+    ``points`` is the derived mask, written only where ``nominated`` names the
+    values parameter it is derived from.
     """
-    if pw.points is None:
-        return None
-    return f'{block}_points' if pw.points in {link.values for link in pw.links} else pw.points
+
+    lam: str
+    seg: str
+    starts: str
+    ends: str
+    points: str
+    nominated: str | None
+    convexity: str
+    pick: str
+    adjacency: str
+    chord: str
+    domain_lo: str
+    domain_hi: str
+    links: tuple[str, ...]
+    sos: str
+
+    @classmethod
+    def of(cls, block: str, pw: PiecewiseBlock) -> _Emitted:
+        return cls(
+            lam=f'{block}_lam',
+            seg=f'{block}_seg',
+            starts=f'{block}_starts',
+            ends=f'{block}_ends',
+            points=f'{block}_points',
+            nominated=_nominated(pw),
+            convexity=f'{block}_convexity',
+            pick=f'{block}_pick',
+            adjacency=f'{block}_adjacency',
+            chord=f'{block}_chord',
+            domain_lo=f'{block}_domain_lo',
+            domain_hi=f'{block}_domain_hi',
+            links=tuple(f'{block}_link{i}' for i in range(len(pw.links))),
+            sos=block,
+        )
+
+    def by_kind(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
+        """The names by the kind of declaration each would collide with."""
+        return (
+            ('variable', (self.lam, self.seg)),
+            ('parameter', (self.starts, self.ends, *((self.points,) if self.nominated is not None else ()))),
+            (
+                'constraint',
+                (
+                    self.convexity,
+                    self.convexity + _UNGATED,
+                    self.pick,
+                    self.pick + _UNGATED,
+                    self.adjacency,
+                    self.chord,
+                    self.domain_lo,
+                    self.domain_hi,
+                    *self.links,
+                ),
+            ),
+            ('sos', (self.sos,)),
+        )
 
 
 def _curvature_required(pw: PiecewiseBlock) -> Curvature | None:
@@ -106,7 +141,7 @@ def declaration_of(expanded: ExpandedPiecewise) -> PiecewiseDeclaration:
     if pw.method == 'lp':
         checks.append(AtLeastTwo(pw.over, expanded.points))
     if expanded.points is not None:
-        checks.append(Contiguous(expanded.points, _nominated(expanded)))
+        checks.append(Contiguous(expanded.points, _nominated(pw)))
     return PiecewiseDeclaration(
         over=pw.over,
         method=pw.method,
@@ -124,18 +159,13 @@ def derivations_of(block: str, expanded: ExpandedPiecewise) -> dict[str, Derivat
     if (mask := expanded.points) is None:
         return {}
     derivations: dict[str, Derivation] = {}
-    if (values := _nominated(expanded)) is not None:
+    if (values := _nominated(expanded.block)) is not None:
         derivations[mask] = MaskOf(block, values)
     if expanded.starts is not None:
         derivations[expanded.starts] = FirstOf(block, mask)
     if expanded.ends is not None:
         derivations[expanded.ends] = LastOf(block, mask)
     return derivations
-
-
-def _nominated(expanded: ExpandedPiecewise) -> str | None:
-    """The breakpoint parameter the mask was derived from, or ``None`` where the file supplied the mask itself."""
-    return expanded.block.points if expanded.block.points != expanded.points else None
 
 
 def _gate_rows(schema: Spec, pw: PiecewiseBlock) -> tuple[tuple[str, str | None, str], ...]:
@@ -157,19 +187,13 @@ def _gate_rows(schema: Spec, pw: PiecewiseBlock) -> tuple[tuple[str, str | None,
     gate = schema.variables[pw.activity]
     if gate.where is None or gate.absence == 'zero':
         return (('', None, f'({pw.activity})'),)
-    return (('', pw.activity, f'({pw.activity})'), ('_ungated', f'NOT {pw.activity}', '1'))
+    return (('', pw.activity, f'({pw.activity})'), (_UNGATED, f'NOT {pw.activity}', '1'))
 
 
 def expand_piecewise(schema: Spec) -> _ExpandedSpec:
     """Return *schema* as a :class:`_ExpandedSpec` — every ``piecewise:`` block expanded away.
 
-    The adjacency row shifts with ``edge=0``: a bare ``shift`` would drop the
-    first breakpoint's row and leave its weight unconstrained, a wrong MILP
-    with no error (#289). ``points:`` masks the weights and the segment
-    binaries and no constraint — every emitted row reduces over the breakpoint
-    axis or carries a masked weight. The result is memoised on *schema*, and a
-    :class:`_ExpandedSpec` comes straight back; a model with no ``piecewise:`` is
-    retyped with ``model_construct``, its validation already done on the way in.
+    Memoised on *schema*.
 
     Raises:
         PiecewiseExpansionError: A block naming something that does not exist,
@@ -189,22 +213,22 @@ def expand_piecewise(schema: Spec) -> _ExpandedSpec:
     records: dict[str, dict[str, Any]] = {}
     raw['expanded_piecewise'] = records
     for name, pw in schema.piecewise.items():
-        frame = _validate_block(schema, name, pw)
-        mask, nominated = _mask_of(name, pw), pw.points
+        emitted = _Emitted.of(name, pw)
+        frame = _validate_block(schema, name, pw, emitted)
+        mask = emitted.points if emitted.nominated is not None else pw.points
         record = records[name] = {'block': raw['piecewise'][name], 'points': mask}
-        if mask is not None and nominated is not None and mask != nominated:
+        if emitted.nominated is not None:
             _emit_parameter(
                 raw,
-                mask,
-                list(schema.parameters[nominated].dims),
-                f"where '{nominated}' has a row, and so where the curve runs",
+                emitted.points,
+                list(schema.parameters[emitted.nominated].dims),
+                f"where '{emitted.nominated}' has a row, and so where the curve runs",
             )
         if pw.method == 'lp':
-            _expand_lp(raw, record, name, pw, frame, mask, schema.parameters[pw.points].dims if pw.points else ())
+            _expand_lp(raw, record, emitted, pw, frame, mask)
             continue
-        lam = f'{name}_lam'
 
-        raw['variables'][lam] = {
+        raw['variables'][emitted.lam] = {
             'foreach': [*frame, pw.over],
             **({'where': mask} if mask else {}),
             'bounds': {'lower': 0.0, 'upper': 1.0},
@@ -212,35 +236,36 @@ def expand_piecewise(schema: Spec) -> _ExpandedSpec:
         }
         gated = _gate_rows(schema, pw)
         for suffix, where, rhs in gated:
-            raw['constraints'][f'{name}_convexity{suffix}'] = {
+            raw['constraints'][emitted.convexity + suffix] = {
                 'foreach': list(frame),
                 **({'where': where} if where else {}),
-                'expression': f'sum({lam}, over={pw.over}) == {rhs}',
+                'expression': f'sum({emitted.lam}, over={pw.over}) == {rhs}',
             }
-        for i, link in enumerate(pw.links):
-            raw['constraints'][f'{name}_link{i}'] = {
+        for cname, link in zip(emitted.links, pw.links, strict=True):
+            raw['constraints'][cname] = {
                 'foreach': list(frame),
-                'expression': (f'({link.expression}) {link.sign} sum({lam} * {link.values}, over={pw.over})'),
+                'expression': (f'({link.expression}) {link.sign} sum({emitted.lam} * {link.values}, over={pw.over})'),
             }
         if pw.method == 'sos2':
-            raw.setdefault('sos', {})[name] = {'variable': lam, 'over': pw.over, 'type': 2}
+            raw.setdefault('sos', {})[emitted.sos] = {'variable': emitted.lam, 'over': pw.over, 'type': 2}
         elif pw.method == 'adjacency':
-            seg = f'{name}_seg'
-            raw['variables'][seg] = {
+            raw['variables'][emitted.seg] = {
                 'foreach': [*frame, pw.over],
                 **({'where': mask} if mask else {}),
                 'domain': 'binary',
                 'bounds': {},
             }
             for suffix, where, rhs in gated:
-                raw['constraints'][f'{name}_pick{suffix}'] = {
+                raw['constraints'][emitted.pick + suffix] = {
                     'foreach': list(frame),
                     **({'where': where} if where else {}),
-                    'expression': f'sum({seg}, over={pw.over}) == {rhs}',
+                    'expression': f'sum({emitted.seg}, over={pw.over}) == {rhs}',
                 }
-            raw['constraints'][f'{name}_adjacency'] = {
+            raw['constraints'][emitted.adjacency] = {
                 'foreach': [*frame, pw.over],
-                'expression': f'{lam} <= {seg} + shift({seg}, over={pw.over}, offset=1, edge=0)',
+                'expression': (
+                    f'{emitted.lam} <= {emitted.seg} + shift({emitted.seg}, over={pw.over}, offset=1, edge=0)'
+                ),
             }
 
     raw['piecewise'].clear()
@@ -252,11 +277,10 @@ def expand_piecewise(schema: Spec) -> _ExpandedSpec:
 def _expand_lp(
     raw: dict[str, Any],
     record: dict[str, Any],
-    name: str,
+    emitted: _Emitted,
     pw: PiecewiseBlock,
     frame: tuple[str, ...],
     mask: str | None,
-    schema_dims: Sequence[str],
 ) -> None:
     """Emit the segment-line form: a row per segment, and the two domain rows.
 
@@ -274,8 +298,8 @@ def _expand_lp(
     d = pw.over
     run = f'({x_link.values} - shift({x_link.values}, over={d}, offset=1, edge=0))'
     rise = f'({y_link.values} - shift({y_link.values}, over={d}, offset=1, edge=0))'
-    interior = f'{mask} AND NOT {name}_starts' if mask else f'position({d}) != 0'
-    raw['constraints'][f'{name}_chord'] = {
+    interior = f'{mask} AND NOT {emitted.starts}' if mask else f'position({d}) != 0'
+    raw['constraints'][emitted.chord] = {
         'foreach': [*frame, d],
         'where': interior,
         'expression': (
@@ -283,25 +307,25 @@ def _expand_lp(
             f'{rise} * (({x_link.expression}) - {x_link.values}) + {y_link.values} * {run}'
         ),
     }
-    edges = (('domain_lo', '>=', f'{name}_starts'), ('domain_hi', '<=', f'{name}_ends'))
-    axis = (('domain_lo', '>=', f'position({d}) == 0'), ('domain_hi', '<=', f'position({d}) == -1'))
-    for suffix, sense, at in edges if mask else axis:
+    edges = ((emitted.domain_lo, '>=', emitted.starts), (emitted.domain_hi, '<=', emitted.ends))
+    axis = ((emitted.domain_lo, '>=', f'position({d}) == 0'), (emitted.domain_hi, '<=', f'position({d}) == -1'))
+    for cname, sense, at in edges if mask else axis:
         if mask:
             record['starts' if sense == '>=' else 'ends'] = at
             _emit_parameter(
                 raw,
                 at,
-                list(schema_dims),
+                raw['parameters'][mask]['dims'],
                 f'the {"first" if sense == ">=" else "last"} breakpoint of each curve',
             )
-        raw['constraints'][f'{name}_{suffix}'] = {
+        raw['constraints'][cname] = {
             'foreach': [*frame, d],
             'where': at,
             'expression': f'({x_link.expression}) {sense} {x_link.values}',
         }
 
 
-def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock) -> tuple[str, ...]:
+def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock, emitted: _Emitted) -> tuple[str, ...]:
     """Check references and infer the frame (union of the links' dims).
 
     A values parameter is checked against the frame in a second pass, since
@@ -354,7 +378,7 @@ def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock) -> tuple[str, .
                 f"it, or drop it from '{link.values}'."
             )
 
-    if pw.points is not None and _mask_of(name, pw) == pw.points:
+    if pw.points is not None and emitted.nominated is None:
         if pw.points not in schema.parameters:
             raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
         if (dtype := schema.parameters[pw.points].dtype) != 'bool':
@@ -374,26 +398,15 @@ def _validate_block(schema: Spec, name: str, pw: PiecewiseBlock) -> tuple[str, .
                 f"a mask says which of the block's own coordinates exist, and cannot add coordinates"
             )
 
-    emitted_constraints = (
-        f'{name}_convexity',
-        f'{name}_convexity_ungated',
-        f'{name}_pick',
-        f'{name}_pick_ungated',
-        f'{name}_adjacency',
-        f'{name}_chord',
-        f'{name}_domain_lo',
-        f'{name}_domain_hi',
-        *(f'{name}_link{i}' for i in range(len(pw.links))),
-    )
-    derived = (f'{name}_points',) if _mask_of(name, pw) != pw.points else ()
-    for kind, emitted, declared in (
-        ('variable', (f'{name}_lam', f'{name}_seg'), schema.variables),
-        ('parameter', (f'{name}_starts', f'{name}_ends', *derived), schema.parameters),
-        ('constraint', emitted_constraints, schema.constraints),
-        ('sos', (name,), schema.sos),
-    ):
-        for one in emitted:
-            if one in declared:
+    declared = {
+        'variable': schema.variables,
+        'parameter': schema.parameters,
+        'constraint': schema.constraints,
+        'sos': schema.sos,
+    }
+    for kind, names in emitted.by_kind():
+        for one in names:
+            if one in declared[kind]:
                 raise PiecewiseExpansionError(f"{ctx}: emitted {kind} '{one}' collides with a declared {kind}")
     return tuple(frame)
 

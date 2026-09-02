@@ -324,14 +324,6 @@ def test_a_position_is_not_confused_with_a_name():
     assert isinstance(parse_where('position(t) == 0 AND p_max > 0'), AndNode)
 
 
-def test_the_old_index_spelling_names_its_rewrite():
-    """`index(dim, i)` is what every model wrote before #32."""
-    with pytest.raises(SchemaError) as excinfo:
-        parse_where('snapshot == index(snapshot, 0)')
-    assert 'index() is now position()' in str(excinfo.value)
-    assert "write 'position(dim) == i'" in str(excinfo.value)
-
-
 @pytest.mark.parametrize(
     ('text', 'rewrite'),
     [

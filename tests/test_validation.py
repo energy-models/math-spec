@@ -143,7 +143,7 @@ class TestDimensionKwargs:
             ),
             pytest.param(
                 'sum(p, by=zne) == load',
-                ('does not name a lookup', "Lookups: ['zone']"),
+                ('does not name a lookup', "Did you mean 'zone'?"),
                 id='by-lookup-typo',
             ),
             pytest.param(
@@ -586,7 +586,8 @@ class TestRulesDecidedWithoutData:
 
 class TestTheFrontDoor:
     def test_a_list_of_models_is_not_a_model(self):
-        with pytest.raises(TypeError, match='one file, one dict or one Spec, never a list'):
+        """Composition is Python's, not the file's (#30) — and the refusal is the package's own, so the CLI's one except catches it."""
+        with pytest.raises(SchemaError, match='one file, one dict or one Spec, never a list'):
             to_spec([DISPATCH_MODEL, DISPATCH_MODEL])
 
     def test_a_loaded_model_passes_through_as_itself(self):
@@ -790,7 +791,9 @@ class TestExpressionCases:
 
     def test_a_when_may_not_test_a_dim_outside_the_frame(self):
         """The same rule a variable's or a constraint's mask is held to."""
-        with pytest.raises(DimensionError, match="'snapshot', which is not in the frame"):
+        with pytest.raises(
+            DimensionError, match=r"where-dimension 'snapshot' reads dims \['snapshot'\] outside the frame"
+        ):
             to_spec(_cased(foreach=['generator']))
 
     def test_an_unknown_name_in_a_case_is_a_load_error(self):
@@ -913,6 +916,7 @@ class TestADeclarationIsNamed:
         ],
     )
     def test_a_name_no_expression_could_write_is_refused(self, section: str, name: str):
+        """``points: ''`` named a parameter no expression can, and the expansion's ``if mask:`` read it as a block masking nothing, so the weights came out unmasked."""
         declarations: dict[str, Any] = {
             'dimensions': {'dtype': 'str'},
             'lookups': {'over': 'g', 'into': 'h'},
