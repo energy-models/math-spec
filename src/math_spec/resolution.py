@@ -16,6 +16,28 @@ import re
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Literal, assert_never, cast
 
+from math_spec._expression_parser import (
+    ArithmeticNode,
+    BinaryOperatorNode,
+    CaseArm,
+    CasesNode,
+    ComparisonNode,
+    DimensionNode,
+    EdgeNode,
+    FunctionCallNode,
+    KeywordNode,
+    KwargNode,
+    LookupNode,
+    NameListNode,
+    NameNode,
+    NumberNode,
+    ParameterNode,
+    ParsedNode,
+    UnaryOperatorNode,
+    VariableNode,
+    case_context,
+    shown,
+)
 from math_spec._where_parser import (
     UnresolvedComparisonNode,
     UnresolvedNameNode,
@@ -25,28 +47,6 @@ from math_spec._where_parser import (
 )
 from math_spec.errors import LanguageError, did_you_mean
 from math_spec.expansion import parse_and_expand
-from math_spec.expression_parser import (
-    ArithmeticNode,
-    BinaryOperatorNode,
-    CaseArm,
-    CasesNode,
-    ComparisonNode,
-    DimensionNode,
-    EdgeNode,
-    ExpressionNode,
-    FunctionCallNode,
-    KeywordNode,
-    KwargNode,
-    LookupNode,
-    NameListNode,
-    NameNode,
-    NumberNode,
-    ParameterNode,
-    UnaryOperatorNode,
-    VariableNode,
-    case_context,
-    shown,
-)
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
     BUILTINS,
@@ -188,12 +188,12 @@ class Namespace:
 
 
 # ---------------------------------------------------------------------------
-# the seam a consumer uses
+# the seam the rest of the package uses
 # ---------------------------------------------------------------------------
 
 
-def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ExpressionNode:
-    """Parse, expand and resolve *text* — the only way a consumer gets an AST.
+def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ParsedNode:
+    """Parse, expand and resolve *text* — the one path to a resolved spec-side tree.
 
     Raises:
         LanguageError: Listing every problem the text has.
@@ -231,11 +231,11 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
 
 
 def resolve_expression(
-    node: ExpressionNode,
+    node: ParsedNode,
     ns: Namespace,
     context: str,
     errors: list[str],
-) -> ExpressionNode | None:
+) -> ParsedNode | None:
     """Rewrite every ``NameNode`` under *node* to a typed node, checking operator call shapes on the way.
 
     Returns:
@@ -307,7 +307,7 @@ class _Resolver:
 
     # -- expressions -------------------------------------------------------
 
-    def expression(self, node: ExpressionNode) -> ExpressionNode:
+    def expression(self, node: ParsedNode) -> ParsedNode:
         """Every ``NameNode`` under *node* typed; a comparison keeps its shape."""
         if isinstance(node, ComparisonNode):
             return ComparisonNode(node.op, self._arith(node.left), self._arith(node.right))

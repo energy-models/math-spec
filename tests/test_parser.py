@@ -14,14 +14,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 import math_spec.program as program_module
-from math_spec._where_parser import (
-    UnresolvedComparisonNode,
-    UnresolvedNameNode,
-    UnresolvedPositionNode,
-    parse_where,
-)
-from math_spec.errors import SchemaError
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     BinaryOperatorNode,
     ComparisonNode,
     FunctionCallNode,
@@ -31,6 +24,13 @@ from math_spec.expression_parser import (
     UnaryOperatorNode,
     parse_expression,
 )
+from math_spec._where_parser import (
+    UnresolvedComparisonNode,
+    UnresolvedNameNode,
+    UnresolvedPositionNode,
+    parse_where,
+)
+from math_spec.errors import SchemaError
 from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, _conjuncts
 
 

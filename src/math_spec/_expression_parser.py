@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The core AST every pass reads, and the pyparsing grammar that builds it.
+"""The core AST every pass reads, and the pyparsing grammar that builds it — package-private.
 
 Arithmetic nests anywhere; a comparison appears only at the top of a parsed
 expression.
@@ -230,7 +230,10 @@ class ComparisonNode:
     right: ArithmeticNode
 
 
-ExpressionNode = ArithmeticNode | ComparisonNode
+#: A whole spec-side expression tree — parse output and the resolved tree alike.
+#: Named apart from :data:`math_spec.program.ExpressionNode`, the lowered
+#: vocabulary a consumer reads.
+ParsedNode = ArithmeticNode | ComparisonNode
 
 
 def shown(names: tuple[str, ...]) -> str:
@@ -248,7 +251,7 @@ KwargNode = DimensionNode | LookupNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
-#: downstream means the expression skipped :func:`~math_spec.expression_of`.
+#: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
 UnresolvedNode = NameNode | NameListNode | KeywordNode
 
 #: Every leaf — nothing below it to descend into.
@@ -259,7 +262,7 @@ LeafNode = NumberNode | VariableNode | ParameterNode | KwargNode | UnresolvedNod
 BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode | CasesNode
 
 
-def children(node: ExpressionNode) -> tuple[ArithmeticNode, ...]:
+def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
     """The sub-expressions of *node* — the structural half of any walk.
 
     Every pass that recurses the whole tree and acts only at certain leaves
@@ -426,7 +429,7 @@ def _named_rewrite(text: str, loc: int) -> str | None:
 
 
 @lru_cache(maxsize=4096)
-def parse_expression(text: str) -> ExpressionNode:
+def parse_expression(text: str) -> ParsedNode:
     """Parse a math expression string into an AST.
 
     Raises:
@@ -435,4 +438,4 @@ def parse_expression(text: str) -> ExpressionNode:
             lone ``=``, ``^`` for power — is named with its rewrite before the
             grammar's own complaint.
     """
-    return cast('ExpressionNode', parse_text(_GRAMMAR, text, 'expression', _named_rewrite))
+    return cast('ParsedNode', parse_text(_GRAMMAR, text, 'expression', _named_rewrite))

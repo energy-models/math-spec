@@ -22,22 +22,22 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from math_spec.errors import LanguageError
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     BinaryOperatorNode,
     BranchNode,
-    ExpressionNode,
     FunctionCallNode,
     KwargNode,
     NumberNode,
     ParameterNode,
+    ParsedNode,
     UnresolvedNode,
     VariableNode,
     children,
 )
+from math_spec.errors import LanguageError
 
 
-def carries_variable(node: ExpressionNode) -> bool:
+def carries_variable(node: ParsedNode) -> bool:
     """Whether *node* contains a decision variable, over the core AST.
 
     :func:`math_spec.program.carries_variable` answers the same question over a
@@ -56,7 +56,7 @@ def carries_variable(node: ExpressionNode) -> bool:
     assert_never(node)
 
 
-def _adds(node: ExpressionNode) -> bool:
+def _adds(node: ParsedNode) -> bool:
     """Whether *node* adds anywhere inside it.
 
     Anywhere, not only at its head: every operator over a variable-free
@@ -115,7 +115,7 @@ def check_binary(node: BinaryOperatorNode, context: str, *, ceiling: int) -> Non
     _check_single_term_factor(node, where)
 
 
-def _degree(node: ExpressionNode) -> int:
+def _degree(node: ParsedNode) -> int:
     """The polynomial degree *node* stands for, counted structurally.
 
     A product adds its factors' degrees and a division keeps the dividend's
@@ -178,7 +178,7 @@ def _check_single_term_factor(node: BinaryOperatorNode, where: str) -> None:
     )
 
 
-def _multi_term(node: ExpressionNode) -> bool:
+def _multi_term(node: ParsedNode) -> bool:
     """Whether *node* stands for more than one variable term at a coordinate.
 
     A reduction does, and so does an addition of two variable-carrying
@@ -203,7 +203,7 @@ def _multi_term(node: ExpressionNode) -> bool:
 _REDUCTIONS = frozenset({'sum', 'sum_back'})
 
 
-def check_expression(node: ExpressionNode, context: str, *, ceiling: int = 1) -> None:
+def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> None:
     """Apply :func:`check_binary` everywhere in *node*.
 
     Degree only, deliberately: what a plan node can represent is a consuming

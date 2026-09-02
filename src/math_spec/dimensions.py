@@ -16,25 +16,25 @@ import math
 from typing import TYPE_CHECKING, NamedTuple, assert_never
 
 import math_spec.degree as degree
-from math_spec.errors import DimensionError
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
     DimensionNode,
     EdgeNode,
-    ExpressionNode,
     FunctionCallNode,
     KwargNode,
     LookupNode,
     NumberNode,
     ParameterNode,
+    ParsedNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
     case_context,
 )
+from math_spec.errors import DimensionError
 from math_spec.operators import BUILTINS
 from math_spec.program import (
     DimensionComparisonNode,
@@ -56,7 +56,7 @@ if TYPE_CHECKING:
 
 
 def dims_of(
-    node: ExpressionNode,
+    node: ParsedNode,
     schema: Spec,
     context: str,
 ) -> frozenset[str]:

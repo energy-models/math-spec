@@ -15,8 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Literal, assert_never
 
-from math_spec.dimensions import dims_of
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperator,
     BinaryOperatorNode,
@@ -33,6 +32,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
+from math_spec.dimensions import dims_of
 from math_spec.program import (
     AndNode,
     BooleanLiteralNode,

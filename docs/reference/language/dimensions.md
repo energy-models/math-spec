@@ -32,8 +32,42 @@ in step by hand.
 **One master coordinate set per dimension, resolved before any data binds.**
 Every parameter is reindexed onto it, so two tables that disagree about which
 snapshots exist is an error at load time rather than a silently truncated
-model. Where the coordinates come from, and in what order, is settled when
-data is bound — which this package declares the shape of and does not do.
+model. Which coordinates those are, and in what order they stand, is data's to
+say — and the three rules below say how it says it.
+
+### Binding is the language's, even though the data is not
+
+The file declares an axis; the data supplies its members. Between those two
+sentences sit three facts that decide **which model a file and a table make
+together** — and a consumer answering any of them differently would build a
+different model from the same two inputs. So they are the language's, and a
+consumer implements them rather than choosing them.
+
+**The dimension's own source supplies its members.** They are read from the key
+named after the dimension, and from nothing else: a parameter's table is read
+for values, never for labels, and a lookup's map is not a claim about which
+members exist. A dimension a declaration reaches and nothing supplies is an
+error naming it, not an empty axis — an axis with no members would delete every
+row indexed by it, silently. A declared dimension no declaration reaches asks
+nothing of the data, and needs no source.
+
+**Their order is the order that source gives them**, first row first. It is not
+sorted, and nothing about a label's type changes that: an axis of strings, of
+integers and of timestamps are all read in the order they arrive. The order is
+observable — [`shift`](operators.md#shift), `sum_back` and `position()` all walk
+it — so a consumer that sorted would answer `shift(p, over=snapshot, offset=1)`
+with a different row, and the file could not tell you which it meant. A model
+wanting a particular order states it in the source it hands over.
+
+**One row per coordinate.** A parameter's table carries each coordinate of its
+`dims` at most once, and a second row for one coordinate is an error naming the
+coordinate — never a last-wins, a first-wins or a sum, each of which is a
+defensible reading, which is exactly why the file may not leave the choice
+open. A lookup's map obeys the same rule one axis over, and says so under
+`lookups` below: it is single-valued per label of `over`.
+
+_At most_ once, rather than exactly once: a coordinate with no row is
+[absence](absence.md), which is how a model masks.
 
 ## `lookups`
 

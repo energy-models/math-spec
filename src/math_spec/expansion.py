@@ -8,25 +8,25 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, overload
 
-from math_spec._where_parser import parse_where
-from math_spec.errors import SchemaError
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     ArithmeticNode,
     CaseArm,
     CasesNode,
     ComparisonNode,
-    ExpressionNode,
     FunctionCallNode,
     NameNode,
+    ParsedNode,
     parse_expression,
     with_children,
 )
+from math_spec._where_parser import parse_where
+from math_spec.errors import SchemaError
 
 if TYPE_CHECKING:
     from math_spec.model import ExpressionBlock, MacroBlock, Spec
 
 
-def parse_and_expand(text: str, schema: Spec, context: str) -> ExpressionNode:
+def parse_and_expand(text: str, schema: Spec, context: str) -> ParsedNode:
     """Parse *text* and expand named sub-expressions and macros to core AST."""
     return expand(parse_expression(text), schema, context)
 
@@ -37,7 +37,7 @@ def expand(node: ArithmeticNode, schema: Spec, context: str, *, shadow: frozense
 def expand(node: ComparisonNode, schema: Spec, context: str, *, shadow: frozenset[str] = ...) -> ComparisonNode: ...
 
 
-def expand(node: ExpressionNode, schema: Spec, context: str, *, shadow: frozenset[str] = frozenset()) -> ExpressionNode:
+def expand(node: ParsedNode, schema: Spec, context: str, *, shadow: frozenset[str] = frozenset()) -> ParsedNode:
     """Expand all named sub-expressions and macro calls under *node*.
 
     A comparison stays a comparison and an arithmetic node stays arithmetic.

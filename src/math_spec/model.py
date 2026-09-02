@@ -28,8 +28,8 @@ from pydantic import (
     model_validator,
 )
 
+from math_spec._expression_parser import NAME, ComparisonOperator
 from math_spec.errors import did_you_mean, schema_error
-from math_spec.expression_parser import NAME, ComparisonOperator
 from math_spec.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:

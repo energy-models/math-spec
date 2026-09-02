@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING, get_args
 import pytest
 
 from math_spec import LanguageError, Spec, to_program
+from math_spec._expression_parser import FunctionCallNode, NumberNode
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import overlapping
-from math_spec.expression_parser import FunctionCallNode, NumberNode
 from math_spec.lowering import _Lowering, lower_program
 from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
@@ -61,7 +61,7 @@ from math_spec.resolution import Namespace, expression_of, where_of
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
 
 if TYPE_CHECKING:
-    from math_spec.expression_parser import ArithmeticNode
+    from math_spec._expression_parser import ArithmeticNode
 
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'
 

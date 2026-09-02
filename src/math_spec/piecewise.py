@@ -15,11 +15,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from math_spec._expression_parser import ComparisonNode
 from math_spec.degree import check_expression
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
-from math_spec.expression_parser import ComparisonNode
 from math_spec.model import Curvature, ExpandedPiecewise, PiecewiseBlock, Spec, _ExpandedSpec, undeclared_dimension
 from math_spec.program import (
     AtLeastTwo,

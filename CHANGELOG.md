@@ -17,6 +17,32 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.70](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.69...v0.0.0-alpha.70) (2026-09-02)
+
+
+### Documentation
+
+* **language:** only a dimension some declaration reaches needs a source ([#378](https://github.com/energy-models/math-spec/issues/378)) ([b3b9549](https://github.com/energy-models/math-spec/commit/b3b9549582a9976dafabd25ef203bc4353f4791c))
+
+## [0.0.0-alpha.69](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.68...v0.0.0-alpha.69) (2026-09-02)
+
+
+### Bug Fixes
+
+* the docstrings no longer point a consumer at the package-private expression tree ([#351](https://github.com/energy-models/math-spec/issues/351)) ([15b1985](https://github.com/energy-models/math-spec/commit/15b1985e7660eadec0d5d6bfe1850fbb7b20733e))
+
+
+### Refactoring
+
+* the expression parser is package-private, and the parsed tree is named apart from the program's ([#342](https://github.com/energy-models/math-spec/issues/342)) ([55ff525](https://github.com/energy-models/math-spec/commit/55ff525f1dfacd7e93d6448adb0b377d09fa3e85))
+
+## [0.0.0-alpha.68](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.67...v0.0.0-alpha.68) (2026-09-02)
+
+
+### Documentation
+
+* **language:** the rules binding obeys belong to the language, not to whichever engine reads the data ([#242](https://github.com/energy-models/math-spec/issues/242)) ([c05da6a](https://github.com/energy-models/math-spec/commit/c05da6a69d46ca0f595cfab4bd9e8eec827dfeb0))
+
 ## [0.0.0-alpha.67](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.66...v0.0.0-alpha.67) (2026-09-02)
 
 
