@@ -94,11 +94,16 @@ def test_degree_two_is_one_term_against_one_term_and_no_higher(text, fragment):
     assert fragment in str(exc.value)
 
 
-def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare():
-    with pytest.raises(LanguageError, match=r"^Constraint 'k': both factors"):
-        check_binary(_ast('p * q'), "Constraint 'k'", ceiling=1)
-    with pytest.raises(LanguageError, match=r'^both factors'):
-        check_binary(_ast('p * q'), '', ceiling=1)
+@pytest.mark.parametrize(
+    ('context', 'opening'),
+    [
+        pytest.param("Constraint 'k'", r"^Constraint 'k': both factors", id='a-context-prefixes-the-sentence'),
+        pytest.param('', r'^both factors', id='an-empty-one-leaves-it-bare'),
+    ],
+)
+def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare(context, opening):
+    with pytest.raises(LanguageError, match=opening):
+        check_binary(_ast('p * q'), context, ceiling=1)
 
 
 def test_carries_variable_refuses_an_unresolved_name():

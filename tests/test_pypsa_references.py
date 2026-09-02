@@ -4,16 +4,8 @@
 
 """What the PyPSA references pin the model files to, without any engine.
 
-This repository holds the corpus — the model files, the reference networks
-as PyPSA scripts with the data inline, and `references.json`: what PyPSA
-solved each of them to, checked by the `PyPSA references` workflow. Everything here asserts over those
-committed files alone: names both directions between what PyPSA built and
-what the files declare, a record per rung from the pinned pypsa, generic
-spine weightings. What an engine makes of the rungs — one objective across
-the fence, coverage, a model-for-model verdict — is that engine's own record
-and its own tests (lpspec keeps both under `differential/pypsa/`). The page
-blocks the records feed are held current by ``tests/test_docs.py`` through
-``tools.gallery``.
+Everything here asserts over the committed model files, reference scripts and
+`references.json` alone.
 """
 
 from __future__ import annotations
@@ -33,7 +25,9 @@ RUNGS = sorted(path.stem for path in REFERENCES.glob('rung_*.py'))
 SCRIPT = REFERENCES / 'reference.py'
 PAGE_TEXTS = [(gallery.PAGES / page).read_text() for page in DECLARED]
 
-MODELS = [to_spec(path) for path in DECLARED.values()]
+SPECS = {page: to_spec(path) for page, path in DECLARED.items()}
+MODELS = list(SPECS.values())
+BASE = SPECS['pypsa.md']
 ROWS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.constraints.items()}
 COLUMNS_DECLARED = {_stands_for(name, block.description) for m in MODELS for name, block in m.variables.items()}
 #: The five GlobalConstraint formulas open with their *type* — PyPSA names
@@ -115,13 +109,10 @@ def _stated(name: str, row: str) -> bool:
     return re.fullmatch(re.sub(r'\\\{[a-z]\\\}', '.+', re.escape(name)), row) is not None
 
 
-BASE = to_spec(DECLARED['pypsa.md'])
-
-
 @pytest.mark.parametrize('page', [page for page in DECLARED if page != 'pypsa.md'])
 def test_a_file_of_its_own_shares_its_declarations_with_the_base(page: str):
     """A keyword file restates the base surface; a shared name keeps its PyPSA name and its dtype, or it has drifted."""
-    own = to_spec(DECLARED[page])
+    own = SPECS[page]
     drifted = []
     for section in ('parameters', 'lookups', 'variables', 'constraints'):
         theirs, ours = getattr(BASE, section), getattr(own, section)

@@ -4,11 +4,8 @@
 
 """Every node a `Program` can carry is one some file actually lowers to.
 
-The sibling of `test_the_golden_model_carries_every_node_kind_the_walk_renders`,
-one state along. That one holds the *renderer* to the AST; this holds the
-*lowering* to the program, and the two cannot share a fixture: rendering
-accepts more than lowering does, so the golden model carries a shift over a
-variable-free expression that lowering refuses outright.
+The lowering-side sibling of `test_the_golden_model_carries_every_node_kind_the_walk_renders`,
+on a fixture of its own because rendering accepts what lowering refuses.
 
 Without this, a node can join `ExpressionNode` with nothing producing it and
 the suite stays green — `assert_never` fires only where some test happens to
@@ -20,6 +17,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import get_args
+
+import pytest
 
 import math_spec as ms
 from math_spec.program import ExpressionNode, Program, walk
@@ -41,22 +40,25 @@ def _expressions(program: Program) -> list[ExpressionNode]:
     return trees
 
 
-def test_every_program_node_is_one_some_file_lowers_to():
-    """A node nothing produces is a node no consumer has been asked to build."""
+@pytest.fixture(scope='module')
+def kinds() -> tuple[set[str], set[str]]:
+    """The node classes the fixture lowers to, and the ones `ExpressionNode` declares."""
     program = ms.to_program(FIXTURE)
     reached = {type(node).__name__ for node in walk(*_expressions(program))}
     declared = {node.__name__ for node in get_args(ExpressionNode)}
+    return reached, declared
 
+
+def test_every_program_node_is_one_some_file_lowers_to(kinds):
+    """A node nothing produces is a node no consumer has been asked to build."""
+    reached, declared = kinds
     assert declared <= reached, (
         f'{FIXTURE.name} lowers to none of {sorted(declared - reached)}. A node no file reaches is '
         f'one whose lowering nobody has run — add a declaration using the construct it stands for.'
     )
 
 
-def test_the_fixture_carries_nothing_the_program_has_no_node_for():
+def test_the_fixture_carries_nothing_the_program_has_no_node_for(kinds):
     """The other direction, so the fixture cannot drift into asserting nothing."""
-    program = ms.to_program(FIXTURE)
-    reached = {type(node).__name__ for node in walk(*_expressions(program))}
-    declared = {node.__name__ for node in get_args(ExpressionNode)}
-
+    reached, declared = kinds
     assert reached <= declared, f'{FIXTURE.name} lowers to {sorted(reached - declared)}, which is not a program node'

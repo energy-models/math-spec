@@ -122,7 +122,7 @@ def test_a_bad_named_expression_is_refused_at_load(expressions, match):
 def test_a_refusal_names_its_context_once():
     with pytest.raises(LanguageError) as exc:
         schema(expressions={'a': 'a + 1'})
-    assert str(exc.value).count("Named expression 'a'") == 1, str(exc.value)
+    assert str(exc.value).count("Named expression 'a'") == 1, 'the context is prefixed once, not once per pass'
 
 
 @pytest.mark.parametrize(
