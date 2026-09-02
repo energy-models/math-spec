@@ -97,6 +97,7 @@ parameters:
       parameter
     dims: [snapshot, generator]
     dtype: bool
+    coverage: masked
   Generator_start_up_cost:
     description: cost of one start
     dims: [generator]
@@ -120,6 +121,7 @@ parameters:
   Generator_big_m:
     description: a bound safely above any feasible output — the build cap at full availability, data prep
     dims: [generator]
+    coverage: masked
   Generator_p_min_pu_nonneg:
     description: >-
       true where none of the generator's own minimums-per-unit is negative —
@@ -199,6 +201,7 @@ parameters:
   Generator_p_nom_set:
     description: a given nominal power for an extendable generator; one without a value has no row here
     dims: [generator]
+    coverage: masked
   Generator_e_sum_min:
     description: least energy over the horizon; minus infinity where no floor is meant
     dims: [generator]
@@ -217,6 +220,7 @@ parameters:
   Link_p_nom_set:
     description: a given nominal power for an extendable link; one without a value has no row here
     dims: [link]
+    coverage: masked
   StorageUnit_p_nom_min:
     description: least nominal power an extendable storage unit may be built at
     dims: [storage_unit]
@@ -229,6 +233,7 @@ parameters:
   StorageUnit_p_nom_set:
     description: a given nominal power for an extendable storage unit; one without a value has no row here
     dims: [storage_unit]
+    coverage: masked
   Store_e_nom_min:
     description: least nominal capacity an extendable store may be built at
     dims: [store]
@@ -241,6 +246,7 @@ parameters:
   Store_e_nom_set:
     description: a given nominal capacity for an extendable store; one without a value has no row here
     dims: [store]
+    coverage: masked
   StorageUnit_p_nom:
     description: nominal power
     dims: [storage_unit]
@@ -348,6 +354,7 @@ parameters:
   Line_s_nom_set:
     description: a given nominal apparent power for an extendable line; one without a value has no row here
     dims: [line]
+    coverage: masked
   Line_s_set:
     description: a given flow schedule; a line without one has no row here
     dims: [snapshot, line]
@@ -357,6 +364,7 @@ parameters:
       the line's series impedance, signed by its orientation in the cycle —
       the cycle basis, data prep; a line in no cycle has no row
     dims: [line, cycle]
+    coverage: masked
   GlobalConstraint_type:
     description: >-
       which formula the row takes — `primary_energy`, `operational_limit`,
@@ -385,51 +393,66 @@ parameters:
       `co2_emissions` over the generator's efficiency, data prep; a generator
       of an unweighted carrier has no row
     dims: [global_constraint, generator]
+    coverage: masked
   StorageUnit_primary_energy_weight:
     description: the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row
     dims: [global_constraint, storage_unit]
+    coverage: masked
   Store_primary_energy_weight:
     description: the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row
     dims: [global_constraint, store]
+    coverage: masked
   Generator_operational_limit_weight:
     description: one where the generator is in the row's set — data prep; one outside it has no row
     dims: [global_constraint, generator]
+    coverage: masked
   StorageUnit_operational_limit_weight:
     description: one where the storage unit is in the row's set — data prep; one outside it has no row
     dims: [global_constraint, storage_unit]
+    coverage: masked
   Store_operational_limit_weight:
     description: one where the store is in the row's set — data prep; one outside it has no row
     dims: [global_constraint, store]
+    coverage: masked
   Line_volume_weight:
     description: the line's length where its carrier is in the row's set — data prep; a line outside it has no row
     dims: [global_constraint, line]
+    coverage: masked
   Link_volume_weight:
     description: the link's length where its carrier is in the row's set — data prep; a link outside it has no row
     dims: [global_constraint, link]
+    coverage: masked
   Line_expansion_cost_weight:
     description: the line's capital cost where its carrier is in the row's set — data prep; a line outside it has no row
     dims: [global_constraint, line]
+    coverage: masked
   Link_expansion_cost_weight:
     description: the link's capital cost where its carrier is in the row's set — data prep; a link outside it has no row
     dims: [global_constraint, link]
+    coverage: masked
   Generator_tech_capacity_weight:
     description: >-
       one where the generator is in the row's carrier-and-bus set — data
       prep; one outside it has no row
     dims: [global_constraint, generator]
+    coverage: masked
   Link_tech_capacity_weight:
     description: one where the link is in the row's carrier-and-bus set — data prep; one outside it has no row
     dims: [global_constraint, link]
+    coverage: masked
   Line_tech_capacity_weight:
     description: one where the line is in the row's carrier-and-bus set — data prep; one outside it has no row
     dims: [global_constraint, line]
+    coverage: masked
   StorageUnit_tech_capacity_weight:
     description: one where the storage unit is in the row's carrier-and-bus set — data prep; one outside it has no row
     dims: [global_constraint, storage_unit]
+    coverage: masked
   Store_tech_capacity_weight:
     description: one where the store is in the row's carrier-and-bus set — data prep; one outside it has no row
     dims: [global_constraint, store]
 
+    coverage: masked
 lookups:
   Generator_bus:
     description: the bus a generator sits on

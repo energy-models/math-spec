@@ -102,6 +102,7 @@ parameters:
       parameter
     dims: [snapshot, generator]
     dtype: bool
+    coverage: masked
   Generator_start_up_cost:
     description: cost of one start
     dims: [generator]
