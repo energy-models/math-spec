@@ -2,7 +2,7 @@
   "$defs": {
     "BoundsBlock": {
       "additionalProperties": false,
-      "description": "Variable bounds \u2014 each side is a number or parameter name.\n\nlinopy's defaults (``add_variables(lower=-inf, upper=inf)``): omitting a\nbound leaves the variable unbounded on that side, not implicitly\nnon-negative. Non-negativity is a real constraint, so the file says it.",
+      "description": "Variable bounds \u2014 each side is a number or parameter name.\n\nAn omitted bound leaves the variable unbounded on that side, not\nimplicitly non-negative.",
       "properties": {
         "lower": {
           "anyOf": [
@@ -112,7 +112,7 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by **region** is written as ``cases:``\ninstead \u2014 one case per region over a declared ``foreach:``, no two of them\nclaiming one coordinate, and an ``otherwise:`` for the rest::\n\n    previous_status:\n      foreach: [snapshot, generator]\n      cases:\n        always_on: { when: \"not committable\", expression: 1 }\n        boundary:  { when: \"committable and position(snapshot) == 0\", expression: status_initial }\n      otherwise: shift(status, over=snapshot, offset=1)\n\nSo the constraint that needs it names it, rather than being forked into one\ncopy per regime.",
+          "description": "A named quantity: one arithmetic expression, readable after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by region is written as ``cases:`` over a\ndeclared ``foreach:``, with an ``otherwise:`` for the rest \u2014 see the\nlanguage reference.",
           "properties": {
             "cases": {
               "additionalProperties": {
@@ -395,7 +395,7 @@
     },
     "PiecewiseBlock": {
       "additionalProperties": false,
-      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``over`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).\n\n``over`` names the breakpoint dimension; ``method`` is which of\n:data:`PIECEWISE_METHODS` restricts the weights; ``activity`` names what the weights sum\nto \u2014 1 where the block is unconditional, and a binary where a curve applies\nonly when something runs, which pins the formulation to 0 when it is 0; ``points`` names a\nboolean parameter saying how far each curve runs, for a model whose curves\nare not all the same length. Expanded before building into plain variables\nand constraints \u2014 see ``math_spec.piecewise``.",
+      "description": "N expressions jointly pinned to a breakpoint-indexed piecewise curve.\n\nMirrors ``linopy.Spec.add_piecewise_formulation``. Each link is\n``[expression, values_parameter]`` or ``[expression, values_parameter,\nsign]``: *expression* is any affine expression string, *values_parameter*\nnames a parameter carrying the ``over`` dim, and *sign* bounds the link by\nthe curve instead of pinning it (at most one non-``\"==\"``, and only with\nexactly two links).",
       "properties": {
         "activity": {
           "anyOf": [
@@ -476,9 +476,9 @@
             "sign": {
               "default": "==",
               "enum": [
-                "==",
                 "<=",
-                ">="
+                ">=",
+                "=="
               ],
               "title": "Sign",
               "type": "string"
@@ -626,7 +626,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nThe API is the ten declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. In goes through\n``to_spec``, which raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\n\nEverything else on this class is pydantic's, not a contract this package\nkeeps \u2014 ``model_json_schema()`` describes the shape pydantic validates\nrather than the language (checked in for editors as\n``schema/math_spec.schema.json``), and ``model_construct()`` skips validation\nentirely, so a ``Spec`` is valid when it was built the normal way.",
+  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nThe API is the ten declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. In goes through\n``to_spec``, which raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\nEverything else on this class is pydantic's, not a contract this package\nkeeps.",
   "properties": {
     "constraints": {
       "additionalProperties": {

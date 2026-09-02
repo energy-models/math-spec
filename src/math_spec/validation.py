@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Load-time validation: every expression and where string is parsed, expanded and resolved through the same pass the backends use, collecting every problem rather than raising on the first."""
+"""Load-time validation: the front door, and the pass that decides every expression."""
 
 from __future__ import annotations
 
@@ -57,8 +57,8 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
         LanguageError: Anything the language does not accept.
     """
     if isinstance(model, (list, tuple)):
-        msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict (#30).'
-        raise TypeError(msg)
+        msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
+        raise SchemaError(msg)
     if isinstance(model, Spec):
         return model
     return Spec.model_validate(model if isinstance(model, dict) else read_yaml(Path(model)))
@@ -110,7 +110,7 @@ def validate_expressions(schema: Spec) -> None:
             f'ambiguous with the dimension itself.'
             for f in sorted(formals & ns.dimensions)
         )
-        _check_template_names(body_ast, macro.template, context, ns, formals, errors)
+        _check_template_names(body_ast, context, ns, formals, errors)
 
     for ename, block in schema.expressions.items():
         context = f"Named expression '{ename}'"
@@ -131,7 +131,7 @@ def validate_expressions(schema: Spec) -> None:
         assert block.otherwise is not None
         _check_expression(block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, ceiling=1)
         if len(errors) == found:
-            errors.extend(f'{context}: {problem}' for problem in overlapping(masks, schema))
+            errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
 
     for vname, vdef in schema.variables.items():
         resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
@@ -222,34 +222,30 @@ def _names_in(value: ArithmeticNode) -> tuple[str, ...]:
 
 def _check_template_names(
     node: ArithmeticNode,
-    template: str,
     context: str,
     ns: Namespace,
     formals: frozenset[str],
     errors: list[str],
 ) -> None:
-    """Name-check a macro body treating formals as bound — not resolution, since a formal has no kind until a call site binds it."""
+    """Name-check a macro body treating formals as bound — not resolution, since a formal has no kind until a call site binds it.
+
+    A case arm's value only: its ``when`` is the declaration's, checked there.
+    """
     if isinstance(node, NumberNode | VariableNode | ParameterNode | KwargNode | KeywordNode | NameListNode):
         return
 
     if isinstance(node, NameNode):
         if node.name not in formals and ns.kind(node.name) is None:
-            errors.append(
-                f"{context}: '{node.name}' not found in template {template!r}.\n"
-                f'  Formals:    {sorted(formals)}\n'
-                f'  Variables:  {sorted(ns.variables)}\n'
-                f'  Parameters: {sorted(ns.parameters)}\n'
-                f"Check for typos, or ensure '{node.name}' is declared."
-            )
+            errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
         return
 
     if isinstance(node, UnaryOperatorNode):
-        _check_template_names(node.operand, template, context, ns, formals, errors)
+        _check_template_names(node.operand, context, ns, formals, errors)
         return
 
     if isinstance(node, BinaryOperatorNode):
-        _check_template_names(node.left, template, context, ns, formals, errors)
-        _check_template_names(node.right, template, context, ns, formals, errors)
+        _check_template_names(node.left, context, ns, formals, errors)
+        _check_template_names(node.right, context, ns, formals, errors)
         return
 
     if isinstance(node, FunctionCallNode):
@@ -257,31 +253,30 @@ def _check_template_names(
         if builtin is None:
             errors.append(f'{context}: {unknown_operator_message(node.name)}')
         for arg in node.args:
-            _check_template_names(arg, template, context, ns, formals, errors)
-        dimension_kwargs, lookup_kwargs, edge_kwargs = (
-            (builtin.dimension_kwargs, builtin.lookup_kwargs, builtin.edge_kwargs) if builtin else ((), (), ())
-        )
+            _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():
-            if kwarg in dimension_kwargs:
-                if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
-                    errors.append(
-                        f'{context}: {node.name}({kwarg}={value.name}) does not name a '
-                        f'declared dimension or a formal of this macro.'
+            match builtin.kind_of(kwarg) if builtin else 'value':
+                case 'dimension':
+                    if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
+                        errors.append(
+                            f'{context}: {node.name}({kwarg}={value.name}) does not name a '
+                            f'declared dimension or a formal of this macro.'
+                        )
+                case 'lookup':
+                    errors.extend(
+                        f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
+                        for one in _names_in(value)
+                        if one not in formals and ns.kind(one) != 'lookup'
                     )
-            elif kwarg in lookup_kwargs:
-                errors.extend(
-                    f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
-                    for one in _names_in(value)
-                    if one not in formals and ns.kind(one) != 'lookup'
-                )
-            elif kwarg not in edge_kwargs:
-                _check_template_names(value, template, context, ns, formals, errors)
+                case 'value':
+                    _check_template_names(value, context, ns, formals, errors)
+                case 'edge':
+                    pass  # a keyword or a number: nothing in it to name
         return
 
     if isinstance(node, CasesNode):
-        # the values only: a `when` is the declaration's, checked there
         for arm in node.arms:
-            _check_template_names(arm.value, template, context, ns, formals, errors)
+            _check_template_names(arm.value, context, ns, formals, errors)
         return
 
     assert_never(node)

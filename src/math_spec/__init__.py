@@ -8,11 +8,7 @@ Two public states — a :class:`~math_spec.model.Spec` is what the file *says*,
 a :class:`~math_spec.program.Program` is what it *means* — and a conversion to
 each. The AST between them is this package's own: it is reachable by module
 path for a renderer that needs it, and out of ``__all__`` because a consumer
-reads a program instead. The where grammar went private (``_where_parser``)
-when its resolved vocabulary moved into ``program``; ``expression_parser``
-stays path-reachable deliberately — its AST is what a renderer dispatches on,
-and it splits the day something asks, as the where side did. ``__all__`` is
-the public surface, pinned by ``tests/test_public_surface.py``.
+reads a program instead.
 """
 
 from math_spec import program
@@ -45,9 +41,6 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
-
-# Last: `math_spec.typesetting` reaches back for the two conversions, so those
-# must be bound before it is imported.
 from math_spec.typesetting import (
     FORMATS,
     SymbolTable,
