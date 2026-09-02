@@ -385,11 +385,51 @@ def _make_power(tokens: pp.ParseResults) -> Any:
 _GRAMMAR = _build_grammar()
 
 
-def parse_text(grammar: pp.ParserElement, text: str, what: str, rewrite: Callable[[str, int], str | None]) -> Any:
+#: How deep a tree the language admits. Every pass over an expression recurses,
+#: so a deeper one exhausts the interpreter's stack instead of failing as a
+#: ``LanguageError``; the whole pipeline survives 300 on a default stack (#359).
+MAX_DEPTH = 100
+
+
+def depth[T](node: T, child_of: Callable[[T], tuple[T, ...]]) -> int:
+    """How many nodes deep *node* is, walked with an explicit stack.
+
+    Iterative deliberately: this measurement is what refuses a tree too deep to
+    recurse over, so recursing to take it would be the crash it prevents.
+    """
+    deepest, pending = 0, [(node, 1)]
+    while pending:
+        current, reached = pending.pop()
+        deepest = max(deepest, reached)
+        pending.extend((child, reached + 1) for child in child_of(current))
+    return deepest
+
+
+def _too_deep(what: str, text: str, found: int | None, rewrite: str) -> str:
+    """The refusal both grammars raise, so the two say the same thing about the same limit.
+
+    *found* is ``None`` where the parser ran out of stack before a tree existed
+    to measure.
+    """
+    shown = text if len(text) <= 60 else f'{text[:60]}…'
+    measured = f'nests {found} deep' if found is not None else 'nests deeper'
+    return f'The {what} {measured}, past the {MAX_DEPTH} levels the language admits: {shown!r}\n{rewrite}'
+
+
+def parse_text(
+    grammar: pp.ParserElement,
+    text: str,
+    what: str,
+    rewrite: Callable[[str, int], str | None],
+    child_of: Callable[[Any], tuple[Any, ...]],
+    deep_rewrite: str,
+) -> Any:
     """Parse the whole of *text* with *grammar*, or raise :class:`SchemaError` naming *what* failed to parse.
 
     *rewrite* is asked for the predictable mistake at the failure position; its
-    sentence, if any, precedes the grammar's own complaint.
+    sentence, if any, precedes the grammar's own complaint. A tree nesting past
+    :data:`MAX_DEPTH`, measured through *child_of*, is refused with
+    *deep_rewrite* — and so is one the parser itself ran out of stack on.
     """
     try:
         result = grammar.parse_string(text, parse_all=True)
@@ -397,7 +437,13 @@ def parse_text(grammar: pp.ParserElement, text: str, what: str, rewrite: Callabl
         hint = rewrite(text, e.loc)
         msg = f'Failed to parse {what}: {text!r}\n{f"{hint}\n" if hint is not None else ""}{e}'
         raise SchemaError(msg) from e
-    return result[0]
+    except RecursionError:
+        raise SchemaError(_too_deep(what, text, None, deep_rewrite)) from None
+    node = result[0]
+    found = depth(node, child_of)
+    if found > MAX_DEPTH:
+        raise SchemaError(_too_deep(what, text, found, deep_rewrite))
+    return node
 
 
 def _named_rewrite(text: str, loc: int) -> str | None:
@@ -428,6 +474,15 @@ def _named_rewrite(text: str, loc: int) -> str | None:
     return None
 
 
+#: The rewrite an over-deep expression is given. Writing the terms out is
+#: what ``sum`` exists to replace, so the refusal points at the language's own
+#: answer before it offers the general one.
+_DEEP_REWRITE = (
+    'Reduce over a dimension with sum() rather than writing the terms out, or name an intermediate '
+    'quantity under expressions: and refer to it by name.'
+)
+
+
 @lru_cache(maxsize=4096)
 def parse_expression(text: str) -> ParsedNode:
     """Parse a math expression string into an AST.
@@ -438,4 +493,4 @@ def parse_expression(text: str) -> ParsedNode:
             lone ``=``, ``^`` for power — is named with its rewrite before the
             grammar's own complaint.
     """
-    return cast('ParsedNode', parse_text(_GRAMMAR, text, 'expression', _named_rewrite))
+    return cast('ParsedNode', parse_text(_GRAMMAR, text, 'expression', _named_rewrite, children, _DEEP_REWRITE))

@@ -183,6 +183,24 @@ def _named_rewrite(text: str, loc: int) -> str | None:
     return None
 
 
+#: The rewrite an over-deep where string is given. A long chain of predicates
+#: is a test the file could carry as data instead, which is the language's own
+#: answer before the general one.
+_DEEP_REWRITE = (
+    'Declare a parameter or lookup carrying part of the test and name that here, or split the '
+    'declaration into two, each masked by one half.'
+)
+
+
+def _connective_children(node: WhereNode | UnresolvedWhereNode) -> tuple[WhereNode | UnresolvedWhereNode, ...]:
+    """The connectives are the only where nodes carrying other where nodes, so a walk recurses only here."""
+    if isinstance(node, NotNode):
+        return (node.operand,)
+    if isinstance(node, (AndNode, OrNode)):
+        return (node.left, node.right)
+    return ()
+
+
 @lru_cache(maxsize=4096)
 def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
@@ -197,4 +215,7 @@ def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
             lone ``=`` — is named with its rewrite beside the grammar's own
             complaint.
     """
-    return cast('WhereNode | UnresolvedWhereNode', parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite))
+    return cast(
+        'WhereNode | UnresolvedWhereNode',
+        parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, _connective_children, _DEEP_REWRITE),
+    )

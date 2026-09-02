@@ -17,7 +17,7 @@ unary_op    ::= "+" | "-"       binary_op ::= "+" | "-" | "*" | "/" | "**"
 COMPARATOR  ::= "<=" | ">=" | "=="
 function_call ::= NAME "(" [pos_arg ("," pos_arg)*] ["," kwarg ("," kwarg)*] ")"
 kwarg       ::= NAME "=" (arithmetic | QUOTED | "[" NAME ("," NAME)* "]")
-NAME        ::= [a-zA-Z][a-zA-Z0-9_]*
+NAME        ::= [a-zA-Z_][a-zA-Z0-9_]*
 NUMBER      ::= integer | float | "inf" | ".inf"
 ```
 
@@ -26,6 +26,10 @@ Precedence, highest first: `**`, then unary `+` `-`, then `*` `/`, then binary
 Parentheses override. A float may carry an exponent (`1e5`, `2.5e-3`); a sign
 is always the unary operator's. A keyword given twice in one call is an error
 rather than the later one winning.
+
+**An expression nests at most 100 levels deep**, which is a chain of at most
+100 terms written out; a chain that long is one `sum()` over a dimension
+replaces. `where:` strings are bounded the same way.
 
 ## Degree 2 in the math, degree 1 beside it
 

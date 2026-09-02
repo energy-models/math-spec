@@ -918,3 +918,35 @@ class TestADeclarationIsNamed:
 
     def test_an_ordinary_name_still_loads(self):
         assert 'headroom_2' in _schema(**{'parameters.headroom_2': {'dims': ['g']}}).parameters
+
+
+@pytest.mark.parametrize(
+    ('patch', 'nests'),
+    [
+        pytest.param(
+            {'constraints.balance.expression': ' + '.join(['p'] * 400) + ' >= load'}, 'chain', id='a-constraint'
+        ),
+        pytest.param({'objective.expression': ' + '.join(['sum(p)'] * 400)}, 'chain', id='the-objective'),
+        pytest.param({'variables.p.where': ' AND '.join(['p_max > 0'] * 400)}, 'predicate', id='a-where-string'),
+    ],
+)
+def test_an_expression_too_deep_to_walk_fails_as_a_language_error(patch, nests):
+    """`to_spec` documents `Raises: LanguageError`, and these raised `RecursionError` — the interpreter's stack, not the language's refusal.
+
+    A 400-term sum is a model a generator writes, not a pathological input, so
+    what a reader got for it was a traceback through `expansion._descend` with
+    nothing naming the file, the declaration, or what to write instead.
+    """
+    with pytest.raises(LanguageError, match='past the 100 levels'):
+        to_spec(override(DISPATCH_MODEL, **patch))
+
+
+def test_a_name_may_open_with_an_underscore():
+    """`expressions.md` said a name opens with a letter while the schema and the grammar both admitted `_`, so the page refused what the language accepts."""
+    schema = to_spec(
+        override(
+            DISPATCH_MODEL, **{'parameters._reserve': {'dims': ['generator']}, 'variables.p.where': '_reserve > 0'}
+        )
+    )
+
+    assert '_reserve' in schema.parameters, 'a leading underscore is a name, as NAME and the schema both say'
