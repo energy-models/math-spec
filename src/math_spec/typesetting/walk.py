@@ -725,11 +725,11 @@ class Walk:
         equations above.
         """
         lines = []
-        for name in reported_expressions(self.schema):
+        for name in reported_expressions(self.schema, self.namespace):
             context = f"expression '{name}'"
             node = expression_of(name, self.schema, self.namespace, context)
             assert not isinstance(node, ComparisonNode), f'{context}: a named body is arithmetic, not a comparison'
-            frame = self._frame(name)
+            frame = self._sorted(dims_of(node, self.schema, context))
             ctx = self._context(frame)
             lines.append(
                 Line(

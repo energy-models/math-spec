@@ -521,7 +521,7 @@ the row dual of a constraint, the one builtin only a reported-grade entry may re
 marginal_price: dual(balance)
 ```
 
-$$\mathit{marginal\_price} = \lambda_{\mathrm{balance},t,b}$$
+$$\mathit{marginal\_price}_{t,b} = \lambda_{\mathrm{balance},t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
 #### `startup_cost`
 

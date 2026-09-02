@@ -130,7 +130,7 @@ def _rendered_trees() -> Iterator[object]:
     for name, block in schema.variables.items():
         if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
             yield mask.root
-    for name in reported_expressions(schema):
+    for name in reported_expressions(schema, namespace):
         yield expression_of(name, schema, namespace, f'reported expression {name!r}')
 
 

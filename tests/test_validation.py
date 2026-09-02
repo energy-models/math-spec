@@ -233,6 +233,11 @@ class TestDual:
                 id='a-parameter-name-is-not-a-constraint',
             ),
             pytest.param(
+                {'macros': {'shadow': {'args': ['x'], 'template': 'dual(nope) + x'}}},
+                ("dual(nope): 'nope' is not a declared constraint", 'or a formal of this macro'),
+                id='an-uncalled-macro-template-names-an-unknown-constraint',
+            ),
+            pytest.param(
                 {'constraints': {'lim': {'foreach': ['g'], 'expression': 'dual(lim) <= c'}}},
                 ('a dual exists only after a solve', 'the math cannot read one'),
                 id='a-dual-written-inside-a-constraint',

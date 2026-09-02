@@ -97,7 +97,7 @@ def typeset(
     if symbols is None:
         symbols = SymbolTable(fmt.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
-    walk = Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema)), fmt)
+    walk = Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema, namespace)), fmt)
 
     sections, noticed = walk.equations(reported)
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]

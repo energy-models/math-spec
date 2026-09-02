@@ -86,7 +86,7 @@ def printed_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
     return tuple(name for name, block in schema.expressions.items() if block.cases)
 
 
-def reported_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
+def reported_expressions(schema: _ExpandedSpec, namespace: Namespace) -> tuple[str, ...]:
     """The entries graded reported, in declaration order — the Reported quantities section's rows.
 
     Graded on the resolved, expanded body by
@@ -95,7 +95,6 @@ def reported_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
     body. A cased entry is not here whatever its grade: it prints as the
     definition block :func:`printed_expressions` already places.
     """
-    namespace = Namespace.of(schema)
     return tuple(
         name
         for name, block in schema.expressions.items()
@@ -155,7 +154,7 @@ class Symbols:
             )
             raise SchemaError(msg)
         printed = printed_expressions(schema)
-        reported = reported_expressions(schema)
+        reported = reported_expressions(schema, namespace)
         chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace) | frozenset(reported)
         names = (*schema.parameters, *schema.variables, *printed, *reported)
         declared = frozenset(names)
@@ -283,7 +282,7 @@ class SymbolTable:
             names={k: str(v) for k, v in (raw.get('names') or {}).items()},
         )
 
-    def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
+    def checked_against(self, schema: _ExpandedSpec, namespace: Namespace) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
         everything = (
@@ -291,7 +290,7 @@ class SymbolTable:
             | set(schema.parameters)
             | set(schema.variables)
             | set(printed_expressions(schema))
-            | set(reported_expressions(schema))
+            | set(reported_expressions(schema, namespace))
             | set(schema.constraints)
         )
         errors = [

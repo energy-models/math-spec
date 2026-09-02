@@ -241,4 +241,4 @@ $$\mathit{lcoe} = \frac{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t
 
 **`marginal_price`**
 
-$$\mathit{marginal\_price} = \lambda_{\mathrm{balance},t,b}$$
+$$\mathit{marginal\_price}_{t,b} = \lambda_{\mathrm{balance},t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$

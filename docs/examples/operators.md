@@ -493,7 +493,7 @@ expressions:
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$\mathit{price} = \lambda_{\mathrm{balance},t}$
+$\mathit{price}_{t} = \lambda_{\mathrm{balance},t} \qquad \forall\thinspace t \in \mathcal{T}$
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.

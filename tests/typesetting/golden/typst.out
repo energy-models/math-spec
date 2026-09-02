@@ -108,4 +108,4 @@ $ upright("p") & upright("p")^(upright("min"))_(g) <= p_(t,g) & <= upright("p")^
 == Reported quantities
 #set math.equation(numbering: "(1)")
 $ upright("lcoe") & italic("lcoe") & = frac(sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g), sum_(t in cal(T), g in cal(G)) p_(t,g)) \
-  upright("marginal_price") & italic("marginal_price") & = lambda_(upright("balance"),t,b) $
+  upright("marginal_price") & italic("marginal_price")_(t,b) & = lambda_(upright("balance"),t,b) & forall t in cal(T), b in cal(B) $
