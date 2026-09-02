@@ -1267,9 +1267,13 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
     than a name silently dropped at the first model to use it.
     """
     match atom:
-        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
-            return frozenset({atom.name})
-        case LookupComparisonNode() | LookupDefinedNode():
+        case (
+            ParameterComparisonNode()
+            | ParameterDefinedNode()
+            | VariableDefinedNode()
+            | LookupComparisonNode()
+            | LookupDefinedNode()
+        ):
             return frozenset({atom.name})
         case LookupPairComparisonNode():
             return frozenset({atom.name, atom.other})

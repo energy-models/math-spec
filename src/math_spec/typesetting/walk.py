@@ -551,16 +551,14 @@ class Walk:
             size = self.format.subscript(size, [grouping])
         return f'{self.format.cardinality(size)} {self.op("minus")} {self.number(-at)}'
 
-    def conjoined(self, ctx: _Context, *masks: Mask | None) -> str:
-        """The mask on a quantifier, as one condition.
+    def condition(self, ctx: _Context, mask: Mask | None) -> str:
+        """The mask on a quantifier, printed.
 
         A mask every row passes arrives as ``None`` — resolution folds it,
         so this prints what a program carries — and a quantifier with no
         condition prints none.
         """
-        kept = [mask.root for mask in masks if mask is not None]
-        parts = [self.where(n, ctx, need=1 if len(kept) > 1 else 0) for n in kept]
-        return self.format.joined(parts, self.op('and')) if parts else ''
+        return '' if mask is None else self.where(mask.root, ctx)
 
     def quantifier(self, dims: list[str], condition: str) -> str:
         if not dims and not condition:
@@ -598,7 +596,7 @@ class Walk:
                 msg = f'{context}: expected a comparison, got {type(node).__name__}'
                 raise AssertionError(msg)
             ctx = self.context(frame=block.foreach)
-            condition = self.conjoined(ctx, where_of(block.where, self.namespace, context))
+            condition = self.condition(ctx, where_of(block.where, self.namespace, context))
             lines.append(
                 Line(
                     label=name,
@@ -671,7 +669,7 @@ class Walk:
             ctx = self.context(frame=block.foreach)
             symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
             where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
-            condition = self.quantifier(list(block.foreach), self.conjoined(ctx, where))
+            condition = self.quantifier(list(block.foreach), self.condition(ctx, where))
             lower, upper = block.bounds.lower, block.bounds.upper
 
             if block.domain == 'binary':
