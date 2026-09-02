@@ -100,7 +100,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for name, how in derivations_of(block, ex).items()
     }
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name), pdef.coverage)
+        name: program.ParameterDeclaration(
+            tuple(pdef.dims), pdef.dtype, derivations.get(name), pdef.coverage_or_default
+        )
         for name, pdef in expanded.parameters.items()
     }
 

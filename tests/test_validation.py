@@ -921,76 +921,12 @@ class TestADeclarationIsNamed:
         assert 'headroom_2' in _schema(**{'parameters.headroom_2': {'dims': ['g']}}).parameters
 
 
-class TestParameterCoverage:
-    """``coverage: masked`` is a claim, and rule 8 gives it two places it cannot stand.
-
-    A bound and a divisor are where a missing value has no reading that
-    contributes nothing, so a parameter calling itself a mask is refused there
-    before any data arrives — rather than binding and failing against whichever
-    rows the caller's table happened to carry.
-    """
-
-    @pytest.mark.parametrize(
-        ('patch', 'position'),
-        [
-            pytest.param(
-                {'parameters.c.coverage': 'masked', 'variables.p.bounds': {'upper': 'c'}},
-                'a bound',
-                id='masked-as-an-upper-bound',
-            ),
-            pytest.param(
-                {'parameters.c.coverage': 'masked', 'variables.p.bounds': {'lower': 'c'}},
-                'a bound',
-                id='masked-as-a-lower-bound',
-            ),
-            pytest.param(
-                {
-                    'parameters.c.coverage': 'masked',
-                    'constraints': {'cap': {'foreach': ['g'], 'expression': 'p / c <= 1'}},
-                },
-                'a divisor',
-                id='masked-as-a-divisor',
-            ),
-            pytest.param(
-                {
-                    'parameters.c.coverage': 'masked',
-                    'expressions': {'scaled': 'p / c'},
-                    'constraints': {'cap': {'foreach': ['g'], 'expression': 'scaled <= 1'}},
-                },
-                'a divisor',
-                id='masked-as-a-divisor-reached-through-a-named-expression',
-            ),
-        ],
-    )
-    def test_a_masked_parameter_is_refused_where_absence_has_no_reading(self, patch, position):
-        with pytest.raises(LanguageError) as exc:
-            to_program(override(SMALL_MODEL, **patch))
-        assert "parameter 'c'" in str(exc.value), 'the message names the parameter that has to change'
-        assert position in str(exc.value), f'the message names the position, which decides the rewrite: {position}'
-        assert 'coverage: total' in str(exc.value), 'the message names the rewrite, not only the fault'
-
-    @pytest.mark.parametrize(
-        ('patch'),
-        [
-            pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p * c <= 1'}}},
-                id='a-coefficient-reads-as-zero',
-            ),
-            pytest.param(
-                {'variables.p.where': 'c > 0'},
-                id='a-where-reads-as-false',
-            ),
-            pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p + c <= 1'}}},
-                id='a-term-reads-as-zero',
-            ),
-        ],
-    )
-    def test_a_masked_parameter_stands_wherever_absence_does_have_a_reading(self, patch):
-        """The guard is the two positions of rule 8 and not a third: a mask is
-        what a sparse table is *for*, so refusing it as a coefficient, a term or
-        a where would refuse the construct the declaration exists to describe."""
-        to_program(override(SMALL_MODEL, **{'parameters.c.coverage': 'masked', **patch}))
+CURVE: dict[str, Any] = {
+    'parameters.bx': {'dims': ['h']},
+    'parameters.by': {'dims': ['h']},
+    'variables.s': {'foreach': ['g']},
+    'piecewise.curve': {'over': 'h', 'links': [['p', 'bx'], ['s', 'by']], 'method': 'convex'},
+}
 
 
 class TestLookupCoverage:
@@ -1011,6 +947,27 @@ class TestLookupCoverage:
         assert declared == {'lk': 'total', 'open': 'masked'}, (
             'a map that says nothing covers its labels, and one that says so is carried through'
         )
+
+    def test_a_curve_and_its_parameters_load_when_neither_declares_coverage(self):
+        to_spec(override(SMALL_MODEL, **CURVE))
+
+    def test_coverage_on_a_parameter_a_curve_consumes_is_refused(self):
+        """`points:` is already the third answer — a breakpoint it leaves out
+        declares no weight and its values are not asked for — so a values
+        parameter is total over the points its block admits, which neither
+        `total` nor `masked` names. Either spelling would contradict the block."""
+        with pytest.raises(LanguageError) as exc:
+            to_spec(override(SMALL_MODEL, **CURVE, **{'parameters.bx.coverage': 'masked'}))
+        assert "parameter 'bx'" in str(exc.value), 'the message names the parameter that has to change'
+        assert "'curve'" in str(exc.value), 'and the block that already owns the answer'
+        assert "'points:'" in str(exc.value), 'and names the rewrite'
+
+    def test_total_is_refused_there_too_rather_than_read_as_agreement(self):
+        """`total` on a curve parameter is not harmlessly redundant: it claims
+        every coordinate the dims reach, which is exactly what a curve shorter
+        than its axis does not carry."""
+        with pytest.raises(LanguageError, match="'points:'"):
+            to_spec(override(SMALL_MODEL, **CURVE, **{'parameters.bx.coverage': 'total'}))
 
     def test_coverage_on_a_label_space_is_refused(self):
         """A label space is only selected on, and a label it leaves out reads as

@@ -158,7 +158,25 @@ def _also_written_as(
     return {'anyOf': [dict(generated), shorthand]}
 
 
-class LookupBlock(_StrictBlock):
+class _CoveredBlock(_StrictBlock):
+    """A declaration whose data may say whether it must be complete.
+
+    ``coverage`` is ``None`` where the file writes none, rather than defaulting
+    eagerly: a block that must know whether the *file* spoke reads the field,
+    and a round trip through :meth:`Spec.to_dict` has to write back what was
+    written. Everything that only wants the reading asks
+    :attr:`coverage_or_default`.
+    """
+
+    coverage: Coverage | None = None
+
+    @property
+    def coverage_or_default(self) -> Coverage:
+        """What the data must carry: what the file wrote, or ``total`` where it wrote nothing."""
+        return self.coverage or 'total'
+
+
+class LookupBlock(_CoveredBlock):
     """A named single-valued map out of a dimension (the declaration rules).
 
     Exactly one of ``into:`` (a groupable map onto that dimension, what
@@ -177,11 +195,6 @@ class LookupBlock(_StrictBlock):
     over: str
     into: str | None = None
     dtype: DimensionDtype | None = None
-    #: ``None`` where the file writes none, which is what a round trip through
-    #: :meth:`Spec.to_dict` has to preserve: a default written back out would
-    #: read as a label space declaring one. :meth:`coverage_or_default` is what
-    #: a consumer asks.
-    coverage: Coverage | None = None
     description: str | None = None
 
     @model_validator(mode='after')
@@ -206,11 +219,6 @@ class LookupBlock(_StrictBlock):
             raise ValueError(msg)
         return self
 
-    @property
-    def coverage_or_default(self) -> Coverage:
-        """What the map must carry: what the file wrote, or ``total`` where it wrote nothing."""
-        return self.coverage or 'total'
-
 
 class DimensionBlock(_StrictBlock):
     """A declared dimension, and the dtype its coordinates must be.
@@ -228,14 +236,13 @@ class DimensionBlock(_StrictBlock):
     description: str | None = None
 
 
-class ParameterBlock(_StrictBlock):
+class ParameterBlock(_CoveredBlock):
     """A declared parameter with dims and dtype."""
 
     _label: ClassVar[str] = 'a parameter declaration'
 
     dims: list[str]
     dtype: ParameterDtype = 'float'
-    coverage: Coverage = 'total'
     description: str | None = None
 
 
@@ -803,10 +810,32 @@ class Spec(_StrictBlock):
             *self._lookup_targets(),
             *self._bound_names(),
             *self._sos_shapes(),
+            *self._piecewise_parameters_declare_no_coverage(),
         ]
         if errors:
             raise ValueError('\n'.join(errors))
         return self
+
+    def _piecewise_parameters_declare_no_coverage(self) -> Iterator[str]:
+        """A curve's shape is the block's to state, so its parameters do not state it.
+
+        ``points:`` already says how far a curve runs, and a breakpoint it
+        leaves out is not asked for — so a values parameter is total over the
+        points its block admits, which is neither ``total`` over everything its
+        dims reach nor a mask. Both spellings would claim something the block
+        has already decided.
+        """
+        for pname, block in self.piecewise.items():
+            consumed = {link.values for link in block.links} | ({block.points} if block.points else set())
+            for name in sorted(consumed):
+                if name in self.parameters and self.parameters[name].coverage is not None:
+                    yield (
+                        f"parameter '{name}': 'coverage:' is not for a parameter a piecewise block "
+                        f"consumes — '{pname}' already owns the shape of its curve. A breakpoint "
+                        f"'points:' leaves out declares no weight and its values are not asked "
+                        f'for, so the table is total over the points the block admits. Drop the '
+                        f"'coverage:' line, and say how far the curve runs with 'points:'."
+                    )
 
     def _name_collisions(self) -> Iterator[str]:
         """A name is declared once, and never as a built-in operator."""
