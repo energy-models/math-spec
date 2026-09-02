@@ -95,20 +95,15 @@ def typeset(
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     walk = Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema)), fmt)
 
-    sections = [
-        ('Objective', walk.objective()),
-        ('Subject to', walk.constraints()),
-        ('Definitions', walk.definitions()),
-        ('Variable domains', walk.variables()),
-    ]
+    sections, noticed = walk.equations()
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
 
     blocks = [fmt.note(fmt.escape(schema.description))] if schema.description else []
     if legend:
-        blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries()]
+        blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries(noticed)]
         blocks += [fmt.note(text) for text in walk.convention_notes()]
-        blocks += [fmt.note(text) for text in walk.translation_notes()]
-        blocks += [fmt.note(text) for text in walk.position_notes()]
+        blocks += [fmt.note(text) for text in walk.translation_notes(noticed)]
+        blocks += [fmt.note(text) for text in walk.position_notes(noticed)]
     return fmt.document([*blocks, *rendered], standalone=standalone)
 
 

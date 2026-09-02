@@ -212,14 +212,22 @@ def _unsigned(node: ArithmeticNode) -> ArithmeticNode | None:
     return None
 
 
+@dataclass
+class Noticed:
+    """What the equations printed that the legend has to explain."""
+
+    policies: set[TranslationPolicy] = field(default_factory=set)
+    grouped: bool = False
+    positions: set[PositionForm] = field(default_factory=set)
+    numeric_coordinates: set[str] = field(default_factory=set)
+
+
 class Walk:
     """Walks a validated schema, emitting :class:`Line`s in one format.
 
-    Stateful only in what it has *noticed* — which edge policies appeared,
-    whether a translation was counted inside a group, which positional forms
-    printed, and which dimensions were compared against a number. The equation
-    methods run before the legend methods, because the legend names only the
-    symbols the equations printed.
+    :meth:`equations` prints every section and returns what it :class:`Noticed`;
+    the legend methods take that record, so they can only describe symbols the
+    equations printed.
     """
 
     def __init__(self, schema: _ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
@@ -227,10 +235,7 @@ class Walk:
         self.namespace = namespace
         self.symbols = symbols
         self.format = fmt
-        self.policies: set[TranslationPolicy] = set()
-        self.grouped = False
-        self.positions: set[PositionForm] = set()
-        self.numeric_coordinates: set[str] = set()
+        self.noticed = Noticed()
 
     def _op(self, name: OperatorName) -> str:
         return self.format.operators[name]
@@ -248,7 +253,7 @@ class Walk:
             operator = self.format.subscript(operator, [step.fill])
         if not step.within:
             return operator
-        self.grouped = True
+        self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
     def _lookup(self, name: str, index: str) -> str:
@@ -355,7 +360,7 @@ class Walk:
             dim = node.kwargs['over']
             assert isinstance(dim, DimensionNode)
             step = self._step(_amount(node.kwargs['offset']), node.kwargs.get('edge'))
-            self.policies.add(step.policy)
+            self.noticed.policies.add(step.policy)
             step = replace(step, within=self._group(node.kwargs.get('by'), dim.name))
             return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
 
@@ -364,7 +369,7 @@ class Walk:
             assert isinstance(over, DimensionNode)
             policy = 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain'
             step = _Step(1, policy, within=self._group(node.kwargs.get('by'), over.name))
-            self.policies.add(step.policy)
+            self.noticed.policies.add(step.policy)
             source, inner = ctx.reducing(over.name)
             lag = f'{ctx.subscript(over.name)} {self._translation(step)} {source}'
             domain = (
@@ -486,7 +491,7 @@ class Walk:
 
         if isinstance(node, DimensionComparisonNode):
             if isinstance(node.value, int | float):
-                self.numeric_coordinates.add(node.name)
+                self.noticed.numeric_coordinates.add(node.name)
             return f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
 
         if isinstance(node, DimensionPositionNode):
@@ -527,7 +532,7 @@ class Walk:
 
     def _position(self, index: str, grouping: str | None) -> str:
         """``position(dim)`` applied to the row, *grouping* as a subscript — as an argument it read as a second position."""
-        self.positions.add('grouped' if grouping is not None else 'plain')
+        self.noticed.positions.add('grouped' if grouping is not None else 'plain')
         symbol = self._op('position')
         if grouping is not None:
             symbol = self.format.subscript(symbol, [grouping])
@@ -537,7 +542,7 @@ class Walk:
         """The position compared against; a negative one counts back from the size of the set it is a position in — the group's where grouped."""
         if at >= 0:
             return self._number(at)
-        self.positions.add('from_end')
+        self.noticed.positions.add('from_end')
         size = self.symbols.set[dimension]
         if grouping is not None:
             size = self.format.subscript(size, [grouping])
@@ -564,7 +569,17 @@ class Walk:
 
     # -- declarations ------------------------------------------------------
 
-    def objective(self) -> list[Line]:
+    def equations(self) -> tuple[list[tuple[str, list[Line]]], Noticed]:
+        """Every titled section of equations, and what printing them noticed for the legend."""
+        sections = [
+            ('Objective', self._objective()),
+            ('Subject to', self._constraints()),
+            ('Definitions', self._definitions()),
+            ('Variable domains', self._variables()),
+        ]
+        return sections, self.noticed
+
+    def _objective(self) -> list[Line]:
         """The objective's line.
 
         The expression is scalar — every reduction in it is one the file wrote
@@ -579,7 +594,7 @@ class Walk:
         assert not isinstance(node, ComparisonNode)
         return [Line(label='', left=sense, right=self._expression(node, self._context()))]
 
-    def constraints(self) -> list[Line]:
+    def _constraints(self) -> list[Line]:
         lines = []
         for name, block in self.schema.constraints.items():
             context = f"constraint '{name}'"
@@ -599,7 +614,7 @@ class Walk:
             )
         return lines
 
-    def definitions(self) -> list[Line]:
+    def _definitions(self) -> list[Line]:
         """One line per cased expression, in declaration order, defining it.
 
         A use prints the symbol and the block prints here, as a paper states a
@@ -641,7 +656,7 @@ class Walk:
             arms.append((self._expression(arm.value, ctx), when))
         return arms
 
-    def variables(self) -> list[Line]:
+    def _variables(self) -> list[Line]:
         """One line per variable, and one more for a set the variable carries.
 
         A ``sos:`` block restricts the *domain* — which members of a family may
@@ -701,12 +716,12 @@ class Walk:
 
     # -- legend ------------------------------------------------------------
 
-    def glossaries(self) -> list[Glossary]:
+    def glossaries(self, noticed: Noticed) -> list[Glossary]:
         fmt = self.format
         sets = [
             self._entry(
                 self.symbols.set[d],
-                f'index {fmt.math(self.symbols.index[d])} {fmt.dash} {fmt.mono(d)}{self._coords(d)}',
+                f'index {fmt.math(self.symbols.index[d])} {fmt.dash} {fmt.mono(d)}{self._coords(d, noticed)}',
                 block.description,
             )
             for d, block in self.schema.dimensions.items()
@@ -732,7 +747,7 @@ class Walk:
         product = self.format.joined([self.symbols.set[d] for d in dims], self._op('times'))
         return f' over {self.format.math(product)}'
 
-    def _coords(self, dim: str) -> str:
+    def _coords(self, dim: str, noticed: Noticed) -> str:
         """The dimension's carried structure, groupable maps before plain labels.
 
         A targeted lookup renders as the map it is (``bus_of: G ↦ B``); a
@@ -744,7 +759,7 @@ class Walk:
         targeted = self.schema.targeted_of(dim)
         labels = self.schema.labels_of(dim)
         clauses = []
-        if dim in self.numeric_coordinates:
+        if dim in noticed.numeric_coordinates:
             clauses.append(f' ({self.format.mono(self.schema.dimensions[dim].dtype)} coordinates)')
         if targeted:
             maps = self.format.joined(
@@ -781,10 +796,10 @@ class Walk:
             f'An index is italic too, being what a quantifier chooses, and a set is script.'
         ]
 
-    def translation_notes(self) -> list[str]:
+    def translation_notes(self, noticed: Noticed) -> list[str]:
         """A sentence for each translation symbol the model printed; plain ``t-k`` needs none."""
         notes = []
-        if 'wrap' in self.policies:
+        if 'wrap' in noticed.policies:
             cyclic = self.format.math(f't {self._op("cyclic_minus")} k')
             notes.append(
                 f'{cyclic} denotes cyclic translation: index {self.format.math("t-k")} taken modulo the size of '
@@ -792,21 +807,21 @@ class Walk:
                 f'({self.format.mono("shift")}) has no wraparound {self.format.dash} terms translated past '
                 f'the edge are simply absent.'
             )
-        if 'edge' in self.policies:
+        if 'edge' in noticed.policies:
             filled = self.format.math(f't {self.format.subscript(self._op("edge_minus"), ["v"])} k')
             notes.append(
                 f'{filled} denotes translation with {self.format.math("v")} standing where index '
                 f'{self.format.math("t-k")} leaves the dimension ({self.format.mono("shift(edge=v)")}), so the row '
                 f'at that boundary is built and carries {self.format.math("v")} rather than being dropped.'
             )
-        if self.grouped:
+        if noticed.grouped:
             applied = self._lookup('lookup', 't')
             counted = self.format.math(f't {self.format.superscript(self._op("cyclic_minus"), applied)} k')
             note = (
                 f'{counted} denotes a translation counted inside the group a lookup puts {self.format.math("t")} '
                 f'in ({self.format.mono("shift(by=lookup)")}), so a term never crosses out of its own group.'
             )
-            if 'edge' in self.policies:
+            if 'edge' in noticed.policies:
                 both = self.format.superscript(self.format.subscript(self._op('edge_minus'), ['v']), applied)
                 note += (
                     f' The two modifiers take different slots {self.format.dash} the group above, the fill '
@@ -815,10 +830,10 @@ class Walk:
             notes.append(note)
         return notes
 
-    def position_notes(self) -> list[str]:
+    def position_notes(self, noticed: Noticed) -> list[str]:
         """A sentence for each positional symbol the model printed; the first says which of ``pos(t)`` and ``t`` is the position."""
         notes = []
-        if self.positions:
+        if noticed.positions:
             index = self.format.math('t')
             place = self.format.math(self.format.apply(self._op('position'), 't'))
             dash = self.format.dash
@@ -828,7 +843,7 @@ class Walk:
                 f'{self.format.math("0")}. The index itself stays the coordinate, so {index} compares against '
                 f'labels and {place} against positions.'
             )
-        if 'grouped' in self.positions:
+        if 'grouped' in noticed.positions:
             applied = self._lookup('lookup', 't')
             grouped = self.format.math(self.format.apply(self.format.subscript(self._op('position'), [applied]), 't'))
             group = self.format.math(self.format.subscript(self.format.script('T'), [applied]))
@@ -836,7 +851,7 @@ class Walk:
                 f'{grouped} counts within the group a lookup puts {self.format.math("t")} in: the subscript names '
                 f'the map, {group} is the group it lands in, and that group has a first position of its own.'
             )
-        if 'from_end' in self.positions:
+        if 'from_end' in noticed.positions:
             size = self.format.cardinality(self.format.script('T'))
             last = self.format.math(f'{size} {self._op("minus")} {self._number(1)}')
             notes.append(
