@@ -548,6 +548,16 @@ class PiecewiseBlock(_StrictBlock):
     description: str | None = None
 
     @property
+    def consumes(self) -> set[str]:
+        """The parameters the block reads: each link's values, and the ``points:`` mask.
+
+        The block owns the shape of every one of them, which is why
+        :meth:`Spec._piecewise_parameters_declare_no_coverage` refuses
+        ``coverage:`` there and lowering reports none.
+        """
+        return {link.values for link in self.links} | ({self.points} if self.points else set())
+
+    @property
     def curve(self) -> tuple[PiecewiseLink, PiecewiseLink]:
         """The two links as ``(x, y)``, the bounded one last.
 
@@ -825,8 +835,7 @@ class Spec(_StrictBlock):
         has already decided.
         """
         for pname, block in self.piecewise.items():
-            consumed = {link.values for link in block.links} | ({block.points} if block.points else set())
-            for name in sorted(consumed):
+            for name in sorted(block.consumes):
                 if name in self.parameters and self.parameters[name].coverage is not None:
                     yield (
                         f"parameter '{name}': 'coverage:' is not for a parameter a piecewise block "

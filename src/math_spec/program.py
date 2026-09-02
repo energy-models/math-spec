@@ -628,8 +628,11 @@ class ParameterDeclaration:
     derivation: Derivation | None = None
     #: Whether the table must carry every coordinate of *dims*. ``masked`` says
     #: a missing row is absence the model means, so the declaration rather than
-    #: the data decides how a short table reads.
-    coverage: Coverage = 'total'
+    #: the data decides how a short table reads. ``None`` where a ``piecewise:``
+    #: block consumes or emits the parameter and so owns its shape: a curve runs
+    #: as far as ``points:`` says, which is neither of the two, and a consumer
+    #: checking coverage there would refuse a ragged curve the block admits.
+    coverage: Coverage | None = 'total'
 
 
 @dataclass(frozen=True)

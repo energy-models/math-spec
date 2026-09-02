@@ -99,9 +99,13 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for block, ex in expanded.expanded_piecewise.items()
         for name, how in derivations_of(block, ex).items()
     }
+    block_owned = {name for ex in expanded.expanded_piecewise.values() for name in ex.block.consumes} | set(derivations)
     parameters = {
         name: program.ParameterDeclaration(
-            tuple(pdef.dims), pdef.dtype, derivations.get(name), pdef.coverage_or_default
+            tuple(pdef.dims),
+            pdef.dtype,
+            derivations.get(name),
+            None if name in block_owned else pdef.coverage_or_default,
         )
         for name, pdef in expanded.parameters.items()
     }
@@ -374,8 +378,3 @@ def _bound_expression(value: float | str) -> program.ExpressionNode:
     if isinstance(value, str):
         return program.Parameter(value)
     return program.Constant(value)
-
-
-#: Where a missing value has no reading that contributes nothing, and so is
-#: refused rather than filled — the two positions named in rule 8.
-_NO_READING_FOR_ABSENCE = 'a bound', 'a divisor'
