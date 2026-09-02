@@ -2,14 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""What the language says back about a file: the errors it raises, and the advice it gives.
-
-:class:`LanguageError` is the file saying something the language does not
-accept — decidable at load time, with no data bound. :class:`MathSpecError`
-is the root a consumer's own errors may derive from, so one ``except`` covers
-the package. :class:`Advice` is the other kind of sentence: about a file the
-language accepts, decidable without data all the same.
-"""
+"""What the language says back about a file: the errors it raises, and the advice it gives."""
 
 from __future__ import annotations
 
@@ -60,13 +53,7 @@ class LanguageError(MathSpecError):
 
 
 class SchemaError(LanguageError):
-    """**The declarations themselves are wrong**, before any expression is read.
-
-    An unknown key, a bad ``dtype``, a duplicate YAML key, a
-    version this reader does not know — as against a bare
-    :class:`LanguageError`, which is sound declarations saying something the
-    language rejects (an undeclared name, a dim rule, degree 2).
-    """
+    """What a load refuses: an unknown key, a bad ``dtype``, a duplicate YAML key, an unparseable or unresolvable expression."""
 
 
 class DimensionError(LanguageError):
@@ -78,11 +65,7 @@ class PiecewiseExpansionError(LanguageError):
 
 
 def did_you_mean(name: str, known: Iterable[str], *, label: str = 'Declared') -> str:
-    """The repair clause for an unrecognised name: the near miss, or the set.
-
-    Only the clause is shared — an unknown declaration, an unknown YAML key and
-    an unknown symbol-table entry each frame it with a sentence of their own.
-    """
+    """The repair clause for an unrecognised name: the near miss, or the set."""
     candidates = sorted(known)
     near = difflib.get_close_matches(name, candidates, n=1, cutoff=0.6)
     if near:
@@ -91,12 +74,10 @@ def did_you_mean(name: str, known: Iterable[str], *, label: str = 'Declared') ->
 
 
 def schema_error(exc: ValidationError) -> LanguageError:
-    """A pydantic ``ValidationError`` as one of ours, keeping the class.
+    """A pydantic ``ValidationError`` as one of ours.
 
-    Pydantic wraps whatever a validator raises, so our own class cannot reach
-    the caller from inside the model — but the original survives under
-    ``ctx['error']``, so a :class:`DimensionError` comes back one. Anything
-    else, including several errors at once, is a :class:`SchemaError`.
+    Returns the original :class:`LanguageError` subclass where exactly one
+    error carries one, and a :class:`SchemaError` otherwise.
     """
     errors = exc.errors()
     lines = []

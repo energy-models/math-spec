@@ -4,18 +4,6 @@
 
 """Typeset a validated model — a *reading* of the math.
 
-A consumer of the resolved core AST that produces no model and binds no data.
-It exists because a declared thing can be printed the way a paper prints it,
-which is the cheapest review tool available for "does this YAML say what I
-meant".
-
-It reads the model as :func:`~math_spec.to_spec` validates it: expand
-``piecewise:``, resolve names, walk. Expansion runs first, so a ``piecewise:``
-block prints as the λ-formulation it *is* rather than the sugar it was written
-as.
-
-**One walk, many formats** — the split is :mod:`math_spec.typesetting.format`'s.
-
 Symbols are **derived** by default, aiming at unambiguous rather than
 beautiful, so it prints with no setup; a
 :class:`~math_spec.typesetting.symbols.SymbolTable` (``--symbols``) makes it
@@ -78,7 +66,10 @@ def typeset(
     """Render *model*'s math in *fmt*.
 
     Args:
-        model: Anything :func:`math_spec.to_spec` accepts.
+        model: Anything :func:`math_spec.to_spec` accepts. A
+            :class:`~math_spec.model.Spec` is rendered as it stands, so
+            printing one model in several formats reads and checks the file
+            once rather than once per format.
         fmt: What spells the math — one of :data:`FORMATS`.
         symbols: How names print, as a :class:`SymbolTable`, a path or a
             mapping. Names it does not carry are derived, and it must be
@@ -98,25 +89,21 @@ def typeset(
             table written in a notation *fmt* does not read.
     """
     schema = expand_piecewise(to_spec(model))
+    namespace = Namespace.of(schema)
     if symbols is None:
         symbols = SymbolTable(fmt.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
-    walk = Walk(schema, Namespace.of(schema), Symbols(schema, fmt, table.checked_against(schema)), fmt)
+    walk = Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema)), fmt)
 
-    sections = [
-        ('Objective', walk.objective()),
-        ('Subject to', walk.constraints()),
-        ('Definitions', walk.definitions()),
-        ('Variable domains', walk.variables()),
-    ]
+    sections, noticed = walk.equations()
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
 
     blocks = [fmt.note(fmt.escape(schema.description))] if schema.description else []
     if legend:
-        blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries()]
+        blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries(noticed)]
         blocks += [fmt.note(text) for text in walk.convention_notes()]
-        blocks += [fmt.note(text) for text in walk.translation_notes()]
-        blocks += [fmt.note(text) for text in walk.position_notes()]
+        blocks += [fmt.note(text) for text in walk.translation_notes(noticed)]
+        blocks += [fmt.note(text) for text in walk.position_notes(noticed)]
     return fmt.document([*blocks, *rendered], standalone=standalone)
 
 

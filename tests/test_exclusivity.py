@@ -19,7 +19,7 @@ import pytest
 
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Frame, overlapping
-from math_spec.program import AndNode, NotNode, OrNode
+from math_spec.program import AndNode, Mask, NotNode, OrNode
 from math_spec.resolution import Namespace, resolve_where
 from math_spec.validation import to_spec
 
@@ -57,7 +57,7 @@ def schema() -> Spec:
 def refusals(schema: Spec, cases: dict[str, str]) -> list[str]:
     """Resolve each case's `when` against *schema*, then decide every pair."""
     namespace = Namespace.of(schema)
-    return list(overlapping({name: _mask(when, namespace, name) for name, when in cases.items()}, schema))
+    return list(overlapping({name: _mask(when, namespace, name) for name, when in cases.items()}, namespace.dtypes))
 
 
 def _mask(text: str, namespace: Namespace, name: str) -> WhereNode:
@@ -70,26 +70,50 @@ def _mask(text: str, namespace: Namespace, name: str) -> WhereNode:
 
 
 class TestProvesApart:
-    def test_the_storage_split_from_the_issue(self, schema: Spec):
-        """Two atoms, four regions, and the two masks are exact complements.
-
-        Spelled as the issue spells it, less `cyclic_state_of_charge == True`,
-        which is a load error: a bool's bare name *is* its value.
-        """
-        cases = {
-            'first_ts': 'not cyclic and position(snapshot) == 0',
-            'all_other_ts': '(not cyclic and position(snapshot) != 0) or cyclic',
-        }
-        assert refusals(schema, cases) == [], 'the two regimes are written as complements'
-
-    def test_a_category_split(self, schema: Spec):
-        """Equality against distinct labels is exclusive — the theory step.
-
-        A purely propositional reading invents a storage that is both a battery
-        and hydrogen, and refuses the split the feature exists for.
-        """
-        cases = {'battery': "kind == 'battery'", 'hydrogen': "kind == 'h2'"}
-        assert refusals(schema, cases) == [], 'a storage carries one kind, so the two labels are apart'
+    @pytest.mark.parametrize(
+        ('cases', 'claim'),
+        [
+            pytest.param(
+                {
+                    'first_ts': 'not cyclic and position(snapshot) == 0',
+                    'all_other_ts': '(not cyclic and position(snapshot) != 0) or cyclic',
+                },
+                'the two regimes are exact complements, spelled as the issue spells them less '
+                "`cyclic_state_of_charge == True`, which is a load error: a bool's bare name is its value",
+                id='the-storage-split-from-the-issue',
+            ),
+            pytest.param(
+                {'battery': "kind == 'battery'", 'hydrogen': "kind == 'h2'"},
+                'a storage carries one kind, so two labels are apart where a propositional reading invents a '
+                'storage that is both',
+                id='a-category-split',
+            ),
+            pytest.param(
+                {'first': 'position(snapshot) == 0', 'rest': 'position(snapshot) > 0'},
+                'no row sits at rank 0 and past it at once, whatever order the coordinates arrive in (#32)',
+                id='an-ordering-on-a-position',
+            ),
+            pytest.param(
+                {'final_two': 'position(snapshot) >= -2', 'earlier': 'position(snapshot) < -2'},
+                'a rank is inside the last two or before them: ranks run away from -1, and nothing follows it',
+                id='a-band-counted-from-the-back',
+            ),
+            pytest.param(
+                {'small': 'capacity and capacity <= 10', 'large': 'capacity and capacity > 10'},
+                'a capacity is at most 10 or above it, with the absent capacity a region of its own',
+                id='numeric-bands',
+            ),
+            pytest.param(
+                {'new': 'age < 1', 'old': 'age > 0'},
+                '`age` is declared int, so the bands are complements over the integers; a midpoint invented in '
+                'the gap is a coordinate the subject cannot take, and the refusal it manufactures names 0.5 — '
+                'a value no data produces, with a rewrite the file has already followed',
+                id='an-integer-admits-no-value-between-its-bands',
+            ),
+        ],
+    )
+    def test_a_pair_that_shares_no_coordinate_is_proved_apart(self, schema: Spec, cases: dict[str, str], claim: str):
+        assert refusals(schema, cases) == [], claim
 
     @pytest.mark.parametrize(
         'cases',
@@ -103,39 +127,8 @@ class TestProvesApart:
         ],
     )
     def test_the_ramp_regimes_from_the_issue(self, schema: Spec, cases: dict[str, str]):
-        """The three quantities #2 factors a PyPSA ramp limit into, less each one's `otherwise`.
-
-        The point of putting cases on an expression rather than on the
-        constraint: three independent axes multiply into eight constraint cases
-        and add into seven expression cases, and the inequality is written once
-        instead of eight times.
-        """
+        """The three quantities #2 factors a PyPSA ramp limit into, less each one's `otherwise`."""
         assert refusals(schema, cases) == [], f'{cases} claims no coordinate twice'
-
-    def test_an_ordering_on_a_position(self, schema: Spec):
-        """Every rank is either 0 or greater, whatever order the coordinates arrive in (#32)."""
-        cases = {'first': 'position(snapshot) == 0', 'rest': 'position(snapshot) > 0'}
-        assert refusals(schema, cases) == [], 'no row sits at rank 0 and past it at once'
-
-    def test_a_band_counted_from_the_back(self, schema: Spec):
-        """The mirrored frame: ranks run away from -1, and nothing follows it."""
-        cases = {'final_two': 'position(snapshot) >= -2', 'earlier': 'position(snapshot) < -2'}
-        assert refusals(schema, cases) == [], 'a rank is inside the last two or before them'
-
-    def test_numeric_bands(self, schema: Spec):
-        """And the same for a magnitude, with the absent capacity a region of its own."""
-        cases = {'small': 'capacity and capacity <= 10', 'large': 'capacity and capacity > 10'}
-        assert refusals(schema, cases) == [], 'a capacity is at most 10 or above it'
-
-    def test_an_integer_admits_no_value_between_its_bands(self, schema: Spec):
-        """`age` is declared `int`, and the two bands are complements over the integers.
-
-        A midpoint invented in the gap is a coordinate the subject cannot take,
-        and the refusal it manufactures names `0.5` — a value no data produces,
-        with a rewrite the file has already followed.
-        """
-        cases = {'new': 'age < 1', 'old': 'age > 0'}
-        assert refusals(schema, cases) == [], 'an integer is below 1 or above 0, never between'
 
     def test_a_magnitude_still_admits_one(self, schema: Spec):
         """The mirror: `capacity` is a float, so 0.5 is a coordinate it can take."""
@@ -152,11 +145,24 @@ class TestProvesApart:
         assert refusals(schema, cases), 'a case whose `when` is True claims every coordinate'
 
 
+@pytest.fixture(scope='module')
+def overlap(schema: Spec) -> str:
+    """The one refusal a bool against a label draws, read once for every fragment asserted on it."""
+    [refusal] = refusals(schema, {'cyclic': 'cyclic', 'battery': "kind == 'battery'"})
+    return refusal
+
+
 class TestRefuses:
-    def test_an_overlap_names_both_cases_and_a_witness(self, schema: Spec):
-        [refusal] = refusals(schema, {'cyclic': 'cyclic', 'battery': "kind == 'battery'"})
-        assert "cases 'cyclic' and 'battery' both claim the value where" in refusal
-        assert 'cyclic is true' in refusal
+    @pytest.mark.parametrize(
+        'fragment',
+        [
+            pytest.param("cases 'cyclic' and 'battery' both claim the value where", id='both-cases'),
+            pytest.param('cyclic is true', id='a-witness'),
+            pytest.param('narrow one of the two `when:` strings by the negation of the other', id='the-rewrite'),
+        ],
+    )
+    def test_an_overlap_names_both_cases_a_witness_and_the_rewrite(self, overlap: str, fragment: str):
+        assert fragment in overlap
 
     def test_every_overlapping_pair_is_named(self, schema: Spec):
         """Not the first: a set with three problems has three sentences."""
@@ -167,10 +173,6 @@ class TestRefuses:
         """A bare name and `== 0` are different questions, so a zero capacity is in both."""
         [refusal] = refusals(schema, {'has_initial': 'soc_initial', 'zero': 'soc_initial == 0'})
         assert 'soc_initial is 0.0' in refusal
-
-    def test_the_refusal_names_the_rewrite(self, schema: Spec):
-        [refusal] = refusals(schema, {'cyclic': 'cyclic', 'battery': "kind == 'battery'"})
-        assert 'narrow one of the two `when:` strings by the negation of the other' in refusal
 
 
 class TestWillNotDecide:
@@ -218,18 +220,9 @@ class TestSoundness:
     subject can take, so "no witness among the cells" means "no witness". This
     walks a concrete grid — several points inside single cells, both
     infinities, an absent value, labels the masks never name — and asserts that
-    nothing it proved apart has a point claimed by both.
-
-    **The two masks are drawn independently**, and only the pairs the check
-    proves apart are walked. A pair built as a complement — `m` against
-    `not m` — makes the assertion `X and not X`, false at every point under
-    every implementation, so a fuzz over those shapes cannot fail and certifies
-    nothing.
-
-    What it does not test is the reading of an individual atom: ground truth
-    here evaluates through the same `_evaluate` the checker uses, so a misread
-    atom would agree with itself. That is what `TestProvesApart` and
-    `TestRefuses` pin, one atom at a time.
+    nothing it proved apart has a point claimed by both. Only pairs the check
+    proves apart are walked; a complement pair asserts X and not X and cannot
+    fail.
     """
 
     ATOMS: ClassVar[tuple[str, ...]] = (
@@ -256,12 +249,12 @@ class TestSoundness:
         'storage': [0, 1, 2],
     }
 
-    def _mask(self, rng: random.Random, atoms: list[Any], depth: int = 0) -> Any:
+    def _random_mask(self, rng: random.Random, atoms: list[Any], depth: int = 0) -> Any:
         if depth >= 2 or rng.random() < 0.45:
             atom = rng.choice(atoms)
             return NotNode(atom) if rng.random() < 0.25 else atom
-        left = self._mask(rng, atoms, depth + 1)
-        right = self._mask(rng, atoms, depth + 1)
+        left = self._random_mask(rng, atoms, depth + 1)
+        right = self._random_mask(rng, atoms, depth + 1)
         node = AndNode(left, right) if rng.random() < 0.5 else OrNode(left, right)
         return NotNode(node) if rng.random() < 0.15 else node
 
@@ -284,13 +277,11 @@ class TestSoundness:
         dtypes = namespace.dtypes
         proved = 0
         for _ in range(2000):
-            first, second = self._mask(rng, atoms), self._mask(rng, atoms)
-            if list(overlapping({'a': first, 'b': second}, schema)):
+            first, second = self._random_mask(rng, atoms), self._random_mask(rng, atoms)
+            if list(overlapping({'a': first, 'b': second}, dtypes)):
                 continue
             proved += 1
-            # The same frame the check built, so ground truth reads each atom
-            # the way it did — what differs is the grid, which is finer.
-            frame = _Frame.of([first, second], dtypes)
+            frame = _Frame.of([Mask(first), Mask(second)], dtypes)
             for point in grid:
                 both = _evaluate(first, point, frame) and _evaluate(second, point, frame)
                 assert not both, f'both cases claim {point} — the cells hid a witness'

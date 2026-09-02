@@ -17,6 +17,40 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.67](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.66...v0.0.0-alpha.67) (2026-09-02)
+
+
+### Refactoring
+
+* a built-in's one positional argument is stated once, and a degree question names the tree it walks ([#364](https://github.com/energy-models/math-spec/issues/364)) ([556af30](https://github.com/energy-models/math-spec/commit/556af3053e0bb32ca8bf60e656b9455b98068981))
+* every rule two passes shared has one home, and a docstring says what a caller needs rather than why ([#363](https://github.com/energy-models/math-spec/issues/363)) ([f24ddd3](https://github.com/energy-models/math-spec/commit/f24ddd3089da12aa75715560992822a5a3ee818b))
+* **model:** each cross-declaration rule is one method, so a refusal names the rule that raised it ([#369](https://github.com/energy-models/math-spec/issues/369)) ([b25a602](https://github.com/energy-models/math-spec/commit/b25a602d21a6bb91d597f663f8bcf0b97f95aed8))
+* **piecewise:** one block expands itself, holding its names, frame and mask once ([#367](https://github.com/energy-models/math-spec/issues/367)) ([537eadf](https://github.com/energy-models/math-spec/commit/537eadf76f52615c83235e0dfbbdd2af5fa70588))
+* resolution is one method per node kind, and each operator's dim rule is one function ([#368](https://github.com/energy-models/math-spec/issues/368)) ([c7c2833](https://github.com/energy-models/math-spec/commit/c7c283347869fbd45e0ff851d0112bfcbc09f98c))
+* **typesetting:** the legend reads what the equations returned rather than state left on the walk ([#366](https://github.com/energy-models/math-spec/issues/366)) ([db96a54](https://github.com/energy-models/math-spec/commit/db96a54d55996a9e4cc89a3f837303149475211b))
+
+## [0.0.0-alpha.66](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.65...v0.0.0-alpha.66) (2026-09-01)
+
+
+### Performance
+
+* a model loads, lowers and typesets three to eight times faster ([#357](https://github.com/energy-models/math-spec/issues/357)) ([ea6fe79](https://github.com/energy-models/math-spec/commit/ea6fe798c85118750294b642463b16aa0935065f))
+
+## [0.0.0-alpha.65](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.64...v0.0.0-alpha.65) (2026-09-01)
+
+
+### Refactoring
+
+* **language:** a translation policy and a bound's side name the values they can be, rather than being a string ([#354](https://github.com/energy-models/math-spec/issues/354)) ([d212157](https://github.com/energy-models/math-spec/commit/d2121572496bf7e624cfa5e38c348cfbed4b71ad))
+* **typesetting:** a format spells the operators the language names, rather than any string a walk happens to ask for ([#352](https://github.com/energy-models/math-spec/issues/352)) ([12b4041](https://github.com/energy-models/math-spec/commit/12b404126dbe00e28ad16b4736dbe90dfda833d0))
+
+## [0.0.0-alpha.64](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.63...v0.0.0-alpha.64) (2026-09-01)
+
+
+### Features
+
+* **parser:** a refused where string names the rewrite for pandas and C connective habits ([#346](https://github.com/energy-models/math-spec/issues/346)) ([3dbd9b2](https://github.com/energy-models/math-spec/commit/3dbd9b261dd82fc5cd52924ecdd03b18ddd88c14))
+
 ## [0.0.0-alpha.63](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.62...v0.0.0-alpha.63) (2026-09-01)
 
 

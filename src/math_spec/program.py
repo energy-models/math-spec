@@ -4,60 +4,17 @@
 
 """The program: what a file declares, with names resolved and shapes fixed.
 
-A :class:`Program` is a complete declarative description of a mathematical
-program — every declaration a file makes, and no data in it at all. Data is
-bound against these declarations by whatever builds the model;
-:func:`~math_spec.lowering.to_program` is what produces one from a spec.
+The second public state, and the one a consumer reads. A :class:`Program` is
+every declaration a file makes and no data at all;
+:func:`~math_spec.lowering.to_program` is the only thing that builds one, so
+nothing here re-checks a hand-built one.
 
-**It is the second public state, and the one a consumer reads.** A
-:class:`~math_spec.model.Spec` is what the file *says*; a program is what it
-*means*, with macros expanded, names typed, operators resolved to nodes and
-every dim rule already checked. Consumers dispatch on these nodes and read
-them; nothing here is built by hand, so what ships beside the nodes is the
-walk (:func:`children`), not builders. A program is trusted by construction:
-:func:`~math_spec.lowering.to_program` is the only thing that builds one, and
-nothing checks one assembled by hand. The language's refusals happen at load,
-where the file and its author are, and a program put together some other way
-is outside that guarantee rather than inside a pass restating it.
-
-What a consumer needs from this module falls in three, and only the middle
-one has to be *called* to be got right:
-
-- **Types to match on** — every node and declaration class, the
-  :data:`ExpressionNode` union, and the ``Literal`` vocabularies. A backend
-  dispatches on these and calls none of them.
-- **Rules to call** — :func:`children` and :func:`fan_in`. Neither is visible
-  in a node's own structure, so a consumer deriving them derives them wrongly
-  the day a node is added.
-- **Questions over the walk** — :func:`walk` and the filters beside it. Each is
-  a line a consumer could write; they are here so two consumers cannot write it
-  differently.
-
-A mask arrives as a :class:`Mask`: the language's own resolved ``where`` node
-(the :data:`WhereNode` vocabulary below) as its ``root``, with the questions
-the language answers about it carried beside it — one home, so two consumers
-cannot come to disagree about what a comparison is or which dims a mask
-restricts. Its literals are already decided: a declaration's mask admitting
-every row arrives as ``None``, one admitting none with
-``BooleanLiteralNode(False)`` as its root, and a case arm whose mask folds to
-a literal is refused at load — nothing the data decides is left in it. A mask
-a consumer derives (``~``, ``&``, ``|``) may fold to the
-always-true literal, the algebra being total over masks; construction folds,
-so a boolean literal stands at the root of a mask or nowhere in it, and no
-consumer needs a constant folder of its own to agree with the others about
-which rows exist.
-
-The declaration vocabularies are the language's own for the same reason
-(:mod:`math_spec.model`): a ``dtype``, a domain and an absence reading cross
-into a program by a cast, and a member added to one spelling alone would
-arrive as a string no consumer's branch recognises.
-
-Frozen dataclasses only — no execution logic, and nothing imported from a
-consumer.
-
-Expressions support operator sugar so programs read naturally in Python:
-
-balance = GroupSum(Variable("p"), over="generator", coordinate=("bus",), into=("bus",)) - Parameter("load")
+Node and declaration classes are matched with ``isinstance``. The rules a
+node's structure does not show are :func:`children` and :func:`fan_in`; the
+questions over the walk are :func:`walk` and the filters beside it. A
+resolved ``where`` arrives as a :class:`Mask`. Frozen dataclasses only — no
+execution logic, and nothing imported from a consumer. How a consumer reads
+one: ``docs/reference/language/reading.md``.
 """
 
 from __future__ import annotations
@@ -69,6 +26,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
+from math_spec._expression_parser import ComparisonOperator
 from math_spec.errors import did_you_mean
 
 if TYPE_CHECKING:
@@ -76,11 +34,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-#: What ``math_spec.program`` promises. The package's ``__all__`` exports this
-#: *module* rather than its names, so this is where a consumer's imports are
-#: pinned. Sorted, like the package's own: the grouping a reader wants is in
-#: ``tests/test_public_surface.py``, which derives this set from the module
-#: rather than restating it, so the two cannot come apart.
+#: What ``math_spec.program`` promises a consumer, sorted.
 __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
@@ -157,16 +111,10 @@ __all__ = [
 ]
 
 
-ConstraintSense = Literal['==', '<=', '>=']
+ConstraintSense = ComparisonOperator
 
-#: How a shape operator's output rows relate to its input slots — the absence
-#: rules' own distinction, as a field. ``sum``, ``sum(by=)`` and a window put
-#: several input slots into one output row, so an absent slot there is one
-#: summand fewer and the row stands; a pullback and a translation are one slot
-#: for one, so an absent input *is* the output and takes the row with it.
-#: Answered by :func:`fan_in` for every node, because a consumer keeping its
-#: own list of which is which would be deciding a rule the language has
-#: already decided.
+#: How a shape operator's output rows relate to its input slots, answered by
+#: :func:`fan_in` for every node.
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
 ObjectiveSense = Literal['minimize', 'maximize']
 
@@ -206,26 +154,15 @@ VariableType = _model.VariableDomain
 class Expression:
     """Base class for expressions over variables and parameters.
 
-    Affine everywhere but the objective, where a :class:`Multiply` of two
-    variable-carrying operands is degree 2; which position allows what is
-    ``math_spec.degree``'s to say and no node here records.
-
-    The four operators exist for the tests that compose plans by hand;
-    constructing Programs in Python is not supported API, so there is no
-    scalar coercion and no reflected form.
+    Affine everywhere but where ``math_spec.degree`` admits a :class:`Multiply`
+    of two variable-carrying operands; no node records which position that is.
     """
 
     def __add__(self: ExpressionNode, other: ExpressionNode) -> ExpressionNode:
         return Add(self, other)
 
-    def __sub__(self: ExpressionNode, other: ExpressionNode) -> ExpressionNode:
-        return Add(self, Negate(other))
-
     def __mul__(self: ExpressionNode, other: ExpressionNode) -> ExpressionNode:
         return Multiply(self, other)
-
-    def __neg__(self: ExpressionNode) -> ExpressionNode:
-        return Negate(self)
 
 
 @dataclass(frozen=True)
@@ -264,10 +201,8 @@ class Add(Expression):
 class Multiply(Expression):
     """Product of two operands.
 
-    Affine where at least one factor is variable-free. **Degree 2 where neither
-    is**, which the language allows in the objective alone
-    (``math_spec.degree``) — so a consumer that cannot represent a quadratic
-    term is told which position it is compiling rather than assuming it.
+    Affine where at least one factor is variable-free; degree 2 where neither
+    is, which ``math_spec.degree`` admits in a :data:`QuadraticPosition` alone.
     """
 
     left: ExpressionNode
@@ -308,17 +243,11 @@ class Sum(Expression):
 class GroupSum(Expression):
     """Sum ``operand`` through coordinates declared on dim ``over``.
 
-    ``coordinate`` names coordinates carried by dim ``over`` whose values are
+    ``coordinate`` names lookups carried by dim ``over`` whose values are
     labels of the matching dim in ``into``; the result replaces ``over`` with
-    all of them.
-
-    ``into`` restates each coordinate's declared target, because a node is
-    read on its own — a consumer places terms from one without consulting the
-    program — and lowering is the only thing that writes it.
-
-    Several coordinates are one grouping into a product of targets, not a
-    composition of groupings — they are consumed in a single join, so the pair
-    of tuples is always the same length and their order pairs them up.
+    all of them. The two tuples are the same length and their order pairs
+    them: several coordinates are one grouping into a product of targets,
+    consumed in a single join.
     """
 
     operand: ExpressionNode
@@ -333,12 +262,7 @@ class At(Expression):
 
     Same mapping table, walked the other way: ``GroupSum`` consumes ``over``
     and produces ``into``, this consumes ``into`` and produces ``over``. The
-    fields are named for the *table* rather than the direction, so the pair
-    reads as one relation; the surface says which end you stand on
-    (``sum(by=)`` consumes it, ``at(by=)`` produces it, the lookup names the map).
-
-    The join fans out, many ``over`` labels sharing one ``into`` tuple — the
-    fan-out ``GroupSum`` pays in reverse, so the locality class is unchanged.
+    join fans out, many ``over`` labels sharing one ``into`` tuple.
     """
 
     operand: ExpressionNode
@@ -349,34 +273,20 @@ class At(Expression):
 
 @dataclass(frozen=True)
 class Translate(Expression):
-    """Re-index along one dimension: the result at *t* is ``operand`` at *t - by*.
+    """Re-index along one dimension: the result at *t* is ``operand`` at *t - offset*.
 
-    One node for the whole of ``shift``, whose ``edge=`` decides ``wrap``:
-    ``edge='wrap'`` is periodic, absent or numeric is not.
+    ``wrap`` is ``edge='wrap'`` in the file: periodic, and stated on every
+    node. ``fill`` is what an acyclic shift leaves behind: ``None`` leaves the
+    vacated positions absent, so the row drops; a number makes them present
+    and contribute it. Always ``None`` under ``wrap``.
 
-    ``wrap`` carries no default, on this node or on :class:`Window`. Whether an
-    axis closes onto itself is the difference between a battery that must end
-    as it started and one that need not, and there is no reading of a
-    translation that leaves it unsaid — a node that guessed would be answering
-    for the file.
+    ``offset`` is an integer, or the name of an integer parameter that does
+    not depend on ``dimension`` and carries its sign in the values.
 
-    ``fill`` decides what an acyclic shift leaves behind. ``None``, what bare
-    ``shift`` lowers to, leaves the vacated positions **absent**: they carry no
-    value, the absence rules propagate that, and the row drops. A number makes
-    them present and contribute it, which is the only way a file can say
-    "before the axis starts, read zero" without inventing coordinates. Always
-    ``None`` under ``wrap``, a cyclic map vacating nothing.
-
-    ``offset`` is how far back to reach: an integer, or the name of an integer
-    parameter when it differs per entity — a construction lead time, a transit
-    time, a minimum up time. A named offset may not depend on the dimension
-    being translated, and carries its sign in the values.
-
-    ``partition`` names a lookup over ``dimension``, and then the translation
-    happens **inside each group** it makes: the neighbour of a coordinate is the
-    one before it *in its own group*, the edge is that group's edge, and a wrap
-    closes each group onto itself. A coordinate the lookup sends nowhere is in
-    no group and reaches nothing.
+    ``partition`` names a lookup over ``dimension``, and the translation then
+    happens inside each group it makes: the neighbour is the one before in
+    the same group, the edge is the group's, and a wrap closes each group onto
+    itself. A coordinate the lookup sends nowhere reaches nothing.
     """
 
     operand: ExpressionNode
@@ -401,19 +311,11 @@ class Window(Expression):
     horizon. A named width may not depend on the dimension being summed over.
 
     ``wrap`` says whether the window reaches around the start of the axis
-    instead of stopping short at it, and is stated at every construction for
-    the reason :class:`Translate` gives.
+    instead of stopping short at it, and is stated on every node.
 
     ``partition`` names a lookup over that dimension, and the window then stops
-    at each group's edge: a representative day, a season, a scenario's own run
-    of hours. Positions are counted inside the group rather than along the
-    axis, so a coordinate the lookup places nowhere reaches nothing at all —
-    not even itself.
-
-    One node rather than a sum of ``Translate``s, because the number of terms
-    would then be read from data and the program's *shape* is fixed before any
-    data is bound. What data supplies is the mask's cardinality, exactly as it
-    supplies how many snapshots there are.
+    at each group's edge. Positions are counted inside the group, so a
+    coordinate the lookup places nowhere reaches nothing — not even itself.
     """
 
     operand: ExpressionNode
@@ -427,12 +329,8 @@ class Window(Expression):
 class Region:
     """One region of a :class:`Cases`: where it applies, and the value there.
 
-    ``when`` is stated on every region, the one the file wrote as
-    ``otherwise:`` included — its mask is the negation of the others, resolved
-    once here rather than by each consumer in turn. A consumer builds a region
-    without holding the rest in mind, and both facts it needs are on the region
-    it is reading. The mask is a :class:`Mask`, the same carrier a
-    declaration's ``where`` arrives in.
+    ``when`` is stated on every region; the one the file wrote as
+    ``otherwise:`` carries the negation of the others.
     """
 
     when: Mask
@@ -443,16 +341,9 @@ class Region:
 class Cases(Expression):
     """A value defined by region — exactly one region applies at each coordinate.
 
-    The language proves the regions apart before any data binds, and the
-    file's ``otherwise:`` covers whatever the rest leave, so they are disjoint
-    and total by construction: a consumer adds the regions rather than ranking
-    them, and needs neither an order nor a tie-break.
-
-    Not a shape operator — every region spans the dims the expression does, and
-    this neither reduces nor replicates. What it adds is the one thing no other
-    node here carries: **a mask in a value position**. A consumer that can
-    restrict rows but cannot weigh a term by a predicate builds each region
-    against its own mask and adds the results.
+    The regions are disjoint and total, so a consumer adds them rather than
+    ranking them. Not a shape operator: every region spans the dims the
+    expression does.
     """
 
     regions: tuple[Region, ...]
@@ -485,18 +376,8 @@ ExpressionNode = (
 def fan_in(expression: ExpressionNode) -> FanIn:
     """How *expression*'s output rows relate to its input slots.
 
-    Total over the node set, so a consumer asks any node rather than keeping a
-    list of which kinds carry the answer. Arithmetic and the leaves reshape
-    nothing, which is one slot for one row — the same class a pullback and a
-    translation are in, reached for a different reason.
-
-    Exhaustive rather than defaulted: a node added without a case here is a
-    type error at this function, where the absence rule it needs is decided,
-    instead of silently inheriting the class that reshapes nothing.
-
-    :class:`Cases` is in that class too, for a reason of its own: its regions
-    are disjoint, so an output row reads exactly one of them — the several
-    values it holds are alternatives rather than slots summed together.
+    For the absence rules, both classes other than ``'one-to-one'`` sum
+    several input slots into an output row.
     """
     if isinstance(expression, (Sum, GroupSum)):
         return 'many-to-one'
@@ -511,12 +392,7 @@ def fan_in(expression: ExpressionNode) -> FanIn:
 
 
 def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
-    """The sub-expressions of *expression* — the structural half of any walk.
-
-    Every walk over a program's expressions recurses through here and differs only in
-    what it does at the leaves. Enumerating the children once is how a node
-    added later reaches all of them rather than one.
-    """
+    """The sub-expressions of *expression* — what every walk recurses through."""
     if isinstance(expression, Negate):
         return (expression.operand,)
     if isinstance(expression, (Add, Multiply)):
@@ -800,41 +676,17 @@ class ObjectiveDeclaration:
 
 @dataclass(frozen=True)
 class Footprint:
-    """Which of the language's constructs one program actually reaches for.
+    """Which of the language's constructs one program uses.
 
-    A *subset*, never the whole: the language admits more than any one file
-    uses, and an empty field says this program does not use that construct —
-    not that the construct does not exist. Every field is a set, so
-    ``if footprint.x`` asks whether it appears at all and ``y in footprint.x``
-    asks about one kind, and a construct admitted later widens a set rather
-    than needing a field a consumer does not yet read.
-
-    Facts only. What a sink can ingest is a separate axis
-    (``docs/about/ceiling.md``, "Capability is not the ceiling"), where a
-    capability is neither a flat set nor one verdict per construct — so there
-    is deliberately no verdict here to read instead of giving one.
-
-    Nothing below the kind, either: a sink that takes a window but not a
-    wrapped one reads ``Window in shapes`` and then walks, because ``wrap``,
-    ``partition`` and a named width are refinements without end and each is one
-    line once the set has said where to look.
+    A subset, never the whole: an empty field says this program does not use
+    the construct.
 
     Attributes:
         quadratic: Each position a product of two variable-carrying operands
-            stands in. Empty is affine throughout. Convexity is not here: it is
-            a property of the whole Hessian rather than of any term, and the
-            coefficients deciding it arrive with the data — so, as with a
-            curve's shape (:class:`Curved`),
-            this names where the products are and the caller holding the
-            numbers does the checking.
-        variable_types: Every domain declared, ``{'continuous'}`` alone being
-            the pure-LP case.
-        sos_types: The order of each special-ordered set declared. Empty where
-            the file declares none.
-        shapes: Every expression node kind that appears, complete rather than
-            curated — picking the interesting ones would be the judgement this
-            leaves to the consumer, and a node added later is reported without
-            anyone remembering a filter.
+            stands in; empty is affine throughout.
+        variable_types: Every domain declared.
+        sos_types: The order of each special-ordered set declared.
+        shapes: Every expression node kind that appears.
     """
 
     quadratic: frozenset[QuadraticPosition]
@@ -880,45 +732,31 @@ class Program:
     named_expressions: Mapping[str, ExpressionNode] = MappingProxyType({})
 
     def __post_init__(self) -> None:
-        """Seal every group, so a program handed out cannot be written to.
-
-        ``frozen=True`` stops a field being rebound and says nothing about the
-        mapping behind it. Wrapping here rather than trusting the caller is
-        what makes the guarantee hold for every construction path.
-        """
+        """Seal every group, so a program handed out cannot be written to."""
         for f in fields(self):
             group = getattr(self, f.name)
             if isinstance(group, Mapping):
                 object.__setattr__(self, f.name, MappingProxyType(dict(group)))
 
+    def _by_position(self) -> Iterator[tuple[QuadraticPosition, tuple[ExpressionNode, ...]]]:
+        """The row-building expressions, grouped by the position they stand in."""
+        yield 'objective', (self.objective.expression,) if self.objective is not None else ()
+        yield 'constraint', tuple(side for c in self.constraints.values() for side in (c.lhs, c.rhs))
+
     @property
     def expressions(self) -> tuple[ExpressionNode, ...]:
         """Every expression a row is built from — the objective and both sides of each constraint.
 
-        What a walk over the program *a solver sees* takes. A declared
-        :attr:`named_expressions` entry is not among them: it builds no row, so
-        a question asked about what will be solved would answer wrongly if it
-        counted one.
+        A :attr:`named_expressions` entry builds no row and is not among them.
         """
-        return (
-            *((self.objective.expression,) if self.objective is not None else ()),
-            *(side for c in self.constraints.values() for side in (c.lhs, c.rhs)),
-        )
+        return tuple(e for _, group in self._by_position() for e in group)
 
     @cached_property
     def footprint(self) -> Footprint:
-        """Which constructs this program uses — walked once, then held.
-
-        Safe to hold: a program cannot change after construction, its groups
-        being sealed and every node under them frozen.
-        """
-        objective = (self.objective.expression,) if self.objective is not None else ()
-        sides = tuple(side for c in self.constraints.values() for side in (c.lhs, c.rhs))
+        """Which constructs this program uses — walked once, then held."""
         return Footprint(
             quadratic=frozenset(
-                position
-                for position, group in (('objective', objective), ('constraint', sides))
-                if any(is_quadratic(e) for e in group)
+                position for position, group in self._by_position() if any(is_quadratic(e) for e in group)
             ),
             variable_types=frozenset(v.variable_type for v in self.variables.values()),
             sos_types=frozenset(s.sos_type for s in self.sos.values()),
@@ -930,12 +768,7 @@ class Program:
 
     @property
     def lookups(self) -> tuple[tuple[str, LookupDeclaration], ...]:
-        """Every targeted map in the program, with the dimension it is over.
-
-        One walk for the several shapes consumers want it in — name to target,
-        target to origin, the set of targets — because the nested comprehension
-        that produces any of them is the same walk written again.
-        """
+        """Every lookup in the program, targeted and label-space alike, with the dimension it is over."""
         return tuple((dimension, lk) for dimension, d in self.dimensions.items() for lk in d.lookups)
 
     def parameter(self, name: str) -> ParameterDeclaration:
@@ -1011,12 +844,7 @@ def quotients(*expressions: ExpressionNode) -> tuple[Divide, ...]:
 
 
 def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
-    """Parameters appearing anywhere in a divisor position.
-
-    Static, like :func:`parameters_of`: which names *can* reach a divisor is
-    the program's to answer, and *where* they must have values is decided by the
-    rows a declaration builds.
-    """
+    """Every parameter named anywhere in a divisor under *expressions*."""
     return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
 
 
@@ -1038,9 +866,8 @@ class ParameterDefinedNode:
     """True wherever the named parameter is non-null and finite.
 
     ``dims`` is the parameter's own, copied off the declaration during
-    resolution the way a lookup leaf carries ``over`` — so a consumer reads the
-    dims a leaf is read through here rather than looking the declaration up
-    again.
+    resolution; every leaf below that names a declaration carries its dims
+    (or ``over``) the same way.
     """
 
     name: str
@@ -1049,13 +876,7 @@ class ParameterDefinedNode:
 
 @dataclass(frozen=True)
 class VariableDefinedNode:
-    """True at the coordinates where the named variable exists.
-
-    The variable counterpart of :class:`ParameterDefinedNode`, and spelled the
-    same way — a bare name. A parameter's bare name asks whether it has a value
-    here; a variable's asks whether it exists here. ``dims`` is the variable's
-    frame, copied off the declaration during resolution.
-    """
+    """True at the coordinates where the named variable exists."""
 
     name: str
     dims: tuple[str, ...]
@@ -1063,11 +884,7 @@ class VariableDefinedNode:
 
 @dataclass(frozen=True)
 class ParameterComparisonNode:
-    """Compare a parameter against a literal, element-wise.
-
-    ``dims`` is the parameter's own, copied off the declaration during
-    resolution — see :class:`ParameterDefinedNode`.
-    """
+    """Compare a parameter against a literal, element-wise."""
 
     name: str
     op: PredicateOperator
@@ -1088,10 +905,8 @@ class DimensionComparisonNode:
 class DimensionPositionNode:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
-    Both sides are integers, negative counting from the end; comparing
-    coordinates against the label *at* a position would read differently on an
-    axis whose coordinates do not arrive sorted (#32). With ``by`` the position
-    is counted within each group the lookup makes.
+    Both sides are integers, negative counting from the end. With ``by`` the
+    position is counted within each group the lookup makes.
     """
 
     name: str
@@ -1104,9 +919,7 @@ class DimensionPositionNode:
 class LookupComparisonNode:
     """Compare a lookup's values against a literal — ``period_of == 2030``.
 
-    ``over`` is the dimension the lookup maps out of, copied off the
-    declaration during resolution so the frame check and every consumer read it
-    here rather than looking the lookup up again.
+    ``over`` is the dimension the lookup maps out of.
     """
 
     name: str
@@ -1117,13 +930,7 @@ class LookupComparisonNode:
 
 @dataclass(frozen=True)
 class LookupPairComparisonNode:
-    """Compare two lookups over one dimension — ``from != to``.
-
-    The one comparison whose both sides are structure: two maps out of the
-    same dimension, tested row by row on that dimension's own table. Over
-    different dims there is no row to compare them on, which resolution
-    refuses.
-    """
+    """Compare two lookups over one dimension — ``from != to``, row by row on that dimension's table."""
 
     name: str
     other: str
@@ -1133,13 +940,7 @@ class LookupPairComparisonNode:
 
 @dataclass(frozen=True)
 class LookupDefinedNode:
-    """True where the named lookup has a value — the partial-lookup case.
-
-    A lookup may be partial: a null says the label belongs to no group (a
-    generator on no bus, a line with one open end). This is how a declaration
-    asks for the labels that *do* map, spelled as a bare name exactly as a
-    parameter's definedness is.
-    """
+    """True where the named lookup has a value — a null says the label belongs to no group."""
 
     name: str
     over: str
@@ -1205,21 +1006,10 @@ ConnectiveWhereNode = NotNode | AndNode | OrNode
 def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     """Every node in *where* that reads a declaration, connectives removed.
 
-    A predicate is a tree of :data:`ConnectiveWhereNode` over leaves that each
-    name one declaration, so every question about what a mask *reads* is asked
-    of the leaves and answered by taking them together — through
-    :class:`Mask`, the one door. A boolean literal reads nothing and yields
-    nothing.
-
-    The unresolved arm is live, not type-dead. Inside the package the type
-    checker reaches it — :func:`~math_spec._where_parser.parse_where` says the
-    shape it returns — but a consumer runs none of ours over its own code, and
-    a mask that silently answered nothing for a tree it could not read would
-    be exactly the divergence this walk exists to prevent.
+    A boolean literal yields nothing.
 
     Raises:
-        AssertionError: An unresolved node, which is a pass running before
-            resolution rather than a predicate with a property to read.
+        AssertionError: An unresolved node reached the walk.
     """
     if isinstance(where, NotNode):
         yield from _atoms(where.operand)
@@ -1267,9 +1057,13 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
     than a name silently dropped at the first model to use it.
     """
     match atom:
-        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
-            return frozenset({atom.name})
-        case LookupComparisonNode() | LookupDefinedNode():
+        case (
+            ParameterComparisonNode()
+            | ParameterDefinedNode()
+            | VariableDefinedNode()
+            | LookupComparisonNode()
+            | LookupDefinedNode()
+        ):
             return frozenset({atom.name})
         case LookupPairComparisonNode():
             return frozenset({atom.name, atom.other})
@@ -1330,19 +1124,10 @@ def _fold(node: WhereNode) -> WhereNode:
 class Mask:
     """A resolved ``where`` and the questions the language answers about it.
 
-    ``root`` is the predicate an engine dispatches on with ``isinstance`` to
-    build the mask against data; every question is derived from it, so a mask
-    cannot disagree with itself. Wrap any resolved predicate — a declaration's
-    own, or one built from resolved pieces (``~``, ``&``, ``|``) —
-    and ask it here, so two consumers cannot answer differently.
-
-    Construction folds: a literal or a double negation a connective decides is
-    evaluated away, so a boolean literal stands at the root or nowhere, and a
-    consumer can check emptiness in O(1). Construction also refuses an
-    unresolved tree outright: a mask that silently answered no atoms, no names
-    and no dims for one would be the divergence this class exists to prevent,
-    and a consumer's hand-built tree is not something a type checker here can
-    reach.
+    ``root`` is the predicate a consumer dispatches on with ``isinstance``;
+    every question below is derived from it. Construction folds, so a boolean
+    literal stands at the root or nowhere in it, and refuses an unresolved
+    tree.
 
     Attributes:
         root: The resolved predicate the mask restricts rows by, folded.
@@ -1352,9 +1137,7 @@ class Mask:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, 'root', _fold(self.root))
-        # holding the tuple is the refusal, and the fold above has to have run:
-        # it drops the leaves of a branch a literal absorbed
-        _ = self.atoms
+        _ = self.atoms  # the walk is the refusal, and runs after the fold
 
     @cached_property
     def atoms(self) -> tuple[TypedPredicateNode, ...]:

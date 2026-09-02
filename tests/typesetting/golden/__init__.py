@@ -13,6 +13,5 @@ MODEL = DIRECTORY / 'model.yaml'
 
 
 def path_for(format_name: str) -> Path:
-    """The committed output for one format. Named for the format, not its
-    suffix, so two formats sharing a suffix could not collide silently."""
+    """The committed output for one format."""
     return DIRECTORY / f'{format_name}.out'

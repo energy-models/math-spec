@@ -2,24 +2,19 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Typst. The format that compiles without a toolchain.
-
-The compiler is one self-contained binary (a pip wheel, so the suite compiles
-every example without apt), and multi-letter identifiers in math are upright
-by default, which is why names go through ``italic("…")``.
-"""
+"""Typst. Multi-letter identifiers in math are upright by default, which is why names go through ``italic("…")``."""
 
 from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING, ClassVar
 
-from math_spec.typesetting.format import OPERATOR_SPELLINGS
+from math_spec.typesetting.format import OPERATOR_SPELLINGS, aligned_rows, paragraphs
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from math_spec.typesetting.format import Entry, Line, Notation
+    from math_spec.typesetting.format import Entry, Line, Notation, OperatorName
 
 _PREAMBLE = """#set page(margin: 2.5cm)
 #set text(size: 11pt)
@@ -57,12 +52,12 @@ class TypstFormat:
     ``minus.circle`` does not compile.
     """
 
-    suffix: ClassVar[str] = '.typ'
     notation: ClassVar[Notation] = 'typst'
     #: Typst applies the same substitution TeX does.
     dash: ClassVar[str] = '---'
+    cases_row: ClassVar[str] = ', '
 
-    operators: ClassVar[Mapping[str, str]] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
+    operators: ClassVar[Mapping[OperatorName, str]] = {name: typst for name, (_, typst) in OPERATOR_SPELLINGS.items()}
 
     # -- atoms -------------------------------------------------------------
 
@@ -112,7 +107,7 @@ class TypstFormat:
         return f'frac({numerator}, {denominator})'
 
     def cases(self, arms: list[tuple[str, str]]) -> str:
-        return 'cases({})'.format(', '.join(f'{value} & {condition}' for value, condition in arms))
+        return 'cases({})'.format(self.cases_row.join(f'{value} & {condition}' for value, condition in arms))
 
     def summation(self, domain: str, body: str) -> str:
         return f'sum_({domain}) {body}'
@@ -127,13 +122,7 @@ class TypstFormat:
 
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
         """A block equation, aligned on ``&`` as amsmath does."""
-        rows = [
-            f'{self.prose(line.label) if line.label else ""} & {line.left} & {line.right} & {line.condition}'.rstrip(
-                ' &'
-            )
-            for line in lines
-        ]
-        body = ' \\\n  '.join(rows)
+        body = ' \\\n  '.join(aligned_rows(lines, self, gap=' & '))
         numbering = '#set math.equation(numbering: "(1)")\n' if numbered else ''
         return f'{numbering}$ {body} $'
 
@@ -149,5 +138,5 @@ class TypstFormat:
 
     def document(self, blocks: list[str], *, standalone: bool) -> str:
         """No preamble/body split: ``standalone`` only adds the page setup."""
-        body = '\n\n'.join(blocks) + '\n'
+        body = paragraphs(blocks)
         return f'{_PREAMBLE}\n{body}' if standalone else body
