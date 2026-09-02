@@ -10,7 +10,7 @@ import pytest
 
 from math_spec.typesetting import FORMATS
 
-LATEX, TYPST = FORMATS['latex'], FORMATS['typst']
+LATEX = FORMATS['latex']
 EVERY_FORMAT = pytest.mark.parametrize('fmt', list(FORMATS.values()), ids=list(FORMATS))
 
 TYPST_SYMBOLS = {

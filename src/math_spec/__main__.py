@@ -5,9 +5,7 @@
 """``python -m math_spec <verb> model.yaml`` — the shell front.
 
 ``check`` loads the file and prints the language's advice; one further verb
-per typeset format, read off :data:`math_spec.typesetting.FORMATS`. No entry
-point: ``python -m`` says which environment it ran in, which a bare name on
-``PATH`` does not.
+per typeset format, read off :data:`math_spec.typesetting.FORMATS`.
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ from math_spec.typesetting import FORMATS, typeset
 
 
 def parser() -> argparse.ArgumentParser:
-    """The verbs, built from ``FORMATS``; separate from :func:`main` so a test can read them off it."""
+    """The verbs, built from ``FORMATS``."""
     front = argparse.ArgumentParser(prog='python -m math_spec')
     verbs = front.add_subparsers(dest='verb', required=True)
 
@@ -43,8 +41,7 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Run one verb; a refused file is its message on stderr and exit status 1.
 
-    Advice is not a refusal: ``check`` prints it and exits 0, since a note is
-    what a half-written model looks like too.
+    Advice is not a refusal: ``check`` prints it and exits 0.
     """
     args = parser().parse_args(argv)
     if args.verb == 'check':
@@ -64,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         numbered=not args.no_numbers,
     )
     if args.out:
-        Path(args.out).write_text(text)
+        Path(args.out).write_text(text, encoding='utf-8')
     else:
         sys.stdout.write(text)
     return 0

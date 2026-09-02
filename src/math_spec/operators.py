@@ -4,21 +4,14 @@
 
 """The closed set of built-in operators and their call shapes.
 
-Closed: there is no Python registry, so every consumer accepts exactly the
-same language. Compositions belong in ``macros:``; math the language cannot say belongs in a
-declared ``escape:`` island (#38), not in an operator that reads like a built-in.
-
-The *language* side of an operator — its name and signature, nothing else. The
-signature lives here because more than one pass needs it (resolution types
-the dimension arguments, validation name-checks macro bodies, a consumer builds
-the call), and an arity spelled out once per pass is one the passes can
-disagree about. Dependency-free on purpose: counts and keyword names, no AST.
+One home for each signature: a composition is a macro, and math the language
+cannot say is a declared ``escape:``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -36,12 +29,12 @@ class Builtin:
     ``required_value_kwargs`` are ordinary values that must be present — a
     number, never a name to resolve (``shift(..., offset=1)``).
 
-    Every dimension or lookup an operator names arrives in a kwarg *value*,
-    which is what lets a macro pass one as a formal. ``usage`` is the wording
-    every refusal quotes back.
+    Every operator takes one positional argument, the expression; every
+    dimension or lookup it names arrives in a kwarg *value*, which is what
+    lets a macro pass one as a formal. ``usage`` is the wording every refusal
+    quotes back.
     """
 
-    positional: int
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     lookup_kwargs: tuple[str, ...] = ()
@@ -58,43 +51,41 @@ class Builtin:
     optional_kwargs: tuple[str, ...] = ()
 
     @property
-    def keywords(self) -> frozenset[str]:
-        """Every keyword the call must carry, when they are named at all."""
+    def required(self) -> frozenset[str]:
+        """Every keyword the call must carry."""
         return (
             (frozenset(self.dimension_kwargs) | frozenset(self.lookup_kwargs) | frozenset(self.required_value_kwargs))
             - frozenset(self.at_most_one_of)
             - frozenset(self.optional_kwargs)
         )
 
-    @property
-    def optional(self) -> frozenset[str]:
-        """Every keyword the call may carry but need not."""
-        return frozenset(self.edge_kwargs) | frozenset(self.at_most_one_of) | frozenset(self.optional_kwargs)
+    def kind_of(self, kwarg: str) -> Literal['dimension', 'lookup', 'edge', 'value']:
+        """What resolution turns the value of *kwarg* into: a dimension, a lookup, an edge policy, or a plain value."""
+        if kwarg in self.dimension_kwargs:
+            return 'dimension'
+        if kwarg in self.lookup_kwargs:
+            return 'lookup'
+        if kwarg in self.edge_kwargs:
+            return 'edge'
+        return 'value'
 
 
 #: The closed operator set. ``by=`` is the one keyword that addresses a lookup,
-#: and a lookup carries its own dimensions, so the sibling kwargs that used to
-#: restate them (``sum``'s ``over=`` beside ``group_by=``, ``at``'s ``onto=``)
-#: are gone — what the two-keyword spelling once said, the name's *kind* now
-#: says, checked at load. ``by=`` on ``shift`` and
-#: ``sum_back`` partitions the axis the operator walks, which is the same
-#: lookup in a different position: it says which rows are neighbours, not which
-#: group a term lands in.
+#: and a lookup carries its own dimensions, so no sibling kwarg restates them.
+#: On ``shift`` and ``sum_back`` it partitions the axis the operator walks: it
+#: says which rows are neighbours, not which group a term lands in.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        1,
         'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>)',
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
         at_most_one_of=('over', 'by'),
     ),
     'at': Builtin(
-        1,
         'at(<expr>, by=<lookup>)',
         lookup_kwargs=('by',),
     ),
     'sum_back': Builtin(
-        1,
         "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
@@ -103,7 +94,6 @@ BUILTINS: dict[str, Builtin] = {
         optional_kwargs=('by',),
     ),
     'shift': Builtin(
-        1,
         "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
@@ -141,7 +131,8 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
             f'its own dimensions, so by= leaves over= nothing to add.\n'
             f'Write: {builtin.usage}'
         )
-    fits = positional == builtin.positional and keys - builtin.optional == builtin.keywords
+    optional = {*builtin.edge_kwargs, *builtin.at_most_one_of, *builtin.optional_kwargs}
+    fits = positional == 1 and keys - optional == builtin.required
     return None if fits else f'{name}() expects {builtin.usage}'
 
 

@@ -13,6 +13,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 import math_spec
 from math_spec import program, typesetting
 
@@ -39,6 +41,13 @@ SURFACE = frozenset(
     }
 )  # fmt: skip
 
+#: The modules whose `__all__` a consumer imports from.
+MODULES = [
+    pytest.param(math_spec, id='math_spec'),
+    pytest.param(typesetting, id='typesetting'),
+    pytest.param(program, id='program'),
+]
+
 
 def test_all_matches_the_pinned_surface():
     """Both directions, because either alone rots."""
@@ -48,20 +57,17 @@ def test_all_matches_the_pinned_surface():
     )
 
 
-def test_every_exported_name_is_bound():
-    """`__all__` naming something the package does not bind is a broken import."""
-    missing = sorted(n for n in math_spec.__all__ if not hasattr(math_spec, n))
-    assert not missing, f'__all__ names unbound attributes: {missing}'
+@pytest.mark.parametrize('module', MODULES)
+def test_every_exported_name_is_bound(module):
+    """`__all__` naming something the module does not bind is a broken import."""
+    missing = sorted(n for n in module.__all__ if not hasattr(module, n))
+    assert not missing, f'{module.__name__}.__all__ names unbound attributes: {missing}'
 
 
-def test_all_names_nothing_twice():
-    names = list(math_spec.__all__)
-    assert len(names) == len(set(names)), 'duplicate name in __all__'
-
-
-def test_the_typeset_subpackage_binds_what_it_exports():
-    missing = sorted(n for n in typesetting.__all__ if not hasattr(typesetting, n))
-    assert not missing, f'math_spec.typesetting.__all__ names unbound attributes: {missing}'
+@pytest.mark.parametrize('module', MODULES)
+def test_all_names_nothing_twice(module):
+    names = list(module.__all__)
+    assert len(names) == len(set(names)), f'duplicate name in {module.__name__}.__all__'
 
 
 def _defined_by(module: object) -> set[str]:
@@ -84,25 +90,10 @@ def _defined_by(module: object) -> set[str]:
 
 
 def test_the_program_module_exports_everything_it_defines():
-    """`math_spec.__all__` exports the *module*, so this is the consumers' surface.
-
-    Without an `__all__` the module's namespace was the surface, which made
-    every import it happens to make — `dataclass`, `Mapping`, `Literal` —
-    part of what a consumer could reach. Both directions, so a public name
-    added without a decision fails here rather than shipping unnoticed.
-    """
+    """`math_spec.__all__` exports the module, so this is the consumers' surface — both
+    directions, so a public name added without a decision fails here."""
     declared = set(program.__all__)
     defined = _defined_by(program)
     assert declared == defined, (
         f'only in __all__: {sorted(declared - defined)}; defined but unexported: {sorted(defined - declared)}'
     )
-
-
-def test_the_program_module_binds_what_it_exports():
-    missing = sorted(n for n in program.__all__ if not hasattr(program, n))
-    assert not missing, f'math_spec.program.__all__ names unbound attributes: {missing}'
-
-
-def test_the_program_module_names_nothing_twice():
-    names = list(program.__all__)
-    assert len(names) == len(set(names)), 'duplicate name in math_spec.program.__all__'

@@ -4,36 +4,28 @@
 
 """Advice — what is decidable without data and is a note rather than a refusal.
 
-One door, :func:`advice`, over every pass of that kind. A consumer prints what
-it returns; the sentences are the language's, so two consumers cannot come to
-disagree about them.
+One door, :func:`advice`, over every pass of that kind.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from math_spec import program as program_
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice
 from math_spec.lowering import to_program
+from math_spec.program import At, GroupSum, walk
 
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import Any
 
     from math_spec.model import Spec
-    from math_spec.program import ExpressionNode, Program
+    from math_spec.program import Program
 
 
 def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice, ...]:
     """Everything the language advises about *model* — never an error, decidable without data.
-
-    A dimension that is never an axis is a label space wearing the wrong
-    declaration, or unused. A variable the objective drives toward an open
-    bound with no constraint naming it makes the model unbounded for any data
-    there is. Both are what a half-written model looks like too, which is why
-    they are advice and ``to_spec`` stays open to them.
 
     Args:
         model: A YAML path, a mapping, a loaded :class:`Spec`, or a
@@ -53,8 +45,7 @@ def _never_an_axis(program: Program) -> list[Advice]:
     axes: set[str] = set()
     for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
         axes.update(declaration.dims)
-    for e in program.expressions:
-        axes |= _produced_axes(e)
+    axes |= _produced_axes(program)
 
     targeted = {lk.target: (dimension, lk.name) for dimension, lk in program.lookups if lk.target is not None}
     notes: list[Advice] = []
@@ -81,18 +72,15 @@ def _never_an_axis(program: Program) -> list[Advice]:
     return notes
 
 
-def _produced_axes(e: ExpressionNode) -> set[str]:
-    """The axes an expression *creates*, beyond what its declarations index.
+def _produced_axes(program: Program) -> set[str]:
+    """The axes the expressions create beyond what any declaration indexes.
 
-    ``sum(by=)`` lands terms on its target and ``at()`` spreads onto its fine
-    dimension, so both are axes even when no declaration is indexed by them —
-    an objective may group into a dimension and then implicitly sum it away.
+    ``sum(by=)`` lands on its target and ``at()`` spreads onto its fine dimension.
     """
-    out: set[str] = set()
-    if isinstance(e, program_.GroupSum):
-        out |= set(e.into)
-    if isinstance(e, program_.At):
-        out.add(e.over)
-    for child in program_.children(e):
-        out |= _produced_axes(child)
-    return out
+    axes: set[str] = set()
+    for node in walk(*program.expressions):
+        if isinstance(node, GroupSum):
+            axes.update(node.into)
+        elif isinstance(node, At):
+            axes.add(node.over)
+    return axes

@@ -7,8 +7,7 @@
 `schema/math-spec.schema.json` is a generated artefact that ships in the
 repository so an editor can offer completion without importing the package.
 Nothing regenerates it on the way to a release, so the only thing keeping it
-equal to the models is this file. What a validation rule *means* is
-`test_validation.py`'s business; this one is about the artefact.
+equal to the models is this file.
 """
 
 import json
@@ -26,18 +25,20 @@ def test_the_checked_in_json_schema_has_not_drifted():
     )
 
 
-def test_the_json_schema_admits_what_the_loader_admits():
-    """The two shorthands live in before-validators, which pydantic's generated
-    schema cannot see — each needs its own schema hook in model.py, and losing a
-    hook loses the shorthand from every editor silently."""
-    doc = json.loads(schema.PATH.read_text())
-    link = doc['$defs']['PiecewiseLink']
-    assert any(form.get('type') == 'array' for form in link.get('anyOf', [])), (
-        'the schema lost the `[expression, values, sign?]` link shorthand the loader accepts'
-    )
-    expression = doc['$defs']['ExpressionBlock']
-    assert {'type': 'string'} in expression.get('anyOf', []), (
-        'the schema lost the bare-string form a named expression is written in'
+@pytest.mark.parametrize(
+    ('definition', 'shorthand', 'spelling'),
+    [
+        pytest.param('PiecewiseLink', 'array', '`[expression, values, sign?]`', id='link-shorthand'),
+        pytest.param('ExpressionBlock', 'string', 'bare-string', id='bare-string-expression'),
+    ],
+)
+def test_the_json_schema_admits_the_shorthand_the_loader_admits(definition, shorthand, spelling):
+    """A shorthand lives in a before-validator, which pydantic's generated schema
+    cannot see — each needs its own schema hook in model.py, and losing the hook
+    loses the shorthand from every editor silently."""
+    forms = json.loads(schema.PATH.read_text())['$defs'][definition].get('anyOf', [])
+    assert any(form.get('type') == shorthand for form in forms), (
+        f'the schema lost the {spelling} form of {definition} the loader accepts'
     )
 
 
@@ -47,7 +48,9 @@ def test_no_definition_refers_only_to_itself():
     Rendered rather than read from the file, so it fails on whichever pydantic is installed."""
     doc = json.loads(schema.rendered())
     for name, entry in doc['$defs'].items():
-        assert {'$ref': f'#/$defs/{name}'} not in entry.get('anyOf', []), name
+        assert {'$ref': f'#/$defs/{name}'} not in entry.get('anyOf', []), (
+            f'{name} refers to itself, so its mapping form is unreachable from the schema'
+        )
 
 
 @pytest.mark.parametrize(
@@ -74,4 +77,6 @@ def test_a_closed_vocabulary_is_published_as_an_enum(block, field, alias):
 
 def test_the_piecewise_method_vocabulary_has_one_home():
     """`PiecewiseMethod` types the field and `PIECEWISE_METHODS` says what each emits."""
-    assert set(get_args(model.PiecewiseMethod)) == set(model.PIECEWISE_METHODS)
+    assert set(get_args(model.PiecewiseMethod)) == set(model.PIECEWISE_METHODS), (
+        'the typed methods and the emitting ones disagree, so a method is accepted that emits nothing or the reverse'
+    )

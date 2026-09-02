@@ -4,15 +4,11 @@
 
 """Provably unbounded models, named before a solver says a bare ``unbounded``.
 
-A variable that is unbounded on the side its objective term improves toward
-**and** appears in no constraint runs to infinity for any data at all. Advice
-rather than a refusal, because the same shape is what a half-written model
-looks like.
-
-Which side improves is read off the *sign* the variable enters the objective
-with: under ``minimize`` a ``+v`` term runs down toward ``lower``. Where that
-sign is not decidable without data — a parameter coefficient, or occurrences
-of both signs — nothing is claimed.
+A variable unbounded on the side its objective term improves toward, and named
+by no constraint, runs to infinity for any data. Which side is read off the
+sign the variable enters the objective with: under ``minimize`` a ``+v`` term
+runs down toward ``lower``. Where that sign is not decidable without data — a
+parameter coefficient, or occurrences of both signs — nothing is claimed.
 """
 
 from __future__ import annotations
@@ -37,6 +33,7 @@ from math_spec.program import (
     Translate,
     Variable,
     Window,
+    children,
     variables_of,
 )
 
@@ -48,19 +45,20 @@ if TYPE_CHECKING:
 #: appearing with both signs (which may cancel), a divisor carrying one.
 Sign = Literal['+', '-'] | None
 
+#: Which of a variable's two bounds a term drives it toward.
+BoundSide = Literal['lower', 'upper']
+
 #: The bound value that leaves each side open. A ``lower`` of ``+inf`` is not
 #: this — that model is empty, not unbounded — so the match is by value.
-_OPEN = {'lower': -math.inf, 'upper': math.inf}
+_OPEN: dict[BoundSide, float] = {'lower': -math.inf, 'upper': math.inf}
 
 
 def unbounded_notes(program: Program) -> list[Advice]:
     """Name every variable the objective can drive to infinity unopposed.
 
-    Asked of the program rather than the file: every fact the rule reads is a
-    declaration — the objective's sense and its terms, the variables each
-    constraint names, the two bounds — and by the time a program exists a
-    ``piecewise:`` block has already become the constraints it expands into,
-    which is where the variables it names are held.
+    Args:
+        program: The lowered program, in which ``piecewise:`` has already
+            become the constraints it expands into.
 
     Returns:
         One note per variable that is unbounded on the side its objective term
@@ -74,14 +72,14 @@ def unbounded_notes(program: Program) -> list[Advice]:
         constrained |= variables_of(constraint.lhs, constraint.rhs)
 
     signs: dict[str, Sign] = {}
-    _walk(program.objective.expression, '+', signs)
+    _record_signs(program.objective.expression, '+', signs)
 
     minimize = program.objective.sense == 'minimize'
     notes: list[Advice] = []
     for vname, sign in signs.items():
         if sign is None or vname in constrained:
             continue
-        side = 'lower' if minimize == (sign == '+') else 'upper'
+        side: BoundSide = 'lower' if minimize == (sign == '+') else 'upper'
         if _is_open(program.variables[vname], side):
             notes.append(
                 Advice(
@@ -97,13 +95,10 @@ def unbounded_notes(program: Program) -> list[Advice]:
     return notes
 
 
-def _is_open(vdef: VariableDeclaration, side: str) -> bool:
-    """Whether *vdef* declares nothing at all on *side*.
+def _is_open(vdef: VariableDeclaration, side: BoundSide) -> bool:
+    """Whether *vdef*'s bound on *side* is the open value itself.
 
-    A bound naming a parameter is finite or not by data this pass does not
-    have, which is why the match is against the open value rather than for a
-    missing bound. A ``binary`` variable needs no case of its own: it reaches
-    the program with the 0/1 bounds its domain fixes.
+    A bound naming a parameter is finite or not by data, so it does not count.
     """
     bound = vdef.lower if side == 'lower' else vdef.upper
     return bound == Constant(_OPEN[side])
@@ -132,15 +127,13 @@ def _coefficient_sign(node: ExpressionNode) -> Sign:
     return None
 
 
-def _walk(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> None:
+def _record_signs(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> None:
     """Record the sign each variable under *node* carries into the objective.
 
-    *signs* accumulates, and a variable reached twice with different signs — or
-    once with an undecidable one — lands on ``None``, which claims nothing.
-    Every shape node sums its operand's terms with coefficient 1, being a
-    reduction, a re-index or a window, so each hands *sign* on unchanged. A
-    power carries no sign in either half, which is what makes a degree-2 term
-    claim nothing.
+    A variable reached twice with different signs, or once with an undecidable
+    one, lands on ``None``, which claims nothing. A reduction, a re-index, a
+    window and a cases selection pass *sign* to their children unchanged; a
+    power carries no sign in either half.
     """
     if isinstance(node, Variable):
         signs[node.name] = sign if signs.setdefault(node.name, sign) == sign else None
@@ -148,30 +141,26 @@ def _walk(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> None:
     if isinstance(node, Constant | Parameter):
         return
     if isinstance(node, Negate):
-        _walk(node.operand, _flip(sign), signs)
+        _record_signs(node.operand, _flip(sign), signs)
         return
     if isinstance(node, Add):
-        _walk(node.left, sign, signs)
-        _walk(node.right, sign, signs)
+        _record_signs(node.left, sign, signs)
+        _record_signs(node.right, sign, signs)
         return
     if isinstance(node, Multiply):
-        _walk(node.left, _times(sign, _coefficient_sign(node.right)), signs)
-        _walk(node.right, _times(sign, _coefficient_sign(node.left)), signs)
+        _record_signs(node.left, _times(sign, _coefficient_sign(node.right)), signs)
+        _record_signs(node.right, _times(sign, _coefficient_sign(node.left)), signs)
         return
     if isinstance(node, Divide):
-        _walk(node.numerator, _times(sign, _coefficient_sign(node.divisor)), signs)
-        _walk(node.divisor, None, signs)
+        _record_signs(node.numerator, _times(sign, _coefficient_sign(node.divisor)), signs)
+        _record_signs(node.divisor, None, signs)
         return
     if isinstance(node, Power):
-        _walk(node.base, None, signs)
-        _walk(node.exponent, None, signs)
+        _record_signs(node.base, None, signs)
+        _record_signs(node.exponent, None, signs)
         return
-    if isinstance(node, Sum | GroupSum | At | Translate | Window):
-        _walk(node.operand, sign, signs)
-        return
-    if isinstance(node, Cases):
-        # a selection, not a sum: whichever region applies stands where the whole value does
-        for region in node.regions:
-            _walk(region.value, sign, signs)
+    if isinstance(node, Sum | GroupSum | At | Translate | Window | Cases):
+        for child in children(node):
+            _record_signs(child, sign, signs)
         return
     assert_never(node)

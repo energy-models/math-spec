@@ -6,11 +6,8 @@
 
 Two public states — a :class:`~math_spec.model.Spec` is what the file *says*,
 a :class:`~math_spec.program.Program` is what it *means* — and a conversion to
-each. Everything between them is package-private: both grammars and the AST
-they build (``_expression_parser``, ``_where_parser``), because a consumer
-reads a program, whose vocabulary lives in ``program`` beside everything else
-it dispatches on. ``__all__`` is the public surface, pinned by
-``tests/test_public_surface.py``.
+each. Everything between them — both grammars and the tree they build — is
+package-private, because a consumer reads a program instead.
 """
 
 from math_spec import program
@@ -43,9 +40,6 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
-
-# Last: `math_spec.typesetting` reaches back for the two conversions, so those
-# must be bound before it is imported.
 from math_spec.typesetting import (
     FORMATS,
     SymbolTable,
