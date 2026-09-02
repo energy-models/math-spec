@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+import math_spec.degree as degree
 from math_spec._yaml import read_yaml
-from math_spec.degree import carries_variable
 from math_spec.errors import SchemaError, did_you_mean
 from math_spec.resolution import expression_of
 from math_spec.typesetting.format import NOTATIONS
@@ -99,7 +99,7 @@ def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset
         name
         for name in printed_expressions(schema)
         if any(
-            carries_variable(expression_of(text, schema, namespace, f"expression '{name}', {where}"))
+            degree.carries_variable(expression_of(text, schema, namespace, f"expression '{name}', {where}"))
             for text, where in _values_of(schema.expressions[name])
         )
     )

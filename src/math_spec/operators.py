@@ -29,12 +29,12 @@ class Builtin:
     ``required_value_kwargs`` are ordinary values that must be present — a
     number, never a name to resolve (``shift(..., offset=1)``).
 
-    Every dimension or lookup an operator names arrives in a kwarg *value*,
-    which is what lets a macro pass one as a formal. ``usage`` is the wording
-    every refusal quotes back.
+    Every operator takes one positional argument, the expression; every
+    dimension or lookup it names arrives in a kwarg *value*, which is what
+    lets a macro pass one as a formal. ``usage`` is the wording every refusal
+    quotes back.
     """
 
-    positional: int
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     lookup_kwargs: tuple[str, ...] = ()
@@ -76,19 +76,16 @@ class Builtin:
 #: says which rows are neighbours, not which group a term lands in.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        1,
         'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>)',
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
         at_most_one_of=('over', 'by'),
     ),
     'at': Builtin(
-        1,
         'at(<expr>, by=<lookup>)',
         lookup_kwargs=('by',),
     ),
     'sum_back': Builtin(
-        1,
         "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
@@ -97,7 +94,6 @@ BUILTINS: dict[str, Builtin] = {
         optional_kwargs=('by',),
     ),
     'shift': Builtin(
-        1,
         "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
@@ -136,7 +132,7 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
             f'Write: {builtin.usage}'
         )
     optional = {*builtin.edge_kwargs, *builtin.at_most_one_of, *builtin.optional_kwargs}
-    fits = positional == builtin.positional and keys - optional == builtin.required
+    fits = positional == 1 and keys - optional == builtin.required
     return None if fits else f'{name}() expects {builtin.usage}'
 
 

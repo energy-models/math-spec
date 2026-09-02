@@ -626,7 +626,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nThe API is the ten declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. In goes through\n``to_spec``, which raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\nEverything else on this class is pydantic's, not a contract this package\nkeeps.",
+  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, :meth:`model_validate`, the constructor \u2014 runs\nevery load-time check, expansion and expression pass included, and raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the ten declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. Everything else on\nthis class is pydantic's, not a contract this package keeps.",
   "properties": {
     "constraints": {
       "additionalProperties": {
