@@ -28,11 +28,8 @@ is always the unary operator's. A keyword given twice in one call is an error
 rather than the later one winning.
 
 **An expression nests at most 100 levels deep**, which is a chain of at most
-100 terms written out. Every pass over an expression walks it by recursion, so
-a deeper one exhausts the interpreter instead of failing as a language error.
-Nothing written by hand comes close — the deepest expression in this
-repository is 18 — and a chain long enough to reach it is one `sum()` over a
-dimension replaces. `where:` strings are bounded the same way.
+100 terms written out; a chain that long is one `sum()` over a dimension
+replaces. `where:` strings are bounded the same way.
 
 ## Degree 2 in the math, degree 1 beside it
 

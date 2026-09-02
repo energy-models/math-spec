@@ -385,13 +385,9 @@ def _make_power(tokens: pp.ParseResults) -> Any:
 _GRAMMAR = _build_grammar()
 
 
-#: How deep a tree the language admits, and so how long a chain of terms one
-#: expression may write out. Every pass over an expression recurses — expansion
-#: spends three Python frames per node — so a deeper tree exhausts the
-#: interpreter's stack, which is a crash rather than the ``LanguageError``
-#: ``to_spec`` promises. The deepest expression in this repository is 18, and
-#: the whole pipeline survives 300 on a default stack: the gap is the room a
-#: caller's own frames need (#359).
+#: How deep a tree the language admits. Every pass over an expression recurses,
+#: so a deeper one exhausts the interpreter's stack instead of failing as a
+#: ``LanguageError``; the whole pipeline survives 300 on a default stack (#359).
 MAX_DEPTH = 100
 
 
@@ -417,10 +413,7 @@ def _too_deep(what: str, text: str, found: int | None, rewrite: str) -> str:
     """
     shown = text if len(text) <= 60 else f'{text[:60]}…'
     measured = f'nests {found} deep' if found is not None else 'nests deeper'
-    return (
-        f'The {what} {measured}, past the {MAX_DEPTH} levels the language admits: {shown!r}\n'
-        f'Every pass over it recurses, so a deeper tree exhausts the interpreter rather than failing here. {rewrite}'
-    )
+    return f'The {what} {measured}, past the {MAX_DEPTH} levels the language admits: {shown!r}\n{rewrite}'
 
 
 def parse_text(

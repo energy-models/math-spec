@@ -9,6 +9,7 @@ Nothing here resolves names — a parse result still holds raw
 """
 
 import operator
+import re
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -399,10 +400,11 @@ def test_a_tree_too_deep_to_walk_is_refused_with_its_rewrite(text, parse, rewrit
     stack inside pyparsing before a tree exists to measure. Both are the file
     nesting deeper than anything can walk, so both get the one message.
     """
-    with pytest.raises(SchemaError, match='past the 100 levels'):
+    with pytest.raises(SchemaError) as excinfo:
         parse(text)
-    with pytest.raises(SchemaError, match=rewrite):
-        parse(text)
+    message = str(excinfo.value)
+    assert 'past the 100 levels' in message, 'the refusal names the limit'
+    assert re.search(rewrite, message), 'and the rewrite that avoids it'
 
 
 def test_the_depth_the_repository_writes_is_nowhere_near_the_limit():
