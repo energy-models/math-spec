@@ -33,7 +33,7 @@ from math_spec.expression_parser import NAME, ComparisonOperator
 from math_spec.operators import BUILTIN_NAMES
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from pydantic import GetJsonSchemaHandler
     from pydantic.json_schema import JsonSchemaValue
@@ -766,8 +766,19 @@ class Spec(_StrictBlock):
     @model_validator(mode='after')
     def _validate_references(self) -> Spec:
         """Every cross-declaration rule the schema can decide without data, collected rather than raised on the first."""
-        errors = []
+        errors = [
+            *self._name_collisions(),
+            *self._frame_dimensions(),
+            *self._lookup_targets(),
+            *self._bound_names(),
+            *self._sos_shapes(),
+        ]
+        if errors:
+            raise ValueError('\n'.join(errors))
+        return self
 
+    def _name_collisions(self) -> Iterator[str]:
+        """A name is declared once, and never as a built-in operator."""
         kinds: list[tuple[str, Iterable[str]]] = [
             ('dimension', self.dimensions),
             ('lookup', self.lookups),
@@ -780,19 +791,21 @@ class Spec(_StrictBlock):
         for kind, group in kinds:
             for name in group:
                 if name in BUILTIN_NAMES:
-                    errors.append(
+                    yield (
                         f"{kind.capitalize()} '{name}' collides with the built-in operator "
                         f"'{name}'. The operator set is closed and its names are reserved; "
                         f'rename the {kind}.'
                     )
                 if name in seen:
-                    errors.append(
+                    yield (
                         f"{kind.capitalize()} '{name}' collides with the {seen[name]} of "
                         f'the same name. Names share one flat namespace — rename one of them.'
                     )
                 else:
                     seen[name] = kind
 
+    def _frame_dimensions(self) -> Iterator[str]:
+        """Every frame is a product of distinct, declared dimensions."""
         frames = [
             *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
             *(('Variable', name, v.foreach) for name, v in self.variables.items()),
@@ -800,28 +813,30 @@ class Spec(_StrictBlock):
             *(('Named expression', name, e.foreach or []) for name, e in self.expressions.items()),
         ]
         for kind, name, dims in frames:
-            errors.extend(undeclared_dimension(kind, name, d) for d in dims if d not in self.dimensions)
-            errors.extend(
+            yield from (undeclared_dimension(kind, name, d) for d in dims if d not in self.dimensions)
+            yield from (
                 f"{kind} '{name}' names dimension '{d}' twice. A frame is a product of distinct dimensions."
                 for d, count in Counter(dims).items()
                 if count > 1
             )
 
+    def _lookup_targets(self) -> Iterator[str]:
+        """A lookup is over a declared dimension and maps into a different declared one."""
         for lname, lk in self.lookups.items():
             if lk.over not in self.dimensions:
-                errors.append(undeclared_dimension('Lookup', lname, lk.over))
+                yield (undeclared_dimension('Lookup', lname, lk.over))
             if lk.into is not None:
                 if lk.into not in self.dimensions:
-                    errors.append(
+                    yield (
                         f"Lookup '{lname}' targets undeclared dimension '{lk.into}'. "
                         f"Declare it under 'dimensions:' — the target is what the "
                         f'lookup values are checked against.'
                     )
                 elif lk.into == lk.over:
-                    errors.append(
-                        f"Lookup '{lname}' maps '{lk.over}' into itself. A lookup maps into a different dimension."
-                    )
+                    yield (f"Lookup '{lname}' maps '{lk.over}' into itself. A lookup maps into a different dimension.")
 
+    def _bound_names(self) -> Iterator[str]:
+        """A named bound is a numeric parameter."""
         for vname, vdef in self.variables.items():
             for side in ('lower', 'upper'):
                 val = getattr(vdef.bounds, side)
@@ -830,7 +845,7 @@ class Spec(_StrictBlock):
                 if val in self.parameters:
                     dtype = self.parameters[val].dtype
                     if dtype not in NUMERIC_DTYPES:
-                        errors.append(
+                        yield (
                             f"Variable '{vname}' bounds.{side}: '{val}' is a {dtype} parameter, and a bound "
                             f'is a number. Declare it dtype: float or int, or bound the variable by another.'
                         )
@@ -841,38 +856,35 @@ class Spec(_StrictBlock):
                     else f'bounds accept a parameter name or a number, not an expression (got {val!r}). '
                     f'Precompute it as a parameter'
                 )
-                errors.append(f"Variable '{vname}' bounds.{side}: {detail}.")
+                yield (f"Variable '{vname}' bounds.{side}: {detail}.")
 
+    def _sos_shapes(self) -> Iterator[str]:
+        """A set runs along one dim of one declared variable, and a variable carries one set."""
         claimed: dict[str, str] = {}
         for sname, block in self.sos.items():
             context = f"Sos '{sname}'"
             if block.over not in self.dimensions:
-                errors.append(undeclared_dimension('Sos', sname, block.over))
+                yield (undeclared_dimension('Sos', sname, block.over))
             elif block.variable not in self.variables:
-                errors.append(
+                yield (
                     f"{context}: '{block.variable}' is not a declared variable.\n"
                     f'  Variables: {sorted(self.variables)}\n'
                     f'A set is over one variable, so a parameter or an expression cannot carry one.'
                 )
             elif block.over not in self.variables[block.variable].foreach:
-                errors.append(
+                yield (
                     f"{context}: over '{block.over}' is not a dim of variable "
                     f"'{block.variable}' (foreach {self.variables[block.variable].foreach}). The set runs "
                     f"along one of the variable's own dims — one set per coordinate of the rest."
                 )
             elif block.variable in claimed:
-                errors.append(
+                yield (
                     f"{context}: variable '{block.variable}' already carries the set declared by "
                     f"'{claimed[block.variable]}'. A variable holds one set — declare a second "
                     f'variable, or state the other restriction as a constraint.'
                 )
             else:
                 claimed[block.variable] = sname
-
-        if errors:
-            raise ValueError('\n'.join(errors))
-
-        return self
 
     @model_validator(mode='after')
     def _validate_expressions(self) -> Spec:
