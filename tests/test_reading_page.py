@@ -51,7 +51,7 @@ def test_the_page_shows_the_declarations_the_expansion_emits(tmp_path, monkeypat
     namespace: dict[str, object] = {}
     claims: list[tuple[str, object]] = []
     for code in _blocks('python'):
-        # the page is the input, so running it is the point rather than a smell
+        # the page is the input, so running it is the point
         exec(compile(code, str(PAGE), 'exec'), namespace)
         claims.extend(_claims(code))
 

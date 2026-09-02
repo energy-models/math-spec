@@ -88,12 +88,10 @@ class _Asked(Mapping):
 def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells():
     """The fixture reaches every symbol, so the committed output shows them all.
 
-    Without this the fixture is only exhaustive on the day someone read it:
-    ``sum_back``, the three ``where`` predicates over lookups and both
-    constant masks were all in the language and in none of the golden output,
-    and nothing failed. A symbol a format spells and no model prints is either
-    a construct the fixture is missing or vocabulary nothing needs, and both
-    are worth being told about.
+    A symbol a format spells and no model prints is either a construct the
+    fixture is missing or vocabulary nothing needs. The line census below is
+    the stronger claim; this one runs without `coverage` installed, and its
+    failure names the operator rather than a line.
 
     The one exemption is derived rather than listed: a model declares one
     objective sense, so the other one cannot be asked for from here.
@@ -156,10 +154,10 @@ CARRIERS = {'CaseArm'}
 def test_the_golden_model_carries_every_node_kind_the_walk_renders():
     """A construct added to the language is a case this fixture owes output for.
 
-    The operator census above is about the *symbols*; this is about the
-    *branches*. Two constructs can share every symbol and still render
-    differently — ``at`` and ``sum(by=)`` both print a coordinate map — so a
-    walk arm no fixture reaches is one whose output nobody has ever read.
+    Two constructs can share every symbol and still render differently —
+    ``at`` and ``sum(by=)`` both print a coordinate map — so this counts node
+    kinds rather than symbols. Like the operator census it runs without
+    `coverage` installed, and its failure names the construct rather than a line.
     """
     kinds = {type(node).__name__ for tree in _rendered_trees() for node in _nodes(tree)} - CARRIERS
     declared = {node.__name__ for node in (*get_args(WhereNode), *get_args(ArithmeticNode), ComparisonNode)}
@@ -179,14 +177,11 @@ def test_the_golden_model_calls_every_operator_in_the_language():
     )
 
 
-#: What the fixture cannot reach, by the source text of the line, in two
-#: groups. The **guards** — every line of the two ``resolve … first`` arms and
-#: the one asserting a constraint is a comparison — are what the walk raises
-#: when resolution hands it something it types away, so a model reaching one is
-#: a bug upstream rather than a case worth committing output for. The
-#: **absent objective** is the arm a *different* model takes: a file declares
-#: at most one, so a fixture that has one cannot also be a fixture that has
-#: none, and `test_a_model_with_no_objective_prints_the_rest` covers it instead.
+#: What the fixture cannot reach, by the source text of the line. The guards
+#: are what the walk raises when resolution hands it something it types away,
+#: so a model reaching one is a bug upstream. The absent objective is the arm a
+#: *different* model takes — a file declares at most one — and
+#: `test_a_model_with_no_objective_prints_the_rest` covers it.
 UNREACHABLE = {
     'if isinstance(node, UnresolvedNode | KwargNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
@@ -200,18 +195,9 @@ UNREACHABLE = {
 
 
 def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
-    """The strongest form of what the fixture claims about itself.
-
-    The two censuses above are about *symbols* and *node kinds*; nine of the
-    fixture's cases differ from each other in neither. A width taken from a
-    parameter rather than a number, a translation partitioned by a lookup, an
-    integer variable with no bounds, a declaration with an empty ``foreach`` —
-    each is an arm of the walk, each renders differently, and deleting any of
-    them left both censuses green.
-
-    So the arm itself is what gets counted. A branch added to the walk with no
-    case here fails this the moment it lands, which is the point: output nobody
-    has read is what a golden file is supposed to prevent.
+    """The strongest form of what the fixture claims about itself: the arm itself
+    is counted, where the two censuses above see neither a width taken from a
+    parameter nor an integer variable with no bounds.
 
     The render runs in a subprocess because the walk is imported long before
     any test starts, and a measurement that begins after the import counts
@@ -255,5 +241,5 @@ def test_a_model_with_no_objective_prints_the_rest():
         'constraints': {'cap': {'foreach': ['t'], 'expression': 'x <= 1'}},
     }
     rendered = to_latex(model)
-    assert 'Objective' not in rendered
+    assert 'Objective' not in rendered, 'no objective was declared, so no section says one was'
     assert 'Subject to' in rendered

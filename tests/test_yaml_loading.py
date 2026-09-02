@@ -50,22 +50,22 @@ def test_only_true_and_false_are_booleans(tmp_path):
     """YAML 1.1 resolved these to bools, so the declaration the file names is not the one that reaches the schema — ``no`` is Norway."""
     path = _write(tmp_path, _BOOLISH_DIMS)
 
-    assert list(read_yaml(path)['dimensions']) == _BOOLISH
+    assert list(read_yaml(path)['dimensions']) == _BOOLISH, 'every boolish word is a str key, in file order'
 
 
 def test_the_harness_reads_a_model_the_way_the_product_does(tmp_path):
     """``raw_of`` read YAML 1.1, so a dimension named ``no`` reached a test's schema as ``False`` while ``to_spec`` saw the string."""
     path = _write(tmp_path, _BOOLISH_DIMS)
 
-    assert raw_of(path) == read_yaml(path)
-    assert list(raw_of(_BOOLISH_DIMS)['dimensions']) == _BOOLISH
+    assert raw_of(path) == read_yaml(path), 'a path is read by the same loader the product uses'
+    assert list(raw_of(_BOOLISH_DIMS)['dimensions']) == _BOOLISH, 'and so is a YAML string'
 
 
 def test_real_booleans_still_parse(tmp_path):
     """The narrowed resolver keeps 1.2's `true`/`false` as booleans, not labels."""
     path = _write(tmp_path, 'flags:\n  a: true\n  b: false\n')
 
-    assert read_yaml(path)['flags'] == {'a': True, 'b': False}
+    assert read_yaml(path)['flags'] == {'a': True, 'b': False}, 'the two spellings YAML 1.2 keeps are still bools'
 
 
 def test_the_loader_yields_plain_types(tmp_path):
@@ -106,20 +106,21 @@ def test_a_merge_key_override_is_not_a_duplicate(tmp_path):
         'variables:\n  p:\n    <<: *d\n    foreach: [generator]\n',
     )
 
-    assert read_yaml(path)['variables']['p']['foreach'] == ['generator']
+    assert read_yaml(path)['variables']['p']['foreach'] == ['generator'], 'the explicit key wins over the merged one'
 
 
-def test_a_non_mapping_document_is_a_load_error(tmp_path):
+@pytest.mark.parametrize(
+    'text', [pytest.param('- a\n- b\n', id='a-sequence'), pytest.param('just a string\n', id='a-scalar')]
+)
+def test_a_non_mapping_document_is_a_load_error(tmp_path, text):
     """Otherwise `Spec(**raw)` raises a bare TypeError about `**`."""
-    for text in ('- a\n- b\n', 'just a string\n'):
-        path = _write(tmp_path, text)
-        with pytest.raises(SchemaError, match='must be a mapping of sections'):
-            to_spec(path)
+    with pytest.raises(SchemaError, match='must be a mapping of sections'):
+        to_spec(_write(tmp_path, text))
 
 
 def test_an_empty_file_is_an_empty_model(tmp_path):
-    assert read_yaml(_write(tmp_path, '')) == {}
-    assert read_yaml(_write(tmp_path, '# only a comment\n')) == {}
+    assert read_yaml(_write(tmp_path, '')) == {}, 'no document is an empty mapping rather than None'
+    assert read_yaml(_write(tmp_path, '# only a comment\n')) == {}, 'and so is a document of comments alone'
 
 
 def test_a_complex_key_is_refused_in_our_tree(tmp_path):
