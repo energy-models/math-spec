@@ -6,9 +6,8 @@
 
 Two public states — a :class:`~math_spec.model.Spec` is what the file *says*,
 a :class:`~math_spec.program.Program` is what it *means* — and a conversion to
-each. The AST between them is this package's own: it is reachable by module
-path for a renderer that needs it, and out of ``__all__`` because a consumer
-reads a program instead.
+each. Everything between them — both grammars and the tree they build — is
+package-private, because a consumer reads a program instead.
 """
 
 from math_spec import program

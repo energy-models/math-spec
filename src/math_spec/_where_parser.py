@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, cast, get_args
 
 import pyparsing as pp
 
-from math_spec.expression_parser import NAME, REAL, parse_text
+from math_spec._expression_parser import NAME, REAL, parse_text
 from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, PredicateOperator
 
 if TYPE_CHECKING:

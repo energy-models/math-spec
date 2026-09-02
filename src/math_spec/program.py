@@ -26,8 +26,8 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
+from math_spec._expression_parser import ComparisonOperator
 from math_spec.errors import did_you_mean
-from math_spec.expression_parser import ComparisonOperator
 
 if TYPE_CHECKING:
     import datetime

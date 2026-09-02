@@ -46,7 +46,7 @@ dependencies = [
   # every model error to SchemaError.
   "pydantic>=2.1",
   # The two grammars — `expression:` and `where:` are strings to the schema and
-  # are parsed here (expression_parser.py, _where_parser.py).
+  # are parsed here (_expression_parser.py, _where_parser.py).
   "pyparsing>=3.1",
   "pyyaml>=6.0",
 ]

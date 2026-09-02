@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from math_spec.expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
+from math_spec._expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.program import WhereNode
 from math_spec.resolution import Namespace, expression_of, where_of

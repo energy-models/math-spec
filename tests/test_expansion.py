@@ -10,9 +10,9 @@ from functools import partial
 
 import pytest
 
+from math_spec._expression_parser import parse_expression
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
-from math_spec.expression_parser import parse_expression
 from tests.fixtures import DISPATCH_MODEL, schema_of
 
 WEIGHTED_SUM = {

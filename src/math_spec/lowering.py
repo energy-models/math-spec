@@ -16,8 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
 import math_spec.program as program
-from math_spec.dimensions import dims_of
-from math_spec.expression_parser import (
+from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     CasesNode,
@@ -33,6 +32,7 @@ from math_spec.expression_parser import (
     UnresolvedNode,
     VariableNode,
 )
+from math_spec.dimensions import dims_of
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
