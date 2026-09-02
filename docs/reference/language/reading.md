@@ -154,3 +154,65 @@ The footprint stops at the kind. A sink that takes a window but not a wrapped
 one reads `Window in footprint.shapes` and then walks: `wrap`, `partition` and
 a named width are refinements without end, and each is one line once the set
 has said where to look.
+
+## Asking whether an axis can be cut
+
+A driver that solves a horizon in windows — a rolling horizon, a myopic
+pathway — needs one thing from the model before it starts: **is every row it
+builds complete inside some window?** Storage carried over a snapshot is, once
+the windows overlap by a row. An annual budget never is, and the windows still
+solve, so nothing else would say so.
+
+```python
+program.separability['bp'].windowable  # False
+tied = program.separability['generator'].coupled["constraint 'target'"]
+tied.partition(' — ')[0]  # 'sums over generator'
+'sum_back(within=n)' in tied  # True
+```
+
+Neither axis of the model above may be cut, and the report says which
+declaration ties each one — including the three the `piecewise:` block emitted,
+so a coupling introduced by an expansion is named under the name the expansion
+gave it rather than under the block a reader wrote.
+
+It is the locality [the ceiling](../../about/ceiling.md) already argues in —
+pointwise, bounded halo and global — asked about a dimension rather than about
+an operator. Every declared axis has an entry, walked once and held like
+[`footprint`](#asking-what-a-program-uses): answering for every axis costs what
+answering for one did, since every construct that ties an axis names the axis it
+ties.
+
+`ahead` is how many coordinates a window must see past its last row — `0`
+where every row is pointwise, `2` for a `shift` of `-2`. What a row reads
+_behind_ is not reported: a window starts where the driver puts it, and what
+its first rows meet there is the edge policy — the opening state a rolling
+horizon seeds, and the driver's to carry.
+
+What would break comes in three kinds, so a driver can act on each. `coupled`
+names each declaration that ties the axis together — a sum over it in a
+constraint, a grouping that consumes it, a wrapped shift, a set — and, after
+the dash, the one modelling change that would lift it: a horizon total becomes
+a rolling `sum_back`, a wrap becomes an opening-state seed, a grouping is
+windowed along the dimension it groups into. No window satisfies a coupling and
+no rewrite keeps the model's meaning, so the remedy is named and not applied.
+`undecided` lists each read whose reach only the data can say — a `Reach` of
+the declaration, the parameter or lookup, and what it stands as: an `offset`
+taken from a parameter, a `partition` a shift is grouped by, a `coordinate`
+read through `at()`. A driver holding the data reads the least value of each
+named parameter and hands it to `resolved`, which folds it in and returns the
+same verdict with those reads decided — the rule that a negative offset reads
+ahead, and a positive one reads behind and asks nothing, has one home. A reach
+a lookup decides is not a value, so it stays undecided and the driver refuses
+or resolves it itself. `restarts` names each
+declaration counting a `position()` along the axis, which a window restarts at
+its first row. `windowable` is false while anything is coupled or undecided; a
+restart does not count against it.
+
+**A reduction means opposite things by position**, which is the whole of the
+care: in a constraint a sum over the axis ties every window to every other, and
+in the objective it is additively separable, an objective being a sum already.
+What is not decided here is whether the windowed answer is the whole-horizon
+one — a store carried over one row windows cleanly and a rolling solve of it is
+still a different answer — nor whether the modeller _wanted_ a restart: a
+`position(t) == 0` seed fires once over a horizon and once per window, and both
+are models somebody means.
