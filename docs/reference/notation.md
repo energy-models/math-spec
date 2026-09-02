@@ -505,7 +505,7 @@ $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace
 
 #### `lcoe`
 
-a divisor carrying a variable, so the entry grades post-solve and prints under its own name rather than inlining
+a divisor carrying a variable, so the entry is reported grade and prints under its own name rather than inlining
 
 ```yaml
 lcoe: sum(p * cost) / sum(p)
@@ -515,7 +515,7 @@ $$\mathit{lcoe} = \frac{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t
 
 #### `marginal_price`
 
-the row dual of a constraint, the one builtin only a post-solve-grade entry may read
+the row dual of a constraint, the one builtin only a reported-grade entry may read
 
 ```yaml
 marginal_price: dual(balance)

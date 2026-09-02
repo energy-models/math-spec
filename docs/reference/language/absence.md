@@ -139,9 +139,9 @@ Every row not built — by a mask, by a spread absence, by this rule — is repo
 by `diagnostics().omissions` as `(constraint, rows_not_built)`. A recurrence's
 first row is in there and is the boundary, not a bug.
 
-## Post-solve values follow the rows that were built
+## Reported values follow the rows that were built
 
-A [post-solve expression](postsolve.md) is arithmetic over solved numbers, so it
+A [reported expression](reported.md) is arithmetic over solved numbers, so it
 inherits their absence — by the same fork as [above](#how-absence-travels).
 Through pointwise arithmetic a null spreads and takes the coordinate with it:
 `cost / delivered` has **no value** wherever either operand is masked, the null
@@ -152,10 +152,10 @@ over were built, and absent everywhere they were not.
 
 A quotient whose divisor **solved to zero** is absent the same way. The row was
 built and the numbers are in hand, but the arithmetic has no value there, so the
-post-solve quantity reads that same null — the language has one "no value", and
+reported quantity reads that same null — the language has one "no value", and
 an undefined quotient joins it rather than raising a separate not-a-number.
 
-A [`dual(c)`](postsolve.md#reading-a-constraints-dual) follows the same rule
+A [`dual(c)`](reported.md#reading-a-constraints-dual) follows the same rule
 from the constraint side. A constraint's `where:` leaves its row **unbuilt** at
 the masked coordinates, and an unbuilt row has no shadow price, so `dual(c)` has
 **no value** there — the same null, not a zero. The dual is defined at exactly

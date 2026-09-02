@@ -159,14 +159,14 @@ class TestValidateExpressions:
             _schema(**_NONLINEAR_ENTRY, **patch)
         assert fragment in str(exc.value)
 
-    def test_an_unreferenced_nonlinear_entry_loads_typesets_and_grades_postsolve(self):
-        """A nonlinear entry nothing reads is accepted, printed, and graded post-solve — the deliberate cost of grading over banning.
+    def test_an_unreferenced_nonlinear_entry_loads_typesets_and_grades_reported(self):
+        """A nonlinear entry nothing reads is accepted, printed, and graded reported — the deliberate cost of grading over banning.
 
         This is the C1 silent-typo case made visible instead of denied: a body
         the math would refuse (here a variable divisor) is legal on its own
         because it is arithmetic over solved numbers, so a typo that leaves it
         unread is not caught by the loader. The language pays that cost openly —
-        the entry loads, appears in the typeset Post-solve section, and reports
+        the entry loads, appears in the typeset Reported quantities section, and reports
         its grade — rather than degree-checking a declaration nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
@@ -174,8 +174,8 @@ class TestValidateExpressions:
             'the unread nonlinear body loads rather than being refused'
         )
         rendered = to_markdown(model)
-        assert 'Post-solve' in rendered and 'lcoe' in rendered, (
-            'and its grade shows: it prints in the Post-solve section'
+        assert 'Reported quantities' in rendered and 'lcoe' in rendered, (
+            'and its grade shows: it prints in the Reported quantities section'
         )
 
 
@@ -205,7 +205,7 @@ def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str,
 
 
 class TestDual:
-    """`dual(c)`: a primitive whose call grades its entry post-solve, its argument a constraint name resolved against constraints alone."""
+    """`dual(c)`: a primitive whose call grades its entry reported, its argument a constraint name resolved against constraints alone."""
 
     BASE = override(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
 
@@ -267,7 +267,7 @@ class TestDual:
             assert fragment in str(exc.value)
 
     def test_a_dual_loads_in_an_expressions_entry(self):
-        """The one place it is legal: an ``expressions:`` entry naming a declared constraint — the call grades the entry post-solve."""
+        """The one place it is legal: an ``expressions:`` entry naming a declared constraint — the call grades the entry reported."""
         assert to_spec(override(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
 
 

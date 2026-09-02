@@ -16,7 +16,7 @@ from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace
 from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset
 from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions, postsolve_expressions
+from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions, reported_expressions
 from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, override
 from tests.typesetting import golden
@@ -444,7 +444,7 @@ def test_nothing_the_model_is_given_prints_italic():
     rendering path added later reaches the page through its own call."""
     schema = expand_piecewise(to_spec(golden.MODEL))
     computed = (
-        set(schema.variables) | chosen_expressions(schema, Namespace.of(schema)) | set(postsolve_expressions(schema))
+        set(schema.variables) | chosen_expressions(schema, Namespace.of(schema)) | set(reported_expressions(schema))
     )
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
     assert italic <= computed, (

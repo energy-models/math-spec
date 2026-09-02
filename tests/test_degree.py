@@ -14,7 +14,7 @@ import pytest
 
 from math_spec import LanguageError
 from math_spec._expression_parser import NameNode
-from math_spec.degree import carries_variable, check_binary, check_expression, is_postsolve_grade
+from math_spec.degree import carries_variable, check_binary, check_expression, is_reported_grade
 from math_spec.resolution import Namespace, expression_of
 from tests.fixtures import SMALL_MODEL, override, schema_of
 
@@ -114,7 +114,6 @@ def test_carries_variable_refuses_an_unresolved_name():
 @pytest.mark.parametrize(
     'text',
     [
-        pytest.param('p * q', id='the-degree-cap'),
         pytest.param('p * p * p', id='above-the-degree-cap'),
         pytest.param('sum(p * c, over=g) / sum(p, over=g)', id='a-variable-divisor'),
         pytest.param('k ** p', id='a-variable-exponent'),
@@ -122,16 +121,16 @@ def test_carries_variable_refuses_an_unresolved_name():
         pytest.param('sum(p, over=g) * (k + 1) ** 2', id='an-additive-base'),
     ],
 )
-def test_a_body_that_breaks_an_affine_rule_grades_post_solve(text):
-    """Every rule the affine ceiling holds lifts here — each such body is post-solve grade.
+def test_a_body_no_math_position_reads_grades_reported(text):
+    """A body that breaks the math's own ceiling is reported grade — no position reads it.
 
-    One case per rule `check_expression(ceiling=1)` enforces: the degree cap and
-    the ban above it, the variable divisor and exponent, the additive divisor
-    and additive base. Each is refused wherever the math reads it (see
+    One case per rule `check_expression(ceiling=2)` enforces above degree 2: the
+    ban on a degree-3 product, the variable divisor and exponent, the additive
+    divisor and additive base. Each is refused wherever the math reads it (see
     `test_the_affine_ceiling_refuses_and_names_the_rewrite`) and legal only as a
     quantity read off a solve.
     """
-    assert is_postsolve_grade(_ast(text)) is True
+    assert is_reported_grade(_ast(text)) is True
 
 
 @pytest.mark.parametrize(
@@ -141,30 +140,36 @@ def test_a_body_that_breaks_an_affine_rule_grades_post_solve(text):
         pytest.param('sum(p * c, over=g)', id='a-reduction-of-affine-terms'),
         pytest.param('p / c', id='a-parameter-divisor'),
         pytest.param('p + q', id='a-sum-of-variables'),
+        pytest.param('p * q', id='a-degree-two-product'),
     ],
 )
-def test_an_affine_body_grades_math(text):
-    """A body inside the affine ceiling grades math — it behaves exactly as a named expression always has."""
-    assert is_postsolve_grade(_ast(text)) is False
+def test_a_body_within_the_math_ceiling_grades_math(text):
+    """A body the objective and constraints read grades math — up to the degree-2 ceiling the math holds to.
+
+    A degree-2 product `p * q` grades math, not reported: the objective reads
+    it, so the grade boundary sits at `ceiling=2`, not the affine ceiling.
+    """
+    assert is_reported_grade(_ast(text)) is False
 
 
 @pytest.mark.parametrize(
-    ('template', 'postsolve'),
+    ('template', 'reported'),
     [
-        pytest.param('x * x', True, id='a-macro-that-squares-a-variable'),
+        pytest.param('x * x * x', True, id='a-macro-that-cubes-a-variable'),
         pytest.param('x * c', False, id='a-macro-that-scales-a-variable'),
     ],
 )
-def test_the_grade_is_decided_on_the_expanded_body(template, postsolve):
+def test_the_grade_is_decided_on_the_expanded_body(template, reported):
     """A macro cannot smuggle nonlinearity past the grade: it is read on the inlined body, not the call.
 
-    `sq(p)` looks affine at the call site; its expansion `p * p` is degree 2, so
-    the entry grades post-solve. The same call over a parameter stays math. The
-    grade is body-local after expansion, decided at load with no data.
+    `cube(p)` looks affine at the call site; its expansion `p * p * p` is degree
+    3, above the math's ceiling, so the entry is reported grade. The same call
+    over a parameter stays math. The grade is body-local after expansion,
+    decided at load with no data.
     """
-    schema = schema_of(override(SMALL_MODEL, macros={'sq': {'args': ['x'], 'template': template}}))
-    ast = expression_of('sq(p)', schema, Namespace.of(schema), 'test')
-    assert is_postsolve_grade(ast) is postsolve
+    schema = schema_of(override(SMALL_MODEL, macros={'cube': {'args': ['x'], 'template': template}}))
+    ast = expression_of('cube(p)', schema, Namespace.of(schema), 'test')
+    assert is_reported_grade(ast) is reported
 
 
 def _dual_ast(text: str):
@@ -177,9 +182,9 @@ def test_a_dual_carries_no_variable():
     assert carries_variable(_dual_ast('dual(lim)')) is False
 
 
-def test_a_body_reading_a_dual_grades_post_solve():
-    """A dual is a number only a solve produces, so the entry reading one is post-solve grade even where its arithmetic is affine."""
-    assert is_postsolve_grade(_dual_ast('dual(lim) * c')) is True
+def test_a_body_reading_a_dual_grades_reported():
+    """A dual is a number only a solve produces, so the entry reading one is reported grade even where its arithmetic is affine."""
+    assert is_reported_grade(_dual_ast('dual(lim) * c')) is True
 
 
 @pytest.mark.parametrize(
@@ -189,12 +194,12 @@ def test_a_body_reading_a_dual_grades_post_solve():
         pytest.param('sum(dual(lim), over=g)', id='under-a-reduction'),
     ],
 )
-def test_a_nested_dual_grades_post_solve(text):
+def test_a_nested_dual_grades_reported(text):
     """`calls_dual` recurses through a reduction's argument, not only the top node."""
-    assert is_postsolve_grade(_dual_ast(text)) is True
+    assert is_reported_grade(_dual_ast(text)) is True
 
 
-def test_a_dual_inside_a_cased_arm_grades_post_solve():
+def test_a_dual_inside_a_cased_arm_grades_reported():
     """`calls_dual` recurses through a `CasesNode` arm, not only the top node.
 
     The reference resolves straight to the `CasesNode` expansion.py builds, so
@@ -214,4 +219,4 @@ def test_a_dual_inside_a_cased_arm_grades_post_solve():
         },
     )
     ast = expression_of('dcase', schema, Namespace.of(schema), 'test')
-    assert is_postsolve_grade(ast) is True
+    assert is_reported_grade(ast) is True

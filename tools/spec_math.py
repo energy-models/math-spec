@@ -59,12 +59,12 @@ def rendered_probe(name: str) -> tuple[str, list[str]]:
     """One probe's featured equation, and any notes its notation needs.
 
     A probe features exactly one equation — its single constraint, or, for an
-    operator legal only after a solve (`dual`), its single ``Post-solve`` entry,
+    operator legal only after a solve (`dual`), its single ``Reported quantities`` entry,
     whose constraint is scaffolding for the reference. The assertion says so
     rather than silently taking the first of several.
     """
     page = to_markdown(PROBES / f'{name}.yaml', numbered=False)
-    title = 'Post-solve' if '#### Post-solve' in page else 'Subject to'
+    title = 'Reported quantities' if '#### Reported quantities' in page else 'Subject to'
     equations = [line for line in _section(page, title).splitlines() if line.startswith('$$')]
     assert len(equations) == 1, f'{name}.yaml should feature exactly one equation; it rendered {len(equations)}'
     notes = [block.strip() for block in page.split('\n\n') if 'denotes' in block]

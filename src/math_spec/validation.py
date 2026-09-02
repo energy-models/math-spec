@@ -192,7 +192,7 @@ def _check_expression(
     the ``dual()`` placement rule are rules about the position that *reads*
     the math, so they fire on the expanded tree of every constraint,
     objective, bound, where and piecewise link, and an entry's declaration
-    only decides its grade (:func:`math_spec.degree.is_postsolve_grade`).
+    only decides its grade (:func:`math_spec.degree.is_reported_grade`).
     """
     try:
         ast = parse_and_expand(expression, schema, context)

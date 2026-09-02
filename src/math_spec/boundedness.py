@@ -138,7 +138,7 @@ def _record_signs(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> N
 
     A Constant, Parameter or Dual is a variable-free leaf and contributes
     nothing. ``Dual`` is in that arm only to keep the walk exhaustive after the
-    union gained it — a dual makes its entry post-solve grade, which no
+    union gained it — a dual makes its entry reported grade, which no
     objective may read, so this walk never actually meets one; the clause is
     not a claim that a dual would carry no sign into an objective it can never
     enter.

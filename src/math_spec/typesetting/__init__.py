@@ -61,7 +61,7 @@ def typeset(
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
     standalone: bool = False,
     legend: bool = True,
-    postsolve: bool = True,
+    reported: bool = True,
     numbered: bool = True,
 ) -> str:
     """Render *model*'s math in *fmt*.
@@ -79,8 +79,8 @@ def typeset(
         legend: Prepend the sets/parameters/variables table. The model's own
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
-        postsolve: Append the Post-solve section — the entries whose body is
-            post-solve grade, a shape the math does not read. Off leaves them
+        reported: Append the Reported quantities section — the entries whose body is
+            reported grade, a shape the math does not read. Off leaves them
             out, and a model with none prints no section either way.
         numbered: Number the equations.
 
@@ -99,7 +99,7 @@ def typeset(
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     walk = Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema)), fmt)
 
-    sections, noticed = walk.equations(postsolve)
+    sections, noticed = walk.equations(reported)
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
 
     blocks = [fmt.note(fmt.escape(schema.description))] if schema.description else []

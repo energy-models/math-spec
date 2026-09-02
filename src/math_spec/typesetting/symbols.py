@@ -86,11 +86,11 @@ def printed_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
     return tuple(name for name, block in schema.expressions.items() if block.cases)
 
 
-def postsolve_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
-    """The entries graded post-solve, in declaration order — the Post-solve section's rows.
+def reported_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
+    """The entries graded reported, in declaration order — the Reported quantities section's rows.
 
     Graded on the resolved, expanded body by
-    :func:`math_spec.degree.is_postsolve_grade`, the grade's one home, so the
+    :func:`math_spec.degree.is_reported_grade`, the grade's one home, so the
     page and any consumer that asks the same predicate cannot disagree about a
     body. A cased entry is not here whatever its grade: it prints as the
     definition block :func:`printed_expressions` already places.
@@ -100,7 +100,7 @@ def postsolve_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
         name
         for name, block in schema.expressions.items()
         if not block.cases
-        and degree.is_postsolve_grade(expression_of(name, schema, namespace, f"named expression '{name}'"))
+        and degree.is_reported_grade(expression_of(name, schema, namespace, f"named expression '{name}'"))
     )
 
 
@@ -155,9 +155,9 @@ class Symbols:
             )
             raise SchemaError(msg)
         printed = printed_expressions(schema)
-        postsolve = postsolve_expressions(schema)
-        chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace) | frozenset(postsolve)
-        names = (*schema.parameters, *schema.variables, *printed, *postsolve)
+        reported = reported_expressions(schema)
+        chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace) | frozenset(reported)
+        names = (*schema.parameters, *schema.variables, *printed, *reported)
         declared = frozenset(names)
 
         #: Names the table spelled; the convention note quotes only derived symbols.
@@ -291,7 +291,7 @@ class SymbolTable:
             | set(schema.parameters)
             | set(schema.variables)
             | set(printed_expressions(schema))
-            | set(postsolve_expressions(schema))
+            | set(reported_expressions(schema))
             | set(schema.constraints)
         )
         errors = [

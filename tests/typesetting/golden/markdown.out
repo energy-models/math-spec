@@ -233,7 +233,7 @@ $$0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\thinspace t \in \mathcal{T},\
 
 $$\left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} \in \mathrm{SOS}2 \qquad \forall\thinspace t \in \mathcal{T}$$
 
-#### Post-solve
+#### Reported quantities
 
 **`lcoe`**
 

@@ -80,7 +80,7 @@ class ConstraintNode:
 
     Constraints sit outside the flat namespace, so a bare name never resolves to
     one — only ``dual(c)`` reaches the constraint store. A dual is data read
-    after the solve, so this leaf is reached only from a post-solve-grade entry;
+    after the solve, so this leaf is reached only from a reported-grade entry;
     the loader refuses ``dual`` anywhere the math is built.
     """
 

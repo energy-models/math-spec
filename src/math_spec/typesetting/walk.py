@@ -56,7 +56,7 @@ from math_spec.resolution import (
     where_of,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
-from math_spec.typesetting.symbols import postsolve_expressions, printed_expressions
+from math_spec.typesetting.symbols import printed_expressions, reported_expressions
 
 if TYPE_CHECKING:
     import datetime
@@ -583,11 +583,11 @@ class Walk:
 
     # -- declarations ------------------------------------------------------
 
-    def equations(self, postsolve: bool) -> tuple[list[tuple[str, list[Line]]], Noticed]:
+    def equations(self, reported: bool) -> tuple[list[tuple[str, list[Line]]], Noticed]:
         """Every titled section of equations, and what printing them noticed for the legend.
 
         Args:
-            postsolve: Whether to append the Post-solve section of derived
+            reported: Whether to append the Reported quantities section of derived
                 quantities a solve produces.
         """
         sections = [
@@ -596,8 +596,8 @@ class Walk:
             ('Definitions', self._definitions()),
             ('Variable domains', self._variables()),
         ]
-        if postsolve:
-            sections.append(('Post-solve', self._postsolve()))
+        if reported:
+            sections.append(('Reported quantities', self._reported()))
         return sections, self.noticed
 
     def _objective(self) -> list[Line]:
@@ -715,17 +715,17 @@ class Walk:
                 lines.append(self._sos(name, sets[name], ctx))
         return lines
 
-    def _postsolve(self) -> list[Line]:
-        """One line per post-solve-grade entry — a derived quantity equated to its body.
+    def _reported(self) -> list[Line]:
+        """One line per reported-grade entry — a derived quantity equated to its body.
 
-        A post-solve entry *defines* a value, so it prints as ``symbol = body``:
+        A reported entry *defines* a value, so it prints as ``symbol = body``:
         the right side says what the left is, which is why it needs no legend
         entry the way a variable does. A math-grade entry prints nothing here —
         it is inlined wherever it is read, exactly as every entry is in the
         equations above.
         """
         lines = []
-        for name in postsolve_expressions(self.schema):
+        for name in reported_expressions(self.schema):
             context = f"expression '{name}'"
             node = expression_of(name, self.schema, self.namespace, context)
             assert not isinstance(node, ComparisonNode), f'{context}: a named body is arithmetic, not a comparison'

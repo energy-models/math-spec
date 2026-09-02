@@ -8,7 +8,7 @@
 constraint both take ``variable * variable``; a *bound* and a ``piecewise:``
 link do not — each of those is read affinely. An ``expressions:`` entry is not
 degree-checked at declaration at all: its expanded body decides its grade
-(:func:`is_postsolve_grade`), and the math reading the entry is checked where
+(:func:`is_reported_grade`), and the math reading the entry is checked where
 it reads, at that position's own ceiling.
 
 A degree-2 product has a second rule: **at most one factor may be a sum of
@@ -219,31 +219,32 @@ def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> Non
         check_expression(child, context, ceiling=ceiling)
 
 
-def is_postsolve_grade(node: ParsedNode) -> bool:
-    """Whether an ``expressions:`` entry's resolved, expanded body is post-solve grade.
+def is_reported_grade(node: ParsedNode) -> bool:
+    """Whether an ``expressions:`` entry's resolved, expanded body is reported grade — no math position reads it.
 
-    Post-solve grade means the body breaks a rule :func:`check_expression`
-    holds an affine position to (``ceiling=1``): the degree cap, the
-    single-sum-factor rule, the variable-divisor and variable-exponent bans,
-    or the additive-operand bans that refuse a divisor, base or exponent that
-    is a sum even with no variable in it. Every one of those rules exists
-    because a sink downstream must build the math; a post-solve-grade body is
-    arithmetic over numbers a solve has already produced, which nothing
-    ingests — so ``cost / energy``, ``p * p * p`` and ``(1 + rate) ** period``
-    grade post-solve where a constraint would refuse them. A body calling
-    ``dual()`` is post-solve grade for the same reason: a dual is a number
-    only a solve produces.
+    Reported grade means the body breaks a rule :func:`check_expression`
+    holds the math's own ceiling to (``ceiling=2`` — the objective and a
+    constraint): a product above degree 2, the single-sum-factor rule, the
+    variable-divisor and variable-exponent bans, or the additive-operand bans
+    that refuse a divisor, base or exponent that is a sum even with no variable
+    in it. The boundary is exactly what the objective and constraints read, so
+    a degree-2 product like ``p * q`` is math grade: the math reads it. A body
+    that clears every one of those rules is math grade; one that breaks any is
+    read by no math position, which is why ``cost / energy``, ``p * p * p`` and
+    ``(1 + rate) ** period`` are reported grade where a constraint would refuse
+    them. A body calling ``dual()`` is reported grade for the same reason: a
+    dual is a number only a solve produces.
 
     Expansion inlines every reference before this asks, so the grade is
     body-local and decided at load, no data. The math reading an entry never
     consults it: degree is checked again where the entry is read, at the
-    reading position's own ceiling, which is where a post-solve-grade body in
-    a constraint fails.
+    reading position's own ceiling — so a math-grade degree-2 entry a bound
+    references still fails there, at ``ceiling=1``.
     """
     if calls_dual(node):
         return True
     try:
-        check_expression(node, '', ceiling=1)
+        check_expression(node, '', ceiling=2)
     except LanguageError:
         return True
     return False

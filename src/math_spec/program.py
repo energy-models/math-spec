@@ -122,7 +122,7 @@ ObjectiveSense = Literal['minimize', 'maximize']
 #: Where a degree-2 product may stand in the math a solver sees. An objective
 #: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
 #: link are read affinely (``math_spec.degree``), so those are the two. A
-#: post-solve-grade entry (:func:`math_spec.degree.is_postsolve_grade`) is not
+#: reported-grade entry (:func:`math_spec.degree.is_reported_grade`) is not
 #: a position here: its body reaches no solver.
 QuadraticPosition = Literal['objective', 'constraint']
 
@@ -193,8 +193,8 @@ class Variable(Expression):
 class Dual(Expression):
     """A constraint's dual — its shadow price, read after the solve.
 
-    Reached only from a post-solve-grade entry
-    (:func:`math_spec.degree.is_postsolve_grade`): a dual exists once the program
+    Reached only from a reported-grade entry
+    (:func:`math_spec.degree.is_reported_grade`): a dual exists once the program
     is solved and nowhere in the math a solver
     ingests, so no node reached from the objective or a constraint carries
     one. One value per coordinate of the
@@ -222,8 +222,8 @@ class Multiply(Expression):
 
     Affine where at least one factor is variable-free; degree 2 where neither
     is, which ``math_spec.degree`` admits in a :data:`QuadraticPosition` alone.
-    A node reached from a post-solve-grade entry
-    (:func:`math_spec.degree.is_postsolve_grade`) carries no such bound: that
+    A node reached from a reported-grade entry
+    (:func:`math_spec.degree.is_reported_grade`) carries no such bound: that
     body may multiply any number of variables, the degree rules lifting for
     arithmetic nothing ingests.
     """
@@ -240,7 +240,7 @@ class Power(Expression):
     refuses a variable anywhere under it (``math_spec.degree``), so wherever
     it appears in the program a solver sees it is degree 0 and folds to one
     number per coordinate like any other parameter arithmetic. A node reached
-    from a post-solve-grade entry (:func:`math_spec.degree.is_postsolve_grade`) carries no
+    from a reported-grade entry (:func:`math_spec.degree.is_reported_grade`) carries no
     such guarantee — that body may raise to a variable exponent
     (``growth ** spare``), the degree rules lifting for arithmetic nothing
     ingests.
@@ -255,8 +255,8 @@ class Divide(Expression):
     """Quotient ``numerator / divisor``.
 
     In the math a solver ingests, the divisor is variable-free
-    (``math_spec.degree``). A node reached from a post-solve-grade entry
-    (:func:`math_spec.degree.is_postsolve_grade`) carries no such guarantee — that body
+    (``math_spec.degree``). A node reached from a reported-grade entry
+    (:func:`math_spec.degree.is_reported_grade`) carries no such guarantee — that body
     may divide by a variable (``sum(p * cost) / sum(p)``), the degree rules
     lifting for arithmetic nothing ingests.
     """

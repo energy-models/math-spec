@@ -317,7 +317,7 @@ class _Lowering:
     def dual(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``dual(c)`` — the shadow price of constraint ``c``, read after the solve.
 
-        Reachable only from a post-solve-grade entry; the loader refuses
+        Reachable only from a reported-grade entry; the loader refuses
         ``dual`` anywhere the math a solver ingests is built, so a
         :class:`program.Dual` never stands under the objective or a constraint.
         """

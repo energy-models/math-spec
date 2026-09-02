@@ -21,7 +21,7 @@ from math_spec.program import WhereNode
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.typesetting.symbols import postsolve_expressions
+from math_spec.typesetting.symbols import reported_expressions
 from math_spec.validation import to_spec
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
@@ -130,8 +130,8 @@ def _rendered_trees() -> Iterator[object]:
     for name, block in schema.variables.items():
         if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
             yield mask.root
-    for name in postsolve_expressions(schema):
-        yield expression_of(name, schema, namespace, f'post-solve expression {name!r}')
+    for name in reported_expressions(schema):
+        yield expression_of(name, schema, namespace, f'reported expression {name!r}')
 
 
 #: What resolution never hands the walk: the three nodes it types away, and the
