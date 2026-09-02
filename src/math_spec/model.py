@@ -647,13 +647,16 @@ def _is_absent(value: Any) -> bool:
 class Spec(_StrictBlock):
     """The declared math — one YAML file, or one dict, validated. Nothing here has seen data.
 
+    A ``Spec`` that exists has passed the whole language: constructing one by
+    any route — ``to_spec``, :meth:`model_validate`, the constructor — runs
+    every load-time check, expansion and expression pass included, and raises
+    :class:`~math_spec.errors.LanguageError` on a model the language refuses.
+    Holding one is the proof, so nothing downstream checks it again.
+
     The API is the ten declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
-    data, :meth:`to_yaml` for the file a reviewer reads. In goes through
-    ``to_spec``, which raises
-    :class:`~math_spec.errors.LanguageError` on a model the language refuses.
-    Everything else on this class is pydantic's, not a contract this package
-    keeps.
+    data, :meth:`to_yaml` for the file a reviewer reads. Everything else on
+    this class is pydantic's, not a contract this package keeps.
     """
 
     _label: ClassVar[str] = 'the top level of the file'
