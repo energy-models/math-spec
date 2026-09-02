@@ -154,3 +154,68 @@ The footprint stops at the kind. A sink that takes a window but not a wrapped
 one reads `Window in footprint.shapes` and then walks: `wrap`, `partition` and
 a named width are refinements without end, and each is one line once the set
 has said where to look.
+
+## Asking whether an axis can be cut
+
+A driver that solves a horizon in windows — a rolling horizon, a myopic
+pathway — needs one thing from the model before it starts: **is every row it
+builds complete inside some window?** Storage carried over a snapshot is, once
+the windows overlap by a row. An annual budget never is, and the windows still
+solve, so nothing else would say so.
+
+```python
+program.separability['bp'].windowable  # False
+tied = program.separability['generator'].coupled["constraint 'target'"]
+tied.partition(' — ')[0]  # 'sums over generator'
+'sum_back(within=n)' in tied  # True
+```
+
+Neither axis of the model above may be cut, and the report says which
+declaration ties each one — including the three the `piecewise:` block emitted,
+so a coupling introduced by an expansion is named under the name the expansion
+gave it rather than under the block a reader wrote.
+
+It is the locality [the ceiling](../../about/ceiling.md) already argues in —
+pointwise, bounded halo and global — asked about a dimension rather than about
+an operator. Every declared axis has an entry, walked once and held like
+[`footprint`](#asking-what-a-program-uses): answering for every axis costs what
+answering for one did, since every construct that ties an axis names the axis it
+ties.
+
+`behind` and `ahead` are how many coordinates a window must see before its
+first row and after its last — `0` where every row is pointwise, `1` behind for
+a `shift` of one, `n - 1` behind for a `sum_back` of `n`, `2` ahead for a shift
+of `-2`. They are two numbers because a driver supplies them differently: a
+lookahead is rows it solves and does not keep, a history is rows it carries
+from the window before.
+
+What would break comes in three kinds, so a driver can act on each. `coupled`
+names each declaration that ties the axis together — a sum over it in a
+constraint, a grouping that consumes it, a wrapped shift, a set — and, after
+the dash, the one modelling change that would lift it: a horizon total becomes
+a rolling `sum_back`, a wrap becomes an opening-state seed, a grouping is
+windowed along the dimension it groups into. No window satisfies a coupling and
+no rewrite keeps the model's meaning, so the remedy is named and not applied.
+`undecided` names each declaration whose reach only the data can say, to the
+parameter or lookup that says it: an offset or width taken from a parameter, a
+shift inside the groups a lookup makes, a read through a lookup with `at()`; a
+driver holding the data computes the reach from it. `restarts` names each
+declaration counting a `position()` along the axis, which a window restarts at
+its first row. `windowable` is false while anything is coupled or undecided; a
+restart does not count against it.
+
+The same walk answers a second driver. `independent` is whether each
+coordinate builds on its own — windowable, reading nothing behind or ahead,
+counting no position — which is what a scenario sweep asks before solving one
+coordinate per slice, and what licenses solving the slices in any order or at
+once. A restart does count against it: with one coordinate per slice a
+`position()` holds everywhere, which changes what the mask means.
+
+**A reduction means opposite things by position**, which is the whole of the
+care: in a constraint a sum over the axis ties every window to every other, and
+in the objective it is additively separable, an objective being a sum already.
+What is not decided here is whether the windowed answer is the whole-horizon
+one — a store carried over one row windows cleanly and a rolling solve of it is
+still a different answer — nor whether the modeller _wanted_ a restart: a
+`position(t) == 0` seed fires once over a horizon and once per window, and both
+are models somebody means.

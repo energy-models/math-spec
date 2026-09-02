@@ -87,6 +87,7 @@ __all__ = [
     'Program',
     'QuadraticPosition',
     'Region',
+    'Separability',
     'SosDeclaration',
     'Sum',
     'Translate',
@@ -703,6 +704,73 @@ def _declared[Declaration](items: Mapping[str, Declaration], name: str, kind: st
         raise KeyError(f"unknown {kind} '{name}'. " + did_you_mean(name, list(items))) from None
 
 
+@dataclass(frozen=True)
+class Separability:
+    """What building one dimension a window at a time asks of a driver, and what it would break.
+
+    A rolling-horizon or myopic driver cuts an axis into windows and builds
+    each on its own. What the program can say is whether every row it builds
+    is then complete inside some window: how far a row reads along the axis,
+    and which declarations tie the axis together so that no window holds them.
+    It cannot say whether the windowed answer is the one a whole-horizon solve
+    would give — a store carried over one row windows cleanly, and a rolling
+    solve of it is still a different answer — which is the driver's design and
+    not the model's.
+
+    Attributes:
+        dimension: The axis asked about.
+        behind: Coordinates a window must see before its first row for every
+            row it builds to be complete — what a trailing window or a
+            positive ``shift`` reads. ``0`` is pointwise; a ``shift`` of one is
+            ``1``; a ``sum_back`` of ``n`` is ``n - 1``.
+        ahead: The same after its last row — what a negative ``shift`` reads.
+        coupled: Each declaration that ties the axis together, to what ties it
+            and the one modelling change that would not: a sum over the axis
+            in a constraint, a grouping that consumes it, a wrapped
+            translation, a set. No window satisfies these, and no rewrite here
+            would keep the model's meaning, so the remedy is named rather than
+            applied.
+        undecided: Each declaration whose reach along the axis only data can
+            say, to the parameter or lookup that says it — a named offset or
+            width, a partition whose groups a window may cut, a read through a
+            lookup at a coordinate the data chooses. With data bound, the reach
+            is the driver's to compute.
+        restarts: Each declaration counting a position along the axis, which a
+            window restarts at its first row. Whether that is wanted — a seed
+            once per window, or once per horizon — is the modeller's, so it is
+            reported rather than refused.
+    """
+
+    dimension: str
+    behind: int
+    ahead: int
+    coupled: Mapping[str, str]
+    undecided: Mapping[str, str]
+    restarts: Mapping[str, str]
+
+    @property
+    def windowable(self) -> bool:
+        """Whether every row builds complete inside a window overlapping by :attr:`behind` and :attr:`ahead`.
+
+        ``False`` while a reach is :attr:`undecided`, which a driver holding
+        the data may resolve; :attr:`restarts` do not count against it.
+        """
+        return not self.coupled and not self.undecided
+
+    @property
+    def independent(self) -> bool:
+        """Whether each coordinate builds on its own: no row reads another, nothing ties them, nothing counts them.
+
+        What a driver solving one coordinate per slice — a scenario sweep —
+        asks, and what licenses solving the slices in any order or at once.
+        A :attr:`restarts` entry counts against it, unlike for
+        :attr:`windowable`: with one coordinate per slice a ``position()``
+        holds everywhere, which changes what the mask means rather than
+        where it restarts.
+        """
+        return self.windowable and not self.behind and not self.ahead and not self.restarts
+
+
 @dataclass(frozen=True, kw_only=True)
 class Program:
     """A complete declarative description of a mathematical program, with no data in it.
@@ -776,6 +844,42 @@ class Program:
 
     def variable(self, name: str) -> VariableDeclaration:
         return _declared(self.variables, name, 'variable')
+
+    @cached_property
+    def separability(self) -> Mapping[str, Separability]:
+        """Every axis, to what building it a window at a time asks and what it would break.
+
+        The locality :doc:`the ceiling </about/ceiling>` argues in — pointwise,
+        bounded halo, global — asked about the axes rather than about the
+        operators, so a driver may know before it cuts a horizon whether every
+        row it builds is complete inside some window.
+
+        **A reduction means opposite things by position**, which is the whole of
+        the care: in a constraint a sum over the axis ties every window to every
+        other, and in the objective it is additively separable, an objective
+        being a sum already.
+
+        Every declared dimension has an entry, an axis nothing mentions being
+        trivially windowable. Walked once and held, like :attr:`footprint` and
+        for the same reason — a program cannot change after construction — and
+        answering for every axis costs what answering for one did, every
+        construct that ties an axis naming the axis it ties (#248).
+        """
+        return MappingProxyType(_separabilities(self))
+
+    def _built_blocks(self) -> Iterator[tuple[str, tuple[ExpressionNode, ...], Mask | None, bool]]:
+        """Every block that builds rows, labelled as the lowering's own messages label it.
+
+        A named expression is not one: it is inlined where it is referenced, so
+        walking the constraint sides reaches it, and walking it again would
+        report one coupling twice.
+        """
+        for name, block in self.constraints.items():
+            yield f"constraint '{name}'", (block.lhs, block.rhs), block.where, True
+        for name, variable in self.variables.items():
+            yield f"variable '{name}'", (variable.lower, variable.upper), variable.where, True
+        if self.objective is not None:
+            yield 'the objective', (self.objective.expression,), None, False
 
 
 # --------------------------------------------------------------------------
@@ -1179,3 +1283,102 @@ class Mask:
     def __or__(self, other: Mask) -> Mask:
         """Either mask — construction absorbs a literal side rather than burying it."""
         return Mask(OrNode(self.root, other.root))
+
+
+def _separabilities(program: Program) -> dict[str, Separability]:
+    """Every axis's verdict, in one walk.
+
+    One traversal rather than one per axis, because every construct that ties an
+    axis together names the axis it ties: asking each node *which* dimension it
+    is about answers for all of them at what answering for one cost.
+
+    ``reductions_couple`` is the position a block stands in rather than anything
+    about the block — a sum over the axis couples a constraint row to the whole
+    horizon and leaves an objective additively separable. A translation reads
+    behind for a positive offset and ahead for a negative one, and a trailing
+    window behind by its width less one. Each coupling carries the one
+    modelling change that would lift it, after the dash.
+    """
+    behind = dict.fromkeys(program.dimensions, 0)
+    ahead = dict.fromkeys(program.dimensions, 0)
+    reasons: dict[str, dict[str, dict[str, list[str]]]] = {
+        kind: {dimension: {} for dimension in program.dimensions} for kind in ('coupled', 'undecided', 'restarts')
+    }
+
+    def report(kind: str, dimension: str, label: str, reason: str) -> None:
+        reasons[kind][dimension].setdefault(label, []).append(reason)
+
+    for label, nodes, mask, reductions_couple in program._built_blocks():
+        masks: list[Mask | None] = [mask]
+        for node in walk(*nodes):
+            if isinstance(node, Cases):
+                masks.extend(region.when for region in node.regions)
+            elif isinstance(node, Sum):
+                if reductions_couple:
+                    for dimension in node.over:
+                        report(
+                            'coupled',
+                            dimension,
+                            label,
+                            f'sums over {dimension} — a rolling sum_back(within=n) windows, a total over the horizon does not',
+                        )
+            elif isinstance(node, GroupSum):
+                report(
+                    'coupled',
+                    node.over,
+                    label,
+                    f'groups {node.over} into {", ".join(node.into)} — window that dimension instead, or cut only at the group edges',
+                )
+            elif isinstance(node, At):
+                for dimension in node.into:
+                    for lookup in node.coordinate:
+                        report('undecided', dimension, label, lookup)
+            elif isinstance(node, (Translate, Window)):
+                dimension = node.dimension
+                if node.wrap:
+                    report(
+                        'coupled',
+                        dimension,
+                        label,
+                        f'wraps around {dimension}, so its first row reads its last — an opening-state seed at '
+                        f'position({dimension}) == 0 is what a rolling horizon replaces the wrap with',
+                    )
+                    continue
+                if node.partition is not None:
+                    report('undecided', dimension, label, node.partition)
+                reach = node.offset if isinstance(node, Translate) else node.width
+                if isinstance(reach, str):
+                    report('undecided', dimension, label, reach)
+                elif isinstance(node, Window):
+                    behind[dimension] = max(behind[dimension], reach - 1)
+                elif reach > 0:
+                    behind[dimension] = max(behind[dimension], reach)
+                else:
+                    ahead[dimension] = max(ahead[dimension], -reach)
+        for candidate in masks:
+            for atom in candidate.atoms if candidate is not None else ():
+                if isinstance(atom, DimensionPositionNode):
+                    report('restarts', atom.name, label, f'counts a position along {atom.name}')
+
+    for name, block in program.sos.items():
+        report(
+            'coupled',
+            block.over,
+            f"set '{name}'",
+            f'is a set over {block.over}, which a window would cut — only a window holding every whole set keeps it',
+        )
+
+    def joined(kind: str, dimension: str) -> dict[str, str]:
+        return {label: ', '.join(dict.fromkeys(found)) for label, found in reasons[kind][dimension].items()}
+
+    return {
+        dimension: Separability(
+            dimension=dimension,
+            behind=behind[dimension],
+            ahead=ahead[dimension],
+            coupled=joined('coupled', dimension),
+            undecided=joined('undecided', dimension),
+            restarts=joined('restarts', dimension),
+        )
+        for dimension in program.dimensions
+    }
