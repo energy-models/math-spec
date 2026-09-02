@@ -182,12 +182,11 @@ an operator. Every declared axis has an entry, walked once and held like
 answering for one did, since every construct that ties an axis names the axis it
 ties.
 
-`behind` and `ahead` are how many coordinates a window must see before its
-first row and after its last — `0` where every row is pointwise, `1` behind for
-a `shift` of one, `n - 1` behind for a `sum_back` of `n`, `2` ahead for a shift
-of `-2`. They are two numbers because a driver supplies them differently: a
-lookahead is rows it solves and does not keep, a history is rows it carries
-from the window before.
+`ahead` is how many coordinates a window must see past its last row — `0`
+where every row is pointwise, `2` for a `shift` of `-2`. What a row reads
+_behind_ is not reported: a window starts where the driver puts it, and what
+its first rows meet there is the edge policy — the opening state a rolling
+horizon seeds, and the driver's to carry.
 
 What would break comes in three kinds, so a driver can act on each. `coupled`
 names each declaration that ties the axis together — a sum over it in a
@@ -197,24 +196,17 @@ a rolling `sum_back`, a wrap becomes an opening-state seed, a grouping is
 windowed along the dimension it groups into. No window satisfies a coupling and
 no rewrite keeps the model's meaning, so the remedy is named and not applied.
 `undecided` lists each read whose reach only the data can say — a `Reach` of
-the declaration, the parameter or lookup, and what it stands as: an `offset` or
-`width` taken from a parameter, a `partition` a shift is grouped by, a
-`coordinate` read through `at()`. A driver holding the data reads the least and
-greatest value of each named parameter and hands them to `resolved`, which
-folds them in and returns the same verdict with those reads decided — the rule
-that a negative offset reads ahead, a positive one behind, and a width reads
-behind by one less, has one home. A reach a lookup decides is not a value, so
-it stays undecided and the driver refuses or resolves it itself. `restarts` names each
+the declaration, the parameter or lookup, and what it stands as: an `offset`
+taken from a parameter, a `partition` a shift is grouped by, a `coordinate`
+read through `at()`. A driver holding the data reads the least value of each
+named parameter and hands it to `resolved`, which folds it in and returns the
+same verdict with those reads decided — the rule that a negative offset reads
+ahead, and a positive one reads behind and asks nothing, has one home. A reach
+a lookup decides is not a value, so it stays undecided and the driver refuses
+or resolves it itself. `restarts` names each
 declaration counting a `position()` along the axis, which a window restarts at
 its first row. `windowable` is false while anything is coupled or undecided; a
 restart does not count against it.
-
-The same walk answers a second driver. `independent` is whether each
-coordinate builds on its own — windowable, reading nothing behind or ahead,
-counting no position — which is what a scenario sweep asks before solving one
-coordinate per slice, and what licenses solving the slices in any order or at
-once. A restart does count against it: with one coordinate per slice a
-`position()` holds everywhere, which changes what the mask means.
 
 **A reduction means opposite things by position**, which is the whole of the
 care: in a constraint a sum over the axis ties every window to every other, and

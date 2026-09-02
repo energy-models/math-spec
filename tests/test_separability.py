@@ -46,24 +46,22 @@ def _rows(expression: str, *, foreach: list[str] | None = None, **block: Any) ->
 
 
 @pytest.mark.parametrize(
-    ('patch', 'behind', 'ahead'),
+    ('patch', 'ahead'),
     [
-        pytest.param(_rows('p >= 0'), 0, 0, id='pointwise-needs-no-overlap'),
-        pytest.param(_rows('p >= shift(p, over=h, offset=1, edge=0)'), 1, 0, id='a-shift-of-one-reads-one-row-behind'),
-        pytest.param(_rows('p >= shift(p, over=h, offset=3, edge=0)'), 3, 0, id='a-shift-of-three-reads-three-behind'),
-        pytest.param(_rows('p >= shift(p, over=h, offset=-2, edge=0)'), 0, 2, id='a-negative-shift-reads-ahead'),
-        pytest.param(_rows('sum_back(p, over=h, within=4) >= 0'), 3, 0, id='a-window-of-four-reads-three-behind'),
+        pytest.param(_rows('p >= 0'), 0, id='pointwise-needs-no-overlap'),
         pytest.param(
-            _rows('p >= shift(p, over=u, offset=1, edge=0)'), 0, 0, id='a-shift-along-another-axis-is-nothing'
+            _rows('p >= shift(p, over=h, offset=1, edge=0)'), 0, id='a-shift-behind-is-the-edge-and-asks-nothing'
         ),
+        pytest.param(_rows('p >= shift(p, over=h, offset=-2, edge=0)'), 2, id='a-negative-shift-reads-ahead'),
+        pytest.param(_rows('sum_back(p, over=h, within=4) >= 0'), 0, id='a-trailing-window-reads-behind-only'),
+        pytest.param(_rows('sum_back(p, over=h, within=width) >= 0'), 0, id='and-so-does-one-of-a-width-from-data'),
+        pytest.param(_rows('p >= shift(p, over=u, offset=-1, edge=0)'), 0, id='a-shift-along-another-axis-is-nothing'),
     ],
 )
-def test_a_separable_model_reports_the_overlap_a_window_needs_on_each_side(patch, behind, ahead):
+def test_a_separable_model_reports_the_lookahead_a_window_needs(patch, ahead):
     verdict = _verdict(**patch)
     assert verdict.windowable, 'nothing here ties the axis together'
-    assert (verdict.behind, verdict.ahead) == (behind, ahead), (
-        'a window must see what the widest translation reads before its first row and after its last'
-    )
+    assert verdict.ahead == ahead, 'a window must see past its last row what the widest translation reads ahead'
 
 
 @pytest.mark.parametrize(
@@ -93,11 +91,6 @@ def test_a_model_the_axis_ties_together_names_what_ties_it(patch, fragment):
             Reach("constraint 'k'", 'width', 'offset'),
             id='an-offset-from-data',
         ),
-        pytest.param(
-            _rows('sum_back(p, over=h, within=width) >= 0'),
-            Reach("constraint 'k'", 'width', 'width'),
-            id='a-width-from-data',
-        ),
     ],
 )
 def test_a_reach_only_data_can_say_names_what_says_it(patch, reach):
@@ -111,44 +104,35 @@ def test_a_reach_only_data_can_say_names_what_says_it(patch, reach):
 
 
 @pytest.mark.parametrize(
-    ('patch', 'extremes', 'behind', 'ahead'),
+    ('patch', 'least', 'ahead'),
     [
+        pytest.param(_rows('p >= shift(p, over=h, offset=width, edge=0)'), 1, 0, id='offsets-behind-ask-nothing'),
+        pytest.param(_rows('p >= shift(p, over=h, offset=width, edge=0)'), -3, 3, id='offsets-ahead-read-by-the-least'),
         pytest.param(
-            _rows('p >= shift(p, over=h, offset=width, edge=0)'), (1, 3), 3, 0, id='offsets-behind-read-by-the-greatest'
-        ),
-        pytest.param(
-            _rows('p >= shift(p, over=h, offset=width, edge=0)'), (-3, -1), 0, 3, id='offsets-ahead-read-by-the-least'
-        ),
-        pytest.param(
-            _rows('p >= shift(p, over=h, offset=width, edge=0)'), (-2, 4), 4, 2, id='a-mixed-offset-reads-both'
-        ),
-        pytest.param(_rows('sum_back(p, over=h, within=width) >= 0'), (2, 5), 4, 0, id='a-width-reads-one-less-behind'),
-        pytest.param(
-            _rows('shift(p, over=h, offset=width, edge=0) + sum_back(p, over=h, within=width) >= 0'),
-            (-1, 4),
-            4,
-            1,
-            id='a-parameter-named-twice-folds-by-its-widest-reach',
+            _rows('shift(p, over=h, offset=width, edge=0) + shift(p, over=h, offset=-1, edge=0) + p >= 0'),
+            -3,
+            3,
+            id='a-folded-value-widens-what-the-model-reads-on-its-own',
         ),
     ],
 )
-def test_a_named_reach_resolves_to_the_overlap_its_values_need(patch, extremes, behind, ahead):
+def test_a_named_reach_resolves_to_the_lookahead_its_values_need(patch, least, ahead):
     """The rule turning a value into a reach lives here and nowhere in a driver:
-    the driver reads the least and greatest value and hands them over."""
-    verdict = _verdict(**patch).resolved({'width': extremes})
+    the driver reads the least value and hands it over."""
+    verdict = _verdict(**patch).resolved({'width': least})
     assert verdict.windowable, 'with every named reach folded in, nothing is undecided'
-    assert (verdict.behind, verdict.ahead) == (behind, ahead), 'the values decide the overlap, by their sign'
+    assert verdict.ahead == ahead, 'the value decides the lookahead, by its sign'
 
 
 def test_resolving_keeps_the_static_reach_and_what_a_lookup_decides():
     verdict = _verdict(
         constraints={
-            'fixed': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=2, edge=0)'},
+            'fixed': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-2, edge=0)'},
             'named': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=width, edge=0)'},
             'grouped': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=1, by=day_of, edge=0)'},
         }
-    ).resolved({'width': (0, 1)})
-    assert verdict.behind == 2, 'a folded value never narrows what the model reads on its own'
+    ).resolved({'width': -1})
+    assert verdict.ahead == 2, 'a folded value never narrows what the model reads on its own'
     assert verdict.undecided == (Reach("constraint 'grouped'", 'day_of', 'partition'),), (
         'a reach a lookup decides is not a value and stays undecided'
     )
@@ -157,7 +141,7 @@ def test_resolving_keeps_the_static_reach_and_what_a_lookup_decides():
 
 def test_resolving_a_name_nothing_waits_on_is_refused():
     with pytest.raises(KeyError, match="'depth' is not a parameter an undecided reach along 'h' waits on"):
-        _verdict(**_rows('p >= shift(p, over=h, offset=width, edge=0)')).resolved({'depth': (0, 1)})
+        _verdict(**_rows('p >= shift(p, over=h, offset=width, edge=0)')).resolved({'depth': 0})
 
 
 def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
@@ -168,20 +152,6 @@ def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
     assert verdict.undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
         'the report names the lookup a driver has to read'
     )
-
-
-@pytest.mark.parametrize(
-    ('patch', 'independent'),
-    [
-        pytest.param(_rows('p >= 0'), True, id='pointwise-slices-in-any-order'),
-        pytest.param(_rows('p >= shift(p, over=h, offset=1, edge=0)'), False, id='a-row-reading-another-is-not'),
-        pytest.param(_rows('p >= 0', where='position(h) == 0'), False, id='a-position-means-something-else-per-slice'),
-        pytest.param(_rows('p >= shift(p, over=h, offset=width, edge=0)'), False, id='an-undecided-reach-is-not'),
-    ],
-)
-def test_independence_is_windowability_with_nothing_read_across_and_nothing_counted(patch, independent):
-    verdict = _verdict(**patch)
-    assert verdict.independent is independent, 'one coordinate per slice needs no row to read or count another'
 
 
 def test_a_coupling_names_the_change_that_would_lift_it():
@@ -227,14 +197,14 @@ def test_a_position_inside_a_cased_region_is_found():
     assert "constraint 'k'" in verdict.restarts, 'the seed fires once over a horizon and once per window'
 
 
-def test_the_overlap_is_the_widest_reach_of_any_block():
+def test_the_lookahead_is_the_widest_reach_of_any_block():
     verdict = _verdict(
         constraints={
-            'near': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=1, edge=0)'},
-            'far': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=5, edge=0)'},
+            'near': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-1, edge=0)'},
+            'far': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-5, edge=0)'},
         }
     )
-    assert verdict.behind == 5, 'one window must see behind its first row as far as any block reads'
+    assert verdict.ahead == 5, 'one window must see past its last row as far as any block reads'
 
 
 def test_a_grouping_that_consumes_the_axis_couples_it():
@@ -261,7 +231,7 @@ def test_every_node_a_program_can_carry_is_judged_without_raising(dimension):
     """The fixture the node fence maintains carries every construct, so this is
     the pass meeting each of them at least once."""
     verdict = ms.to_program(FIXTURE).separability[dimension]
-    assert isinstance(verdict.behind, int), 'a verdict comes back for every axis of the widest model there is'
+    assert isinstance(verdict.ahead, int), 'a verdict comes back for every axis of the widest model there is'
 
 
 def test_a_reduction_over_several_axes_couples_every_one_of_them():

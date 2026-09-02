@@ -712,14 +712,14 @@ class Reach:
     Attributes:
         label: The declaration reading, as the lowering's messages label it.
         name: The parameter or lookup that says how far.
-        kind: ``offset`` and ``width`` are a parameter's values, which
-            :meth:`Separability.resolved` folds in; ``partition`` and
+        kind: An ``offset`` is a parameter's values, which
+            :meth:`Separability.resolved` folds in; a ``partition`` and a
             ``coordinate`` are a lookup's groups, which it does not.
     """
 
     label: str
     name: str
-    kind: Literal['offset', 'width', 'partition', 'coordinate']
+    kind: Literal['offset', 'partition', 'coordinate']
 
 
 @dataclass(frozen=True)
@@ -728,20 +728,22 @@ class Separability:
 
     A rolling-horizon or myopic driver cuts an axis into windows and builds
     each on its own. What the program can say is whether every row it builds
-    is then complete inside some window: how far a row reads along the axis,
-    and which declarations tie the axis together so that no window holds them.
-    It cannot say whether the windowed answer is the one a whole-horizon solve
-    would give — a store carried over one row windows cleanly, and a rolling
-    solve of it is still a different answer — which is the driver's design and
-    not the model's.
+    is then complete inside some window: how far a row reads ahead along the
+    axis, and which declarations tie the axis together so that no window
+    holds them. It cannot say whether the windowed answer is the one a
+    whole-horizon solve would give — a store carried over one row windows
+    cleanly, and a rolling solve of it is still a different answer — which is
+    the driver's design and not the model's.
+
+    What a row reads *behind* is not reported. A window starts where the
+    driver puts it, and what its first rows meet there is the edge policy:
+    the opening state a rolling horizon seeds, and the driver's to carry.
 
     Attributes:
         dimension: The axis asked about.
-        behind: Coordinates a window must see before its first row for every
-            row it builds to be complete — what a trailing window or a
-            positive ``shift`` reads. ``0`` is pointwise; a ``shift`` of one is
-            ``1``; a ``sum_back`` of ``n`` is ``n - 1``.
-        ahead: The same after its last row — what a negative ``shift`` reads.
+        ahead: Coordinates a window must see after its last row for every row
+            it builds to be complete — what a negative ``shift`` reads. ``0``
+            is pointwise; a ``shift`` of ``-2`` is ``2``.
         coupled: Each declaration that ties the axis together, to what ties it
             and the one modelling change that would not: a sum over the axis
             in a constraint, a grouping that consumes it, a wrapped
@@ -749,8 +751,8 @@ class Separability:
             would keep the model's meaning, so the remedy is named rather than
             applied.
         undecided: Each read along the axis whose reach only data can say —
-            a named offset or width, a partition whose groups a window may
-            cut, a read through a lookup at a coordinate the data chooses.
+            a named offset, a partition whose groups a window may cut, a read
+            through a lookup at a coordinate the data chooses.
             :meth:`resolved` folds a parameter's values in.
         restarts: Each declaration counting a position along the axis, which a
             window restarts at its first row. Whether that is wanted — a seed
@@ -759,7 +761,6 @@ class Separability:
     """
 
     dimension: str
-    behind: int
     ahead: int
     coupled: Mapping[str, str]
     undecided: tuple[Reach, ...]
@@ -767,63 +768,39 @@ class Separability:
 
     @property
     def windowable(self) -> bool:
-        """Whether every row builds complete inside a window overlapping by :attr:`behind` and :attr:`ahead`.
+        """Whether every row builds complete inside a window looking :attr:`ahead` past its last row.
 
         ``False`` while a reach is :attr:`undecided`, which a driver holding
         the data may resolve; :attr:`restarts` do not count against it.
         """
         return not self.coupled and not self.undecided
 
-    @property
-    def independent(self) -> bool:
-        """Whether each coordinate builds on its own: no row reads another, nothing ties them, nothing counts them.
+    def resolved(self, least: Mapping[str, int]) -> Separability:
+        """The same verdict with each named offset folded into :attr:`ahead`.
 
-        What a driver solving one coordinate per slice — a scenario sweep —
-        asks, and what licenses solving the slices in any order or at once.
-        A :attr:`restarts` entry counts against it, unlike for
-        :attr:`windowable`: with one coordinate per slice a ``position()``
-        holds everywhere, which changes what the mask means rather than
-        where it restarts.
-        """
-        return self.windowable and not self.behind and not self.ahead and not self.restarts
-
-    def resolved(self, extremes: Mapping[str, tuple[int, int]]) -> Separability:
-        """The same verdict with each named offset or width folded into :attr:`behind` and :attr:`ahead`.
-
-        A driver holding the data reads the least and greatest value of each
-        parameter an :attr:`undecided` reach names and hands them here, so the
-        rule that turns a value into a reach — a negative offset reads ahead,
-        a positive one behind, a width reads behind by one less — has one
-        home. A parameter named twice folds once, by its widest reach.
+        A driver holding the data reads the least value of each parameter an
+        :attr:`undecided` reach names and hands it here, so the rule that
+        turns a value into a reach — a negative offset reads ahead by that
+        much, a positive one reads behind and asks nothing — has one home.
 
         Args:
-            extremes: Parameter name to the least and greatest of its values.
-                A reach through a lookup — a partition, a coordinate — cannot
-                be folded this way and stays undecided, as does a parameter
-                left out.
+            least: Parameter name to the least of its values. A reach through
+                a lookup — a partition, a coordinate — cannot be folded this
+                way and stays undecided, as does a parameter left out.
 
         Raises:
             KeyError: A name no undecided reach along this axis waits on.
         """
-        waiting = {reach.name for reach in self.undecided if reach.kind in ('offset', 'width')}
-        for name in extremes:
+        waiting = {reach.name for reach in self.undecided if reach.kind == 'offset'}
+        for name in least:
             if name not in waiting:
                 raise KeyError(
                     f"'{name}' is not a parameter an undecided reach along '{self.dimension}' waits on. "
                     + did_you_mean(name, sorted(waiting))
                 )
-        behind, ahead = self.behind, self.ahead
-        remaining: list[Reach] = []
-        for reach in self.undecided:
-            if reach.name not in extremes or reach.kind not in ('offset', 'width'):
-                remaining.append(reach)
-                continue
-            least, most = extremes[reach.name]
-            if reach.kind == 'width':
-                behind = max(behind, most - 1)
-            else:
-                behind, ahead = max(behind, most), max(ahead, -least)
-        return replace(self, behind=behind, ahead=ahead, undecided=tuple(remaining))
+        folded = {reach for reach in self.undecided if reach.kind == 'offset' and reach.name in least}
+        ahead = max([self.ahead, *(-least[reach.name] for reach in folded)])
+        return replace(self, ahead=ahead, undecided=tuple(r for r in self.undecided if r not in folded))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1350,11 +1327,10 @@ def _separabilities(program: Program) -> dict[str, Separability]:
     ``reductions_couple`` is the position a block stands in rather than anything
     about the block — a sum over the axis couples a constraint row to the whole
     horizon and leaves an objective additively separable. A translation reads
-    behind for a positive offset and ahead for a negative one, and a trailing
-    window behind by its width less one. Each coupling carries the one
-    modelling change that would lift it, after the dash.
+    ahead for a negative offset; what one reads behind is the window's edge,
+    which is not asked. Each coupling carries the one modelling change that
+    would lift it, after the dash.
     """
-    behind = dict.fromkeys(program.dimensions, 0)
     ahead = dict.fromkeys(program.dimensions, 0)
     reasons: dict[str, dict[str, dict[str, list[str]]]] = {
         kind: {dimension: {} for dimension in program.dimensions} for kind in ('coupled', 'restarts')
@@ -1364,9 +1340,7 @@ def _separabilities(program: Program) -> dict[str, Separability]:
     def report(kind: str, dimension: str, label: str, reason: str) -> None:
         reasons[kind][dimension].setdefault(label, []).append(reason)
 
-    def waits_on(
-        dimension: str, label: str, name: str, kind: Literal['offset', 'width', 'partition', 'coordinate']
-    ) -> None:
+    def waits_on(dimension: str, label: str, name: str, kind: Literal['offset', 'partition', 'coordinate']) -> None:
         undecided[dimension][Reach(label, name, kind)] = None
 
     for label, nodes, mask, reductions_couple in program._built_blocks():
@@ -1407,15 +1381,12 @@ def _separabilities(program: Program) -> dict[str, Separability]:
                     continue
                 if node.partition is not None:
                     waits_on(dimension, label, node.partition, 'partition')
-                reach = node.offset if isinstance(node, Translate) else node.width
-                if isinstance(reach, str):
-                    waits_on(dimension, label, reach, 'offset' if isinstance(node, Translate) else 'width')
-                elif isinstance(node, Window):
-                    behind[dimension] = max(behind[dimension], reach - 1)
-                elif reach > 0:
-                    behind[dimension] = max(behind[dimension], reach)
+                if isinstance(node, Window):
+                    continue
+                if isinstance(node.offset, str):
+                    waits_on(dimension, label, node.offset, 'offset')
                 else:
-                    ahead[dimension] = max(ahead[dimension], -reach)
+                    ahead[dimension] = max(ahead[dimension], -node.offset)
         for candidate in masks:
             for atom in candidate.atoms if candidate is not None else ():
                 if isinstance(atom, DimensionPositionNode):
@@ -1435,7 +1406,6 @@ def _separabilities(program: Program) -> dict[str, Separability]:
     return {
         dimension: Separability(
             dimension=dimension,
-            behind=behind[dimension],
             ahead=ahead[dimension],
             coupled=joined('coupled', dimension),
             undecided=tuple(undecided[dimension]),
