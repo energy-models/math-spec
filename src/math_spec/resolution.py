@@ -188,12 +188,12 @@ class Namespace:
 
 
 # ---------------------------------------------------------------------------
-# the seam a consumer uses
+# the seam the rest of the package uses
 # ---------------------------------------------------------------------------
 
 
 def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ParsedNode:
-    """Parse, expand and resolve *text* — the only way a consumer gets an AST.
+    """Parse, expand and resolve *text* — the one path to a resolved spec-side tree.
 
     Raises:
         LanguageError: Listing every problem the text has.

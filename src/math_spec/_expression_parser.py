@@ -230,6 +230,9 @@ class ComparisonNode:
     right: ArithmeticNode
 
 
+#: A whole spec-side expression tree — parse output and the resolved tree alike.
+#: Named apart from :data:`math_spec.program.ExpressionNode`, the lowered
+#: vocabulary a consumer reads.
 ParsedNode = ArithmeticNode | ComparisonNode
 
 
@@ -248,7 +251,7 @@ KwargNode = DimensionNode | LookupNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
-#: downstream means the expression skipped :func:`~math_spec.expression_of`.
+#: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
 UnresolvedNode = NameNode | NameListNode | KeywordNode
 
 #: Every leaf — nothing below it to descend into.
