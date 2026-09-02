@@ -39,7 +39,45 @@ parameters:
 | ------------- | ------------------------------------------------------------ | --------------- |
 | `dims`        | required — the dimensions it is indexed by; `[]` is a scalar |                 |
 | `dtype`       | `float`, `int`, `bool`, `str`                                | default `float` |
+| `coverage`    | `total`, `masked`                                            | default `total` |
 | `description` | free text                                                    | default `null`  |
+
+**`coverage` says whether a missing row was meant.** A table short of a
+coordinate and a table that never had one look identical in the data, and they
+mean opposite things: `total` is the claim that every coordinate the `dims`
+reach has a value, so a row that went missing in preparation is an error rather
+than a mask; `masked` is the file saying the gap is the point — the parameter
+_is_ a mask, and a coordinate it leaves out reads as the value that contributes
+nothing, `0` as a coefficient and `false` in a `where`
+([absence](absence.md) says where no such value exists).
+
+```yaml
+parameters:
+  cost: { dims: [generator] } # total: every generator has one
+  ramp_limit: { dims: [generator], coverage: masked } # no row means no limit
+```
+
+Without it the reading is a consumer's to pick, and two consumers picking
+differently would build different models from one file and one table — so the
+declaration says it and no consumer guesses. **The default is `total`** because
+a model that never considered the question wants the strict reading: a row lost
+in preparation should be an error, and a mask is a thing you write down.
+
+Where a `masked` parameter may stand is a question about rows rather than about
+the file. A bound and a divisor [refuse absence outright](absence.md), so one
+reaching either has to carry a row wherever the declaration naming it exists —
+which that declaration's own `where:` may already guarantee, as it does where a
+variable is masked on the parameter that also bounds it. The file does not
+settle that, so whatever binds the table refuses it row by row, naming the
+coordinate.
+
+**A parameter a `piecewise:` block consumes does not declare `coverage:`.** The
+block already owns the shape of its curve: [`points:`](piecewise.md) says how
+far a curve runs where they are not all the same length, and a breakpoint left
+out declares no weight and is not asked for. A values parameter is therefore
+total over the points its block admits — which is not a claim about every
+coordinate its `dims` reach, and not a mask either. Writing `coverage:` on one
+is a load error naming `points:`.
 
 **`dtype` is a claim about the values, and the column has to be it.** It
 decides four things — whether the name is a value in an

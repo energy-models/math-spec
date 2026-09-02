@@ -91,6 +91,13 @@ ParameterDtype = Literal['float', 'int', 'bool', 'str']
 #: half, because a mask names all three kinds and reads the dtype the same way.
 DeclaredDtype = ParameterDtype | DimensionDtype
 
+#: What a table is required to carry — a parameter's values, or a lookup's map.
+#: ``total`` is every coordinate its ``dims`` reach, or every label of the
+#: dimension a lookup is ``over``; ``masked`` says a missing row is deliberate.
+#: The two are indistinguishable in the data, which is why the declaration says
+#: which was meant rather than a consumer guessing.
+Coverage = Literal['total', 'masked']
+
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
 
@@ -150,7 +157,25 @@ def _also_written_as(
     return {'anyOf': [dict(generated), shorthand]}
 
 
-class LookupBlock(_StrictBlock):
+class _CoveredBlock(_StrictBlock):
+    """A declaration whose data may say whether it must be complete.
+
+    ``coverage`` is ``None`` where the file writes none, rather than defaulting
+    eagerly: a block that must know whether the *file* spoke reads the field,
+    and a round trip through :meth:`Spec.to_dict` has to write back what was
+    written. Everything that only wants the reading asks
+    :attr:`coverage_or_default`.
+    """
+
+    coverage: Coverage | None = None
+
+    @property
+    def coverage_or_default(self) -> Coverage:
+        """What the data must carry: what the file wrote, or ``total`` where it wrote nothing."""
+        return self.coverage or 'total'
+
+
+class LookupBlock(_CoveredBlock):
     """A named single-valued map out of a dimension (the declaration rules).
 
     Exactly one of ``into:`` (a groupable map onto that dimension, what
@@ -181,6 +206,18 @@ class LookupBlock(_StrictBlock):
             raise ValueError(msg)
         return self
 
+    @model_validator(mode='after')
+    def _coverage_is_for_a_map_that_groups(self) -> LookupBlock:
+        if self.dtype is not None and self.coverage is not None:
+            msg = (
+                "'coverage:' is for a lookup that maps 'into:' a dimension, where a label left "
+                'out lands its terms in no group at all. A label space is only selected on, and a '
+                'label it leaves out reads as false there — which is a reading, not a gap. Drop '
+                "the 'coverage:' line"
+            )
+            raise ValueError(msg)
+        return self
+
 
 class DimensionBlock(_StrictBlock):
     """A declared dimension, and the dtype its coordinates must be.
@@ -198,7 +235,7 @@ class DimensionBlock(_StrictBlock):
     description: str | None = None
 
 
-class ParameterBlock(_StrictBlock):
+class ParameterBlock(_CoveredBlock):
     """A declared parameter with dims and dtype."""
 
     _label: ClassVar[str] = 'a parameter declaration'
@@ -511,6 +548,16 @@ class PiecewiseBlock(_StrictBlock):
     description: str | None = None
 
     @property
+    def consumes(self) -> set[str]:
+        """The parameters the block reads: each link's values, and the ``points:`` mask.
+
+        The block owns the shape of every one of them, which is why
+        :meth:`Spec._piecewise_parameters_declare_no_coverage` refuses
+        ``coverage:`` there and lowering reports none.
+        """
+        return {link.values for link in self.links} | ({self.points} if self.points else set())
+
+    @property
     def curve(self) -> tuple[PiecewiseLink, PiecewiseLink]:
         """The two links as ``(x, y)``, the bounded one last.
 
@@ -772,10 +819,31 @@ class Spec(_StrictBlock):
             *self._lookup_targets(),
             *self._bound_names(),
             *self._sos_shapes(),
+            *self._piecewise_parameters_declare_no_coverage(),
         ]
         if errors:
             raise ValueError('\n'.join(errors))
         return self
+
+    def _piecewise_parameters_declare_no_coverage(self) -> Iterator[str]:
+        """A curve's shape is the block's to state, so its parameters do not state it.
+
+        ``points:`` already says how far a curve runs, and a breakpoint it
+        leaves out is not asked for — so a values parameter is total over the
+        points its block admits, which is neither ``total`` over everything its
+        dims reach nor a mask. Both spellings would claim something the block
+        has already decided.
+        """
+        for pname, block in self.piecewise.items():
+            for name in sorted(block.consumes):
+                if name in self.parameters and self.parameters[name].coverage is not None:
+                    yield (
+                        f"parameter '{name}': 'coverage:' is not for a parameter a piecewise block "
+                        f"consumes — '{pname}' already owns the shape of its curve. A breakpoint "
+                        f"'points:' leaves out declares no weight and its values are not asked "
+                        f'for, so the table is total over the points the block admits. Drop the '
+                        f"'coverage:' line, and say how far the curve runs with 'points:'."
+                    )
 
     def _name_collisions(self) -> Iterator[str]:
         """A name is declared once, and never as a built-in operator."""

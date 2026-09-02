@@ -99,8 +99,14 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for block, ex in expanded.expanded_piecewise.items()
         for name, how in derivations_of(block, ex).items()
     }
+    block_owned = {name for ex in expanded.expanded_piecewise.values() for name in ex.block.consumes} | set(derivations)
     parameters = {
-        name: program.ParameterDeclaration(tuple(pdef.dims), pdef.dtype, derivations.get(name))
+        name: program.ParameterDeclaration(
+            tuple(pdef.dims),
+            pdef.dtype,
+            derivations.get(name),
+            None if name in block_owned else pdef.coverage_or_default,
+        )
         for name, pdef in expanded.parameters.items()
     }
 
@@ -146,7 +152,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     dimensions = {
         dname: program.DimensionDeclaration(
             tuple(
-                program.LookupDeclaration(lname, lk.into, lk.dtype)
+                program.LookupDeclaration(
+                    lname, lk.into, lk.dtype, lk.coverage_or_default if lk.into is not None else None
+                )
                 for lname, lk in expanded.lookups.items()
                 if lk.over == dname
             ),

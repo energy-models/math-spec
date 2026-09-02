@@ -11,7 +11,7 @@ it is the contract consumers are written against.
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from typing import TYPE_CHECKING, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
@@ -59,6 +59,15 @@ from math_spec.program import (
 )
 from math_spec.resolution import Namespace, expression_of, where_of
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
+
+#: `fixtures.SMALL_MODEL` plus a two-link curve over the second dimension, so a
+#: block's own parameters stand beside ordinary ones in the same program.
+CURVE: dict[str, Any] = {
+    'parameters.bx': {'dims': ['h']},
+    'parameters.by': {'dims': ['h']},
+    'variables.s': {'foreach': ['g']},
+    'piecewise.curve': {'over': 'h', 'links': [['p', 'bx'], ['s', 'by']], 'method': 'convex'},
+}
 
 if TYPE_CHECKING:
     from math_spec._expression_parser import ArithmeticNode
@@ -535,9 +544,11 @@ def test_a_label_space_keeps_its_dtype_and_has_no_target():
     )
 
     assert program.dimension('snapshot').lookups == (
-        LookupDeclaration('season_of', 'season', None),
-        LookupDeclaration('period', None, 'int'),
-    ), 'both kinds, in declaration order: a targeted lookup carries its target, a label space its dtype'
+        LookupDeclaration('season_of', 'season', None, 'total'),
+        LookupDeclaration('period', None, 'int', None),
+    ), (
+        'both kinds, in declaration order: a targeted lookup carries its target and coverage, a label space its dtype and no coverage'
+    )
     assert program.dimension('snapshot').maps == ['period', 'season_of'], 'binding reads both kinds'
     assert program.dimension('snapshot').targets == {'season_of': 'season'}, 'grouping reads only the targeted one'
 
@@ -746,4 +757,32 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
 
     assert isinstance(program.named_expressions['previous'], Cases), (
         'a cased expression reaches the program as the node, not as its fallback arm alone'
+    )
+
+
+def test_a_parameter_covers_every_coordinate_unless_it_says_otherwise():
+    """The default is the strict reading — a table carries what its dims reach.
+    ``masked`` is the file saying the missing row was meant, and which of the
+    two a declaration means has to survive lowering, because whatever binds the
+    table reads it off the program rather than off the file."""
+    program = to_program(override(SMALL_MODEL, **{'parameters.k.coverage': 'masked'}))
+    assert program.parameters['c'].coverage == 'total', 'a parameter that says nothing covers its dims'
+    assert program.parameters['k'].coverage == 'masked', 'and one that says so is carried through unchanged'
+
+
+def test_a_parameter_a_curve_owns_answers_for_no_coverage():
+    """A block's own parameters carry ``None``, the way a label space does.
+
+    ``coverage:`` is refused on them at load — ``points:`` already says how far
+    each curve runs — but the refusal is a fact about the file, and whatever
+    binds the table reads the program. Reporting the unwritten default there
+    would tell a consumer to require every coordinate the dims reach, which is
+    exactly what a ragged curve does not carry.
+    """
+    program = to_program(override(SMALL_MODEL, **CURVE, **{'piecewise.curve.points': 'bx'}))
+
+    coverage = {name: p.coverage for name, p in program.parameters.items()}
+    assert coverage == {'c': 'total', 'k': 'total', 'flag': 'total', 'bx': None, 'by': None, 'curve_points': None}, (
+        "the two the block consumes and the mask it emitted answer for no coverage; every other parameter's "
+        'declaration is carried through'
     )
