@@ -148,7 +148,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     dimensions = {
         dname: program.DimensionDeclaration(
             tuple(
-                program.LookupDeclaration(lname, lk.into, lk.dtype, lk.coverage_or_default)
+                program.LookupDeclaration(
+                    lname, lk.into, lk.dtype, lk.coverage_or_default if lk.into is not None else None
+                )
                 for lname, lk in expanded.lookups.items()
                 if lk.over == dname
             ),

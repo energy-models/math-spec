@@ -47,7 +47,9 @@ coordinate and a table that never had one look identical in the data, and they
 mean opposite things: `total` is the claim that every coordinate the `dims`
 reach has a value, so a row that went missing in preparation is an error rather
 than a mask; `masked` is the file saying the gap is the point — the parameter
-_is_ a mask, and a coordinate it leaves out is [absence](absence.md).
+_is_ a mask, and a coordinate it leaves out reads as the value that contributes
+nothing, `0` as a coefficient and `false` in a `where`
+([absence](absence.md) says where no such value exists).
 
 ```yaml
 parameters:

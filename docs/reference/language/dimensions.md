@@ -64,11 +64,10 @@ defensible reading, which is exactly why the file may not leave the choice
 open. A lookup's map obeys the same rule one axis over, and says so under
 `lookups` below: it is single-valued per label of `over`.
 
-_At most_ once, rather than exactly once: a coordinate with no row is
-[absence](absence.md), which is how a model masks — and whether a given
-parameter meant to mask is
-[`coverage`](declarations.md), which it declares rather than leaving to be
-inferred from the table.
+_At most_ once, rather than exactly once: a coordinate with no row is how a
+parameter declared `coverage: masked` masks, and an error at bind for one that
+is not — which of the two is
+[`coverage`](declarations.md), declared rather than inferred from the table.
 
 ## `lookups`
 
@@ -164,8 +163,8 @@ kind, because that is what its values are labels of, and after the **lookup
 itself** for a label space, which owns its values and targets nothing.
 
 **A partial map is the rows it has.** `g3` is in no row, so `g3` sits on no
-bus — absence is the absent row, exactly as it is for a parameter, and a null
-in the value column is refused for saying both at once. The relation is
+bus — absence is the absent row, and a null in the value column is refused for
+saying both at once. The relation is
 single-valued per label of `over`, and a key matching no label of it is a typo
 rather than a new member.
 

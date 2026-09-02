@@ -940,12 +940,14 @@ class TestLookupCoverage:
                 lookups={
                     'lk': {'over': 'g', 'into': 'h'},
                     'open': {'over': 'g', 'into': 'h', 'coverage': 'masked'},
+                    'period': {'over': 'g', 'dtype': 'int'},
                 },
             )
         )
         declared = {lookup.name: lookup.coverage for lookup in program.dimensions['g'].lookups}
-        assert declared == {'lk': 'total', 'open': 'masked'}, (
-            'a map that says nothing covers its labels, and one that says so is carried through'
+        assert declared == {'lk': 'total', 'open': 'masked', 'period': None}, (
+            'a map that says nothing covers its labels, one that says so is carried through, '
+            'and a label space answers for no coverage at all'
         )
 
     def test_a_curve_and_its_parameters_load_when_neither_declares_coverage(self):

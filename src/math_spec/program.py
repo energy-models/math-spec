@@ -432,9 +432,9 @@ class LookupDeclaration(NamedTuple):
     name: str
     target: str | None
     dtype: DimensionDtype | None = None
-    #: Whether the map must carry every label of the dimension it is over. A
-    #: label space has none to answer for, so this is a targeted lookup's alone.
-    coverage: Coverage = 'total'
+    #: Whether the map must carry every label of the dimension it is over.
+    #: ``None`` on a label space, which has none to answer for.
+    coverage: Coverage | None = None
 
 
 @dataclass(frozen=True)

@@ -130,7 +130,6 @@ Curvature = Literal['convex', 'concave', 'either']
 #: The set form of each vocabulary above, for callers that want membership.
 DIMENSION_DTYPES = frozenset(get_args(DimensionDtype))
 PARAMETER_DTYPES = frozenset(get_args(ParameterDtype))
-COVERAGE = frozenset(get_args(Coverage))
 #: The parameter dtypes that stand where a number belongs — a coefficient, a
 #: term, a divisor, a bound. A label selects and a flag masks; neither is one.
 NUMERIC_DTYPES: frozenset[ParameterDtype] = frozenset({'float', 'int'})

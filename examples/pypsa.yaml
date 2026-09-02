@@ -176,9 +176,11 @@ parameters:
   Generator_p_set:
     description: a given output schedule; a generator without one has no row here
     dims: [snapshot, generator]
+    coverage: masked
   Link_p_set:
     description: a given flow schedule; a link without one has no row here
     dims: [snapshot, link]
+    coverage: masked
   snapshot_weightings_stores:
     description: PyPSA's `snapshot_weightings.stores` — hours a snapshot stands for in a storage balance
     dims: [snapshot]
@@ -286,9 +288,11 @@ parameters:
   StorageUnit_p_set:
     description: a given net dispatch schedule; a unit without one has no row here
     dims: [snapshot, storage_unit]
+    coverage: masked
   StorageUnit_state_of_charge_set:
     description: a given charge schedule; a unit without one has no row here
     dims: [snapshot, storage_unit]
+    coverage: masked
   Store_e_nom:
     description: nominal energy capacity
     dims: [store]
@@ -321,6 +325,7 @@ parameters:
   Store_e_set:
     description: a given energy schedule; a store without one has no row here
     dims: [snapshot, store]
+    coverage: masked
   Line_s_nom:
     description: nominal apparent power
     dims: [line]
@@ -346,6 +351,7 @@ parameters:
   Line_s_set:
     description: a given flow schedule; a line without one has no row here
     dims: [snapshot, line]
+    coverage: masked
   Line_cycle_weight:
     description: >-
       the line's series impedance, signed by its orientation in the cycle —

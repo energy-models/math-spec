@@ -535,9 +535,11 @@ def test_a_label_space_keeps_its_dtype_and_has_no_target():
     )
 
     assert program.dimension('snapshot').lookups == (
-        LookupDeclaration('season_of', 'season', None),
-        LookupDeclaration('period', None, 'int'),
-    ), 'both kinds, in declaration order: a targeted lookup carries its target, a label space its dtype'
+        LookupDeclaration('season_of', 'season', None, 'total'),
+        LookupDeclaration('period', None, 'int', None),
+    ), (
+        'both kinds, in declaration order: a targeted lookup carries its target and coverage, a label space its dtype and no coverage'
+    )
     assert program.dimension('snapshot').maps == ['period', 'season_of'], 'binding reads both kinds'
     assert program.dimension('snapshot').targets == {'season_of': 'season'}, 'grouping reads only the targeted one'
 
