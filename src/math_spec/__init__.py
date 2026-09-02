@@ -42,6 +42,7 @@ from math_spec.operators import (
     edge_error,
     unknown_operator_message,
 )
+from math_spec.transforms import fix
 
 # Last: `math_spec.typesetting` reaches back for the two conversions, so those
 # must be bound before it is imported.
@@ -78,6 +79,7 @@ __all__ = [
     'call_shape_error',
     'did_you_mean',
     'edge_error',
+    'fix',
     'program',
     'schema_error',
     'to_latex',
