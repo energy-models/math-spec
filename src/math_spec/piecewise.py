@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from math_spec._expression_parser import ComparisonNode
-from math_spec.degree import check_expression
+from math_spec.degree import calls_dual, check_expression, dual_in_math_message
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
@@ -410,6 +410,8 @@ def _declared_order(schema: Spec, dims: frozenset[str]) -> list[str]:
 def _expr_dims(schema: Spec, text: str, ctx: str) -> frozenset[str]:
     """Dims of an affine link expression, asked of ``dimensions`` before any declaration exists to carry it."""
     ast = parse_and_expand(text, schema, ctx)
+    if calls_dual(ast):
+        raise PiecewiseExpansionError(dual_in_math_message(ctx))
     if isinstance(ast, ComparisonNode):
         raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
     errors: list[str] = []

@@ -16,7 +16,7 @@ from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace
 from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset
 from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
+from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions, postsolve_expressions
 from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, override
 from tests.typesetting import golden
@@ -443,11 +443,13 @@ def test_nothing_the_model_is_given_prints_italic():
     """The convention as a property of the whole document, not of a fragment: a
     rendering path added later reaches the page through its own call."""
     schema = expand_piecewise(to_spec(golden.MODEL))
-    chosen = set(schema.variables) | chosen_expressions(schema, Namespace.of(schema))
+    computed = (
+        set(schema.variables) | chosen_expressions(schema, Namespace.of(schema)) | set(postsolve_expressions(schema))
+    )
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
-    assert italic <= chosen, (
-        f'{sorted(italic - chosen)} print italic and are not quantities the solver decides — '
-        f'upright is what the model is given'
+    assert italic <= computed, (
+        f'{sorted(italic - computed)} print italic and are neither chosen by the solver nor read off its '
+        f'solution — upright is what the model is given, italic what it computes'
     )
 
     symbols = Symbols(schema, Namespace.of(schema), LATEX, SymbolTable('latex'))

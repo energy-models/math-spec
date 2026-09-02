@@ -14,9 +14,9 @@ import pytest
 
 from math_spec import LanguageError
 from math_spec._expression_parser import NameNode
-from math_spec.degree import carries_variable, check_binary, check_expression
+from math_spec.degree import carries_variable, check_binary, check_expression, is_postsolve_grade
 from math_spec.resolution import Namespace, expression_of
-from tests.fixtures import SMALL_MODEL, schema_of
+from tests.fixtures import SMALL_MODEL, override, schema_of
 
 SCHEMA = schema_of(SMALL_MODEL)
 
@@ -109,3 +109,109 @@ def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare(conte
 def test_carries_variable_refuses_an_unresolved_name():
     with pytest.raises(AssertionError, match=r'resolution\.expression_of'):
         carries_variable(NameNode('p'))
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        pytest.param('p * q', id='the-degree-cap'),
+        pytest.param('p * p * p', id='above-the-degree-cap'),
+        pytest.param('sum(p * c, over=g) / sum(p, over=g)', id='a-variable-divisor'),
+        pytest.param('k ** p', id='a-variable-exponent'),
+        pytest.param('sum(p, over=g) / (k + 1)', id='an-additive-divisor'),
+        pytest.param('sum(p, over=g) * (k + 1) ** 2', id='an-additive-base'),
+    ],
+)
+def test_a_body_that_breaks_an_affine_rule_grades_post_solve(text):
+    """Every rule the affine ceiling holds lifts here — each such body is post-solve grade.
+
+    One case per rule `check_expression(ceiling=1)` enforces: the degree cap and
+    the ban above it, the variable divisor and exponent, the additive divisor
+    and additive base. Each is refused wherever the math reads it (see
+    `test_the_affine_ceiling_refuses_and_names_the_rewrite`) and legal only as a
+    quantity read off a solve.
+    """
+    assert is_postsolve_grade(_ast(text)) is True
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        pytest.param('p * c', id='a-parameter-coefficient'),
+        pytest.param('sum(p * c, over=g)', id='a-reduction-of-affine-terms'),
+        pytest.param('p / c', id='a-parameter-divisor'),
+        pytest.param('p + q', id='a-sum-of-variables'),
+    ],
+)
+def test_an_affine_body_grades_math(text):
+    """A body inside the affine ceiling grades math — it behaves exactly as a named expression always has."""
+    assert is_postsolve_grade(_ast(text)) is False
+
+
+@pytest.mark.parametrize(
+    ('template', 'postsolve'),
+    [
+        pytest.param('x * x', True, id='a-macro-that-squares-a-variable'),
+        pytest.param('x * c', False, id='a-macro-that-scales-a-variable'),
+    ],
+)
+def test_the_grade_is_decided_on_the_expanded_body(template, postsolve):
+    """A macro cannot smuggle nonlinearity past the grade: it is read on the inlined body, not the call.
+
+    `sq(p)` looks affine at the call site; its expansion `p * p` is degree 2, so
+    the entry grades post-solve. The same call over a parameter stays math. The
+    grade is body-local after expansion, decided at load with no data.
+    """
+    schema = schema_of(override(SMALL_MODEL, macros={'sq': {'args': ['x'], 'template': template}}))
+    ast = expression_of('sq(p)', schema, Namespace.of(schema), 'test')
+    assert is_postsolve_grade(ast) is postsolve
+
+
+def _dual_ast(text: str):
+    schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
+    return expression_of(text, schema, Namespace.of(schema), 'test')
+
+
+def test_a_dual_carries_no_variable():
+    """A dual is data read after the solve, so it is not a variable term."""
+    assert carries_variable(_dual_ast('dual(lim)')) is False
+
+
+def test_a_body_reading_a_dual_grades_post_solve():
+    """A dual is a number only a solve produces, so the entry reading one is post-solve grade even where its arithmetic is affine."""
+    assert is_postsolve_grade(_dual_ast('dual(lim) * c')) is True
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        pytest.param('dual(lim)', id='bare'),
+        pytest.param('sum(dual(lim), over=g)', id='under-a-reduction'),
+    ],
+)
+def test_a_nested_dual_grades_post_solve(text):
+    """`calls_dual` recurses through a reduction's argument, not only the top node."""
+    assert is_postsolve_grade(_dual_ast(text)) is True
+
+
+def test_a_dual_inside_a_cased_arm_grades_post_solve():
+    """`calls_dual` recurses through a `CasesNode` arm, not only the top node.
+
+    The reference resolves straight to the `CasesNode` expansion.py builds, so
+    this also guards that `children()` walking its arm values reaches a dual a
+    non-recursive check — one that only inspected the node it was handed —
+    would miss.
+    """
+    schema = schema_of(
+        SMALL_MODEL,
+        **{
+            'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'},
+            'expressions.dcase': {
+                'foreach': ['g'],
+                'cases': {'flagged': {'when': 'flag', 'expression': 'dual(lim)'}},
+                'otherwise': 0,
+            },
+        },
+    )
+    ast = expression_of('dcase', schema, Namespace.of(schema), 'test')
+    assert is_postsolve_grade(ast) is True

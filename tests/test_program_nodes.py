@@ -30,7 +30,8 @@ def _expressions(program: Program) -> list[ExpressionNode]:
     """Every tree a program hangs on to, wherever it hangs it.
 
     Bounds and named expressions among them: a node reachable only from a
-    bound is still a node a consumer has to build.
+    post-solve-grade entry — `Dual` is the only such node — is still a node
+    a consumer has to build.
     """
     trees = [side for c in program.constraints.values() for side in (c.lhs, c.rhs)]
     trees += [bound for v in program.variables.values() for bound in (v.lower, v.upper)]

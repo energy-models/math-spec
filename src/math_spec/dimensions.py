@@ -21,6 +21,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    ConstraintNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
@@ -89,6 +90,10 @@ def _dims(
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
+    if isinstance(node, ConstraintNode):
+        msg = f"ConstraintNode '{node.name}' reached the dim checker outside dual(); a constraint is legal only as dual()'s argument."
+        raise AssertionError(msg)
+
     if isinstance(node, UnaryOperatorNode):
         return _dims(node.operand, schema, context)
 
@@ -121,7 +126,16 @@ def _not_carried(context: str, call: str, inner: frozenset[str], rewrite: str) -
 
 
 def _dims_call(node: FunctionCallNode, schema: Spec, context: str) -> frozenset[str]:
-    """The dim rule of the operator *node* calls, applied to the dims its operand carries."""
+    """The dim rule of the operator *node* calls, applied to the dims its operand carries.
+
+    ``dual`` is the one call whose argument is a constraint reference rather than
+    an expression, so it does not compute an operand's dims: a row dual carries
+    the frame of the constraint it names.
+    """
+    if node.name == 'dual':
+        (arg,) = node.args
+        assert isinstance(arg, ConstraintNode), 'dual() resolves its argument to a ConstraintNode'
+        return frozenset(schema.constraints[arg.name].foreach)
     inner = _dims(node.args[0], schema, context)
     return _CALL_RULES[node.name](node, inner, schema, context)
 

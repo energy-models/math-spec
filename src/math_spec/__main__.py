@@ -34,6 +34,7 @@ def parser() -> argparse.ArgumentParser:
         verb.add_argument('--symbols', help='sidecar YAML saying how names should print')
         verb.add_argument('--standalone', action='store_true', help='emit a compilable document')
         verb.add_argument('--no-legend', action='store_true', help='omit the sets/parameters/variables table')
+        verb.add_argument('--no-postsolve', action='store_true', help='omit the post-solve section')
         verb.add_argument('--no-numbers', action='store_true', help='leave the equations unnumbered')
     return front
 
@@ -58,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         symbols=args.symbols,
         standalone=args.standalone,
         legend=not args.no_legend,
+        postsolve=not args.no_postsolve,
         numbered=not args.no_numbers,
     )
     if args.out:

@@ -23,6 +23,7 @@ from math_spec.program import (
     Cases,
     Constant,
     Divide,
+    Dual,
     ExpressionNode,
     GroupSum,
     Multiply,
@@ -134,11 +135,18 @@ def _record_signs(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> N
     one, lands on ``None``, which claims nothing. A reduction, a re-index, a
     window and a cases selection pass *sign* to their children unchanged; a
     power carries no sign in either half.
+
+    A Constant, Parameter or Dual is a variable-free leaf and contributes
+    nothing. ``Dual`` is in that arm only to keep the walk exhaustive after the
+    union gained it — a dual makes its entry post-solve grade, which no
+    objective may read, so this walk never actually meets one; the clause is
+    not a claim that a dual would carry no sign into an objective it can never
+    enter.
     """
     if isinstance(node, Variable):
         signs[node.name] = sign if signs.setdefault(node.name, sign) == sign else None
         return
-    if isinstance(node, Constant | Parameter):
+    if isinstance(node, Constant | Parameter | Dual):
         return
     if isinstance(node, Negate):
         _record_signs(node.operand, _flip(sign), signs)

@@ -44,6 +44,7 @@ nav:
           - Parameters, variables, constraints: reference/language/declarations.md
           - Dimensions and lookups: reference/language/dimensions.md
           - Expressions: reference/language/expressions.md
+          - Post-solve expressions: reference/language/postsolve.md
           - Operators: reference/language/operators.md
           - Piecewise curves and SOS: reference/language/piecewise.md
           - Absence and where: reference/language/absence.md

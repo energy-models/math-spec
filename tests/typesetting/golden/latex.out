@@ -119,4 +119,10 @@
 \text{weight sos} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T}
 \end{align}
 
+\paragraph{Post-solve}
+\begin{align}
+\text{lcoe} && \mathit{lcoe} & = \frac{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g}} \\
+\text{marginal\_price} && \mathit{marginal\_price} & = \lambda_{\mathrm{balance},t,b}
+\end{align}
+
 \end{document}

@@ -39,6 +39,7 @@ OPERATORS = {
     'sum_back(array, over=dim, within=p)': 'sum_back_by_parameter',
     "sum_back(array, over=dim, within=p, edge='wrap')": 'sum_back_wrap',
     'sum_back(array, over=dim, within=n, by=lookup)': 'sum_back_partitioned',
+    'dual(constraint)': 'dual',
 }
 
 
@@ -55,15 +56,17 @@ def _inline(display: str) -> str:
 
 
 def rendered_probe(name: str) -> tuple[str, list[str]]:
-    """One probe's constraint, and any notes its notation needs.
+    """One probe's featured equation, and any notes its notation needs.
 
-    A probe declares exactly one constraint, so "the equation this operator
-    prints" is unambiguous — and the assertion says so rather than silently
-    taking the first of several.
+    A probe features exactly one equation — its single constraint, or, for an
+    operator legal only after a solve (`dual`), its single ``Post-solve`` entry,
+    whose constraint is scaffolding for the reference. The assertion says so
+    rather than silently taking the first of several.
     """
     page = to_markdown(PROBES / f'{name}.yaml', numbered=False)
-    equations = [line for line in _section(page, 'Subject to').splitlines() if line.startswith('$$')]
-    assert len(equations) == 1, f'{name}.yaml should declare exactly one constraint; it rendered {len(equations)}'
+    title = 'Post-solve' if '#### Post-solve' in page else 'Subject to'
+    equations = [line for line in _section(page, title).splitlines() if line.startswith('$$')]
+    assert len(equations) == 1, f'{name}.yaml should feature exactly one equation; it rendered {len(equations)}'
     notes = [block.strip() for block in page.split('\n\n') if 'denotes' in block]
     return _inline(equations[0]), notes
 

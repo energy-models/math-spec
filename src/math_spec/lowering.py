@@ -21,6 +21,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    ConstraintNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
@@ -163,7 +164,12 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         )
         for sname, sdef in expanded.sos.items()
     }
-    expressions = {name: _lower_expression(expanded, ns, name) for name in expanded.expressions}
+    expressions: dict[str, program.ExpressionNode] = {}
+    for name in expanded.expressions:
+        context = f"named expression '{name}'"
+        ast = expression_of(name, expanded, ns, context)
+        assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
+        expressions[name] = _Lowering(expanded, context).expr(ast)
     return program.Program(
         parameters=parameters,
         variables=variables,
@@ -174,18 +180,6 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
         named_expressions=expressions,
     )
-
-
-def _lower_expression(schema: _ExpandedSpec, ns: Namespace, name: str) -> program.ExpressionNode:
-    """Compile the named expression *name* into a program expression.
-
-    Raises:
-        LanguageError: A construct outside the language, named with its rewrite.
-    """
-    context = f"named expression '{name}'"
-    ast = expression_of(name, schema, ns, context)
-    assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
-    return _Lowering(schema, context).expr(ast)
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +207,10 @@ class _Lowering:
 
         if isinstance(node, UnresolvedNode | KwargNode):
             msg = f'{node!r} reached lowering. Expressions go through resolution.expression_of() first.'
+            raise AssertionError(msg)
+
+        if isinstance(node, ConstraintNode):
+            msg = f'{self.context}: a constraint reference reached lowering outside dual(); only dual() consumes one.'
             raise AssertionError(msg)
 
         if isinstance(node, UnaryOperatorNode):
@@ -316,6 +314,17 @@ class _Lowering:
             width = int(within_node.value)
         return program.Window(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
 
+    def dual(self, node: FunctionCallNode) -> program.ExpressionNode:
+        """``dual(c)`` — the shadow price of constraint ``c``, read after the solve.
+
+        Reachable only from a post-solve-grade entry; the loader refuses
+        ``dual`` anywhere the math a solver ingests is built, so a
+        :class:`program.Dual` never stands under the objective or a constraint.
+        """
+        (arg,) = node.args
+        assert isinstance(arg, ConstraintNode), "resolution resolves dual()'s argument to a constraint reference"
+        return program.Dual(arg.name)
+
     def shift(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``shift(x, over=d, offset=n)`` — the value at *t - offset* along one dim.
 
@@ -349,6 +358,7 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
     'at': _Lowering.at,
     'sum_back': _Lowering.sum_back,
     'shift': _Lowering.shift,
+    'dual': _Lowering.dual,
 }
 
 

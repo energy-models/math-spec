@@ -101,6 +101,7 @@ BUILTINS: dict[str, Builtin] = {
         edge_kwargs=('edge',),
         optional_kwargs=('by',),
     ),
+    'dual': Builtin('dual(<constraint>)'),
 }
 
 BUILTIN_NAMES = frozenset(BUILTINS)

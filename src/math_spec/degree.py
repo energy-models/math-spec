@@ -5,8 +5,11 @@
 """Degree — the one admissibility rule that is a scope choice (docs/about/ceiling.md).
 
 **Degree 2 in the math, degree 1 in what stands beside it.** An objective and a
-constraint both take ``variable * variable``; a *bound*, a named expression and
-a ``piecewise:`` link do not — each of those is read affinely.
+constraint both take ``variable * variable``; a *bound* and a ``piecewise:``
+link do not — each of those is read affinely. An ``expressions:`` entry is not
+degree-checked at declaration at all: its expanded body decides its grade
+(:func:`is_postsolve_grade`), and the math reading the entry is checked where
+it reads, at that position's own ceiling.
 
 A degree-2 product has a second rule: **at most one factor may be a sum of
 terms**. ``sum(x, over=i) * sum(y, over=j)`` is a cross join whose size the
@@ -25,6 +28,7 @@ from typing import assert_never
 from math_spec._expression_parser import (
     BinaryOperatorNode,
     BranchNode,
+    ConstraintNode,
     FunctionCallNode,
     KwargNode,
     NumberNode,
@@ -46,7 +50,7 @@ def carries_variable(node: ParsedNode) -> bool:
     """
     if isinstance(node, VariableNode):
         return True
-    if isinstance(node, NumberNode | ParameterNode | KwargNode):
+    if isinstance(node, NumberNode | ParameterNode | ConstraintNode | KwargNode):
         return False
     if isinstance(node, UnresolvedNode):
         msg = f'{node!r} reached the degree check. Expressions go through resolution.expression_of() first.'
@@ -156,9 +160,9 @@ def _a_variable_under_a_power_message(where: str) -> str:
 def _degree_two_here_message(where: str) -> str:
     return (
         f'{where}both factors of a product contain variables, which is degree 2. '
-        f'The **objective and constraints** take that; a bound, a named expression '
-        f'and a piecewise: link do not — each of those is read affinely by '
-        f'something downstream.\n'
+        f'The **objective and constraints** take that; a bound and a piecewise: '
+        f'link do not — each of those is read affinely by something '
+        f'downstream.\n'
         f'Multiply the variable by a parameter instead, or state the product where '
         f'it can stand: as a constraint of its own, with a variable holding the '
         f'result.'
@@ -213,3 +217,54 @@ def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> Non
         check_binary(node, context, ceiling=ceiling)
     for child in children(node):
         check_expression(child, context, ceiling=ceiling)
+
+
+def is_postsolve_grade(node: ParsedNode) -> bool:
+    """Whether an ``expressions:`` entry's resolved, expanded body is post-solve grade.
+
+    Post-solve grade means the body breaks a rule :func:`check_expression`
+    holds an affine position to (``ceiling=1``): the degree cap, the
+    single-sum-factor rule, the variable-divisor and variable-exponent bans,
+    or the additive-operand bans that refuse a divisor, base or exponent that
+    is a sum even with no variable in it. Every one of those rules exists
+    because a sink downstream must build the math; a post-solve-grade body is
+    arithmetic over numbers a solve has already produced, which nothing
+    ingests — so ``cost / energy``, ``p * p * p`` and ``(1 + rate) ** period``
+    grade post-solve where a constraint would refuse them. A body calling
+    ``dual()`` is post-solve grade for the same reason: a dual is a number
+    only a solve produces.
+
+    Expansion inlines every reference before this asks, so the grade is
+    body-local and decided at load, no data. The math reading an entry never
+    consults it: degree is checked again where the entry is read, at the
+    reading position's own ceiling, which is where a post-solve-grade body in
+    a constraint fails.
+    """
+    if calls_dual(node):
+        return True
+    try:
+        check_expression(node, '', ceiling=1)
+    except LanguageError:
+        return True
+    return False
+
+
+def calls_dual(node: ParsedNode) -> bool:
+    """Whether ``dual()`` is called anywhere in *node*.
+
+    Asked of the *expanded* tree, so a ``dual`` inlined through a macro or a
+    named expression is caught alongside one written in place — the whole
+    point of enforcing the placement rule after expansion rather than at the
+    call site.
+    """
+    if isinstance(node, FunctionCallNode) and node.name == 'dual':
+        return True
+    return any(calls_dual(c) for c in children(node))
+
+
+def dual_in_math_message(context: str) -> str:
+    """Why ``dual()`` is refused where the math is built — a placement rule, not a degree."""
+    return (
+        f'{context}: a dual exists only after a solve; the math cannot read one — '
+        f'keep the entry that carries it out of constraints, the objective, bounds and where.'
+    )
