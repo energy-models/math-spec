@@ -444,9 +444,7 @@ def test_nothing_the_model_is_given_prints_italic():
     rendering path added later reaches the page through its own call."""
     schema = expand_piecewise(to_spec(golden.MODEL))
     namespace = Namespace.of(schema)
-    computed = (
-        set(schema.variables) | chosen_expressions(schema, namespace) | set(reported_expressions(schema, namespace))
-    )
+    computed = set(schema.variables) | chosen_expressions(schema, namespace) | set(reported_expressions(schema))
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
     assert italic <= computed, (
         f'{sorted(italic - computed)} print italic and are neither chosen by the solver nor read off its '

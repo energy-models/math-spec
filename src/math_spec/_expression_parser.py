@@ -75,16 +75,16 @@ class ParameterNode:
 
 
 @dataclass(frozen=True)
-class ConstraintNode:
-    """A resolved reference to a declared constraint, legal only as ``dual()``'s argument.
+class DualNode:
+    """A resolved ``dual(c)``: the row dual of the declared constraint *c*, a leaf.
 
-    Constraints sit outside the flat namespace, so a bare name never resolves to
-    one — only ``dual(c)`` reaches the constraint store. A dual is data read
-    after the solve, so this leaf is reached only from a reported-grade entry;
-    the loader refuses ``dual`` anywhere the math is built.
+    Constraints sit outside the flat namespace, so a bare name never resolves
+    to one; ``dual(c)`` is the one position that reads the constraint store. A
+    dual is a number only a solve produces, so the loader refuses this leaf
+    anywhere the math is built (:mod:`math_spec.validation`).
     """
 
-    name: str
+    constraint: str
 
 
 @dataclass(frozen=True)
@@ -225,7 +225,7 @@ ArithmeticNode = (
     | NameListNode
     | VariableNode
     | ParameterNode
-    | ConstraintNode
+    | DualNode
     | DimensionNode
     | LookupNode
     | EdgeNode
@@ -269,7 +269,7 @@ KwargNode = DimensionNode | LookupNode | EdgeNode
 UnresolvedNode = NameNode | NameListNode | KeywordNode
 
 #: Every leaf — nothing below it to descend into.
-LeafNode = NumberNode | VariableNode | ParameterNode | ConstraintNode | KwargNode | UnresolvedNode
+LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
 
 #: Every node carrying sub-expressions, which is exactly what :func:`children`
 #: descends and the only place a walk recurses.

@@ -583,7 +583,7 @@ def test_expressions_are_the_ones_a_row_is_built_from():
         program.constraints['c'].lhs,
         program.constraints['c'].rhs,
     ), 'the objective first, then both sides of each constraint, in declaration order'
-    assert program.named_expressions['spend'] not in program.expressions, (
+    assert program.named_expressions['spend'].expression not in program.expressions, (
         'a named expression builds no row, so it is not one of the expressions a row is built from'
     )
     assert len(program.expressions) == 3, 'and nothing else is counted'
@@ -644,7 +644,9 @@ def test_a_named_expression_is_not_in_the_footprint():
     program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}))
 
     assert Parameter not in program.footprint.shapes, "the named expression's parameter reaches no row"
-    assert Parameter in {type(n) for n in walk(program.named_expressions['spend'])}, 'though it is in the expression'
+    assert Parameter in {type(n) for n in walk(program.named_expressions['spend'].expression)}, (
+        'though it is in the expression'
+    )
 
 
 def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
@@ -746,6 +748,36 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
     """`Program.expressions` carries it, so a consumer reads it back whole."""
     program = to_program(CASED)
 
-    assert isinstance(program.named_expressions['previous'], Cases), (
+    assert isinstance(program.named_expressions['previous'].expression, Cases), (
         'a cased expression reaches the program as the node, not as its fallback arm alone'
     )
+
+
+@pytest.mark.parametrize(
+    ('patch', 'in_math'),
+    [
+        pytest.param({'constraints.c.expression': 'spend >= 1'}, True, id='a-constraint-inlines-it'),
+        pytest.param({'objective': {'sense': 'minimize', 'expression': 'spend'}}, True, id='the-objective-inlines-it'),
+        pytest.param(
+            {'expressions.twice': 'spend * 2', 'constraints.c.expression': 'twice >= 1'},
+            True,
+            id='inlined-through-another-entry',
+        ),
+        pytest.param(
+            {
+                'macros': {'scaled': {'args': ['x'], 'template': 'x * 2'}},
+                'constraints.c.expression': 'scaled(spend) >= 1',
+            },
+            True,
+            id='inlined-through-a-macro',
+        ),
+        pytest.param({}, False, id='nothing-reads-it'),
+        pytest.param(
+            {'expressions.ratio': 'spend / sum(p, over=g)'}, False, id='only-an-entry-the-math-never-reads-inlines-it'
+        ),
+    ],
+)
+def test_an_entry_is_in_the_math_where_the_objective_or_a_constraint_inlines_it(patch, in_math):
+    """`in_math` is usage, not shape: one affine body is in the math when a row inlines it, however indirectly, and a reported quantity when none does."""
+    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch))
+    assert program.named_expressions['spend'].in_math is in_math

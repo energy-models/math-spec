@@ -22,8 +22,8 @@ from math_spec._expression_parser import (
     CaseArm,
     CasesNode,
     ComparisonNode,
-    ConstraintNode,
     DimensionNode,
+    DualNode,
     EdgeNode,
     FunctionCallNode,
     KeywordNode,
@@ -102,7 +102,7 @@ class Namespace:
         lookups: Mapping[str, tuple[str, str | None]],
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
-        constraints: Iterable[str] = (),
+        constraints: Iterable[str],
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
@@ -328,7 +328,7 @@ class _Resolver:
         numeric check here stands aside for it. A quoted keyword or a name list in
         arithmetic arrives through a macro formal bound to one.
         """
-        if isinstance(node, NumberNode | VariableNode | ParameterNode | ConstraintNode | KwargNode):
+        if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode):
             return node
         if isinstance(node, NameNode):
             return self._name(node, amount=amount)
@@ -398,7 +398,7 @@ class _Resolver:
         if shape_error is not None:
             self.errors.append(f'{self.context}: {shape_error}')
         if node.name == 'dual':
-            return FunctionCallNode('dual', tuple(self._constraint_ref(a) for a in node.args), {})
+            return node if shape_error is not None else self._dual(node)
         args = tuple(self._arith(a) for a in node.args)
         kwargs: dict[str, ArithmeticNode] = {}
         for key, value in node.kwargs.items():
@@ -472,29 +472,29 @@ class _Resolver:
             return value
         return DimensionNode(value.name)
 
-    def _constraint_ref(self, value: ArithmeticNode) -> ArithmeticNode:
-        """``dual()``'s argument: the name of a declared constraint.
+    def _dual(self, node: FunctionCallNode) -> ArithmeticNode:
+        """``dual(c)`` typed to the leaf it is, its one argument the name of a declared constraint.
 
         Constraints sit outside the flat namespace, so this store is consulted
-        only here — a bare name in arithmetic never reaches it. A ``dual``
-        reference from the math is refused separately
-        (:mod:`math_spec.validation`); this pass only types the name a legal one
-        carries.
+        only here — a bare name in arithmetic never reaches it. A dual standing
+        where the math is built is refused separately
+        (:mod:`math_spec.validation`); this pass only types the name.
         """
+        (value,) = node.args
         if not isinstance(value, NameNode):
             self.errors.append(
                 f'{self.context}: dual() takes the name of a declared constraint, written bare — '
                 f'dual(<constraint>). Name the constraint whose row dual you want.'
             )
-            return value
+            return node
         if value.name not in self.ns.constraints:
             self.errors.append(
                 f"{self.context}: dual({value.name}): '{value.name}' is not a declared constraint.\n"
                 f'  Constraints: {sorted(self.ns.constraints)}\n'
                 f"Check for typos, or declare '{value.name}' under 'constraints:'."
             )
-            return value
-        return ConstraintNode(value.name)
+            return node
+        return DualNode(value.name)
 
     def _lookup_ref(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
         """An operator kwarg whose *value* must name groupable lookups.

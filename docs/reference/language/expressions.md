@@ -46,8 +46,9 @@ over=g)` is refused: that is every term of one against every term of the
   link. A bound is a number per column; a link expands into declarations that
   must themselves be affine. A named expression, by contrast, is read at the
   ceiling of wherever the math reads it — degree 2 in the objective or a
-  constraint, affine in a bound. One whose body no math position can read — a
-  variable divisor, a cube, a `dual()` — is **reported grade** instead (below).
+  constraint, affine in a piecewise link. One nothing in the math reads is held
+  to no degree at all: it is a **reported** quantity (below), which is what
+  lets it divide by a variable, cube one, or call `dual()`.
 
 `/` needs a variable-free divisor everywhere, and a single factor rather than a
 sum — both decided at load time, since neither depends on the numbers that
@@ -343,18 +344,18 @@ anything consumes the model, so a reference costs nothing at build time. It is
 lowered only when it is _read_, so a model with fifty named expressions that
 reads none pays for none.
 
-A named expression is one of **two grades**, read off its own expanded body,
-not written down anywhere in the file. **Math grade** is the shape above: a
-form the objective or a constraint may reference, held to the
-same [degree-2 ceiling](#degree-2-in-the-math-degree-1-beside-it) the math
-holds to everywhere else. A body that breaks one of those rules — a variable
-divisor, a cube, a ratio of two sums — or that calls
-[`dual()`](reported.md#reading-a-constraints-dual) is **reported grade**
-instead: a
-statistic the solver never sees, arithmetic over numbers a solve has already
-produced, where those restrictions lift. See
-[Reported expressions](reported.md) for what lifts, and why the math
-refuses to read one back.
+A named expression is one of **two things**, and the file never says which —
+the objective and the constraints do. One they inline, directly or through
+another entry or a macro, is **in the math**: it stands inside the program a
+solver sees, held to the same
+[degree-2 ceiling](#degree-2-in-the-math-degree-1-beside-it) the math holds to
+everywhere else, where it is read. One nothing in the math names is
+**reported**: a statistic the solver never sees, arithmetic over numbers a
+solve has already produced, where those restrictions lift — which is what lets
+it divide by a variable, cube one, or call
+[`dual()`](reported.md#reading-a-constraints-dual). See
+[Reported expressions](reported.md) for what lifts, and how the split is
+decided.
 
 ### `cases:` — one quantity, a value per region
 

@@ -410,8 +410,6 @@ def _declared_order(schema: Spec, dims: frozenset[str]) -> list[str]:
 def _expr_dims(schema: Spec, text: str, ctx: str) -> frozenset[str]:
     """Dims of an affine link expression, asked of ``dimensions`` before any declaration exists to carry it."""
     ast = parse_and_expand(text, schema, ctx)
-    if calls_dual(ast):
-        raise PiecewiseExpansionError(dual_in_math_message(ctx))
     if isinstance(ast, ComparisonNode):
         raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
     errors: list[str] = []
@@ -419,6 +417,8 @@ def _expr_dims(schema: Spec, text: str, ctx: str) -> frozenset[str]:
     if resolved is None:
         raise PiecewiseExpansionError('\n'.join(errors))
     assert not isinstance(resolved, ComparisonNode)
+    if calls_dual(resolved):
+        raise PiecewiseExpansionError(dual_in_math_message(ctx))
     try:
         check_expression(resolved, ctx)
         return dims_of(resolved, schema, ctx)

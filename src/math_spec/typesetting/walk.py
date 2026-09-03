@@ -21,8 +21,8 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
-    ConstraintNode,
     DimensionNode,
+    DualNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
@@ -314,15 +314,21 @@ class Walk:
         if isinstance(node, CasesNode):
             return ctx.indexed(self.symbols.name[node.name], self._frame(node.name)), _ATOM
 
+        if isinstance(node, DualNode):
+            return self._dual(node, ctx), _ATOM
+
         if isinstance(node, UnresolvedNode | KwargNode):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
-        if isinstance(node, ConstraintNode):
-            msg = 'a ConstraintNode reached the typesetter outside dual(); only dual() consumes a constraint reference.'
-            raise AssertionError(msg)
-
         assert_never(node)
+
+    def _dual(self, node: DualNode, ctx: _Context) -> str:
+        """λ subscripted by the constraint's symbol, then the indices of the constraint's own frame."""
+        frame = self._sorted(dims_of(node, self.schema, 'a dual'))
+        return self.format.subscript(
+            self._op('dual'), [self.symbols.constraint[node.constraint], *(ctx.subscript(d) for d in frame)]
+        )
 
     def _binary(self, node: BinaryOperatorNode, ctx: _Context) -> tuple[str, int]:
         """Render a binary operator, bracketing only where the reading demands.
@@ -359,17 +365,8 @@ class Walk:
         ``shift`` and ``at`` emit no operator of their own — they re-index the
         operand, so the substitution shows at the leaves. A ``sum`` naming no
         dim binds every dim its operand carries, and the domain has to say
-        which, since the call does not. ``dual`` is a leaf, not a reduction: it
-        renders as λ subscripted by the constraint's symbol and then the
-        indices of the constraint's own frame.
+        which, since the call does not.
         """
-        if node.name == 'dual':
-            (arg,) = node.args
-            assert isinstance(arg, ConstraintNode), "resolution resolves dual()'s argument to a constraint reference"
-            frame = self._sorted(dims_of(node, self.schema, 'a dual'))
-            indices = [self.symbols.constraint[arg.name], *(ctx.subscript(d) for d in frame)]
-            return self.format.subscript(self._op('dual'), indices), _ATOM
-
         if node.name == 'shift':
             dim = node.kwargs['over']
             assert isinstance(dim, DimensionNode)
@@ -587,8 +584,8 @@ class Walk:
         """Every titled section of equations, and what printing them noticed for the legend.
 
         Args:
-            reported: Whether to append the Reported quantities section of derived
-                quantities a solve produces.
+            reported: Whether to append the Reported quantities section — the
+                entries the objective and constraints never read.
         """
         sections = [
             ('Objective', self._objective()),
@@ -716,16 +713,15 @@ class Walk:
         return lines
 
     def _reported(self) -> list[Line]:
-        """One line per reported-grade entry — a derived quantity equated to its body.
+        """One line per entry the math never reads — a quantity equated to its body.
 
         A reported entry *defines* a value, so it prints as ``symbol = body``:
         the right side says what the left is, which is why it needs no legend
-        entry the way a variable does. A math-grade entry prints nothing here —
-        it is inlined wherever it is read, exactly as every entry is in the
-        equations above.
+        entry the way a variable does. An entry the math reads prints nothing
+        here — it is inlined wherever it is read, in the equations above.
         """
         lines = []
-        for name in reported_expressions(self.schema, self.namespace):
+        for name in reported_expressions(self.schema):
             context = f"expression '{name}'"
             node = expression_of(name, self.schema, self.namespace, context)
             assert not isinstance(node, ComparisonNode), f'{context}: a named body is arithmetic, not a comparison'

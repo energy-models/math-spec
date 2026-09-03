@@ -279,7 +279,7 @@ def test_a_link_outside_the_language_is_named_where_the_user_wrote_it(link_expre
 def test_a_link_reading_a_nonlinear_entry_is_refused():
     """A named entry, nonlinear and so legal on its own, is refused where the link reads it.
 
-    `ratio` loads — its grade is decided, not banned at declaration — but a
+    `ratio` loads — nothing bans it at declaration — but a
     piecewise link is affine, so reading it there hits the same divisor ban a
     constraint would. The refusal lives at the reading position, not the
     declaration: the entry-declaration relocation for the other math positions
@@ -313,6 +313,15 @@ def test_a_link_reading_a_degree_two_product_entry_is_refused():
             },
         )
     assert "piecewise 'cost_curve' link 0" in str(exc.value)
+
+
+def test_an_entry_a_link_reads_is_in_the_math():
+    """A link's expression stands inside the constraints its expansion emits, so an entry it names is one the math reads."""
+    schema = schema_of(
+        NONCONVEX_YAML,
+        **{'expressions': {'twice': 'p * 2'}, 'piecewise.cost_curve.links': [['twice', 'bp_x'], ['op_cost', 'bp_y']]},
+    )
+    assert to_program(schema).named_expressions['twice'].in_math is True
 
 
 def test_a_link_reading_a_dual_entry_is_refused():

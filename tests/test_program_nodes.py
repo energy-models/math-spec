@@ -29,13 +29,13 @@ FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yam
 def _expressions(program: Program) -> list[ExpressionNode]:
     """Every tree a program hangs on to, wherever it hangs it.
 
-    Bounds and named expressions among them: a node reachable only from a
-    reported-grade entry — `Dual` is the only such node — is still a node
-    a consumer has to build.
+    Bounds and named expressions among them: a node reachable only from an
+    entry the math never reads — `Dual` is the only such node — is still a
+    node a consumer has to build.
     """
     trees = [side for c in program.constraints.values() for side in (c.lhs, c.rhs)]
     trees += [bound for v in program.variables.values() for bound in (v.lower, v.upper)]
-    trees += list(program.named_expressions.values())
+    trees += [e.expression for e in program.named_expressions.values()]
     if program.objective is not None:
         trees.append(program.objective.expression)
     return trees
