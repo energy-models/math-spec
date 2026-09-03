@@ -7,9 +7,9 @@
 **Degree 2 in the math, degree 1 in what stands beside it.** An objective and a
 constraint both take ``variable * variable``; a *bound* and a ``piecewise:``
 link do not — each of those is read affinely. An ``expressions:`` entry is not
-degree-checked at declaration at all: its expanded body decides its grade
-(:func:`is_reported_grade`), and the math reading the entry is checked where
-it reads, at that position's own ceiling.
+degree-checked at declaration at all: the math reading it is checked where it
+reads, at that position's own ceiling, and an entry the math never reads
+(``ExpressionDeclaration.in_math``) is held to no degree.
 
 A degree-2 product has a second rule: **at most one factor may be a sum of
 terms**. ``sum(x, over=i) * sum(y, over=j)`` is a cross join whose size the
@@ -28,7 +28,7 @@ from typing import assert_never
 from math_spec._expression_parser import (
     BinaryOperatorNode,
     BranchNode,
-    ConstraintNode,
+    DualNode,
     FunctionCallNode,
     KwargNode,
     NumberNode,
@@ -50,7 +50,7 @@ def carries_variable(node: ParsedNode) -> bool:
     """
     if isinstance(node, VariableNode):
         return True
-    if isinstance(node, NumberNode | ParameterNode | ConstraintNode | KwargNode):
+    if isinstance(node, NumberNode | ParameterNode | DualNode | KwargNode):
         return False
     if isinstance(node, UnresolvedNode):
         msg = f'{node!r} reached the degree check. Expressions go through resolution.expression_of() first.'
@@ -219,48 +219,15 @@ def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> Non
         check_expression(child, context, ceiling=ceiling)
 
 
-def is_reported_grade(node: ParsedNode) -> bool:
-    """Whether an ``expressions:`` entry's resolved, expanded body is reported grade — no math position reads it.
-
-    Reported grade means the body breaks a rule :func:`check_expression`
-    holds the math's own ceiling to (``ceiling=2`` — the objective and a
-    constraint): a product above degree 2, the single-sum-factor rule, the
-    variable-divisor and variable-exponent bans, or the additive-operand bans
-    that refuse a divisor, base or exponent that is a sum even with no variable
-    in it. The boundary is exactly what the objective and constraints read, so
-    a degree-2 product like ``p * q`` is math grade: the math reads it. A body
-    that clears every one of those rules is math grade; one that breaks any is
-    read by no math position, which is why ``cost / energy``, ``p * p * p`` and
-    ``(1 + rate) ** period`` are reported grade where a constraint would refuse
-    them. A body calling ``dual()`` is reported grade for the same reason: a
-    dual is a number only a solve produces.
-
-    Expansion inlines every reference before this asks, so the grade is
-    body-local and decided at load, no data. The math reading an entry never
-    consults it: degree is checked again where the entry is read, at the
-    reading position's own ceiling — so a math-grade degree-2 entry a bound
-    references still fails there, at ``ceiling=1``.
-    """
-    if calls_dual(node):
-        return True
-    try:
-        check_expression(node, '', ceiling=2)
-    except LanguageError:
-        return True
-    return False
-
-
 def calls_dual(node: ParsedNode) -> bool:
-    """Whether ``dual()`` is called anywhere in *node*.
+    """Whether a :class:`DualNode` stands anywhere in the resolved *node*.
 
     Asked of the *expanded* tree, so a ``dual`` inlined through a macro or a
     named expression is caught alongside one written in place — the whole
     point of enforcing the placement rule after expansion rather than at the
     call site.
     """
-    if isinstance(node, FunctionCallNode) and node.name == 'dual':
-        return True
-    return any(calls_dual(c) for c in children(node))
+    return isinstance(node, DualNode) or any(calls_dual(c) for c in children(node))
 
 
 def dual_in_math_message(context: str) -> str:

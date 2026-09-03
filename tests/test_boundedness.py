@@ -98,10 +98,9 @@ THROUGH_EACH_OPERATOR = {
     'at': {'variables.u': {'foreach': ['h']}, 'objective.expression': 'sum(at(u, by=lk), over=g)'},
 }
 
-#: `dual` grades its entry reported, which no objective may read, and
-#: boundedness walks the objective — so its `Dual` leaf never reaches `_walk`,
-#: and carries no variable to hand a sign to in any case. Exempt, not a
-#: missing case.
+#: `dual` is refused in any objective, and boundedness walks the objective —
+#: so its `Dual` leaf never reaches `_walk`, and carries no variable to hand a
+#: sign to in any case. Exempt, not a missing case.
 REPORTED_ONLY = {'dual'}
 
 

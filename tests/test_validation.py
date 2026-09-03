@@ -125,8 +125,8 @@ class TestValidateExpressions:
     def test_a_nonlinear_entry_is_refused_where_the_math_reads_it(self, patch, fragments):
         """The refusal a nonlinear body once earned at its own declaration now fires where the math reads it.
 
-        `bad` (a variable divisor) loads on its own — its grade is decided, not
-        refused (see `TestExpressionGrade`). The constraint and the objective
+        `bad` (a variable divisor) loads on its own — nothing reads it, so it
+        is a reported quantity. The constraint and the objective
         read it and hit the divisor ban at their own ceiling, which is the whole
         point of grading rather than banning at declaration. The piecewise-link
         position is `test_a_link_reading_a_nonlinear_entry_is_refused`; a bound
@@ -154,28 +154,29 @@ class TestValidateExpressions:
         ],
     )
     def test_a_bound_or_where_cannot_name_an_expression(self, patch, fragment):
-        """A bound and a where reference parameters/variables, never a named expression, so the name fails to resolve regardless of the entry's grade."""
+        """A bound and a where reference parameters/variables, never a named expression, so the name fails to resolve whatever the entry's body."""
         with pytest.raises(LanguageError) as exc:
             _schema(**_NONLINEAR_ENTRY, **patch)
         assert fragment in str(exc.value)
 
-    def test_an_unreferenced_nonlinear_entry_loads_typesets_and_grades_reported(self):
-        """A nonlinear entry nothing reads is accepted, printed, and graded reported — the deliberate cost of grading over banning.
+    def test_an_unreferenced_nonlinear_entry_loads_and_is_reported(self):
+        """A nonlinear entry nothing reads is accepted, printed, and not in the math — the deliberate cost of checking degree where the math reads.
 
-        This is the C1 silent-typo case made visible instead of denied: a body
+        This is the silent-typo case made visible instead of denied: a body
         the math would refuse (here a variable divisor) is legal on its own
         because it is arithmetic over solved numbers, so a typo that leaves it
         unread is not caught by the loader. The language pays that cost openly —
-        the entry loads, appears in the typeset Reported quantities section, and reports
-        its grade — rather than degree-checking a declaration nothing consumes.
+        the entry loads, says the math does not read it, and prints in the
+        Reported quantities section — rather than degree-checking a declaration
+        nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert 'lcoe' in to_program(model).named_expressions, (
-            'the unread nonlinear body loads rather than being refused'
+        assert to_program(model).named_expressions['lcoe'].in_math is False, (
+            'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
         rendered = to_markdown(model)
         assert 'Reported quantities' in rendered and 'lcoe' in rendered, (
-            'and its grade shows: it prints in the Reported quantities section'
+            'and the page says so: it prints in the Reported quantities section'
         )
 
 
@@ -205,7 +206,7 @@ def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str,
 
 
 class TestDual:
-    """`dual(c)`: a primitive whose call grades its entry reported, its argument a constraint name resolved against constraints alone."""
+    """`dual(c)`: a primitive legal only in an entry the math never reads, its argument a constraint name resolved against constraints alone."""
 
     BASE = override(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
 
@@ -272,7 +273,7 @@ class TestDual:
             assert fragment in str(exc.value)
 
     def test_a_dual_loads_in_an_expressions_entry(self):
-        """The one place it is legal: an ``expressions:`` entry naming a declared constraint — the call grades the entry reported."""
+        """The one place it is legal: an ``expressions:`` entry naming a declared constraint, which nothing in the math reads."""
         assert to_spec(override(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
 
 

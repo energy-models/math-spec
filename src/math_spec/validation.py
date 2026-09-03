@@ -15,7 +15,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
-    ConstraintNode,
+    DualNode,
     FunctionCallNode,
     KeywordNode,
     KwargNode,
@@ -117,7 +117,7 @@ def validate_expressions(schema: Spec) -> None:
         context = f"Named expression '{ename}'"
         if not block.cases:
             assert block.expression is not None
-            _check_expression(block.expression, schema, ns, context, errors, comparison=False, check_degree=False)
+            _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=None)
             continue
         found = len(errors)
         masks: dict[str, WhereNode] = {}
@@ -128,10 +128,10 @@ def validate_expressions(schema: Spec) -> None:
                     errors.append(_constant_arm(arm_context, value=mask.value))
                 else:
                     masks[case_name] = mask
-            _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, check_degree=False)
+            _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=None)
         assert block.otherwise is not None
         _check_expression(
-            block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, check_degree=False
+            block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, ceiling=None
         )
         if len(errors) == found:
             errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
@@ -183,23 +183,20 @@ def _check_expression(
     errors: list[str],
     *,
     comparison: bool,
-    check_degree: bool = True,
+    ceiling: int | None = 1,
 ) -> None:
     """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
 
-    ``check_degree`` is off for an ``expressions:`` entry's body: degree and
-    the ``dual()`` placement rule are rules about the position that *reads*
-    the math, so they fire on the expanded tree of every constraint,
-    objective, bound, where and piecewise link, and an entry's declaration
-    only decides its grade (:func:`math_spec.degree.is_reported_grade`).
+    ``ceiling`` is the degree the position honours, and ``None`` for an
+    ``expressions:`` entry's body: degree and the ``dual()`` placement rule
+    are rules about the position that *reads* the math, so they fire on the
+    expanded tree of every constraint, objective, bound, where and piecewise
+    link, and not where an entry is declared.
     """
     try:
         ast = parse_and_expand(expression, schema, context)
     except ValueError as e:
         errors.append(_prefixed(context, e))
-        return
-    if check_degree and degree.calls_dual(ast):
-        errors.append(degree.dual_in_math_message(context))
         return
     if comparison and not isinstance(ast, ComparisonNode):
         errors.append(
@@ -212,6 +209,11 @@ def _check_expression(
     resolved = resolve_expression(ast, ns, context, errors)
     if resolved is None:
         return
+    if ceiling is None:
+        return
+    if degree.calls_dual(resolved):
+        errors.append(degree.dual_in_math_message(context))
+        return
     if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
         errors.append(
             f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
@@ -220,8 +222,6 @@ def _check_expression(
             f'is settled before the solve — no lane builds a row for it. Name the variable it should '
             f'bound, or drop the declaration and check the fact where the data is prepared.'
         )
-    if not check_degree:
-        return
     try:
         degree.check_expression(resolved, context, ceiling=2)
     except LanguageError as e:
@@ -246,7 +246,7 @@ def _check_template_names(
 
     A case arm's value only: its ``when`` is the declaration's, checked there.
     """
-    if isinstance(node, NumberNode | VariableNode | ParameterNode | KwargNode | KeywordNode | NameListNode):
+    if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
         return
 
     if isinstance(node, NameNode):
@@ -300,9 +300,6 @@ def _check_template_names(
     if isinstance(node, CasesNode):
         for arm in node.arms:
             _check_template_names(arm.value, context, ns, formals, errors)
-        return
-
-    if isinstance(node, ConstraintNode):
         return
 
     assert_never(node)

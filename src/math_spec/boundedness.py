@@ -134,14 +134,9 @@ def _record_signs(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> N
     A variable reached twice with different signs, or once with an undecidable
     one, lands on ``None``, which claims nothing. A reduction, a re-index, a
     window and a cases selection pass *sign* to their children unchanged; a
-    power carries no sign in either half.
-
-    A Constant, Parameter or Dual is a variable-free leaf and contributes
-    nothing. ``Dual`` is in that arm only to keep the walk exhaustive after the
-    union gained it — a dual makes its entry reported grade, which no
-    objective may read, so this walk never actually meets one; the clause is
-    not a claim that a dual would carry no sign into an objective it can never
-    enter.
+    power carries no sign in either half. A Constant, Parameter or Dual is a
+    variable-free leaf and contributes nothing — the Dual arm only keeps the
+    walk exhaustive, since the loader refuses one in any objective.
     """
     if isinstance(node, Variable):
         signs[node.name] = sign if signs.setdefault(node.name, sign) == sign else None

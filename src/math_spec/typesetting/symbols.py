@@ -18,13 +18,15 @@ from typing import TYPE_CHECKING, Any, cast
 import math_spec.degree as degree
 from math_spec._yaml import read_yaml
 from math_spec.errors import SchemaError, did_you_mean
-from math_spec.resolution import Namespace, expression_of
+from math_spec.expansion import read_by_the_math
+from math_spec.resolution import expression_of
 from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from math_spec.model import ExpressionBlock, _ExpandedSpec
+    from math_spec.resolution import Namespace
     from math_spec.typesetting.format import Format, Notation
 
 __all__ = ['SymbolTable', 'Symbols']
@@ -86,21 +88,17 @@ def printed_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
     return tuple(name for name, block in schema.expressions.items() if block.cases)
 
 
-def reported_expressions(schema: _ExpandedSpec, namespace: Namespace) -> tuple[str, ...]:
-    """The entries graded reported, in declaration order — the Reported quantities section's rows.
+def reported_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
+    """The entries the math never reads, in declaration order — the Reported quantities section's rows.
 
-    Graded on the resolved, expanded body by
-    :func:`math_spec.degree.is_reported_grade`, the grade's one home, so the
-    page and any consumer that asks the same predicate cannot disagree about a
-    body. A cased entry is not here whatever its grade: it prints as the
-    definition block :func:`printed_expressions` already places.
+    Decided by :func:`math_spec.expansion.read_by_the_math`, the same answer
+    the program carries, so the page and a consumer cannot disagree about which
+    entries the objective and constraints inline. A cased entry is not here
+    whether or not the math reads it: it prints as the definition block
+    :func:`printed_expressions` already places.
     """
-    return tuple(
-        name
-        for name, block in schema.expressions.items()
-        if not block.cases
-        and degree.is_reported_grade(expression_of(name, schema, namespace, f"named expression '{name}'"))
-    )
+    in_math = read_by_the_math(schema)
+    return tuple(name for name, block in schema.expressions.items() if not block.cases and name not in in_math)
 
 
 def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset[str]:
@@ -154,7 +152,7 @@ class Symbols:
             )
             raise SchemaError(msg)
         printed = printed_expressions(schema)
-        reported = reported_expressions(schema, namespace)
+        reported = reported_expressions(schema)
         chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace) | frozenset(reported)
         names = (*schema.parameters, *schema.variables, *printed, *reported)
         declared = frozenset(names)
@@ -282,7 +280,7 @@ class SymbolTable:
             names={k: str(v) for k, v in (raw.get('names') or {}).items()},
         )
 
-    def checked_against(self, schema: _ExpandedSpec, namespace: Namespace) -> SymbolTable:
+    def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
         everything = (
@@ -290,7 +288,7 @@ class SymbolTable:
             | set(schema.parameters)
             | set(schema.variables)
             | set(printed_expressions(schema))
-            | set(reported_expressions(schema, namespace))
+            | set(reported_expressions(schema))
             | set(schema.constraints)
         )
         errors = [

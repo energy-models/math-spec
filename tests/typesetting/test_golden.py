@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from math_spec._expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
+from math_spec._expression_parser import ArithmeticNode, ComparisonNode, DualNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.program import WhereNode
 from math_spec.resolution import Namespace, expression_of, where_of
@@ -130,7 +130,7 @@ def _rendered_trees() -> Iterator[object]:
     for name, block in schema.variables.items():
         if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
             yield mask.root
-    for name in reported_expressions(schema, namespace):
+    for name in reported_expressions(schema):
         yield expression_of(name, schema, namespace, f'reported expression {name!r}')
 
 
@@ -172,31 +172,30 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
 
 
 def test_the_golden_model_calls_every_operator_in_the_language():
-    """``BUILTINS`` is the closed set, so a new operator lands with its case here."""
-    calls = {node.name for tree in _rendered_trees() for node in _nodes(tree) if isinstance(node, FunctionCallNode)}
+    """``BUILTINS`` is the closed set, so a new operator lands with its case here.
+
+    ``dual`` resolves to its own leaf rather than staying a call, so it is
+    counted by that leaf.
+    """
+    nodes = [node for tree in _rendered_trees() for node in _nodes(tree)]
+    calls = {node.name for node in nodes if isinstance(node, FunctionCallNode)}
+    calls |= {'dual' for node in nodes if isinstance(node, DualNode)}
     assert calls == BUILTIN_NAMES, (
         f'tests/typesetting/golden/model.yaml never calls {sorted(BUILTIN_NAMES - calls)}. '
         f'An operator with no case here renders untested.'
     )
 
 
-#: What the fixture cannot reach, by the source text of the line, in two
-#: groups. The **guards** — every line of the two ``resolve … first`` arms, the
-#: one asserting a constraint is a comparison, and the one catching a bare
-#: ``ConstraintNode`` (``dual()`` consumes its argument without recursing) — are
-#: what the walk raises when resolution hands it something it types away, so a
-#: model reaching one is a bug upstream rather than a case worth committing
-#: output for. The
-#: **absent objective** is the arm a *different* model takes: a file declares
-#: at most one, so a fixture that has one cannot also be a fixture that has
-#: none, and `test_a_model_with_no_objective_prints_the_rest` covers it instead.
+#: What the fixture cannot reach, by the source text of the line. The guards
+#: are what the walk raises when resolution hands it something it types away,
+#: so a model reaching one is a bug upstream. The absent objective is the arm a
+#: *different* model takes — a file declares at most one — and
+#: `test_a_model_with_no_objective_prints_the_rest` covers it.
 UNREACHABLE = {
     'if isinstance(node, UnresolvedNode | KwargNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
     'if not isinstance(node, ComparisonNode):',
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
-    'if isinstance(node, ConstraintNode):',
-    "msg = 'a ConstraintNode reached the typesetter outside dual(); only dual() consumes a constraint reference.'",
     'raise AssertionError(msg)',
     'assert_never(node)',
     'if block is None:',

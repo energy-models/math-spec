@@ -14,9 +14,9 @@ import pytest
 
 from math_spec import LanguageError
 from math_spec._expression_parser import NameNode
-from math_spec.degree import carries_variable, check_binary, check_expression, is_reported_grade
+from math_spec.degree import calls_dual, carries_variable, check_binary, check_expression
 from math_spec.resolution import Namespace, expression_of
-from tests.fixtures import SMALL_MODEL, override, schema_of
+from tests.fixtures import SMALL_MODEL, schema_of
 
 SCHEMA = schema_of(SMALL_MODEL)
 
@@ -111,67 +111,6 @@ def test_carries_variable_refuses_an_unresolved_name():
         carries_variable(NameNode('p'))
 
 
-@pytest.mark.parametrize(
-    'text',
-    [
-        pytest.param('p * p * p', id='above-the-degree-cap'),
-        pytest.param('sum(p * c, over=g) / sum(p, over=g)', id='a-variable-divisor'),
-        pytest.param('k ** p', id='a-variable-exponent'),
-        pytest.param('sum(p, over=g) / (k + 1)', id='an-additive-divisor'),
-        pytest.param('sum(p, over=g) * (k + 1) ** 2', id='an-additive-base'),
-    ],
-)
-def test_a_body_no_math_position_reads_grades_reported(text):
-    """A body that breaks the math's own ceiling is reported grade — no position reads it.
-
-    One case per rule `check_expression(ceiling=2)` enforces above degree 2: the
-    ban on a degree-3 product, the variable divisor and exponent, the additive
-    divisor and additive base. Each is refused wherever the math reads it (see
-    `test_the_affine_ceiling_refuses_and_names_the_rewrite`) and legal only as a
-    quantity read off a solve.
-    """
-    assert is_reported_grade(_ast(text)) is True
-
-
-@pytest.mark.parametrize(
-    'text',
-    [
-        pytest.param('p * c', id='a-parameter-coefficient'),
-        pytest.param('sum(p * c, over=g)', id='a-reduction-of-affine-terms'),
-        pytest.param('p / c', id='a-parameter-divisor'),
-        pytest.param('p + q', id='a-sum-of-variables'),
-        pytest.param('p * q', id='a-degree-two-product'),
-    ],
-)
-def test_a_body_within_the_math_ceiling_grades_math(text):
-    """A body the objective and constraints read grades math — up to the degree-2 ceiling the math holds to.
-
-    A degree-2 product `p * q` grades math, not reported: the objective reads
-    it, so the grade boundary sits at `ceiling=2`, not the affine ceiling.
-    """
-    assert is_reported_grade(_ast(text)) is False
-
-
-@pytest.mark.parametrize(
-    ('template', 'reported'),
-    [
-        pytest.param('x * x * x', True, id='a-macro-that-cubes-a-variable'),
-        pytest.param('x * c', False, id='a-macro-that-scales-a-variable'),
-    ],
-)
-def test_the_grade_is_decided_on_the_expanded_body(template, reported):
-    """A macro cannot smuggle nonlinearity past the grade: it is read on the inlined body, not the call.
-
-    `cube(p)` looks affine at the call site; its expansion `p * p * p` is degree
-    3, above the math's ceiling, so the entry is reported grade. The same call
-    over a parameter stays math. The grade is body-local after expansion,
-    decided at load with no data.
-    """
-    schema = schema_of(override(SMALL_MODEL, macros={'cube': {'args': ['x'], 'template': template}}))
-    ast = expression_of('cube(p)', schema, Namespace.of(schema), 'test')
-    assert is_reported_grade(ast) is reported
-
-
 def _dual_ast(text: str):
     schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
     return expression_of(text, schema, Namespace.of(schema), 'test')
@@ -182,24 +121,21 @@ def test_a_dual_carries_no_variable():
     assert carries_variable(_dual_ast('dual(lim)')) is False
 
 
-def test_a_body_reading_a_dual_grades_reported():
-    """A dual is a number only a solve produces, so the entry reading one is reported grade even where its arithmetic is affine."""
-    assert is_reported_grade(_dual_ast('dual(lim) * c')) is True
-
-
 @pytest.mark.parametrize(
-    'text',
+    ('text', 'found'),
     [
-        pytest.param('dual(lim)', id='bare'),
-        pytest.param('sum(dual(lim), over=g)', id='under-a-reduction'),
+        pytest.param('dual(lim)', True, id='bare'),
+        pytest.param('dual(lim) * c', True, id='beside-affine-arithmetic'),
+        pytest.param('sum(dual(lim), over=g)', True, id='under-a-reduction'),
+        pytest.param('p * c', False, id='none'),
     ],
 )
-def test_a_nested_dual_grades_reported(text):
-    """`calls_dual` recurses through a reduction's argument, not only the top node."""
-    assert is_reported_grade(_dual_ast(text)) is True
+def test_calls_dual_finds_a_dual_wherever_it_stands(text, found):
+    """The placement guard recurses through a reduction's argument and an operand, not only the top node."""
+    assert calls_dual(_dual_ast(text)) is found
 
 
-def test_a_dual_inside_a_cased_arm_grades_reported():
+def test_calls_dual_finds_a_dual_inside_a_cased_arm():
     """`calls_dual` recurses through a `CasesNode` arm, not only the top node.
 
     The reference resolves straight to the `CasesNode` expansion.py builds, so
@@ -219,4 +155,4 @@ def test_a_dual_inside_a_cased_arm_grades_reported():
         },
     )
     ast = expression_of('dcase', schema, Namespace.of(schema), 'test')
-    assert is_reported_grade(ast) is True
+    assert calls_dual(ast) is True
