@@ -86,8 +86,9 @@ named there loads as a reported quantity instead of failing.
 A consumer reads the answer off the program —
 `Program.named_expressions[name].in_math` — and
 [typeset](../typeset.md) prints every entry that is not under its own name in
-a "Reported quantities" section, as `lcoe = system_cost / delivered`, whatever
-names it inlines from. The two cannot disagree: one function decides both.
+a "Reported quantities" section, its body expanded to the leaves — `lcoe`
+prints as the quotient of the two sums it names, since an entry the math reads
+has no symbol of its own. The two cannot disagree: one function decides both.
 
 ## The math reads at its own ceiling
 
