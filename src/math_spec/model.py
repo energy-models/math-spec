@@ -345,7 +345,7 @@ class ExpressionCase(_StrictBlock):
 
 
 class ExpressionBlock(_StrictBlock):
-    """A named quantity: one arithmetic expression, readable after a solve.
+    """A named quantity: one arithmetic expression, referenced by the math or read back after a solve.
 
     Written in YAML as a bare string, or as a mapping once it carries a
     ``description:`` — and serialised back to whichever form it was written in,

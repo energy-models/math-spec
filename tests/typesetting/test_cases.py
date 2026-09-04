@@ -137,17 +137,23 @@ def test_a_variable_reached_through_another_cased_expression_still_prints_chosen
     )
 
 
-def test_the_table_may_rename_a_cased_expression_but_not_a_plain_one():
-    """It names what prints, and a cased expression is the only expression that does.
+def test_the_table_may_rename_what_prints_under_its_own_name():
+    """It names what prints: a cased expression, and a plain one nothing in the math reads.
 
-    An entry that never applies is the failure mode the table is strict about.
+    A plain entry the math reads is inlined where it is read and prints
+    nowhere, so an entry for it never applies — the failure mode the table is
+    strict about.
     """
     tex = to_latex(CASED, symbols={'notation': 'latex', 'names': {'headroom': r'\bar h'}}, legend=False)
     assert r'\bar h_{t,g}' in tex
 
-    plain = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
+    reported = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
+    tex = to_latex(reported, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
+    assert 's_{t}' in tex, 'an entry the math never reads prints as a reported quantity, under the table name'
+
+    inlined = override(reported, **{'constraints.balance.expression': 'supply == load'})
     with pytest.raises(SchemaError, match='is not declared by the model'):
-        to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
+        to_latex(inlined, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
 
 
 def test_the_definitions_print_in_declaration_order():

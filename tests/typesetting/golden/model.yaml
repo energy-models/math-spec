@@ -83,6 +83,8 @@ sos:
     type: 2
 
 expressions:
+  lcoe: sum(p * cost) / sum(p) # nothing in the math reads it, so it prints under its own name rather than inlining — and its divisor may carry a variable
+  marginal_price: dual(balance) # the row dual of a constraint, the one builtin only an entry the math never reads may call
   startup_cost: # a quantity defined by region: no two cases overlap, and `otherwise` is the rest
     description: what starting a unit in this snapshot costs, which the horizon's edge changes
     foreach: [snapshot, generator]

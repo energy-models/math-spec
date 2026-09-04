@@ -14,7 +14,7 @@ import pytest
 
 from math_spec import LanguageError
 from math_spec._expression_parser import NameNode
-from math_spec.degree import carries_variable, check_binary, check_expression
+from math_spec.degree import calls_dual, carries_variable, check_binary, check_expression
 from math_spec.resolution import Namespace, expression_of
 from tests.fixtures import SMALL_MODEL, schema_of
 
@@ -109,3 +109,50 @@ def test_the_context_prefixes_the_sentence_and_an_empty_one_leaves_it_bare(conte
 def test_carries_variable_refuses_an_unresolved_name():
     with pytest.raises(AssertionError, match=r'resolution\.expression_of'):
         carries_variable(NameNode('p'))
+
+
+def _dual_ast(text: str):
+    schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
+    return expression_of(text, schema, Namespace.of(schema), 'test')
+
+
+def test_a_dual_carries_no_variable():
+    """A dual is data read after the solve, so it is not a variable term."""
+    assert carries_variable(_dual_ast('dual(lim)')) is False
+
+
+@pytest.mark.parametrize(
+    ('text', 'found'),
+    [
+        pytest.param('dual(lim)', True, id='bare'),
+        pytest.param('dual(lim) * c', True, id='beside-affine-arithmetic'),
+        pytest.param('sum(dual(lim), over=g)', True, id='under-a-reduction'),
+        pytest.param('p * c', False, id='none'),
+    ],
+)
+def test_calls_dual_finds_a_dual_wherever_it_stands(text, found):
+    """The placement guard recurses through a reduction's argument and an operand, not only the top node."""
+    assert calls_dual(_dual_ast(text)) is found
+
+
+def test_calls_dual_finds_a_dual_inside_a_cased_arm():
+    """`calls_dual` recurses through a `CasesNode` arm, not only the top node.
+
+    The reference resolves straight to the `CasesNode` expansion.py builds, so
+    this also guards that `children()` walking its arm values reaches a dual a
+    non-recursive check — one that only inspected the node it was handed —
+    would miss.
+    """
+    schema = schema_of(
+        SMALL_MODEL,
+        **{
+            'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'},
+            'expressions.dcase': {
+                'foreach': ['g'],
+                'cases': {'flagged': {'when': 'flag', 'expression': 'dual(lim)'}},
+                'otherwise': 0,
+            },
+        },
+    )
+    ast = expression_of('dcase', schema, Namespace.of(schema), 'test')
+    assert calls_dual(ast) is True

@@ -16,7 +16,7 @@ from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace
 from math_spec.typesetting import FORMATS, SymbolTable, to_latex, typeset
 from math_spec.typesetting.format import OPERATOR_NAMES
-from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
+from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions, reported_expressions
 from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, override
 from tests.typesetting import golden
@@ -383,6 +383,39 @@ def test_an_invalid_model_is_refused_before_anything_renders(fmt: Format):
         typeset(broken, fmt)
 
 
+@EVERY_FORMAT
+def test_the_reported_section_prints_only_when_asked_and_only_when_earned(fmt: Format):
+    """`reported=False` (the `--no-reported` flag) leaves the derived quantities
+    off, and a model with none prints no section on or off."""
+    reported = override(DISPATCH_MODEL, **{'expressions.lcoe': 'sum(p * cost) / sum(p)'})
+    assert 'Reported quantities' in typeset(reported, fmt), 'a reported entry earns the section by default'
+    assert fmt.italic('lcoe') not in typeset(reported, fmt, reported=False), 'off leaves the entry off the page'
+    assert 'Reported quantities' not in typeset(reported, fmt, reported=False), 'and the section with it'
+    assert 'Reported quantities' not in typeset(DISPATCH_MODEL, fmt), 'a model with none prints no section on'
+    assert 'Reported quantities' not in typeset(DISPATCH_MODEL, fmt, reported=False), 'nor off'
+
+
+@EVERY_FORMAT
+def test_a_dual_prints_the_constraint_symbol_not_a_same_named_variable(fmt: Format):
+    """`dual(c)` subscripts λ from a map of its own, so a variable sharing the
+    constraint's name — a legal collision, constraints sit outside the flat
+    namespace (#74) — cannot lend the dual its italic letter."""
+    model = override(
+        DISPATCH_MODEL,
+        **{
+            'variables.balance': {'foreach': ['snapshot'], 'bounds': {'lower': 0}},
+            'expressions.mp': 'dual(balance)',
+        },
+    )
+    text = typeset(model, fmt, legend=False)
+    assert fmt.subscript(fmt.operators['dual'], [fmt.upright('balance'), 't']) in text, (
+        'the dual takes the constraint symbol, upright'
+    )
+    assert fmt.subscript(fmt.operators['dual'], [fmt.italic('balance'), 't']) not in text, (
+        'the dual must not borrow the same-named variable italic symbol'
+    )
+
+
 # ---------------------------------------------------------------------------
 # derivation: unambiguous by default
 # ---------------------------------------------------------------------------
@@ -443,11 +476,12 @@ def test_nothing_the_model_is_given_prints_italic():
     """The convention as a property of the whole document, not of a fragment: a
     rendering path added later reaches the page through its own call."""
     schema = expand_piecewise(to_spec(golden.MODEL))
-    chosen = set(schema.variables) | chosen_expressions(schema, Namespace.of(schema))
+    namespace = Namespace.of(schema)
+    computed = set(schema.variables) | chosen_expressions(schema, namespace) | set(reported_expressions(schema))
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
-    assert italic <= chosen, (
-        f'{sorted(italic - chosen)} print italic and are not quantities the solver decides — '
-        f'upright is what the model is given'
+    assert italic <= computed, (
+        f'{sorted(italic - computed)} print italic and are neither chosen by the solver nor read off its '
+        f'solution — upright is what the model is given, italic what it computes'
     )
 
     symbols = Symbols(schema, Namespace.of(schema), LATEX, SymbolTable('latex'))

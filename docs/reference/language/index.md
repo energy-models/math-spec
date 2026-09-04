@@ -67,6 +67,7 @@ in a different position, and each links to the page that spells it out.
 | [Dimensions and lookups](dimensions.md)               | the axes, and the maps their members carry                                                   |
 | [Parameters, variables, constraints](declarations.md) | the four blocks that make up the math                                                        |
 | [Expressions](expressions.md)                         | the two grammars — arithmetic and `where` — what a name may mean where, and how dims compose |
+| [Reported expressions](reported.md)                   | the entries the math never reads — read off a solve, where the math-only restrictions lift   |
 | [Operators](operators.md)                             | `sum`, `at`, `shift` — the closed set                                                        |
 | [Absence and `where`](absence.md)                     | what a mask _means_: which rows are built, and which are not                                 |
 | [Piecewise curves and SOS](piecewise.md)              | `piecewise:` and `sos:`                                                                      |

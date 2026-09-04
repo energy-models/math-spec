@@ -15,6 +15,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    DualNode,
     FunctionCallNode,
     KeywordNode,
     KwargNode,
@@ -116,7 +117,7 @@ def validate_expressions(schema: Spec) -> None:
         context = f"Named expression '{ename}'"
         if not block.cases:
             assert block.expression is not None
-            _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=1)
+            _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=None)
             continue
         found = len(errors)
         masks: dict[str, WhereNode] = {}
@@ -127,9 +128,11 @@ def validate_expressions(schema: Spec) -> None:
                     errors.append(_constant_arm(arm_context, value=mask.value))
                 else:
                     masks[case_name] = mask
-            _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=1)
+            _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=None)
         assert block.otherwise is not None
-        _check_expression(block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, ceiling=1)
+        _check_expression(
+            block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, ceiling=None
+        )
         if len(errors) == found:
             errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
 
@@ -180,9 +183,16 @@ def _check_expression(
     errors: list[str],
     *,
     comparison: bool,
-    ceiling: int,
+    ceiling: int | None,
 ) -> None:
-    """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171)."""
+    """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
+
+    ``ceiling`` is the degree the position honours, and ``None`` for an
+    ``expressions:`` entry's body: degree and the ``dual()`` placement rule
+    are rules about the position that *reads* the math, so they fire on the
+    expanded tree of every constraint, objective, bound, where and piecewise
+    link, and not where an entry is declared.
+    """
     try:
         ast = parse_and_expand(expression, schema, context)
     except ValueError as e:
@@ -198,6 +208,11 @@ def _check_expression(
         return
     resolved = resolve_expression(ast, ns, context, errors)
     if resolved is None:
+        return
+    if ceiling is None:
+        return
+    if degree.calls_dual(resolved):
+        errors.append(degree.dual_in_math_message(context))
         return
     if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
         errors.append(
@@ -231,7 +246,7 @@ def _check_template_names(
 
     A case arm's value only: its ``when`` is the declaration's, checked there.
     """
-    if isinstance(node, NumberNode | VariableNode | ParameterNode | KwargNode | KeywordNode | NameListNode):
+    if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
         return
 
     if isinstance(node, NameNode):
@@ -252,6 +267,14 @@ def _check_template_names(
         builtin = BUILTINS.get(node.name)
         if builtin is None:
             errors.append(f'{context}: {unknown_operator_message(node.name)}')
+        if node.name == 'dual':
+            errors.extend(
+                f"{context}: dual({arg.name}): '{arg.name}' is not a "
+                f'declared constraint or a formal of this macro.\n  Constraints: {sorted(ns.constraints)}'
+                for arg in node.args
+                if isinstance(arg, NameNode) and arg.name not in formals and arg.name not in ns.constraints
+            )
+            return
         for arg in node.args:
             _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():

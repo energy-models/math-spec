@@ -23,6 +23,7 @@ from math_spec._expression_parser import (
     CasesNode,
     ComparisonNode,
     DimensionNode,
+    DualNode,
     EdgeNode,
     FunctionCallNode,
     KeywordNode,
@@ -91,7 +92,7 @@ class Namespace:
     A name has one kind: model.py refuses one declared under two sections.
     """
 
-    __slots__ = ('dimensions', 'dtypes', 'leaf_dims', 'lookups', 'parameters', 'variables')
+    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'lookups', 'parameters', 'variables')
 
     def __init__(
         self,
@@ -101,10 +102,15 @@ class Namespace:
         lookups: Mapping[str, tuple[str, str | None]],
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
+        constraints: Iterable[str],
     ) -> None:
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
         self.dimensions = frozenset(dimensions)
+        #: The declared constraint names, off the flat namespace: a bare name
+        #: never reaches them, so a model may name a constraint after a variable.
+        #: Consulted only in ``dual()``'s argument position.
+        self.constraints = frozenset(constraints)
         #: name -> declared dtype, for dimensions, parameters and lookups alike;
         #: what a where comparison checks its literal against.
         self.dtypes: dict[str, DeclaredDtype] = dict(dtypes)
@@ -146,6 +152,7 @@ class Namespace:
                 **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
                 **{v: tuple(vd.foreach) for v, vd in schema.variables.items()},
             },
+            schema.constraints,
         )
 
     def kind(self, name: str) -> DeclarationKind | None:
@@ -321,7 +328,7 @@ class _Resolver:
         numeric check here stands aside for it. A quoted keyword or a name list in
         arithmetic arrives through a macro formal bound to one.
         """
-        if isinstance(node, NumberNode | VariableNode | ParameterNode | KwargNode):
+        if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode):
             return node
         if isinstance(node, NameNode):
             return self._name(node, amount=amount)
@@ -390,6 +397,8 @@ class _Resolver:
         shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
         if shape_error is not None:
             self.errors.append(f'{self.context}: {shape_error}')
+        if node.name == 'dual':
+            return node if shape_error is not None else self._dual(node)
         args = tuple(self._arith(a) for a in node.args)
         kwargs: dict[str, ArithmeticNode] = {}
         for key, value in node.kwargs.items():
@@ -462,6 +471,30 @@ class _Resolver:
             self.errors.append(_undeclared_dim(self.context, operator, f'{key}={value.name}', value.name, self.ns))
             return value
         return DimensionNode(value.name)
+
+    def _dual(self, node: FunctionCallNode) -> ArithmeticNode:
+        """``dual(c)`` typed to the leaf it is, its one argument the name of a declared constraint.
+
+        Constraints sit outside the flat namespace, so this store is consulted
+        only here — a bare name in arithmetic never reaches it. A dual standing
+        where the math is built is refused separately
+        (:mod:`math_spec.validation`); this pass only types the name.
+        """
+        (value,) = node.args
+        if not isinstance(value, NameNode):
+            self.errors.append(
+                f'{self.context}: dual() takes the name of a declared constraint, written bare — '
+                f'dual(<constraint>). Name the constraint whose row dual you want.'
+            )
+            return node
+        if value.name not in self.ns.constraints:
+            self.errors.append(
+                f"{self.context}: dual({value.name}): '{value.name}' is not a declared constraint.\n"
+                f'  Constraints: {sorted(self.ns.constraints)}\n'
+                f"Check for typos, or declare '{value.name}' under 'constraints:'."
+            )
+            return node
+        return DualNode(value.name)
 
     def _lookup_ref(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
         """An operator kwarg whose *value* must name groupable lookups.

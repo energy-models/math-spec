@@ -14,8 +14,10 @@ import pytest
 
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
+from math_spec.lowering import to_program
 from math_spec.program import DimensionPositionNode
 from math_spec.resolution import Namespace, where_of
+from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
 
@@ -34,7 +36,61 @@ def _refusal(model: dict[str, Any] = SMALL_MODEL, **patch: Any) -> str:
     return str(caught.value)
 
 
+_NONLINEAR_ENTRY = {'expressions': {'bad': 'c / sum(p)'}}
+
+
 class TestValidateExpressions:
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'nope <= c'}}},
+                ("'nope' not found", "Constraint 'cap'", 'c'),
+                id='an-unknown-name-in-a-constraint',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p + c'}}},
+                ('exactly one comparison',),
+                id='a-constraint-without-a-comparison',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(p, over=g) <= 5'}},
+                ('must not contain a comparison',),
+                id='an-objective-with-a-comparison',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'c <= 1'}}},
+                ('decides nothing', "Constraint 'cap'", "'c <= 1'"),
+                id='a-comparison-with-no-variable-in-it',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p * p * p <= c'}}},
+                ("Constraint 'cap'", 'this product is degree 3'),
+                id='a-cubic-constraint',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(p ** 2, over=g)'}},
+                ('The objective', '`**` is not in the language over variables'),
+                id='a-variable-under-a-power',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'where': 'c >', 'expression': 'p <= c'}}},
+                ('Failed to parse where string',),
+                id='a-malformed-where-string',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'where': 'not_a_param > 0', 'expression': 'p <= c'}}},
+                ("'not_a_param' not found",),
+                id='an-unknown-name-in-a-where-used-to-evaluate-to-false',
+            ),
+        ],
+    )
+    def test_a_bad_declaration_is_refused_at_load(self, patch, fragments):
+        with pytest.raises(LanguageError) as exc:
+            _schema(**patch)
+        for fragment in fragments:
+            assert fragment in str(exc.value)
+
     def test_the_objective_and_a_constraint_take_degree_two(self):
         _schema(
             constraints={'floor': {'foreach': ['g'], 'expression': 'p * p >= 1'}},
@@ -50,6 +106,78 @@ class TestValidateExpressions:
         )
         assert "'nope' not found" in message
         assert 'exactly one comparison' in message, 'the second fault is reported beside the first, not behind it'
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p <= bad'}}},
+                ("Constraint 'cap'", 'the divisor contains variables, which is not affine'),
+                id='constraint',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(bad)'}},
+                ('The objective', 'the divisor contains variables, which is not affine'),
+                id='objective',
+            ),
+        ],
+    )
+    def test_a_nonlinear_entry_is_refused_where_the_math_reads_it(self, patch, fragments):
+        """The refusal a nonlinear body once earned at its own declaration now fires where the math reads it.
+
+        `bad` (a variable divisor) loads on its own — nothing reads it, so it
+        is a reported quantity. The constraint and the objective
+        read it and hit the divisor ban at their own ceiling, which is the whole
+        point of grading rather than banning at declaration. The piecewise-link
+        position is `test_a_link_reading_a_nonlinear_entry_is_refused`; a bound
+        and a where, which reference no expression at all, are
+        `test_a_bound_or_where_cannot_name_an_expression`.
+        """
+        with pytest.raises(LanguageError) as exc:
+            _schema(**_NONLINEAR_ENTRY, **patch)
+        for fragment in fragments:
+            assert fragment in str(exc.value)
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragment'),
+        [
+            pytest.param(
+                {'variables.p.bounds': {'lower': 'bad'}},
+                "'bad' is not a declared parameter",
+                id='bound',
+            ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'where': 'bad > 0', 'expression': 'p <= c'}}},
+                "'bad' not found",
+                id='where',
+            ),
+        ],
+    )
+    def test_a_bound_or_where_cannot_name_an_expression(self, patch, fragment):
+        """A bound and a where reference parameters/variables, never a named expression, so the name fails to resolve whatever the entry's body."""
+        with pytest.raises(LanguageError) as exc:
+            _schema(**_NONLINEAR_ENTRY, **patch)
+        assert fragment in str(exc.value)
+
+    def test_an_unreferenced_nonlinear_entry_loads_and_is_reported(self):
+        """A nonlinear entry nothing reads is accepted, printed, and not in the math — the deliberate cost of checking degree where the math reads.
+
+        This is the silent-typo case made visible instead of denied: a body
+        the math would refuse (here a variable divisor) is legal on its own
+        because it is arithmetic over solved numbers, so a typo that leaves it
+        unread is not caught by the loader. The language pays that cost openly —
+        the entry loads, says the math does not read it, and prints in the
+        Reported quantities section — rather than degree-checking a declaration
+        nothing consumes.
+        """
+        model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
+        assert to_program(model).named_expressions['lcoe'].in_math is False, (
+            'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
+        )
+        rendered = to_markdown(model)
+        assert 'Reported quantities' in rendered and 'lcoe' in rendered, (
+            'and the page says so: it prints in the Reported quantities section'
+        )
 
 
 def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str, Any]:
@@ -75,6 +203,78 @@ def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str,
         'variables': {'p': {'foreach': ['snapshot', 'generator']}},
         'constraints': {'c': {'foreach': ['snapshot'] if foreach is None else foreach, 'expression': expression}},
     }
+
+
+class TestDual:
+    """`dual(c)`: a primitive legal only in an entry the math never reads, its argument a constraint name resolved against constraints alone."""
+
+    BASE = override(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'expressions': {'price': 'dual(nope)'}},
+                ("dual(nope): 'nope' is not a declared constraint", 'Constraints:', 'lim'),
+                id='an-unknown-constraint',
+            ),
+            pytest.param(
+                {'expressions': {'price': 'dual(p)'}},
+                ("dual(p): 'p' is not a declared constraint",),
+                id='a-variable-name-is-not-a-constraint',
+            ),
+            pytest.param(
+                {'expressions': {'price': 'dual(1 + 1)'}},
+                ('dual() takes the name of a declared constraint, written bare', 'dual(<constraint>)'),
+                id='a-non-name-argument-is-not-a-constraint-reference',
+            ),
+            pytest.param(
+                {'expressions': {'price': 'dual(c)'}},
+                ("dual(c): 'c' is not a declared constraint",),
+                id='a-parameter-name-is-not-a-constraint',
+            ),
+            pytest.param(
+                {'macros': {'shadow': {'args': ['x'], 'template': 'dual(nope) + x'}}},
+                ("dual(nope): 'nope' is not a declared constraint", 'or a formal of this macro'),
+                id='an-uncalled-macro-template-names-an-unknown-constraint',
+            ),
+            pytest.param(
+                {'constraints': {'lim': {'foreach': ['g'], 'expression': 'dual(lim) <= c'}}},
+                ('a dual exists only after a solve', 'the math cannot read one'),
+                id='a-dual-written-inside-a-constraint',
+            ),
+            pytest.param(
+                {'objective': {'sense': 'minimize', 'expression': 'sum(p) + dual(lim)'}},
+                ('a dual exists only after a solve', 'the math cannot read one'),
+                id='a-dual-written-inside-the-objective',
+            ),
+            pytest.param(
+                {
+                    'macros': {'shadow': {'args': ['x'], 'template': 'dual(x)'}},
+                    'constraints': {'lim': {'foreach': ['g'], 'expression': 'shadow(lim) <= c'}},
+                },
+                ('a dual exists only after a solve', 'the math cannot read one'),
+                id='a-dual-smuggled-through-a-macro-into-a-constraint',
+            ),
+            pytest.param(
+                {
+                    'expressions': {'price': 'dual(lim)'},
+                    'constraints': {'lim': {'foreach': ['g'], 'expression': 'price <= c'}},
+                },
+                ('a dual exists only after a solve', 'keep the entry that carries it out of constraints'),
+                id='a-dual-smuggled-through-an-entry-into-a-constraint',
+            ),
+        ],
+    )
+    def test_a_dual_out_of_place_is_refused(self, patch, fragments):
+        with pytest.raises(LanguageError) as exc:
+            to_spec(override(self.BASE, **patch))
+        for fragment in fragments:
+            assert fragment in str(exc.value)
+
+    def test_a_dual_loads_in_an_expressions_entry(self):
+        """The one place it is legal: an ``expressions:`` entry naming a declared constraint, which nothing in the math reads."""
+        assert to_spec(override(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
 
 
 class TestDimensionKwargs:
@@ -336,11 +536,6 @@ class TestRulesDecidedWithoutData:
                 {'objective': {'expression': 'sum(p ** 2, over=g)'}},
                 ('The objective', '`**` is not in the language over variables'),
                 id='a-variable-under-a-power',
-            ),
-            pytest.param(
-                {'expressions': {'sq': 'p * p'}},
-                ("Named expression 'sq'", 'which is degree 2'),
-                id='a-quadratic-named-expression',
             ),
             pytest.param(
                 {'constraints': {'cap': {'foreach': ['g'], 'where': 'c >', 'expression': 'p <= c'}}},

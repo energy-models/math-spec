@@ -61,6 +61,7 @@ def typeset(
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
     standalone: bool = False,
     legend: bool = True,
+    reported: bool = True,
     numbered: bool = True,
 ) -> str:
     """Render *model*'s math in *fmt*.
@@ -78,6 +79,10 @@ def typeset(
         legend: Prepend the sets/parameters/variables table. The model's own
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
+        reported: Append the Reported quantities section — the entries the
+            objective and constraints never read, each equated to its body.
+            Off leaves them out, and a model with none prints no section
+            either way.
         numbered: Number the equations.
 
     Returns:
@@ -95,7 +100,7 @@ def typeset(
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     walk = Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema)), fmt)
 
-    sections, noticed = walk.equations()
+    sections, noticed = walk.equations(reported)
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
 
     blocks = [fmt.note(fmt.escape(schema.description))] if schema.description else []

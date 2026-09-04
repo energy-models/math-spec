@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, cast
 import math_spec.degree as degree
 from math_spec._yaml import read_yaml
 from math_spec.errors import SchemaError, did_you_mean
+from math_spec.expansion import read_by_the_math
 from math_spec.resolution import expression_of
 from math_spec.typesetting.format import NOTATIONS
 
@@ -87,6 +88,19 @@ def printed_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
     return tuple(name for name, block in schema.expressions.items() if block.cases)
 
 
+def reported_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
+    """The entries the math never reads, in declaration order — the Reported quantities section's rows.
+
+    Decided by :func:`math_spec.expansion.read_by_the_math`, the same answer
+    the program carries, so the page and a consumer cannot disagree about which
+    entries the objective and constraints inline. A cased entry is not here
+    whether or not the math reads it: it prints as the definition block
+    :func:`printed_expressions` already places.
+    """
+    in_math = read_by_the_math(schema)
+    return tuple(name for name, block in schema.expressions.items() if not block.cases and name not in in_math)
+
+
 def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset[str]:
     """The cased expressions the solver decides, rather than is handed.
 
@@ -138,8 +152,9 @@ class Symbols:
             )
             raise SchemaError(msg)
         printed = printed_expressions(schema)
-        chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace)
-        names = (*schema.parameters, *schema.variables, *printed)
+        reported = reported_expressions(schema)
+        chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace) | frozenset(reported)
+        names = (*schema.parameters, *schema.variables, *printed, *reported)
         declared = frozenset(names)
 
         #: Names the table spelled; the convention note quotes only derived symbols.
@@ -151,6 +166,16 @@ class Symbols:
             for name in names
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}
+
+        #: Each constraint's symbol, the subscript ``dual(c)`` prints λ against.
+        #: Off the flat namespace, like the constraints themselves — a model may
+        #: name a constraint after a variable, so this is its own map rather than
+        #: an entry in :attr:`name`. Given structure, so upright unless a table
+        #: overrides it.
+        self.constraint: dict[str, str] = {
+            name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt, given=True)
+            for name in schema.constraints
+        }
 
         self.index: dict[str, str] = {}
         self.set: dict[str, str] = {}
@@ -258,7 +283,14 @@ class SymbolTable:
     def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
-        everything = dims | set(schema.parameters) | set(schema.variables) | set(printed_expressions(schema))
+        everything = (
+            dims
+            | set(schema.parameters)
+            | set(schema.variables)
+            | set(printed_expressions(schema))
+            | set(reported_expressions(schema))
+            | set(schema.constraints)
+        )
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),

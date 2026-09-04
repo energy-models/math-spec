@@ -22,6 +22,7 @@ from math_spec._expression_parser import (
     CasesNode,
     ComparisonNode,
     DimensionNode,
+    DualNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
@@ -55,7 +56,7 @@ from math_spec.resolution import (
     where_of,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
-from math_spec.typesetting.symbols import printed_expressions
+from math_spec.typesetting.symbols import printed_expressions, reported_expressions
 
 if TYPE_CHECKING:
     import datetime
@@ -313,11 +314,21 @@ class Walk:
         if isinstance(node, CasesNode):
             return ctx.indexed(self.symbols.name[node.name], self._frame(node.name)), _ATOM
 
+        if isinstance(node, DualNode):
+            return self._dual(node, ctx), _ATOM
+
         if isinstance(node, UnresolvedNode | KwargNode):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
         assert_never(node)
+
+    def _dual(self, node: DualNode, ctx: _Context) -> str:
+        """λ subscripted by the constraint's symbol, then the indices of the constraint's own frame."""
+        frame = self._sorted(dims_of(node, self.schema, 'a dual'))
+        return self.format.subscript(
+            self._op('dual'), [self.symbols.constraint[node.constraint], *(ctx.subscript(d) for d in frame)]
+        )
 
     def _binary(self, node: BinaryOperatorNode, ctx: _Context) -> tuple[str, int]:
         """Render a binary operator, bracketing only where the reading demands.
@@ -569,14 +580,21 @@ class Walk:
 
     # -- declarations ------------------------------------------------------
 
-    def equations(self) -> tuple[list[tuple[str, list[Line]]], Noticed]:
-        """Every titled section of equations, and what printing them noticed for the legend."""
+    def equations(self, reported: bool) -> tuple[list[tuple[str, list[Line]]], Noticed]:
+        """Every titled section of equations, and what printing them noticed for the legend.
+
+        Args:
+            reported: Whether to append the Reported quantities section — the
+                entries the objective and constraints never read.
+        """
         sections = [
             ('Objective', self._objective()),
             ('Subject to', self._constraints()),
             ('Definitions', self._definitions()),
             ('Variable domains', self._variables()),
         ]
+        if reported:
+            sections.append(('Reported quantities', self._reported()))
         return sections, self.noticed
 
     def _objective(self) -> list[Line]:
@@ -692,6 +710,31 @@ class Walk:
             lines.append(Line(label=name, left=left, right=right, condition=condition))
             if name in sets:
                 lines.append(self._sos(name, sets[name], ctx))
+        return lines
+
+    def _reported(self) -> list[Line]:
+        """One line per entry the math never reads — a quantity equated to its body.
+
+        A reported entry *defines* a value, so it prints as ``symbol = body``:
+        the right side says what the left is, which is why it needs no legend
+        entry the way a variable does. An entry the math reads prints nothing
+        here — it is inlined wherever it is read, in the equations above.
+        """
+        lines = []
+        for name in reported_expressions(self.schema):
+            context = f"expression '{name}'"
+            node = expression_of(name, self.schema, self.namespace, context)
+            assert not isinstance(node, ComparisonNode), f'{context}: a named body is arithmetic, not a comparison'
+            frame = self._sorted(dims_of(node, self.schema, context))
+            ctx = self._context(frame)
+            lines.append(
+                Line(
+                    label=name,
+                    left=ctx.indexed(self.symbols.name[name], frame),
+                    right=f'{self._op("equal")} {self._expression(node, ctx)}',
+                    condition=self._quantifier(frame, ''),
+                )
+            )
         return lines
 
     def _sos(self, name: str, block: SosBlock, ctx: _Context) -> Line:

@@ -15,12 +15,13 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
-from math_spec._expression_parser import ArithmeticNode, ComparisonNode, FunctionCallNode
+from math_spec._expression_parser import ArithmeticNode, ComparisonNode, DualNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
 from math_spec.program import WhereNode
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
+from math_spec.typesetting.symbols import reported_expressions
 from math_spec.validation import to_spec
 from tests.typesetting import golden
 from tests.typesetting.fixtures import LATEX
@@ -129,6 +130,8 @@ def _rendered_trees() -> Iterator[object]:
     for name, block in schema.variables.items():
         if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
             yield mask.root
+    for name in reported_expressions(schema):
+        yield expression_of(name, schema, namespace, f'reported expression {name!r}')
 
 
 #: What resolution never hands the walk: the three nodes it types away, and the
@@ -169,8 +172,14 @@ def test_the_golden_model_carries_every_node_kind_the_walk_renders():
 
 
 def test_the_golden_model_calls_every_operator_in_the_language():
-    """``BUILTINS`` is the closed set, so a new operator lands with its case here."""
-    calls = {node.name for tree in _rendered_trees() for node in _nodes(tree) if isinstance(node, FunctionCallNode)}
+    """``BUILTINS`` is the closed set, so a new operator lands with its case here.
+
+    ``dual`` resolves to its own leaf rather than staying a call, so it is
+    counted by that leaf.
+    """
+    nodes = [node for tree in _rendered_trees() for node in _nodes(tree)]
+    calls = {node.name for node in nodes if isinstance(node, FunctionCallNode)}
+    calls |= {'dual' for node in nodes if isinstance(node, DualNode)}
     assert calls == BUILTIN_NAMES, (
         f'tests/typesetting/golden/model.yaml never calls {sorted(BUILTIN_NAMES - calls)}. '
         f'An operator with no case here renders untested.'

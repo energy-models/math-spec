@@ -22,6 +22,7 @@ from math_spec._expression_parser import (
     CasesNode,
     ComparisonNode,
     DimensionNode,
+    DualNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
@@ -88,6 +89,9 @@ def _dims(
     if isinstance(node, UnresolvedNode | KwargNode):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
+
+    if isinstance(node, DualNode):
+        return frozenset(schema.constraints[node.constraint].foreach)
 
     if isinstance(node, UnaryOperatorNode):
         return _dims(node.operand, schema, context)

@@ -55,6 +55,7 @@ OperatorName = Literal[
     'binary_set',
     'sos_set',
     'position',
+    'dual',
     'minimize',
     'maximize',
 ]
@@ -95,6 +96,7 @@ OPERATOR_SPELLINGS: dict[OperatorName, tuple[str, str]] = {
     'binary_set': (r'\{0, 1\}', '{0, 1}'),
     'sos_set': (r'\mathrm{SOS}', 'upright("SOS")'),
     'position': (r'\mathrm{pos}', 'upright("pos")'),
+    'dual': (r'\lambda', 'lambda'),
     'minimize': (r'\min', 'min'),
     'maximize': (r'\max', 'max'),
 }

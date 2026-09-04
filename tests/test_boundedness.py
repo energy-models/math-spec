@@ -98,8 +98,13 @@ THROUGH_EACH_OPERATOR = {
     'at': {'variables.u': {'foreach': ['h']}, 'objective.expression': 'sum(at(u, by=lk), over=g)'},
 }
 
+#: `dual` is refused in any objective, and boundedness walks the objective —
+#: so its `Dual` leaf never reaches `_walk`, and carries no variable to hand a
+#: sign to in any case. Exempt, not a missing case.
+REPORTED_ONLY = {'dual'}
 
-@pytest.mark.parametrize('builtin', sorted(BUILTIN_NAMES))
+
+@pytest.mark.parametrize('builtin', sorted(BUILTIN_NAMES - REPORTED_ONLY))
 def test_every_operator_hands_its_sign_to_its_operand(builtin):
     """`_record_signs` gives all four built-ins one arm, on a claim each of them has to keep.
 

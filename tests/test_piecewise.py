@@ -276,6 +276,71 @@ def test_a_link_outside_the_language_is_named_where_the_user_wrote_it(link_expre
     assert "piecewise 'cost_curve' link 0" in str(exc.value)
 
 
+def test_a_link_reading_a_nonlinear_entry_is_refused():
+    """A named entry, nonlinear and so legal on its own, is refused where the link reads it.
+
+    `ratio` loads — nothing bans it at declaration — but a
+    piecewise link is affine, so reading it there hits the same divisor ban a
+    constraint would. The refusal lives at the reading position, not the
+    declaration: the entry-declaration relocation for the other math positions
+    is `TestValidateExpressions.test_a_nonlinear_entry_is_refused_where_the_math_reads_it`.
+    """
+    with pytest.raises(PiecewiseExpansionError, match='the divisor contains variables') as exc:
+        schema_of(
+            NONCONVEX_YAML,
+            **{
+                'expressions': {'ratio': 'op_cost / sum(p, over=snapshot)'},
+                'piecewise.cost_curve.links': [['ratio', 'bp_x'], ['op_cost', 'bp_y']],
+            },
+        )
+    assert "piecewise 'cost_curve' link 0" in str(exc.value)
+
+
+def test_a_link_reading_a_degree_two_product_entry_is_refused():
+    """A degree-2 product entry, legal on its own, is refused where a link reads it affinely.
+
+    The other reading positions that refuse a degree-2 product — the bound —
+    name no expression, so a piecewise link is the one affine position that both
+    reads a named entry and rejects the product. A constraint and the objective
+    accept degree 2, so they are not the refusing site here.
+    """
+    with pytest.raises(PiecewiseExpansionError, match='which is degree 2') as exc:
+        schema_of(
+            NONCONVEX_YAML,
+            **{
+                'expressions': {'sq': 'p * op_cost'},
+                'piecewise.cost_curve.links': [['sq', 'bp_x'], ['op_cost', 'bp_y']],
+            },
+        )
+    assert "piecewise 'cost_curve' link 0" in str(exc.value)
+
+
+def test_an_entry_a_link_reads_is_in_the_math():
+    """A link's expression stands inside the constraints its expansion emits, so an entry it names is one the math reads."""
+    schema = schema_of(
+        NONCONVEX_YAML,
+        **{'expressions': {'twice': 'p * 2'}, 'piecewise.cost_curve.links': [['twice', 'bp_x'], ['op_cost', 'bp_y']]},
+    )
+    assert to_program(schema).named_expressions['twice'].in_math is True
+
+
+def test_a_link_reading_a_dual_entry_is_refused():
+    """A link is math a build ingests, so the dual placement rule fires here as at every other reading position.
+
+    Without the guard the entry's `dual(balance)` would pass the affine check —
+    a dual carries no variable — and hand lowering a leaf no piecewise
+    expansion can build.
+    """
+    with pytest.raises(PiecewiseExpansionError, match='a dual exists only after a solve'):
+        schema_of(
+            NONCONVEX_YAML,
+            **{
+                'expressions': {'price': 'dual(balance)'},
+                'piecewise.cost_curve.links': [['price', 'bp_x'], ['op_cost', 'bp_y']],
+            },
+        )
+
+
 @pytest.mark.parametrize(
     ('activity', 'match'),
     [

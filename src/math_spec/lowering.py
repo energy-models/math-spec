@@ -22,6 +22,7 @@ from math_spec._expression_parser import (
     CasesNode,
     ComparisonNode,
     DimensionNode,
+    DualNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
@@ -33,6 +34,7 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
+from math_spec.expansion import read_by_the_math
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
@@ -163,7 +165,15 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         )
         for sname, sdef in expanded.sos.items()
     }
-    expressions = {name: _lower_expression(expanded, ns, name) for name in expanded.expressions}
+    in_math = read_by_the_math(expanded)
+    expressions: dict[str, program.ExpressionDeclaration] = {}
+    for name in expanded.expressions:
+        context = f"named expression '{name}'"
+        ast = expression_of(name, expanded, ns, context)
+        assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
+        expressions[name] = program.ExpressionDeclaration(
+            _Lowering(expanded, context).expr(ast), in_math=name in in_math
+        )
     return program.Program(
         parameters=parameters,
         variables=variables,
@@ -174,18 +184,6 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
         named_expressions=expressions,
     )
-
-
-def _lower_expression(schema: _ExpandedSpec, ns: Namespace, name: str) -> program.ExpressionNode:
-    """Compile the named expression *name* into a program expression.
-
-    Raises:
-        LanguageError: A construct outside the language, named with its rewrite.
-    """
-    context = f"named expression '{name}'"
-    ast = expression_of(name, schema, ns, context)
-    assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
-    return _Lowering(schema, context).expr(ast)
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +212,9 @@ class _Lowering:
         if isinstance(node, UnresolvedNode | KwargNode):
             msg = f'{node!r} reached lowering. Expressions go through resolution.expression_of() first.'
             raise AssertionError(msg)
+
+        if isinstance(node, DualNode):
+            return program.Dual(node.constraint)
 
         if isinstance(node, UnaryOperatorNode):
             inner = self.expr(node.operand)

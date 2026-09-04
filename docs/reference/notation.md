@@ -503,6 +503,26 @@ $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace
 
 ### Definitions
 
+#### `lcoe`
+
+nothing in the math reads it, so it prints under its own name rather than inlining — and its divisor may carry a variable
+
+```yaml
+lcoe: sum(p * cost) / sum(p)
+```
+
+$$\mathit{lcoe} = \frac{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g}}$$
+
+#### `marginal_price`
+
+the row dual of a constraint, the one builtin only an entry the math never reads may call
+
+```yaml
+marginal_price: dual(balance)
+```
+
+$$\mathit{marginal\_price}_{t,b} = \lambda_{\mathrm{balance},t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+
 #### `startup_cost`
 
 a quantity defined by region: no two cases overlap, and `otherwise` is the rest
