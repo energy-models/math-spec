@@ -166,7 +166,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for sname, sdef in expanded.sos.items()
     }
     in_math = read_by_the_math(expanded)
-    expressions = {}
+    expressions: dict[str, program.ExpressionDeclaration] = {}
     for name in expanded.expressions:
         context = f"named expression '{name}'"
         ast = expression_of(name, expanded, ns, context)

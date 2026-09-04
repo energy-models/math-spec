@@ -142,10 +142,10 @@ def validate_expressions(schema: Spec) -> None:
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
         resolve_where_text(cdef.where, ns, context, errors)
-        _check_expression(cdef.expression, schema, ns, context, errors, comparison=True)
+        _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
 
     if schema.objective is not None:
-        _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False)
+        _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2)
 
     if errors:
         raise SchemaError(_once(errors))
@@ -183,7 +183,7 @@ def _check_expression(
     errors: list[str],
     *,
     comparison: bool,
-    ceiling: int | None = 1,
+    ceiling: int | None,
 ) -> None:
     """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
 
@@ -223,7 +223,7 @@ def _check_expression(
             f'bound, or drop the declaration and check the fact where the data is prepared.'
         )
     try:
-        degree.check_expression(resolved, context, ceiling=2)
+        degree.check_expression(resolved, context, ceiling=ceiling)
     except LanguageError as e:
         errors.append(str(e))
 

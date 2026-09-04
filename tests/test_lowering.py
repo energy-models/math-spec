@@ -781,3 +781,41 @@ def test_an_entry_is_in_the_math_where_the_objective_or_a_constraint_inlines_it(
     """`in_math` is usage, not shape: one affine body is in the math when a row inlines it, however indirectly, and a reported quantity when none does."""
     program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch))
     assert program.named_expressions['spend'].in_math is in_math
+
+
+def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
+    """The whole chain is in the math, not only the entry a row names: the constraint inlines `twice`, and `twice` inlines `spend`."""
+    program = to_program(
+        override(
+            TINY,
+            expressions={'spend': 'sum(p * cost, over=g)', 'twice': 'spend * 2'},
+            **{'constraints.c.expression': 'twice >= 1'},
+        )
+    )
+    reads = {name: program.named_expressions[name].in_math for name in ('twice', 'spend')}
+    assert reads == {'twice': True, 'spend': True}, (
+        'the entry the row names and the one it reaches through are both in the math'
+    )
+
+
+def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
+    """A formal shadows the entry inside the template, so the row inlines the argument, not the same-named entry."""
+    program = to_program(
+        override(
+            TINY,
+            expressions={'spend': 'sum(p * cost, over=g)'},
+            macros={'scaled': {'args': ['spend'], 'template': 'spend * 2'}},
+            **{'constraints.c.expression': 'scaled(sum(p, over=g)) >= 1'},
+        )
+    )
+    assert program.named_expressions['spend'].in_math is False, (
+        'the formal shadows the entry, so the constraint inlines the argument and the math never reads spend'
+    )
+
+
+def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
+    """A dual is read after the solve, so an entry calling one is never in the math: it lowers to a Dual leaf and stays reported."""
+    program = to_program(override(TINY, expressions={'shadow_price': 'dual(c)'}))
+    declaration = program.named_expressions['shadow_price']
+    assert declaration.in_math is False, 'the entry reading a dual is reported, never in the math'
+    assert isinstance(declaration.expression, Dual), 'and it lowers to a Dual leaf'
