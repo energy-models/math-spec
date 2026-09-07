@@ -63,7 +63,7 @@ def _walk(
     fmt: FormatName,
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None,
     *,
-    expand: bool,
+    inline: bool,
 ) -> Walk:
     """The loaded, symbol-resolved walk every renderer builds from model, format and table."""
     if fmt not in FORMATS:
@@ -76,7 +76,7 @@ def _walk(
         symbols = SymbolTable(format_.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     return Walk(
-        schema, namespace, Symbols(schema, namespace, format_, table.checked_against(schema)), format_, expand=expand
+        schema, namespace, Symbols(schema, namespace, format_, table.checked_against(schema)), format_, inline=inline
     )
 
 
@@ -88,7 +88,7 @@ def typeset(
     standalone: bool = False,
     legend: bool = True,
     numbered: bool = True,
-    expand: bool = False,
+    inline: bool = False,
 ) -> str:
     """Render *model*'s math in *fmt*.
 
@@ -106,7 +106,7 @@ def typeset(
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
         numbered: Number the equations.
-        expand: Substitute each plain named expression into the equations that
+        inline: Substitute each plain named expression into the equations that
             use it, rather than printing its symbol there and its definition
             once. A cased expression is a definition either way.
 
@@ -119,7 +119,7 @@ def typeset(
         SchemaError: A symbol table entry naming nothing in the model, or a
             table written in a notation *fmt* does not read.
     """
-    walk = _walk(model, fmt, symbols, expand=expand)
+    walk = _walk(model, fmt, symbols, inline=inline)
     schema, format_ = walk.schema, walk.format
 
     sections, noticed = walk.equations()
@@ -166,7 +166,7 @@ def typeset_equation(
             constraint may share a variable's name; or a symbol table entry
             names nothing in the model.
     """
-    walk = _walk(model, fmt, symbols, expand=False)
+    walk = _walk(model, fmt, symbols, inline=False)
     schema = walk.schema
     kinds = {'named expression': schema.expressions, 'constraint': schema.constraints, 'variable': schema.variables}
     found = [kind for kind, group in kinds.items() if name in group]

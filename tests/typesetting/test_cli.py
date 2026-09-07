@@ -128,11 +128,11 @@ def test_every_format_renders_to_stdout_and_to_a_file(fmt, tmp_path, capsys):
     assert out.read_text() == streamed
 
 
-def test_expand_substitutes_the_named_expressions_away(capsys):
-    """`spend` is the golden model's plain expression: defined once by default, gone once expanded."""
+def test_inline_substitutes_the_named_expressions_away(capsys):
+    """`spend` is the golden model's plain expression: defined once by default, gone once inlined."""
     assert front.main(['latex', MODEL, '--no-legend']) == 0
     defined = capsys.readouterr().out
-    assert front.main(['latex', MODEL, '--no-legend', '--expand']) == 0
+    assert front.main(['latex', MODEL, '--no-legend', '--inline']) == 0
     expanded = capsys.readouterr().out
     assert r'\mathit{spend}' in defined and r'\mathit{spend}' not in expanded
 

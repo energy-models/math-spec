@@ -45,6 +45,13 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 | $\mathit{headroom}$ | `headroom` (scalar) |
 | $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
+#### Expressions
+
+| Symbol | Meaning |
+|---|---|
+| $\mathit{spend}$ | `spend` over $\mathcal{T}$ — what a snapshot's dispatch costs |
+| $\mathrm{startup\_cost}$ | `startup_cost` over $\mathcal{T} \times \mathcal{G}$ — what starting a unit in this snapshot costs, which the horizon's edge changes |
+
 Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.

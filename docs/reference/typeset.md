@@ -45,9 +45,9 @@ The three functions take the same keywords; the CLI spells each as a flag.
 | ------------ | ---------------- | --------------------------------------------------------------------------------------------- |
 | `symbols`    | `--symbols FILE` | how names should print — [below](#symbol-tables). Default: derived                            |
 | `standalone` | `--standalone`   | emit a document that compiles, rather than a fragment to include. Default: fragment           |
-| `legend`     | `--no-legend`    | the sets / parameters / variables table above the math. Default: on                           |
+| `legend`     | `--no-legend`    | the sets / parameters / variables / expressions table above the math. Default: on             |
 | `numbered`   | `--no-numbers`   | number the equations. Default: on                                                             |
-| `expand`     | `--expand`       | substitute each named expression where it is used, rather than defining it once. Default: off |
+| `inline`     | `--inline`       | substitute each named expression where it is used, rather than defining it once. Default: off |
 
 `-o FILE` writes to a file instead of stdout.
 

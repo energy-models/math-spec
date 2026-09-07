@@ -1372,6 +1372,25 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | $H$ | `StorageUnit_p_nom_ext` over $\mathcal{S}$ — `StorageUnit-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 | $E$ | `Store_e_nom_ext` over $\mathcal{V}$ — `Store-e_nom` — nominal capacity where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 
+#### Expressions
+
+| Symbol | Meaning |
+|---|---|
+| $\overleftarrow{u}$ | `Generator_previous_status` over $\mathcal{T} \times \mathcal{G}$ — the commitment state a generator carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
+| $\overleftarrow{p}$ | `Generator_previous_p` over $\mathcal{T} \times \mathcal{G}$ — the output a generator carries into a snapshot — nothing at the start of the horizon, which is why a unit that came in running carries no ramp row there |
+| $\widetilde{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_effective` over $\mathcal{G}$ — the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $\Delta^{+}$ | `Generator_ramp_up_allowance` over $\mathcal{T} \times \mathcal{G}$ — how far a generator may raise output between two snapshots — its ramp limit of the build while it stays on, plus its start-up ramp in the snapshot it turns on |
+| $\Delta^{-}$ | `Generator_ramp_down_allowance` over $\mathcal{T} \times \mathcal{G}$ — how far a generator may lower output between two snapshots — its ramp limit of the build while it stays on, plus its shut-down ramp in the snapshot it turns off |
+| $\widetilde{\mathrm{f}}^{\mathrm{nom}}$ | `Link_p_nom_effective` over $\mathcal{L}$ — the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise |
+| $\overleftarrow{\mathit{soc}}$ | `StorageUnit_charge_carried_in` over $\mathcal{T} \times \mathcal{S}$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
+| $\overleftarrow{e}$ | `Store_energy_carried_in` over $\mathcal{T} \times \mathcal{V}$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
+| $\overrightarrow{f}$ | `Link_output_arrival` over $\mathcal{T} \times \mathcal{O}$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
+| $\mathit{primary\_energy}$ | `primary_energy` over $\mathcal{B}$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
+| $\mathit{operational\_limit}$ | `operational_limit` over $\mathcal{B}$ — what an `operational_limit` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
+| $\mathit{transmission\_volume\_expansion}$ | `transmission_volume_expansion` over $\mathcal{B}$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
+| $\mathit{transmission\_expansion\_cost}$ | `transmission_expansion_cost` over $\mathcal{B}$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
+| $\mathit{tech\_capacity\_expansion}$ | `tech_capacity_expansion` over $\mathcal{B}$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
+
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.

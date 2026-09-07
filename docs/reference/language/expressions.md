@@ -483,7 +483,7 @@ reaches the body and upright where none does, the cut every other name follows,
 and a named expression joins the symbol pool like any other quantity, so
 `--symbols` can rename one.
 
-`expand` (`--expand`) substitutes each plain expression where it is used
+`inline` (`--inline`) substitutes each plain expression where it is used
 instead, which is the math a backend builds. A cased one is a definition either
 way, because it cannot be substituted legibly: three cases are three rows tall,
 so whatever follows the name in the constraint would sit beside the **middle**

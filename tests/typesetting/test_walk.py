@@ -388,13 +388,13 @@ def test_a_named_expression_prints_once_as_a_definition_and_by_symbol_where_used
 
 
 @EVERY_FORMAT
-def test_expanding_substitutes_a_named_expression_where_it_is_used(name: FormatName, fmt: Format):
+def test_inlining_substitutes_a_named_expression_where_it_is_used(name: FormatName, fmt: Format):
     """What prints then is the math a backend builds, not the name it was spelled with."""
     model = override(
         DISPATCH_MODEL,
         **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
     )
-    assert 'supply' not in typeset(model, name, legend=False, expand=True), 'expanded, so its name never prints'
+    assert 'supply' not in typeset(model, name, legend=False, inline=True), 'inlined, so its name never prints'
 
 
 @EVERY_FORMAT

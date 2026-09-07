@@ -109,6 +109,12 @@ The two-stage class of a plain `n.optimize()`: a network with scenarios, stated 
 | $\theta$ | `CVaR_theta` (scalar) — `CVaR-theta` — where the tail starts, the value at risk |
 | $CVaR$ | `CVaR` (scalar) — `CVaR` — the tail's average cost, what the objective prices at `omega` |
 
+#### Expressions
+
+| Symbol | Meaning |
+|---|---|
+| $\mathit{scenario\_opex}$ | `scenario_opex` over $\mathcal{S}$ — what a future costs to run — the operating terms, before their weight |
+
 ### Objective
 
 ```yaml

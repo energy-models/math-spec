@@ -231,7 +231,7 @@ class Walk:
     """
 
     def __init__(
-        self, schema: _ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format, *, expand: bool = False
+        self, schema: _ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format, *, inline: bool = False
     ) -> None:
         self.schema = schema
         self.namespace = namespace
@@ -239,7 +239,7 @@ class Walk:
         self.format = fmt
         #: Substitute each plain named expression where it is used, rather than
         #: printing its symbol there and its definition once.
-        self.expand = expand
+        self.inline = inline
         self.noticed = Noticed()
         #: The dims a named expression is read over: a cased one declares them,
         #: a plain one's fall out of its body.
@@ -330,7 +330,7 @@ class Walk:
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
 
-        if isinstance(node, DefinitionNode) and self.expand:
+        if isinstance(node, DefinitionNode) and self.inline:
             return self._arithmetic(node.body, ctx)
 
         if isinstance(node, CasesNode | DefinitionNode):
@@ -640,12 +640,15 @@ class Walk:
         """One line per named expression, in declaration order, defining it.
 
         A use prints the symbol and the block prints here, as a paper states a
-        quantity it names. Every declared one prints, used or not. Expanding
+        quantity it names. Every declared one prints, used or not. Inlining
         substitutes the plain ones away, so only the cased ones print — a
         ``cases`` block has no single body to substitute.
         """
-        names = [name for name, block in self.schema.expressions.items() if block.cases or not self.expand]
-        return [self._definition(name) for name in names]
+        return [self._definition(name) for name in self._defined()]
+
+    def _defined(self) -> list[str]:
+        """The named expressions that print under their own symbol: every one, or only the cased ones when inlining."""
+        return [name for name, block in self.schema.expressions.items() if block.cases or not self.inline]
 
     def _definition(self, name: str) -> Line:
         node = self._resolved(name)
@@ -773,7 +776,17 @@ class Walk:
             self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.foreach))}', block.description)
             for v, block in self.schema.variables.items()
         ]
-        groups = (Glossary('Sets', sets), Glossary('Parameters', parameters), Glossary('Variables', variables))
+        definitions = [
+            self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self.frames[e])}', block.description)
+            for e, block in self.schema.expressions.items()
+            if e in self._defined()
+        ]
+        groups = (
+            Glossary('Sets', sets),
+            Glossary('Parameters', parameters),
+            Glossary('Variables', variables),
+            Glossary('Expressions', definitions),
+        )
         return [group for group in groups if group.entries]
 
     def _entry(self, symbol: str, what: str, description: str | None) -> Entry:
