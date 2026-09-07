@@ -120,6 +120,10 @@ class TypstFormat:
 
     # -- document ----------------------------------------------------------
 
+    def equation(self, line: Line) -> str:
+        body = f'{line.left} {line.right}'.strip()
+        return f'{body} quad {line.condition}' if line.condition else body
+
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
         """A block equation, aligned on ``&`` as amsmath does."""
         body = ' \\\n  '.join(aligned_rows(lines, self, gap=' & '))

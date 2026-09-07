@@ -35,6 +35,7 @@ def parser() -> argparse.ArgumentParser:
         verb.add_argument('--standalone', action='store_true', help='emit a compilable document')
         verb.add_argument('--no-legend', action='store_true', help='omit the sets/parameters/variables table')
         verb.add_argument('--no-numbers', action='store_true', help='leave the equations unnumbered')
+        verb.add_argument('--expand', action='store_true', help='substitute each named expression where it is used')
     return front
 
 
@@ -54,11 +55,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     text = typeset(
         args.model,
-        FORMATS[args.verb],
+        args.verb,
         symbols=args.symbols,
         standalone=args.standalone,
         legend=not args.no_legend,
         numbered=not args.no_numbers,
+        expand=args.expand,
     )
     if args.out:
         Path(args.out).write_text(text, encoding='utf-8')

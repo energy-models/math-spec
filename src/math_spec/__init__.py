@@ -47,7 +47,7 @@ from math_spec.typesetting import (
     to_markdown,
     to_typst,
     typeset,
-    typeset_expression,
+    typeset_equation,
 )
 from math_spec.validation import to_spec
 
@@ -82,7 +82,7 @@ __all__ = [
     'to_spec',
     'to_typst',
     'typeset',
-    'typeset_expression',
+    'typeset_equation',
     'unknown_operator_message',
 ]
 

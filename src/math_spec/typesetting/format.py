@@ -214,6 +214,10 @@ class Format(Protocol):
 
     # -- document ----------------------------------------------------------
 
+    def equation(self, line: Line) -> str:
+        """One line as bare math on its own — no label, its condition after a gap."""
+        ...
+
     def equations(self, lines: list[Line], *, numbered: bool) -> str: ...
 
     def glossary(self, title: str, entries: list[Entry]) -> str: ...

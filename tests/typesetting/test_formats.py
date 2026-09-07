@@ -19,6 +19,7 @@ from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from math_spec.typesetting import FormatName
     from math_spec.typesetting.format import Format
 
 
@@ -65,14 +66,14 @@ def test_every_typst_operator_compiles(typst, tmp_path: Path):
 @pytest.mark.parametrize(
     'options', [pytest.param({}, id='with-a-legend'), pytest.param({'legend': False}, id='without-one')]
 )
-def test_the_model_description_opens_the_document(fmt: Format, options: dict):
+def test_the_model_description_opens_the_document(name: FormatName, fmt: Format, options: dict):
     """What the file says it is, printed before anything it declares — and
     printed with `legend=False` too, since it is not a symbol table."""
     described = override(DISPATCH_MODEL, description='least-cost dispatch of a generator fleet')
-    out = typeset(described, fmt, **options)
+    out = typeset(described, name, **options)
     assert 'least-cost dispatch of a generator fleet' in out
     assert out.index('least-cost dispatch') < out.index(fmt.operators['minimize']), 'it opens the document'
-    assert 'least-cost dispatch' not in typeset(DISPATCH_MODEL, fmt), 'a model without one prints no empty paragraph'
+    assert 'least-cost dispatch' not in typeset(DISPATCH_MODEL, name), 'a model without one prints no empty paragraph'
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +117,7 @@ def test_a_description_sets_as_text_rather_than_as_markup(notation: str, positio
     one.
     """
     where = 'description' if position == 'file' else 'parameters.load.description'
-    out = typeset(override(DISPATCH_MODEL, **{where: SPECIALS}), FORMATS[notation])
+    out = typeset(override(DISPATCH_MODEL, **{where: SPECIALS}), notation)
     for expected in ESCAPED[notation]:
         assert expected in out, 'each special is escaped, and a character the notation reads as text is left alone'
     assert SPECIALS not in out, 'the raw prose reached the document unescaped'

@@ -141,6 +141,18 @@ $$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm
 
 ### Constraints
 
+#### `budgeted`
+
+names the plain expression: its symbol prints here, its definition once below
+
+```yaml
+budgeted:
+  foreach: [snapshot]
+  expression: spend <= budget
+```
+
+$$\mathit{spend}_{t} \le \mathrm{budget} \qquad \forall\thinspace t \in \mathcal{T}$$
+
 #### `starts`
 
 names the cased expression: its symbol prints here, its block once below
@@ -502,6 +514,17 @@ never:
 $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \bot$$
 
 ### Definitions
+
+#### `spend`
+
+a plain named expression: its symbol prints where it is used, its body once as a definition
+
+```yaml
+spend:
+  expression: sum(p * cost, over=generator)
+```
+
+$$\mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\thinspace t \in \mathcal{T}$$
 
 #### `startup_cost`
 

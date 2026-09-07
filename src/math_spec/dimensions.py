@@ -21,6 +21,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    DefinitionNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
@@ -100,6 +101,9 @@ def _dims(
 
     if isinstance(node, CasesNode):
         return _cases_dims(node, schema)
+
+    if isinstance(node, DefinitionNode):
+        return _dims(node.body, schema, context)
 
     assert_never(node)
 

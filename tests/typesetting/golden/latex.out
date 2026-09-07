@@ -68,6 +68,7 @@
 
 \paragraph{Subject to}
 \begin{align}
+\text{budgeted} && \mathit{spend}_{t} & \le \mathrm{budget} && \forall\, t \in \mathcal{T} \\
 \text{starts} && p_{t,g} & \le \mathrm{startup\_cost}_{t,g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{balance} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} + \mathit{spill}_{t} - \mathit{slack}_{t} & = \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
 \text{ramp} && p_{t,g} - p_{t \ominus 1,g} & \le p_{t - 1,g} + \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
@@ -101,6 +102,7 @@
 
 \paragraph{Definitions}
 \begin{align}
+\text{spend} && \mathit{spend}_{t} & = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} && \forall\, t \in \mathcal{T} \\
 \text{startup\_cost} && \mathrm{startup\_cost}_{t,g} & = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{pos}(t) > 0 \wedge \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \\ 0 & \text{otherwise} \end{cases} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 \end{align}
 

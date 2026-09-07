@@ -2658,7 +2658,7 @@ GlobalConstraint_primary_energy_ub:
   expression: primary_energy <= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{b,v} \right) \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
+$$\mathit{primary\_energy}_{b} \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `primary_energy`
 
@@ -2672,7 +2672,7 @@ GlobalConstraint_primary_energy_lb:
   expression: primary_energy >= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{b,v} \right) \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
+$$\mathit{primary\_energy}_{b} \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `primary_energy`
 
@@ -2686,7 +2686,7 @@ GlobalConstraint_primary_energy_eq:
   expression: primary_energy == GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{b,v} \right) = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
+$$\mathit{primary\_energy}_{b} = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{primary\_energy}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
 
 ### `operational_limit`
 
@@ -2700,7 +2700,7 @@ GlobalConstraint_operational_limit_ub:
   expression: operational_limit <= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{b,v} \right) \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
+$$\mathit{operational\_limit}_{b} \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `operational_limit`
 
@@ -2714,7 +2714,7 @@ GlobalConstraint_operational_limit_lb:
   expression: operational_limit >= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{b,v} \right) \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
+$$\mathit{operational\_limit}_{b} \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `operational_limit`
 
@@ -2728,7 +2728,7 @@ GlobalConstraint_operational_limit_eq:
   expression: operational_limit == GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{b,v} \right) = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
+$$\mathit{operational\_limit}_{b} = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{operational\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
 
 ### `transmission_volume_expansion_limit`
 
@@ -2742,7 +2742,7 @@ GlobalConstraint_transmission_volume_expansion_limit_ub:
   expression: transmission_volume_expansion <= GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{b,l} \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
+$$\mathit{transmission\_volume\_expansion}_{b} \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `transmission_volume_expansion_limit`
 
@@ -2756,7 +2756,7 @@ GlobalConstraint_transmission_volume_expansion_limit_lb:
   expression: transmission_volume_expansion >= GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{b,l} \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
+$$\mathit{transmission\_volume\_expansion}_{b} \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `transmission_volume_expansion_limit`
 
@@ -2770,7 +2770,7 @@ GlobalConstraint_transmission_volume_expansion_limit_eq:
   expression: transmission_volume_expansion == GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{b,l} = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
+$$\mathit{transmission\_volume\_expansion}_{b} = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_volume\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
 
 ### `transmission_expansion_cost_limit`
 
@@ -2784,7 +2784,7 @@ GlobalConstraint_transmission_expansion_cost_limit_ub:
   expression: transmission_expansion_cost <= GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{b,l} \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
+$$\mathit{transmission\_expansion\_cost}_{b} \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `transmission_expansion_cost_limit`
 
@@ -2798,7 +2798,7 @@ GlobalConstraint_transmission_expansion_cost_limit_lb:
   expression: transmission_expansion_cost >= GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{b,l} \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
+$$\mathit{transmission\_expansion\_cost}_{b} \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `transmission_expansion_cost_limit`
 
@@ -2812,7 +2812,7 @@ GlobalConstraint_transmission_expansion_cost_limit_eq:
   expression: transmission_expansion_cost == GlobalConstraint_constant
 ```
 
-$$\sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{b,l} = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
+$$\mathit{transmission\_expansion\_cost}_{b} = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{transmission\_expansion\_cost\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
 
 ### `tech_capacity_expansion_limit`
 
@@ -2826,7 +2826,7 @@ GlobalConstraint_tech_capacity_expansion_limit_ub:
   expression: tech_capacity_expansion <= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{b,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{b,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{b,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{b,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{b,v} \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
+$$\mathit{tech\_capacity\_expansion}_{b} \le \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{<=}\text{'}$$
 
 ### `tech_capacity_expansion_limit`
 
@@ -2840,7 +2840,7 @@ GlobalConstraint_tech_capacity_expansion_limit_lb:
   expression: tech_capacity_expansion >= GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{b,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{b,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{b,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{b,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{b,v} \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
+$$\mathit{tech\_capacity\_expansion}_{b} \ge \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{>=}\text{'}$$
 
 ### `tech_capacity_expansion_limit`
 
@@ -2854,7 +2854,7 @@ GlobalConstraint_tech_capacity_expansion_limit_eq:
   expression: tech_capacity_expansion == GlobalConstraint_constant
 ```
 
-$$\sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{b,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{b,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{b,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{b,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{b,v} = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
+$$\mathit{tech\_capacity\_expansion}_{b} = \mathrm{K}_{b} \qquad \forall\thinspace b \in \mathcal{B} \thinspace:\thinspace \mathrm{type}_{b} = \text{'}\mathrm{tech\_capacity\_expansion\_limit}\text{'} \wedge \mathrm{sense}_{b} = \text{'}\mathrm{==}\text{'}$$
 
 ### `Bus-nodal_balance`
 
@@ -2882,6 +2882,241 @@ Bus_nodal_balance:
 ```
 
 $$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{Generator\_bus}(g) = n} p_{t,g} + \sum_{s \in \mathcal{S} \thinspace:\thinspace \mathrm{StorageUnit\_bus}(s) = n} \left( h^{+}_{t,s} - h^{-}_{t,s} \right) + \sum_{v \in \mathcal{V} \thinspace:\thinspace \mathrm{Store\_bus}(v) = n} q_{t,v} - \left( \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus0}(l) = n} f_{t,l} \right) + \sum_{o \in \mathcal{O} \thinspace:\thinspace \mathrm{Link\_output\_bus}(o) = n} \overrightarrow{f}_{t,o} - \left( \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus0}(k) = n} s_{t,k} \right) + \sum_{k \in \mathcal{K} \thinspace:\thinspace \mathrm{Line\_bus1}(k) = n} s_{t,k} = \sum_{d \in \mathcal{D} \thinspace:\thinspace \mathrm{Load\_bus}(d) = n} \mathrm{load}_{t,d} \qquad \forall\thinspace t \in \mathcal{T},\enspace n \in \mathcal{N}$$
+
+### `Generator_previous_status`
+
+```yaml
+Generator_previous_status:
+  description: >-
+    the commitment state a generator carries into a snapshot — the state it
+    brought into the horizon at the first, the previous snapshot's after that
+  foreach: [snapshot, generator]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
+  otherwise: shift(Generator_status, over=snapshot, offset=1)
+```
+
+$$\overleftarrow{u}_{t,g} = \begin{cases} \mathrm{u}^{0}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr u_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+### `Generator_previous_p`
+
+```yaml
+Generator_previous_p:
+  description: >-
+    the output a generator carries into a snapshot — nothing at the start of
+    the horizon, which is why a unit that came in running carries no ramp row
+    there
+  foreach: [snapshot, generator]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: 0 }
+  otherwise: shift(Generator_p, over=snapshot, offset=1)
+```
+
+$$\overleftarrow{p}_{t,g} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \cr p_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+### `Generator_p_nom_effective`
+
+```yaml
+Generator_p_nom_effective:
+  description: the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise
+  foreach: [generator]
+  cases:
+    extendable: { when: Generator_p_nom_extendable, expression: Generator_p_nom_ext }
+  otherwise: Generator_p_nom
+```
+
+$$\widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} = \begin{cases} P_{g} & \text{if } \mathrm{ext}_{g} \cr \mathrm{p}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\thinspace g \in \mathcal{G}$$
+
+### `Generator_ramp_up_allowance`
+
+```yaml
+Generator_ramp_up_allowance:
+  description: >-
+    how far a generator may raise output between two snapshots — its ramp
+    limit of the build while it stays on, plus its start-up ramp in the
+    snapshot it turns on
+  foreach: [snapshot, generator]
+  cases:
+    committed:
+      when: Generator_committable
+      expression: >-
+        Generator_ramp_limit_up * Generator_p_nom * Generator_previous_status
+        + Generator_ramp_limit_start_up * Generator_p_nom
+        * (Generator_status - Generator_previous_status)
+  otherwise: Generator_ramp_limit_up * Generator_p_nom_effective
+```
+
+$$\Delta^{+}_{t,g} = \begin{cases} \mathrm{ru}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \overleftarrow{u}_{t,g} + \mathrm{ru}^{\mathrm{up}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( u_{t,g} - \overleftarrow{u}_{t,g} \right) & \text{if } \mathrm{com}_{g} \cr \mathrm{ru}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+### `Generator_ramp_down_allowance`
+
+```yaml
+Generator_ramp_down_allowance:
+  description: >-
+    how far a generator may lower output between two snapshots — its ramp
+    limit of the build while it stays on, plus its shut-down ramp in the
+    snapshot it turns off
+  foreach: [snapshot, generator]
+  cases:
+    committed:
+      when: Generator_committable
+      expression: >-
+        Generator_ramp_limit_down * Generator_p_nom * Generator_status
+        + Generator_ramp_limit_shut_down * Generator_p_nom
+        * (Generator_previous_status - Generator_status)
+  otherwise: Generator_ramp_limit_down * Generator_p_nom_effective
+```
+
+$$\Delta^{-}_{t,g} = \begin{cases} \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} + \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot \left( \overleftarrow{u}_{t,g} - u_{t,g} \right) & \text{if } \mathrm{com}_{g} \cr \mathrm{rd}_{g} \cdot \widetilde{\mathrm{p}}^{\mathrm{nom}}_{g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+### `Link_p_nom_effective`
+
+```yaml
+Link_p_nom_effective:
+  description: the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise
+  foreach: [link]
+  cases:
+    extendable: { when: Link_p_nom_extendable, expression: Link_p_nom_ext }
+  otherwise: Link_p_nom
+```
+
+$$\widetilde{\mathrm{f}}^{\mathrm{nom}}_{l} = \begin{cases} F_{l} & \text{if } \mathrm{ext}^{f}_{l} \cr \mathrm{f}^{\mathrm{nom}}_{l} & \text{otherwise} \end{cases} \qquad \forall\thinspace l \in \mathcal{L}$$
+
+### `StorageUnit_charge_carried_in`
+
+```yaml
+StorageUnit_charge_carried_in:
+  description: >-
+    the charge a unit opens a snapshot with — its last snapshot's less
+    standing loss where it is cyclic, the given initial charge at the start
+    of the horizon, which no standing loss has touched yet, and the previous
+    snapshot's less standing loss otherwise
+  foreach: [snapshot, storage_unit]
+  cases:
+    cyclic:
+      when: StorageUnit_cyclic_state_of_charge
+      expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+    opening:
+      when: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
+      expression: StorageUnit_state_of_charge_initial
+  otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
+```
+
+$$\overleftarrow{\mathit{soc}}_{t,s} = \begin{cases} \rho_{t,s} \cdot \mathit{soc}_{t \ominus 1,s} & \text{if } \mathrm{cyc}_{s} \cr \mathrm{soc}^{0}_{s} & \text{if } \neg \mathrm{cyc}_{s} \wedge \mathrm{pos}(t) = 0 \cr \rho_{t,s} \cdot \mathit{soc}_{t - 1,s} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace s \in \mathcal{S}$$
+
+### `Store_energy_carried_in`
+
+```yaml
+Store_energy_carried_in:
+  description: >-
+    the energy a store opens a snapshot with — its last snapshot's less
+    standing loss where it is cyclic, the given initial energy at the start
+    of the horizon, which no standing loss has touched yet, and the previous
+    snapshot's less standing loss otherwise
+  foreach: [snapshot, store]
+  cases:
+    cyclic:
+      when: Store_e_cyclic
+      expression: Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
+    opening:
+      when: not Store_e_cyclic AND position(snapshot) == 0
+      expression: Store_e_initial
+  otherwise: Store_retention * shift(Store_e, over=snapshot, offset=1)
+```
+
+$$\overleftarrow{e}_{t,v} = \begin{cases} \rho^{e}_{t,v} \cdot e_{t \ominus 1,v} & \text{if } \mathrm{cyc}^{e}_{v} \cr \mathrm{e}^{0}_{v} & \text{if } \neg \mathrm{cyc}^{e}_{v} \wedge \mathrm{pos}(t) = 0 \cr \rho^{e}_{t,v} \cdot e_{t - 1,v} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace v \in \mathcal{V}$$
+
+### `Link_output_arrival`
+
+```yaml
+Link_output_arrival:
+  description: >-
+    what a link delivers to an output port at a snapshot — its flow after the
+    port's efficiency, delayed by the port's `delay`; where the port is
+    `cyclic_delay` the delayed flow wraps from the horizon's end, and where it
+    is not the flow still in transit at the first snapshots is lost. A port
+    that does not delay (`delay` zero) delivers its flow unshifted, cyclic or
+    not
+  foreach: [snapshot, link_output]
+  cases:
+    wrapping:
+      when: Link_output_cyclic_delay
+      expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge='wrap')
+  otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge=0)
+```
+
+$$\overrightarrow{f}_{t,o} = \begin{cases} f_{t \ominus \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{if } \mathrm{cyc}^{f}_{o} \cr f_{t \boxminus_{0} \mathrm{d}^{f},\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace o \in \mathcal{O}$$
+
+### `primary_energy`
+
+```yaml
+primary_energy:
+  description: >-
+    what a `primary_energy` row totals — weighted generator energy, less
+    the charge left in weighted storage at the horizon's end; the initial
+    charge it is compared against is folded into the row's constant
+  expression: >-
+    sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, over=snapshot), over=generator)
+    - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+    - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, over=snapshot), over=store)
+```
+
+$$\mathit{primary\_energy}_{b} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{a}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{a}^{e}_{b,v} \right) \qquad \forall\thinspace b \in \mathcal{B}$$
+
+### `operational_limit`
+
+```yaml
+operational_limit:
+  description: >-
+    what an `operational_limit` row totals — the weighted energy its
+    generators deliver, plus what its non-cyclic storage draws down; the
+    initial charge it draws from is folded into the row's constant
+  expression: >-
+    sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, over=snapshot), over=generator)
+    - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+    - sum(sum(Store_e * snapshot_is_last * Store_operational_limit_weight, over=snapshot), over=store)
+```
+
+$$\mathit{operational\_limit}_{b} = \sum_{g \in \mathcal{G}} \sum_{t \in \mathcal{T}} p_{t,g} \cdot \mathrm{w}^{\mathrm{gen}}_{t} \cdot \mathrm{b}_{b,g} - \left( \sum_{s \in \mathcal{S}} \sum_{t \in \mathcal{T}} \mathit{soc}_{t,s} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{h}_{b,s} \right) - \left( \sum_{v \in \mathcal{V}} \sum_{t \in \mathcal{T}} e_{t,v} \cdot \mathrm{last}_{t} \cdot \mathrm{b}^{e}_{b,v} \right) \qquad \forall\thinspace b \in \mathcal{B}$$
+
+### `transmission_volume_expansion`
+
+```yaml
+transmission_volume_expansion:
+  description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
+  expression: >-
+    sum(Line_s_nom_ext * Line_volume_weight, over=line)
+    + sum(Link_p_nom_ext * Link_volume_weight, over=link)
+```
+
+$$\mathit{transmission\_volume\_expansion}_{b} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{len}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{len}^{f}_{b,l} \qquad \forall\thinspace b \in \mathcal{B}$$
+
+### `transmission_expansion_cost`
+
+```yaml
+transmission_expansion_cost:
+  description: what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches
+  expression: >-
+    sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
+    + sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+```
+
+$$\mathit{transmission\_expansion\_cost}_{b} = \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{cc}_{b,k} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{cc}^{f}_{b,l} \qquad \forall\thinspace b \in \mathcal{B}$$
+
+### `tech_capacity_expansion`
+
+```yaml
+tech_capacity_expansion:
+  description: what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set
+  expression: >-
+    sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
+    + sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
+    + sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
+    + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
+    + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
+```
+
+$$\mathit{tech\_capacity\_expansion}_{b} = \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{m}_{b,g} + \sum_{l \in \mathcal{L}} F_{l} \cdot \mathrm{m}^{f}_{b,l} + \sum_{k \in \mathcal{K}} S_{k} \cdot \mathrm{m}^{l}_{b,k} + \sum_{s \in \mathcal{S}} H_{s} \cdot \mathrm{m}^{h}_{b,s} + \sum_{v \in \mathcal{V}} E_{v} \cdot \mathrm{m}^{e}_{b,v} \qquad \forall\thinspace b \in \mathcal{B}$$
 
 #### Variable domains
 
