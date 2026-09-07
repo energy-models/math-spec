@@ -57,10 +57,10 @@ _NESTED = override(
 
 
 @EVERY_FORMAT
-def test_a_cased_expression_is_the_exception_that_keeps_its_name(name: FormatName, fmt: Format):
+def test_a_cased_expression_prints_once_as_a_definition_and_by_symbol_where_used(name: FormatName, fmt: Format):
     """The other way round — the block inlined at each use — is what the AST does
-    and the wrong thing to print: a block three arms tall puts whatever follows
-    it beside its middle row."""
+    and the wrong default to print: a block three arms tall puts whatever follows
+    it beside its middle row. `inline` is how a reader asks for it anyway."""
     rendered = typeset(CASED, name, legend=False)
     indexed = fmt.subscript(fmt.upright('headroom'), ['t', 'g'])
     assert rendered.count(indexed) == 2, (
@@ -71,6 +71,26 @@ def test_a_cased_expression_is_the_exception_that_keeps_its_name(name: FormatNam
     assert sections == ['Objective', 'Subject to', 'Definitions', 'Variable domains'], (
         'the definition has a section of its own, after the constraints and before the domains'
     )
+
+
+@EVERY_FORMAT
+def test_inlining_puts_the_cases_block_where_the_name_was_used(name: FormatName, fmt: Format):
+    """No definition section and no symbol: the block stands in the constraint, as the AST has it."""
+    rendered = typeset(CASED, name, legend=False, inline=True)
+    assert 'headroom' not in rendered, 'the name prints nowhere once its block is inlined'
+    assert 'Definitions' not in rendered, 'nothing is left to define'
+    assert rendered.count(fmt.prose('otherwise')) == 1, 'the block prints at its one use'
+
+
+@EVERY_FORMAT
+def test_an_inlined_block_under_a_translation_re_indexes_its_conditions(name: FormatName, fmt: Format):
+    """`shift` re-indexes the leaves it stands over, and an arm's `when` is a leaf
+    of the block: `pos(t) = 0` inside a block read one step back is `pos(t ⊖ 1) = 0`."""
+    shifted = override(
+        CASED, **{'constraints.spare.expression': "p <= shift(headroom, over=snapshot, offset=1, edge='wrap') * 2"}
+    )
+    rendered = typeset(shifted, name, legend=False, inline=True)
+    assert f'(t {fmt.operators["cyclic_minus"]} 1) = 0' in rendered
 
 
 @EVERY_FORMAT

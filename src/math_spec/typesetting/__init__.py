@@ -106,9 +106,9 @@ def typeset(
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
         numbered: Number the equations.
-        inline: Substitute each plain named expression into the equations that
-            use it, rather than printing its symbol there and its definition
-            once. A cased expression is a definition either way.
+        inline: Substitute each named expression into the equations that use
+            it, a cased one as its ``cases`` block, rather than printing its
+            symbol there and its definition once.
 
     Returns:
         The rendered text.

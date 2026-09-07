@@ -237,7 +237,7 @@ class Walk:
         self.namespace = namespace
         self.symbols = symbols
         self.format = fmt
-        #: Substitute each plain named expression where it is used, rather than
+        #: Substitute each named expression where it is used, rather than
         #: printing its symbol there and its definition once.
         self.inline = inline
         self.noticed = Noticed()
@@ -332,6 +332,9 @@ class Walk:
 
         if isinstance(node, DefinitionNode) and self.inline:
             return self._arithmetic(node.body, ctx)
+
+        if isinstance(node, CasesNode) and self.inline:
+            return self.format.cases(self._arms(node, ctx)), _ATOM
 
         if isinstance(node, CasesNode | DefinitionNode):
             return ctx.indexed(self.symbols.name[node.name], self.frames[node.name]), _ATOM
@@ -640,15 +643,15 @@ class Walk:
         """One line per named expression, in declaration order, defining it.
 
         A use prints the symbol and the block prints here, as a paper states a
-        quantity it names. Every declared one prints, used or not. Inlining
-        substitutes the plain ones away, so only the cased ones print — a
-        ``cases`` block has no single body to substitute.
+        quantity it names. Every declared one prints, used or not; inlining
+        substitutes each where it is used instead, a cased one as its
+        ``cases`` block.
         """
         return [self._definition(name) for name in self._defined()]
 
     def _defined(self) -> list[str]:
-        """The named expressions that print under their own symbol: every one, or only the cased ones when inlining."""
-        return [name for name, block in self.schema.expressions.items() if block.cases or not self.inline]
+        """The named expressions that print under their own symbol: every one, or none when inlining."""
+        return [] if self.inline else list(self.schema.expressions)
 
     def _definition(self, name: str) -> Line:
         node = self._resolved(name)

@@ -483,11 +483,11 @@ reaches the body and upright where none does, the cut every other name follows,
 and a named expression joins the symbol pool like any other quantity, so
 `--symbols` can rename one.
 
-`inline` (`--inline`) substitutes each plain expression where it is used
-instead, which is the math a backend builds. A cased one is a definition either
-way, because it cannot be substituted legibly: three cases are three rows tall,
-so whatever follows the name in the constraint would sit beside the **middle**
-row, and the quantity would print once per use though the file writes it once.
+`inline` (`--inline`) substitutes each named expression where it is used
+instead, a cased one as its `cases` block, which is the math a backend builds:
+no Definitions section, and the quantity printed once per use though the file
+writes it once. A cases block is three rows tall, so mid-equation it puts
+whatever follows it beside the **middle** row, which is what the default avoids.
 
 [The unit commitment example](../../examples/commitment.md) is the whole model
 this section is drawn from.
