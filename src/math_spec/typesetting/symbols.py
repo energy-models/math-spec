@@ -24,6 +24,7 @@ from math_spec.typesetting.format import NOTATIONS
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from math_spec._expression_parser import ParsedNode
     from math_spec.model import ExpressionBlock, _ExpandedSpec
     from math_spec.resolution import Namespace
     from math_spec.typesetting.format import Format, Notation
@@ -141,6 +142,8 @@ class Symbols:
         chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace)
         names = (*schema.parameters, *schema.variables, *printed)
         declared = frozenset(names)
+        self._declared = declared
+        self._fmt = fmt
 
         #: Names the table spelled; the convention note quotes only derived symbols.
         self.overridden = frozenset(table.names) & declared
@@ -163,6 +166,18 @@ class Symbols:
             upper = _first_free(_set_candidates(dim, letter), taken_set)
             taken_set.add(upper)
             self.set[dim] = table.sets[dim] if dim in table.sets else fmt.script(upper)
+
+    def named(self, name: str, node: ParsedNode) -> str:
+        """The symbol a named expression prints under, derived where the map carries none.
+
+        A cased expression owns a map entry, kept for the uses that name it; a
+        plain expression is substituted away and has none, so a single-expression
+        render derives one here — upright unless a variable reaches it, the
+        given/chosen cut every other name follows.
+        """
+        if name in self.name:
+            return self.name[name]
+        return _derive_name_symbol(name, self._declared, self._fmt, given=not degree.carries_variable(node))
 
 
 def _index_candidates(dim: str) -> list[str]:

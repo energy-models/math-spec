@@ -64,6 +64,29 @@ load-time checks everything else does.
 **It does not line-break.** A wide equation runs off the page; that is a
 formatting decision this package does not make for you.
 
+## One named expression
+
+The whole-model functions print objective, constraints and domains. To pull the
+math of a single **named expression** out on its own — for a docstring, a table
+cell, a comment beside the value it computes — `typeset_expression` returns one
+bare fragment, `symbol = body`, with no document, legend or equation number
+around it:
+
+<!-- doctest: skip -->
+
+```python
+ms.typeset_expression('model.yaml', 'spend', ms.FORMATS['latex'])
+# \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}
+```
+
+It takes what the others take — a path, the YAML, a mapping, a `Spec` — plus the
+format and an optional `symbols` table. A **cased** expression prints its `cases`
+layout, the same one the whole-model _Definitions_ section prints. A **plain**
+expression is otherwise substituted away and prints nowhere else, so it has no
+symbol of its own; one is **derived** on the spot — italic where a variable
+reaches the body, upright where none does — and a symbol table, which names only
+what the whole-model render prints, cannot rename it.
+
 ## Symbol tables
 
 With no table, symbols are **derived** — unambiguous rather than beautiful, so

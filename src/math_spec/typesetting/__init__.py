@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from math_spec.errors import SchemaError, did_you_mean
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace
 from math_spec.typesetting.latex import LatexFormat
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
     from math_spec.model import Spec
     from math_spec.typesetting.format import Format
 
-__all__ = ['FORMATS', 'SymbolTable', 'to_latex', 'to_markdown', 'to_typst', 'typeset']
+__all__ = ['FORMATS', 'SymbolTable', 'to_latex', 'to_markdown', 'to_typst', 'typeset', 'typeset_expression']
 
 #: Every format, by the name the CLI takes. Adding one is a module plus a row.
 FORMATS: dict[str, Format] = {
@@ -52,6 +53,18 @@ FORMATS: dict[str, Format] = {
     'markdown': MarkdownFormat(),
     'typst': TypstFormat(),
 }
+
+
+def _walk(
+    model: str | Path | dict[str, Any] | Spec, fmt: Format, symbols: str | Path | Mapping[str, Any] | SymbolTable | None
+) -> Walk:
+    """The loaded, symbol-resolved walk both renderers build from model, format and table."""
+    schema = expand_piecewise(to_spec(model))
+    namespace = Namespace.of(schema)
+    if symbols is None:
+        symbols = SymbolTable(fmt.notation)
+    table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
+    return Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema)), fmt)
 
 
 def typeset(
@@ -88,12 +101,8 @@ def typeset(
         SchemaError: A symbol table entry naming nothing in the model, or a
             table written in a notation *fmt* does not read.
     """
-    schema = expand_piecewise(to_spec(model))
-    namespace = Namespace.of(schema)
-    if symbols is None:
-        symbols = SymbolTable(fmt.notation)
-    table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
-    walk = Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema)), fmt)
+    walk = _walk(model, fmt, symbols)
+    schema = walk.schema
 
     sections, noticed = walk.equations()
     rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
@@ -105,6 +114,44 @@ def typeset(
         blocks += [fmt.note(text) for text in walk.translation_notes(noticed)]
         blocks += [fmt.note(text) for text in walk.position_notes(noticed)]
     return fmt.document([*blocks, *rendered], standalone=standalone)
+
+
+def typeset_expression(
+    model: str | Path | dict[str, Any] | Spec,
+    name: str,
+    fmt: Format,
+    *,
+    symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
+) -> str:
+    """Render one named expression's defining equation as a bare fragment.
+
+    ``symbol = body`` in *fmt*'s notation, with no document, legend, equation
+    number or math delimiters around it — for placing in a math context the
+    caller controls. A cased expression prints its ``cases`` layout; a plain one
+    prints the affine body it expands to, under a symbol derived on the spot,
+    since the language substitutes a plain expression away and prints no symbol
+    for it elsewhere.
+
+    Args:
+        model: Anything :func:`math_spec.to_spec` accepts.
+        name: A named expression the model declares.
+        fmt: What spells the math — one of :data:`FORMATS`.
+        symbols: How names print; see :func:`typeset`. A plain expression's own
+            symbol is always derived — a table names only what the whole-model
+            render prints, which a plain expression is not.
+
+    Returns:
+        The fragment, math only.
+
+    Raises:
+        LanguageError: A model that does not compile; it does not print.
+        SchemaError: *name* is not a named expression, or a symbol table entry
+            names nothing in the model.
+    """
+    walk = _walk(model, fmt, symbols)
+    if name not in walk.schema.expressions:
+        raise SchemaError(f"'{name}' is not a named expression. {did_you_mean(name, set(walk.schema.expressions))}")
+    return walk.definition(name)
 
 
 def to_latex(model: str | Path | dict[str, Any] | Spec, **options: Any) -> str:

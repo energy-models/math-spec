@@ -636,6 +636,26 @@ class Walk:
             )
         return lines
 
+    def definition(self, name: str) -> str:
+        """One named expression as ``symbol = body``, a fragment in this format.
+
+        The frame is the declared ``foreach`` of a cased expression and the
+        substituted body's own dims of a plain one, since a plain expression
+        declares none. A cased expression prints its ``cases`` layout, as it
+        does in the model's Definitions; a plain one prints the affine body it
+        expands to. The symbol is derived where the model substitutes the name
+        away — see :meth:`~math_spec.typesetting.symbols.Symbols.named`.
+        """
+        context = f"expression '{name}'"
+        node = expression_of(name, self.schema, self.namespace, context)
+        block = self.schema.expressions[name]
+        frame = self._frame(name) if block.cases else self._sorted(dims_of(node, self.schema, context))
+        ctx = self._context(frame)
+        left = ctx.indexed(self.symbols.named(name, node), frame)
+        assert not isinstance(node, ComparisonNode), 'a named expression is affine — a comparison is refused at load'
+        right = self.format.cases(self._arms(node, ctx)) if isinstance(node, CasesNode) else self._expression(node, ctx)
+        return f'{left} {self._op("equal")} {right}'
+
     def _frame(self, name: str) -> list[str]:
         """The dims a cased expression is read over — its declaration's, not a copy."""
         return list(self.schema.expressions[name].foreach or ())
