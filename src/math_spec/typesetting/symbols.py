@@ -271,16 +271,34 @@ class SymbolTable:
         )
 
     def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
-        """Reject entries naming nothing in *schema*, with the near miss."""
+        """Reject entries naming nothing the render prints, with the near miss.
+
+        A plain expression is declared but substituted away, so it prints no
+        symbol a table could set; its entry is refused for that reason rather
+        than with the near miss a typo gets.
+        """
         dims = set(schema.dimensions)
-        everything = dims | set(schema.parameters) | set(schema.variables) | set(printed_expressions(schema))
+        printed = set(printed_expressions(schema))
+        plain = set(schema.expressions) - printed
+        everything = dims | set(schema.parameters) | set(schema.variables) | printed
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
-            *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),
+            *(_unknown_name(n, plain, everything - dims) for n in set(self.names) - everything),
         ]
         if errors:
             raise SchemaError('\n'.join(sorted(errors)))
         return self
+
+
+def _unknown_name(name: str, plain: set[str], known: set[str]) -> str:
+    """A ``names:`` entry naming nothing that prints: a plain expression, or a typo."""
+    if name in plain:
+        return (
+            f"symbol table: '{name}' under names: is a plain expression, substituted into the equations "
+            f'that use it, so it prints no symbol to set — drop the entry; a table renames a parameter, '
+            f'a variable, or a cased expression.'
+        )
+    return _unknown_entry(name, 'names', known)
 
 
 def _unknown_entry(name: str, section: str, known: set[str]) -> str:

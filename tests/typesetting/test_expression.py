@@ -84,11 +84,13 @@ def test_a_symbol_table_renames_a_cased_expression_but_never_a_plain_one():
     A cased expression prints under its own name and may be renamed; a plain one
     is substituted away in the whole-model render, so an entry naming it is the
     dead entry the table is strict about, even though this fragment does print it.
+    The refusal names why rather than offering a near miss: it is declared, just
+    unrenamable.
     """
     table = {'notation': 'latex', 'names': {'headroom': r'\bar h'}}
     assert typeset_expression(CASED, 'headroom', LATEX, symbols=table).startswith(r'\bar h_{t,g} =')
 
-    with pytest.raises(SchemaError, match='is not declared by the model'):
+    with pytest.raises(SchemaError, match='is a plain expression'):
         typeset_expression(PLAIN, 'spend', LATEX, symbols={'notation': 'latex', 'names': {'spend': 's'}})
 
 

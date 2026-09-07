@@ -146,7 +146,7 @@ def test_the_table_may_rename_a_cased_expression_but_not_a_plain_one():
     assert r'\bar h_{t,g}' in tex
 
     plain = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
-    with pytest.raises(SchemaError, match='is not declared by the model'):
+    with pytest.raises(SchemaError, match='is a plain expression'):
         to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
 
 
