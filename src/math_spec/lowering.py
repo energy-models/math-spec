@@ -35,7 +35,6 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.expansion import read_by_the_math
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
@@ -166,14 +165,13 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         )
         for sname, sdef in expanded.sos.items()
     }
-    in_math = read_by_the_math(expanded)
     expressions: dict[str, program.ExpressionDeclaration] = {}
     for name in expanded.expressions:
         context = f"named expression '{name}'"
         ast = expression_of(name, expanded, ns, context)
         assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
         expressions[name] = program.ExpressionDeclaration(
-            _Lowering(expanded, context).expr(ast), in_math=name in in_math
+            _Lowering(expanded, context).expr(ast), in_math=name in expanded.read_by_the_math
         )
     return program.Program(
         parameters=parameters,

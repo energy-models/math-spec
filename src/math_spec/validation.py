@@ -189,10 +189,11 @@ def _check_expression(
     """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
 
     ``ceiling`` is the degree the position honours, and ``None`` for an
-    ``expressions:`` entry's body: degree and the ``dual()`` placement rule
-    are rules about the position that *reads* the math, so they fire on the
-    expanded tree of every constraint, objective, bound, where and piecewise
-    link, and not where an entry is declared.
+    ``expressions:`` entry's body: what the math admits
+    (:func:`~math_spec.degree.check_expression`) is a rule about the position
+    that *reads* it, so it fires on the expanded tree of every constraint,
+    objective, bound, where and piecewise link, and not where an entry is
+    declared.
     """
     try:
         ast = parse_and_expand(expression, schema, context)
@@ -212,8 +213,10 @@ def _check_expression(
         return
     if ceiling is None:
         return
-    if degree.calls_dual(resolved):
-        errors.append(degree.dual_in_math_message(context))
+    try:
+        degree.check_expression(resolved, context, ceiling=ceiling)
+    except LanguageError as e:
+        errors.append(str(e))
         return
     if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
         errors.append(
@@ -223,10 +226,6 @@ def _check_expression(
             f'is settled before the solve — no lane builds a row for it. Name the variable it should '
             f'bound, or drop the declaration and check the fact where the data is prepared.'
         )
-    try:
-        degree.check_expression(resolved, context, ceiling=ceiling)
-    except LanguageError as e:
-        errors.append(str(e))
 
 
 def _names_in(value: ArithmeticNode) -> tuple[str, ...]:
@@ -270,8 +269,7 @@ def _check_template_names(
             errors.append(f'{context}: {unknown_operator_message(node.name)}')
         if node.name == 'dual':
             errors.extend(
-                f"{context}: dual({arg.name}): '{arg.name}' is not a "
-                f'declared constraint or a formal of this macro.\n  Constraints: {sorted(ns.constraints)}'
+                ns.unknown_constraint(arg.name, context, formals=formals)
                 for arg in node.args
                 if isinstance(arg, NameNode) and arg.name not in formals and arg.name not in ns.constraints
             )

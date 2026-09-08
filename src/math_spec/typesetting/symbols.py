@@ -84,13 +84,8 @@ def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset
     A ``dual`` moves one for the same reason a variable does: the solve settles
     it, and no data hands it over.
     """
-
-    def depends_on_solution(name: str) -> bool:
-        """Whether *name*'s body reaches a variable or a dual, resolved once for both questions."""
-        node = expression_of(name, schema, namespace, f"expression '{name}'")
-        return degree.carries_variable(node) or degree.calls_dual(node)
-
-    return frozenset(name for name in schema.expressions if depends_on_solution(name))
+    bodies = {name: expression_of(name, schema, namespace, f"expression '{name}'") for name in schema.expressions}
+    return frozenset(name for name, node in bodies.items() if degree.carries_variable(node) or degree.calls_dual(node))
 
 
 class Symbols:

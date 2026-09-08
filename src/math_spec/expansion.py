@@ -41,23 +41,6 @@ def parse_and_expand(text: str, schema: Spec, context: str, *, read: set[str] | 
     return expand(parse_expression(text), schema, context, read=read)
 
 
-def read_by_the_math(schema: Spec) -> frozenset[str]:
-    """The named expressions the math reads: every entry the objective or a constraint reaches, transitively.
-
-    Decided by expanding those two positions alone: a bound and a ``where``
-    name no entry, and a piecewise link's expression reaches here through the
-    constraints its expansion emits. The rest of the ``expressions:`` section
-    is read back after a solve and never fed to one
-    (:attr:`math_spec.program.ExpressionDeclaration.in_math`).
-    """
-    read: set[str] = set()
-    for name, block in schema.constraints.items():
-        parse_and_expand(block.expression, schema, f"constraint '{name}'", read=read)
-    if schema.objective is not None:
-        parse_and_expand(schema.objective.expression, schema, 'the objective', read=read)
-    return frozenset(read)
-
-
 @overload
 def expand(
     node: ArithmeticNode, schema: Spec, context: str, *, shadow: frozenset[str] = ..., read: set[str] | None = ...

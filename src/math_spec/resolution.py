@@ -194,6 +194,15 @@ class Namespace:
         listing = '\n'.join(f'  {kind}: {sorted(names)}' for kind, names in shown)
         return f"{context}: '{name}' not found.\n{listing}\nCheck for typos, or ensure '{name}' is declared."
 
+    def unknown_constraint(self, name: str, context: str, *, formals: Iterable[str] = ()) -> str:
+        """The refusal for a ``dual(name)`` naming no constraint — nor, inside a template, a formal."""
+        also = ' or a formal of this macro' if formals else ''
+        return (
+            f"{context}: dual({name}): '{name}' is not a declared constraint{also}.\n"
+            f'  Constraints: {sorted(self.constraints)}\n'
+            f"Check for typos, or declare '{name}' under 'constraints:'."
+        )
+
 
 # ---------------------------------------------------------------------------
 # the seam the rest of the package uses
@@ -491,11 +500,7 @@ class _Resolver:
             )
             return node
         if value.name not in self.ns.constraints:
-            self.errors.append(
-                f"{self.context}: dual({value.name}): '{value.name}' is not a declared constraint.\n"
-                f'  Constraints: {sorted(self.ns.constraints)}\n'
-                f"Check for typos, or declare '{value.name}' under 'constraints:'."
-            )
+            self.errors.append(self.ns.unknown_constraint(value.name, self.context))
             return node
         return DualNode(value.name)
 
