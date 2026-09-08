@@ -231,7 +231,13 @@ class Walk:
     """
 
     def __init__(
-        self, schema: _ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format, *, inline: bool = False
+        self,
+        schema: _ExpandedSpec,
+        namespace: Namespace,
+        symbols: Symbols,
+        fmt: Format,
+        *,
+        inline_expressions: bool = False,
     ) -> None:
         self.schema = schema
         self.namespace = namespace
@@ -239,7 +245,7 @@ class Walk:
         self.format = fmt
         #: Substitute each plain named expression where it is used, rather than
         #: printing its symbol there and its definition once.
-        self.inline = inline
+        self.inline_expressions = inline_expressions
         self.noticed = Noticed()
         #: The dims a named expression is read over: a cased one declares them,
         #: a plain one's fall out of its body.
@@ -330,7 +336,7 @@ class Walk:
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
 
-        if isinstance(node, DefinitionNode) and self.inline:
+        if isinstance(node, DefinitionNode) and self.inline_expressions:
             return self._arithmetic(node.body, ctx)
 
         if isinstance(node, CasesNode | DefinitionNode):
@@ -648,7 +654,7 @@ class Walk:
 
     def _defined(self) -> list[str]:
         """The named expressions that print under their own symbol: every one, or only the cased ones when inlining."""
-        return [name for name, block in self.schema.expressions.items() if block.cases or not self.inline]
+        return [name for name, block in self.schema.expressions.items() if block.cases or not self.inline_expressions]
 
     def definition(self, name: str) -> Line:
         """The line defining one named expression, ``symbol = body`` over its frame."""

@@ -72,7 +72,7 @@ def _walk(
     fmt: FormatName,
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None,
     *,
-    inline: bool,
+    inline_expressions: bool,
 ) -> Walk:
     """The loaded, symbol-resolved walk every renderer builds from model, format and table."""
     if fmt not in FORMATS:
@@ -85,7 +85,11 @@ def _walk(
         symbols = SymbolTable(format_.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     return Walk(
-        schema, namespace, Symbols(schema, namespace, format_, table.checked_against(schema)), format_, inline=inline
+        schema,
+        namespace,
+        Symbols(schema, namespace, format_, table.checked_against(schema)),
+        format_,
+        inline_expressions=inline_expressions,
     )
 
 
@@ -97,7 +101,7 @@ def typeset(
     standalone: bool = False,
     legend: bool = True,
     numbered: bool = True,
-    inline: bool = False,
+    inline_expressions: bool = False,
 ) -> str:
     """Render *model*'s math in *fmt*.
 
@@ -115,7 +119,7 @@ def typeset(
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
         numbered: Number the equations.
-        inline: Substitute each plain named expression into the equations that
+        inline_expressions: Substitute each plain named expression into the equations that
             use it, rather than printing its symbol there and its definition
             once. A cased expression is a definition either way: its block is
             taller than the line it would sit in.
@@ -129,7 +133,7 @@ def typeset(
         SchemaError: A symbol table entry naming nothing in the model, or a
             table written in a notation *fmt* does not read.
     """
-    walk = _walk(model, fmt, symbols, inline=inline)
+    walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
     schema, format_ = walk.schema, walk.format
 
     sections, noticed = walk.equations()
@@ -152,7 +156,7 @@ def typeset_declaration(
     fmt: FormatName,
     *,
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
-    inline: bool = True,
+    inline_expressions: bool = True,
 ) -> str:
     """Render one declaration as the bare line the document prints for it.
 
@@ -161,7 +165,7 @@ def typeset_declaration(
     with no document, label, equation number or math delimiters around it, for
     a math context the caller lays out: a docstring, a table cell. A line on
     its own has no Definitions section beside it, so the plain named
-    expressions it uses are substituted unless *inline* says otherwise; a cased
+    expressions it uses are substituted unless *inline_expressions* says otherwise; a cased
     one prints by symbol, and a second call with its name prints its block.
 
     Args:
@@ -169,7 +173,7 @@ def typeset_declaration(
         name: A named expression, constraint or variable the model declares.
         fmt: What spells the math — a key of :data:`FORMATS`.
         symbols: How names print; see :func:`typeset`.
-        inline: Substitute the plain named expressions the line uses, so it
+        inline_expressions: Substitute the plain named expressions the line uses, so it
             stands on its own; ``False`` prints their symbols, as the document
             does. A plain expression asked for by name prints its definition
             either way.
@@ -184,7 +188,7 @@ def typeset_declaration(
             constraint may share a variable's name; or a symbol table entry
             names nothing in the model.
     """
-    walk = _walk(model, fmt, symbols, inline=inline)
+    walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
     schema = walk.schema
     kinds = {'named expression': schema.expressions, 'constraint': schema.constraints, 'variable': schema.variables}
     found = [kind for kind, group in kinds.items() if name in group]
