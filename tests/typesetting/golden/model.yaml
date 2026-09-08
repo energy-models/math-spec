@@ -86,6 +86,8 @@ expressions:
   spend: # a plain named expression: its symbol prints where it is used, its body once as a definition
     description: what a snapshot's dispatch costs
     expression: sum(p * cost, over=generator)
+  lcoe: sum(p * cost) / sum(p) # nothing in the math reads it, so its divisor may carry a variable
+  marginal_price: dual(balance) # the row dual of a constraint, the one builtin only an entry the math never reads may call
   startup_cost: # a quantity defined by region: no two cases overlap, and `otherwise` is the rest
     description: what starting a unit in this snapshot costs, which the horizon's edge changes
     foreach: [snapshot, generator]

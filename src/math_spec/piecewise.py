@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from math_spec._expression_parser import ComparisonNode
-from math_spec.degree import check_expression
+from math_spec.degree import calls_dual, check_expression, dual_in_math_message
 from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, PiecewiseExpansionError
 from math_spec.expansion import parse_and_expand
@@ -417,6 +417,8 @@ def _expr_dims(schema: Spec, text: str, ctx: str) -> frozenset[str]:
     if resolved is None:
         raise PiecewiseExpansionError('\n'.join(errors))
     assert not isinstance(resolved, ComparisonNode)
+    if calls_dual(resolved):
+        raise PiecewiseExpansionError(dual_in_math_message(ctx))
     try:
         check_expression(resolved, ctx)
         return dims_of(resolved, schema, ctx)

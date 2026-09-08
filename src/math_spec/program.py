@@ -56,7 +56,9 @@ __all__ = [
     'DimensionDtype',
     'DimensionPositionNode',
     'Divide',
+    'Dual',
     'Expression',
+    'ExpressionDeclaration',
     'ExpressionNode',
     'FanIn',
     'FirstOf',
@@ -120,8 +122,8 @@ ConstraintSense = ComparisonOperator
 FanIn = Literal['one-to-one', 'many-to-one', 'one-to-many']
 ObjectiveSense = Literal['minimize', 'maximize']
 
-#: Where a degree-2 product may stand. An objective and a constraint take
-#: ``variable * variable``; a bound, a named expression and a ``piecewise:``
+#: Where a degree-2 product may stand in the math a solver sees. An objective
+#: and a constraint take ``variable * variable``; a bound and a ``piecewise:``
 #: link are read affinely (``math_spec.degree``), so those are the two.
 QuadraticPosition = Literal['objective', 'constraint']
 
@@ -156,8 +158,12 @@ VariableType = _model.VariableDomain
 class Expression:
     """Base class for expressions over variables and parameters.
 
-    Affine everywhere but where ``math_spec.degree`` admits a :class:`Multiply`
-    of two variable-carrying operands; no node records which position that is.
+    The degree rules (``math_spec.degree``) hold on every tree the math reads
+    — :attr:`Program.expressions`, a bound, and a named expression that is
+    ``in_math`` — affine but where a :class:`QuadraticPosition` admits a
+    :class:`Multiply` of two variable-carrying operands. A
+    :class:`ExpressionDeclaration` the math never reads is held to none of
+    them. No node records which tree it stands in.
     """
 
     def __add__(self: ExpressionNode, other: ExpressionNode) -> ExpressionNode:
@@ -189,6 +195,20 @@ class Variable(Expression):
 
 
 @dataclass(frozen=True)
+class Dual(Expression):
+    """A constraint's dual — its shadow price, read after the solve.
+
+    Stands only under an :class:`ExpressionDeclaration` the math never reads:
+    the loader refuses ``dual()`` anywhere a solver ingests. One value per
+    coordinate of the named constraint's own ``foreach`` frame, which is what
+    :func:`fan_in` answers ``one-to-one`` for — the leaf reshapes nothing,
+    like a parameter.
+    """
+
+    constraint: str
+
+
+@dataclass(frozen=True)
 class Negate(Expression):
     operand: ExpressionNode
 
@@ -213,11 +233,10 @@ class Multiply(Expression):
 
 @dataclass(frozen=True)
 class Power(Expression):
-    """``base ** exponent``, both variable-free.
+    """``base ** exponent``, both variable-free wherever the math reads it.
 
-    Degree 0 in variables wherever it appears, so no consumer has to ask what
-    position it stands in: the language refuses a variable anywhere under it
-    (``math_spec.degree``), which is what lets this fold to one number per
+    The language refuses a variable anywhere under it (``math_spec.degree``),
+    so in the program a solver sees it is degree 0 and folds to one number per
     coordinate like any other parameter arithmetic.
     """
 
@@ -227,7 +246,7 @@ class Power(Expression):
 
 @dataclass(frozen=True)
 class Divide(Expression):
-    """Quotient ``numerator / divisor``. The divisor must be variable-free."""
+    """Quotient ``numerator / divisor``, the divisor variable-free wherever the math reads it (``math_spec.degree``)."""
 
     numerator: ExpressionNode
     divisor: ExpressionNode
@@ -361,6 +380,7 @@ ExpressionNode = (
     Constant
     | Parameter
     | Variable
+    | Dual
     | Negate
     | Add
     | Multiply
@@ -387,7 +407,7 @@ def fan_in(expression: ExpressionNode) -> FanIn:
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Negate, Add, Multiply, Power, Divide, At, Translate, Cases),
+        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, At, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)
@@ -677,6 +697,22 @@ class ObjectiveDeclaration:
 
 
 @dataclass(frozen=True)
+class ExpressionDeclaration:
+    """A named quantity — one the math reads, or one only read back after a solve.
+
+    ``in_math`` where the objective or a constraint inlines it, directly or
+    through another entry or a macro; its body then stands inside
+    :attr:`Program.expressions` and is held to the degree rules where it is
+    read. Otherwise nothing a solver sees contains it: it is a reported
+    quantity, its body held to no degree, the one place a :class:`Dual` may
+    stand. A bound and a ``where`` name no entry, so neither decides this.
+    """
+
+    expression: ExpressionNode
+    in_math: bool
+
+
+@dataclass(frozen=True)
 class Footprint:
     """Which of the language's constructs one program uses.
 
@@ -825,11 +861,12 @@ class Program:
     #: Each ``piecewise:`` block the file wrote, as facts — see
     #: :class:`PiecewiseDeclaration`.
     piecewise: Mapping[str, PiecewiseDeclaration] = MappingProxyType({})
-    #: Declared ``expressions:``, lowered. Not part of the program a solver
-    #: sees — none of them builds a row — but lowered with it, so a file whose
+    #: Declared ``expressions:``, lowered, each saying whether the math reads
+    #: it. None builds a row of its own — one the math reads is inlined where
+    #: it is read — but all are lowered with the program, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
-    named_expressions: Mapping[str, ExpressionNode] = MappingProxyType({})
+    named_expressions: Mapping[str, ExpressionDeclaration] = MappingProxyType({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""

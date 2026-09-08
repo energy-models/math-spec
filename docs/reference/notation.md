@@ -117,6 +117,8 @@ parameters:
 | Symbol | Meaning |
 |---|---|
 | $\mathit{spend}$ | `spend` over $\mathcal{T}$ — what a snapshot's dispatch costs |
+| $\mathit{lcoe}$ | `lcoe` (scalar) |
+| $\mathit{marginal\_price}$ | `marginal_price` over $\mathcal{T} \times \mathcal{B}$ |
 | $\mathrm{startup\_cost}$ | `startup_cost` over $\mathcal{T} \times \mathcal{G}$ — what starting a unit in this snapshot costs, which the horizon's edge changes |
 
 Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
@@ -532,6 +534,26 @@ spend:
 ```
 
 $$\mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\thinspace t \in \mathcal{T}$$
+
+#### `lcoe`
+
+nothing in the math reads it, so its divisor may carry a variable
+
+```yaml
+lcoe: sum(p * cost) / sum(p)
+```
+
+$$\mathit{lcoe} = \frac{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g}}$$
+
+#### `marginal_price`
+
+the row dual of a constraint, the one builtin only an entry the math never reads may call
+
+```yaml
+marginal_price: dual(balance)
+```
+
+$$\mathit{marginal\_price}_{t,b} = \lambda_{\mathrm{balance},t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
 #### `startup_cost`
 

@@ -23,6 +23,7 @@ from math_spec.program import (
     Cases,
     Constant,
     Divide,
+    Dual,
     ExpressionNode,
     GroupSum,
     Multiply,
@@ -133,12 +134,14 @@ def _record_signs(node: ExpressionNode, sign: Sign, signs: dict[str, Sign]) -> N
     A variable reached twice with different signs, or once with an undecidable
     one, lands on ``None``, which claims nothing. A reduction, a re-index, a
     window and a cases selection pass *sign* to their children unchanged; a
-    power carries no sign in either half.
+    power carries no sign in either half. A Constant, Parameter or Dual is a
+    variable-free leaf and contributes nothing — the Dual arm only keeps the
+    walk exhaustive, since the loader refuses one in any objective.
     """
     if isinstance(node, Variable):
         signs[node.name] = sign if signs.setdefault(node.name, sign) == sign else None
         return
-    if isinstance(node, Constant | Parameter):
+    if isinstance(node, Constant | Parameter | Dual):
         return
     if isinstance(node, Negate):
         _record_signs(node.operand, _flip(sign), signs)
