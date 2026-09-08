@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, assert_never
 
 import math_spec.degree as degree
@@ -28,7 +27,7 @@ from math_spec._expression_parser import (
     VariableNode,
     case_context,
 )
-from math_spec._yaml import read_yaml
+from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
 from math_spec.errors import LanguageError, SchemaError
 from math_spec.exclusivity import overlapping
@@ -39,6 +38,8 @@ from math_spec.program import BooleanLiteralNode
 from math_spec.resolution import Namespace, resolve_expression, resolve_where_text
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from math_spec.program import WhereNode
 
 
@@ -50,20 +51,23 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
     formulation emits.
 
     Args:
-        model: A YAML path, a mapping, or a loaded :class:`Spec`.
+        model: A YAML path — a :class:`~pathlib.Path`, or a ``str`` ending in
+            ``.yaml`` or ``.yml`` — the YAML text itself as any other ``str``,
+            a mapping, or a loaded :class:`Spec`.
 
     Returns:
         The schema *as the file declares it*, ``piecewise:`` intact.
 
     Raises:
-        LanguageError: Anything the language does not accept.
+        LanguageError: Anything the language does not accept, a text that is
+            not a mapping of sections included.
     """
     if isinstance(model, (list, tuple)):
         msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
         raise SchemaError(msg)
     if isinstance(model, Spec):
         return model
-    return Spec.model_validate(model if isinstance(model, dict) else read_yaml(Path(model)))
+    return Spec.model_validate(model if isinstance(model, dict) else read_model(model))
 
 
 def _once(errors: list[str]) -> str:

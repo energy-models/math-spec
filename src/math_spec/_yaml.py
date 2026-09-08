@@ -94,6 +94,19 @@ def read_yaml(path: Path | str) -> dict[str, Any]:
     return parse_yaml(Path(path).read_text(encoding='utf-8'), str(path))
 
 
+def read_model(model: str | Path) -> dict[str, Any]:
+    """A model from a file or from its text — the suffix decides which a ``str`` is.
+
+    A :class:`~pathlib.Path` names a file, and so does a ``str`` ending in
+    ``.yaml`` or ``.yml``; any other ``str`` is the YAML itself. Nothing is
+    guessed from the content: a path without the suffix is passed as a
+    ``Path``.
+    """
+    if isinstance(model, Path) or model.lower().endswith(('.yaml', '.yml')):
+        return read_yaml(Path(model))
+    return parse_yaml(model, 'YAML text')
+
+
 def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
     """Parse YAML *text* as a mapping of sections.
 
