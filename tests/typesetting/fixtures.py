@@ -11,7 +11,8 @@ import pytest
 from math_spec.typesetting import FORMATS
 
 LATEX = FORMATS['latex']
-EVERY_FORMAT = pytest.mark.parametrize('fmt', list(FORMATS.values()), ids=list(FORMATS))
+#: Each format by the name a renderer takes and the object that spells it.
+EVERY_FORMAT = pytest.mark.parametrize(('name', 'fmt'), list(FORMATS.items()), ids=list(FORMATS))
 
 TYPST_SYMBOLS = {
     'notation': 'typst',

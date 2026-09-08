@@ -16,6 +16,7 @@ from tests.fixtures import DISPATCH_MODEL, override
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
+    from math_spec.typesetting import FormatName
     from math_spec.typesetting.format import Format
 
 
@@ -60,18 +61,31 @@ DESCRIBED = override(
         'dimensions.generator.description': 'dispatchable units',
         'parameters.p_max.description': 'installed capacity',
         'variables.p.description': 'output of a generator in a snapshot',
+        'expressions.spend': {'expression': 'sum(p * cost, over=generator)', 'description': 'what a snapshot costs'},
     },
 )
 
 
 @EVERY_FORMAT
-def test_a_description_reaches_the_legend_without_hiding_the_name(fmt: Format):
+def test_a_description_reaches_the_legend_without_hiding_the_name(name: FormatName, fmt: Format):
     """The declaration's own `description:` is what the legend reads — no
     sidecar involved, so a model carries its prose wherever it goes."""
-    out = typeset(DESCRIBED, fmt)
-    for text in ('dispatchable units', 'installed capacity', 'output of a generator in a snapshot'):
+    out = typeset(DESCRIBED, name)
+    for text in (
+        'dispatchable units',
+        'installed capacity',
+        'output of a generator in a snapshot',
+        'what a snapshot costs',
+    ):
         assert text in out
     assert 'generator' in out, 'the description sits beside the name, it does not replace it'
+
+
+@EVERY_FORMAT
+def test_a_named_expression_has_a_legend_row_exactly_while_its_symbol_prints(name: FormatName, fmt: Format):
+    """The legend explains the symbols the equations print. Inlined, `spend` prints no symbol, so no row."""
+    assert 'what a snapshot costs' in typeset(DESCRIBED, name)
+    assert 'what a snapshot costs' not in typeset(DESCRIBED, name, inline_expressions=True)
 
 
 @pytest.mark.parametrize(

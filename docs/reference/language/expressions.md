@@ -474,21 +474,20 @@ region like they are. It is what is left over. And since it carries a value and
 nothing else, it is written as a bare value — the same shorthand `expressions:`
 itself takes.
 
-### How a cased expression prints
+### How a named expression prints
 
-Every other named expression is substituted where it is used, and prints
-nothing under its own name. A cased one is the exception, because it cannot be
-substituted legibly. Three cases are three rows tall, so whatever follows the
-name in the constraint would sit beside the **middle** row. The quantity would
-also print once per use, though the file writes it once.
+A use prints the symbol, and the body prints once under a **Definitions**
+heading between `Subject to` and `Variable domains`, in declaration order,
+where a paper states a quantity it names. The symbol is italic where a variable
+reaches the body and upright where none does, the cut every other name follows,
+and a named expression joins the symbol pool like any other quantity, so
+`--symbols` can rename one.
 
-So a use prints the symbol, and the block above prints once under a
-**Definitions** heading between `Subject to` and `Variable domains`, in
-declaration order, where a paper states a quantity defined by region.
-
-A cased expression joins the symbol pool like any other quantity, so
-`--symbols` can rename one. Uncased ones stay out, since a table entry for one
-would never apply.
+`inline_expressions` (`--inline-expressions`) substitutes each plain expression where it is used
+instead, which is the math a backend builds. A cased one is a definition either
+way, by decision: a `cases` block is taller than the line it would sit in, and
+it would print once per use though the file writes it once, which is what
+naming it avoids.
 
 [The unit commitment example](../../examples/commitment.md) is the whole model
 this section is drawn from.

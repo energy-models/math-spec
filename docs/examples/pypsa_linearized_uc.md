@@ -143,6 +143,13 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 | $\mathit{up}$ | `Generator_start_up` over $\mathcal{T} \times \mathcal{G}$ — `Generator-start_up` — how much of a committable unit turns on this snapshot |
 | $\mathit{dn}$ | `Generator_shut_down` over $\mathcal{T} \times \mathcal{G}$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot |
 
+#### Definitions
+
+| Symbol | Meaning |
+|---|---|
+| $\overleftarrow{u}$ | `Generator_previous_status` over $\mathcal{T} \times \mathcal{G}$ — the commitment state a generator carries into a snapshot — the state it brought into the horizon at the first, the previous snapshot's after that |
+| $\overleftarrow{p}$ | `Generator_previous_p` over $\mathcal{T} \times \mathcal{G}$ — the output a generator carries into a snapshot — nothing at the start of the horizon, which is why a unit that came in running carries no ramp row there |
+
 $\mathrm{pos}(t)$ denotes where index $t$ sits along its dimension's own order — the order `shift` walks, not the order labels sort in — counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $\mathrm{pos}(t)$ against positions.
 
 ### Objective
@@ -503,6 +510,37 @@ Generator_com_partly_shut_down:
 ```
 
 $$p_{t - 1,g} - p_{t,g} - \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t - 1,g} + \left( \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} - \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \right) \cdot u_{t,g} - \left( \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} + \mathrm{rd}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} - \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \right) \cdot \mathit{up}_{t,g} \le 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g} \wedge \mathrm{tight}_{g}$$
+
+### `Generator_previous_status`
+
+```yaml
+Generator_previous_status:
+  description: >-
+    the commitment state a generator carries into a snapshot — the state it
+    brought into the horizon at the first, the previous snapshot's after that
+  foreach: [snapshot, generator]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
+  otherwise: shift(Generator_status, over=snapshot, offset=1)
+```
+
+$$\overleftarrow{u}_{t,g} = \begin{cases} \mathrm{u}^{0}_{g} & \text{if } \mathrm{pos}(t) = 0 \cr u_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+
+### `Generator_previous_p`
+
+```yaml
+Generator_previous_p:
+  description: >-
+    the output a generator carries into a snapshot — nothing at the start of
+    the horizon, which is why a unit that came in running carries no ramp row
+    there
+  foreach: [snapshot, generator]
+  cases:
+    opening: { when: "position(snapshot) == 0", expression: 0 }
+  otherwise: shift(Generator_p, over=snapshot, offset=1)
+```
+
+$$\overleftarrow{p}_{t,g} = \begin{cases} 0 & \text{if } \mathrm{pos}(t) = 0 \cr p_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 
 #### Variable domains
 

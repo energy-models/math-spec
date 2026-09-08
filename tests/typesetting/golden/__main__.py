@@ -16,9 +16,9 @@ from tests.typesetting.golden import MODEL, path_for
 
 def main() -> int:
     model = to_spec(MODEL)
-    for name, fmt in FORMATS.items():
+    for name in FORMATS:
         path = path_for(name)
-        path.write_text(typeset(model, fmt, standalone=True))
+        path.write_text(typeset(model, name, standalone=True))
         print(f'wrote {path}')
     return 0
 

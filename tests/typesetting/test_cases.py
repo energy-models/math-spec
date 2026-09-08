@@ -6,19 +6,21 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import SchemaError, to_latex, to_spec, typeset
+from math_spec import to_latex, to_spec, typeset
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace
-from math_spec.typesetting.symbols import chosen_expressions, printed_expressions
+from math_spec.typesetting.symbols import chosen_expressions
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
 from tests.fixtures import override
 from tests.typesetting.fixtures import EVERY_FORMAT
 
 if TYPE_CHECKING:
+    from math_spec.typesetting import FormatName
     from math_spec.typesetting.format import Format
 
 #: One region and the fallback. `opening` is a column and `otherwise` a scalar,
@@ -55,11 +57,11 @@ _NESTED = override(
 
 
 @EVERY_FORMAT
-def test_a_cased_expression_is_the_exception_that_keeps_its_name(fmt: Format):
+def test_a_cased_expression_is_the_exception_that_keeps_its_name(name: FormatName, fmt: Format):
     """The other way round — the block inlined at each use — is what the AST does
     and the wrong thing to print: a block three arms tall puts whatever follows
     it beside its middle row."""
-    rendered = typeset(CASED, fmt, legend=False)
+    rendered = typeset(CASED, name, legend=False)
     indexed = fmt.subscript(fmt.upright('headroom'), ['t', 'g'])
     assert rendered.count(indexed) == 2, (
         'one use and one definition, no more — counted indexed, because Typst spells a row label and an upright '
@@ -72,18 +74,18 @@ def test_a_cased_expression_is_the_exception_that_keeps_its_name(fmt: Format):
 
 
 @EVERY_FORMAT
-def test_the_last_arm_prints_as_the_fallback_rather_than_a_condition(fmt: Format):
+def test_the_last_arm_prints_as_the_fallback_rather_than_a_condition(name: FormatName, fmt: Format):
     """It has no `when` to print, and `otherwise` is how a paper writes that."""
-    rendered = typeset(CASED, fmt, legend=False)
+    rendered = typeset(CASED, name, legend=False)
     assert fmt.prose('otherwise') in rendered
     assert rendered.count(fmt.prose('if ')) == 1, 'one arm carries a condition, and the fallback carries none'
 
 
 @EVERY_FORMAT
-def test_a_declared_definition_prints_whether_or_not_a_row_names_it(fmt: Format):
+def test_a_declared_definition_prints_whether_or_not_a_row_names_it(name: FormatName, fmt: Format):
     """The rule a variable's domain follows: the file declared it, so it prints."""
     unused = override(CASED, **{'constraints.spare.expression': 'p <= p_max'})
-    rendered = typeset(unused, fmt, legend=False)
+    rendered = typeset(unused, name, legend=False)
     assert rendered.count(fmt.subscript(fmt.upright('headroom'), ['t', 'g'])) == 1, 'the definition, and no use'
     assert 'Definitions' in rendered
 
@@ -101,23 +103,25 @@ def test_a_declared_definition_prints_whether_or_not_a_row_names_it(fmt: Format)
         pytest.param({'expressions.headroom.otherwise': 'p'}, True, id='the-fallback-reaching-a-variable'),
     ],
 )
-def test_a_cased_expression_is_chosen_when_a_value_reaching_it_is(fmt: Format, patch: dict, chosen: bool):
+def test_a_cased_expression_is_chosen_when_a_value_reaching_it_is(
+    name: FormatName, fmt: Format, patch: dict, chosen: bool
+):
     """A `when` mentioning a variable does not make the quantity one: the mask
     asks whether the variable *exists* at a coordinate, which the model settles
     when it is built. Only a value reaching one is a quantity the solver
     returns, and one case holding a variable is enough. The `otherwise:` is a
     value of the quantity like any case's, so a walk reading only the cases
     prints a solved quantity upright."""
-    rendered = typeset(override(CASED, **patch), fmt, legend=False)
+    rendered = typeset(override(CASED, **patch), name, legend=False)
     italic, upright = (fmt.subscript(face('headroom'), ['t', 'g']) for face in (fmt.italic, fmt.upright))
     assert (italic in rendered) is chosen, 'the quantity is chosen exactly when a value reaching it holds a variable'
     assert (upright in rendered) is not chosen, 'and given otherwise, however its regions are chosen'
 
 
 @EVERY_FORMAT
-def test_a_definition_naming_another_one_prints_both(fmt: Format):
+def test_a_definition_naming_another_one_prints_both(name: FormatName, fmt: Format):
     """The cases are walked too, so the collection runs to a fixpoint."""
-    rendered = typeset(_NESTED, fmt, legend=False)
+    rendered = typeset(_NESTED, name, legend=False)
     assert fmt.italic('headroom') in rendered, 'the inner definition was reached through a case'
     assert rendered.count(fmt.subscript(fmt.italic('opening_cost'), ['t', 'g'])) == 2, (
         'the outer definition and its one use'
@@ -137,27 +141,26 @@ def test_a_variable_reached_through_another_cased_expression_still_prints_chosen
     )
 
 
-def test_the_table_may_rename_a_cased_expression_but_not_a_plain_one():
-    """It names what prints, and a cased expression is the only expression that does.
-
-    An entry that never applies is the failure mode the table is strict about.
-    """
+def test_the_table_may_rename_a_named_expression_cased_or_plain():
+    """Both print under their own name, so both are the table's to spell."""
     tex = to_latex(CASED, symbols={'notation': 'latex', 'names': {'headroom': r'\bar h'}}, legend=False)
     assert r'\bar h_{t,g}' in tex
 
     plain = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
-    with pytest.raises(SchemaError, match='is not declared by the model'):
-        to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
+    tex = to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
+    assert 's_{t} & =' in tex, 'the definition prints under the spelling the table gave'
 
 
 def test_the_definitions_print_in_declaration_order():
     """The file's order, not a set's — six of them, so a shuffle cannot pass by luck.
 
-    `printed_expressions` collected into a `frozenset`, whose iteration order
+    The names were once collected into a `frozenset`, whose iteration order
     follows string hashes and so is re-randomised every process: the section
     printed its rows in a different order on each run, and a generated page
     carrying two of them would churn on every regeneration.
     """
     declared = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']
-    schema = expand_piecewise(to_spec(override(CASED, **{f'expressions.{n}': BY_REGION for n in declared})))
-    assert list(printed_expressions(schema)) == ['headroom', *declared], "declaration order, the file's own"
+    tex = to_latex(override(CASED, **{f'expressions.{n}': BY_REGION for n in declared}), legend=False)
+    section = tex[tex.index('Definitions') : tex.index('Variable domains')]
+    labels = re.findall(r'^\\text\{(\w+)\} &&', section, flags=re.MULTILINE)
+    assert labels == ['headroom', *declared], "declaration order, the file's own"

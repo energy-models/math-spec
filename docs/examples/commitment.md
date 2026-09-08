@@ -119,6 +119,12 @@ Unit commitment with a start-up ramp, the formulation `cases:` exists for. The s
 | $p$ | `p` over $\mathcal{T} \times \mathcal{G}$ — output of a generator in a snapshot |
 | $\mathit{status}$ | `status` over $\mathcal{T} \times \mathcal{G}$ — whether the unit is running in a snapshot |
 
+#### Definitions
+
+| Symbol | Meaning |
+|---|---|
+| $\mathit{previous\_status}$ | `previous_status` over $\mathcal{T} \times \mathcal{G}$ — the commitment state a unit carries into a snapshot |
+
 Upright is what the model is given — a parameter such as $\mathrm{committable}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.

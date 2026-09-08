@@ -13,6 +13,7 @@ from math_spec._expression_parser import (
     CaseArm,
     CasesNode,
     ComparisonNode,
+    DefinitionNode,
     FunctionCallNode,
     NameNode,
     ParsedNode,
@@ -84,8 +85,8 @@ def _expand(
 
     if isinstance(node, NameNode) and node.name in schema.expressions and node.name not in shadow:
         _cycle(node.name, 'expression')
-        body = _parse_named(node.name, schema, context)
-        return _expand(body, schema, context, (*stack, node.name), shadow)
+        body = _expand(_parse_named(node.name, schema, context), schema, context, (*stack, node.name), shadow)
+        return body if isinstance(body, CasesNode) else DefinitionNode(node.name, body)
 
     if isinstance(node, FunctionCallNode) and node.name in schema.macros:
         _cycle(node.name, 'macro')

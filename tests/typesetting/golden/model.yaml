@@ -83,6 +83,9 @@ sos:
     type: 2
 
 expressions:
+  spend: # a plain named expression: its symbol prints where it is used, its body once as a definition
+    description: what a snapshot's dispatch costs
+    expression: sum(p * cost, over=generator)
   startup_cost: # a quantity defined by region: no two cases overlap, and `otherwise` is the rest
     description: what starting a unit in this snapshot costs, which the horizon's edge changes
     foreach: [snapshot, generator]
@@ -92,6 +95,9 @@ expressions:
     otherwise: 0
 
 constraints:
+  budgeted: # names the plain expression: its symbol prints here, its definition once below
+    foreach: [snapshot]
+    expression: spend <= budget
   starts: # names the cased expression: its symbol prints here, its block once below
     foreach: [snapshot, generator]
     expression: p <= startup_cost

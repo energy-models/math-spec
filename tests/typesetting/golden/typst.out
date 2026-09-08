@@ -37,6 +37,10 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $italic("headroom")$: `headroom` (scalar)
 / $italic("weight")$: `weight` over $cal(T) times cal(G)$
 
+== Definitions
+/ $italic("spend")$: `spend` over $cal(T)$ --- what a snapshot's dispatch costs
+/ $upright("startup_cost")$: `startup_cost` over $cal(T) times cal(G)$ --- what starting a unit in this snapshot costs, which the horizon's edge changes
+
 Upright is what the model is given --- a parameter such as $upright("p")^(upright("max"))$, a coordinate map, a label --- and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 $t minus.o k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound --- terms translated past the edge are simply absent.
@@ -57,7 +61,8 @@ $  & max & sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) + sum_
 
 == Subject to
 #set math.equation(numbering: "(1)")
-$ upright("starts") & p_(t,g) & <= upright("startup_cost")_(t,g) & forall t in cal(T), g in cal(G) \
+$ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in cal(T) \
+  upright("starts") & p_(t,g) & <= upright("startup_cost")_(t,g) & forall t in cal(T), g in cal(G) \
   upright("balance") & sum_(g in cal(G) colon upright("gen_bus")(g) = b) p_(t,g) + italic("spill")_(t) - italic("slack")_(t) & = upright("load")_(t,b) & forall t in cal(T), b in cal(B) \
   upright("ramp") & p_(t,g) - p_(t minus.o 1,g) & <= p_(t - 1,g) + upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
   upright("edges") & p_(t minus.square_(0) 1,g) & <= p_(t plus.square_(0) 1,g) + upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) \
@@ -89,7 +94,8 @@ $ upright("starts") & p_(t,g) & <= upright("startup_cost")_(t,g) & forall t in c
 
 == Definitions
 #set math.equation(numbering: "(1)")
-$ upright("startup_cost") & upright("startup_cost")_(t,g) & = cases(upright("cost")_(g) & upright("if ") upright("pos")(t) = 0, upright("cost")_(g) dot 2 & upright("if ") upright("pos")(t) > 0 and upright("season_of")(t) = upright("'winter'"), 0 & upright("otherwise")) & forall t in cal(T), g in cal(G) $
+$ upright("spend") & italic("spend")_(t) & = sum_(g in cal(G)) p_(t,g) dot upright("cost")_(g) & forall t in cal(T) \
+  upright("startup_cost") & upright("startup_cost")_(t,g) & = cases(upright("cost")_(g) & upright("if ") upright("pos")(t) = 0, upright("cost")_(g) dot 2 & upright("if ") upright("pos")(t) > 0 and upright("season_of")(t) = upright("'winter'"), 0 & upright("otherwise")) & forall t in cal(T), g in cal(G) $
 
 == Variable domains
 #set math.equation(numbering: "(1)")

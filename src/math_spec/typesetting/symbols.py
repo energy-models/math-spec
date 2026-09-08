@@ -22,9 +22,7 @@ from math_spec.resolution import expression_of
 from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
-    from math_spec.model import ExpressionBlock, _ExpandedSpec
+    from math_spec.model import _ExpandedSpec
     from math_spec.resolution import Namespace
     from math_spec.typesetting.format import Format, Notation
 
@@ -76,46 +74,19 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, giv
     return _word(name, fmt, given=given)
 
 
-def printed_expressions(schema: _ExpandedSpec) -> tuple[str, ...]:
-    """The named expressions that print under their own name, in declaration order.
-
-    A named expression is substituted where it is used, so it normally prints
-    nothing a symbol could stand for. A **cased** one is the exception: it
-    prints as a definition of its own, which the equations using it name. The
-    order is the file's, because the definitions print in it.
-    """
-    return tuple(name for name, block in schema.expressions.items() if block.cases)
-
-
 def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset[str]:
-    """The cased expressions the solver decides, rather than is handed.
+    """The named expressions the solver decides, rather than is handed.
 
     A ``when`` does not move one: a variable there asks whether the variable
     *exists*, which the model settles when it is built. Only a value reaching a
-    variable does — through a second cased expression's arms too, since
-    :func:`~math_spec.resolution.expression_of` expands those where the name stood.
+    variable does — through another named expression too, since
+    :func:`~math_spec.resolution.expression_of` inlines those where the name stood.
     """
     return frozenset(
         name
-        for name in printed_expressions(schema)
-        if any(
-            degree.carries_variable(expression_of(text, schema, namespace, f"expression '{name}', {where}"))
-            for text, where in _values_of(schema.expressions[name])
-        )
+        for name in schema.expressions
+        if degree.carries_variable(expression_of(name, schema, namespace, f"expression '{name}'"))
     )
-
-
-def _values_of(block: ExpressionBlock) -> Iterator[tuple[str, str]]:
-    """Every value a cased block holds, the ``otherwise:`` included, and where it sits.
-
-    The fallback is a value of the quantity like any case's, so it decides what
-    the block *is* alongside them: a block whose only variable is there is one
-    the solver returns, and printing it upright would call it data.
-    """
-    for label, case in block.cases.items():
-        yield case.expression, f"case '{label}'"
-    assert block.otherwise is not None
-    yield block.otherwise, 'otherwise'
 
 
 class Symbols:
@@ -137,9 +108,8 @@ class Symbols:
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        printed = printed_expressions(schema)
         chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace)
-        names = (*schema.parameters, *schema.variables, *printed)
+        names = (*schema.parameters, *schema.variables, *schema.expressions)
         declared = frozenset(names)
 
         #: Names the table spelled; the convention note quotes only derived symbols.
@@ -258,7 +228,7 @@ class SymbolTable:
     def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
-        everything = dims | set(schema.parameters) | set(schema.variables) | set(printed_expressions(schema))
+        everything = dims | set(schema.parameters) | set(schema.variables) | set(schema.expressions)
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),

@@ -23,11 +23,12 @@ from tests.typesetting import golden
 from tests.typesetting.fixtures import EVERY_FORMAT, LATEX
 
 if TYPE_CHECKING:
+    from math_spec.typesetting import FormatName
     from math_spec.typesetting.format import Format
 
 
 @EVERY_FORMAT
-def test_a_format_spells_every_operator_the_walk_can_emit(fmt: Format):
+def test_a_format_spells_every_operator_the_walk_can_emit(name: FormatName, fmt: Format):
     """A missing spelling is a KeyError deep in a walk, on whichever model
     first happens to use that operator. Checking the table instead makes it a
     failure the format's own author sees.
@@ -39,7 +40,7 @@ def test_a_format_spells_every_operator_the_walk_can_emit(fmt: Format):
 
 
 @EVERY_FORMAT
-def test_a_dimension_index_never_steals_a_letter_a_variable_owns(fmt: Format):
+def test_a_dimension_index_never_steals_a_letter_a_variable_owns(name: FormatName, fmt: Format):
     """With `plant` -> `p` and a variable `p`, the output was `p_{t,p}` and no
     reader could tell which `p` was which."""
     model = {
@@ -48,16 +49,16 @@ def test_a_dimension_index_never_steals_a_letter_a_variable_owns(fmt: Format):
         'variables': {'p': {'foreach': ['snapshot', 'plant'], 'bounds': {'lower': 0}}},
         'objective': {'expression': 'sum(p * cost)'},
     }
-    text = typeset(model, fmt)
+    text = typeset(model, name)
     assert fmt.subscript('p', ['t', 'p']) not in text, 'the dimension index took the letter the variable owns'
     assert fmt.subscript('p', ['t', 'l']) in text
 
 
 @EVERY_FORMAT
-def test_a_where_lands_on_the_quantifier_not_in_the_equation(fmt: Format):
+def test_a_where_lands_on_the_quantifier_not_in_the_equation(name: FormatName, fmt: Format):
     """A mask is row absence, so it belongs to the ∀ that names the rows."""
     model = override(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})
-    text = typeset(model, fmt, legend=False)
+    text = typeset(model, name, legend=False)
     forall, such_that = fmt.operators['forall'], fmt.operators['such_that']
     masked = [line for line in text.splitlines() if such_that in line]
     assert len(masked) == 1, 'one declaration carries a mask, so exactly one line says so'
@@ -85,7 +86,9 @@ def _masked(dtype: str) -> dict[str, object]:
         pytest.param('float', True, id='any-other-dtype-is-definedness'),
     ],
 )
-def test_a_mask_reads_as_definedness_unless_its_parameter_is_boolean(fmt: Format, dtype: str, defined: bool):
+def test_a_mask_reads_as_definedness_unless_its_parameter_is_boolean(
+    name: FormatName, fmt: Format, dtype: str, defined: bool
+):
     """`where: flag` on a bool keeps the true rows, not the present ones (#834).
 
     A bool that is present and false is excluded, so "is defined" describes a
@@ -96,7 +99,7 @@ def test_a_mask_reads_as_definedness_unless_its_parameter_is_boolean(fmt: Format
     it and the line printed `¬ flag is defined` — read as "flag is missing",
     the opposite grouping to the one the model builds.
     """
-    text = typeset(_masked(dtype), fmt, legend=False)
+    text = typeset(_masked(dtype), name, legend=False)
     negated = f'{fmt.operators["not"]} {fmt.subscript(fmt.upright("flag"), ["g"])}'
     assert (fmt.prose(' is defined') in text) is defined, 'a boolean mask filters on truth, any other on presence'
     assert (negated in text) is not defined, 'the negation sits on the bare predicate only where that is the whole mask'
@@ -129,13 +132,15 @@ def _storage(shift: str) -> dict[str, object]:
         pytest.param('offset=-1, edge=0', 'edge_plus', '0', ['edge_minus'], id='forwards'),
     ],
 )
-def test_each_edge_policy_is_its_own_translation_symbol(fmt: Format, shift: str, present: str, fill, absent):
+def test_each_edge_policy_is_its_own_translation_symbol(
+    name: FormatName, fmt: Format, shift: str, present: str, fill, absent
+):
     """The edge policies are different models, so they are different renderings.
 
     A bare shift drops the row the translation vacates; ``edge='wrap'`` wraps;
     ``edge=v`` keeps the row and puts *v* there.
     """
-    text = typeset(_storage(shift), fmt, legend=False)
+    text = typeset(_storage(shift), name, legend=False)
     symbol = fmt.operators[present]
     assert (fmt.subscript(symbol, [fill]) if fill else symbol) in text, 'the policy prints as its own symbol'
     for name in absent:
@@ -143,7 +148,7 @@ def test_each_edge_policy_is_its_own_translation_symbol(fmt: Format, shift: str,
 
 
 @EVERY_FORMAT
-def test_a_fill_and_a_group_take_the_operators_two_slots(fmt: Format):
+def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: Format):
     """The fill subscripts the operator; the group superscripts it.
 
     One slot each, so neither `\\boxminus_{0}_{season_of(t)}` — a *Double
@@ -164,7 +169,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(fmt: Format):
         },
         'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
     }
-    text = typeset(model, fmt, legend=False)
+    text = typeset(model, name, legend=False)
     group = fmt.apply(fmt.upright('season_of'), 't')
     filled = fmt.subscript(fmt.operators['edge_minus'], ['0'])
     assert fmt.superscript(filled, group) in text, 'the fill and the group are not in their own slots'
@@ -174,7 +179,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(fmt: Format):
 
 
 @EVERY_FORMAT
-def test_a_translation_under_a_pullback_survives_it(fmt: Format):
+def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Format):
     """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.
 
     Whoever wrote it last used to win: ``at(shift(cap, over=period, offset=1,
@@ -197,13 +202,13 @@ def test_a_translation_under_a_pullback_survives_it(fmt: Format):
             }
         },
     }
-    text = typeset(model, fmt, legend=False)
+    text = typeset(model, name, legend=False)
     assert fmt.operators['edge_minus'] in text, 'the shift under the at was dropped from the subscript'
     assert fmt.apply(fmt.upright('period_of'), 't') in text, 'the pullback itself was dropped'
 
 
 @EVERY_FORMAT
-def test_translations_that_disagree_at_the_edge_do_not_merge(fmt: Format):
+def test_translations_that_disagree_at_the_edge_do_not_merge(name: FormatName, fmt: Format):
     """Two shifts on one dim collapse to one offset only when they are the same shift.
 
     ``shift(shift(x, offset=1, edge='wrap'), offset=1)`` used to print `t ⊖ 2`, which
@@ -221,23 +226,23 @@ def test_translations_that_disagree_at_the_edge_do_not_merge(fmt: Format):
             }
         },
     }
-    text = typeset(model, fmt, legend=False)
+    text = typeset(model, name, legend=False)
     assert f'{fmt.operators["cyclic_minus"]} 2' not in text, 'an acyclic step was absorbed into a cyclic offset'
     assert fmt.operators['cyclic_minus'] in text, 'the inner wrap keeps its own symbol'
     assert fmt.operators['minus'] in text, 'the outer acyclic step keeps its own symbol'
 
 
 @EVERY_FORMAT
-def test_a_negation_under_a_plus_is_the_subtraction_it_means(fmt: Format):
+def test_a_negation_under_a_plus_is_the_subtraction_it_means(name: FormatName, fmt: Format):
     """`a + -b` is a spelling nobody uses, and the walk was printing it."""
     model = override(DISPATCH_MODEL, **{'objective.expression': 'sum(p) + -sum(p)'})
-    text = typeset(model, fmt)
+    text = typeset(model, name)
     assert f'{fmt.operators["plus"]} {fmt.operators["minus"]}' not in text, 'a plus over a negation is a subtraction'
     assert fmt.operators['minus'] in text, 'the subtraction it folded into should still print'
 
 
 @EVERY_FORMAT
-def test_a_mask_that_is_only_true_prints_no_condition(fmt: Format):
+def test_a_mask_that_is_only_true_prints_no_condition(name: FormatName, fmt: Format):
     """The language says `True` is the same as no `where`, so a `\\top` on the
     quantifier would put a condition on the page that reads as one and is not.
 
@@ -245,14 +250,14 @@ def test_a_mask_that_is_only_true_prints_no_condition(fmt: Format):
     mask to `x`: two readers of one file disagreeing about what it says.
     """
     always = override(DISPATCH_MODEL, **{'constraints.balance.where': 'True'})
-    assert typeset(always, fmt) == typeset(DISPATCH_MODEL, fmt), 'a mask every row passes is no mask at all'
+    assert typeset(always, name) == typeset(DISPATCH_MODEL, name), 'a mask every row passes is no mask at all'
     nested = override(DISPATCH_MODEL, **{'constraints.balance.where': 'True AND load > 0'})
     plain = override(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'})
-    assert typeset(nested, fmt) == typeset(plain, fmt), 'a literal under a connective is folded before it prints'
+    assert typeset(nested, name) == typeset(plain, name), 'a literal under a connective is folded before it prints'
 
 
 @EVERY_FORMAT
-def test_a_negative_fill_prints(fmt: Format):
+def test_a_negative_fill_prints(name: FormatName, fmt: Format):
     """`edge=-1` lowered to `fill=-1.0` and typeset as an AssertionError.
 
     The parser reads a negated literal as a unary minus over a number, and
@@ -265,7 +270,7 @@ def test_a_negative_fill_prints(fmt: Format):
         'variables': {'p': {'foreach': ['g']}},
         'constraints': {'k': {'foreach': ['g'], 'expression': 'p <= shift(cap, over=g, offset=1, edge=-1)'}},
     }
-    assert fmt.operators['edge_minus'] in typeset(model, fmt, legend=False)
+    assert fmt.operators['edge_minus'] in typeset(model, name, legend=False)
 
 
 def _selected(mask: str) -> dict[str, Any]:
@@ -279,36 +284,36 @@ def _selected(mask: str) -> dict[str, Any]:
 
 
 @EVERY_FORMAT
-def test_a_position_from_the_end_prints_against_the_size(fmt: Format):
+def test_a_position_from_the_end_prints_against_the_size(name: FormatName, fmt: Format):
     """``-1`` is not a position, and the page has already said so.
 
     The sign is known where it prints, so the page says what the file means.
     """
-    text = typeset(_selected('position(snapshot) == -1'), fmt)
+    text = typeset(_selected('position(snapshot) == -1'), name)
     assert f'{fmt.cardinality(fmt.script("T"))} {fmt.operators["minus"]} 1' in text
     assert f'{fmt.operators["equal"]} -1' not in text, 'a position from the end is not printed as index sugar'
 
 
 @EVERY_FORMAT
-def test_a_grouped_position_rides_a_subscript_rather_than_a_second_argument(fmt: Format):
+def test_a_grouped_position_rides_a_subscript_rather_than_a_second_argument(name: FormatName, fmt: Format):
     """The group is a modifier — which order is counted — not another position.
 
     As ``pos(t, season_of(t))`` the second argument sits where a reader of the
     first one expects an integer, and nothing says it means "within".
     """
-    text = typeset(_selected('position(snapshot, by=season_of) == 0'), fmt)
+    text = typeset(_selected('position(snapshot, by=season_of) == 0'), name)
     applied = fmt.apply(fmt.upright('season_of'), 't')
     assert fmt.apply(fmt.subscript(fmt.operators['position'], [applied]), 't') in text
 
 
 @EVERY_FORMAT
-def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(fmt: Format):
+def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(name: FormatName, fmt: Format):
     """``t >= 3`` is the line the convention this notation inverts reads wrong.
 
     A comparison against a numeric label is the one that could be taken for a
     position.
     """
-    text = typeset(_selected('snapshot >= 3'), fmt)
+    text = typeset(_selected('snapshot >= 3'), name)
     assert f'({fmt.mono("int")} coordinates)' in text
     assert f'({fmt.mono("str")} coordinates)' not in text, 'season is compared against nothing'
 
@@ -339,7 +344,9 @@ def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(fmt
         ),
     ],
 )
-def test_a_legend_note_prints_only_where_its_symbol_does(fmt: Format, note: str, printing: dict, silent: dict):
+def test_a_legend_note_prints_only_where_its_symbol_does(
+    name: FormatName, fmt: Format, note: str, printing: dict, silent: dict
+):
     """Each note is introduced where its symbol is used, and nowhere else.
 
     The position note is the one the page cannot go without: a reader arrives
@@ -347,12 +354,12 @@ def test_a_legend_note_prints_only_where_its_symbol_does(fmt: Format, note: str,
     ``pos(t) = 0`` and ``t >= 3`` has to say once which of the two is the
     coordinate.
     """
-    assert note in typeset(printing, fmt), 'the symbol prints, so the legend explains it'
-    assert note not in typeset(silent, fmt), 'a note explaining a contrast the page does not draw is a dead end'
+    assert note in typeset(printing, name), 'the symbol prints, so the legend explains it'
+    assert note not in typeset(silent, name), 'a note explaining a contrast the page does not draw is a dead end'
 
 
 @EVERY_FORMAT
-def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(fmt: Format):
+def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(name: FormatName, fmt: Format):
     """``---`` is TeX's em-dash ligature and Typst's, and nothing in Markdown.
 
     So the legend row that reads "`cost` over G --- marginal cost" set as a
@@ -360,27 +367,43 @@ def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(fmt: F
     whole promise is that it renders where it lands.
     """
     described = override(DISPATCH_MODEL, **{'parameters.cost.description': 'marginal cost'})
-    text = typeset(described, fmt)
+    text = typeset(described, name)
     assert f'{fmt.dash} marginal cost' in text
     if fmt is FORMATS['markdown']:
         assert '---' not in text.replace('|---|---|', ''), 'markdown renders the ligature literally'
 
 
 @EVERY_FORMAT
-def test_macros_and_named_expressions_are_expanded_away(fmt: Format):
-    """What prints is the math a backend builds, not the sugar it was spelled with."""
+def test_a_named_expression_prints_once_as_a_definition_and_by_symbol_where_used(name: FormatName, fmt: Format):
+    """The file names the quantity, so the page does: a use prints the symbol
+    and the body prints once under Definitions. A macro is sugar with no
+    identity of its own, so it is expanded away either way."""
     model = override(
         DISPATCH_MODEL,
         **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
     )
-    assert 'supply' not in typeset(model, fmt, legend=False), 'a named expression is expanded, so its name never prints'
+    symbol = fmt.subscript(fmt.italic('supply'), ['t'])
+    text = typeset(model, name, legend=False)
+    assert text.count(symbol) == 2, 'once where the constraint uses it, once defining it'
 
 
 @EVERY_FORMAT
-def test_an_invalid_model_is_refused_before_anything_renders(fmt: Format):
+def test_inlining_substitutes_a_named_expression_where_it_is_used(name: FormatName, fmt: Format):
+    """What prints then is the math a backend builds, not the name it was spelled with."""
+    model = override(
+        DISPATCH_MODEL,
+        **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
+    )
+    assert 'supply' not in typeset(model, name, legend=False, inline_expressions=True), (
+        'inlined, so its name never prints'
+    )
+
+
+@EVERY_FORMAT
+def test_an_invalid_model_is_refused_before_anything_renders(name: FormatName, fmt: Format):
     broken = override(DISPATCH_MODEL, **{'objective.expression': 'p * nonexistent'})
     with pytest.raises(LanguageError):
-        typeset(broken, fmt)
+        typeset(broken, name)
 
 
 # ---------------------------------------------------------------------------
@@ -423,17 +446,17 @@ def test_a_given_quantity_is_upright(name: str, expected: str):
 
 
 @EVERY_FORMAT
-def test_a_name_that_is_a_greek_letter_prints_as_the_letter(fmt: Format):
+def test_a_name_that_is_a_greek_letter_prints_as_the_letter(name: FormatName, fmt: Format):
     """A variable called `theta` set as the italic word *theta* is the one
     derived symbol no paper would accept."""
     model = override(DISPATCH_MODEL, **{'variables.theta': {'foreach': ['snapshot']}})
-    assert fmt.greek('theta') in typeset(model, fmt)
+    assert fmt.greek('theta') in typeset(model, name)
 
 
 @EVERY_FORMAT
-def test_a_parameter_is_upright_and_a_variable_is_italic(fmt: Format):
+def test_a_parameter_is_upright_and_a_variable_is_italic(name: FormatName, fmt: Format):
     """The one distinction a reader of a linear model cannot afford to guess."""
-    text = typeset(DISPATCH_MODEL, fmt, legend=False)
+    text = typeset(DISPATCH_MODEL, name, legend=False)
     assert fmt.subscript(fmt.upright('load'), ['t']) in text
     assert fmt.subscript(fmt.italic('load'), ['t']) not in text, 'a parameter never prints italic'
     assert fmt.subscript('p', ['t', 'g']) in text, 'a variable is chosen, so it stays italic'
@@ -458,7 +481,7 @@ def test_nothing_the_model_is_given_prints_italic():
 
 
 @EVERY_FORMAT
-def test_the_convention_note_quotes_only_what_the_derivation_chose(fmt: Format):
+def test_the_convention_note_quotes_only_what_the_derivation_chose(name: FormatName, fmt: Format):
     """A table is printed verbatim and is the author's to write, so a symbol it
     supplies is not one the note governs.
 
@@ -468,14 +491,14 @@ def test_the_convention_note_quotes_only_what_the_derivation_chose(fmt: Format):
     upright, contradicting itself on the page a reader arrives at first.
     """
     table = {'notation': fmt.notation, 'names': {'load': 'x', 'cost': 'c', 'p_max': 'm'}}
-    assert 'Upright is what the model is given' not in typeset(DISPATCH_MODEL, fmt, symbols=table), (
+    assert 'Upright is what the model is given' not in typeset(DISPATCH_MODEL, name, symbols=table), (
         'a symbol the table supplies is not one the note governs'
     )
-    assert 'Upright is what the model is given' in typeset(DISPATCH_MODEL, fmt), 'derived, so the note applies'
+    assert 'Upright is what the model is given' in typeset(DISPATCH_MODEL, name), 'derived, so the note applies'
 
 
 @EVERY_FORMAT
-def test_a_dimension_is_not_a_head_a_qualifier_hangs_off(fmt: Format):
+def test_a_dimension_is_not_a_head_a_qualifier_hangs_off(name: FormatName, fmt: Format):
     """`zone_cap` is a capacity *indexed by* zone, not a zone qualified by cap.
 
     Reading the axis as the head also made a parameter's symbol depend on
@@ -486,7 +509,7 @@ def test_a_dimension_is_not_a_head_a_qualifier_hangs_off(fmt: Format):
         DISPATCH_MODEL,
         **{'dimensions.zone': {'dtype': 'str'}, 'parameters.zone_cap': {'dims': ['zone']}},
     )
-    text = typeset(model, fmt)
+    text = typeset(model, name)
     assert fmt.upright('zone_cap') in text
     assert fmt.superscript(fmt.upright('zone'), fmt.upright('cap')) not in text, (
         'a dimension is not a head a qualifier hangs off'
@@ -523,40 +546,42 @@ def over_generators(fmt: Format) -> str:
 
 
 @EVERY_FORMAT
-def test_the_objective_shows_the_summations_the_file_wrote(fmt: Format):
+def test_the_objective_shows_the_summations_the_file_wrote(name: FormatName, fmt: Format):
     """One summation per ``sum`` in the expression, over the dims it took.
 
     The objective is scalar, so nothing is implied and nothing is grouped: the
     capital term below is summed over generators alone because that is what its
     own bracket closes over.
     """
-    text = typeset(MIXED, fmt, legend=False)
+    text = typeset(MIXED, name, legend=False)
     assert summations(text, fmt) == 2, 'each written sum is one summation'
     assert over_generators(fmt) in text, 'the capital term is summed over generators alone'
 
 
 @EVERY_FORMAT
-def test_two_sums_of_the_same_dims_stay_two_summations(fmt: Format):
+def test_two_sums_of_the_same_dims_stay_two_summations(name: FormatName, fmt: Format):
     """The file's structure survives to the page, even where it repeats itself."""
-    text = typeset(override(MIXED, **{'objective.expression': 'sum(p * cost) + sum(p * cost)'}), fmt, legend=False)
+    text = typeset(override(MIXED, **{'objective.expression': 'sum(p * cost) + sum(p * cost)'}), name, legend=False)
     assert summations(text, fmt) == 2, 'two written sums are two summations'
 
 
 @EVERY_FORMAT
-def test_a_subtracted_summation_keeps_the_sign_outside_it(fmt: Format):
+def test_a_subtracted_summation_keeps_the_sign_outside_it(name: FormatName, fmt: Format):
     """The sign is applied to the whole reduction, and the bracket says so."""
-    text = typeset(override(MIXED, **{'objective.expression': 'sum(p * cost) - sum(p_nom * capex)'}), fmt, legend=False)
+    text = typeset(
+        override(MIXED, **{'objective.expression': 'sum(p * cost) - sum(p_nom * capex)'}), name, legend=False
+    )
     opener = fmt.parenthesise('BODY').split('BODY')[0] + over_generators(fmt)
     assert f'{fmt.operators["minus"]} {opener}' in text
 
 
 @pytest.mark.parametrize('path', OPERATOR_PROBES, ids=lambda p: p.stem)
 @EVERY_FORMAT
-def test_every_operator_probe_renders(path, fmt):
+def test_every_operator_probe_renders(path, name: FormatName, fmt: Format):
     """The walk consumes the same AST the language produces, so anything
     `to_spec` accepts it must print — a node it forgot is an exception, not
     a blank."""
-    assert typeset(path, fmt).strip(), f'{path.name} rendered empty as {fmt}'
+    assert typeset(path, name).strip(), f'{path.name} rendered empty as {name}'
 
 
 # ---------------------------------------------------------------------------
@@ -671,7 +696,7 @@ def test_a_float_prints_as_a_number_not_as_python(literal, expected):
 
 
 @EVERY_FORMAT
-def test_a_string_value_in_a_where_prints_as_a_quoted_label(fmt: Format):
+def test_a_string_value_in_a_where_prints_as_a_quoted_label(name: FormatName, fmt: Format):
     """`fuel == 'gas_ccgt'` rendered the label in text mode, where MathJax
     prints the underscore's escape as a literal backslash — and an
     operator-valued label such as `'>='` read as `= >=`, an equals against a
@@ -683,6 +708,6 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(fmt: Format):
         'variables': {'p': {'foreach': ['plant'], 'where': "fuel == 'gas_ccgt'"}},
         'objective': {'expression': 'sum(p * cost)'},
     }
-    text = typeset(model, fmt, legend=False)
+    text = typeset(model, name, legend=False)
     assert fmt.quoted('gas_ccgt') in text
     assert fmt.prose('gas_ccgt') not in text, 'a string value is data, never words inside math'
