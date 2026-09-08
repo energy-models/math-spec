@@ -210,12 +210,13 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
     data = tmp_path / 'walk.coverage'
     render = tmp_path / 'render.py'
     render.write_text(
-        'from math_spec import to_latex, to_spec, typeset_expression\n'
+        'from math_spec import to_latex, to_spec, typeset_declaration\n'
         f'model = {str(golden.MODEL)!r}\n'
         'to_latex(model)\n'
         'to_latex(model, inline=True)\n'
-        'for name in to_spec(model).expressions:\n'
-        "    typeset_expression(model, name, 'latex')\n"
+        'spec = to_spec(model)\n'
+        'for name in (*spec.expressions, *spec.constraints, *spec.variables):\n'
+        "    typeset_declaration(model, name, 'latex')\n"
     )
     subprocess.run(
         [

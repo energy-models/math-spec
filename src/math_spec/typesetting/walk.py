@@ -618,24 +618,23 @@ class Walk:
         return [Line(label='', left=sense, right=self._expression(node, self._context()))]
 
     def _constraints(self) -> list[Line]:
-        lines = []
-        for name, block in self.schema.constraints.items():
-            context = f"constraint '{name}'"
-            node = expression_of(block.expression, self.schema, self.namespace, context)
-            if not isinstance(node, ComparisonNode):
-                msg = f'{context}: expected a comparison, got {type(node).__name__}'
-                raise AssertionError(msg)
-            ctx = self._context(frame=block.foreach)
-            condition = self._condition(ctx, where_of(block.where, self.namespace, context))
-            lines.append(
-                Line(
-                    label=name,
-                    left=self._expression(node.left, ctx),
-                    right=f'{self._op(_PREDICATES[node.op])} {self._expression(node.right, ctx)}',
-                    condition=self._quantifier(list(block.foreach), condition),
-                )
-            )
-        return lines
+        return [self._constraint(name) for name in self.schema.constraints]
+
+    def _constraint(self, name: str) -> Line:
+        block = self.schema.constraints[name]
+        context = f"constraint '{name}'"
+        node = expression_of(block.expression, self.schema, self.namespace, context)
+        if not isinstance(node, ComparisonNode):
+            msg = f'{context}: expected a comparison, got {type(node).__name__}'
+            raise AssertionError(msg)
+        ctx = self._context(frame=block.foreach)
+        condition = self._condition(ctx, where_of(block.where, self.namespace, context))
+        return Line(
+            label=name,
+            left=self._expression(node.left, ctx),
+            right=f'{self._op(_PREDICATES[node.op])} {self._expression(node.right, ctx)}',
+            condition=self._quantifier(list(block.foreach), condition),
+        )
 
     def _definitions(self) -> list[Line]:
         """One line per named expression, in declaration order, defining it.
@@ -668,6 +667,18 @@ class Walk:
             condition=self._quantifier(frame, ''),
         )
 
+    def line(self, name: str) -> Line:
+        """The one line *name* prints as: a named expression's definition, a constraint, or a variable's domain.
+
+        *name* is one of the three; :func:`~math_spec.typesetting.typeset_declaration`
+        refuses the rest, and a constraint sharing a variable's name.
+        """
+        if name in self.schema.expressions:
+            return self.definition(name)
+        if name in self.schema.constraints:
+            return self._constraint(name)
+        return self._variable(name)
+
     def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
         """Each arm as its value and the words saying where it applies.
 
@@ -695,32 +706,36 @@ class Walk:
         sets = {block.variable: block for block in self.schema.sos.values()}
         lines = []
         for name, block in self.schema.variables.items():
-            ctx = self._context(frame=block.foreach)
-            symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
-            where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
-            condition = self._quantifier(list(block.foreach), self._condition(ctx, where))
-            lower, upper = block.bounds.lower, block.bounds.upper
-
-            if block.domain == 'binary':
-                left, right = symbol, f'{self._op("in")} {self._op("binary_set")}'
-            else:
-                below, above = lower == float('-inf'), upper == float('inf')
-                if below and above:
-                    domain = self._op('integers' if block.domain == 'integer' else 'reals')
-                    left, right = symbol, f'{self._op("in")} {domain}'
-                elif below:
-                    left, right = symbol, f'{self._op("le")} {self._bound(ctx, upper)}'
-                elif above:
-                    left, right = symbol, f'{self._op("ge")} {self._bound(ctx, lower)}'
-                else:
-                    left = f'{self._bound(ctx, lower)} {self._op("le")} {symbol}'
-                    right = f'{self._op("le")} {self._bound(ctx, upper)}'
-                if block.domain == 'integer' and not (below and above):
-                    right = f'{right}, {symbol} {self._op("in")} {self._op("integers")}'
-            lines.append(Line(label=name, left=left, right=right, condition=condition))
+            lines.append(self._variable(name))
             if name in sets:
-                lines.append(self._sos(name, sets[name], ctx))
+                lines.append(self._sos(name, sets[name], self._context(frame=block.foreach)))
         return lines
+
+    def _variable(self, name: str) -> Line:
+        block = self.schema.variables[name]
+        ctx = self._context(frame=block.foreach)
+        symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
+        where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
+        condition = self._quantifier(list(block.foreach), self._condition(ctx, where))
+        lower, upper = block.bounds.lower, block.bounds.upper
+
+        if block.domain == 'binary':
+            left, right = symbol, f'{self._op("in")} {self._op("binary_set")}'
+        else:
+            below, above = lower == float('-inf'), upper == float('inf')
+            if below and above:
+                domain = self._op('integers' if block.domain == 'integer' else 'reals')
+                left, right = symbol, f'{self._op("in")} {domain}'
+            elif below:
+                left, right = symbol, f'{self._op("le")} {self._bound(ctx, upper)}'
+            elif above:
+                left, right = symbol, f'{self._op("ge")} {self._bound(ctx, lower)}'
+            else:
+                left = f'{self._bound(ctx, lower)} {self._op("le")} {symbol}'
+                right = f'{self._op("le")} {self._bound(ctx, upper)}'
+            if block.domain == 'integer' and not (below and above):
+                right = f'{right}, {symbol} {self._op("in")} {self._op("integers")}'
+        return Line(label=name, left=left, right=right, condition=condition)
 
     def _sos(self, name: str, block: SosBlock, ctx: _Context) -> Line:
         """The variable's family along the set's dim, as one member of the SOS set, quantified over the other dims."""

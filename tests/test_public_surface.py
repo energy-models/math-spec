@@ -37,7 +37,7 @@ SURFACE = frozenset(
         'DIMENSION_DTYPES', 'PARAMETER_DTYPES', 'VARIABLE_DOMAINS', 'VARIABLE_ABSENCE', 'ADVICE_KINDS',
         'CURVATURES', 'SosBlock',
         # typesetting
-        'FORMATS', 'SymbolTable', 'typeset', 'typeset_expression', 'to_latex', 'to_typst', 'to_markdown',
+        'FORMATS', 'SymbolTable', 'typeset', 'typeset_declaration', 'to_latex', 'to_typst', 'to_markdown',
     }
 )  # fmt: skip
 
