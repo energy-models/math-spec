@@ -394,7 +394,9 @@ def test_inlining_substitutes_a_named_expression_where_it_is_used(name: FormatNa
         DISPATCH_MODEL,
         **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
     )
-    assert 'supply' not in typeset(model, name, legend=False, inline=True), 'inlined, so its name never prints'
+    assert 'supply' not in typeset(model, name, legend=False, inline_expressions=True), (
+        'inlined, so its name never prints'
+    )
 
 
 @EVERY_FORMAT

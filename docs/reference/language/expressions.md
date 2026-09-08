@@ -483,7 +483,7 @@ reaches the body and upright where none does, the cut every other name follows,
 and a named expression joins the symbol pool like any other quantity, so
 `--symbols` can rename one.
 
-`inline` (`--inline`) substitutes each plain expression where it is used
+`inline_expressions` (`--inline-expressions`) substitutes each plain expression where it is used
 instead, which is the math a backend builds. A cased one is a definition either
 way, by decision: a `cases` block is taller than the line it would sit in, and
 it would print once per use though the file writes it once, which is what

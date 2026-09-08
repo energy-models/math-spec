@@ -95,11 +95,11 @@ def test_the_line_is_bare_math_with_its_quantifier(name: FormatName, fmt: Format
 
 def test_a_line_on_its_own_inlines_the_expressions_it_uses_unless_told_otherwise():
     """No Definitions section stands beside one line, so `budgeted` reads `spend` by body by default and by symbol on request."""
-    by_symbol = typeset_declaration(PLAIN, 'budgeted', 'latex', inline=False)
+    by_symbol = typeset_declaration(PLAIN, 'budgeted', 'latex', inline_expressions=False)
     by_body = typeset_declaration(PLAIN, 'budgeted', 'latex')
     assert by_symbol.startswith(r'\mathit{spend}_{t} \le 10')
     assert by_body.startswith(r'\sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \le 10')
-    assert typeset_declaration(PLAIN, 'spend', 'latex', inline=True).startswith(r'\mathit{spend}_{t} ='), (
+    assert typeset_declaration(PLAIN, 'spend', 'latex', inline_expressions=True).startswith(r'\mathit{spend}_{t} ='), (
         'asked for by name, a plain expression prints its definition whether or not its uses inline it'
     )
 
@@ -119,7 +119,7 @@ def test_a_body_naming_another_expression_inlines_it_on_its_own_and_names_it_in_
         r'\mathit{double\_spend}_{t} = \left( \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \right) '
         r'\cdot 2 \qquad \forall\, t \in \mathcal{T}'
     )
-    assert typeset_declaration(model, 'double_spend', 'latex', inline=False) == (
+    assert typeset_declaration(model, 'double_spend', 'latex', inline_expressions=False) == (
         r'\mathit{double\_spend}_{t} = \mathit{spend}_{t} \cdot 2 \qquad \forall\, t \in \mathcal{T}'
     )
 

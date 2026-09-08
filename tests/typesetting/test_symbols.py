@@ -85,7 +85,7 @@ def test_a_description_reaches_the_legend_without_hiding_the_name(name: FormatNa
 def test_a_named_expression_has_a_legend_row_exactly_while_its_symbol_prints(name: FormatName, fmt: Format):
     """The legend explains the symbols the equations print. Inlined, `spend` prints no symbol, so no row."""
     assert 'what a snapshot costs' in typeset(DESCRIBED, name)
-    assert 'what a snapshot costs' not in typeset(DESCRIBED, name, inline=True)
+    assert 'what a snapshot costs' not in typeset(DESCRIBED, name, inline_expressions=True)
 
 
 @pytest.mark.parametrize(

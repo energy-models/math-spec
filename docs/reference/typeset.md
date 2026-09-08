@@ -41,13 +41,13 @@ python -m math_spec markdown model.yaml
 
 The three functions take the same keywords; the CLI spells each as a flag.
 
-|              |                  |                                                                                               |
-| ------------ | ---------------- | --------------------------------------------------------------------------------------------- |
-| `symbols`    | `--symbols FILE` | how names should print — [below](#symbol-tables). Default: derived                            |
-| `standalone` | `--standalone`   | emit a document that compiles, rather than a fragment to include. Default: fragment           |
-| `legend`     | `--no-legend`    | the sets / parameters / variables / definitions table above the math. Default: on             |
-| `numbered`   | `--no-numbers`   | number the equations. Default: on                                                             |
-| `inline`     | `--inline`       | substitute each named expression where it is used, rather than defining it once. Default: off |
+|                      |                        |                                                                                               |
+| -------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| `symbols`            | `--symbols FILE`       | how names should print — [below](#symbol-tables). Default: derived                            |
+| `standalone`         | `--standalone`         | emit a document that compiles, rather than a fragment to include. Default: fragment           |
+| `legend`             | `--no-legend`          | the sets / parameters / variables / definitions table above the math. Default: on             |
+| `numbered`           | `--no-numbers`         | number the equations. Default: on                                                             |
+| `inline_expressions` | `--inline-expressions` | substitute each named expression where it is used, rather than defining it once. Default: off |
 
 `-o FILE` writes to a file instead of stdout.
 
@@ -85,7 +85,7 @@ ms.typeset_declaration('model.yaml', 'balance', 'latex')
 It takes what the others take — a path, the YAML, a mapping, a `Spec` — plus
 the name, the format and an optional `symbols` table. A line on its own has no
 _Definitions_ section beside it, so the plain named expressions it uses are
-substituted, `inline=True`, unless told otherwise; a cased one prints by symbol,
+substituted, `inline_expressions=True`, unless told otherwise; a cased one prints by symbol,
 and a second call with its name prints its block. A name the model declares
 as none of the three is refused with the near miss; one it declares as both a
 constraint and a variable is refused too, since constraints sit outside the
