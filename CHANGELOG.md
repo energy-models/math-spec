@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.76](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.75...v0.0.0-alpha.76) (2026-09-08)
+
+
+### Bug Fixes
+
+* **program:** a parameter under a power is seen by every walk, so a divisor written as a power is named ([#404](https://github.com/energy-models/math-spec/issues/404)) ([1689a7a](https://github.com/energy-models/math-spec/commit/1689a7a38274a69e8cc0e67fe1e5889b2355fc63)), closes [#403](https://github.com/energy-models/math-spec/issues/403)
+
 ## [0.0.0-alpha.75](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.74...v0.0.0-alpha.75) (2026-09-08)
 
 
