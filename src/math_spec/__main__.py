@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     text = typeset(
         args.model,
-        FORMATS[args.verb],
+        args.verb,
         symbols=args.symbols,
         standalone=args.standalone,
         legend=not args.no_legend,

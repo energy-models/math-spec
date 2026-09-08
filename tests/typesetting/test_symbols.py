@@ -16,6 +16,7 @@ from tests.fixtures import DISPATCH_MODEL, override
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
 if TYPE_CHECKING:
+    from math_spec.typesetting import FormatName
     from math_spec.typesetting.format import Format
 
 
@@ -65,10 +66,10 @@ DESCRIBED = override(
 
 
 @EVERY_FORMAT
-def test_a_description_reaches_the_legend_without_hiding_the_name(fmt: Format):
+def test_a_description_reaches_the_legend_without_hiding_the_name(name: FormatName, fmt: Format):
     """The declaration's own `description:` is what the legend reads — no
     sidecar involved, so a model carries its prose wherever it goes."""
-    out = typeset(DESCRIBED, fmt)
+    out = typeset(DESCRIBED, name)
     for text in ('dispatchable units', 'installed capacity', 'output of a generator in a snapshot'):
         assert text in out
     assert 'generator' in out, 'the description sits beside the name, it does not replace it'

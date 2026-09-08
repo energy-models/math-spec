@@ -75,7 +75,7 @@ around it:
 <!-- doctest: skip -->
 
 ```python
-ms.typeset_expression('model.yaml', 'spend', ms.FORMATS['latex'])
+ms.typeset_expression('model.yaml', 'spend', 'latex')
 # \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}
 ```
 

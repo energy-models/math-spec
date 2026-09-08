@@ -44,7 +44,7 @@ def test_the_output_matches_the_committed_golden_file(name: str):
     diff instead of as nothing at all.
     """
     expected = golden.path_for(name)
-    actual = typeset(golden.MODEL, FORMATS[name], standalone=True)
+    actual = typeset(golden.MODEL, name, standalone=True)
     assert actual == expected.read_text(), (
         f'tests/typesetting/golden/{expected.name} is stale.\n'
         f'If the change was intended: `pixi run python -m tests.typesetting.golden`, then read the diff.'
@@ -85,7 +85,7 @@ class _Asked(Mapping):
         return len(self._operators)
 
 
-def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells():
+def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells(monkeypatch: pytest.MonkeyPatch):
     """The fixture reaches every symbol, so the committed output shows them all.
 
     A symbol a format spells and no model prints is either a construct the
@@ -97,7 +97,8 @@ def test_the_golden_model_asks_for_every_operator_the_vocabulary_spells():
     objective sense, so the other one cannot be asked for from here.
     """
     recorder = _Recorded(LATEX)
-    typeset(golden.MODEL, recorder, standalone=True)
+    monkeypatch.setitem(FORMATS, 'latex', recorder)
+    typeset(golden.MODEL, 'latex', standalone=True)
     sense = to_spec(golden.MODEL).objective.sense
     unreachable = {'minimize', 'maximize'} - {sense}
     assert recorder.asked == OPERATOR_NAMES - unreachable, (
@@ -209,11 +210,11 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
     data = tmp_path / 'walk.coverage'
     render = tmp_path / 'render.py'
     render.write_text(
-        'from math_spec import FORMATS, to_latex, to_spec, typeset_expression\n'
+        'from math_spec import to_latex, to_spec, typeset_expression\n'
         f'model = {str(golden.MODEL)!r}\n'
         'to_latex(model)\n'
         'for name in to_spec(model).expressions:\n'
-        "    typeset_expression(model, name, FORMATS['latex'])\n"
+        "    typeset_expression(model, name, 'latex')\n"
     )
     subprocess.run(
         [

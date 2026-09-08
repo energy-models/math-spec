@@ -26,7 +26,7 @@ or from a shell::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from math_spec.errors import SchemaError, did_you_mean
 from math_spec.piecewise import expand_piecewise
@@ -45,10 +45,22 @@ if TYPE_CHECKING:
     from math_spec.model import Spec
     from math_spec.typesetting.format import Format
 
-__all__ = ['FORMATS', 'SymbolTable', 'to_latex', 'to_markdown', 'to_typst', 'typeset', 'typeset_expression']
+__all__ = [
+    'FORMATS',
+    'FormatName',
+    'SymbolTable',
+    'to_latex',
+    'to_markdown',
+    'to_typst',
+    'typeset',
+    'typeset_expression',
+]
 
-#: Every format, by the name the CLI takes. Adding one is a module plus a row.
-FORMATS: dict[str, Format] = {
+#: A format by the name the CLI takes — what every renderer here is asked for.
+FormatName = Literal['latex', 'markdown', 'typst']
+
+#: Every format, by name. Adding one is a module plus a row.
+FORMATS: dict[FormatName, Format] = {
     'latex': LatexFormat(),
     'markdown': MarkdownFormat(),
     'typst': TypstFormat(),
@@ -56,20 +68,26 @@ FORMATS: dict[str, Format] = {
 
 
 def _walk(
-    model: str | Path | dict[str, Any] | Spec, fmt: Format, symbols: str | Path | Mapping[str, Any] | SymbolTable | None
+    model: str | Path | dict[str, Any] | Spec,
+    fmt: FormatName,
+    symbols: str | Path | Mapping[str, Any] | SymbolTable | None,
 ) -> Walk:
     """The loaded, symbol-resolved walk both renderers build from model, format and table."""
+    if fmt not in FORMATS:
+        msg = f"'{fmt}' is not a format this package prints. Formats: {', '.join(FORMATS)}."
+        raise ValueError(msg)
     schema = expand_piecewise(to_spec(model))
     namespace = Namespace.of(schema)
+    format_ = FORMATS[fmt]
     if symbols is None:
-        symbols = SymbolTable(fmt.notation)
+        symbols = SymbolTable(format_.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
-    return Walk(schema, namespace, Symbols(schema, namespace, fmt, table.checked_against(schema)), fmt)
+    return Walk(schema, namespace, Symbols(schema, namespace, format_, table.checked_against(schema)), format_)
 
 
 def typeset(
     model: str | Path | dict[str, Any] | Spec,
-    fmt: Format,
+    fmt: FormatName,
     *,
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
     standalone: bool = False,
@@ -83,7 +101,7 @@ def typeset(
             :class:`~math_spec.model.Spec` is rendered as it stands, so
             printing one model in several formats reads and checks the file
             once rather than once per format.
-        fmt: What spells the math — one of :data:`FORMATS`.
+        fmt: What spells the math — a key of :data:`FORMATS`.
         symbols: How names print, as a :class:`SymbolTable`, a path or a
             mapping. Names it does not carry are derived, and it must be
             written in *fmt*'s notation.
@@ -97,29 +115,32 @@ def typeset(
         The rendered text.
 
     Raises:
+        ValueError: *fmt* names no format.
         LanguageError: A model that does not compile; it does not print.
         SchemaError: A symbol table entry naming nothing in the model, or a
             table written in a notation *fmt* does not read.
     """
     walk = _walk(model, fmt, symbols)
-    schema = walk.schema
+    schema, format_ = walk.schema, walk.format
 
     sections, noticed = walk.equations()
-    rendered = [fmt.section(title, fmt.equations(lines, numbered=numbered)) for title, lines in sections if lines]
+    rendered = [
+        format_.section(title, format_.equations(lines, numbered=numbered)) for title, lines in sections if lines
+    ]
 
-    blocks = [fmt.note(fmt.escape(schema.description))] if schema.description else []
+    blocks = [format_.note(format_.escape(schema.description))] if schema.description else []
     if legend:
-        blocks += [fmt.glossary(group.title, group.entries) for group in walk.glossaries(noticed)]
-        blocks += [fmt.note(text) for text in walk.convention_notes()]
-        blocks += [fmt.note(text) for text in walk.translation_notes(noticed)]
-        blocks += [fmt.note(text) for text in walk.position_notes(noticed)]
-    return fmt.document([*blocks, *rendered], standalone=standalone)
+        blocks += [format_.glossary(group.title, group.entries) for group in walk.glossaries(noticed)]
+        blocks += [format_.note(text) for text in walk.convention_notes()]
+        blocks += [format_.note(text) for text in walk.translation_notes(noticed)]
+        blocks += [format_.note(text) for text in walk.position_notes(noticed)]
+    return format_.document([*blocks, *rendered], standalone=standalone)
 
 
 def typeset_expression(
     model: str | Path | dict[str, Any] | Spec,
     name: str,
-    fmt: Format,
+    fmt: FormatName,
     *,
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
 ) -> str:
@@ -135,7 +156,7 @@ def typeset_expression(
     Args:
         model: Anything :func:`math_spec.to_spec` accepts.
         name: A named expression the model declares.
-        fmt: What spells the math — one of :data:`FORMATS`.
+        fmt: What spells the math — a key of :data:`FORMATS`.
         symbols: How names print; see :func:`typeset`. A plain expression's own
             symbol is always derived — a table names only what the whole-model
             render prints, which a plain expression is not.
@@ -144,6 +165,7 @@ def typeset_expression(
         The fragment, math only.
 
     Raises:
+        ValueError: *fmt* names no format.
         LanguageError: A model that does not compile; it does not print.
         SchemaError: *name* is not a named expression, or a symbol table entry
             names nothing in the model.
@@ -156,14 +178,14 @@ def typeset_expression(
 
 def to_latex(model: str | Path | dict[str, Any] | Spec, **options: Any) -> str:
     """Render *model* as LaTeX (amsmath ``align``). See :func:`typeset`."""
-    return typeset(model, FORMATS['latex'], **options)
+    return typeset(model, 'latex', **options)
 
 
 def to_typst(model: str | Path | dict[str, Any] | Spec, **options: Any) -> str:
     """Render *model* as Typst. See :func:`typeset`."""
-    return typeset(model, FORMATS['typst'], **options)
+    return typeset(model, 'typst', **options)
 
 
 def to_markdown(model: str | Path | dict[str, Any] | Spec, **options: Any) -> str:
     """Render *model* as GitHub-flavoured Markdown. See :func:`typeset`."""
-    return typeset(model, FORMATS['markdown'], **options)
+    return typeset(model, 'markdown', **options)
