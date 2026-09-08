@@ -65,25 +65,32 @@ load-time checks everything else does.
 **It does not line-break.** A wide equation runs off the page; that is a
 formatting decision this package does not make for you.
 
-## One named expression
+## One declaration
 
 The whole-model functions print objective, constraints, definitions and
-domains. To pull the definition of a single **named expression** out on its
-own — for a docstring, a table cell, a comment beside the value it computes —
-`typeset_expression` returns the line the _Definitions_ section prints for it,
-quantifier included, with no document, label, number or math delimiters around
-it:
+domains. To pull one declaration out on its own — for a docstring, a table cell, a
+comment beside the value it computes — `typeset_declaration` returns the line the
+document prints for a named expression, a constraint or a variable, quantifier
+included, with no document, label, number or math delimiters around it:
 
 <!-- doctest: skip -->
 
 ```python
-ms.typeset_expression('model.yaml', 'spend', 'latex')
+ms.typeset_declaration('model.yaml', 'spend', 'latex')
 # \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\, t \in \mathcal{T}
+ms.typeset_declaration('model.yaml', 'balance', 'latex')
+# \sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
 It takes what the others take — a path, the YAML, a mapping, a `Spec` — plus
-the name, the format and an optional `symbols` table, which may rename the
-expression like any other name. A cased expression prints its `cases` layout.
+the name, the format and an optional `symbols` table. A line on its own has no
+_Definitions_ section beside it, so the plain named expressions it uses are
+substituted, `inline=True`, unless told otherwise; a cased one prints by symbol,
+and a second call with its name prints its block. A name the model declares
+as none of the three is refused with the near miss; one it declares as both a
+constraint and a variable is refused too, since constraints sit outside the
+[flat namespace](language/expressions.md#name-resolution) and one line prints
+one of them.
 
 ## Symbol tables
 
