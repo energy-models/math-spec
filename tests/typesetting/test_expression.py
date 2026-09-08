@@ -13,10 +13,11 @@ import pytest
 from math_spec import LanguageError, SchemaError, typeset_expression
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
 from tests.fixtures import override
-from tests.typesetting.fixtures import EVERY_FORMAT, LATEX
+from tests.typesetting.fixtures import EVERY_FORMAT
 from tests.typesetting.test_cases import CASED
 
 if TYPE_CHECKING:
+    from math_spec.typesetting import FormatName
     from math_spec.typesetting.format import Format
 
 #: A variable-carrying reduction, a scalar reduction, and a data-only body — the
@@ -62,18 +63,18 @@ def test_a_named_expression_prints_its_defining_equation(name: str, expected: st
     substituted body's own dims of a plain one, and the given/chosen cut a
     variable inside it decides. `headroom` lives in CASED, the others in PLAIN."""
     model = CASED if name == 'headroom' else PLAIN
-    assert typeset_expression(model, name, LATEX) == expected
+    assert typeset_expression(model, name, 'latex') == expected
 
 
 @EVERY_FORMAT
-def test_a_scalar_body_prints_a_bare_symbol_with_no_subscript(fmt: Format):
+def test_a_scalar_body_prints_a_bare_symbol_with_no_subscript(name: FormatName, fmt: Format):
     """A reduction over every dim leaves an empty frame, so the symbol carries no index."""
-    assert typeset_expression(PLAIN, 'total', fmt).startswith(f'{fmt.italic("total")} {fmt.operators["equal"]} ')
+    assert typeset_expression(PLAIN, 'total', name).startswith(f'{fmt.italic("total")} {fmt.operators["equal"]} ')
 
 
 @EVERY_FORMAT
-def test_a_cased_expression_keeps_its_cases_layout(fmt: Format):
-    frag = typeset_expression(CASED, 'headroom', fmt)
+def test_a_cased_expression_keeps_its_cases_layout(name: FormatName, fmt: Format):
+    frag = typeset_expression(CASED, 'headroom', name)
     assert frag.startswith(f'{fmt.subscript(fmt.upright("headroom"), ["t", "g"])} {fmt.operators["equal"]} ')
     assert fmt.prose('otherwise') in frag, 'the fallback arm, printed as the cases block does everywhere'
 
@@ -88,17 +89,17 @@ def test_a_symbol_table_renames_a_cased_expression_but_never_a_plain_one():
     unrenamable.
     """
     table = {'notation': 'latex', 'names': {'headroom': r'\bar h'}}
-    assert typeset_expression(CASED, 'headroom', LATEX, symbols=table).startswith(r'\bar h_{t,g} =')
+    assert typeset_expression(CASED, 'headroom', 'latex', symbols=table).startswith(r'\bar h_{t,g} =')
 
     with pytest.raises(SchemaError, match='is a plain expression'):
-        typeset_expression(PLAIN, 'spend', LATEX, symbols={'notation': 'latex', 'names': {'spend': 's'}})
+        typeset_expression(PLAIN, 'spend', 'latex', symbols={'notation': 'latex', 'names': {'spend': 's'}})
 
 
 def test_a_body_referencing_another_named_expression_inlines_it():
     """`spend` is substituted where it is named, so `double_spend` renders its
     body, never its name — the same expansion the whole-model render does."""
     model = override(PLAIN, **{'expressions.double_spend': 'spend * 2'})
-    frag = typeset_expression(model, 'double_spend', LATEX)
+    frag = typeset_expression(model, 'double_spend', 'latex')
     assert (
         frag
         == r'\mathit{double\_spend}_{t} = \left( \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \right) \cdot 2'
@@ -107,10 +108,10 @@ def test_a_body_referencing_another_named_expression_inlines_it():
 
 def test_an_unknown_name_is_refused_with_the_near_miss():
     with pytest.raises(SchemaError, match=r"'spent' is not a named expression.*spend"):
-        typeset_expression(PLAIN, 'spent', LATEX)
+        typeset_expression(PLAIN, 'spent', 'latex')
 
 
 def test_an_invalid_model_is_refused_before_anything_renders():
     broken = override(PLAIN, **{'expressions.spend': 'p * nonexistent'})
     with pytest.raises(LanguageError):
-        typeset_expression(broken, 'spend', LATEX)
+        typeset_expression(broken, 'spend', 'latex')

@@ -19,6 +19,7 @@ from tests.fixtures import override
 from tests.typesetting.fixtures import EVERY_FORMAT
 
 if TYPE_CHECKING:
+    from math_spec.typesetting import FormatName
     from math_spec.typesetting.format import Format
 
 #: One region and the fallback. `opening` is a column and `otherwise` a scalar,
@@ -55,11 +56,11 @@ _NESTED = override(
 
 
 @EVERY_FORMAT
-def test_a_cased_expression_is_the_exception_that_keeps_its_name(fmt: Format):
+def test_a_cased_expression_is_the_exception_that_keeps_its_name(name: FormatName, fmt: Format):
     """The other way round — the block inlined at each use — is what the AST does
     and the wrong thing to print: a block three arms tall puts whatever follows
     it beside its middle row."""
-    rendered = typeset(CASED, fmt, legend=False)
+    rendered = typeset(CASED, name, legend=False)
     indexed = fmt.subscript(fmt.upright('headroom'), ['t', 'g'])
     assert rendered.count(indexed) == 2, (
         'one use and one definition, no more — counted indexed, because Typst spells a row label and an upright '
@@ -72,18 +73,18 @@ def test_a_cased_expression_is_the_exception_that_keeps_its_name(fmt: Format):
 
 
 @EVERY_FORMAT
-def test_the_last_arm_prints_as_the_fallback_rather_than_a_condition(fmt: Format):
+def test_the_last_arm_prints_as_the_fallback_rather_than_a_condition(name: FormatName, fmt: Format):
     """It has no `when` to print, and `otherwise` is how a paper writes that."""
-    rendered = typeset(CASED, fmt, legend=False)
+    rendered = typeset(CASED, name, legend=False)
     assert fmt.prose('otherwise') in rendered
     assert rendered.count(fmt.prose('if ')) == 1, 'one arm carries a condition, and the fallback carries none'
 
 
 @EVERY_FORMAT
-def test_a_declared_definition_prints_whether_or_not_a_row_names_it(fmt: Format):
+def test_a_declared_definition_prints_whether_or_not_a_row_names_it(name: FormatName, fmt: Format):
     """The rule a variable's domain follows: the file declared it, so it prints."""
     unused = override(CASED, **{'constraints.spare.expression': 'p <= p_max'})
-    rendered = typeset(unused, fmt, legend=False)
+    rendered = typeset(unused, name, legend=False)
     assert rendered.count(fmt.subscript(fmt.upright('headroom'), ['t', 'g'])) == 1, 'the definition, and no use'
     assert 'Definitions' in rendered
 
@@ -101,23 +102,25 @@ def test_a_declared_definition_prints_whether_or_not_a_row_names_it(fmt: Format)
         pytest.param({'expressions.headroom.otherwise': 'p'}, True, id='the-fallback-reaching-a-variable'),
     ],
 )
-def test_a_cased_expression_is_chosen_when_a_value_reaching_it_is(fmt: Format, patch: dict, chosen: bool):
+def test_a_cased_expression_is_chosen_when_a_value_reaching_it_is(
+    name: FormatName, fmt: Format, patch: dict, chosen: bool
+):
     """A `when` mentioning a variable does not make the quantity one: the mask
     asks whether the variable *exists* at a coordinate, which the model settles
     when it is built. Only a value reaching one is a quantity the solver
     returns, and one case holding a variable is enough. The `otherwise:` is a
     value of the quantity like any case's, so a walk reading only the cases
     prints a solved quantity upright."""
-    rendered = typeset(override(CASED, **patch), fmt, legend=False)
+    rendered = typeset(override(CASED, **patch), name, legend=False)
     italic, upright = (fmt.subscript(face('headroom'), ['t', 'g']) for face in (fmt.italic, fmt.upright))
     assert (italic in rendered) is chosen, 'the quantity is chosen exactly when a value reaching it holds a variable'
     assert (upright in rendered) is not chosen, 'and given otherwise, however its regions are chosen'
 
 
 @EVERY_FORMAT
-def test_a_definition_naming_another_one_prints_both(fmt: Format):
+def test_a_definition_naming_another_one_prints_both(name: FormatName, fmt: Format):
     """The cases are walked too, so the collection runs to a fixpoint."""
-    rendered = typeset(_NESTED, fmt, legend=False)
+    rendered = typeset(_NESTED, name, legend=False)
     assert fmt.italic('headroom') in rendered, 'the inner definition was reached through a case'
     assert rendered.count(fmt.subscript(fmt.italic('opening_cost'), ['t', 'g'])) == 2, (
         'the outer definition and its one use'
