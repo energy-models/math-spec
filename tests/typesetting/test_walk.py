@@ -374,15 +374,27 @@ def test_a_description_is_joined_to_its_name_by_a_dash_the_format_renders(name: 
 
 
 @EVERY_FORMAT
-def test_macros_and_named_expressions_are_expanded_away(name: FormatName, fmt: Format):
-    """What prints is the math a backend builds, not the sugar it was spelled with."""
+def test_a_named_expression_prints_once_as_a_definition_and_by_symbol_where_used(name: FormatName, fmt: Format):
+    """The file names the quantity, so the page does: a use prints the symbol
+    and the body prints once under Definitions. A macro is sugar with no
+    identity of its own, so it is expanded away either way."""
     model = override(
         DISPATCH_MODEL,
         **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
     )
-    assert 'supply' not in typeset(model, name, legend=False), (
-        'a named expression is expanded, so its name never prints'
+    symbol = fmt.subscript(fmt.italic('supply'), ['t'])
+    text = typeset(model, name, legend=False)
+    assert text.count(symbol) == 2, 'once where the constraint uses it, once defining it'
+
+
+@EVERY_FORMAT
+def test_inlining_substitutes_a_named_expression_where_it_is_used(name: FormatName, fmt: Format):
+    """What prints then is the math a backend builds, not the name it was spelled with."""
+    model = override(
+        DISPATCH_MODEL,
+        **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
     )
+    assert 'supply' not in typeset(model, name, legend=False, inline=True), 'inlined, so its name never prints'
 
 
 @EVERY_FORMAT

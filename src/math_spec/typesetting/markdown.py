@@ -68,10 +68,7 @@ class MarkdownFormat(LatexFormat):
         del numbered
         blocks = []
         for line in lines:
-            body = f'{line.left} {line.right}'.strip()
-            if line.condition:
-                body = f'{body} \\qquad {line.condition}'
-            block = f'$${body}$$'
+            block = f'$${self.equation(line)}$$'
             if line.label:
                 block = f'**{self.mono(line.label)}**\n\n{block}'
             blocks.append(block)

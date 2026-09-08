@@ -41,12 +41,13 @@ python -m math_spec markdown model.yaml
 
 The three functions take the same keywords; the CLI spells each as a flag.
 
-|              |                  |                                                                                     |
-| ------------ | ---------------- | ----------------------------------------------------------------------------------- |
-| `symbols`    | `--symbols FILE` | how names should print — [below](#symbol-tables). Default: derived                  |
-| `standalone` | `--standalone`   | emit a document that compiles, rather than a fragment to include. Default: fragment |
-| `legend`     | `--no-legend`    | the sets / parameters / variables table above the math. Default: on                 |
-| `numbered`   | `--no-numbers`   | number the equations. Default: on                                                   |
+|              |                  |                                                                                               |
+| ------------ | ---------------- | --------------------------------------------------------------------------------------------- |
+| `symbols`    | `--symbols FILE` | how names should print — [below](#symbol-tables). Default: derived                            |
+| `standalone` | `--standalone`   | emit a document that compiles, rather than a fragment to include. Default: fragment           |
+| `legend`     | `--no-legend`    | the sets / parameters / variables / definitions table above the math. Default: on             |
+| `numbered`   | `--no-numbers`   | number the equations. Default: on                                                             |
+| `inline`     | `--inline`       | substitute each named expression where it is used, rather than defining it once. Default: off |
 
 `-o FILE` writes to a file instead of stdout.
 
@@ -66,26 +67,23 @@ formatting decision this package does not make for you.
 
 ## One named expression
 
-The whole-model functions print objective, constraints and domains. To pull the
-math of a single **named expression** out on its own — for a docstring, a table
-cell, a comment beside the value it computes — `typeset_expression` returns one
-bare fragment, `symbol = body`, with no document, legend or equation number
-around it:
+The whole-model functions print objective, constraints, definitions and
+domains. To pull the definition of a single **named expression** out on its
+own — for a docstring, a table cell, a comment beside the value it computes —
+`typeset_expression` returns the line the _Definitions_ section prints for it,
+quantifier included, with no document, label, number or math delimiters around
+it:
 
 <!-- doctest: skip -->
 
 ```python
 ms.typeset_expression('model.yaml', 'spend', 'latex')
-# \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}
+# \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\, t \in \mathcal{T}
 ```
 
-It takes what the others take — a path, the YAML, a mapping, a `Spec` — plus the
-format and an optional `symbols` table. A **cased** expression prints its `cases`
-layout, the same one the whole-model _Definitions_ section prints. A **plain**
-expression is otherwise substituted away and prints nowhere else, so it has no
-symbol of its own; one is **derived** on the spot — italic where a variable
-reaches the body, upright where none does — and a symbol table, which names only
-what the whole-model render prints, cannot rename it.
+It takes what the others take — a path, the YAML, a mapping, a `Spec` — plus
+the name, the format and an optional `symbols` table, which may rename the
+expression like any other name. A cased expression prints its `cases` layout.
 
 ## Symbol tables
 
@@ -130,7 +128,7 @@ names:
 | ------------ | -------------------------------------------------------------------------- |
 | `notation`   | **required** — `latex` or `typst`, the language the entries are written in |
 | `dimensions` | per dimension, an `index` letter and a `set` symbol; either may be omitted |
-| `names`      | per parameter or variable, its symbol                                      |
+| `names`      | per parameter, variable or named expression, its symbol                    |
 
 **Every spelling is printed verbatim.** Nothing parses or translates notation,
 which is why `notation:` is required and why rendering a LaTeX table as Typst

@@ -112,6 +112,13 @@ parameters:
 | $\mathit{headroom}$ | `headroom` (scalar) |
 | $\mathit{weight}$ | `weight` over $\mathcal{T} \times \mathcal{G}$ |
 
+#### Definitions
+
+| Symbol | Meaning |
+|---|---|
+| $\mathit{spend}$ | `spend` over $\mathcal{T}$ — what a snapshot's dispatch costs |
+| $\mathrm{startup\_cost}$ | `startup_cost` over $\mathcal{T} \times \mathcal{G}$ — what starting a unit in this snapshot costs, which the horizon's edge changes |
+
 Upright is what the model is given — a parameter such as $\mathrm{p}^{\mathrm{max}}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
@@ -140,6 +147,18 @@ expression: sum(p * cost) + sum(p * p * cost) + sum(p * cost * growth ** lead) +
 $$\max \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot p_{t,g} \cdot \mathrm{cost}_{g} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \cdot \mathrm{growth}^{\mathrm{lead}_{g}} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \left( \mathrm{growth}^{\mathrm{lead}_{g}} \right)^{2} + \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{p}^{\mathrm{max}}_{g} - \mathit{reserve} - \mathit{headroom}$$
 
 ### Constraints
+
+#### `budgeted`
+
+names the plain expression: its symbol prints here, its definition once below
+
+```yaml
+budgeted:
+  foreach: [snapshot]
+  expression: spend <= budget
+```
+
+$$\mathit{spend}_{t} \le \mathrm{budget} \qquad \forall\thinspace t \in \mathcal{T}$$
 
 #### `starts`
 
@@ -502,6 +521,17 @@ never:
 $$\mathit{slack}_{t} \ge 0 \qquad \forall\thinspace t \in \mathcal{T} \thinspace:\thinspace \bot$$
 
 ### Definitions
+
+#### `spend`
+
+a plain named expression: its symbol prints where it is used, its body once as a definition
+
+```yaml
+spend:
+  expression: sum(p * cost, over=generator)
+```
+
+$$\mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\thinspace t \in \mathcal{T}$$
 
 #### `startup_cost`
 

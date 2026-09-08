@@ -22,6 +22,7 @@ from math_spec._expression_parser import (
     CaseArm,
     CasesNode,
     ComparisonNode,
+    DefinitionNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
@@ -347,6 +348,8 @@ class _Resolver:
             return node
         if isinstance(node, CasesNode):
             return self._cases(node)
+        if isinstance(node, DefinitionNode):
+            return DefinitionNode(node.name, self._arith(node.body))
         assert_never(node)
 
     def _name(self, node: NameNode, *, amount: bool) -> ArithmeticNode:

@@ -206,6 +206,19 @@ class CasesNode:
     arms: tuple[CaseArm, ...]
 
 
+@dataclass(frozen=True)
+class DefinitionNode:
+    """A plain named expression's body, inlined where its name stood — carrying the name.
+
+    The math is the body's: every pass reads through this node as if the body
+    stood here bare. The name is for the typesetter, which may print the
+    quantity under it and define it once, as a paper does.
+    """
+
+    name: str
+    body: ArithmeticNode
+
+
 ArithmeticNode = (
     NumberNode
     | NameNode
@@ -220,6 +233,7 @@ ArithmeticNode = (
     | BinaryOperatorNode
     | FunctionCallNode
     | CasesNode
+    | DefinitionNode
 )
 
 
@@ -259,7 +273,7 @@ LeafNode = NumberNode | VariableNode | ParameterNode | KwargNode | UnresolvedNod
 
 #: Every node carrying sub-expressions, which is exactly what :func:`children`
 #: descends and the only place a walk recurses.
-BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode | CasesNode
+BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode | CasesNode | DefinitionNode
 
 
 def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
@@ -279,6 +293,8 @@ def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
         return (*node.args, *node.kwargs.values())
     if isinstance(node, CasesNode):
         return tuple(arm.value for arm in node.arms)
+    if isinstance(node, DefinitionNode):
+        return (node.body,)
     return ()
 
 
@@ -302,6 +318,8 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
         )
     if isinstance(node, CasesNode):
         return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
+    if isinstance(node, DefinitionNode):
+        return DefinitionNode(node.name, recurse(node.body))
     assert_never(node)
 
 

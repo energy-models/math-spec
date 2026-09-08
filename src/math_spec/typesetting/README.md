@@ -8,15 +8,15 @@ SPDX-License-Identifier: MIT
 A consumer of the resolved core AST. It builds no model and binds no data; it
 walks the typed tree `to_spec` validates and prints it.
 
-| Module        | Role                                                                            |
-| ------------- | ------------------------------------------------------------------------------- |
-| `__init__.py` | `typeset` / `to_latex` / `to_markdown` / `to_typst`, and the `FORMATS` registry |
-| `walk.py`     | resolved AST → `Line`s. Every decision about the **math**, written once         |
-| `format.py`   | the seam: what a format must spell, and the operator vocabulary                 |
-| `symbols.py`  | which symbol a name gets, and the `SymbolTable` sidecar that overrides it       |
-| `latex.py`    | amsmath — the format that lands in a journal                                    |
-| `typst.py`    | Typst — the format that compiles without a toolchain                            |
-| `markdown.py` | GitHub-flavoured Markdown — LaTeX math, Markdown document layer                 |
+| Module        | Role                                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `__init__.py` | `typeset` / `to_latex` / `to_markdown` / `to_typst`, `typeset_expression`, and the `FORMATS` registry |
+| `walk.py`     | resolved AST → `Line`s. Every decision about the **math**, written once                               |
+| `format.py`   | the seam: what a format must spell, and the operator vocabulary                                       |
+| `symbols.py`  | which symbol a name gets, and the `SymbolTable` sidecar that overrides it                             |
+| `latex.py`    | amsmath — the format that lands in a journal                                                          |
+| `typst.py`    | Typst — the format that compiles without a toolchain                                                  |
+| `markdown.py` | GitHub-flavoured Markdown — LaTeX math, Markdown document layer                                       |
 
 ## The split, and why it is here
 

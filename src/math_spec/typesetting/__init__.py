@@ -71,8 +71,10 @@ def _walk(
     model: str | Path | dict[str, Any] | Spec,
     fmt: FormatName,
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None,
+    *,
+    inline: bool,
 ) -> Walk:
-    """The loaded, symbol-resolved walk both renderers build from model, format and table."""
+    """The loaded, symbol-resolved walk every renderer builds from model, format and table."""
     if fmt not in FORMATS:
         msg = f"'{fmt}' is not a format this package prints. Formats: {', '.join(FORMATS)}."
         raise ValueError(msg)
@@ -82,7 +84,9 @@ def _walk(
     if symbols is None:
         symbols = SymbolTable(format_.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
-    return Walk(schema, namespace, Symbols(schema, namespace, format_, table.checked_against(schema)), format_)
+    return Walk(
+        schema, namespace, Symbols(schema, namespace, format_, table.checked_against(schema)), format_, inline=inline
+    )
 
 
 def typeset(
@@ -93,6 +97,7 @@ def typeset(
     standalone: bool = False,
     legend: bool = True,
     numbered: bool = True,
+    inline: bool = False,
 ) -> str:
     """Render *model*'s math in *fmt*.
 
@@ -110,6 +115,10 @@ def typeset(
             ``description:`` opens the document either way — it is what the
             file says it is, not a symbol table.
         numbered: Number the equations.
+        inline: Substitute each plain named expression into the equations that
+            use it, rather than printing its symbol there and its definition
+            once. A cased expression is a definition either way: its block is
+            taller than the line it would sit in.
 
     Returns:
         The rendered text.
@@ -120,7 +129,7 @@ def typeset(
         SchemaError: A symbol table entry naming nothing in the model, or a
             table written in a notation *fmt* does not read.
     """
-    walk = _walk(model, fmt, symbols)
+    walk = _walk(model, fmt, symbols, inline=inline)
     schema, format_ = walk.schema, walk.format
 
     sections, noticed = walk.equations()
@@ -144,25 +153,21 @@ def typeset_expression(
     *,
     symbols: str | Path | Mapping[str, Any] | SymbolTable | None = None,
 ) -> str:
-    """Render one named expression's defining equation as a bare fragment.
+    """Render one named expression's definition as bare math.
 
-    ``symbol = body`` in *fmt*'s notation, with no document, legend, equation
-    number or math delimiters around it — for placing in a math context the
-    caller controls. A cased expression prints its ``cases`` layout; a plain one
-    prints the affine body it expands to, under a symbol derived on the spot,
-    since the language substitutes a plain expression away and prints no symbol
-    for it elsewhere.
+    The line the whole-model render prints under Definitions — ``symbol =
+    body`` over the expression's frame, quantifier included — with no
+    document, label, equation number or math delimiters around it, for a math
+    context the caller lays out: a docstring, a table cell.
 
     Args:
         model: Anything :func:`math_spec.to_spec` accepts.
         name: A named expression the model declares.
         fmt: What spells the math — a key of :data:`FORMATS`.
-        symbols: How names print; see :func:`typeset`. A plain expression's own
-            symbol is always derived — a table names only what the whole-model
-            render prints, which a plain expression is not.
+        symbols: How names print; see :func:`typeset`.
 
     Returns:
-        The fragment, math only.
+        The line, math only.
 
     Raises:
         ValueError: *fmt* names no format.
@@ -170,10 +175,11 @@ def typeset_expression(
         SchemaError: *name* is not a named expression, or a symbol table entry
             names nothing in the model.
     """
-    walk = _walk(model, fmt, symbols)
+    walk = _walk(model, fmt, symbols, inline=False)
     if name not in walk.schema.expressions:
-        raise SchemaError(f"'{name}' is not a named expression. {did_you_mean(name, set(walk.schema.expressions))}")
-    return walk.definition(name)
+        msg = f"'{name}' is not a named expression. {did_you_mean(name, set(walk.schema.expressions))}"
+        raise SchemaError(msg)
+    return walk.format.equation(walk.definition(name))
 
 
 def to_latex(model: str | Path | dict[str, Any] | Spec, **options: Any) -> str:
