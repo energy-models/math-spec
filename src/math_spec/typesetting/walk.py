@@ -21,6 +21,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    DefinitionNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
@@ -55,7 +56,6 @@ from math_spec.resolution import (
     where_of,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
-from math_spec.typesetting.symbols import printed_expressions
 
 if TYPE_CHECKING:
     import datetime
@@ -230,12 +230,32 @@ class Walk:
     equations printed.
     """
 
-    def __init__(self, schema: _ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format) -> None:
+    def __init__(
+        self, schema: _ExpandedSpec, namespace: Namespace, symbols: Symbols, fmt: Format, *, inline: bool = False
+    ) -> None:
         self.schema = schema
         self.namespace = namespace
         self.symbols = symbols
         self.format = fmt
+        #: Substitute each plain named expression where it is used, rather than
+        #: printing its symbol there and its definition once.
+        self.inline = inline
         self.noticed = Noticed()
+        #: The dims a named expression is read over: a cased one declares them,
+        #: a plain one's fall out of its body.
+        self.frames: dict[str, list[str]] = {name: self._frame_of(name) for name in schema.expressions}
+
+    def _frame_of(self, name: str) -> list[str]:
+        block = self.schema.expressions[name]
+        if block.cases:
+            return list(block.foreach or ())
+        return self._sorted(dims_of(self._resolved(name), self.schema, f"expression '{name}'"))
+
+    def _resolved(self, name: str) -> CasesNode | DefinitionNode:
+        """A named expression as the node its name expands to, carrying the name."""
+        node = expression_of(name, self.schema, self.namespace, f"expression '{name}'")
+        assert isinstance(node, CasesNode | DefinitionNode), 'a named expression expands to the node carrying its name'
+        return node
 
     def _op(self, name: OperatorName) -> str:
         return self.format.operators[name]
@@ -310,8 +330,11 @@ class Walk:
         if isinstance(node, FunctionCallNode):
             return self._call(node, ctx)
 
-        if isinstance(node, CasesNode):
-            return ctx.indexed(self.symbols.name[node.name], self._frame(node.name)), _ATOM
+        if isinstance(node, DefinitionNode) and self.inline:
+            return self._arithmetic(node.body, ctx)
+
+        if isinstance(node, CasesNode | DefinitionNode):
+            return ctx.indexed(self.symbols.name[node.name], self.frames[node.name]), _ATOM
 
         if isinstance(node, UnresolvedNode | KwargNode):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
@@ -615,50 +638,35 @@ class Walk:
         return lines
 
     def _definitions(self) -> list[Line]:
-        """One line per cased expression, in declaration order, defining it.
+        """One line per named expression, in declaration order, defining it.
 
         A use prints the symbol and the block prints here, as a paper states a
-        quantity defined by region. Every declared one prints, used or not.
+        quantity it names. Every declared one prints, used or not. Inlining
+        substitutes the plain ones away, so only the cased ones print — a
+        ``cases`` block has no single body to substitute.
         """
-        lines = []
-        for name in printed_expressions(self.schema):
-            node = expression_of(name, self.schema, self.namespace, f"expression '{name}'")
-            assert isinstance(node, CasesNode)
-            frame = self._frame(name)
-            ctx = self._context(frame)
-            lines.append(
-                Line(
-                    label=name,
-                    left=ctx.indexed(self.symbols.name[name], frame),
-                    right=f'{self._op("equal")} {self.format.cases(self._arms(node, ctx))}',
-                    condition=self._quantifier(frame, ''),
-                )
-            )
-        return lines
+        return [self.definition(name) for name in self._defined()]
 
-    def definition(self, name: str) -> str:
-        """One named expression as ``symbol = body``, a fragment in this format.
+    def _defined(self) -> list[str]:
+        """The named expressions that print under their own symbol: every one, or only the cased ones when inlining."""
+        return [name for name, block in self.schema.expressions.items() if block.cases or not self.inline]
 
-        The frame is the declared ``foreach`` of a cased expression and the
-        substituted body's own dims of a plain one, since a plain expression
-        declares none. A cased expression prints its ``cases`` layout, as it
-        does in the model's Definitions; a plain one prints the affine body it
-        expands to. The symbol is derived where the model substitutes the name
-        away — see :meth:`~math_spec.typesetting.symbols.Symbols.named`.
-        """
-        context = f"expression '{name}'"
-        node = expression_of(name, self.schema, self.namespace, context)
-        block = self.schema.expressions[name]
-        frame = self._frame(name) if block.cases else self._sorted(dims_of(node, self.schema, context))
+    def definition(self, name: str) -> Line:
+        """The line defining one named expression, ``symbol = body`` over its frame."""
+        node = self._resolved(name)
+        frame = self.frames[name]
         ctx = self._context(frame)
-        left = ctx.indexed(self.symbols.named(name, node), frame)
-        assert not isinstance(node, ComparisonNode), 'a named expression is affine — a comparison is refused at load'
-        right = self.format.cases(self._arms(node, ctx)) if isinstance(node, CasesNode) else self._expression(node, ctx)
-        return f'{left} {self._op("equal")} {right}'
-
-    def _frame(self, name: str) -> list[str]:
-        """The dims a cased expression is read over — its declaration's, not a copy."""
-        return list(self.schema.expressions[name].foreach or ())
+        body = (
+            self.format.cases(self._arms(node, ctx))
+            if isinstance(node, CasesNode)
+            else self._expression(node.body, ctx)
+        )
+        return Line(
+            label=name,
+            left=ctx.indexed(self.symbols.name[name], frame),
+            right=f'{self._op("equal")} {body}',
+            condition=self._quantifier(frame, ''),
+        )
 
     def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
         """Each arm as its value and the words saying where it applies.
@@ -754,7 +762,17 @@ class Walk:
             self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.foreach))}', block.description)
             for v, block in self.schema.variables.items()
         ]
-        groups = (Glossary('Sets', sets), Glossary('Parameters', parameters), Glossary('Variables', variables))
+        definitions = [
+            self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self.frames[e])}', block.description)
+            for e, block in self.schema.expressions.items()
+            if e in self._defined()
+        ]
+        groups = (
+            Glossary('Sets', sets),
+            Glossary('Parameters', parameters),
+            Glossary('Variables', variables),
+            Glossary('Definitions', definitions),
+        )
         return [group for group in groups if group.entries]
 
     def _entry(self, symbol: str, what: str, description: str | None) -> Entry:

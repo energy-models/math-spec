@@ -109,6 +109,12 @@ The two-stage class of a plain `n.optimize()`: a network with scenarios, stated 
 | $\theta$ | `CVaR_theta` (scalar) — `CVaR-theta` — where the tail starts, the value at risk |
 | $CVaR$ | `CVaR` (scalar) — `CVaR` — the tail's average cost, what the objective prices at `omega` |
 
+#### Definitions
+
+| Symbol | Meaning |
+|---|---|
+| $\mathit{scenario\_opex}$ | `scenario_opex` over $\mathcal{S}$ — what a future costs to run — the operating terms, before their weight |
+
 ### Objective
 
 ```yaml
@@ -121,7 +127,7 @@ objective:
     + CVaR_omega * CVaR
 ```
 
-$$\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \left( 1 - \omega \right) \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot \left( \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{s,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{s,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \right) \right) + \omega \cdot CVaR$$
+$$\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \left( 1 - \omega \right) \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot \mathit{scenario\_opex}_{s} \right) + \omega \cdot CVaR$$
 
 ### `Generator-fix-p-lower`
 
@@ -264,7 +270,7 @@ CVaR_excess:
   expression: CVaR_a - scenario_opex + CVaR_theta >= 0
 ```
 
-$$a_{s} - \left( \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{s,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{s,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \right) + \theta \ge 0 \qquad \forall\thinspace s \in \mathcal{S}$$
+$$a_{s} - \mathit{scenario\_opex}_{s} + \theta \ge 0 \qquad \forall\thinspace s \in \mathcal{S}$$
 
 ### `CVaR-def`
 
@@ -278,6 +284,18 @@ CVaR_def:
 ```
 
 $$\theta + \mathrm{v} \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot a_{s} \right) \le CVaR$$
+
+### `scenario_opex`
+
+```yaml
+scenario_opex:
+  description: what a future costs to run — the operating terms, before their weight
+  expression: >-
+    sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective, over=generator), over=snapshot)
+    + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective, over=link), over=snapshot)
+```
+
+$$\mathit{scenario\_opex}_{s} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{s,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{s,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \qquad \forall\thinspace s \in \mathcal{S}$$
 
 #### Variable domains
 

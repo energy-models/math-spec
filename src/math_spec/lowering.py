@@ -21,6 +21,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    DefinitionNode,
     DimensionNode,
     EdgeNode,
     FunctionCallNode,
@@ -241,6 +242,9 @@ class _Lowering:
 
         if isinstance(node, CasesNode):
             return self._cases(node)
+
+        if isinstance(node, DefinitionNode):
+            return self.expr(node.body)
 
         assert_never(node)
 

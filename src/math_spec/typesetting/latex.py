@@ -113,6 +113,10 @@ class LatexFormat:
 
     # -- document ----------------------------------------------------------
 
+    def equation(self, line: Line) -> str:
+        body = f'{line.left} {line.right}'.strip()
+        return f'{body} \\qquad {line.condition}' if line.condition else body
+
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
         environment = 'align' if numbered else 'align*'
         body = ' \\\\\n'.join(aligned_rows(lines, self, gap=' && '))

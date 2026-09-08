@@ -10,7 +10,7 @@ from functools import partial
 
 import pytest
 
-from math_spec._expression_parser import parse_expression
+from math_spec._expression_parser import ComparisonNode, DefinitionNode, parse_expression, with_children
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
 from tests.fixtures import DISPATCH_MODEL, schema_of
@@ -22,6 +22,14 @@ WEIGHTED_SUM = {
 }
 
 schema = partial(schema_of, DISPATCH_MODEL)
+
+
+def _bodies(node):
+    """*node* with every named expression's body standing bare where its name was."""
+    if isinstance(node, ComparisonNode):
+        return ComparisonNode(node.op, _bodies(node.left), _bodies(node.right))
+    node = node.body if isinstance(node, DefinitionNode) else node
+    return with_children(node, _bodies)
 
 
 @pytest.mark.parametrize(
@@ -96,8 +104,17 @@ schema = partial(schema_of, DISPATCH_MODEL)
     ],
 )
 def test_a_call_expands_to_core_ast(expressions, macros, call, want):
-    assert parse_and_expand(call, schema(expressions=expressions, macros=macros), 'expression') == parse_expression(
-        want
+    """The math a call expands to is what `want` spells; a plain named
+    expression's body arrives under the node carrying its name, which `_bodies`
+    reads through, as every pass does."""
+    expanded = parse_and_expand(call, schema(expressions=expressions, macros=macros), 'expression')
+    assert _bodies(expanded) == parse_expression(want)
+
+
+def test_a_named_expression_arrives_under_the_node_carrying_its_name():
+    expanded = parse_and_expand('sum(gen_cost, over=generator)', schema(expressions={'gen_cost': 'p * cost'}), 'e')
+    assert expanded.args[0] == DefinitionNode('gen_cost', parse_expression('p * cost')), (
+        'the body is inlined and the name kept, for the typesetter to define it once'
     )
 
 

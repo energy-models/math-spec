@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""One named expression typesets to a bare `symbol = body` fragment, plain or cased."""
+"""One named expression typesets to the bare definition the whole-model render prints for it."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from math_spec.typesetting.format import Format
 
 #: A variable-carrying reduction, a scalar reduction, and a data-only body — the
-#: three shapes the fragment has to read: chosen, scalar, and given.
+#: three shapes the definition has to read: chosen, scalar, and given.
 PLAIN = override(
     DISPATCH,
     **{
@@ -33,76 +33,63 @@ PLAIN = override(
 
 
 @pytest.mark.parametrize(
-    ('name', 'expected'),
+    ('model', 'name', 'expected'),
     [
         pytest.param(
+            PLAIN,
             'spend',
-            r'\mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}',
+            r'\mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\, t \in \mathcal{T}',
             id='chosen-a-variable-reaches-it-so-the-symbol-is-italic',
         ),
         pytest.param(
+            PLAIN,
             'total',
             r'\mathit{total} = \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g}',
-            id='scalar-a-reduction-over-every-dim-leaves-no-subscript',
+            id='scalar-a-reduction-over-every-dim-leaves-no-subscript-and-no-quantifier',
         ),
         pytest.param(
+            PLAIN,
             'priced',
-            r'\mathrm{priced}_{g} = \mathrm{cost}_{g} \cdot 2',
+            r'\mathrm{priced}_{g} = \mathrm{cost}_{g} \cdot 2 \qquad \forall\, g \in \mathcal{G}',
             id='given-no-variable-so-the-symbol-is-upright',
         ),
         pytest.param(
+            CASED,
             'headroom',
             r'\mathrm{headroom}_{t,g} = \begin{cases} \mathrm{p}^{\mathrm{max}}_{g} & '
-            r'\text{if } \mathrm{pos}(t) = 0 \\ 0 & \text{otherwise} \end{cases}',
+            r'\text{if } \mathrm{pos}(t) = 0 \\ 0 & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}',
             id='cased-keeps-its-cases-layout-under-the-indexed-symbol',
         ),
     ],
 )
-def test_a_named_expression_prints_its_defining_equation(name: str, expected: str):
+def test_a_named_expression_prints_its_definition(model: dict, name: str, expected: str):
     """The frame comes from the declared `foreach` of a cased expression and the
-    substituted body's own dims of a plain one, and the given/chosen cut a
-    variable inside it decides. `headroom` lives in CASED, the others in PLAIN."""
-    model = CASED if name == 'headroom' else PLAIN
+    body's own dims of a plain one, and the given/chosen cut a variable inside
+    it decides — the same line the document prints under Definitions."""
     assert typeset_expression(model, name, 'latex') == expected
 
 
 @EVERY_FORMAT
-def test_a_scalar_body_prints_a_bare_symbol_with_no_subscript(name: FormatName, fmt: Format):
-    """A reduction over every dim leaves an empty frame, so the symbol carries no index."""
-    assert typeset_expression(PLAIN, 'total', name).startswith(f'{fmt.italic("total")} {fmt.operators["equal"]} ')
+def test_the_definition_is_bare_math_with_its_quantifier(name: FormatName, fmt: Format):
+    """No label, no delimiters, no number: the caller lays it out."""
+    line = typeset_expression(PLAIN, 'spend', name)
+    assert fmt.operators['forall'] in line, 'the frame prints as the quantifier, as the document does'
+    assert not line.startswith(('$', '\\begin')), 'math only, for a math context the caller controls'
+    assert fmt.prose('spend') not in line, 'the label is the name the caller already holds'
 
 
-@EVERY_FORMAT
-def test_a_cased_expression_keeps_its_cases_layout(name: FormatName, fmt: Format):
-    frag = typeset_expression(CASED, 'headroom', name)
-    assert frag.startswith(f'{fmt.subscript(fmt.upright("headroom"), ["t", "g"])} {fmt.operators["equal"]} ')
-    assert fmt.prose('otherwise') in frag, 'the fallback arm, printed as the cases block does everywhere'
-
-
-def test_a_symbol_table_renames_a_cased_expression_but_never_a_plain_one():
-    """The same cut the whole-model render draws: a table names only what prints there.
-
-    A cased expression prints under its own name and may be renamed; a plain one
-    is substituted away in the whole-model render, so an entry naming it is the
-    dead entry the table is strict about, even though this fragment does print it.
-    The refusal names why rather than offering a near miss: it is declared, just
-    unrenamable.
-    """
+def test_a_symbol_table_renames_an_expression_cased_or_plain():
     table = {'notation': 'latex', 'names': {'headroom': r'\bar h'}}
     assert typeset_expression(CASED, 'headroom', 'latex', symbols=table).startswith(r'\bar h_{t,g} =')
+    table = {'notation': 'latex', 'names': {'spend': 'S'}}
+    assert typeset_expression(PLAIN, 'spend', 'latex', symbols=table).startswith('S_{t} =')
 
-    with pytest.raises(SchemaError, match='is a plain expression'):
-        typeset_expression(PLAIN, 'spend', 'latex', symbols={'notation': 'latex', 'names': {'spend': 's'}})
 
-
-def test_a_body_referencing_another_named_expression_inlines_it():
-    """`spend` is substituted where it is named, so `double_spend` renders its
-    body, never its name — the same expansion the whole-model render does."""
+def test_a_body_naming_another_expression_prints_its_symbol():
+    """`spend` is named, so `double_spend` prints its symbol; the document defines both, each once."""
     model = override(PLAIN, **{'expressions.double_spend': 'spend * 2'})
-    frag = typeset_expression(model, 'double_spend', 'latex')
-    assert (
-        frag
-        == r'\mathit{double\_spend}_{t} = \left( \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \right) \cdot 2'
+    assert typeset_expression(model, 'double_spend', 'latex') == (
+        r'\mathit{double\_spend}_{t} = \mathit{spend}_{t} \cdot 2 \qquad \forall\, t \in \mathcal{T}'
     )
 
 

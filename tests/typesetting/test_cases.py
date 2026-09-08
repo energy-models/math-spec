@@ -6,14 +6,15 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 import pytest
 
-from math_spec import SchemaError, to_latex, to_spec, typeset
+from math_spec import to_latex, to_spec, typeset
 from math_spec.piecewise import expand_piecewise
 from math_spec.resolution import Namespace
-from math_spec.typesetting.symbols import chosen_expressions, printed_expressions
+from math_spec.typesetting.symbols import chosen_expressions
 from tests.fixtures import DISPATCH_MODEL as DISPATCH
 from tests.fixtures import override
 from tests.typesetting.fixtures import EVERY_FORMAT
@@ -140,27 +141,26 @@ def test_a_variable_reached_through_another_cased_expression_still_prints_chosen
     )
 
 
-def test_the_table_may_rename_a_cased_expression_but_not_a_plain_one():
-    """It names what prints, and a cased expression is the only expression that does.
-
-    An entry that never applies is the failure mode the table is strict about.
-    """
+def test_the_table_may_rename_a_named_expression_cased_or_plain():
+    """Both print under their own name, so both are the table's to spell."""
     tex = to_latex(CASED, symbols={'notation': 'latex', 'names': {'headroom': r'\bar h'}}, legend=False)
     assert r'\bar h_{t,g}' in tex
 
     plain = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
-    with pytest.raises(SchemaError, match='is a plain expression'):
-        to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
+    tex = to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
+    assert 's_{t} & =' in tex, 'the definition prints under the spelling the table gave'
 
 
 def test_the_definitions_print_in_declaration_order():
     """The file's order, not a set's — six of them, so a shuffle cannot pass by luck.
 
-    `printed_expressions` collected into a `frozenset`, whose iteration order
+    The names were once collected into a `frozenset`, whose iteration order
     follows string hashes and so is re-randomised every process: the section
     printed its rows in a different order on each run, and a generated page
     carrying two of them would churn on every regeneration.
     """
     declared = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']
-    schema = expand_piecewise(to_spec(override(CASED, **{f'expressions.{n}': BY_REGION for n in declared})))
-    assert list(printed_expressions(schema)) == ['headroom', *declared], "declaration order, the file's own"
+    tex = to_latex(override(CASED, **{f'expressions.{n}': BY_REGION for n in declared}), legend=False)
+    section = tex[tex.index('Definitions') : tex.index('Variable domains')]
+    labels = re.findall(r'^\\text\{(\w+)\} &&', section, flags=re.MULTILINE)
+    assert labels == ['headroom', *declared], "declaration order, the file's own"

@@ -15,6 +15,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CasesNode,
     ComparisonNode,
+    DefinitionNode,
     FunctionCallNode,
     KeywordNode,
     KwargNode,
@@ -277,6 +278,10 @@ def _check_template_names(
     if isinstance(node, CasesNode):
         for arm in node.arms:
             _check_template_names(arm.value, context, ns, formals, errors)
+        return
+
+    if isinstance(node, DefinitionNode):
+        _check_template_names(node.body, context, ns, formals, errors)
         return
 
     assert_never(node)
