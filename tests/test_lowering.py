@@ -829,3 +829,30 @@ def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
     declaration = program.named_expressions['shadow_price']
     assert declaration.in_math is False, 'the entry reading a dual is reported, never in the math'
     assert isinstance(declaration.expression, Dual), 'and it lowers to a Dual leaf'
+
+
+def test_a_lowered_spec_still_pickles_and_lowers_to_the_same_program():
+    """What pickles is the model as written, and none of what was derived from it.
+
+    Lowering caches its expansion on the Spec, and a named expression's
+    resolved node holds a read-only mapping, which pickle refuses — so a Spec
+    that had been lowered could not cross a process where a fresh one could.
+    The caches are rebuilt on demand, and the copy lowers to the same program.
+    """
+    import pickle
+
+    spec = Spec.model_validate(
+        {
+            'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
+            'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
+            'variables': {'p': {'foreach': ['t', 'g'], 'bounds': {'lower': 0}}},
+            'constraints': {'balance': {'foreach': ['t'], 'expression': 'sum(p, over=g) >= load'}},
+            'expressions': {'spend': 'sum(p * cost, over=g)'},
+            'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
+        }
+    )
+    program = to_program(spec)
+
+    copy = pickle.loads(pickle.dumps(spec))
+    assert copy.model_dump() == spec.model_dump()
+    assert to_program(copy) == program, 'the copy lowers to the program the original did'
