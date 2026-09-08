@@ -774,20 +774,28 @@ class TestTheFrontDoor:
         model = to_spec(DISPATCH_MODEL)
         assert to_spec(model) is model
 
-    @pytest.mark.parametrize('name', ['m.yaml', 'm.yml', 'M.YAML'], ids=str)
-    def test_a_string_with_a_yaml_suffix_is_read_as_a_file(self, tmp_path, name):
+    @pytest.mark.parametrize('name', ['m.yaml', 'dispatch', 'model.yaml.j2'], ids=str)
+    def test_a_string_without_a_newline_is_read_as_a_file_whatever_it_is_called(self, tmp_path, name):
         path = tmp_path / name
         path.write_text(to_spec(DISPATCH_MODEL).to_yaml())
         assert to_spec(str(path)).to_dict() == to_spec(path).to_dict()
 
-    def test_any_other_string_is_read_as_the_yaml_itself(self):
+    def test_a_string_with_a_newline_is_read_as_the_yaml_itself(self):
         model = to_spec(DISPATCH_MODEL)
         assert to_spec(model.to_yaml()) == model
 
+    def test_a_text_whose_last_line_ends_like_a_file_name_is_still_text(self):
+        model = to_spec(DISPATCH_MODEL)
+        assert to_spec(model.to_yaml().rstrip('\n') + '\ndescription: see notes.yaml') != model
+
+    def test_a_one_line_text_is_told_to_end_with_a_newline(self):
+        """A str with no newline is a path, so a one-line flow mapping is a file that does not exist — and the message says why."""
+        with pytest.raises(FileNotFoundError, match='end the text with a newline'):
+            to_spec('{dimensions: {t: {dtype: int}}}')
+
     def test_a_text_that_is_not_a_model_says_how_a_string_was_read(self):
-        """A file path without the suffix lands here, and the message says which reading it got."""
         with pytest.raises(SchemaError, match='YAML text: a model file must be a mapping of sections'):
-            to_spec('models/dispatch')
+            to_spec('- dimensions\n- variables\n')
 
     @pytest.mark.parametrize('probe', OPERATOR_PROBES, ids=[p.stem for p in OPERATOR_PROBES])
     def test_to_dict_reproduces_the_model(self, probe):

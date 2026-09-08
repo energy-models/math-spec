@@ -51,9 +51,9 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
     formulation emits.
 
     Args:
-        model: A YAML path — a :class:`~pathlib.Path`, or a ``str`` ending in
-            ``.yaml`` or ``.yml`` — the YAML text itself as any other ``str``,
-            a mapping, or a loaded :class:`Spec`.
+        model: A YAML path — a :class:`~pathlib.Path`, or a ``str`` with no
+            newline in it — the YAML text itself as a ``str`` with one, a
+            mapping, or a loaded :class:`Spec`.
 
     Returns:
         The schema *as the file declares it*, ``piecewise:`` intact.
@@ -61,6 +61,7 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
     Raises:
         LanguageError: Anything the language does not accept, a text that is
             not a mapping of sections included.
+        FileNotFoundError: A ``str`` with no newline that names no file.
     """
     if isinstance(model, (list, tuple)):
         msg = 'a model is one file, one dict or one Spec, never a list of them; merge the declarations into one dict.'
