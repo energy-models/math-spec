@@ -23,6 +23,7 @@ from math_spec._expression_parser import (
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
+    DualNode,
     EdgeNode,
     FunctionCallNode,
     KwargNode,
@@ -34,6 +35,7 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
+from math_spec.expansion import read_by_the_math
 from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
@@ -342,11 +344,21 @@ class Walk:
         if isinstance(node, CasesNode | DefinitionNode):
             return ctx.indexed(self.symbols.name[node.name], self.frames[node.name]), _ATOM
 
+        if isinstance(node, DualNode):
+            return self._dual(node, ctx), _ATOM
+
         if isinstance(node, UnresolvedNode | KwargNode):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
         assert_never(node)
+
+    def _dual(self, node: DualNode, ctx: _Context) -> str:
+        """λ subscripted by the constraint's symbol, then the indices of the constraint's own frame."""
+        frame = self._sorted(dims_of(node, self.schema, 'a dual'))
+        return self.format.subscript(
+            self._op('dual'), [self.symbols.constraint[node.constraint], *(ctx.subscript(d) for d in frame)]
+        )
 
     def _binary(self, node: BinaryOperatorNode, ctx: _Context) -> tuple[str, int]:
         """Render a binary operator, bracketing only where the reading demands.
@@ -647,14 +659,23 @@ class Walk:
 
         A use prints the symbol and the block prints here, as a paper states a
         quantity it names. Every declared one prints, used or not. Inlining
-        substitutes the plain ones away, so only the cased ones print — a
-        ``cases`` block has no single body to substitute.
+        substitutes away the plain ones the math reads; a ``cases`` block has
+        no single body to substitute, and an entry the math never reads has
+        nowhere to be substituted *into*, so both still print.
         """
         return [self.definition(name) for name in self._defined()]
 
     def _defined(self) -> list[str]:
-        """The named expressions that print under their own symbol: every one, or only the cased ones when inlining."""
-        return [name for name, block in self.schema.expressions.items() if block.cases or not self.inline_expressions]
+        """The named expressions that print under their own symbol: every one, or only the unsubstitutable when inlining.
+
+        Inlining leaves a name standing only where substitution cannot reach
+        it — a ``cases`` block, and an entry the objective and constraints
+        never read, which is a quantity reported back rather than solved for.
+        """
+        if not self.inline_expressions:
+            return list(self.schema.expressions)
+        read = read_by_the_math(self.schema)
+        return [name for name, block in self.schema.expressions.items() if block.cases or name not in read]
 
     def definition(self, name: str) -> Line:
         """The line defining one named expression, ``symbol = body`` over its frame."""

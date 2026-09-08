@@ -406,6 +406,56 @@ def test_an_invalid_model_is_refused_before_anything_renders(name: FormatName, f
         typeset(broken, name)
 
 
+@EVERY_FORMAT
+def test_inlining_keeps_the_definition_of_an_entry_the_math_never_reads(name: FormatName, fmt: Format):
+    """Substitution has nowhere to put it: nothing in the objective or a
+    constraint names it, so dropping its definition would drop the quantity
+    from the page entirely."""
+    model = override(
+        DISPATCH_MODEL,
+        **{
+            'expressions.supply': 'sum(p, over=generator)',
+            'expressions.lcoe': 'sum(p * cost) / sum(p)',
+            'constraints.balance.expression': 'supply == load',
+        },
+    )
+    inlined = typeset(model, name, legend=False, inline_expressions=True)
+    assert fmt.italic('lcoe') in inlined, 'an entry the math never reads still prints under its own name'
+    assert 'supply' not in inlined, 'while one the math reads is substituted where it is read'
+
+
+@EVERY_FORMAT
+def test_a_dual_prints_the_constraint_symbol_not_a_same_named_variable(name: FormatName, fmt: Format):
+    """`dual(c)` subscripts λ from a map of its own, so a variable sharing the
+    constraint's name — a legal collision, constraints sit outside the flat
+    namespace (#74) — cannot lend the dual its italic letter."""
+    model = override(
+        DISPATCH_MODEL,
+        **{
+            'variables.balance': {'foreach': ['snapshot'], 'bounds': {'lower': 0}},
+            'expressions.mp': 'dual(balance)',
+        },
+    )
+    text = typeset(model, name, legend=False)
+    assert fmt.subscript(fmt.operators['dual'], [fmt.upright('balance'), 't']) in text, (
+        'the dual takes the constraint symbol, upright'
+    )
+    assert fmt.subscript(fmt.operators['dual'], [fmt.italic('balance'), 't']) not in text, (
+        'the dual must not borrow the same-named variable italic symbol'
+    )
+
+
+@EVERY_FORMAT
+def test_an_entry_reading_a_dual_prints_italic(name: FormatName, fmt: Format):
+    """Upright is what the model is given, and a shadow price is not: no data
+    hands it over, the solve settles it — the same reason a variable is italic,
+    though a dual carries no variable for `carries_variable` to find."""
+    model = override(DISPATCH_MODEL, **{'expressions.mp': 'dual(balance)'})
+    assert fmt.subscript(fmt.italic('mp'), ['t']) in typeset(model, name, legend=False), (
+        'the entry is read off the solution, so its own symbol is italic'
+    )
+
+
 # ---------------------------------------------------------------------------
 # derivation: unambiguous by default
 # ---------------------------------------------------------------------------
@@ -466,11 +516,12 @@ def test_nothing_the_model_is_given_prints_italic():
     """The convention as a property of the whole document, not of a fragment: a
     rendering path added later reaches the page through its own call."""
     schema = expand_piecewise(to_spec(golden.MODEL))
-    chosen = set(schema.variables) | chosen_expressions(schema, Namespace.of(schema))
+    namespace = Namespace.of(schema)
+    computed = set(schema.variables) | chosen_expressions(schema, namespace)
     italic = {m.replace(r'\_', '_') for m in re.findall(r'\\mathit\{([^}]*)\}', to_latex(golden.MODEL))}
-    assert italic <= chosen, (
-        f'{sorted(italic - chosen)} print italic and are not quantities the solver decides — '
-        f'upright is what the model is given'
+    assert italic <= computed, (
+        f'{sorted(italic - computed)} print italic and are neither chosen by the solver nor read off its '
+        f'solution — upright is what the model is given, italic what it computes'
     )
 
     symbols = Symbols(schema, Namespace.of(schema), LATEX, SymbolTable('latex'))

@@ -32,6 +32,7 @@ from math_spec.program import (
     DimensionComparisonNode,
     DimensionDeclaration,
     Divide,
+    Dual,
     ExpressionNode,
     Footprint,
     GroupSum,
@@ -481,6 +482,7 @@ FAN_IN = {
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',
+    Dual('balance'): 'one-to-one',
 }
 
 
@@ -581,7 +583,7 @@ def test_expressions_are_the_ones_a_row_is_built_from():
         program.constraints['c'].lhs,
         program.constraints['c'].rhs,
     ), 'the objective first, then both sides of each constraint, in declaration order'
-    assert program.named_expressions['spend'] not in program.expressions, (
+    assert program.named_expressions['spend'].expression not in program.expressions, (
         'a named expression builds no row, so it is not one of the expressions a row is built from'
     )
     assert len(program.expressions) == 3, 'and nothing else is counted'
@@ -642,7 +644,9 @@ def test_a_named_expression_is_not_in_the_footprint():
     program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}))
 
     assert Parameter not in program.footprint.shapes, "the named expression's parameter reaches no row"
-    assert Parameter in {type(n) for n in walk(program.named_expressions['spend'])}, 'though it is in the expression'
+    assert Parameter in {type(n) for n in walk(program.named_expressions['spend'].expression)}, (
+        'though it is in the expression'
+    )
 
 
 def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
@@ -744,6 +748,74 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
     """`Program.expressions` carries it, so a consumer reads it back whole."""
     program = to_program(CASED)
 
-    assert isinstance(program.named_expressions['previous'], Cases), (
+    assert isinstance(program.named_expressions['previous'].expression, Cases), (
         'a cased expression reaches the program as the node, not as its fallback arm alone'
     )
+
+
+@pytest.mark.parametrize(
+    ('patch', 'in_math'),
+    [
+        pytest.param({'constraints.c.expression': 'spend >= 1'}, True, id='a-constraint-inlines-it'),
+        pytest.param({'objective': {'sense': 'minimize', 'expression': 'spend'}}, True, id='the-objective-inlines-it'),
+        pytest.param(
+            {'expressions.twice': 'spend * 2', 'constraints.c.expression': 'twice >= 1'},
+            True,
+            id='inlined-through-another-entry',
+        ),
+        pytest.param(
+            {
+                'macros': {'scaled': {'args': ['x'], 'template': 'x * 2'}},
+                'constraints.c.expression': 'scaled(spend) >= 1',
+            },
+            True,
+            id='inlined-through-a-macro',
+        ),
+        pytest.param({}, False, id='nothing-reads-it'),
+        pytest.param(
+            {'expressions.ratio': 'spend / sum(p, over=g)'}, False, id='only-an-entry-the-math-never-reads-inlines-it'
+        ),
+    ],
+)
+def test_an_entry_is_in_the_math_where_the_objective_or_a_constraint_inlines_it(patch, in_math):
+    """`in_math` is usage, not shape: one affine body is in the math when a row inlines it, however indirectly, and a reported quantity when none does."""
+    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch))
+    assert program.named_expressions['spend'].in_math is in_math
+
+
+def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
+    """The whole chain is in the math, not only the entry a row names: the constraint inlines `twice`, and `twice` inlines `spend`."""
+    program = to_program(
+        override(
+            TINY,
+            expressions={'spend': 'sum(p * cost, over=g)', 'twice': 'spend * 2'},
+            **{'constraints.c.expression': 'twice >= 1'},
+        )
+    )
+    reads = {name: program.named_expressions[name].in_math for name in ('twice', 'spend')}
+    assert reads == {'twice': True, 'spend': True}, (
+        'the entry the row names and the one it reaches through are both in the math'
+    )
+
+
+def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
+    """A formal shadows the entry inside the template, so the row inlines the argument, not the same-named entry."""
+    program = to_program(
+        override(
+            TINY,
+            expressions={'spend': 'sum(p * cost, over=g)'},
+            macros={'scaled': {'args': ['spend'], 'template': 'spend * 2'}},
+            **{'constraints.c.expression': 'scaled(sum(p, over=g)) >= 1'},
+        )
+    )
+    assert program.named_expressions['spend'].in_math is False, (
+        'the formal shadows the entry, so the constraint inlines the argument and the math never reads spend'
+    )
+
+
+def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
+    """A dual is read after the solve, so an entry calling one is never in the math: it lowers to a Dual leaf and stays reported."""
+    program = to_program(override(TINY, expressions={'shadow_price': 'dual(c)'}))
+    declaration = program.named_expressions['shadow_price']
+    assert declaration.in_math is False, 'the entry reading a dual is reported, never in the math'
+    assert isinstance(declaration.expression, Dual), 'and it lowers to a Dual leaf'

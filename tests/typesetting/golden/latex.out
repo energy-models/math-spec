@@ -50,6 +50,8 @@
 \paragraph{Definitions}
 \begin{description}
 \item[{$\mathit{spend}$}] \texttt{spend} over $\mathcal{T}$ --- what a snapshot's dispatch costs
+\item[{$\mathit{lcoe}$}] \texttt{lcoe} (scalar)
+\item[{$\mathit{marginal\_price}$}] \texttt{marginal\_price} over $\mathcal{T} \times \mathcal{B}$
 \item[{$\mathrm{startup\_cost}$}] \texttt{startup\_cost} over $\mathcal{T} \times \mathcal{G}$ --- what starting a unit in this snapshot costs, which the horizon's edge changes
 \end{description}
 
@@ -109,6 +111,8 @@
 \paragraph{Definitions}
 \begin{align}
 \text{spend} && \mathit{spend}_{t} & = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} && \forall\, t \in \mathcal{T} \\
+\text{lcoe} && \mathit{lcoe} & = \frac{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g}} \\
+\text{marginal\_price} && \mathit{marginal\_price}_{t,b} & = \lambda_{\mathrm{balance},t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
 \text{startup\_cost} && \mathrm{startup\_cost}_{t,g} & = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{pos}(t) > 0 \wedge \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \\ 0 & \text{otherwise} \end{cases} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 \end{align}
 

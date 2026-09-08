@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: The row dual — `dual(constraint)` reads a solved constraint's shadow price over its own frame.
+
+dimensions:
+  snapshot: { dtype: int }
+
+parameters:
+  load: { dims: [snapshot] }
+
+variables:
+  p:
+    foreach: [snapshot]
+    bounds: { lower: 0 }
+
+constraints:
+  balance:
+    foreach: [snapshot]
+    expression: p >= load
+
+expressions:
+  price: dual(balance)
+
+objective: { sense: minimize, expression: sum(p) }

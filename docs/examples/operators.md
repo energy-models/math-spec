@@ -463,6 +463,37 @@ objective: { sense: minimize, expression: sum(on) }
 ```
 
 $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+
+### `dual(constraint)`
+
+`examples/operators/dual.yaml`
+
+```yaml
+description: The row dual — `dual(constraint)` reads a solved constraint's shadow price over its own frame.
+
+dimensions:
+  snapshot: { dtype: int }
+
+parameters:
+  load: { dims: [snapshot] }
+
+variables:
+  p:
+    foreach: [snapshot]
+    bounds: { lower: 0 }
+
+constraints:
+  balance:
+    foreach: [snapshot]
+    expression: p >= load
+
+expressions:
+  price: dual(balance)
+
+objective: { sense: minimize, expression: sum(p) }
+```
+
+$\mathit{price}_{t} = \lambda_{\mathrm{balance},t} \qquad \forall\thinspace t \in \mathcal{T}$
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.

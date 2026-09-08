@@ -24,6 +24,7 @@ expressions:
     cases:
       opening: { when: "position(t) == 0", expression: 0 }
     otherwise: shift(p, over=t, offset=1, edge='wrap')
+  shadow: dual(grouped) # a Dual leaf, the one node only an entry the math never reads lowers to
 constraints:
   regional:
     foreach: [t, g]

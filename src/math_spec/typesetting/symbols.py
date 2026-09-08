@@ -81,12 +81,16 @@ def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset
     *exists*, which the model settles when it is built. Only a value reaching a
     variable does — through another named expression too, since
     :func:`~math_spec.resolution.expression_of` inlines those where the name stood.
+    A ``dual`` moves one for the same reason a variable does: the solve settles
+    it, and no data hands it over.
     """
-    return frozenset(
-        name
-        for name in schema.expressions
-        if degree.carries_variable(expression_of(name, schema, namespace, f"expression '{name}'"))
-    )
+
+    def depends_on_solution(name: str) -> bool:
+        """Whether *name*'s body reaches a variable or a dual, resolved once for both questions."""
+        node = expression_of(name, schema, namespace, f"expression '{name}'")
+        return degree.carries_variable(node) or degree.calls_dual(node)
+
+    return frozenset(name for name in schema.expressions if depends_on_solution(name))
 
 
 class Symbols:
@@ -121,6 +125,16 @@ class Symbols:
             for name in names
         }
         spoken_for = {s for s in self.name.values() if len(s) == 1}
+
+        #: Each constraint's symbol, the subscript ``dual(c)`` prints λ against.
+        #: Off the flat namespace, like the constraints themselves — a model may
+        #: name a constraint after a variable, so this is its own map rather than
+        #: an entry in :attr:`name`. Given structure, so upright unless a table
+        #: overrides it.
+        self.constraint: dict[str, str] = {
+            name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt, given=True)
+            for name in schema.constraints
+        }
 
         self.index: dict[str, str] = {}
         self.set: dict[str, str] = {}
@@ -228,7 +242,9 @@ class SymbolTable:
     def checked_against(self, schema: _ExpandedSpec) -> SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
-        everything = dims | set(schema.parameters) | set(schema.variables) | set(schema.expressions)
+        everything = (
+            dims | set(schema.parameters) | set(schema.variables) | set(schema.expressions) | set(schema.constraints)
+        )
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),
             *(_unknown_entry(n, 'names', everything - dims) for n in set(self.names) - everything),

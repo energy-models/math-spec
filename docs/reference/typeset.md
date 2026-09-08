@@ -41,20 +41,23 @@ python -m math_spec markdown model.yaml
 
 The three functions take the same keywords; the CLI spells each as a flag.
 
-|                      |                        |                                                                                               |
-| -------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
-| `symbols`            | `--symbols FILE`       | how names should print — [below](#symbol-tables). Default: derived                            |
-| `standalone`         | `--standalone`         | emit a document that compiles, rather than a fragment to include. Default: fragment           |
-| `legend`             | `--no-legend`          | the sets / parameters / variables / definitions table above the math. Default: on             |
-| `numbered`           | `--no-numbers`         | number the equations. Default: on                                                             |
-| `inline_expressions` | `--inline-expressions` | substitute each named expression where it is used, rather than defining it once. Default: off |
+|                      |                        |                                                                                                                           |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `symbols`            | `--symbols FILE`       | how names should print — [below](#symbol-tables). Default: derived                                                        |
+| `standalone`         | `--standalone`         | emit a document that compiles, rather than a fragment to include. Default: fragment                                       |
+| `legend`             | `--no-legend`          | the sets / parameters / variables / definitions table above the math. Default: on                                         |
+| `numbered`           | `--no-numbers`         | number the equations. Default: on                                                                                         |
+| `inline_expressions` | `--inline-expressions` | substitute each named expression the math reads into the equations reading it, rather than defining it once. Default: off |
 
 `-o FILE` writes to a file instead of stdout.
 
 The model's own `description:` opens the document either way — it is what the
 file says it is, not a symbol table. A `piecewise:` block prints as the
 λ-formulation it _expands to_ rather than the sugar it was written as, because
-that is the math the solver receives. Where the math translates an index —
+that is the math the solver receives. Inlining reaches only what something
+reads: a `cases:` block has no single body to substitute, and a
+[reported entry](language/reported.md) is read by nothing in the math, so both
+keep their definition under either setting. Where the math translates an index —
 `shift`, in any of its edge spellings — the document also prints a line saying
 what the notation for it means, so a reader meets no symbol the page has not
 defined.
