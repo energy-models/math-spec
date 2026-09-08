@@ -18,12 +18,10 @@ from typing import TYPE_CHECKING, Any, cast
 import math_spec.degree as degree
 from math_spec._yaml import read_yaml
 from math_spec.errors import SchemaError, did_you_mean
-from math_spec.resolution import expression_of
 from math_spec.typesetting.format import NOTATIONS
 
 if TYPE_CHECKING:
     from math_spec.model import _ExpandedSpec
-    from math_spec.resolution import Namespace
     from math_spec.typesetting.format import Format, Notation
 
 __all__ = ['SymbolTable', 'Symbols']
@@ -74,7 +72,7 @@ def _derive_name_symbol(name: str, declared: frozenset[str], fmt: Format, *, giv
     return _word(name, fmt, given=given)
 
 
-def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset[str]:
+def chosen_expressions(schema: _ExpandedSpec) -> frozenset[str]:
     """The named expressions the solver decides, rather than is handed.
 
     A ``when`` does not move one: a variable there asks whether the variable
@@ -84,8 +82,11 @@ def chosen_expressions(schema: _ExpandedSpec, namespace: Namespace) -> frozenset
     A ``dual`` moves one for the same reason a variable does: the solve settles
     it, and no data hands it over.
     """
-    bodies = {name: expression_of(name, schema, namespace, f"expression '{name}'") for name in schema.expressions}
-    return frozenset(name for name, node in bodies.items() if degree.carries_variable(node) or degree.calls_dual(node))
+    return frozenset(
+        name
+        for name, node in schema.resolved_expressions.items()
+        if degree.carries_variable(node) or degree.calls_dual(node)
+    )
 
 
 class Symbols:
@@ -100,14 +101,14 @@ class Symbols:
         SchemaError: If *table* is written in a notation *fmt* does not read.
     """
 
-    def __init__(self, schema: _ExpandedSpec, namespace: Namespace, fmt: Format, table: SymbolTable) -> None:
+    def __init__(self, schema: _ExpandedSpec, fmt: Format, table: SymbolTable) -> None:
         if table.notation != fmt.notation:
             msg = (
                 f'symbol table: written in {table.notation}, but this is a {fmt.notation} render '
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        chosen = frozenset(schema.variables) | chosen_expressions(schema, namespace)
+        chosen = frozenset(schema.variables) | chosen_expressions(schema)
         names = (*schema.parameters, *schema.variables, *schema.expressions)
         declared = frozenset(names)
 

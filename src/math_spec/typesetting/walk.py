@@ -256,13 +256,7 @@ class Walk:
         block = self.schema.expressions[name]
         if block.cases:
             return list(block.foreach or ())
-        return self._sorted(dims_of(self._resolved(name), self.schema, f"expression '{name}'"))
-
-    def _resolved(self, name: str) -> CasesNode | DefinitionNode:
-        """A named expression as the node its name expands to, carrying the name."""
-        node = expression_of(name, self.schema, self.namespace, f"expression '{name}'")
-        assert isinstance(node, CasesNode | DefinitionNode), 'a named expression expands to the node carrying its name'
-        return node
+        return self._sorted(dims_of(self.schema.resolved_expressions[name], self.schema, f"expression '{name}'"))
 
     def _op(self, name: OperatorName) -> str:
         return self.format.operators[name]
@@ -678,7 +672,7 @@ class Walk:
 
     def definition(self, name: str) -> Line:
         """The line defining one named expression, ``symbol = body`` over its frame."""
-        node = self._resolved(name)
+        node = self.schema.resolved_expressions[name]
         frame = self.frames[name]
         ctx = self._context(frame)
         body = (

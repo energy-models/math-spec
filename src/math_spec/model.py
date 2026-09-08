@@ -29,7 +29,7 @@ from pydantic import (
     model_validator,
 )
 
-from math_spec._expression_parser import NAME, ComparisonOperator
+from math_spec._expression_parser import NAME, CasesNode, ComparisonOperator, DefinitionNode
 from math_spec.errors import did_you_mean, schema_error
 from math_spec.operators import BUILTIN_NAMES
 
@@ -958,3 +958,24 @@ class _ExpandedSpec(Spec):
         if self.objective is not None:
             parse_and_expand(self.objective.expression, self, 'the objective', read=read)
         return frozenset(read)
+
+    @cached_property
+    def resolved_expressions(self) -> dict[str, CasesNode | DefinitionNode]:
+        """Each ``expressions:`` entry as the node its name expands to, resolved once for every reader.
+
+        A plain entry is a :class:`~math_spec._expression_parser.DefinitionNode`
+        carrying its name over its body, a cased one a
+        :class:`~math_spec._expression_parser.CasesNode`; every entry either
+        names is inlined where it stood, so a walk over one sees the whole chain.
+        """
+        from math_spec.resolution import Namespace, expression_of
+
+        ns = Namespace.of(self)
+        resolved: dict[str, CasesNode | DefinitionNode] = {}
+        for name in self.expressions:
+            node = expression_of(name, self, ns, f"expression '{name}'")
+            assert isinstance(node, CasesNode | DefinitionNode), (
+                'a named expression expands to the node carrying its name'
+            )
+            resolved[name] = node
+        return resolved

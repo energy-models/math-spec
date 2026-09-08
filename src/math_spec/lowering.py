@@ -166,12 +166,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for sname, sdef in expanded.sos.items()
     }
     expressions: dict[str, program.ExpressionDeclaration] = {}
-    for name in expanded.expressions:
-        context = f"named expression '{name}'"
-        ast = expression_of(name, expanded, ns, context)
-        assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in a named expression'
+    for name, ast in expanded.resolved_expressions.items():
         expressions[name] = program.ExpressionDeclaration(
-            _Lowering(expanded, context).expr(ast), in_math=name in expanded.read_by_the_math
+            _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in expanded.read_by_the_math
         )
     return program.Program(
         parameters=parameters,
