@@ -208,11 +208,22 @@ _REDUCTIONS = frozenset({'sum', 'sum_back'})
 
 
 def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> None:
-    """Apply :func:`check_binary` everywhere in *node*.
+    """What the math admits at one position: no ``dual()`` anywhere under *node*, then :func:`check_binary` everywhere in it.
 
-    Degree only, deliberately: what a plan node can represent is a consuming
-    lane's question.
+    Asked of the *expanded* tree, so a dual or a product inlined through a
+    macro or a named expression is caught alongside one written in place.
+    What a plan node can represent is a consuming lane's question, not this
+    one's.
+
+    Raises:
+        LanguageError: A dual, which exists only after a solve; or what
+            :func:`check_binary` refuses.
     """
+    if isinstance(node, DualNode):
+        raise LanguageError(
+            f'{context}: a dual exists only after a solve; the math cannot read one — '
+            f'keep the entry that carries it out of constraints, the objective, bounds and where.'
+        )
     if isinstance(node, BinaryOperatorNode):
         check_binary(node, context, ceiling=ceiling)
     for child in children(node):
@@ -220,19 +231,5 @@ def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> Non
 
 
 def calls_dual(node: ParsedNode) -> bool:
-    """Whether a :class:`DualNode` stands anywhere in the resolved *node*.
-
-    Asked of the *expanded* tree, so a ``dual`` inlined through a macro or a
-    named expression is caught alongside one written in place — the whole
-    point of enforcing the placement rule after expansion rather than at the
-    call site.
-    """
+    """Whether a :class:`DualNode` stands anywhere in the resolved *node*."""
     return isinstance(node, DualNode) or any(calls_dual(c) for c in children(node))
-
-
-def dual_in_math_message(context: str) -> str:
-    """Why ``dual()`` is refused where the math is built — a placement rule, not a degree."""
-    return (
-        f'{context}: a dual exists only after a solve; the math cannot read one — '
-        f'keep the entry that carries it out of constraints, the objective, bounds and where.'
-    )

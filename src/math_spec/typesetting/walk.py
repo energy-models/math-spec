@@ -35,7 +35,6 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.expansion import read_by_the_math
 from math_spec.program import (
     AndNode,
     BooleanLiteralNode,
@@ -674,7 +673,7 @@ class Walk:
         """
         if not self.inline_expressions:
             return list(self.schema.expressions)
-        read = read_by_the_math(self.schema)
+        read = self.schema.read_by_the_math
         return [name for name, block in self.schema.expressions.items() if block.cases or name not in read]
 
     def definition(self, name: str) -> Line:

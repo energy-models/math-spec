@@ -12,6 +12,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
+from functools import cached_property
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, cast, get_args, override
 
 from pydantic import (
@@ -938,3 +939,22 @@ class _ExpandedSpec(Spec):
             msg = 'an _ExpandedSpec carries no piecewise: — expand_piecewise is what produces one'
             raise ValueError(msg)
         return self
+
+    @cached_property
+    def read_by_the_math(self) -> frozenset[str]:
+        """The named expressions the math reads: every entry the objective or a constraint reaches, transitively.
+
+        Decided by expanding those two positions alone: a bound and a ``where``
+        name no entry, and a piecewise link's expression reaches here through
+        the constraints its expansion emitted. The rest of the ``expressions:``
+        section is read back after a solve and never fed to one
+        (:attr:`~math_spec.program.ExpressionDeclaration.in_math`).
+        """
+        from math_spec.expansion import parse_and_expand
+
+        read: set[str] = set()
+        for name, block in self.constraints.items():
+            parse_and_expand(block.expression, self, f"constraint '{name}'", read=read)
+        if self.objective is not None:
+            parse_and_expand(self.objective.expression, self, 'the objective', read=read)
+        return frozenset(read)
