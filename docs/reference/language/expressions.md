@@ -490,7 +490,7 @@ writes it once. A cases block is three rows tall, so mid-equation it puts
 whatever follows it beside the **middle** row, which is what the default avoids.
 
 [The unit commitment example](../../examples/commitment.md) is the whole model
-this section is drawn from.
+this section is drawn from, printed both ways under tabs.
 
 ## Macros
 

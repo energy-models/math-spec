@@ -23,6 +23,7 @@ from math_spec import to_spec
 from math_spec.typesetting import to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
+from tools.home_math import tab
 from tools.notation import equations
 from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
 
@@ -59,8 +60,18 @@ RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 
 
 def model_block(path: Path) -> str:
-    """One model, then the whole document the typesetter prints from it."""
-    return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
+    """One model, then the whole document the typesetter prints from it.
+
+    A model naming an expression gets the document twice, under tabs: defined
+    once, as the default prints it, and inlined, as ``--inline`` does.
+    """
+    model = to_spec(path)
+    yaml = f'```yaml\n{without_header(path)}\n```'
+    if not model.expressions:
+        return f'{yaml}\n\n{to_markdown(model, numbered=False).strip()}'
+    defined = tab('Defined once', to_markdown(model, numbered=False).strip())
+    inlined = tab('Inlined', to_markdown(model, numbered=False, inline=True).strip())
+    return f'{yaml}\n\n{defined}\n\n{inlined}'
 
 
 def probe_block() -> str:
