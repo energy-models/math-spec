@@ -87,7 +87,7 @@ def _walk(
     return Walk(
         schema,
         namespace,
-        Symbols(schema, namespace, format_, table.checked_against(schema)),
+        Symbols(schema, format_, table.checked_against(schema)),
         format_,
         inline_expressions=inline_expressions,
     )
