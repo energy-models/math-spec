@@ -52,6 +52,7 @@ from math_spec.program import (
     Translate,
     Variable,
     Window,
+    children,
     divisor_parameters,
     fan_in,
     quotients,
@@ -450,6 +451,15 @@ def test_a_divisor_under_a_pullback_is_still_named():
 
     assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `At`'
     assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
+
+
+def test_a_divisor_under_a_power_is_still_named():
+    """`children` had no branch for `Power`, so every walk stopped at it and a divisor written
+    `d ** 2` was reported with no parameter at all (#403)."""
+    quotient = Divide(Variable('x'), Power(Parameter('d'), Constant(2.0)))
+
+    assert children(quotient.divisor) == (Parameter('d'), Constant(2.0)), 'the base first, then the exponent'
+    assert divisor_parameters(quotient) == frozenset({'d'}), 'the walk descends through `Power`'
 
 
 def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():

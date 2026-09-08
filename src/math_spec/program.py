@@ -421,11 +421,15 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
         return (expression.left, expression.right)
     if isinstance(expression, Divide):
         return (expression.numerator, expression.divisor)
+    if isinstance(expression, Power):
+        return (expression.base, expression.exponent)
     if isinstance(expression, (Sum, GroupSum, At, Translate, Window)):
         return (expression.operand,)
     if isinstance(expression, Cases):
         return tuple(region.value for region in expression.regions)
-    return ()
+    if isinstance(expression, (Constant, Parameter, Variable, Dual)):
+        return ()
+    assert_never(expression)
 
 
 # --------------------------------------------------------------------------
