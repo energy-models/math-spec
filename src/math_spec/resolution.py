@@ -41,6 +41,7 @@ from math_spec._expression_parser import (
     case_context,
     nodes,
     shown,
+    with_children,
 )
 from math_spec._where_parser import (
     UnresolvedComparisonNode,
@@ -403,10 +404,8 @@ class _Resolver:
             return node
         if isinstance(node, NameNode):
             return self._name(node, amount=amount)
-        if isinstance(node, UnaryOperatorNode):
-            return UnaryOperatorNode(node.op, self._arith(node.operand))
-        if isinstance(node, BinaryOperatorNode):
-            return BinaryOperatorNode(node.op, self._arith(node.left), self._arith(node.right))
+        if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | DefinitionNode):
+            return with_children(node, self._arith)
         if isinstance(node, FunctionCallNode):
             return self._call(node)
         if isinstance(node, KeywordNode):
@@ -425,8 +424,6 @@ class _Resolver:
             return node
         if isinstance(node, CasesNode):
             return self._cases(node)
-        if isinstance(node, DefinitionNode):
-            return DefinitionNode(node.name, self._arith(node.body))
         assert_never(node)
 
     def _name(self, node: NameNode, *, amount: bool) -> ArithmeticNode:

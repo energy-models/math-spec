@@ -112,6 +112,7 @@ __all__ = [
     'quotients',
     'variables_of',
     'walk',
+    'where_children',
 ]
 
 
@@ -1180,6 +1181,20 @@ TypedPredicateNode = (
 ConnectiveWhereNode = NotNode | AndNode | OrNode
 
 
+def where_children(where: WhereNode) -> tuple[WhereNode, ...]:
+    """The predicates under *where* — a connective's operands, and nothing under a leaf.
+
+    What every walk over a predicate recurses through, as :func:`children` is
+    for an expression. A leaf has nothing under it whether or not it is
+    resolved, so the grammar measures its own output with this too.
+    """
+    if isinstance(where, NotNode):
+        return (where.operand,)
+    if isinstance(where, (AndNode, OrNode)):
+        return (where.left, where.right)
+    return ()
+
+
 def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     """Every node in *where* that reads a declaration, connectives removed.
 
@@ -1188,15 +1203,11 @@ def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     Raises:
         AssertionError: An unresolved node reached the walk.
     """
-    if isinstance(where, NotNode):
-        yield from _atoms(where.operand)
-    elif isinstance(where, (AndNode, OrNode)):
-        yield from _atoms(where.left)
-        yield from _atoms(where.right)
-    elif isinstance(where, BooleanLiteralNode):
-        return
-    elif isinstance(where, TypedPredicateNode):
+    if isinstance(where, TypedPredicateNode):
         yield where
+    elif isinstance(where, BooleanLiteralNode | ConnectiveWhereNode):
+        for child in where_children(where):
+            yield from _atoms(child)
     else:
         msg = f'{type(where).__name__} reached a predicate walk unresolved.'
         raise AssertionError(msg)

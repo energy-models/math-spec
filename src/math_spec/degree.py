@@ -23,20 +23,15 @@ can name the rewrite.
 
 from __future__ import annotations
 
-from typing import assert_never
-
 from math_spec._expression_parser import (
     BinaryOperatorNode,
-    BranchNode,
     DualNode,
     FunctionCallNode,
-    KwargNode,
-    NumberNode,
-    ParameterNode,
     ParsedNode,
     UnresolvedNode,
     VariableNode,
     children,
+    nodes,
 )
 from math_spec.errors import LanguageError
 
@@ -48,16 +43,13 @@ def carries_variable(node: ParsedNode) -> bool:
     program. An unresolved node reaching here is a resolution bug, so it is refused
     rather than silently answered.
     """
-    if isinstance(node, VariableNode):
-        return True
-    if isinstance(node, NumberNode | ParameterNode | DualNode | KwargNode):
-        return False
-    if isinstance(node, UnresolvedNode):
-        msg = f'{node!r} reached the degree check. Expressions go through resolution.expression_of() first.'
-        raise AssertionError(msg)
-    if isinstance(node, BranchNode):
-        return any(carries_variable(c) for c in children(node))
-    assert_never(node)
+    for found in nodes(node):
+        if isinstance(found, UnresolvedNode):
+            msg = f'{found!r} reached the degree check. Expressions go through resolution.expression_of() first.'
+            raise AssertionError(msg)
+        if isinstance(found, VariableNode):
+            return True
+    return False
 
 
 def _adds(node: ParsedNode) -> bool:
@@ -68,11 +60,7 @@ def _adds(node: ParsedNode) -> bool:
     under a ``sum`` or a product reaches the quotient as two factors just as
     one at the top does.
     """
-    if isinstance(node, BinaryOperatorNode) and node.op in ('+', '-'):
-        return True
-    if isinstance(node, BranchNode):
-        return any(_adds(c) for c in children(node))
-    return False
+    return any(isinstance(found, BinaryOperatorNode) and found.op in ('+', '-') for found in nodes(node))
 
 
 def check_binary(node: BinaryOperatorNode, context: str, *, ceiling: int) -> None:
@@ -189,16 +177,19 @@ def _multi_term(node: ParsedNode) -> bool:
     operands; a product is multi-term exactly when one of its factors is, a
     coefficient not multiplying the count. Structural, so it needs no data.
     """
-    if isinstance(node, FunctionCallNode) and node.name in _REDUCTIONS and any(carries_variable(a) for a in node.args):
-        return True
-    if (
+    return any(_joins_terms(found) for found in nodes(node))
+
+
+def _joins_terms(node: ParsedNode) -> bool:
+    """Whether *node* itself makes several terms of one: a reduction over a variable, or a sum of two variable-carrying sides."""
+    if isinstance(node, FunctionCallNode):
+        return node.name in _REDUCTIONS and any(carries_variable(a) for a in node.args)
+    return (
         isinstance(node, BinaryOperatorNode)
         and node.op in ('+', '-')
         and carries_variable(node.left)
         and carries_variable(node.right)
-    ):
-        return True
-    return any(_multi_term(c) for c in children(node))
+    )
 
 
 #: The operators that fold several coordinates onto one, and so turn a term
@@ -219,17 +210,16 @@ def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> Non
         LanguageError: A dual, which exists only after a solve; or what
             :func:`check_binary` refuses.
     """
-    if isinstance(node, DualNode):
-        raise LanguageError(
-            f'{context}: a dual exists only after a solve; the math cannot read one — '
-            f'keep the entry that carries it out of constraints, the objective, bounds and where.'
-        )
-    if isinstance(node, BinaryOperatorNode):
-        check_binary(node, context, ceiling=ceiling)
-    for child in children(node):
-        check_expression(child, context, ceiling=ceiling)
+    for found in nodes(node):
+        if isinstance(found, DualNode):
+            raise LanguageError(
+                f'{context}: a dual exists only after a solve; the math cannot read one — '
+                f'keep the entry that carries it out of constraints, the objective, bounds and where.'
+            )
+        if isinstance(found, BinaryOperatorNode):
+            check_binary(found, context, ceiling=ceiling)
 
 
 def calls_dual(node: ParsedNode) -> bool:
     """Whether a :class:`DualNode` stands anywhere in the resolved *node*."""
-    return isinstance(node, DualNode) or any(calls_dual(c) for c in children(node))
+    return any(isinstance(found, DualNode) for found in nodes(node))

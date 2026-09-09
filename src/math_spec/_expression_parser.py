@@ -285,10 +285,6 @@ UnresolvedNode = NameNode | NameListNode | KeywordNode
 #: Every leaf — nothing below it to descend into.
 LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
 
-#: Every node carrying sub-expressions, which is exactly what :func:`children`
-#: descends and the only place a walk recurses.
-BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode | CasesNode | DefinitionNode
-
 
 def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
     """The sub-expressions of *node* — the structural half of any walk.

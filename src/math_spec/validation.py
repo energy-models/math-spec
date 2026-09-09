@@ -28,6 +28,7 @@ from math_spec._expression_parser import (
     UnaryOperatorNode,
     VariableNode,
     case_context,
+    children,
 )
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
@@ -329,13 +330,9 @@ def _check_template_names(
             errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
         return
 
-    if isinstance(node, UnaryOperatorNode):
-        _check_template_names(node.operand, context, ns, formals, errors)
-        return
-
-    if isinstance(node, BinaryOperatorNode):
-        _check_template_names(node.left, context, ns, formals, errors)
-        _check_template_names(node.right, context, ns, formals, errors)
+    if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | CasesNode | DefinitionNode):
+        for child in children(node):
+            _check_template_names(child, context, ns, formals, errors)
         return
 
     if isinstance(node, FunctionCallNode):
@@ -369,15 +366,6 @@ def _check_template_names(
                     _check_template_names(value, context, ns, formals, errors)
                 case 'edge':
                     pass  # a keyword or a number: nothing in it to name
-        return
-
-    if isinstance(node, CasesNode):
-        for arm in node.arms:
-            _check_template_names(arm.value, context, ns, formals, errors)
-        return
-
-    if isinstance(node, DefinitionNode):
-        _check_template_names(node.body, context, ns, formals, errors)
         return
 
     assert_never(node)

@@ -101,7 +101,8 @@ means the caller binds it.
 
 **Nothing here is built by hand.** The program's nodes are exported to be
 dispatched on with `isinstance` and read, which is why what ships beside them
-is the walk (`children()`) and not builders. A mask is `Mask`: the language's
+is the walk (`children()`, and `where_children()` for a predicate) and not
+builders. A mask is `Mask`: the language's
 own resolved `where` as its `.root` — the node an engine still dispatches on
 with `isinstance` — and every question derived from it, the way a dimension
 carries `.maps`. `.conjuncts` flattens the `AND` spine and stops at an `OR` or
