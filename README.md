@@ -20,8 +20,8 @@ with no data and no solver.**
 
 A math-spec file declares four things: the axes the model runs over, such as
 `snapshot` and `generator`; the data it expects, such as `load` and `cost`; the
-decisions the solver makes, such as `p`; and the rules those decisions obey, such
-as `sum(p, over=generator) == load`. The file [below](#example) is a complete
+decisions the solver makes, such as `dispatch`; and the rules those decisions obey, such
+as `sum(dispatch, over=generator) == load`. The file [below](#example) is a complete
 model.
 
 math-spec reads that file, checks everything that can be checked without data,
@@ -79,25 +79,25 @@ dimensions:
   generator: { description: generating units }
 
 parameters:
-  p_max: { dims: [generator], description: installed capacity }
+  capacity: { dims: [generator], description: installed capacity }
   load: { dims: [snapshot], description: demand to be met }
   cost: { dims: [generator], description: marginal cost }
 
 variables:
-  p:
+  dispatch:
     description: output of a generator in a snapshot
     foreach: [snapshot, generator]
-    where: "p_max > 0"
-    bounds: { lower: 0, upper: p_max }
+    where: "capacity > 0"
+    bounds: { lower: 0, upper: capacity }
 
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(dispatch, over=generator) == load
 
 objective:
   sense: minimize
-  expression: sum(p * cost)
+  expression: sum(dispatch * cost)
 ```
 
 <!--- --8<-- [end:model] -->
@@ -111,7 +111,7 @@ everything about it that can be wrong is wrong at load:
 import math_spec as ms
 
 spec = ms.to_spec('dispatch.yaml')  # schema, names, dims, degree — all checked here
-sorted(spec.variables)  # ['p']
+sorted(spec.variables)  # ['dispatch']
 
 program = ms.to_program(spec)  # curves expanded, names typed, operators resolved to nodes
 sorted(program.constraints)  # ['power_balance']
@@ -139,7 +139,7 @@ ms.to_markdown(spec)  # renders as-is on GitHub
 ```
 
 Drop the symbol table, and the same model prints as $\mathit{load}_t$ and
-$p^{\mathrm{max}}_g$, with no setup. Every spelling in a table is printed as
+$dispatch^{\mathrm{max}}_g$, with no setup. Every spelling in a table is printed as
 written, a key naming nothing in the model is an error, and nothing in a table
 changes what the file means.
 
