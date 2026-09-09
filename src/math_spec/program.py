@@ -1149,20 +1149,17 @@ class DimensionComparisonNode:
 class DimensionPositionNode:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
-    Both sides are integers, negative counting from the end. With ``by`` the
-    position is counted within each group the lookup makes: ``walked`` is its
-    key column over ``name``, ``group`` the value columns the group is made
-    of, and ``dims`` the dimensions of its other key columns, which the frame
-    carries.
+    Both sides are integers, negative counting from the end. With a
+    ``partition`` the position is counted within each group the lookup makes,
+    walked as :class:`Translate` walks one: its consumed column is the key
+    column over ``name``, the group is its produced columns, and its joined
+    columns are the other key columns, whose dimensions the frame carries.
     """
 
     name: str
     op: PredicateOperator
     position: int
-    by: str | None = None
-    walked: str | None = None
-    group: tuple[str, ...] = ()
-    dims: tuple[str, ...] = ()
+    partition: Walk | None = None
 
 
 @dataclass(frozen=True)
@@ -1316,7 +1313,7 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
         case DimensionComparisonNode():
             return frozenset({atom.name})
         case DimensionPositionNode():
-            return frozenset({atom.name, *atom.dims})
+            return frozenset({atom.name, *(atom.partition.joined_dims if atom.partition is not None else ())})
         case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
             return frozenset(atom.dims)
         case _:

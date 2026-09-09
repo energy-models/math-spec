@@ -455,7 +455,7 @@ class TestPositionResolves:
         assert isinstance(node, DimensionPositionNode)
         assert node.name == 'snapshot'
         assert node.position == position
-        assert node.by == by
+        assert (node.partition.name if node.partition is not None else None) == by
 
     @pytest.mark.parametrize(
         ('mask', 'fragments'),

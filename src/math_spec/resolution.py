@@ -881,10 +881,7 @@ class _Resolver:
         walk = self._partition_walk(node.by, 'position', node.dimension, node.into)
         if walk is None:
             return node
-        (walked,) = walk.consumed
-        return DimensionPositionNode(
-            node.dimension, node.op, node.position, node.by, walked, walk.produced, walk.joined_dims
-        )
+        return DimensionPositionNode(node.dimension, node.op, node.position, walk)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``lookup <op> lookup``."""
