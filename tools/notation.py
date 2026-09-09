@@ -142,7 +142,7 @@ def _caption(line: str) -> str:
 
 
 def equations(rendered: str) -> dict[str, str]:
-    """Label -> the ``$$…$$`` block the walk printed for it.
+    """Label -> the ``math`` fence the walk printed for it.
 
     The objective's line carries no label — the block has no name — so it is
     keyed by the section it is the only member of.
@@ -152,7 +152,7 @@ def equations(rendered: str) -> dict[str, str]:
     for block in rendered.split('\n\n'):
         if match := re.fullmatch(r'\*\*`(.+)`\*\*', block.strip()):
             label = match[1]
-        elif block.startswith('$$'):
+        elif block.startswith('```math'):
             found[label] = block.strip()
     return found
 

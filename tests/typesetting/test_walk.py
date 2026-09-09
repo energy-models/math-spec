@@ -749,8 +749,8 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(name: FormatName, fm
     """`fuel == 'gas_ccgt'` rendered the label in text mode, where MathJax
     prints the underscore's escape as a literal backslash — and an
     operator-valued label such as `'>='` read as `= >=`, an equals against a
-    bare glyph. Quoted, with the word upright in math mode, both read as the
-    file spells them."""
+    bare glyph. Quoted, and set as each format spells a given name, both read
+    as the file spells them."""
     model = {
         'dimensions': {'plant': {'dtype': 'str'}},
         'parameters': {'fuel': {'dims': ['plant'], 'dtype': 'str'}, 'cost': {'dims': ['plant']}},
@@ -759,4 +759,5 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(name: FormatName, fm
     }
     text = typeset(model, name, legend=False)
     assert fmt.quoted('gas_ccgt') in text
-    assert fmt.prose('gas_ccgt') not in text, 'a string value is data, never words inside math'
+    unquoted = text.replace(fmt.quoted('gas_ccgt'), '')
+    assert fmt.prose('gas_ccgt') not in unquoted, 'a string value is data, never words inside math'

@@ -134,6 +134,13 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+        # A ```math fence is how GitHub takes block math verbatim, and is what
+        # this project's own typesetter prints. Arithmatex reads `$$…$$`, so
+        # the fence hands it over — indented inside a tab or a list included,
+        # which is why this is superfences' job and not a hook's regex.
+        - name: math
+          class: arithmatex
+          format: !!python/object/apply:pymdownx.arithmatex.arithmatex_fenced_format { kwds: { which: generic } }
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg

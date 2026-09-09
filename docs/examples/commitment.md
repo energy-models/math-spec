@@ -96,78 +96,94 @@ Unit commitment with a start-up ramp, the formulation `cases:` exists for. The s
 
 | Symbol | Meaning |
 |---|---|
-| $\mathcal{T}$ | index $t$ — `snapshot` — dispatch periods |
-| $\mathcal{G}$ | index $g$ — `generator` — generating units |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` — generating units |
 
 #### Parameters
 
 | Symbol | Meaning |
 |---|---|
-| $\mathrm{committable}$ | `committable` over $\mathcal{G}$ — whether the unit may be switched off |
-| $\mathrm{status}^{\mathrm{initial}}$ | `status_initial` over $\mathcal{G}$ — whether the unit was running before the horizon |
-| $\mathrm{p}^{\mathrm{max}}$ | `p_max` over $\mathcal{G}$ — installed capacity |
-| $\mathrm{p}^{\mathrm{min}}$ | `p_min` over $\mathcal{G}$ — output floor while running |
-| $\mathrm{ramp\_limit}$ | `ramp_limit` over $\mathcal{G}$ — how far output may move between snapshots while running |
-| $\mathrm{start\_up\_limit}$ | `start_up_limit` over $\mathcal{G}$ — how far it may move in the snapshot it starts in |
-| $\mathrm{load}$ | `load` over $\mathcal{T}$ — demand to be met |
-| $\mathrm{cost}$ | `cost` over $\mathcal{G}$ — marginal cost |
+| $`\mathrm{committable}`$ | `committable` over $`\mathcal{G}`$ — whether the unit may be switched off |
+| $`\mathrm{status}^{\mathrm{initial}}`$ | `status_initial` over $`\mathcal{G}`$ — whether the unit was running before the horizon |
+| $`\mathrm{p}^{\mathrm{max}}`$ | `p_max` over $`\mathcal{G}`$ — installed capacity |
+| $`\mathrm{p}^{\mathrm{min}}`$ | `p_min` over $`\mathcal{G}`$ — output floor while running |
+| $`\mathrm{ramp\_limit}`$ | `ramp_limit` over $`\mathcal{G}`$ — how far output may move between snapshots while running |
+| $`\mathrm{start\_up\_limit}`$ | `start_up_limit` over $`\mathcal{G}`$ — how far it may move in the snapshot it starts in |
+| $`\mathrm{load}`$ | `load` over $`\mathcal{T}`$ — demand to be met |
+| $`\mathrm{cost}`$ | `cost` over $`\mathcal{G}`$ — marginal cost |
 
 #### Variables
 
 | Symbol | Meaning |
 |---|---|
-| $p$ | `p` over $\mathcal{T} \times \mathcal{G}$ — output of a generator in a snapshot |
-| $\mathit{status}$ | `status` over $\mathcal{T} \times \mathcal{G}$ — whether the unit is running in a snapshot |
+| $`p`$ | `p` over $`\mathcal{T} \times \mathcal{G}`$ — output of a generator in a snapshot |
+| $`\mathit{status}`$ | `status` over $`\mathcal{T} \times \mathcal{G}`$ — whether the unit is running in a snapshot |
 
 #### Definitions
 
 | Symbol | Meaning |
 |---|---|
-| $\mathit{previous\_status}$ | `previous_status` over $\mathcal{T} \times \mathcal{G}$ — the commitment state a unit carries into a snapshot |
+| $`\mathit{previous\_status}`$ | `previous_status` over $`\mathcal{T} \times \mathcal{G}`$ — the commitment state a unit carries into a snapshot |
 
-Upright is what the model is given — a parameter such as $\mathrm{committable}$, a coordinate map, a label — and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
+Upright is what the model is given — a parameter such as $`\mathrm{committable}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`p`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
-$t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
+$`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $`v`$ rather than being dropped.
 
-$\mathrm{pos}(t)$ denotes where index $t$ sits along its dimension's own order — the order `shift` walks, not the order labels sort in — counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $\mathrm{pos}(t)$ against positions.
+$`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` walks, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
 
 #### Objective
 
-$$\min \sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}$$
+```math
+\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}
+```
 
 #### Subject to
 
 **`power_balance`**
 
-$$\sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\thinspace t \in \mathcal{T}$$
+```math
+\sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
+```
 
 **`upper`**
 
-$$p_{t,g} \le \mathit{status}_{t,g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+```math
+p_{t,g} \le \mathit{status}_{t,g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
 
 **`lower`**
 
-$$p_{t,g} \ge \mathit{status}_{t,g} \cdot \mathrm{p}^{\mathrm{min}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+```math
+p_{t,g} \ge \mathit{status}_{t,g} \cdot \mathrm{p}^{\mathrm{min}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
 
 **`ramp_up`**
 
-$$p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathrm{ramp\_limit}_{g} \cdot \mathit{previous\_status}_{t,g} + \mathrm{start\_up\_limit}_{g} \cdot \left( 1 - \mathit{previous\_status}_{t,g} \right) \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+```math
+p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathrm{ramp\_limit}_{g} \cdot \mathit{previous\_status}_{t,g} + \mathrm{start\_up\_limit}_{g} \cdot \left( 1 - \mathit{previous\_status}_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
 
 #### Definitions
 
 **`previous_status`**
 
-$$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+```math
+\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \\ \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{committable}_{g} \wedge \mathrm{pos}(t) = 0 \\ \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
 
 #### Variable domains
 
 **`p`**
 
-$$0 \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+```math
+0 \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
 
 **`status`**
 
-$$\mathit{status}_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+```math
+\mathit{status}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.

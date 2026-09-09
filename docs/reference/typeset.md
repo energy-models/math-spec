@@ -29,7 +29,32 @@ and reads it. Hand it the `Spec` instead and the file is read and checked once
 rather than once per format, which is also how a `Spec` you already hold gets
 printed without a second trip through the loader.
 
-Or from a shell, where this belongs in a Makefile next to `pdflatex`:
+## Markdown's delimiters
+
+Markdown delimits math the two verbatim ways GitHub reads — ``$`…`$`` inline,
+and a ` ```math ` fence for a block — rather than `$…$` and `$$…$$`. That is not
+a preference. GitHub runs Markdown's own escape pass _inside_ a `$…$` span
+before MathJax sees it, and strips the backslash from every escape TeX needs:
+`\mathrm{gen\_bus}` arrives as `\mathrm{gen_bus}`, a subscript, and `\{0, 1\}`
+as a set with no braces. Out of the pass's reach, what this prints is the math
+`to_latex` prints, character for character.
+
+The two pairs are GitHub's and GitLab's. A renderer keyed to `$…$` alone reads
+the delimiters as characters and shows them — so a document bound for one of
+those wants `to_latex` and that renderer's own delimiters around it, rather
+than this.
+
+`typeset_declaration` returns a bare line either way, so a Markdown one goes
+inside the same pair:
+
+<!-- doctest: skip -->
+
+```python
+line = ms.typeset_declaration('model.yaml', 'balance', 'markdown')
+print(f'The balance holds: $`{line}`$')
+```
+
+Or where this belongs in a Makefile next to `pdflatex`:
 
 ```bash
 python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
