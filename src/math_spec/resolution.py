@@ -626,8 +626,7 @@ class _Resolver:
         if ns.kind(node.by) != 'lookup':
             self.errors.append(
                 f"{context}: '{call}' groups by '{node.by}', which is {_declared_as(ns, node.by)}. "
-                f'``by=`` takes a lookup over that dimension — either kind, since counting '
-                f'inside a group lands no terms, unlike sum(by=) and at(by=). '
+                f'``by=`` takes a lookup over that dimension. '
                 f'{did_you_mean(node.by, ns.lookups, label="Lookups")}'
             )
             return node
