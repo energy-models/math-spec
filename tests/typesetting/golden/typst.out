@@ -5,7 +5,7 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 
 == Sets
 / $cal(T)$: index $t$ --- `snapshot` (`int` coordinates) with $upright("season_of"): cal(T) arrow.r cal(S)$
-/ $cal(G)$: index $g$ --- `generator` with $upright("gen_bus"): cal(G) arrow.r cal(B), upright("gen_tech"): cal(G) arrow.r cal(E)$ carrying label $upright("tech")$
+/ $cal(G)$: index $g$ --- `generator` with $upright("gen_bus"): cal(G) arrow.r cal(B), upright("gen_tech"): cal(G) arrow.r cal(E)$
 / $cal(B)$: index $b$ --- `bus` with $upright("zone_of"): cal(B) arrow.r cal(Z), upright("area_of"): cal(B) arrow.r cal(Z)$
 / $cal(Z)$: index $z$ --- `zone`
 / $cal(S)$: index $s$ --- `season`

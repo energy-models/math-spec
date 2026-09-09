@@ -80,7 +80,7 @@ TINY = {
     'constraints': {'c': {'foreach': [], 'expression': 'sum(p, over=g) >= 1'}},
 }
 
-#: `fixtures.SMALL_MODEL` plus a second groupable lookup and a per-entity
+#: `fixtures.SMALL_MODEL` plus a second lookup and a per-entity
 #: offset. Which node a construct becomes is mostly a claim about the dim it
 #: consumes and the dim it lands on, and stating that needs a third dimension
 #: and two lookups over one of them.
@@ -253,7 +253,7 @@ def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_program):
     """The `where` a lowering carries is a `Mask`, and its questions are its root's.
 
     A consumer asks the mask — `where.names_read`, `where.conjuncts` — the way it
-    asks a dimension `dimension.maps`, rather than reaching for a free function
+    asks a dimension `dimension.targets`, rather than reaching for a free function
     with the raw node.
     """
     (v,) = dispatch_program.variables.values()
@@ -530,28 +530,6 @@ def test_a_lookup_names_the_dimension_its_values_label():
         ('snapshot', 'season_of'),
         ('generator', 'at_bus'),
     ], 'every map with the dimension it is over, in declaration order'
-
-
-def test_a_label_space_keeps_its_dtype_and_has_no_target():
-    """The file's claim about a label-space column used to be dropped at lowering."""
-    program = to_program(
-        {
-            'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {}},
-            'lookups': {
-                'season_of': {'over': 'snapshot', 'into': 'season'},
-                'period': {'over': 'snapshot', 'dtype': 'int'},
-            },
-            'variables': {'p': {'foreach': ['snapshot'], 'where': 'period == 1'}},
-            'constraints': {'k': {'foreach': ['season'], 'expression': 'sum(p, by=season_of) >= 1'}},
-        }
-    )
-
-    assert program.dimension('snapshot').lookups == (
-        LookupDeclaration('season_of', 'season', None),
-        LookupDeclaration('period', None, 'int'),
-    ), 'both kinds, in declaration order: a targeted lookup carries its target, a label space its dtype'
-    assert program.dimension('snapshot').maps == ['period', 'season_of'], 'binding reads both kinds'
-    assert program.dimension('snapshot').targets == {'season_of': 'season'}, 'grouping reads only the targeted one'
 
 
 def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():

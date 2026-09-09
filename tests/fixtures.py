@@ -36,14 +36,19 @@ DISPATCH_MODEL: dict[str, Any] = {
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
 }
 
-#: Two dimensions, a groupable and a label-space lookup, a numeric, a scalar and
-#: a boolean parameter, a variable on each frame — one declaration of every kind
+#: Two dimensions, a lookup between them, a numeric, a scalar, a boolean and a
+#: label parameter, a variable on each frame — one declaration of every kind
 #: a rule can name, and no objective, so a test adds what it judges. `p` and `r`
 #: share no dimension, which is what a rule about *different* dims needs.
 SMALL_MODEL: dict[str, Any] = {
     'dimensions': {'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}},
-    'lookups': {'lk': {'over': 'g', 'into': 'h'}, 'tag': {'over': 'g', 'dtype': 'str'}},
-    'parameters': {'c': {'dims': ['g']}, 'k': {'dims': []}, 'flag': {'dims': ['g'], 'dtype': 'bool'}},
+    'lookups': {'lk': {'over': 'g', 'into': 'h'}},
+    'parameters': {
+        'c': {'dims': ['g']},
+        'k': {'dims': []},
+        'flag': {'dims': ['g'], 'dtype': 'bool'},
+        'tag': {'dims': ['g'], 'dtype': 'str'},
+    },
     'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}, 'r': {'foreach': ['h']}},
 }
 

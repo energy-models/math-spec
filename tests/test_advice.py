@@ -23,34 +23,26 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 #: ``h`` is the target of ``lk`` and nothing else reaches it; ``g`` is an axis.
-LABEL_SPACE = override(
+TARGET_ONLY = override(
     SMALL_MODEL,
     variables={'p': {'foreach': ['g']}},
     objective={'sense': 'minimize', 'expression': 'sum(p * c)'},
 )
 
+#: The same with the lookup gone, so nothing reaches ``h`` at all.
+UNREACHED = override(TARGET_ONLY, lookups={})
 
-@pytest.mark.parametrize(
-    ('patch', 'fragments'),
-    [
-        pytest.param(
-            {},
-            ["dimension 'h' is never an axis", "lookup 'lk' over 'g'", 'lk: {over: g, dtype: str}'],
-            id='a-target-nothing-reaches-is-a-label-space',
-        ),
-        pytest.param({'lookups': {}}, ["dimension 'h' is never used"], id='a-dimension-nothing-reaches-is-unused'),
-    ],
-)
-def test_a_dimension_that_is_never_an_axis_is_named(patch, fragments):
-    (note,) = advice(override(LABEL_SPACE, **patch))
+
+def test_a_dimension_nothing_reaches_is_named():
+    (note,) = advice(UNREACHED)
     assert (note.kind, note.subject) == ('never-an-axis', 'h')
-    for fragment in fragments:
-        assert fragment in str(note)
+    assert "dimension 'h' is never used" in str(note)
 
 
 @pytest.mark.parametrize(
     'patch',
     [
+        pytest.param({}, id='targeted-by-a-lookup'),
         pytest.param(
             {'constraints': {'cap': {'foreach': ['h'], 'expression': 'sum(p, by=lk) <= k'}}},
             id='grouping-into-it',
@@ -58,13 +50,15 @@ def test_a_dimension_that_is_never_an_axis_is_named(patch, fragments):
         pytest.param({'variables.r': {'foreach': ['h']}}, id='indexing-by-it'),
     ],
 )
-def test_a_dimension_something_reaches_is_an_axis(patch):
-    assert not advice(override(LABEL_SPACE, **patch)), 'a dimension a declaration indexes or groups into is an axis'
+def test_a_dimension_something_reaches_is_in_use(patch):
+    assert not advice(override(TARGET_ONLY, **patch)), (
+        'a dimension a lookup targets, a declaration indexes or a grouping lands on is in use'
+    )
 
 
-#: A model with one note of each kind: `h` is a label space, and `p` is driven
+#: A model with one note of each kind: nothing reaches `h`, and `p` is driven
 #: down by the objective with an open lower bound and no constraint on it.
-BOTH_KINDS = override(LABEL_SPACE, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': -float('inf')}})
+BOTH_KINDS = override(UNREACHED, **{'objective.expression': 'sum(p)', 'variables.p.bounds': {'lower': -float('inf')}})
 
 
 def test_both_kinds_of_note_come_through_the_one_door():

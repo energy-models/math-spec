@@ -67,16 +67,11 @@ def test_check_prints_nothing_for_a_clean_file(capsys):
 
 
 def test_check_accepts_the_model_that_carries_every_construct(capsys):
-    """The golden model loads, which is not the same as it being advice-free.
-
-    It exercises every operator and every edge policy, so `check` accepting it
-    is the claim that the whole language loads through one door. `season` is a
-    lookup target nothing is indexed by, so it carries advice by design.
-    """
+    """The golden model exercises every operator and every edge policy, so
+    `check` accepting it is the claim that the whole language loads through
+    one door — and that none of it draws advice."""
     assert front.main(['check', str(golden.MODEL)]) == 0, 'the whole language loads'
-    out, err = capsys.readouterr()
-    assert err == '', 'advice is not a refusal, so nothing reaches stderr'
-    assert 'is never an axis' in out, 'and the advice it carries is about `season`, not about an edge'
+    assert capsys.readouterr() == ('', ''), 'no advice, no output'
 
 
 def _carries(stream: str, said: str) -> bool:

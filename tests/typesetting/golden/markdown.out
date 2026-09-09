@@ -7,7 +7,7 @@ every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {ne
 | Symbol | Meaning |
 |---|---|
 | $\mathcal{T}$ | index $t$ — `snapshot` (`int` coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$ |
-| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$ |
+| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ |
 | $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$ |
 | $\mathcal{Z}$ | index $z$ — `zone` |
 | $\mathcal{S}$ | index $s$ — `season` |

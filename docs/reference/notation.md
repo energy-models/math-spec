@@ -52,7 +52,6 @@ lookups:
   zone_of: { over: bus, into: zone }
   area_of: { over: bus, into: zone } # a second map into the same set, to compare against
   season_of: { over: snapshot, into: season }
-  tech: { over: generator, dtype: str } # no `into`: a label space, which the legend words differently
 
 parameters:
   p_max: { dims: [generator] }
@@ -74,7 +73,7 @@ parameters:
 | Symbol | Meaning |
 |---|---|
 | $\mathcal{T}$ | index $t$ — `snapshot` (`int` coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$ |
-| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ carrying label $\mathrm{tech}$ |
+| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ |
 | $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$ |
 | $\mathcal{Z}$ | index $z$ — `zone` |
 | $\mathcal{S}$ | index $s$ — `season` |

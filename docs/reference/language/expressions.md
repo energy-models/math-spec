@@ -216,8 +216,7 @@ dimension they are two columns of one index, so the comparison is a filter on
 that table rather than a join between two, and into one dimension they draw
 from one label set, so a match is possible at all. Over different dimensions no
 row carries both, and into different label sets no value can ever match —
-either is a load error. A label space owns its values and is therefore never
-the other side of one.
+either is a load error.
 
 The string reading of a right-hand-side name is for names the model does _not_
 declare, which is how a string coordinate is compared; a **declared** name
@@ -296,10 +295,9 @@ constraints:
 ```
 
 `by=` takes a lookup **over the dimension being counted** — groups a row of
-that dimension is actually in. Unlike [`sum(by=)` and `at(by=)`](operators.md)
-it need not be a _groupable_ one: counting inside a group lands no terms
-anywhere, so a label space partitions the rows just as well ([#280](https://github.com/energy-models/math-spec/issues/280)). A row reads its own group's boundary, the broadcast `at(by=)`
-already defines, and `-1` is each group's last however long that group is.
+that dimension is actually in. A row reads its own group's boundary, the
+broadcast `at(by=)` already defines, and `-1` is each group's last however long
+that group is.
 Periods of different lengths therefore need nothing special, which is the case
 no single position along the whole axis can express.
 
