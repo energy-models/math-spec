@@ -167,4 +167,4 @@ Everything under `dimensions:` is an axis. A dimension is never legal where a
 value belongs, because it is a coordinate space and not data. To use a
 dimension's coordinates as data, declare a parameter over it.
 `python -m math_spec check` advises on a declared dimension that is never used
-as an axis ([errors](errors.md#advice-reports-what-is-decidable-but-not-an-error)).
+as an axis ([errors](errors.md#advice-warns-about-two-things-that-load)).

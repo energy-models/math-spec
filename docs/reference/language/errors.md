@@ -31,26 +31,17 @@ Check for typos, or ensure 'p_charge' is declared.
 A construct outside the language is refused with its rewrite. Nothing falls back
 silently.
 
-## `advice` reports what is decidable but not an error
+## `advice` warns about two things that load
 
-Two more things can be decided without data, and each is advice rather than a
-refusal. `ms.advice(model)` returns them as a tuple of `ms.Advice`. Each carries a
-`kind`, which is `never-an-axis` or `unbounded`, the `subject` declaration it is
-about, and its `text`. `str()` on one gives the sentence, and every tool that
-shows advice shows this same sentence.
+`ms.advice(model)` returns a tuple of `ms.Advice`, one per warning. Each has a
+`kind`, the `subject` declaration, and a `text`; `str()` gives the sentence.
+`python -m math_spec check model.yaml` prints them and exits 0. An error, by
+contrast, prints to stderr and exits 1.
 
-From a shell, `python -m math_spec check model.yaml` runs both. A refusal prints
-to stderr and exits with status 1. Advice prints, and the status is 0.
-
-**`never-an-axis`.** A dimension that nothing is indexed by, and that nothing
-aggregates into, is never an axis. If a lookup targets it, it is a label space
-wearing a dimension's declaration, and the note says how to declare it as one. If
-nothing reaches it, it is unused.
-
-**`unbounded`.** A variable that no constraint names, and whose bounds leave open
-the side its objective term improves toward, runs to infinity for every dataset.
-A solver reports this as a bare `unbounded` that names nothing. The note names
-the variable and the side:
+| `kind`          | The file has…                                                                                                                                                                        | The advice says…                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `never-an-axis` | a dimension that no `dims` or `foreach` uses and no lookup groups into                                                                                                               | declare it as a `dtype:` lookup if a lookup targets it, else delete it |
+| `unbounded`     | a variable that no constraint uses, whose objective term pushes it towards a bound it does not have. `slack` with `bounds.lower: -inf` and a `+slack` term in a `minimize` objective | give it a finite bound, or the constraint that was meant to define it  |
 
 ```text
 Variable 'slack' makes this model unbounded: no constraint names it, and
@@ -60,13 +51,11 @@ and name nothing.
 Give it a finite bounds.lower, or the constraint that was meant to define it.
 ```
 
-This is advice rather than an error because a half-written model has the same
-shape, and `to_spec` stays open to a half-written model. Both halves of the
-condition are needed: a variable held only by its `bounds:` is ordinary, and so
-is an unbounded variable that a constraint names. Nothing is said where the sign
-a variable enters the objective with is data, because a parameter coefficient
-may be zero or either sign. A slice of a variable that a `where:` leaves with no
-constraint row cannot be decided from the file
+These are warnings, not errors, because a half-written model looks the same: a
+variable declared before the constraint that will use it. `advice` is silent
+where the objective coefficient is a parameter, because its sign is data, and
+where a `where:` leaves one slice of a variable with no constraint row, because
+that too depends on the data
 ([#229](https://github.com/fluxopt/lpspec/issues/229)).
 
 ## Which error you get
