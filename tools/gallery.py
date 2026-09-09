@@ -24,7 +24,7 @@ from math_spec.typesetting import to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
 from tools.notation import equations
-from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
+from tools.spec_math import _section
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -61,20 +61,6 @@ RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 def model_block(path: Path) -> str:
     """One model, then the whole document the typesetter prints from it."""
     return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
-
-
-def probe_block() -> str:
-    """Every operator probe: the model, then the one equation it renders."""
-    parts = []
-    for signature, name in OPERATORS.items():
-        equation, _ = rendered_probe(name)
-        parts.append(
-            f'### `{signature}`\n\n'
-            f'`examples/operators/{name}.yaml`\n\n'
-            f'```yaml\n{without_header(PROBES / f"{name}.yaml")}\n```\n\n'
-            f'{equation}'
-        )
-    return '\n\n'.join(parts)
 
 
 def declaration(text: str, section: str, name: str | None = None) -> str:
@@ -179,8 +165,6 @@ def with_references(text: str) -> str:
 
 
 def block(page: str) -> str:
-    if page == 'operators.md':
-        return probe_block()
     if page in DECLARED:
         return declared_block(DECLARED[page])
     return model_block(MODELS[page])
@@ -194,7 +178,7 @@ def rendered(page: str, text: str) -> str:
 
 
 def pages() -> list[str]:
-    return [*MODELS, *DECLARED, 'operators.md']
+    return [*MODELS, *DECLARED]
 
 
 def main(argv: list[str] | None = None) -> int:
