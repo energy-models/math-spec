@@ -275,7 +275,7 @@ class _Lowering:
             return program.Sum(operand, (over_node.name,))
         assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
         return program.GroupSum(
-            operand, over=by_node.dimension, coordinate=by_node.names, into=by_node.into, walks=by_node.walks
+            operand, over=by_node.dimensions, coordinate=by_node.names, into=by_node.into, walks=by_node.walks
         )
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
@@ -284,7 +284,7 @@ class _Lowering:
         assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
         return program.At(
             self.expr(node.args[0]),
-            over=by_node.dimension,
+            over=by_node.dimensions,
             coordinate=by_node.names,
             into=by_node.into,
             walks=by_node.walks,

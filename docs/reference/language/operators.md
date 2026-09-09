@@ -18,8 +18,9 @@ model can never depend on what a caller registered. A composition of them goes i
 | `sum(array, by=lookup)`                            | The lookup's key column collapses onto its value column                                                                                          |
 | `sum(array, by=[lookup, …])`                       | The same, onto every lookup's value column. All the lookups must consume the same dimension                                                       |
 | `sum(array, by=lookup, from=a, to=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them                    |
+| `sum(array, by=lookup, from=[a, …], to=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                             |
 | `at(array, by=lookup)`                             | The lookup's value column is replaced by its key column                                                                                          |
-| `at(array, by=lookup, from=a, to=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns                                     |
+| `at(array, by=lookup, from=a, to=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns. Either may be a list               |
 | `shift(array, over=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
 | `shift(array, over=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, over=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |

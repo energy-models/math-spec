@@ -263,19 +263,20 @@ class Sum(Expression):
 
 @dataclass(frozen=True)
 class GroupSum(Expression):
-    """Sum ``operand`` through lookups, consuming dim ``over`` and producing ``into``.
+    """Sum ``operand`` through lookups, consuming the dims ``over`` and producing ``into``.
 
     ``coordinate`` names the lookups and ``walks`` says, per lookup, which
-    column is consumed, which produced and which joined on; the result
-    replaces ``over`` with every dim in ``into``. The tuples are the same
-    length and their order pairs them: several coordinates are one grouping
-    into a product of targets, consumed in a single join. The join keys on
-    the consumed column and every joined column, and on the produced column
-    too where the operand already carries its dimension.
+    columns are consumed, which produced and which joined on; the result
+    replaces every dim in ``over`` with every dim in ``into``. ``coordinate``,
+    ``walks`` and the walks' produced dims pair up in order: several
+    coordinates are one grouping into a product of targets, consumed in a
+    single join. The join keys on the consumed columns and every joined
+    column, and on a produced column too where the operand already carries
+    its dimension.
     """
 
     operand: ExpressionNode
-    over: str
+    over: tuple[str, ...]
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
     walks: tuple[Walk, ...] = ()
@@ -286,15 +287,15 @@ class At(Expression):
     """Read ``operand`` through lookups — the adjoint of :class:`GroupSum`.
 
     Same tables, walked the other way: this consumes the dims in ``into`` and
-    produces ``over``, one value per coordinate because every walk reads a
-    value column at a key the operand fixes (``Walk.is_function_read``). The
-    join fans out, many ``over`` labels sharing one ``into`` tuple — at each
-    coordinate of the joined columns, which the operand carries and the
-    result keeps.
+    produces the dims in ``over``, one value per coordinate because every
+    walk reads value columns at a key the operand fixes
+    (``Walk.is_function_read``). The join fans out, many ``over`` tuples
+    sharing one ``into`` tuple — at each coordinate of the joined columns,
+    which the operand carries and the result keeps.
     """
 
     operand: ExpressionNode
-    over: str
+    over: tuple[str, ...]
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
     walks: tuple[Walk, ...] = ()
@@ -448,20 +449,20 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 
 
 class Walk(NamedTuple):
-    """One lookup as an operator walks it — which column is consumed, which produced, which joined on.
+    """One lookup as an operator walks it — which columns are consumed, which produced, which joined on.
 
     ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
     the lookup — and ``columns`` binds every role to its dimension in
     declared order, with ``key`` the roles the table is single-valued per.
     ``joined`` is the key roles not walked (every role, for a bare relation):
     the join keys on them, and a value role not walked is not read.
-    ``produced`` is ``None`` for a partition (``shift``, ``sum_back``,
-    ``position``), which walks a key role and groups by the value roles.
+    ``produced`` is empty for a partition (``shift``, ``sum_back``,
+    ``position``), which walks one key role and groups by the value roles.
     """
 
     name: str
-    consumed: str
-    produced: str | None
+    consumed: tuple[str, ...]
+    produced: tuple[str, ...]
     joined: tuple[str, ...]
     columns: tuple[tuple[str, str], ...]
     key: tuple[str, ...]
@@ -480,14 +481,21 @@ class Walk(NamedTuple):
         return tuple(role for role in self.roles if role not in self.key)
 
     @property
+    def consumed_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.consumed)
+
+    @property
+    def produced_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.produced)
+
+    @property
     def joined_dims(self) -> tuple[str, ...]:
         return tuple(self.dim(role) for role in self.joined)
 
     @property
     def is_function_read(self) -> bool:
         """Whether the walk reads one value per coordinate: the key lies inside what is fixed."""
-        fixed = {*self.joined, *(() if self.produced is None else (self.produced,))}
-        return bool(self.key) and set(self.key) <= fixed
+        return bool(self.key) and set(self.key) <= {*self.joined, *self.produced}
 
 
 class LookupDeclaration(NamedTuple):

@@ -120,19 +120,19 @@ A parameter declares `dims`, a variable declares `foreach`, and every dimension
 argument is name-checked. So **the dimension set of every expression is known
 before any data binds**:
 
-| Node                            | Dim set                                  | Error                                                                                                                    |
-| ------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| number                          | `{}`                                     |                                                                                                                          |
-| parameter / variable            | its `dims` / its `foreach`               |                                                                                                                          |
-| `-x`, `+x`                      | `dims(x)`                                |                                                                                                                          |
-| `a + b`, `a * b`, `a / b`       | `dims(a) ∪ dims(b)`                      |                                                                                                                          |
-| `sum(x)`                        | `{}`                                     | error if `dims(x)` is already empty                                                                                      |
-| `sum(x, over=d)`                | `dims(x) − {d}`                          | error if `d ∉ dims(x)`                                                                                                   |
-| `sum(x, by=l)`                  | `(dims(x) − {from(l)}) ∪ {to(l)}`        | error if `from(l) ∉ dims(x)`, or if a joined column's dimension is not in `dims(x)`                                      |
-| `sum(x, by=[l, m])`             | `(dims(x) − {from(l)}) ∪ {to(l), to(m)}` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one              |
-| `at(x, by=l)`                   | `(dims(x) − {from(l)}) ∪ {to(l)}`        | error if `from(l) ∉ dims(x)`, if a joined column's dimension is not, or if `l` has no key inside the columns `to=` names |
-| `shift(x, over=d, offset=n)`    | `dims(x)`                                | error if `d ∉ dims(x)`                                                                                                   |
-| `sum_back(x, over=d, within=n)` | `dims(x)`                                | error if `d ∉ dims(x)`                                                                                                   |
+| Node                            | Dim set                               | Error                                                                                                                    |
+| ------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| number                          | `{}`                                  |                                                                                                                          |
+| parameter / variable            | its `dims` / its `foreach`            |                                                                                                                          |
+| `-x`, `+x`                      | `dims(x)`                             |                                                                                                                          |
+| `a + b`, `a * b`, `a / b`       | `dims(a) ∪ dims(b)`                   |                                                                                                                          |
+| `sum(x)`                        | `{}`                                  | error if `dims(x)` is already empty                                                                                      |
+| `sum(x, over=d)`                | `dims(x) − {d}`                       | error if `d ∉ dims(x)`                                                                                                   |
+| `sum(x, by=l)`                  | `(dims(x) − from(l)) ∪ to(l)`         | error if `from(l) ⊄ dims(x)`, or if a joined column's dimension is not in `dims(x)`                                      |
+| `sum(x, by=[l, m])`             | `(dims(x) − from(l)) ∪ to(l) ∪ to(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one              |
+| `at(x, by=l)`                   | `(dims(x) − from(l)) ∪ to(l)`         | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not, or if `l` has no key inside the columns `to=` names |
+| `shift(x, over=d, offset=n)`    | `dims(x)`                             | error if `d ∉ dims(x)`                                                                                                   |
+| `sum_back(x, over=d, within=n)` | `dims(x)`                             | error if `d ∉ dims(x)`                                                                                                   |
 
 A binary operator takes the **union** of the two dimension sets, so an outer
 product is allowed wherever the declaration's own dimensions cover the result.

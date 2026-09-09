@@ -29,6 +29,7 @@ lookups:
   gen_zone: { over: [generator, snapshot, zone], key: [generator, snapshot] } # a map keyed by two dimensions: a call walks one and joins on the other
   rep_of: { over: { snapshot: snapshot, rep: snapshot }, key: snapshot } # a map into its own dimension: the representative snapshot
   connection: { over: [generator, bus] } # a bare relation, no key: many-to-many, walked only by sum with both ends named
+  gen_bt: { over: [generator, bus, technology], key: generator } # one table with two value columns, walked to both at once
 
 parameters:
   p_max: { dims: [generator] }
@@ -149,6 +150,12 @@ constraints:
   pullback: # at(), which re-indexes through a lookup instead of an offset
     foreach: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of)
+  grouped_once: # one table walked to two value columns: the domain carries a condition per column
+    foreach: [snapshot, bus, technology]
+    expression: sum(p, by=gen_bt, to=[bus, technology]) <= tech_cap
+  pulled_back_once: # its adjoint, reading one slot through two columns of one table
+    foreach: [generator]
+    expression: units <= at(tech_cap, by=gen_bt, from=[bus, technology])
   relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
     foreach: [snapshot, bus]
     expression: sum(p, by=connection, from=generator, to=bus) <= load
