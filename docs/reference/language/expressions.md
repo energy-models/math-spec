@@ -478,4 +478,4 @@ called**, so a macro nobody uses cannot hide a typo.
 
 Anything composable out of the [built-in operators](operators.md) belongs here.
 Math that is not sayable at all is out of scope
-([limits](errors.md#what-the-language-will-not-say)).
+([the ceiling](../../about/ceiling.md#deliberate-non-primitives)).

@@ -5,9 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Typeset the math
 
-Print a model the way a paper prints it, from the file alone, with no data and
-no solver. Use it to check that the YAML says what you meant.
-[Every construct, as math](notation.md) shows what each construct prints.
+The three renderers, the options each takes, and how a symbol table changes
+the spelling. [Print a model as math](../howto/print.md) is the recipe, and
+[every construct, as math](notation.md) shows what each construct prints.
 
 ```python
 import math_spec as ms
