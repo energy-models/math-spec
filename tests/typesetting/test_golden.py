@@ -17,8 +17,8 @@ import pytest
 
 from math_spec._expression_parser import ArithmeticNode, ComparisonNode, DualNode, FunctionCallNode
 from math_spec.operators import BUILTIN_NAMES
+from math_spec.piecewise import expand_piecewise
 from math_spec.program import WhereNode
-from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.typesetting import FORMATS, to_latex, typeset, walk
 from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.validation import to_spec
@@ -120,18 +120,16 @@ def _nodes(tree: object) -> Iterator[object]:
 
 def _rendered_trees() -> Iterator[object]:
     """Every resolved tree the walk is handed for the golden model."""
-    schema = to_spec(golden.MODEL)
-    namespace = Namespace.of(schema)
-    yield expression_of(schema.objective.expression, schema, namespace, 'the objective')
-    for name, block in schema.constraints.items():
-        yield expression_of(block.expression, schema, namespace, f'constraint {name!r}')
-        if (mask := where_of(block.where, namespace, f'constraint {name!r}')) is not None:
+    resolved = expand_piecewise(to_spec(golden.MODEL)).resolved
+    yield resolved.objective
+    for expression, mask in resolved.constraints.values():
+        yield expression
+        if mask is not None:
             yield mask.root
-    for name, block in schema.variables.items():
-        if (mask := where_of(block.where, namespace, f'variable {name!r}', self_variable=name)) is not None:
+    for mask in resolved.variables.values():
+        if mask is not None:
             yield mask.root
-    for name in schema.expressions:
-        yield expression_of(name, schema, namespace, f'expression {name!r}')
+    yield from resolved.expressions.values()
 
 
 #: What resolution never hands the walk: the three nodes it types away, and the

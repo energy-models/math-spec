@@ -20,7 +20,6 @@ from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
     CasesNode,
-    ComparisonNode,
     DefinitionNode,
     DimensionNode,
     DualNode,
@@ -36,7 +35,6 @@ from math_spec._expression_parser import (
 )
 from math_spec.dimensions import dims_of
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
-from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
@@ -95,7 +93,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         LanguageError: A construct outside the language, named with its
             rewrite.
     """
-    ns = Namespace.of(expanded)
+    resolved = expanded.resolved
     derivations = {
         name: how
         for block, ex in expanded.expanded_piecewise.items()
@@ -115,7 +113,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
         variables[vname] = program.VariableDeclaration(
             tuple(vdef.foreach),
-            where=where_of(vdef.where, ns, f"variable '{vname}'", self_variable=vname),
+            where=resolved.variables[vname],
             lower=lower,
             upper=upper,
             variable_type=variable_type,
@@ -124,25 +122,22 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
 
     constraints = {}
     for cname, cdef in expanded.constraints.items():
-        where = where_of(cdef.where, ns, f"constraint '{cname}'")
-        ast = expression_of(cdef.expression, expanded, ns, f"constraint '{cname}'")
-        assert isinstance(ast, ComparisonNode), 'load-time validation refuses a constraint without a comparison'
+        expression, where = resolved.constraints[cname]
         lowering = _Lowering(expanded, f"constraint '{cname}'")
         constraints[cname] = program.ConstraintDeclaration(
             tuple(cdef.foreach),
-            lhs=lowering.expr(ast.left),
-            sense=ast.op,
-            rhs=lowering.expr(ast.right),
+            lhs=lowering.expr(expression.left),
+            sense=expression.op,
+            rhs=lowering.expr(expression.right),
             where=where,
         )
 
     objective = None
     if (odef := expanded.objective) is not None:
-        ast = expression_of(odef.expression, expanded, ns, 'the objective')
-        assert not isinstance(ast, ComparisonNode), 'load-time validation refuses a comparison in the objective'
+        assert resolved.objective is not None, 'validation resolves the objective the file declares'
         objective = program.ObjectiveDeclaration(
             odef.sense,
-            _Lowering(expanded, 'the objective').expr(ast),
+            _Lowering(expanded, 'the objective').expr(resolved.objective),
         )
 
     dimensions = {
@@ -166,9 +161,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         for sname, sdef in expanded.sos.items()
     }
     expressions: dict[str, program.ExpressionDeclaration] = {}
-    for name, ast in expanded.resolved_expressions.items():
+    for name, ast in resolved.expressions.items():
         expressions[name] = program.ExpressionDeclaration(
-            _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in expanded.read_by_the_math
+            _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in resolved.read_by_the_math
         )
     return program.Program(
         parameters=parameters,

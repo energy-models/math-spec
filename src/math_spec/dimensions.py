@@ -49,12 +49,12 @@ from math_spec.program import (
     ParameterDefinedNode,
     VariableDefinedNode,
 )
-from math_spec.resolution import Namespace, expression_of, where_of
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from math_spec.model import Spec
+    from math_spec.resolution import Resolved
 
 
 def dims_of(
@@ -424,18 +424,16 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
 # ---------------------------------------------------------------------------
 
 
-def check_schema(schema: Spec) -> None:
-    """Check every declaration's dim rules.
+def check_schema(schema: Spec, resolved: Resolved) -> None:
+    """Check every declaration's dim rules, on the trees *resolved* holds for *schema*.
 
     Raises:
         DimensionError: On the first declaration that breaks one.
     """
-    ns = Namespace.of(schema)
-
     for vname, vdef in schema.variables.items():
         frame = frozenset(vdef.foreach)
         context = f"Variable '{vname}'"
-        _check_where_dims(where_of(vdef.where, ns, context), frame, context)
+        _check_where_dims(resolved.variables[vname], frame, context)
         for side in ('lower', 'upper'):
             bound = getattr(vdef.bounds, side)
             if isinstance(bound, str):
@@ -447,22 +445,21 @@ def check_schema(schema: Spec) -> None:
                         f'{sorted(frame)}.'
                     )
 
-    for ename, block in schema.expressions.items():
-        if not block.cases:
+    for ename, node in resolved.expressions.items():
+        if not isinstance(node, CasesNode):
             continue
-        frame = frozenset(block.foreach or [])
-        for case_name, case in block.cases.items():
-            context = case_context(ename, case_name)
-            _check_where_dims(where_of(case.when, ns, context), frame, context)
-            _check_value_dims(case.expression, schema, ns, frame, context)
-        assert block.otherwise is not None
-        _check_value_dims(block.otherwise, schema, ns, frame, case_context(ename, None))
+        frame = frozenset(schema.expressions[ename].foreach or [])
+        for arm in node.arms:
+            context = case_context(ename, None if arm.when is None else arm.label)
+            if arm.when is not None:
+                _check_where_dims(Mask(arm.when), frame, context)
+            _check_value_dims(arm.value, schema, frame, context)
 
-    for cname, cdef in schema.constraints.items():
-        frame = frozenset(cdef.foreach)
+    for cname, (expression, where) in resolved.constraints.items():
+        frame = frozenset(schema.constraints[cname].foreach)
         context = f"Constraint '{cname}'"
-        _check_where_dims(where_of(cdef.where, ns, context), frame, context)
-        got = dims_of(expression_of(cdef.expression, schema, ns, context), schema, context)
+        _check_where_dims(where, frame, context)
+        got = dims_of(expression, schema, context)
         if got != frame:
             stray, missing = sorted(got - frame), sorted(frame - got)
             detail = (
@@ -476,9 +473,9 @@ def check_schema(schema: Spec) -> None:
             )
             raise DimensionError(f'{context}: the expression {detail}.')
 
-    if schema.objective is not None:
+    if resolved.objective is not None:
         context = 'The objective'
-        got = dims_of(expression_of(schema.objective.expression, schema, ns, context), schema, context)
+        got = dims_of(resolved.objective, schema, context)
         if got:
             raise DimensionError(
                 f'{context}: the expression carries dims {sorted(got)}, and an objective is one '
@@ -487,19 +484,13 @@ def check_schema(schema: Spec) -> None:
             )
 
 
-def _check_value_dims(
-    text: str,
-    schema: Spec,
-    ns: Namespace,
-    frame: frozenset[str],
-    context: str,
-) -> None:
+def _check_value_dims(node: ArithmeticNode, schema: Spec, frame: frozenset[str], context: str) -> None:
     """A region's value may only carry dims the frame does — the ``otherwise:`` included.
 
     A wider one would give the quantity dims its declaration does not, which is
     the second answer a ``foreach:`` exists to avoid.
     """
-    got = dims_of(expression_of(text, schema, ns, context), schema, context)
+    got = dims_of(node, schema, context)
     if not got <= frame:
         raise DimensionError(
             f'{context}: the value carries dims {sorted(got - frame)} outside the foreach '
