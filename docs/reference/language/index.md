@@ -5,10 +5,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # The language
 
-A model is one YAML file. It declares the axes the model runs over, the data it
-expects, the decisions the solver makes, and the rules those decisions obey —
-and nothing else: no Python state changes what a file means, and the same file
-means the same model whichever solver takes it.
+These pages are the exact rules: what a file may contain, what it means, and
+what the loader refuses. A model is one YAML file. It declares the axes the
+model runs over, the data it expects, the decisions the solver makes, and the
+rules those decisions obey. Nothing else changes what a file means: not Python
+state, and not the solver that takes it.
 
 ```yaml title="dispatch.yaml"
 description: Least-cost dispatch of a generator fleet against an hourly load.
@@ -38,13 +39,13 @@ objective:
   expression: sum(p * cost) # an objective is one number, so the sum is written
 ```
 
-That file is a complete model; the pages here are the exact rules.
+That file is a complete model.
 
 ## Ten rules the language reduces to
 
 **Nothing is guessed.** Where a file does not determine the answer, loading
-fails and the message names the rewrite. Every rule below is that one principle
-in a different position, and each links to the page that spells it out.
+fails and the message names the rewrite. Each rule below is that principle in
+one position, and links to the page that owns it.
 
 | #   | Rule                                                                                                                                                                                                                                                                                                                                               |                                                        |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -73,6 +74,5 @@ in a different position, and each links to the page that spells it out.
 | [Piecewise curves and SOS](piecewise.md)              | `piecewise:` and `sos:`                                                                      |
 | [Errors and limits](errors.md)                        | what fails when, and what the language will not say                                          |
 
-Running a model — building, solving, reading an answer back — belongs to a
-consumer of the AST, not to this package. Nothing a consumer does changes what
-a file means.
+Building, solving and reading an answer back belong to a consumer of the
+loaded model, not to this package.
