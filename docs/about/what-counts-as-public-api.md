@@ -12,15 +12,15 @@ API stays small while the language grows.
 
 A function may join the public API when both of these hold:
 
-> Everything the function decides, the language has already written down. And
-> the function needs nothing but the file to decide it.
-
-The first half refuses a function that carries a rule of its own. If
-`to_program` decided that a masked variable reads as zero, and no page said so,
-then an engine written in another language could not know it. The second half
-refuses a function that needs data, a solver, the network or a clock. Its answer
-would change from one run to the next, so it cannot be part of what the file
-means.
+1. **Same file in, same answer out.** `to_spec('model.yaml')` returns the same
+   `Spec` today, tomorrow, and on a machine with no data and no solver. A
+   function whose answer depends on data, a solver, the network or the clock
+   cannot join, because its answer would change from one run to the next.
+2. **No rule lives only in the code.** Every rule the function applies is written
+   on a page of this reference, so somebody could rewrite the function in another
+   language from the pages alone and get the same answer. If `to_program` treated
+   a masked variable as zero, and no page said so, an engine written in Julia
+   could not know it.
 
 ## What makes this package more useful
 
