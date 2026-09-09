@@ -296,11 +296,16 @@ class Walk:
         return self.format.apply(self._column(name, column, len(lk.values) == 1), keyed)
 
     def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
-        """The group a grouped position counts within: the lookup's value columns at the row's key."""
+        """The group a grouped position counts within: the lookup's group columns read at the row's key."""
         assert node.by is not None
         lk = self.schema.lookups[node.by]
         keyed = self.format.joined([ctx.subscript(dict(lk.columns)[k]) for k in lk.keys], '')
-        return self.format.apply(self.format.upright(node.by), keyed)
+        reads = [self.format.apply(self._column(node.by, column, len(lk.values) == 1), keyed) for column in node.group]
+        return self._tuple(reads)
+
+    def _tuple(self, reads: list[str]) -> str:
+        """Several reads as one group label: the read alone where there is one, a bracketed tuple otherwise."""
+        return reads[0] if len(reads) == 1 else self.format.parenthesise(self.format.joined(reads, ''))
 
     def _column(self, name: str, column: str, single: bool) -> str:
         """The function a keyed lookup's value *column* is: the lookup's own name where it has one value column."""
@@ -500,7 +505,7 @@ class Walk:
         assert isinstance(by, LookupNode)
         walk = by.walks[0]
         at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
-        return self.format.apply(self.format.upright(walk.name), self.format.joined([at[k] for k in walk.key], ''))
+        return self._tuple([self._lookup_read(walk, at, r) for r in walk.produced])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``within=``: a number, or a parameter's own symbol.

@@ -408,7 +408,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
         )
     partition = node.kwargs.get('by')
     groups = (
-        frozenset(partition.walks[0].dim(v) for v in partition.walks[0].values)
+        frozenset(partition.walks[0].dim(v) for v in partition.walks[0].produced)
         if isinstance(partition, LookupNode)
         else frozenset()
     )

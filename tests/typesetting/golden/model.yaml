@@ -156,6 +156,10 @@ constraints:
   pulled_back_once: # its adjoint, reading one slot through two columns of one table
     foreach: [generator]
     expression: units <= at(tech_cap, by=gen_bt, from=[bus, technology])
+  within_bus: # a partition grouped by one named value column of a two-value table, and a position within both
+    foreach: [generator]
+    where: "position(generator, by=gen_bt, into=[bus, technology]) == 0"
+    expression: units <= shift(units, over=generator, offset=1, edge=0, by=gen_bt, into=bus)
   relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
     foreach: [snapshot, bus]
     expression: sum(p, by=connection, from=generator, into=bus) <= load

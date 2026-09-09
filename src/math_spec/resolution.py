@@ -623,7 +623,7 @@ class _Resolver:
             return value
         if operator in ('shift', 'sum_back'):
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            walks = [self._partition_walk(n, operator, over_dim) for n in names]
+            walks = [self._partition_walk(n, operator, over_dim, named.get('into')) for n in names]
         else:
             walks = [self._walk(n, operator, named.get('from'), named.get('into')) for n in names]
         if any(w is None for w in walks):
@@ -683,21 +683,9 @@ class _Resolver:
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
         call = f'{operator}(by={name})'
-
-        def known(roles: tuple[str, ...] | None, kwarg: str) -> bool:
-            for role in roles or ():
-                if role not in shape.roles:
-                    self.errors.append(
-                        f"{context}: {call}: {kwarg}={role} names no column of '{name}', whose columns are "
-                        f'{list(shape.roles)}.'
-                    )
-                    return False
-            if roles is not None and len(set(roles)) < len(roles):
-                self.errors.append(f'{context}: {call}: {kwarg}={list(roles)} names a column twice.')
-                return False
-            return True
-
-        if not (known(from_roles, 'from') and known(into_roles, 'into')):
+        if not (
+            self._known_roles(name, call, from_roles, 'from') and self._known_roles(name, call, into_roles, 'into')
+        ):
             return None
 
         forward = operator == 'sum'
@@ -729,18 +717,36 @@ class _Resolver:
             return None
         return walk
 
-    def _partition_walk(self, name: str, operator: str, walked_dim: str | None) -> Walk | None:
+    def _known_roles(self, name: str, call: str, roles: tuple[str, ...] | None, kwarg: str) -> bool:
+        """Whether every role *kwarg* names is a column of lookup *name*, each once; the refusal otherwise."""
+        shape = self.ns.shape_of(name)
+        for role in roles or ():
+            if role not in shape.roles:
+                self.errors.append(
+                    f"{self.context}: {call}: {kwarg}={role} names no column of '{name}', whose columns are "
+                    f'{list(shape.roles)}.'
+                )
+                return False
+        if roles is not None and len(set(roles)) < len(roles):
+            self.errors.append(f'{self.context}: {call}: {kwarg}={list(roles)} names a column twice.')
+            return False
+        return True
+
+    def _partition_walk(
+        self, name: str, operator: str, walked_dim: str | None, into_roles: tuple[str, ...] | None
+    ) -> Walk | None:
         """How a partition (``shift``, ``sum_back``, ``position``) walks lookup *name* along *walked_dim*.
 
         It walks the one key column over that dimension, joins on the other
-        key columns and groups by the value columns. ``None`` where the
-        dimension is not one (already refused) or the lookup has no such
-        column, or two.
+        key columns and groups by the value columns *into_roles* names — every
+        value column where the call names none. ``None`` where the dimension
+        is not one (already refused), the lookup has no key column over it, or
+        two, or ``into=`` names a column that is not a value column.
         """
         context = self.context
         shape = self.ns.shape_of(name)
         call = f'{operator}(by={name})'
-        if walked_dim is None:
+        if walked_dim is None or not self._known_roles(name, call, into_roles, 'into'):
             return None
         if not shape.key:
             self.errors.append(
@@ -761,9 +767,17 @@ class _Resolver:
                 f"and a partition walks exactly one. Declare a lookup keyed by one column over '{walked_dim}'."
             )
             return None
+        if keyed := [r for r in into_roles or () if r in shape.key]:
+            self.errors.append(
+                f"{context}: {call}: into={keyed} names a key column of '{name}', and a partition groups by "
+                f'value columns — its value columns are {list(shape.values)}.'
+            )
+            return None
         (walked,) = over_keys
         joined = tuple(r for r in shape.key if r != walked)
-        return Walk(name, (walked,), (), joined, shape.columns, shape.key)
+        return Walk(
+            name, (walked,), shape.values if into_roles is None else into_roles, joined, shape.columns, shape.key
+        )
 
     def _default_role(self, name: str, call: str, kwarg: str, side: tuple[str, ...], what: str) -> str | None:
         """The one column *side* offers, or the refusal naming what the call has to choose from."""
@@ -868,7 +882,7 @@ class _Resolver:
         return node
 
     def _position(self, node: UnresolvedPositionNode) -> DimensionPositionNode | UnresolvedPositionNode:
-        """``position(dim[, by=lookup]) <op> i``: the name a dimension, ``by=`` a lookup keyed over it."""
+        """``position(dim[, by=lookup[, into=columns]]) <op> i``: the name a dimension, ``by=`` a lookup keyed over it."""
         ns, context = self.ns, self.context
         if node.dimension not in ns.dimensions:
             self.errors.append(
@@ -887,11 +901,13 @@ class _Resolver:
                 f'{did_you_mean(node.by, ns.lookups, label="Lookups")}'
             )
             return node
-        walk = self._partition_walk(node.by, 'position', node.dimension)
+        walk = self._partition_walk(node.by, 'position', node.dimension, node.into)
         if walk is None:
             return node
         (walked,) = walk.consumed
-        return DimensionPositionNode(node.dimension, node.op, node.position, node.by, walked, walk.joined_dims)
+        return DimensionPositionNode(
+            node.dimension, node.op, node.position, node.by, walked, walk.produced, walk.joined_dims
+        )
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``lookup <op> lookup``."""

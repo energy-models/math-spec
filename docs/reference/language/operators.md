@@ -25,7 +25,7 @@ model can never depend on what a caller registered. A composition of them goes i
 | `shift(array, over=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, over=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
 | `shift(array, over=dim, offset=p, edge=…)`         | `p` is an integer parameter, so each entity is reached by its own offset. Declared over what a `by=` groups into, it gives one lag per group      |
-| `shift(array, over=dim, offset=n, by=lookup)`      | The translation walks inside each group that the lookup makes. Neighbours, edges and a wrap all belong to that group                              |
+| `shift(array, over=dim, offset=n, by=lookup[, into=c])` | The translation walks inside each group that the lookup makes. Neighbours, edges and a wrap all belong to that group                              |
 | `sum_back(array, over=dim, within=n)`              | The sum of the last `n` positions along `dim`, ending at the position being written                                                               |
 | `sum_back(array, over=dim, within=p)`              | `p` is an integer parameter, so each entity gets its own window length                                                                            |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                        |
@@ -245,9 +245,10 @@ group onto its own last coordinate, which a store that returns to its starting
 level every period asks for. `edge=v` puts `v` at the edge of each group.
 
 `by=` takes a lookup with a key column over the dimension being walked, and the
-group is the value columns. A lookup with two key columns over that dimension is
-refused. The value columns are what a named `offset=` may vary over,
-so each group is reached by its own offset.
+group is the value columns: all of them, or the ones `into=` names, so one
+calendar table serves `into=day` and `into=week` alike. A lookup with two key
+columns over that dimension is refused. The group columns are what a named
+`offset=` may vary over, so each group is reached by its own offset.
 
 A coordinate the lookup sends nowhere is in no group, so it reaches nothing, and
 no `edge=` speaks for it. Its row drops under `edge=0` exactly as it does bare.

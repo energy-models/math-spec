@@ -184,6 +184,12 @@ p_{t,g} \le p_{t \boxminus_{0}^{\mathrm{season\_of}(t)} 1,g} \qquad \forall\, t 
 \mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bt.bus}(g),\mathrm{gen\_bt.technology}(g)} \qquad \forall\, g \in \mathcal{G}
 ```
 
+**`within_bus`**
+
+```math
+\mathit{units}_{g} \le \mathit{units}_{g \boxminus_{0}^{\mathrm{gen\_bt.bus}(g)} 1} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{pos}_{\left( \mathrm{gen\_bt.bus}(g),\ \mathrm{gen\_bt.technology}(g) \right)}(g) = 0
+```
+
 **`relational`**
 
 ```math

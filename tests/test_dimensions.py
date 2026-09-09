@@ -133,6 +133,16 @@ def namespace() -> Namespace:
             id='a-partition-along-one-key-joined-on-the-other',
         ),
         pytest.param(
+            "shift(p, over=generator, offset=1, edge='wrap', by=gen_bz, into=bus)",
+            {'snapshot', 'generator'},
+            id='a-partition-grouped-by-one-value-column-of-a-two-value-table',
+        ),
+        pytest.param(
+            'sum_back(p, over=generator, within=2, by=gen_bz, into=[bus, zone])',
+            {'snapshot', 'generator'},
+            id='a-window-grouped-by-both-value-columns-named',
+        ),
+        pytest.param(
             'sum(p, by=gen_bus, from=generator)', {'snapshot', 'bus'}, id='the-dot-is-legal-on-a-one-key-lookup'
         ),
         pytest.param(
@@ -413,6 +423,11 @@ class TestTheEdgeRulesAreDecidedAtLoad:
             'position(generator, by=gen_zone) == 0',
             {'generator', 'snapshot'},
             id='a-position-within-a-group-of-a-two-key-lookup-reads-both-keys',
+        ),
+        pytest.param(
+            'position(generator, by=gen_bz, into=zone) == 0',
+            {'generator'},
+            id='a-position-within-one-named-value-column-reads-the-key',
         ),
         pytest.param('p_max > 0 AND snapshot == 0', {'generator', 'snapshot'}, id='a-conjunction-reads-both-sides'),
         pytest.param('NOT p_max > 0', {'generator'}, id='a-negation-reads-what-it-negates'),

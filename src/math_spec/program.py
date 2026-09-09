@@ -314,7 +314,7 @@ class Translate(Expression):
     not depend on ``dimension`` and carries its sign in the values.
 
     ``partition`` is a lookup walked along ``dimension`` — its consumed
-    column is a key over that dimension, its value columns are the group —
+    column is a key over that dimension, its produced columns are the group —
     and the translation then happens inside each group: the neighbour is the
     one before in the same group, the edge is the group's, and a wrap closes
     each group onto itself. A coordinate the lookup sends nowhere reaches
@@ -455,9 +455,10 @@ class Walk(NamedTuple):
     the lookup — and ``columns`` binds every role to its dimension in
     declared order, with ``key`` the roles the table is single-valued per.
     ``joined`` is the key roles not walked (every role, for a bare relation):
-    the join keys on them, and a value role not walked is not read.
-    ``produced`` is empty for a partition (``shift``, ``sum_back``,
-    ``position``), which walks one key role and groups by the value roles.
+    the join keys on them, and a value role not walked is not read. For a
+    partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
+    role over the dimension walked and ``produced`` the value roles that make
+    the group — every value role unless the call named some with ``into=``.
     """
 
     name: str
@@ -1127,8 +1128,9 @@ class DimensionPositionNode:
 
     Both sides are integers, negative counting from the end. With ``by`` the
     position is counted within each group the lookup makes: ``walked`` is its
-    key column over ``name``, the group is its value columns, and ``dims``
-    the dimensions of its other key columns, which the frame carries.
+    key column over ``name``, ``group`` the value columns the group is made
+    of, and ``dims`` the dimensions of its other key columns, which the frame
+    carries.
     """
 
     name: str
@@ -1136,6 +1138,7 @@ class DimensionPositionNode:
     position: int
     by: str | None = None
     walked: str | None = None
+    group: tuple[str, ...] = ()
     dims: tuple[str, ...] = ()
 
 

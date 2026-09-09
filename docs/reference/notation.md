@@ -409,6 +409,21 @@ pulled_back_once:
 \mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bt.bus}(g),\mathrm{gen\_bt.technology}(g)} \qquad \forall\, g \in \mathcal{G}
 ```
 
+#### `within_bus`
+
+a partition grouped by one named value column of a two-value table, and a position within both
+
+```yaml
+within_bus:
+  foreach: [generator]
+  where: "position(generator, by=gen_bt, into=[bus, technology]) == 0"
+  expression: units <= shift(units, over=generator, offset=1, edge=0, by=gen_bt, into=bus)
+```
+
+```math
+\mathit{units}_{g} \le \mathit{units}_{g \boxminus_{0}^{\mathrm{gen\_bt.bus}(g)} 1} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{pos}_{\left( \mathrm{gen\_bt.bus}(g),\ \mathrm{gen\_bt.technology}(g) \right)}(g) = 0
+```
+
 #### `relational`
 
 a sum through a bare relation: the domain is a row of the relation rather than a function's value

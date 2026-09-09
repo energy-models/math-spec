@@ -626,8 +626,25 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lk, from=g))'}},
-                ("shift() expects shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])",),
+                (
+                    "shift() expects shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>]"
+                    '[, by=<lookup>[, into=<column>]])',
+                ),
                 id='a-partition-takes-no-from',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': ['g', 'h', 'z'], 'key': 'g'},
+                    'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lz, into=g))'},
+                },
+                ("into=['g'] names a key column of 'lz', and a partition groups by value columns",),
+                id='a-partition-into-a-key-column',
+            ),
+            pytest.param(
+                {'variables.q.where': 'position(g, by=lk, into=z) == 0'},
+                ("into=z names no column of 'lk', whose columns are ['g', 'h']",),
+                id='position-into-a-column-the-lookup-lacks',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, from=g))'}},

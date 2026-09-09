@@ -94,6 +94,7 @@
 \text{pullback} && \mathit{spill}_{t} & \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
 \text{grouped\_once} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bt.bus}(g) = b \wedge \mathrm{gen\_bt.technology}(g) = e} p_{t,g} & \le \mathrm{tech\_cap}_{b,e} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E} \\
 \text{pulled\_back\_once} && \mathit{units}_{g} & \le \mathrm{tech\_cap}_{\mathrm{gen\_bt.bus}(g),\mathrm{gen\_bt.technology}(g)} && \forall\, g \in \mathcal{G} \\
+\text{within\_bus} && \mathit{units}_{g} & \le \mathit{units}_{g \boxminus_{0}^{\mathrm{gen\_bt.bus}(g)} 1} && \forall\, g \in \mathcal{G} \,:\, \mathrm{pos}_{\left( \mathrm{gen\_bt.bus}(g),\ \mathrm{gen\_bt.technology}(g) \right)}(g) = 0 \\
 \text{relational} && \sum_{g \in \mathcal{G} \,:\, \left( g,\ b \right) \in \mathrm{connection}} p_{t,g} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
 \text{connected} && p_{t,g} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \left( g,\ b \right) \in \mathrm{connection} \\
 \text{representative} && \sum_{t' \in \mathcal{T} \,:\, \mathrm{rep\_of}(t') = t} \mathit{spill}_{t'} & \le \mathit{spill}_{\mathrm{rep\_of}(t)} && \forall\, t \in \mathcal{T} \\
