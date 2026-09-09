@@ -297,6 +297,13 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
     return mask_of(resolved)
 
 
+def names_in(value: ArithmeticNode) -> tuple[str, ...]:
+    """The names a lookup kwarg carries: one bare, several bracketed, none otherwise."""
+    if isinstance(value, NameNode):
+        return (value.name,)
+    return value.names if isinstance(value, NameListNode) else ()
+
+
 def mask_of(node: WhereNode | None) -> Mask | None:
     """The mask a declaration carries for a resolved where: ``None`` where there is none, or where every row passes."""
     if node is None or (isinstance(node, BooleanLiteralNode) and node.value):
@@ -571,11 +578,8 @@ class _Resolver:
         maps at once rather than a composition of groupings, so its members must
         share the dim they are over and must not target the same dim twice.
         """
-        if isinstance(value, NameListNode):
-            names = value.names
-        elif isinstance(value, NameNode):
-            names = (value.name,)
-        else:
+        names = names_in(value)
+        if not names:
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a lookup.')
             return value
 

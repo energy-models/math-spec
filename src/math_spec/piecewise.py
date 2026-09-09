@@ -13,7 +13,7 @@ constraint.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from math_spec._expression_parser import ComparisonNode
 from math_spec.degree import check_expression
@@ -34,6 +34,9 @@ from math_spec.program import (
     PiecewiseDeclaration,
 )
 from math_spec.resolution import Namespace, resolve_expression
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
 
 
 def _nominated(pw: PiecewiseBlock) -> str | None:
@@ -137,6 +140,8 @@ class _Block:
         self.domain_hi = f'{name}_domain_hi'
         self.links = tuple(f'{name}_link{i}' for i in range(len(pw.links)))
         self.mask = self.points if self.nominated is not None else pw.points
+        self.ns = Namespace.of(schema)
+        self.context = f"piecewise '{name}'"
         self.frame = self._validated_frame()
         self.record: dict[str, Any] = {'block': raw['piecewise'][name], 'points': self.mask}
 
@@ -289,90 +294,135 @@ class _Block:
         )
 
     def _validated_frame(self) -> tuple[str, ...]:
-        """Check references and infer the frame (union of the links' dims).
+        """Check every name the block writes and infer its frame: the union of the links' and the gate's dims.
 
         A values parameter is checked against the frame in a second pass, since
         the last link's expression widens the frame as readily as the first; left
         to the emitted declarations the refusal would name ``<block>_link0``, a
         constraint the author never wrote.
         """
-        schema, pw = self.schema, self.pw
-        ctx = f"piecewise '{self.name}'"
-        if pw.over not in schema.dimensions:
-            raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, pw.over))
-
+        if self.pw.over not in self.schema.dimensions:
+            raise PiecewiseExpansionError(undeclared_dimension('piecewise', self.name, self.pw.over))
         frame: list[str] = []
-        for i, link in enumerate(pw.links):
-            values = link.values
-            if values not in schema.parameters:
-                raise PiecewiseExpansionError(f"{ctx}: link {i} values references undeclared parameter '{values}'")
-            if pw.over not in schema.parameters[values].dims:
-                raise PiecewiseExpansionError(
-                    f"{ctx}: link {i} values parameter '{values}' must carry dim "
-                    f"'{pw.over}' (has {schema.parameters[values].dims})"
-                )
-            for d in _declared_order(schema, _expr_dims(schema, link.expression, f'{ctx} link {i}')):
-                if d == pw.over:
+        self._widen(frame, self._link_dims())
+        self._widen(frame, self._activity_dims())
+        self._values_fit(frame)
+        self._points_fit(frame)
+        self._nothing_collides()
+        return tuple(frame)
+
+    def _widen(self, frame: list[str], dims: Iterable[tuple[str, frozenset[str]]]) -> None:
+        """Add each labelled dim set to *frame* in declaration order, refusing the breakpoint dim.
+
+        Declaration order, because iterating a set would vary the emitted
+        ``foreach`` — and every column index behind it — per process.
+        """
+        for what, found in dims:
+            for d in (d for d in self.schema.dimensions if d in found):
+                if d == self.pw.over:
                     raise PiecewiseExpansionError(
-                        f"{ctx}: link {i} expression already carries the breakpoint dim '{pw.over}'"
+                        f"{self.context}: {what} already carries the breakpoint dim '{self.pw.over}'"
                     )
                 if d not in frame:
                     frame.append(d)
 
-        if pw.activity is not None:
-            if pw.activity not in schema.variables:
-                raise PiecewiseExpansionError(
-                    f"{ctx}: activity '{pw.activity}' is not a declared variable. A gate is a binary variable; "
-                    f'declare it, or drop activity: for weights that sum to 1.'
-                )
-            if schema.variables[pw.activity].domain != 'binary':
-                raise PiecewiseExpansionError(f"{ctx}: activity variable '{pw.activity}' must be binary")
-            for d in _declared_order(schema, _expr_dims(schema, pw.activity, f'{ctx} activity')):
-                if d == pw.over:
-                    raise PiecewiseExpansionError(f"{ctx}: activity must not carry the breakpoint dim '{pw.over}'")
-                if d not in frame:
-                    frame.append(d)
-
+    def _link_dims(self) -> Iterator[tuple[str, frozenset[str]]]:
+        """Each link's expression dims, its values parameter checked to exist and to run along the breakpoint dim."""
+        schema, pw = self.schema, self.pw
         for i, link in enumerate(pw.links):
-            if stray := [d for d in schema.parameters[link.values].dims if d != pw.over and d not in frame]:
+            values = link.values
+            if values not in schema.parameters:
                 raise PiecewiseExpansionError(
-                    f"{ctx}: link {i} values parameter '{link.values}' carries {stray}, which no link "
+                    f"{self.context}: link {i} values references undeclared parameter '{values}'"
+                )
+            if pw.over not in schema.parameters[values].dims:
+                raise PiecewiseExpansionError(
+                    f"{self.context}: link {i} values parameter '{values}' must carry dim "
+                    f"'{pw.over}' (has {schema.parameters[values].dims})"
+                )
+            yield f'link {i} expression', self._expr_dims(link.expression, f'{self.context} link {i}')
+
+    def _activity_dims(self) -> Iterator[tuple[str, frozenset[str]]]:
+        """The gate's dims, if the block names one: a declared binary variable."""
+        activity = self.pw.activity
+        if activity is None:
+            return
+        if activity not in self.schema.variables:
+            raise PiecewiseExpansionError(
+                f"{self.context}: activity '{activity}' is not a declared variable. A gate is a binary variable; "
+                f'declare it, or drop activity: for weights that sum to 1.'
+            )
+        if self.schema.variables[activity].domain != 'binary':
+            raise PiecewiseExpansionError(f"{self.context}: activity variable '{activity}' must be binary")
+        yield 'activity', self._expr_dims(activity, f'{self.context} activity')
+
+    def _values_fit(self, frame: list[str]) -> None:
+        """A values parameter varies along the frame and the breakpoint dim, and nothing else."""
+        for i, link in enumerate(self.pw.links):
+            if stray := [d for d in self.schema.parameters[link.values].dims if d != self.pw.over and d not in frame]:
+                raise PiecewiseExpansionError(
+                    f"{self.context}: link {i} values parameter '{link.values}' carries {stray}, which no link "
                     f'expression does — the block builds one curve per coordinate of {frame}, so a curve '
                     f'varying along {stray} has nothing to vary against. Declare a link expression over '
                     f"it, or drop it from '{link.values}'."
                 )
 
-        if pw.points is not None and self.nominated is None:
-            if pw.points not in schema.parameters:
-                raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
-            if (dtype := schema.parameters[pw.points].dtype) != 'bool':
-                raise PiecewiseExpansionError(
-                    f"{ctx}: points parameter '{pw.points}' is {dtype}, and a mask is a bool parameter — one "
-                    f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
-                )
-            mask = schema.parameters[pw.points].dims
-            if pw.over not in mask:
-                raise PiecewiseExpansionError(
-                    f"{ctx}: points parameter '{pw.points}' must carry dim '{pw.over}' — "
-                    f'it says how far each curve runs along it (has {mask})'
-                )
-            if stray := [d for d in mask if d != pw.over and d not in frame]:
-                raise PiecewiseExpansionError(
-                    f"{ctx}: points parameter '{pw.points}' carries {stray}, which the links do not — "
-                    f"a mask says which of the block's own coordinates exist, and cannot add coordinates"
-                )
+    def _points_fit(self, frame: list[str]) -> None:
+        """A ``points:`` naming a parameter of its own is a bool mask along the breakpoint dim, inside the frame."""
+        pw, ctx = self.pw, self.context
+        if pw.points is None or self.nominated is not None:
+            return
+        if pw.points not in self.schema.parameters:
+            raise PiecewiseExpansionError(f"{ctx}: points references undeclared parameter '{pw.points}'")
+        if (dtype := self.schema.parameters[pw.points].dtype) != 'bool':
+            raise PiecewiseExpansionError(
+                f"{ctx}: points parameter '{pw.points}' is {dtype}, and a mask is a bool parameter — one "
+                f'saying, per breakpoint, whether the curve reaches it. Declare it dtype: bool.'
+            )
+        mask = self.schema.parameters[pw.points].dims
+        if pw.over not in mask:
+            raise PiecewiseExpansionError(
+                f"{ctx}: points parameter '{pw.points}' must carry dim '{pw.over}' — "
+                f'it says how far each curve runs along it (has {mask})'
+            )
+        if stray := [d for d in mask if d != pw.over and d not in frame]:
+            raise PiecewiseExpansionError(
+                f"{ctx}: points parameter '{pw.points}' carries {stray}, which the links do not — "
+                f"a mask says which of the block's own coordinates exist, and cannot add coordinates"
+            )
 
+    def _nothing_collides(self) -> None:
+        """No name the block writes is one the file already declares."""
         declared = {
-            'variable': schema.variables,
-            'parameter': schema.parameters,
-            'constraint': schema.constraints,
-            'sos': schema.sos,
+            'variable': self.schema.variables,
+            'parameter': self.schema.parameters,
+            'constraint': self.schema.constraints,
+            'sos': self.schema.sos,
         }
         for kind, names in self._emitted_by_kind():
             for one in names:
                 if one in declared[kind]:
-                    raise PiecewiseExpansionError(f"{ctx}: emitted {kind} '{one}' collides with a declared {kind}")
-        return tuple(frame)
+                    raise PiecewiseExpansionError(
+                        f"{self.context}: emitted {kind} '{one}' collides with a declared {kind}"
+                    )
+
+    def _expr_dims(self, text: str, ctx: str) -> frozenset[str]:
+        """Dims of an affine link expression, asked of ``dimensions`` before any declaration exists to carry it."""
+        ast = parse_and_expand(text, self.schema, ctx)
+        if isinstance(ast, ComparisonNode):
+            raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
+        errors: list[str] = []
+        resolved = resolve_expression(ast, self.ns, ctx, errors)
+        if resolved is None:
+            raise PiecewiseExpansionError('\n'.join(errors))
+        assert not isinstance(resolved, ComparisonNode)
+        try:
+            check_expression(resolved, ctx)
+            return dims_of(resolved, self.schema, ctx)
+        except LanguageError as exc:
+            raise PiecewiseExpansionError(
+                f'{ctx}: link expression {text!r} is not a valid affine expression: {exc}'
+            ) from exc
 
 
 def expand_piecewise(schema: Spec) -> _ExpandedSpec:
@@ -400,27 +450,3 @@ def expand_piecewise(schema: Spec) -> _ExpandedSpec:
     expanded = _ExpandedSpec.model_validate(raw)
     schema._expansion = expanded
     return expanded
-
-
-def _declared_order(schema: Spec, dims: frozenset[str]) -> list[str]:
-    """*dims* in declaration order — iterating the set varies the emitted ``foreach``, and every column index behind it, per process."""
-    return [d for d in schema.dimensions if d in dims]
-
-
-def _expr_dims(schema: Spec, text: str, ctx: str) -> frozenset[str]:
-    """Dims of an affine link expression, asked of ``dimensions`` before any declaration exists to carry it."""
-    ast = parse_and_expand(text, schema, ctx)
-    if isinstance(ast, ComparisonNode):
-        raise PiecewiseExpansionError(f'{ctx}: link expressions must not contain a comparison, got {text!r}')
-    errors: list[str] = []
-    resolved = resolve_expression(ast, Namespace.of(schema), ctx, errors)
-    if resolved is None:
-        raise PiecewiseExpansionError('\n'.join(errors))
-    assert not isinstance(resolved, ComparisonNode)
-    try:
-        check_expression(resolved, ctx)
-        return dims_of(resolved, schema, ctx)
-    except LanguageError as exc:
-        raise PiecewiseExpansionError(
-            f'{ctx}: link expression {text!r} is not a valid affine expression: {exc}'
-        ) from exc
