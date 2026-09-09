@@ -123,12 +123,12 @@ def namespace() -> Namespace:
             id='the-same-table-walked-along-its-other-key',
         ),
         pytest.param(
-            'at(zone_load, by=gen_zone, to=generator)',
+            'at(zone_load, by=gen_zone, into=generator)',
             {'snapshot', 'generator'},
             id='its-pullback-keeps-the-joined-key-too',
         ),
         pytest.param(
-            "shift(p, over=generator, offset=1, edge='wrap', by=gen_zone, from=generator)",
+            "shift(p, over=generator, offset=1, edge='wrap', by=gen_zone)",
             {'snapshot', 'generator'},
             id='a-partition-along-one-key-joined-on-the-other',
         ),
@@ -136,7 +136,7 @@ def namespace() -> Namespace:
             'sum(p, by=gen_bus, from=generator)', {'snapshot', 'bus'}, id='the-dot-is-legal-on-a-one-key-lookup'
         ),
         pytest.param(
-            'sum(p, by=gen_bz, to=[bus, zone])',
+            'sum(p, by=gen_bz, into=[bus, zone])',
             {'snapshot', 'bus', 'zone'},
             id='a-to-list-lands-on-a-product-from-one-table',
         ),
@@ -151,12 +151,12 @@ def namespace() -> Namespace:
             id='a-from-list-consumes-two-key-columns-at-once',
         ),
         pytest.param(
-            'sum(zone_load, by=gen_zone, from=zone, to=generator)',
+            'sum(zone_load, by=gen_zone, from=zone, into=generator)',
             {'snapshot', 'generator'},
             id='a-value-column-consumed-fans-out-onto-the-key',
         ),
         pytest.param(
-            'sum(p, by=gen_bz, to=bus)',
+            'sum(p, by=gen_bz, into=bus)',
             {'snapshot', 'bus'},
             id='a-value-column-not-walked-is-not-read',
         ),
@@ -255,19 +255,14 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             id='a-grouped-sum-needs-the-keys-it-joins-on',
         ),
         pytest.param(
-            'at(zone_cap, by=gen_zone, to=generator)',
+            'at(zone_cap, by=gen_zone, into=generator)',
             r"at\(by=gen_zone\) joins on \['snapshot'\]",
             id='a-pullback-needs-the-keys-it-joins-on',
         ),
         pytest.param(
-            "shift(cost, over=generator, offset=1, edge='wrap', by=gen_zone, from=generator)",
+            "shift(cost, over=generator, offset=1, edge='wrap', by=gen_zone)",
             r"by=gen_zone\) joins on \['snapshot'\]",
             id='a-partition-needs-the-keys-it-joins-on',
-        ),
-        pytest.param(
-            "shift(p, over=generator, offset=1, edge='wrap', by=gen_zone, from=snapshot)",
-            r"walks 'generator' but groups along 'snapshot'",
-            id='a-partition-walks-the-key-the-shift-walks',
         ),
     ],
 )
@@ -415,7 +410,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         pytest.param('rep_of == 3', {'snapshot'}, id='a-map-into-its-own-dimension-through-its-key'),
         pytest.param('position(snapshot, by=rep_of) == 0', {'snapshot'}, id='a-position-within-a-representative'),
         pytest.param(
-            'position(generator, by=gen_zone, from=generator) == 0',
+            'position(generator, by=gen_zone) == 0',
             {'generator', 'snapshot'},
             id='a-position-within-a-group-of-a-two-key-lookup-reads-both-keys',
         ),

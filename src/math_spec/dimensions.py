@@ -207,13 +207,6 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
                 f'which group a term lands in, so it names one lookup — partition by a lookup whose '
                 f'values already distinguish them.'
             )
-        if partition.dimensions != (over.name,):
-            raise DimensionError(
-                f'{context}: {node.name}(over={over.name}, by={partition.shown}) walks '
-                f"'{over.name}' but groups along '{partition.dimensions[0]}'. No row of "
-                f"'{over.name}' carries it, so no coordinate has a neighbour inside a group — "
-                f"partition by a lookup with a key column over '{over.name}', walked from it."
-            )
         _check_joined(f'{node.name}(over={over.name}, by={partition.shown})', partition, inner, context)
     return inner
 

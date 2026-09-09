@@ -16,10 +16,10 @@ Dimension arguments are name-checked at load time, so
 | `sum(array, over=dim)`                             | `dim` collapses; `array` must carry it                                                                                             |
 | `sum(array, by=lookup)`                            | the lookup's key column collapses onto its value column                                                                            |
 | `sum(array, by=[lookup, …])`                       | the same, onto every lookup's value column; they must consume the same dim                                                         |
-| `sum(array, by=lookup, from=a, to=b)`              | column `a` collapses onto column `b`; the other key columns are joined on, which the array carries and the result keeps            |
-| `sum(array, by=lookup, from=[a, …], to=[b, …])` | the same with several columns on either side: consumed together, landed on a product |
+| `sum(array, by=lookup, from=a, into=b)`              | column `a` collapses onto column `b`; the other key columns are joined on, which the array carries and the result keeps            |
+| `sum(array, by=lookup, from=[a, …], into=[b, …])` | the same with several columns on either side: consumed together, landed on a product |
 | `at(array, by=lookup)`                             | the lookup's value column is replaced by its key column                                                                            |
-| `at(array, by=lookup, from=a, to=b)`               | column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns; either may be a list                      |
+| `at(array, by=lookup, from=a, into=b)`               | column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns; either may be a list                      |
 | `shift(array, over=dim, offset=n)`                 | the value at _t−n_ along `dim`; the vacated edge is **absent**                                                                     |
 | `shift(array, over=dim, offset=n, edge='wrap')`    | the value at _t−n_, cyclic: nothing is vacated                                                                                     |
 | `shift(array, over=dim, offset=n, edge=v)`         | the value at _t−n_, with the number `v` where the edge was vacated                                                                 |
@@ -46,7 +46,7 @@ operand that is already scalar is an error rather than a no-op, as
 
 `sum(x, by=l)` sums **along a lookup** and lands the result on the column it
 walks to ([lookups](dimensions.md#lookups)) — the value column, where the key
-draws the arrow, or `to=` where the call names it. This is the membership sum
+draws the arrow, or `into=` where the call names it. This is the membership sum
 that makes topology data rather than structure:
 
 ```yaml
@@ -78,7 +78,7 @@ once as outflow. No adjacency matrix, and no join written by hand.
 
 **At most one of `over=` and `by=`**: a lookup carries its own dimensions, so
 `by=` leaves `over=` nothing to add. Giving neither is the bare form above.
-`from=` and `to=` say [which columns the walk runs between](dimensions.md#a-walk-names-its-ends)
+`from=` and `into=` say [which columns the walk runs between](dimensions.md#a-walk-names-its-ends)
 where the declaration leaves a choice; every other key column is joined on, so
 the operand carries it, the sum keeps it, and each group is one coordinate of
 it, while a value column not walked is not read.
@@ -96,9 +96,9 @@ covered is refused ([absence](absence.md)).
 arguments: the lookup names one table, and the operator says which way it is
 walked. Where `sum(by=)` consumes the key column and produces the value
 column, `at` consumes the value column and produces the key column, reading
-one coarse value once per fine label that points at it — and `from=`, `to=`
+one coarse value once per fine label that points at it — and `from=`, `into=`
 name the two columns where the key leaves a choice. A read is one value per
-coordinate, so the lookup's key must lie inside `to=` and the columns joined
+coordinate, so the lookup's key must lie inside `into=` and the columns joined
 on; a bare relation is never read by `at`.
 
 It reads a _variable_ as readily as a parameter, which is what a per-component
@@ -241,8 +241,8 @@ group** onto its own last, which is what a store that must return to its
 starting level every period asks for; `edge=v` puts `v` at each group's edge.
 
 `by=` takes a lookup **with a key column over the dimension being walked**,
-and the group is the value columns — `from=` says which key column where there
-are two over that dimension. Its value columns are what a named `offset=` may
+and the group is the value columns — a lookup with two key columns over that
+dimension is refused. Its value columns are what a named `offset=` may
 vary over, so each group is reached by its own. A coordinate the lookup sends
 nowhere is in no group, so it reaches nothing — and no `edge=` speaks for it. Reaching off a group's start is what a policy
 answers; belonging to no group is the null a partial lookup gives everywhere

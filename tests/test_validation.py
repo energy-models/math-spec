@@ -602,32 +602,32 @@ class TestRulesDecidedWithoutData:
                 id='from-a-column-the-lookup-lacks',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, from=h, to=h))'}},
-                ("from= and to= both name ['h']",),
+                {'objective': {'expression': 'sum(sum(p, by=lk, from=h, into=h))'}},
+                ("from= and into= both name ['h']",),
                 id='from-and-to-the-same-column',
             ),
             pytest.param(
                 {
                     'dimensions.z': {},
                     'lookups.lz': {'over': ['g', 'h', 'z'], 'key': 'g'},
-                    'objective': {'expression': 'sum(sum(p, by=lz, to=[h, h]))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, into=[h, h]))'},
                 },
-                ("to=['h', 'h'] names a column twice",),
+                ("into=['h', 'h'] names a column twice",),
                 id='a-to-list-naming-a-column-twice',
             ),
             pytest.param(
                 {
                     'dimensions.z': {},
                     'lookups.lz': {'over': ['g', 'h', 'z'], 'key': 'g'},
-                    'objective': {'expression': 'sum(sum(p, by=lz, from=[g, h], to=h))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, from=[g, h], into=h))'},
                 },
-                ("from= and to= both name ['h']",),
+                ("from= and into= both name ['h']",),
                 id='a-from-list-overlapping-to',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lk, from=[g, h]))'}},
-                ('names 2 columns, and a partition walks exactly one',),
-                id='a-partition-with-a-from-list',
+                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lk, from=g))'}},
+                ("shift() expects shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])",),
+                id='a-partition-takes-no-from',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, from=g))'}},
@@ -640,7 +640,10 @@ class TestRulesDecidedWithoutData:
                 id='a-bare-relation-needs-both-ends-named',
             ),
             pytest.param(
-                {'lookups.rel': {'over': ['g', 'h']}, 'objective': {'expression': 'sum(at(r, by=rel, from=h, to=g))'}},
+                {
+                    'lookups.rel': {'over': ['g', 'h']},
+                    'objective': {'expression': 'sum(at(r, by=rel, from=h, into=g))'},
+                },
                 ("at reads one value per coordinate, and 'rel' is not single-valued",),
                 id='at-through-a-bare-relation',
             ),
@@ -653,16 +656,11 @@ class TestRulesDecidedWithoutData:
                 id='a-partition-through-a-bare-relation',
             ),
             pytest.param(
-                {'variables.q.where': 'position(g, by=lk, from=h) == 0'},
-                ("from=h is not a key column of 'lk'",),
-                id='position-from-a-value-column',
-            ),
-            pytest.param(
                 {
                     'lookups.pair': {'over': {'g0': 'g', 'g1': 'g', 'h': 'h'}, 'key': ['g0', 'g1']},
                     'variables.q.where': 'position(g, by=pair) == 0',
                 },
-                ("'pair' has 2 key column(s) over 'g'",),
+                ("'pair' has 2 key columns over 'g'",),
                 id='position-by-a-lookup-with-two-key-columns-over-the-dim',
             ),
             pytest.param(
@@ -839,7 +837,7 @@ class TestRulesDecidedWithoutData:
                     'lookups.lz': {'over': ['g', 'z', 'h'], 'key': ['g', 'z']},
                     'objective': {'expression': 'sum(sum(q, by=[lk, lz], from=g))'},
                 },
-                ('a list walks each lookup by its declared key and value, so from= and to= have nothing to name',),
+                ('a list walks each lookup by its declared key and value, so from= and into= have nothing to name',),
                 id='by-a-list-with-from',
             ),
             pytest.param(
