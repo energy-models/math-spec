@@ -887,3 +887,23 @@ def test_a_lowered_program_pickles_and_is_the_same_program():
     assert copy.separability == program.separability
     with pytest.raises(TypeError, match='does not support item assignment'):
         copy.variables['q'] = copy.variables['p']
+
+
+def test_two_groups_of_a_program_merge_with_or_as_they_did_behind_the_proxy():
+    """`program.constraints | program.variables` is a dict of both, as it was
+    when the groups were `MappingProxyType`s — a consumer that walks every
+    declaration this way (lpspec's parity harness does) broke on alpha.78,
+    where the seal answered `|` with a `TypeError`."""
+    program = to_program(
+        {
+            'dimensions': {'t': {'dtype': 'int'}},
+            'parameters': {'load': {'dims': ['t']}},
+            'variables': {'p': {'foreach': ['t'], 'bounds': {'lower': 0}}},
+            'constraints': {'meet': {'foreach': ['t'], 'expression': 'p >= load'}},
+            'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
+        }
+    )
+    merged = program.constraints | program.variables
+    assert isinstance(merged, dict), 'a merge is a plain dict, as the proxy gave'
+    assert list(merged) == ['meet', 'p'], 'both groups, the left one first'
+    assert list({'q': None} | program.variables) == ['q', 'p'], 'and a dict on the left merges too'
