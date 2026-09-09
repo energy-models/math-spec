@@ -24,7 +24,7 @@ Dimension arguments are name-checked at load time, so
 | `shift(array, over=dim, offset=n, edge='wrap')`    | the value at _t−n_, cyclic: nothing is vacated                                                                                     |
 | `shift(array, over=dim, offset=n, edge=v)`         | the value at _t−n_, with the number `v` where the edge was vacated                                                                 |
 | `shift(array, over=dim, offset=p, edge=…)`         | `p` an integer parameter: each entity is reached by **its own** offset — declared over what a `by=` groups into, one lag per group |
-| `shift(array, over=dim, offset=n, by=lookup)`      | the translation walks **inside each group** the lookup makes: neighbours, edges and a wrap are that group's                        |
+| `shift(array, over=dim, offset=n, by=lookup[, into=c])` | the translation walks **inside each group** the lookup makes: neighbours, edges and a wrap are that group's                        |
 | `sum_back(array, over=dim, within=n)`              | the sum of the last `n` positions along `dim`, ending at _t_                                                                       |
 | `sum_back(array, over=dim, within=p)`              | `p` an integer parameter: each entity gets **its own** window length                                                               |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | the window reaches around the axis rather than stopping short at its start                                                         |
@@ -241,9 +241,10 @@ group** onto its own last, which is what a store that must return to its
 starting level every period asks for; `edge=v` puts `v` at each group's edge.
 
 `by=` takes a lookup **with a key column over the dimension being walked**,
-and the group is the value columns — a lookup with two key columns over that
-dimension is refused. Its value columns are what a named `offset=` may
-vary over, so each group is reached by its own. A coordinate the lookup sends
+and the group is the value columns — all of them, or the ones `into=` names,
+so one calendar table serves `into=day` and `into=week` alike; a lookup with
+two key columns over that dimension is refused. The group columns are what a
+named `offset=` may vary over, so each group is reached by its own. A coordinate the lookup sends
 nowhere is in no group, so it reaches nothing — and no `edge=` speaks for it. Reaching off a group's start is what a policy
 answers; belonging to no group is the null a partial lookup gives everywhere
 else, so the row drops under `edge=0` exactly as it does bare.

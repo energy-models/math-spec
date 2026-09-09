@@ -177,7 +177,10 @@ could have been left out.
 `shift(x, over=d, by=l)`, `sum_back(x, over=d, by=l)` and
 `position(d, by=l)` take the one key column over `d` — a lookup with two key
 columns over it is refused; the other key columns are joined on, and the group
-is the value tuple.
+is the value tuple. `into=` names the value columns the group is made of
+where the table has several: `shift(x, over=snapshot, by=cal, into=week)`
+walks within weeks of a calendar declared once over `[snapshot, day, week]`,
+and a value column not named is not read.
 
 The rules, each decided at load with a refusal naming the rewrite:
 
@@ -199,8 +202,10 @@ The rules, each decided at load with a refusal naming the rewrite:
   what the join says.
 - **`at` reads one value.** Its key lies inside `into=` and the joined columns,
   or the call is refused; a bare relation is never read by `at`.
-- **A partition walks the one key column over the dimension it walks.** Two
-  key columns over it is refused, and a bare relation partitions nothing.
+- **A partition walks the one key column over the dimension it walks, and
+  groups by the value columns `into=` names** — all of them where it names
+  none. Two key columns over it is refused, `into=` naming a key column is
+  refused, and a bare relation partitions nothing.
 - **A `by=` list walks each lookup by its declared arrow.** `by=[a, b]` is one
   grouping, so `from=` and `into=` have nothing to name; every lookup in it
   consumes the same dimension, joins on its own other columns, and no two

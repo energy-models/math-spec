@@ -51,12 +51,13 @@ class UnresolvedComparisonNode:
 
 @dataclass(frozen=True)
 class UnresolvedPositionNode:
-    """``position(dim[, by=lookup]) <op> i`` before the names are checked; ``resolution.py`` types it."""
+    """``position(dim[, by=lookup[, into=columns]]) <op> i`` before the names are checked; ``resolution.py`` types it."""
 
     dimension: str
     op: PredicateOperator
     position: int
     by: str | None = None
+    into: tuple[str, ...] | None = None
 
 
 #: What resolution rewrites away on the where side — the three nodes whose
@@ -76,11 +77,11 @@ class _Quoted(str):
 
 
 def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
-    """``position(dim[, by=lookup]) <op> i`` off the tokens the grammar captured."""
-    *call, op, at = tokens
-    names = [str(token) for token in call]
-    by = names[1] if len(names) > 1 else None
-    return UnresolvedPositionNode(names[0], op, at, by)
+    """``position(dim[, by=lookup[, into=columns]]) <op> i`` off the tokens the grammar captured."""
+    dimension, *call, op, at = tokens
+    by = str(call[0]) if call else None
+    into = tuple(str(token) for token in call[1]) if len(call) > 1 else None
+    return UnresolvedPositionNode(str(dimension), op, at, by, into)
 
 
 def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
@@ -114,7 +115,9 @@ def _build_where_grammar() -> pp.ParserElement:
     )
 
     column = pp.Regex(rf'{NAME}(\.{NAME})?')
-    grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name
+    columns = name | (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']'))
+    grouped_into = pp.Group(pp.Suppress(',') + pp.Suppress(pp.Keyword('into')) + pp.Suppress('=') + columns)
+    grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name + pp.Optional(grouped_into)
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
     position_call = (

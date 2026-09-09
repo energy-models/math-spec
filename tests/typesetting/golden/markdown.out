@@ -146,6 +146,10 @@ $$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bt.bus}(g) = b \wed
 
 $$\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bt.bus}(g),\mathrm{gen\_bt.technology}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
 
+**`within_bus`**
+
+$$\mathit{units}_{g} \le \mathit{units}_{g \boxminus_{0}^{\mathrm{gen\_bt.bus}(g)} 1} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{pos}_{\left( \mathrm{gen\_bt.bus}(g),\enspace \mathrm{gen\_bt.technology}(g) \right)}(g) = 0$$
+
 **`relational`**
 
 $$\sum_{g \in \mathcal{G} \thinspace:\thinspace \left( g,\enspace b \right) \in \mathrm{connection}} p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
