@@ -25,7 +25,8 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
-from math_spec._expression_parser import ComparisonOperator, Sealed
+from math_spec._expression_parser import ComparisonOperator
+from math_spec._sealed import Sealed
 from math_spec.errors import did_you_mean
 
 if TYPE_CHECKING:
