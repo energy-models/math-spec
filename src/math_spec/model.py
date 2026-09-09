@@ -742,21 +742,6 @@ class Spec(_StrictBlock):
 
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
 
-    @override
-    def __getstate__(self) -> dict[Any, Any]:
-        """What pickles is the model as written, and none of what was derived from it.
-
-        The expansion and every cached property are rebuilt on demand, and
-        they hold resolved nodes that do not pickle — so a model that has been
-        lowered crosses a process exactly as a fresh one does.
-        """
-        state = super().__getstate__()
-        fields = type(self).model_fields
-        state['__dict__'] = {name: value for name, value in state['__dict__'].items() if name in fields}
-        private: dict[str, Any] = {'_expansion': None}
-        state['__pydantic_private__'] = private
-        return state
-
     @model_validator(mode='after')
     def _names_are_names(self) -> Spec:
         """Every declaration is keyed by something an expression could write.

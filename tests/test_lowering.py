@@ -832,12 +832,13 @@ def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
 
 
 def test_a_lowered_spec_still_pickles_and_lowers_to_the_same_program():
-    """What pickles is the model as written, and none of what was derived from it.
+    """A model crosses a process the same whether or not it has been lowered.
 
     Lowering caches its expansion on the Spec, and a named expression's
-    resolved node holds a read-only mapping, which pickle refuses — so a Spec
-    that had been lowered could not cross a process where a fresh one could.
-    The caches are rebuilt on demand, and the copy lowers to the same program.
+    resolved node held its keyword arguments behind a ``MappingProxyType``,
+    which pickle refuses — so a Spec that had been lowered could not cross a
+    process where a fresh one could. The seal pickles now, and the copy lowers
+    to the same program.
     """
     import pickle
 
@@ -856,3 +857,33 @@ def test_a_lowered_spec_still_pickles_and_lowers_to_the_same_program():
     copy = pickle.loads(pickle.dumps(spec))
     assert copy.model_dump() == spec.model_dump()
     assert to_program(copy) == program, 'the copy lowers to the program the original did'
+
+
+def test_a_lowered_program_pickles_and_is_the_same_program():
+    """A program crosses a process as itself, walked or not.
+
+    Every group of declarations is sealed against writes, and the seal used
+    to be a ``MappingProxyType``, which pickle refuses — so a program could
+    be built by one process and never handed to another, and a consumer
+    running slices in a pool re-lowered the file per slice. The seal now
+    pickles, and so does what a walk caches on the program.
+    """
+    import pickle
+
+    program = to_program(
+        {
+            'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
+            'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
+            'variables': {'p': {'foreach': ['t', 'g'], 'bounds': {'lower': 0}}},
+            'constraints': {'balance': {'foreach': ['t'], 'expression': 'sum(p, over=g) >= load'}},
+            'expressions': {'spend': 'sum(p * cost, over=g)'},
+            'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
+        }
+    )
+    assert program.separability['t'].ahead == 0 and program.footprint is not None, 'the caches are filled first'
+
+    copy = pickle.loads(pickle.dumps(program))
+    assert copy == program
+    assert copy.separability == program.separability
+    with pytest.raises(TypeError, match='does not support item assignment'):
+        copy.variables['q'] = copy.variables['p']

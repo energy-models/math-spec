@@ -105,6 +105,17 @@ def test_a_call_carries_its_positional_and_keyword_arguments():
     assert 'over' in node.kwargs
 
 
+def test_a_parsed_node_pickles_and_stays_sealed():
+    """A node crosses a process, and its keyword arguments still refuse a write on the far side."""
+    import pickle
+
+    node = parse_expression('sum(p, over=snapshot)')
+    copy = pickle.loads(pickle.dumps(node))
+    assert copy == node
+    with pytest.raises(TypeError, match='does not support item assignment'):
+        operator.setitem(copy.kwargs, 'over', NameNode('generator'))
+
+
 @pytest.mark.parametrize(
     ('rewrite', 'error', 'match'),
     [

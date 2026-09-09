@@ -22,11 +22,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from functools import cached_property
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
-from math_spec._expression_parser import ComparisonOperator
+from math_spec._expression_parser import ComparisonOperator, Sealed
 from math_spec.errors import did_you_mean
 
 if TYPE_CHECKING:
@@ -860,24 +859,24 @@ class Program:
     #: ``None`` where the file declares no objective — a feasibility problem,
     #: whose answer is whether the constraints can be met at all.
     objective: ObjectiveDeclaration | None
-    dimensions: Mapping[str, DimensionDeclaration] = MappingProxyType({})
-    sos: Mapping[str, SosDeclaration] = MappingProxyType({})
+    dimensions: Mapping[str, DimensionDeclaration] = Sealed({})
+    sos: Mapping[str, SosDeclaration] = Sealed({})
     #: Each ``piecewise:`` block the file wrote, as facts — see
     #: :class:`PiecewiseDeclaration`.
-    piecewise: Mapping[str, PiecewiseDeclaration] = MappingProxyType({})
+    piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
     #: Declared ``expressions:``, lowered, each saying whether the math reads
     #: it. None builds a row of its own — one the math reads is inlined where
     #: it is read — but all are lowered with the program, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
-    named_expressions: Mapping[str, ExpressionDeclaration] = MappingProxyType({})
+    named_expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""
         for f in fields(self):
             group = getattr(self, f.name)
             if isinstance(group, Mapping):
-                object.__setattr__(self, f.name, MappingProxyType(dict(group)))
+                object.__setattr__(self, f.name, Sealed(group))
 
     def _by_position(self) -> Iterator[tuple[QuadraticPosition, tuple[ExpressionNode, ...]]]:
         """The row-building expressions, grouped by the position they stand in."""
@@ -938,7 +937,7 @@ class Program:
         answering for every axis costs what answering for one did, every
         construct that ties an axis naming the axis it ties (#248).
         """
-        return MappingProxyType(_separabilities(self))
+        return Sealed(_separabilities(self))
 
     def _built_blocks(self) -> Iterator[tuple[str, tuple[ExpressionNode, ...], Mask | None, bool]]:
         """Every block that builds rows, labelled as the lowering's own messages label it.
