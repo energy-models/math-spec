@@ -131,7 +131,7 @@ is safe because a program cannot change after it is built.
 footprint = program.footprint
 
 sorted(footprint.quadratic)  # []
-sorted(footprint.variable_types)  # ['continuous']
+sorted(footprint.domains)  # ['continuous']
 sorted(footprint.sos_types)  # []
 sorted(kind.__name__ for kind in footprint.shapes)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
 ```

@@ -106,8 +106,8 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
 
     variables = {}
     for vname, vdef in expanded.variables.items():
-        variable_type = vdef.domain
-        if variable_type == 'binary':
+        domain = vdef.domain
+        if domain == 'binary':
             lower, upper = program.Constant(0.0), program.Constant(1.0)
         else:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
@@ -116,7 +116,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             where=resolved.variables[vname],
             lower=lower,
             upper=upper,
-            variable_type=variable_type,
+            domain=domain,
             absence=vdef.absence,
         )
 

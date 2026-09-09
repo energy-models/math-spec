@@ -163,7 +163,7 @@ Two rules follow, and a PR that adds a construct keeps them:
   node is `Translate`, and it stayed that way when the surface collapsed to a
   single `shift(…, edge=)`.
 - **Nothing is abbreviated.** `Cmp` became `ParameterComparison`, and `vtype`
-  became `variable_type`.
+  became `domain`.
 
 ## Adding an operator
 
