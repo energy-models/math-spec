@@ -45,6 +45,13 @@ class Sealed[K, V](Mapping[K, V]):
     def __hash__(self) -> int:
         return hash(frozenset(self._items.items()))
 
+    def __or__(self, other: Mapping[K, V]) -> dict[K, V]:
+        """A plain dict of both, the other's entries winning — what the proxy answered ``|`` with."""
+        return {**self._items, **other}
+
+    def __ror__(self, other: Mapping[K, V]) -> dict[K, V]:
+        return {**other, **self._items}
+
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self._items!r})'
 
