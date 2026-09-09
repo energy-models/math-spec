@@ -134,7 +134,7 @@ class Namespace:
             schema.variables,
             schema.parameters,
             schema.dimensions,
-            {n: LookupDeclaration(n, lk.columns, lk.keys) for n, lk in schema.lookups.items()},
+            {n: LookupDeclaration(n, lk.columns, lk.keys, lk.coverage_or_default) for n, lk in schema.lookups.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
@@ -838,6 +838,13 @@ class _Resolver:
                 )
             case 'lookup':
                 shape = ns.shape_of(node.name)
+                if shape.coverage == 'total':
+                    self.errors.append(
+                        f"{context}: '{node.name}' is total, so a row exists at every {list(shape.key)} and "
+                        f'the mask has no effect. Remove it, or declare coverage: masked on the lookup if a '
+                        f'key may have no row.'
+                    )
+                    return node
                 dims = tuple(shape.dim(k) for k in shape.key) if shape.key else tuple(dim for _, dim in shape.columns)
                 if len(set(dims)) < len(dims):
                     self.errors.append(

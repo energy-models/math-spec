@@ -49,7 +49,7 @@ dimensions:
 lookups:
   gen_bus: { over: [generator, bus], key: generator }
   gen_tech: { over: [generator, technology], key: generator } # a second map out of `generator`, to group through both at once
-  zone_of: { over: [bus, zone], key: bus }
+  zone_of: { over: [bus, zone], key: bus, coverage: masked } # a bus may sit in no zone, which is what `where: zone_of` below selects on
   area_of: { over: [bus, zone], key: bus } # a second map into the same set, to compare against
   season_of: { over: [snapshot, season], key: snapshot }
   gen_zone: { over: [generator, snapshot, zone], key: [generator, snapshot] } # a map keyed by two dimensions: a call walks one and joins on the other

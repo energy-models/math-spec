@@ -26,12 +26,12 @@ There is no `p[old]`. What a `where:` may say is the
 
 ## What creates absence
 
-| Construct                                    | What is absent                                                   |
-| -------------------------------------------- | ---------------------------------------------------------------- |
-| `where:` on a variable                       | the variable, at the masked coordinates                          |
-| `where:` on a constraint                     | the row                                                          |
-| `shift(x, over=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))        |
-| a label a lookup does not map                | that label's group membership ([lookups](dimensions.md#lookups)) |
+| Construct                                    | What is absent                                                 |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| `where:` on a variable                       | the variable, at the masked coordinates                        |
+| `where:` on a constraint                     | the row                                                        |
+| `shift(x, over=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))      |
+| a key a `masked` lookup does not map         | that key's group membership ([lookups](dimensions.md#lookups)) |
 
 Nothing else does. In particular **a missing parameter row is not absence**: a
 sparse table is a compressed dense one, and the missing row reads as the value

@@ -491,7 +491,13 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     program = to_program(
         {
             'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
-            'lookups': {'zone_of': {'over': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']}},
+            'lookups': {
+                'zone_of': {
+                    'over': ['generator', 'snapshot', 'zone'],
+                    'key': ['generator', 'snapshot'],
+                    'coverage': 'masked',
+                }
+            },
             'parameters': {'price': {'dims': ['snapshot', 'zone']}},
             'variables': {
                 'p': {'foreach': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
@@ -509,7 +515,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     )
 
     columns = (('generator', 'generator'), ('snapshot', 'snapshot'), ('zone', 'zone'))
-    declared = LookupDeclaration('zone_of', columns, ('generator', 'snapshot'))
+    declared = LookupDeclaration('zone_of', columns, ('generator', 'snapshot'), 'masked')
     assert program.dimension('generator').lookups == (declared,), 'the lookup sits under its first column'
     assert program.dimension('zone').lookups == (declared,), 'and under its last'
     assert program.lookups == {'zone_of': declared}, 'and once in the program'
@@ -636,6 +642,26 @@ def test_a_lookup_names_the_dimension_its_values_label():
     )
     assert program.dimension('snapshot').lookups[0].values == ('season',), 'and the map says what its key determines'
     assert list(program.lookups) == ['season_of', 'at_bus'], 'every map once, by name, in declaration order'
+
+
+def test_a_lookup_covers_every_key_unless_it_says_otherwise():
+    """The default is the strict reading — a keyed table carries every key tuple — and which of the two a
+    declaration means has to survive lowering, because whatever binds the table reads it off the program rather
+    than off the file. A bare relation has no key to be total over, so it answers ``None``."""
+    program = to_program(
+        override(
+            SMALL_MODEL,
+            **{
+                'lookups.open': {'over': ['g', 'h'], 'key': 'g', 'coverage': 'masked'},
+                'lookups.rel': {'over': ['g', 'h']},
+            },
+        )
+    )
+    assert {name: lk.coverage for name, lk in program.lookups.items()} == {
+        'lk': 'total',
+        'open': 'masked',
+        'rel': None,
+    }, 'a keyed lookup that says nothing is total, one that says so is carried through, and a bare relation is neither'
 
 
 def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():
