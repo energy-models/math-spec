@@ -43,6 +43,7 @@ from math_spec.resolution import (
     Resolved,
     ResolvedConstraint,
     mask_of,
+    names_in,
     resolve_expression,
     resolve_where_text,
 )
@@ -304,13 +305,6 @@ def _check_expression(
     return resolved
 
 
-def _names_in(value: ArithmeticNode) -> tuple[str, ...]:
-    """The names a lookup kwarg carries: one bare, several bracketed, none otherwise."""
-    if isinstance(value, NameNode):
-        return (value.name,)
-    return value.names if isinstance(value, NameListNode) else ()
-
-
 def _check_template_names(
     node: ArithmeticNode,
     context: str,
@@ -359,7 +353,7 @@ def _check_template_names(
                 case 'lookup':
                     errors.extend(
                         f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
-                        for one in _names_in(value)
+                        for one in names_in(value)
                         if one not in formals and ns.kind(one) != 'lookup'
                     )
                 case 'value':

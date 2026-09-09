@@ -67,6 +67,10 @@ if TYPE_CHECKING:
 _PRECEDENCE: dict[BinaryOperator, int] = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 3}
 _ATOM = 5
 
+#: The same for a predicate: ``OR`` binds loosest, then ``AND``, then ``NOT``;
+#: a comparison sits above the connectives and is bracketed under none.
+_WHERE_PRECEDENCE = {'or': 0, 'and': 1, 'comparison': 2, 'not': 3}
+
 _PREDICATES: dict[PredicateOperator, OperatorName] = {
     '==': 'equal',
     '!=': 'ne',
@@ -498,6 +502,7 @@ class Walk:
         return self.format.parenthesise(text) if precedence < need else text
 
     def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
+        comparison = _WHERE_PRECEDENCE['comparison']
         if isinstance(node, BooleanLiteralNode):
             assert not node.value, 'an always-true mask is folded away or refused before anything prints it'
             return self._op('false'), _ATOM
@@ -506,50 +511,61 @@ class Walk:
             indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             if self.schema.parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
-            return f'{indexed} {self.format.prose(" is defined")}', 2
+            return f'{indexed} {self.format.prose(" is defined")}', comparison
 
         if isinstance(node, VariableDefinedNode):
-            return f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}', 2
+            return (
+                f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}',
+                comparison,
+            )
 
         if isinstance(node, ParameterComparisonNode):
             left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
-            return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
+            return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, DimensionComparisonNode):
             if isinstance(node.value, int | float):
                 self.noticed.numeric_coordinates.add(node.name)
-            return f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
+            return (
+                f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}',
+                comparison,
+            )
 
         if isinstance(node, DimensionPositionNode):
             grouping = None if node.by is None else self._lookup(node.by, ctx.subscript(node.name))
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
-            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', 2
+            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
 
         if isinstance(node, LookupComparisonNode):
             applied = self._lookup(node.name, ctx.subscript(node.over))
-            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
+            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, LookupPairComparisonNode):
             index = ctx.subscript(node.over)
             left = self._lookup(node.name, index)
             right = self._lookup(node.other, index)
-            return f'{left} {self._op(_PREDICATES[node.op])} {right}', 2
+            return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
 
         if isinstance(node, LookupDefinedNode):
             applied = self._lookup(node.name, ctx.subscript(node.over))
-            return f'{applied} {self.format.prose(" is defined")}', 2
+            return f'{applied} {self.format.prose(" is defined")}', comparison
 
         if isinstance(node, NotNode):
-            return f'{self._op("not")} {self._predicate(node.operand, ctx, need=3)}', 3
+            return (
+                f'{self._op("not")} {self._predicate(node.operand, ctx, need=_WHERE_PRECEDENCE["not"])}',
+                _WHERE_PRECEDENCE['not'],
+            )
 
         if isinstance(node, AndNode):
-            sides = [self._predicate(node.left, ctx, need=1), self._predicate(node.right, ctx, need=1)]
-            return self.format.joined(sides, self._op('and')), 1
+            need = _WHERE_PRECEDENCE['and']
+            sides = [self._predicate(node.left, ctx, need=need), self._predicate(node.right, ctx, need=need)]
+            return self.format.joined(sides, self._op('and')), need
 
         if isinstance(node, OrNode):
-            sides = [self._predicate(node.left, ctx, need=0), self._predicate(node.right, ctx, need=0)]
-            return self.format.joined(sides, self._op('or')), 0
+            need = _WHERE_PRECEDENCE['or']
+            sides = [self._predicate(node.left, ctx, need=need), self._predicate(node.right, ctx, need=need)]
+            return self.format.joined(sides, self._op('or')), need
 
         assert_never(node)
 
@@ -698,7 +714,7 @@ class Walk:
             when = (
                 self.format.prose('otherwise')
                 if arm.when is None
-                else f'{self.format.prose("if ")} {self._predicate(arm.when, ctx, need=1)}'
+                else f'{self.format.prose("if ")} {self._predicate(arm.when, ctx, need=_WHERE_PRECEDENCE["and"])}'
             )
             arms.append((self._expression(arm.value, ctx), when))
         return arms

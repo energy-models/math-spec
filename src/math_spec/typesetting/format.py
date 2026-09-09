@@ -211,7 +211,7 @@ class Format(Protocol):
         ...
 
     def joined(self, parts: list[str], operator: str) -> str:
-        """``a op b op c`` — the one place inter-term spacing is decided."""
+        """``a op b op c``, or with no operator the format's own bare separator — the one place that separator is decided."""
         ...
 
     # -- document ----------------------------------------------------------
