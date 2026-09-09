@@ -601,10 +601,9 @@ class Walk:
             if lk.keys:
                 keyed = self.format.joined([ctx.subscript(dict(lk.columns)[k]) for k in lk.keys], '')
                 applied = self.format.apply(self.format.upright(node.name), keyed)
-            else:
-                row = self.format.parenthesise(self.format.joined([ctx.subscript(d) for d in lk.dims], ''))
-                applied = f'{row} {self._op("in")} {self.format.upright(node.name)}'
-            return f'{applied} {self.format.prose(" is defined")}', comparison
+                return f'{applied} {self.format.prose(" is defined")}', comparison
+            row = self.format.parenthesise(self.format.joined([ctx.subscript(d) for d in lk.dims], ''))
+            return f'{row} {self._op("in")} {self.format.upright(node.name)}', comparison
 
         if isinstance(node, NotNode):
             return (
