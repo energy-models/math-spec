@@ -413,3 +413,8 @@ body invalidated by a rewrite is closed and re-filed, not annotated.
 - **Recommend, do not survey.**
 - **A language feature is triaged before it is designed** — primitive, macro or
   `escape:`, against [ceiling.md](docs/about/ceiling.md).
+
+## Language
+
+Keep response to natural, conversational language, with an emphasis on explaining complex, technical subjects and mathematics to ensure user comprehension.
+Use Simplified Technical English (or SD-STE100) to ensure text readability: in issues, PRs, and commit messages.
