@@ -5,18 +5,21 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Unit commitment
 
-A dispatch model with a commitment decision and a start-up ramp — the
-formulation [`cases:`](../reference/language/expressions.md#cases--one-quantity-a-value-per-region)
+This is a dispatch model with a commitment decision and a start-up ramp. It is
+the formulation that
+[`cases:`](../reference/language/expressions.md#cases--one-quantity-a-value-per-region)
 exists for.
 
-Read `previous_status` and then `ramp_up`. The cases carry no order: no two of
-them can claim one coordinate, which is proved at load before any data binds,
-and `otherwise:` carries every coordinate they leave. One value at every
-coordinate — never two, never none — is what lets `ramp_up` use the quantity the
+Read `previous_status` first, then `ramp_up`.
+
+The cases carry no order. No two of them can claim one coordinate, and that is
+proved at load, before any data binds. `otherwise:` then carries every
+coordinate that the cases leave. So every coordinate has exactly one value:
+never two, and never none. That is what lets `ramp_up` use the quantity in the
 way it uses a parameter.
 
-It prints the way a paper writes it: `ramp_up` names the quantity, and the
-block itself prints once below, under **Definitions**.
+The model prints the way a paper writes it. `ramp_up` names the quantity, and
+the block itself prints once below, under **Definitions**.
 
 <!-- gallery:begin -->
 ```yaml

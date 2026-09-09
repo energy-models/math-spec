@@ -5,8 +5,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the lossy lines
 
-Rung 13 of [PyPSA in one file](pypsa.md): `n.optimize(transmission_losses={'mode': 'tangents', 'segments': K})`, stated on rung 6's lines in a
-file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
+This is rung 13 of [PyPSA in one file](pypsa.md). It states
+`n.optimize(transmission_losses={'mode': 'tangents', 'segments': K})` on the
+lines of rung 6, in a file of its own. The model's description below says why it
+has its own file. Its network is the shared spine plus the script's own
+additions.
 
 ## Rung 13 — transmission losses
 
@@ -14,11 +17,11 @@ file of its own — the model's description below says why. Its network is the s
 | --- | --- | --- |
 | [`Line-loss`](#variable-domains) | done | |
 | [`Line-fix-s-*`, `Line-ext-s-*`](#line-fix-s-lower) | done | the loss counted against the rating |
-| [`Bus-nodal_balance`](#bus-nodal_balance) | done | half of each incident line's loss at either end |
-| [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` is data prep |
-| [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1) | split | PyPSA names a row per segment; one block over the dimension |
+| [`Bus-nodal_balance`](#bus-nodal_balance) | done | half of each incident line's loss, at either end |
+| [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` comes from data preparation |
+| [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1) | split | PyPSA names one row per segment. Here it is one block over the dimension |
 | [`Line-loss_tangents-{k}--1`](#line-loss_tangents-k--1) | split | |
-| `Line-loss_secants-*` | out | the secant mode solves for its segment count |
+| `Line-loss_secants-*` | out | the secant mode solves for its own segment count |
 
 <!-- reference:rung_13_losses:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `10645.295879552297`, 150 rows.
