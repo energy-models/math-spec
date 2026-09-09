@@ -154,15 +154,13 @@ def _also_written_as(
 
 
 class LookupBlock(_StrictBlock):
-    """A named single-valued map out of a dimension (the declaration rules).
+    """A named single-valued map out of one dimension ``into:`` another.
 
-    Exactly one of ``into:`` (a groupable map onto that dimension, what
-    ``sum(by=)`` lands terms on) or ``dtype:`` (its own label space, selection
-    only)::
+    Its values are labels of ``into``, which is what ``sum(by=)`` and
+    ``at(by=)`` land terms on::
 
         lookups:
           bus_of: {over: generator, into: bus}
-          period: {over: snapshot, dtype: int}
 
     The map itself is data, and arrives at bind time under the lookup's name.
     """
@@ -170,19 +168,8 @@ class LookupBlock(_StrictBlock):
     _label: ClassVar[str] = 'a lookup declaration'
 
     over: str
-    into: str | None = None
-    dtype: DimensionDtype | None = None
+    into: str
     description: str | None = None
-
-    @model_validator(mode='after')
-    def _exactly_one_kind(self) -> LookupBlock:
-        if (self.into is None) == (self.dtype is None):
-            msg = (
-                "a lookup declares exactly one of 'into:' (a groupable map onto that "
-                "dimension) or 'dtype:' (its own label space)"
-            )
-            raise ValueError(msg)
-        return self
 
 
 class DimensionBlock(_StrictBlock):
@@ -688,13 +675,9 @@ class Spec(_StrictBlock):
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
 
-    def targeted_of(self, dimension: str) -> dict[str, str]:
-        """The groupable lookups over *dimension*: name -> the dim they map into."""
-        return {n: lk.into for n, lk in self.lookups.items() if lk.over == dimension and lk.into is not None}
-
-    def labels_of(self, dimension: str) -> dict[str, LookupBlock]:
-        """The label-space lookups over *dimension* — selection only, never an axis."""
-        return {n: lk for n, lk in self.lookups.items() if lk.over == dimension and lk.into is None}
+    def lookups_of(self, dimension: str) -> dict[str, str]:
+        """The lookups over *dimension*: name -> the dim they map into."""
+        return {n: lk.into for n, lk in self.lookups.items() if lk.over == dimension}
 
     @classmethod
     @override

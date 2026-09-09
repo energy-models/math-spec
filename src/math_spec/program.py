@@ -438,25 +438,21 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 
 
 class LookupDeclaration(NamedTuple):
-    """One declared lookup over a dimension, of either kind.
+    """One declared lookup over a dimension.
 
-    Exactly one of ``target`` and ``dtype`` is set. A *targeted* lookup's
-    values are labels of ``target``, checked for containment once the dim
+    Its values are labels of ``target``, checked for containment once the dim
     tables exist — which keeps a mistyped label from silently dropping its
     terms in the join that places them — and it is what ``sum(by=)`` lands
-    terms on. A *label space* owns its values, typed by ``dtype`` the way a
-    dimension's labels are: it is read for selection and rendering, and
-    resolution refuses to group into one, so no expression node reaches it.
+    terms on.
     """
 
     name: str
-    target: str | None
-    dtype: DimensionDtype | None = None
+    target: str
 
 
 @dataclass(frozen=True)
 class DimensionDeclaration:
-    """A dimension and the lookups its labels carry, of both kinds."""
+    """A dimension and the lookups its labels carry."""
 
     lookups: tuple[LookupDeclaration, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
@@ -466,25 +462,15 @@ class DimensionDeclaration:
     dtype: DimensionDtype = 'str'
 
     @property
-    def maps(self) -> list[str]:
-        """Every map over the dimension, targeted and label-space alike.
-
-        What binding needs a relation for: both kinds are read by a ``where``
-        and both arrive the same way, and only the targeted ones have a label
-        set to be checked against.
-        """
-        return sorted(lk.name for lk in self.lookups)
-
-    @property
     def targets(self) -> dict[str, str]:
-        """Each targeted map over the dimension, to the dimension its values are labels of.
+        """Each map over the dimension, to the dimension its values are labels of.
 
         The question every consumer of a ``by=`` asks, and asked here so it has
         one answer: an operator grouping through a lookup names the target as
         the dim it lands on, and a partition array is named for it so an amount
         declared over the group's own dim can be read through it.
         """
-        return {lk.name: lk.target for lk in self.lookups if lk.target is not None}
+        return {lk.name: lk.target for lk in self.lookups}
 
 
 @dataclass(frozen=True)
@@ -909,7 +895,7 @@ class Program:
 
     @property
     def lookups(self) -> tuple[tuple[str, LookupDeclaration], ...]:
-        """Every lookup in the program, targeted and label-space alike, with the dimension it is over."""
+        """Every lookup in the program, with the dimension it is over."""
         return tuple((dimension, lk) for dimension, d in self.dimensions.items() for lk in d.lookups)
 
     def parameter(self, name: str) -> ParameterDeclaration:

@@ -825,16 +825,13 @@ class Walk:
         return f' over {self.format.math(product)}'
 
     def _coords(self, dim: str, noticed: Noticed) -> str:
-        """The dimension's carried structure, groupable maps before plain labels.
+        """The dimension's carried structure: each lookup as the map it is (``bus_of: G ↦ B``).
 
-        A targeted lookup renders as the map it is (``bus_of: G ↦ B``); a
-        label-space lookup has no target set to point at, so it renders as the
-        label it is (``period — a label on T``). The dtype is named only where
-        an equation compared the index against a number, the one place
-        "position 3" and "the coordinate 3" are both readings of a line.
+        The dtype is named only where an equation compared the index against a
+        number, the one place "position 3" and "the coordinate 3" are both
+        readings of a line.
         """
-        targeted = self.schema.targeted_of(dim)
-        labels = self.schema.labels_of(dim)
+        targeted = self.schema.lookups_of(dim)
         clauses = []
         if dim in noticed.numeric_coordinates:
             clauses.append(f' ({self.format.mono(self.schema.dimensions[dim].dtype)} coordinates)')
@@ -847,10 +844,6 @@ class Walk:
                 '',
             )
             clauses.append(f' with {self.format.math(maps)}')
-        if labels:
-            named = self.format.joined([self.format.upright(c) for c in labels], '')
-            plural = 's' if len(labels) > 1 else ''
-            clauses.append(f' carrying label{plural} {self.format.math(named)}')
         return ''.join(clauses)
 
     def convention_notes(self) -> list[str]:

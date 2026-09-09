@@ -41,35 +41,29 @@ def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice,
 
 
 def _never_an_axis(program: Program) -> list[Advice]:
-    """One piece of advice per dimension nothing is indexed by and nothing aggregates into."""
-    axes: set[str] = set()
-    for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
-        axes.update(declaration.dims)
-    axes |= _produced_axes(program)
+    """One piece of advice per dimension nothing reaches.
 
-    targeted = {lk.target: (dimension, lk.name) for dimension, lk in program.lookups if lk.target is not None}
-    notes: list[Advice] = []
-    for name in program.dimensions:
-        if name in axes:
-            continue
-        if name in targeted:
-            owner, cname = targeted[name]
-            text = (
-                f"dimension '{name}' is never an axis: nothing is indexed by it and nothing "
-                f"aggregates into it — it only serves as the target of lookup '{cname}' over "
-                f"'{owner}'. That is a label space, not a dimension of this model; declare the "
-                f'lookup as one instead:\n'
-                f'  lookups:\n'
-                f'    {cname}: {{over: {owner}, dtype: str}}'
-            )
-        else:
-            text = (
-                f"dimension '{name}' is never used: nothing is indexed by it, nothing "
-                f'aggregates into it, and no lookup targets it. Remove it — or keep it '
-                f'knowingly, if the declarations that use it are still to be written.'
-            )
-        notes.append(Advice('never-an-axis', name, text))
-    return notes
+    A dimension a lookup targets is reached: its members are the labels the
+    map's values are checked against, and a ``where`` selects on them, so it
+    is in use even where nothing is indexed by it.
+    """
+    reached: set[str] = set()
+    for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
+        reached.update(declaration.dims)
+    reached |= _produced_axes(program)
+    reached |= {lk.target for _, lk in program.lookups}
+
+    return [
+        Advice(
+            'never-an-axis',
+            name,
+            f"dimension '{name}' is never used: nothing is indexed by it, nothing "
+            f'aggregates into it, and no lookup targets it. Remove it — or keep it '
+            f'knowingly, if the declarations that use it are still to be written.',
+        )
+        for name in program.dimensions
+        if name not in reached
+    ]
 
 
 def _produced_axes(program: Program) -> set[str]:

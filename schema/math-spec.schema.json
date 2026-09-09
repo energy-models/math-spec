@@ -218,7 +218,7 @@
     },
     "LookupBlock": {
       "additionalProperties": false,
-      "description": "A named single-valued map out of a dimension (the declaration rules).\n\nExactly one of ``into:`` (a groupable map onto that dimension, what\n``sum(by=)`` lands terms on) or ``dtype:`` (its own label space, selection\nonly)::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n      period: {over: snapshot, dtype: int}\n\nThe map itself is data, and arrives at bind time under the lookup's name.",
+      "description": "A named single-valued map out of one dimension ``into:`` another.\n\nIts values are labels of ``into``, which is what ``sum(by=)`` and\n``at(by=)`` land terms on::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n\nThe map itself is data, and arrives at bind time under the lookup's name.",
       "properties": {
         "description": {
           "anyOf": [
@@ -232,35 +232,9 @@
           "default": null,
           "title": "Description"
         },
-        "dtype": {
-          "anyOf": [
-            {
-              "enum": [
-                "float",
-                "int",
-                "str",
-                "datetime"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Dtype"
-        },
         "into": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Into"
+          "title": "Into",
+          "type": "string"
         },
         "over": {
           "title": "Over",
@@ -268,7 +242,8 @@
         }
       },
       "required": [
-        "over"
+        "over",
+        "into"
       ],
       "title": "LookupBlock",
       "type": "object"

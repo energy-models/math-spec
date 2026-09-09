@@ -41,10 +41,8 @@ From a shell, `python -m math_spec check model.yaml` is the two together: a
 refusal is its message on stderr and exit status 1, advice is printed and the
 status is 0.
 
-A dimension nothing is indexed by and nothing aggregates into is never an axis.
-Where a lookup targets it, it is a label space wearing a dimension's
-declaration, and the note says how to declare it as one; where nothing reaches
-it at all, it is unused.
+A dimension nothing is indexed by, nothing aggregates into and no lookup
+targets is unused, and the note says so.
 
 A variable that no constraint names, and whose bounds leave open the side its
 objective term improves toward, runs to infinity for every dataset there is. A

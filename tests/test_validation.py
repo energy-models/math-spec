@@ -182,7 +182,6 @@ def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str,
 
     `zone` deliberately targets a dim `p` does *not* carry: grouping into
     one it already has needs that dim twice, which is its own error.
-    `season` is a label space over the same dim, for the refusals below.
     An explicit ``foreach=[]`` is a scalar constraint; ``None`` is the
     default frame over `snapshot`.
     """
@@ -192,10 +191,7 @@ def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str,
             'bus': {'dtype': 'str'},
             'generator': {'dtype': 'str'},
         },
-        'lookups': {
-            'zone': {'over': 'generator', 'into': 'bus'},
-            'season': {'over': 'generator', 'dtype': 'str'},
-        },
+        'lookups': {'zone': {'over': 'generator', 'into': 'bus'}},
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'foreach': ['snapshot', 'generator']}},
         'constraints': {'c': {'foreach': ['snapshot'] if foreach is None else foreach, 'expression': expression}},
@@ -319,22 +315,6 @@ class TestDimensionKwargs:
     def test_declared_dimensions_still_pass(self, expression, foreach):
         to_spec(_kwarg_model(expression, foreach))
 
-    @pytest.mark.parametrize(
-        'expression',
-        [
-            pytest.param('sum(p, by=season) == load', id='sum'),
-            pytest.param('at(p, by=season) == load', id='at'),
-            pytest.param('shift(p, over=generator, offset=1, by=season) == load', id='shift'),
-        ],
-    )
-    def test_a_label_space_is_refused_wherever_by_needs_a_target(self, expression):
-        """Every `by=` but `position`'s reaches a target dimension: `sum` and `at` to
-        place terms on it, `shift` so a named `offset=` may vary per group. A label
-        space targets nothing, so all three refuse it and name the promotion (#280)."""
-        message = _refusal(_kwarg_model(expression, ['snapshot', 'bus']))
-        assert 'is a label space' in message, 'the refusal names the kind, not just the name'
-        assert 'season_of' in message, 'and it spells the promotion out'
-
     def test_macro_formals_are_not_mistaken_for_dimensions(self):
         """A formal in a dim position is legal inside the template body."""
         _schema(
@@ -445,7 +425,6 @@ POSITION_SCHEMA = to_spec(
         'lookups': {
             'period_of': {'over': 'snapshot', 'into': 'period'},
             'starts_at': {'over': 'period', 'into': 'snapshot'},
-            'season': {'over': 'snapshot', 'dtype': 'str'},
         },
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'foreach': ['snapshot']}},
@@ -458,9 +437,7 @@ class TestPositionResolves:
 
     A `by=` has to be a lookup over *that* dimension, and that is the whole
     test: a lookup over anything else carries no row for a position to be a
-    position in. Unlike `sum`, `at` and `shift`, it does not have to be a
-    *groupable* one — counting inside a group lands no terms, so a label
-    space partitions the rows perfectly well (#280).
+    position in.
     """
 
     @pytest.mark.parametrize(
@@ -468,9 +445,8 @@ class TestPositionResolves:
         [
             ('position(snapshot) == 0', 0, None),
             ('position(snapshot, by=period_of) == 0', 0, 'period_of'),
-            ('position(snapshot, by=season) == 0', 0, 'season'),
         ],
-        ids=['first', 'first of each period', 'first of each season, by a label space'],
+        ids=['first', 'first of each period'],
     )
     def test_it_resolves(self, mask: str, position: int, by: str | None):
         resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
@@ -585,11 +561,11 @@ class TestRulesDecidedWithoutData:
                 id='sos-big-m-infinite',
             ),
             pytest.param(
-                {'lookups.both': {'over': 'g', 'into': 'h', 'dtype': 'int'}},
-                ('exactly one of',),
-                id='lookup-both-kinds',
+                {'lookups.tag': {'over': 'g', 'dtype': 'str'}},
+                ("unknown key 'dtype' in a lookup declaration. Valid keys: description, into, over.",),
+                id='lookup-with-a-dtype-of-its-own',
             ),
-            pytest.param({'lookups.neither': {'over': 'g'}}, ('exactly one of',), id='lookup-neither-kind'),
+            pytest.param({'lookups.tag': {'over': 'g'}}, ('lookups.tag.into: Field required',), id='lookup-no-into'),
             pytest.param(
                 {'lookups.lk.over': 'z'}, ("references undeclared dimension 'z'",), id='lookup-over-undeclared'
             ),

@@ -103,7 +103,7 @@ class Namespace:
         variables: Iterable[str],
         parameters: Iterable[str],
         dimensions: Iterable[str],
-        lookups: Mapping[str, tuple[str, str | None]],
+        lookups: Mapping[str, tuple[str, str]],
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
         constraints: Iterable[str],
@@ -118,28 +118,18 @@ class Namespace:
         #: name -> declared dtype, for dimensions, parameters and lookups alike;
         #: what a where comparison checks its literal against.
         self.dtypes: dict[str, DeclaredDtype] = dict(dtypes)
-        #: lookup name -> ``(over, into)``; ``into`` is ``None`` for a label
-        #: space, which owns its values.
-        self.lookups: dict[str, tuple[str, str | None]] = dict(lookups)
+        #: lookup name -> ``(over, into)``.
+        self.lookups: dict[str, tuple[str, str]] = dict(lookups)
         #: parameter or variable name -> the dims it is read through —
         #: parameters by their ``dims``, variables by their frame. Stamped onto
         #: each leaf a where names, the way a lookup leaf carries ``over``.
         self.leaf_dims: dict[str, tuple[str, ...]] = dict(leaf_dims)
 
-    def groupable(self) -> dict[str, str]:
-        """The lookups a ``by=`` may name: name -> the dimension it maps into.
-
-        A label space is absent, which is what makes naming one in a ``by=``
-        answerable with the promotion rewrite rather than "no such lookup".
-        """
-        return {n: into for n, (_, into) in self.lookups.items() if into is not None}
-
     @classmethod
     def of(cls, schema: Spec) -> Namespace:
         """Build the namespace of *schema*, the whole of what a file may name.
 
-        A targeted lookup's values are labels of its target, so its dtype is
-        the target's.
+        A lookup's values are labels of its target, so its dtype is the target's.
         """
         return cls(
             schema.variables,
@@ -149,8 +139,7 @@ class Namespace:
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
-                **{n: schema.dimensions[lk.into].dtype for n, lk in schema.lookups.items() if lk.into is not None},
-                **{n: lk.dtype for n, lk in schema.lookups.items() if lk.dtype is not None},
+                **{n: schema.dimensions[lk.into].dtype for n, lk in schema.lookups.items()},
             },
             {
                 **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
@@ -172,11 +161,11 @@ class Namespace:
         return None
 
     def over_of(self, lookup: str) -> str:
-        """The dimension *lookup* maps out of, whichever kind it is."""
+        """The dimension *lookup* maps out of."""
         return self.lookups[lookup][0]
 
-    def into_of(self, lookup: str) -> str | None:
-        """The dimension *lookup*'s values are labels of, ``None`` for a label space."""
+    def into_of(self, lookup: str) -> str:
+        """The dimension *lookup*'s values are labels of."""
         return self.lookups[lookup][1]
 
     def unknown(self, name: str, context: str, *, allow_dims: bool, formals: Iterable[str] = ()) -> str:
@@ -570,7 +559,7 @@ class _Resolver:
         return DualNode(value.name)
 
     def _lookup_ref(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
-        """An operator kwarg whose *value* must name groupable lookups.
+        """An operator kwarg whose *value* must name lookups.
 
         A lookup carries its own dimensions, so nothing else in the call is
         consulted: the names alone decide both the dim the operator consumes and
@@ -584,8 +573,7 @@ class _Resolver:
             return value
 
         ns = self.ns
-        groupable = ns.groupable()
-        named = [self._ungroupable(name, groupable, operator, key) for name in names]
+        named = [self._not_a_lookup(name, operator, key) for name in names]
         if any(problem is not None for problem in named):
             self.errors.extend(problem for problem in named if problem is not None)
             return value
@@ -600,7 +588,7 @@ class _Resolver:
             )
             return value
 
-        targets = tuple(groupable[name] for name in names)
+        targets = tuple(ns.into_of(name) for name in names)
         repeated = sorted({t for t in targets if targets.count(t) > 1})
         if repeated:
             self.errors.append(
@@ -612,25 +600,13 @@ class _Resolver:
 
         return LookupNode(names, dimension=next(iter(over)), into=targets)
 
-    def _ungroupable(self, name: str, groupable: Mapping[str, str], operator: str, key: str) -> str | None:
-        """Why *name* is not a groupable lookup; ``None`` where it is one."""
+    def _not_a_lookup(self, name: str, operator: str, key: str) -> str | None:
+        """Why *name* is not a lookup; ``None`` where it is one."""
         ns, context = self.ns, self.context
-        if name in ns.lookups and name not in groupable:
-            over = ns.over_of(name)
-            return (
-                f'{context}: {operator}({key}={name}): '
-                f"'{name}' is a label space over '{over}', not a groupable lookup — "
-                f'it targets no dimension for the terms to land on. To group into it, '
-                f'declare the axis and target it under a name of its own:\n'
-                f'  dimensions:\n'
-                f'    {name}: {{...}}\n'
-                f'  lookups:\n'
-                f'    {name}_of: {{over: {over}, into: {name}}}'
-            )
-        if name in groupable:
+        if name in ns.lookups:
             return None
         if name in ns.dimensions:
-            into_here = sorted(n for n, into in groupable.items() if into == name)
+            into_here = sorted(n for n, (_, into) in ns.lookups.items() if into == name)
             hint = f"  Lookups into '{name}': {into_here}" if into_here else f"  No lookup maps into '{name}'."
             return (
                 f"{context}: {operator}({key}={name}): '{name}' is a dimension, and "
@@ -638,7 +614,7 @@ class _Resolver:
             )
         return (
             f'{context}: {operator}({key}={name}) does not name a lookup. '
-            f'{did_you_mean(name, groupable, label="Lookups")}\n'
+            f'{did_you_mean(name, ns.lookups, label="Lookups")}\n'
             f"Declare it under 'lookups:' — {name}: {{over: <the dimension it maps "
             f'out of>, into: <the dimension its values are labels of>}}.'
         )
@@ -712,8 +688,7 @@ class _Resolver:
         if ns.kind(node.by) != 'lookup':
             self.errors.append(
                 f"{context}: '{call}' groups by '{node.by}', which is {_declared_as(ns, node.by)}. "
-                f'``by=`` takes a lookup over that dimension — either kind, since counting '
-                f'inside a group lands no terms, unlike sum(by=) and at(by=). '
+                f'``by=`` takes a lookup over that dimension. '
                 f'{did_you_mean(node.by, ns.lookups, label="Lookups")}'
             )
             return node
@@ -905,12 +880,6 @@ def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str
     )
 
 
-def _label_set_of(ns: Namespace, lookup: str) -> str:
-    """Where a lookup's values come from, as a refusal reads it."""
-    into = ns.into_of(lookup)
-    return f"'{lookup}' (mapping into '{into}')" if into is not None else f"'{lookup}' (a label space of its own)"
-
-
 def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str, ns: Namespace) -> str | None:
     """Why two lookups may not be compared, or ``None`` where they may.
 
@@ -928,10 +897,10 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
             f'map out of the same dimension.'
         )
     left, right = ns.into_of(node.name), ns.into_of(other)
-    if left is None or right is None or left != right:
+    if left != right:
         return (
-            f'{context}: {comparison} compares {_label_set_of(ns, node.name)} with '
-            f'{_label_set_of(ns, other)}. No value of one is ever a value of the other, so '
+            f"{context}: {comparison} compares '{node.name}' (mapping into '{left}') with "
+            f"'{other}' (mapping into '{right}'). No value of one is ever a value of the other, so "
             f'the predicate can only mask everything out. Two lookups may be compared only '
             f'where they map into the same dimension.'
         )
