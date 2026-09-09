@@ -173,8 +173,8 @@ class LookupBlock(_StrictBlock):
 class DimensionBlock(_StrictBlock):
     """A declared dimension, and the dtype its coordinates must be.
 
-    A dimension is an axis and nothing else: it declares that the axis exists
-    and what its coordinates are typed as, never which coordinates there are —
+    A dimension is a set of coordinates and nothing else: it declares that the
+    set exists and what its coordinates are typed as, never which there are —
     those are data, and arrive at bind time. The maps its members carry — a
     generator's bus, a snapshot's period — are top-level ``lookups:``
     (:class:`LookupBlock`), keyed by their own name.

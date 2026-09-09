@@ -161,6 +161,12 @@ decided by what the math does with it rather than by what it holds:
 | is a per-row attribute the math only ever selects on — a fuel, a constraint's sense                                          | a `str` parameter                     | it names rows rather than scaling them, and no set is declared for its values to be checked against                        |
 | is a mask                                                                                                                    | a `bool` parameter                    | a bare name in a `where` is its own answer                                                                                 |
 
+Rows three and five both hold a column the math only selects on, and what
+separates them is whether its values name a set. Declare the set — a
+dimension, and a lookup into it — where a `position(by=)` counts within it or
+a mistyped value must be refused. Where neither is asked for, the column is a
+`str` parameter and its values are checked against nothing.
+
 Two rules the table follows from. **If `b` is single-valued per `a`, then `b`
 is a lookup over `a`, not a dimension**: a `foreach` product over functionally
 dependent dims, cut back by a mask, is exactly the shape `lookups` exists to

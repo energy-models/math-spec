@@ -104,7 +104,7 @@ dispatched on with `isinstance` and read, which is why what ships beside them
 is the walk (`children()`) and not builders. A mask is `Mask`: the language's
 own resolved `where` as its `.root` — the node an engine still dispatches on
 with `isinstance` — and every question derived from it, the way a dimension
-carries `.maps`. `.conjuncts` flattens the `AND` spine and stops at an `OR` or
+carries `.targets`. `.conjuncts` flattens the `AND` spine and stops at an `OR` or
 a `NOT`; `.names_read` gives the declarations the mask names; `.atoms` its
 leaves, connectives removed; and `.dims` the dimensions it is read at — read
 off the leaves, which resolution stamped with their declarations' dims the way
