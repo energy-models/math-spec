@@ -77,14 +77,14 @@ def chosen_expressions(schema: _ExpandedSpec) -> frozenset[str]:
 
     A ``when`` does not move one: a variable there asks whether the variable
     *exists*, which the model settles when it is built. Only a value reaching a
-    variable does — through another named expression too, since
-    :func:`~math_spec.resolution.expression_of` inlines those where the name stood.
+    variable does — through another named expression too, since expansion
+    inlines those where the name stood.
     A ``dual`` moves one for the same reason a variable does: the solve settles
     it, and no data hands it over.
     """
     return frozenset(
         name
-        for name, node in schema.resolved_expressions.items()
+        for name, node in schema.resolved.expressions.items()
         if degree.carries_variable(node) or degree.calls_dual(node)
     )
 

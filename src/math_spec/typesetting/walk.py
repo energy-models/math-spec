@@ -20,7 +20,6 @@ from math_spec._expression_parser import (
     BinaryOperator,
     BinaryOperatorNode,
     CasesNode,
-    ComparisonNode,
     DefinitionNode,
     DimensionNode,
     DualNode,
@@ -52,10 +51,6 @@ from math_spec.program import (
     VariableDefinedNode,
     WhereNode,
 )
-from math_spec.resolution import (
-    expression_of,
-    where_of,
-)
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
 
 if TYPE_CHECKING:
@@ -63,7 +58,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from math_spec.model import SosBlock, _ExpandedSpec
-    from math_spec.resolution import Namespace
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -234,14 +228,12 @@ class Walk:
     def __init__(
         self,
         schema: _ExpandedSpec,
-        namespace: Namespace,
         symbols: Symbols,
         fmt: Format,
         *,
         inline_expressions: bool = False,
     ) -> None:
         self.schema = schema
-        self.namespace = namespace
         self.symbols = symbols
         self.format = fmt
         #: Substitute each plain named expression where it is used, rather than
@@ -256,7 +248,7 @@ class Walk:
         block = self.schema.expressions[name]
         if block.cases:
             return list(block.foreach or ())
-        return self._sorted(dims_of(self.schema.resolved_expressions[name], self.schema, f"expression '{name}'"))
+        return self._sorted(dims_of(self.schema.resolved.expressions[name], self.schema, f"expression '{name}'"))
 
     def _op(self, name: OperatorName) -> str:
         return self.format.operators[name]
@@ -624,8 +616,8 @@ class Walk:
         if block is None:
             return []
         sense = self._op('minimize' if block.sense == 'minimize' else 'maximize')
-        node = expression_of(block.expression, self.schema, self.namespace, 'the objective')
-        assert not isinstance(node, ComparisonNode)
+        node = self.schema.resolved.objective
+        assert node is not None, 'validation resolves the objective the file declares'
         return [Line(label='', left=sense, right=self._expression(node, self._context()))]
 
     def _constraints(self) -> list[Line]:
@@ -633,13 +625,9 @@ class Walk:
 
     def _constraint(self, name: str) -> Line:
         block = self.schema.constraints[name]
-        context = f"constraint '{name}'"
-        node = expression_of(block.expression, self.schema, self.namespace, context)
-        if not isinstance(node, ComparisonNode):
-            msg = f'{context}: expected a comparison, got {type(node).__name__}'
-            raise AssertionError(msg)
+        node, where = self.schema.resolved.constraints[name]
         ctx = self._context(frame=block.foreach)
-        condition = self._condition(ctx, where_of(block.where, self.namespace, context))
+        condition = self._condition(ctx, where)
         return Line(
             label=name,
             left=self._expression(node.left, ctx),
@@ -667,12 +655,12 @@ class Walk:
         """
         if not self.inline_expressions:
             return list(self.schema.expressions)
-        read = self.schema.read_by_the_math
+        read = self.schema.resolved.read_by_the_math
         return [name for name, block in self.schema.expressions.items() if block.cases or name not in read]
 
     def definition(self, name: str) -> Line:
         """The line defining one named expression, ``symbol = body`` over its frame."""
-        node = self.schema.resolved_expressions[name]
+        node = self.schema.resolved.expressions[name]
         frame = self.frames[name]
         ctx = self._context(frame)
         body = (
@@ -735,7 +723,7 @@ class Walk:
         block = self.schema.variables[name]
         ctx = self._context(frame=block.foreach)
         symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
-        where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
+        where = self.schema.resolved.variables[name]
         condition = self._quantifier(list(block.foreach), self._condition(ctx, where))
         lower, upper = block.bounds.lower, block.bounds.upper
 

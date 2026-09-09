@@ -29,7 +29,7 @@ from pydantic import (
     model_validator,
 )
 
-from math_spec._expression_parser import NAME, CasesNode, ComparisonOperator, DefinitionNode
+from math_spec._expression_parser import NAME, ComparisonOperator
 from math_spec.errors import did_you_mean, schema_error
 from math_spec.operators import BUILTIN_NAMES
 
@@ -39,6 +39,8 @@ if TYPE_CHECKING:
     from pydantic import GetJsonSchemaHandler
     from pydantic.json_schema import JsonSchemaValue
     from pydantic_core import CoreSchema
+
+    from math_spec.resolution import Resolved
 
 
 class _StrictBlock(BaseModel):
@@ -662,9 +664,9 @@ class Spec(_StrictBlock):
 
     _label: ClassVar[str] = 'the top level of the file'
 
-    #: The :class:`_ExpandedSpec` built from this model. Owned entirely — written
-    #: and read — by :func:`~math_spec.piecewise.expand_piecewise`; only
-    #: the slot lives here.
+    #: The :class:`_ExpandedSpec` built from this model, at load — it holds
+    #: the resolved trees. Owned entirely — written and read — by
+    #: :func:`~math_spec.piecewise.expand_piecewise`; only the slot lives here.
     _expansion: _ExpandedSpec | None = PrivateAttr(default=None)
 
     #: Which language surface this file is written against. Absent means 0, so
@@ -891,15 +893,13 @@ class Spec(_StrictBlock):
     def _validate_expressions(self) -> Spec:
         """Every expression and where string — after expansion, whose emitted declarations are language too.
 
-        The checkers import this module, so the imports are local.
+        The expansion is what holds the resolved trees, so it is built here
+        for every model, ``piecewise:`` or not. The expander imports this
+        module, so the import is local.
         """
         from math_spec.piecewise import expand_piecewise
-        from math_spec.validation import validate_expressions
 
-        if self.piecewise:
-            expand_piecewise(self)
-        else:
-            validate_expressions(self)
+        _ = expand_piecewise(self).resolved
         return self
 
 
@@ -941,41 +941,12 @@ class _ExpandedSpec(Spec):
         return self
 
     @cached_property
-    def read_by_the_math(self) -> frozenset[str]:
-        """The named expressions the math reads: every entry the objective or a constraint reaches, transitively.
+    def resolved(self) -> Resolved:
+        """Every expression and where string typed, once — what every reader after validation walks.
 
-        Decided by expanding those two positions alone: a bound and a ``where``
-        name no entry, and a piecewise link's expression reaches here through
-        the constraints its expansion emitted. The rest of the ``expressions:``
-        section is read back after a solve and never fed to one
-        (:attr:`~math_spec.program.ExpressionDeclaration.in_math`).
+        Computing it *is* the expression pass, so a model the language refuses
+        raises here; loading forces it, so a spec in hand already holds it.
         """
-        from math_spec.expansion import parse_and_expand
+        from math_spec.validation import validate_expressions
 
-        read: set[str] = set()
-        for name, block in self.constraints.items():
-            parse_and_expand(block.expression, self, f"constraint '{name}'", read=read)
-        if self.objective is not None:
-            parse_and_expand(self.objective.expression, self, 'the objective', read=read)
-        return frozenset(read)
-
-    @cached_property
-    def resolved_expressions(self) -> dict[str, CasesNode | DefinitionNode]:
-        """Each ``expressions:`` entry as the node its name expands to, resolved once for every reader.
-
-        A plain entry is a :class:`~math_spec._expression_parser.DefinitionNode`
-        carrying its name over its body, a cased one a
-        :class:`~math_spec._expression_parser.CasesNode`; every entry either
-        names is inlined where it stood, so a walk over one sees the whole chain.
-        """
-        from math_spec.resolution import Namespace, expression_of
-
-        ns = Namespace.of(self)
-        resolved: dict[str, CasesNode | DefinitionNode] = {}
-        for name in self.expressions:
-            node = expression_of(name, self, ns, f"expression '{name}'")
-            assert isinstance(node, CasesNode | DefinitionNode), (
-                'a named expression expands to the node carrying its name'
-            )
-            resolved[name] = node
-        return resolved
+        return validate_expressions(self)

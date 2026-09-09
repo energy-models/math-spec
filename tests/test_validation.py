@@ -1160,3 +1160,57 @@ def test_a_name_may_open_with_an_underscore():
     )
 
     assert '_reserve' in schema.parameters, 'a leading underscore is a name, as NAME and the schema both say'
+
+
+def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
+    """Loading, lowering and typesetting a model resolve each expression and where string once.
+
+    Every reader after validation — the dim rules, lowering, the typesetter —
+    used to parse, expand and resolve the declaration's text again, so one
+    constraint was resolved four times per load and the trees the readers
+    walked were built apart from the one the language checked (#401). They
+    read the trees validation built now.
+    """
+    from math_spec import resolution, validation
+
+    seen: list[tuple[str, str]] = []
+
+    def recorded(door):
+        def record(*args, **kwargs):
+            seen.append((door.__name__, args[2]))
+            return door(*args, **kwargs)
+
+        return record
+
+    for module in (validation, resolution):
+        for door in (resolution.resolve_expression, resolution.resolve_where_text):
+            monkeypatch.setattr(module, door.__name__, recorded(door))
+
+    spec = to_spec(
+        override(
+            DISPATCH_MODEL,
+            **{
+                'variables.p.where': 'p_max > 0',
+                'expressions.headroom': {
+                    'foreach': ['snapshot', 'generator'],
+                    'cases': {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}},
+                    'otherwise': 'p_max - p',
+                },
+                'constraints.spare': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
+            },
+        )
+    )
+    to_program(spec)
+    to_markdown(spec)
+
+    assert sorted(seen) == [
+        ('resolve_expression', "Constraint 'balance'"),
+        ('resolve_expression', "Constraint 'spare'"),
+        ('resolve_expression', "Named expression 'headroom', case 'opening'"),
+        ('resolve_expression', "Named expression 'headroom', otherwise"),
+        ('resolve_expression', 'The objective'),
+        ('resolve_where_text', "Constraint 'balance'"),
+        ('resolve_where_text', "Constraint 'spare'"),
+        ('resolve_where_text', "Named expression 'headroom', case 'opening'"),
+        ('resolve_where_text', "Variable 'p'"),
+    ], 'every expression and where position once, under the context validation reads it in, and nothing after'
