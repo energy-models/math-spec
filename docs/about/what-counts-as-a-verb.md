@@ -83,7 +83,7 @@ The test cuts both ways.
 - A verb **may not** decide something the language has not stated. `merge`
   passes only because the rules it implements (a shared coordinate space, owned
   math, summed objectives) are written in
-  [file shape](../reference/language/file.md) and not in its docstring.
+  [the file](../reference/language/index.md#the-file) and not in its docstring.
 - A verb **may not** take what a consumer owns. What a sink can ingest, how data
   binds, which solver runs: a function here that answered any of those would
   make every consumer inherit one consumer's limits.

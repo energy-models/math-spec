@@ -143,7 +143,7 @@ python -m math_spec markdown dispatch.yaml
   every expression, every `where` string, every _uncalled_ macro template.
   Where a file does not determine the answer, loading fails and the message
   names the construct and its rewrite
-  ([errors and limits](docs/reference/language/errors.md)). A model that does
+  ([reading a loaded model](docs/reference/language/reading.md#what-the-loader-refuses)). A model that does
   not load does not print either.
 - **One flat namespace, ten rules.** A collision is a load error naming both
   declarations, position decides which kinds of name are legal, and a name's

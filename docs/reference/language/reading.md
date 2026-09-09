@@ -8,6 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 Every other page here says what a _file_ may declare. This one says what a
 consumer gets when it loads one. It is the contract between the language and
 anything that reads the AST: a solver backend, a renderer, a second front end.
+What the loader refuses and advises is here too, since a consumer surfaces both.
 None of it is needed to write a model. These names are the whole of the
 seam:
 
@@ -116,6 +117,75 @@ rather than re-deriving any of these from `.root`, so two cannot disagree
 about what a conjunct, a name or a comparison is. A `Region`'s `when` arrives
 in the same carrier. The node classes a `.root` is built of live in
 `math_spec.program`.
+
+## What the loader refuses
+
+`to_spec` binds no data. It parses the file, expands every `piecewise:` block,
+resolves every name, checks every dim rule and every degree, and reads every
+`where` string and every macro template, the _uncalled_ ones included, before
+it returns a `Spec`.
+Everything the language refuses is refused there, and every message names
+what went wrong, what to write instead, and where it helps, the valid options:
+
+```text
+Constraint 'balance', equation 0: 'p_charge' not found.
+  Variables: ['p', 'soc']
+  Parameters: ['p_max', 'load', 'efficiency']
+Check for typos, or ensure 'p_charge' is declared.
+```
+
+A construct outside the language is refused with the construct and its rewrite
+named, never with a silent fallback.
+
+|                           |                                                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `MathSpecError`           | the root of the tree; everything below is an instance of it                                           |
+| `LanguageError`           | the model: a construct outside the language, a dim set that does not compose, a name nothing declares |
+| `SchemaError`             | the file: an unknown key, a malformed declaration, a bad symbol table                                 |
+| `DimensionError`          | dims that disagree — a constraint whose expression does not equal its `foreach`                       |
+| `PiecewiseExpansionError` | a `piecewise:` block that cannot be expanded                                                          |
+
+Every one of them is the _file_ being wrong, reproducible from the YAML alone.
+A consumer that binds numbers or calls a solver adds its own errors below
+`MathSpecError`, documented on its own pages.
+
+## What the loader advises
+
+Two more things are decidable without data, and each is advice rather than a
+refusal. `ms.advice(model)` returns them as a tuple of `ms.Advice`, each with a
+`kind` (one of `ms.ADVICE_KINDS`: `never-an-axis` or `unbounded`), the
+`subject` declaration it is about, and its `text`; `str()` of one is the
+sentence. The sentences are the language's, so no consumer writes its own.
+From a shell, `python -m math_spec check model.yaml` runs both: a refusal is
+its message on stderr and exit status 1, advice is printed and the status is 0.
+
+**A dimension nothing reaches is never an axis.** Nothing is indexed by it,
+nothing aggregates into it and no lookup targets it, so the note says to
+remove it — or to keep it knowingly, where the declarations that use it are
+still to be written.
+
+**A variable no constraint names, whose bounds leave open the side its
+objective term improves toward, is unbounded for every dataset.** A solver
+says that with a bare `unbounded` naming nothing; the note names the variable
+and the side:
+
+```text
+Variable 'slack' makes this model unbounded: no constraint names it, and
+bounds.lower is -inf, which is the direction a +slack term improves a minimize
+objective in. No data can change that, so the solve would answer `unbounded`
+and name nothing.
+Give it a finite bounds.lower, or the constraint that was meant to define it.
+```
+
+It is advice because a half-written model has the same shape, so `to_spec`
+accepts it. A consumer that does not ask gets the solver's bare answer.
+
+Both halves are needed: a variable held only by its own `bounds:` is ordinary,
+and so is an unbounded one that a constraint names. Where the sign of the
+objective term is _data_, a parameter coefficient, nothing is said. The
+per-coordinate case, where a `where:` mask leaves one slice of a variable with
+no constraint row, is not decidable from the file
+([#229](https://github.com/fluxopt/lpspec/issues/229)).
 
 ## Asking what a program uses
 
