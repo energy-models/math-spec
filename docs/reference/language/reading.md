@@ -6,9 +6,9 @@ SPDX-License-Identifier: CC-BY-4.0
 # Reading a loaded model
 
 The other pages say what a file may declare. This page says what a program gets
-when it loads one. You need none of it to write a model. A **consumer** is a
-program that reads a loaded model, such as a solver backend, a renderer or a
-checker, and it reads the model through these names:
+when it loads one. You need none of it to write a model. It is for whoever writes
+an engine that builds models, a renderer, or a checker, and they read the model
+through two objects:
 
 ```text
 to_spec  →  Spec  →  to_program  →  Program
@@ -16,14 +16,16 @@ to_spec  →  Spec  →  to_program  →  Program
 
 ## `Spec` and `Program`
 
-A `Spec` is what the file says. A `Program` is what the file means. In a
-`Program`, the macros are expanded, each curve has become the declarations it
-stands for, the names are typed, the operators are resolved to nodes, and every
-dimension rule and degree rule is already checked.
+A `Spec` holds the file as written: its `macros:`, its descriptions, and a
+`piecewise:` block as one block. A `Program` holds the model the file builds:
+every macro expanded, every curve turned into the variables and constraints it
+stands for, every name typed, every operator resolved to a node, and every
+dimension and degree rule already checked.
 
-A `piecewise:` block is the construct that makes the two differ. A curve
-[expands](piecewise.md) into weights, a convexity row and one link row per
-tuple, and those declarations are part of the model as much as the typed ones:
+A `piecewise:` block is what makes the two differ. The curve below
+[expands](piecewise.md) into a weight per breakpoint, a convexity row and one
+row per link, and those are as much part of the model as the constraint you
+typed:
 
 ```yaml title="curve.yaml"
 dimensions:
@@ -67,40 +69,40 @@ sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
 `to_program` takes a path, the YAML, a mapping, a `Spec` or a `Program`. Called
-on a `Program`, it returns the same object unchanged, so a consumer that does not
-know which it holds can call `to_program` and be sure of the result.
+on a `Program`, it returns the same object unchanged, so a function that does not
+know which it was handed can call `to_program` and be sure of the result.
 
 | you are                                                                      | take      | because                                       |
 | ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
 | building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved      |
 | reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts, not its text |
 
-A consumer that built from a `Spec` still carrying a curve would build a model
-with declarations missing, and that model solves, with a wrong answer and
-nothing to show why. `Program` is a different type from `Spec`, so the signature
-refuses that mistake.
+An engine that read `spec.constraints` above would build a model with three
+constraints and a variable missing. That model solves, and the answer is wrong
+with nothing to show why. `Program` is a different type from `Spec`, so an
+engine typed to take a `Program` cannot make that mistake.
 
 !!! note "A program cannot answer what the file wrote"
 
     It has no `macros:`, no `description:`, and no link expression. Anything that
     renders is handed what `to_spec` returned.
 
-What a program keeps of a `piecewise:` block is `program.piecewise`: which
-parameters carry the curve, and what the block assumes about the numbers, as a
-`checks` tuple. Each check names the parameters it is about, so the consumer that
-holds the numbers runs it, and `check_message` gives the sentence to raise.
-`ParameterDeclaration.derivation` says how a parameter is filled, and `None`
-means the caller binds it.
+`program.piecewise` keeps what the block assumed about the numbers, such as
+"the breakpoints in `bp_x` increase", as a `checks` tuple. Each check names the
+parameters it is about. The engine, which has the numbers, runs the check, and
+`check_message` gives it the sentence to raise. `ParameterDeclaration.derivation`
+says how a parameter is filled, and `None` means the engine binds it from its
+data.
 
 ## Nodes and masks
 
 You never build a node yourself. The node classes are exported so that you can
-test one with `isinstance` and read it. `children()` walks an expression node's
-operands, and `where_children()` walks a predicate's. No builders ship.
+test one with `isinstance` and read its fields. `children()` walks an expression
+node's operands, and `where_children()` walks a predicate's.
 
 Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate, which
-is the node an engine tests with `isinstance`. The mask answers four more
-questions, so that no consumer works them out again:
+is the node an engine tests with `isinstance`. The mask also answers four
+questions that every engine would otherwise work out for itself:
 
 - `.conjuncts` flattens the `AND` spine, and stops at an `OR` or a `NOT`.
 - `.names_read` gives the declarations the mask names.
@@ -129,29 +131,27 @@ sorted(kind.__name__ for kind in footprint.shapes)  # ['Constant', 'Multiply', '
 ```
 
 Every field is a set. `if footprint.sos_types` asks whether sets appear at all,
-and `2 in footprint.sos_types` asks about one kind. An empty field says that this
-program does not use the construct, never that the construct does not exist. A
-construct admitted to the language later widens one of these sets.
+and `2 in footprint.sos_types` asks about one kind. An empty field means this
+model does not use the construct, not that the construct does not exist.
 
-!!! note "The footprint says what the program uses, and never what to do about it"
+!!! note "The footprint says what the model uses, and never what to do about it"
 
-    Whether your **sink**, which is the solver API or file format a built model is
-    handed to, can take a construct is your question. See
-    [what a solver can take](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
+    Whether your solver or file format can take a construct is your question.
+    See [what a solver can take](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
     Whether a quadratic form is convex is not reported at all, because it depends
     on the numbers.
 
-The footprint stops at the kind of construct. A sink that accepts a window but
-not a wrapped one reads `Window in footprint.shapes`, then walks the tree for the
-detail.
+The footprint stops at the kind of construct. An engine whose solver accepts a
+window but not a wrapped one reads `Window in footprint.shapes`, then walks the
+tree for the detail.
 
 ## Asking whether an axis can be cut
 
-A program that solves one long horizon in short windows has to know whether every
-row of the model is complete inside a single window. Storage carried from one
-snapshot to the next is, as long as neighbouring windows overlap by one row. An
-annual budget never is. The windows solve either way, so nothing later would tell
-you.
+An engine that solves a year in weekly windows has to know whether every row of
+the model fits inside one window. A storage balance that reads the previous
+snapshot does, as long as neighbouring windows overlap by one row. An annual
+emissions cap does not, because it sums over all 52 weeks. The windows solve
+either way, so nothing later would tell you.
 
 ```python
 program.separability['bp'].windowable  # False
@@ -197,12 +197,12 @@ window, and both are models somebody means.
 
 ## Writing a spec back out
 
-A `Spec` goes back out two ways, and they agree. `to_dict()` is the spec as plain
-data, and `to_yaml()` is that dict as the file a reviewer reads. Both reproduce
-the model: `to_spec(spec.to_dict()) == spec`, and the same through `to_yaml()`.
-So a model built as a `dict` still gets a file.
+`spec.to_dict()` returns the spec as plain data, and `spec.to_yaml()` returns
+that data as a file. Both round-trip: `to_spec(spec.to_dict()) == spec`, and the
+same through `to_yaml()`. So a model that a library assembled as a `dict` still
+gets a file for a reviewer to read.
 
-A value is written and an absence is not. A default is a fact the reviewer reads,
-so `domain: continuous` is written out. A null, an infinite bound and a section
-that declares nothing are not. An empty list is a value: `foreach: []` is a
-scalar declaration, and it stays.
+`to_yaml()` writes every value and omits every absence. `domain: continuous` is
+written out, because a reviewer should see the default. A `null`, an infinite
+bound and an empty section are left out. `foreach: []` is written, because an
+empty list is a value: it says the declaration is a scalar.

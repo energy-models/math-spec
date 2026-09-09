@@ -22,8 +22,8 @@ and `description`. Any subset of the ten is accepted.
 | `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                                      |
 
 A file with no `objective` is a **feasibility problem**: it asks whether the
-constraints can all be met. It loads and solves like any other model, and a
-consumer reports a zero objective for it.
+constraints can all be met. It loads and solves like any other model, and the
+solver reports an objective of zero.
 
 ## `description`
 

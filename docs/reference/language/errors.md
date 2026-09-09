@@ -36,8 +36,8 @@ silently.
 Two more things can be decided without data, and each is advice rather than a
 refusal. `ms.advice(model)` returns them as a tuple of `ms.Advice`. Each carries a
 `kind`, which is `never-an-axis` or `unbounded`, the `subject` declaration it is
-about, and its `text`. `str()` on one gives the sentence, and the sentences belong
-to the language, so no consumer writes its own.
+about, and its `text`. `str()` on one gives the sentence, and every program that
+shows advice shows this same sentence.
 
 From a shell, `python -m math_spec check model.yaml` runs both. A refusal prints
 to stderr and exits with status 1. Advice prints, and the status is 0.
@@ -80,13 +80,13 @@ constraint row cannot be decided from the file
 | `PiecewiseExpansionError` | A `piecewise:` block that cannot be expanded                                                                                     |
 
 Every one of these means the file is wrong, and every one is reproducible from
-the YAML alone. A consumer that binds numbers or calls a solver adds its own
+the YAML alone. An engine that binds numbers or calls a solver adds its own
 errors below `MathSpecError`, and documents them itself.
 
 ## What the language will not express
 
-None of these is an unimplemented feature. Each is a boundary the design keeps,
-and [the limits](../../about/limits.md) is the argument for where it sits.
+None of these is a feature waiting to be written. Each was asked for and refused,
+and [the limits](../../about/limits.md) gives the reasons.
 
 | Not in the language                                                            | Instead                                                                                                                                                             |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -102,12 +102,13 @@ and [the limits](../../about/limits.md) is the argument for where it sits.
 | filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if the coordinate should not exist. Inside the language, only `shift(..., edge=)` fills ([absence](absence.md))                      |
 | schema migrations                                                              | —                                                                                                                                                                   |
 
-A model built partly in Python has no readable `.yaml` form. The strings could
-not make the round trip: `expression:` and `where:` come back as unnamed arrays,
-which would build the same model and would not be a file anyone can review. A
-framework that emits declarations passes a dict, and gets `to_yaml()` back.
+A model built with linopy or Pyomo calls cannot be turned into a `.yaml` file.
+The arrays it holds would build the same model, but an `expression:` string and a
+`where:` string cannot be recovered from them, so the result would be nothing a
+reviewer could read. A library that wants a file passes a `dict` with the file's
+keys to `to_spec`, and calls `to_yaml()`.
 
-Math the language cannot express is meant for an `escape:` block: Python, named
-in the file, that emits the rows the language cannot state, capped by a label
-budget before it runs. It is
+For math the language cannot express, an `escape:` block is planned: Python,
+named in the file, that emits the rows the language cannot write, with a cap on
+how many rows and columns it may emit checked before it runs. It is
 [#38](https://github.com/fluxopt/lpspec/issues/38), and it has not shipped.

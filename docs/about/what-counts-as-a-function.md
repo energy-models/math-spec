@@ -5,82 +5,70 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # What counts as a function
 
-[What counts as language](what-counts-as-language.md) says which rules belong
-here. [The limits](limits.md) say which constructs may enter. This page says
-which **functions** may enter the public API, and it keeps the API small while
-the language becomes more capable.
+This page says which functions may join the public API. It exists so that the
+API stays small while the language grows.
 
-A function is admissible when both of these are true:
+A function may join when both of these hold:
 
-> Every decision the function makes is a decision the language has already
-> stated. And the function needs nothing but the file to make that decision.
+> Everything the function decides, the language has already written down. And
+> the function needs nothing but the file to decide it.
 
-The first clause refuses a function that holds a rule of its own. A rule with a
-second home drifts from the first, and a rule reachable only by calling a function
-is one that a second consumer, in any language, cannot implement. The second
-clause refuses a function that needs data, a solver, a network, a plugin or a
-clock. If the answer depends on something outside the file, the function cannot
-be part of a contract about the file.
+The first half refuses a function that carries a rule of its own. If
+`to_program` decided that a masked variable reads as zero, and no page said so,
+then an engine written in another language could not know it. The second half
+refuses a function that needs data, a solver, the network or a clock. Its answer
+would change from one run to the next, so it cannot be part of what the file
+means.
 
-## What makes this API more capable
+## What makes this package more useful
 
-This package builds nothing and solves nothing. Its value is what a **second
-consumer** can build on top of it, so a small API that a dozen programs read is
-worth more than a wide one that one program uses.
+This package builds nothing and solves nothing. Its value is what other programs
+build on it, so a small API that a dozen programs read is worth more than a wide
+one that one program uses.
 
-The largest capability this API can gain is not a function. It is the `Program`
-becoming a value that another language can read: one serialisation format, and
-every consumer outside Python stops needing its own implementation of the
-language.
+The largest gain available is not a function. It is writing a `Program` out in a
+format another language can read. Then an engine in Julia or Rust reads the
+resolved tree instead of re-implementing the parser and every rule behind it.
 
-## Where the API grows
+## New capability arrives as a declaration
 
-The usual way this package becomes more capable is a new **declaration**, not a
-new function. `cases:`, `piecewise:` and `sos:` each cost the API nothing. A
-capability that arrives as a declaration can be inspected, printed, diffed and
-serialised, because those are properties of the file. The same capability as a
-callback, a hook or a registry entry has none of them. So a feature that can be a
-declaration is one.
+`cases:`, `piecewise:` and `sos:` each added a capability and no function. A
+declaration can be read, printed, diffed and written back out, because it is
+part of the file. A callback or a plugin cannot be reviewed in a diff, cannot be
+printed as math, and cannot cross into another language. So a feature that can
+be a declaration is one.
 
-## Three properties every function keeps
+## What every function keeps
 
-- **Pure.** No state, no registry, no plugin system, and no configuration that
-  changes what a model means. `symbols=` shows the shape a legitimate option
-  takes: it changes how a model prints and nothing about what it says, which is
-  why the typesetter takes such an option and the loader does not.
-- **Total at load.** A function either returns a value or raises an error that
-  names the rewrite. There is no half-built value, and no warning a caller can
-  ignore into a wrong answer. `Advice` is not a third outcome: it talks about a
-  file the language accepts, and never changes what the file means.
-- **Closed under composition.** Calling `to_spec` or `to_program` on its own
-  result returns the same object unchanged, so a caller that does not know which
-  value it holds can call either one. A function that combines fragments would
-  have to give a single fragment back unchanged and combine associatively, and
-  one call shows nothing about that property, so the function has to earn it in
-  its tests.
+- **No state.** No registry, no plugin, and no setting that changes what a
+  model means. `symbols=` on the typesetter is the shape a legitimate option
+  takes: it changes how `load` prints and nothing about what `load` is.
+- **A value or an error, and nothing between.** `to_spec` either returns a
+  `Spec` or raises an error that names the rewrite. It never returns a
+  half-built value with a warning attached. `advice()` is separate: it talks
+  about a file the language accepts, and changes nothing.
+- **Safe to call again.** `to_program(program)` returns `program` unchanged, so
+  a caller that does not know whether it holds a `Spec` or a `Program` can call
+  it either way.
 
-## What a function must and must not decide
+## Three things a function never decides
 
-- A function must not decide something the language has not stated.
-- A function must not take over what a consumer owns. Three questions are the
-  consumer's: what its **sink** can take, which is the solver API or file format
-  a built model is handed to; how data binds; and which solver runs. A function
-  that answered any of them would make every consumer inherit one consumer's
-  limits.
-- The language must not refuse a function only because it is new. A pure
-  function of the file that states no rule of its own costs nothing to add and
-  nothing to keep.
+- What one solver or file format can take. That is the engine's question.
+- How the numbers bind to the names. That is the engine's too.
+- Which solver runs.
+
+A function that answered any of these would push one engine's limits onto every
+other.
 
 ## What this refuses
 
-| Asked for                                         | Why                                                            |
-| ------------------------------------------------- | -------------------------------------------------------------- |
-| A Python API for constructing models              | the model is the file you review and diff                      |
-| A hook, a callback, a registry, a plugin          | not reviewable, not printable, not serialisable                |
-| A function that binds data or reaches a solver    | the second clause of the test; that work is a consumer's       |
-| A configuration that changes what a file means    | two callers would then read one file two ways                  |
-| A function whose answer a declaration could carry | a declaration can be inspected, printed, diffed and serialised |
+| Asked for                                        | Why                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| A Python API for building models                 | The model is the file you review and diff                           |
+| A hook, a callback, a registry, a plugin         | Cannot be diffed, printed or read from another language             |
+| A function that binds data or calls a solver     | Needs more than the file                                            |
+| A setting that changes what a file means         | Two callers would read one file two ways                            |
+| A function whose answer a declaration could give | A declaration can be diffed, printed and read from another language |
 
-A capability that somebody needs, that this test refuses, and that cannot be
-reshaped into a declaration is evidence against this page, not an exception to
-it. A rule that nothing could show wrong is a preference.
+If somebody needs a capability, this test refuses it, and it cannot be written
+as a declaration, then this page is wrong and should change.

@@ -7,10 +7,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 These four blocks carry the math. Each takes an optional `description:`.
 
-A description is free text with no length limit. It is part of the loaded model,
-so it reaches every program that reads the model, where a `#` comment is thrown
-away. The [typeset](../typeset.md) legend prints the description of a
-dimension, a parameter or a variable.
+A description is free text with no length limit. The parser throws a `#` comment
+away, but keeps a description, so a renderer or a checker can print it. The
+[typeset](../typeset.md) legend prints the description of every dimension,
+parameter and variable.
 
 A description is **plain prose, with one piece of notation**. A name in
 backticks, such as `` `capital_cost` ``, sets in monospace in every output
@@ -21,10 +21,10 @@ on a line", not "flow on line $\ell$".
 
 ## `parameters`
 
-A parameter declares a shape and nothing more. The numbers bind by name, in the
-program that builds the model. Where a dimension's members come from, what order
-they stand in, and that a table carries each coordinate at most once are decided
-by the language, not by that program. See [dimensions](dimensions.md).
+A parameter declares a shape and nothing more. The engine that builds the model
+supplies the numbers, by name, from its own tables. How the engine reads those
+tables is fixed by [three rules](dimensions.md#where-the-members-come-from) that
+every engine follows.
 
 ```yaml
 dimensions:

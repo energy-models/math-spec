@@ -272,8 +272,8 @@ error when the data binds, for the same reason as above.
 
 ## Named expressions
 
-A named expression is a quantity the model names once. The math may read it, and
-a consumer may read its value back after a solve:
+A named expression is a quantity the model names once. A constraint or the
+objective may use it, and the engine can report its value after a solve:
 
 ```yaml
 dimensions:

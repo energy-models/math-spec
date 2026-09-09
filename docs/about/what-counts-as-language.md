@@ -5,55 +5,59 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # What counts as language
 
-More than one program reads a model file. Those programs are the model's
-**consumers**: an engine that builds it, a renderer that prints it, a checker
-that judges it without data. One question decides which rules belong to the
-language and which belong to a consumer:
+Several programs read the same model file. An engine builds the model and hands
+it to a solver. A renderer prints it as equations. A checker reads it in CI with
+no data. This page says which decisions the language makes for all of them, and
+which each program makes for itself.
 
-> A rule belongs to the language when it would be a bug for two consumers to
-> answer it separately.
+The test is one question:
 
-Whether the rule is about syntax does not decide it, and neither does whether it
-applies before the model runs. Where two consumers can reasonably give different
-answers, the question belongs to each of them. Where two different answers would
-mean the file says two different things, the question belongs to the language,
-and one answer is allowed.
+> If two programs answered this differently, would the file have two meanings?
 
-Four rules follow from that:
+Suppose the engine sums `p` over `generator` and the renderer prints a sum over
+`snapshot`. The file now means two things, and that is a bug. So the language
+decides what `sum(p, over=generator)` means, and both programs read the answer
+instead of working it out.
 
-- A name resolves once.
-- The set of operators is closed.
-- The dimension rule for an operator has one home. A consumer asks for the
-  answer instead of working it out again.
+Suppose instead that the engine writes the model in one solver's file format and
+the renderer sets the page width to 80 characters. They disagree, and nothing is
+wrong. Each program decides those things for itself.
+
+Four rules follow from the test:
+
+- A name means one thing. `p` cannot be a variable in the engine and a parameter
+  in the renderer.
+- The set of operators is fixed. A program cannot add a `roll` that the others
+  do not know.
+- Each operator has one rule for the dimensions it produces. `sum(p, by=gen_bus)`
+  lands on `bus` for every program.
 - Degree is decided when the file loads. Whether `x * y` is allowed does not
-  depend on what builds the model.
+  depend on which engine builds the model.
 
-A block that expands into declarations, such as `piecewise:`, is part of the
-language too, because the declarations it emits are.
+A `piecewise:` block expands into ordinary variables and constraints, so the
+language decides that expansion too. Otherwise two engines could build two
+different curves from one block.
 
-## Which rules belong to one consumer
+## What each program decides for itself
 
-The question runs the other way as well, and that stops it from pulling in
-everything. A consumer can refuse a model because its own representation cannot
-hold what the model asks for: an offset that must be a literal, a grouping that
-must name a lookup declared already, a set that the solver has no concept of. A
-second opinion about such a limit is not a bug. If the limit moved into the
-language, every consumer would inherit the limits of the most restricted one.
+A program can refuse a model for a reason of its own. One engine can only take
+a literal offset in `shift`. Another has no concept of a special-ordered set. A
+file format has no way to write a quadratic constraint. None of these is a
+disagreement about what the file means, so none of them is the language's to
+settle. If the language refused everything one program cannot build, every
+other program would inherit that limit.
 
-So two rules follow, one for each side:
+So the boundary runs both ways:
 
-- A consumer must not state a rule about the _language_ that another consumer
-  then has to state again.
-- The language must not state a rule about what a _consumer_ can represent.
+- A program must not invent a rule about what the file _means_. If it needs
+  one, the rule goes into the language, once.
+- The language must not state a rule about what one program can _build_.
 
-Accepting a model is therefore not the same as building it. A model that every
-consumer accepts can still be one that not every consumer can build.
+A file that every program accepts can still be a file that one engine cannot
+build. Accepting and building are different steps.
 
 ## How this differs from the limits
 
-[The limits](limits.md) answer which constructs may enter the language at all,
-and sort each new construct into a macro, a primitive, a formulation or an
-`escape:`. This page
-answers who owns a rule once the construct is in. A construct can pass the limits
-and still not be the language's business, and a rule can belong to the language
-while the construct it governs is refused. Ask both questions, in that order.
+[The limits](limits.md) answer a different question: which operators and blocks
+may be added to the language at all. This page answers who decides a rule once
+the operator or block exists. Ask the limits first, then this page.

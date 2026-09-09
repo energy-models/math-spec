@@ -24,10 +24,10 @@ expressions:
 objective: { sense: minimize, expression: system_cost }
 ```
 
-`system_cost` is in the math: the objective inlines it, so its body stands inside
-the program a solver sees. `delivered` and `lcoe` are reported: nothing in the
-objective or a constraint names them, so no solver sees them, and a consumer
-reads their values back after a solve.
+`system_cost` is in the math: the objective uses it, so the solver sees its body.
+`delivered` and `lcoe` are reported: no constraint and no objective uses them, so
+the solver never sees them, and the engine computes them from the solution
+afterwards.
 
 ## Which entries are in the math
 
@@ -44,7 +44,7 @@ variable in it, such as `(1 + rate) ** period`, is reported all the same.
 Deciding by use costs one thing: an entry meant for a constraint, and never named
 there, loads as a reported quantity instead of failing.
 
-A consumer reads the answer at `Program.named_expressions[name].in_math`.
+An engine reads the answer at `Program.named_expressions[name].in_math`.
 
 ## Which restrictions do not apply
 
@@ -106,20 +106,19 @@ under the model's own `minimize` or `maximize`. A solver that normalises signs
 its own way reconciles its representation, not the language's.
 
 A row that a constraint's `where:` deletes has no dual, so `dual(c)` has no
-value there. A solve may also return no dual for a row that would carry one in a
-pure linear model, such as a row in a model with integer variables or a
-reformulated set. The language refuses none of these at load, because what a
-solver returns is [not the language's limit](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
-A missing dual is an absence the consumer names, not a value the language
-promises.
+value there. A solver may also return no dual for a row that would have one in a
+pure linear program: a model with integer variables, or a set rewritten as
+binaries. `to_spec` refuses none of these, because
+[what a solver returns is not the language's limit](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
+Where the solver returns no dual, the engine reports no value.
 
-## How a consumer reads a reported entry
+## How an engine reads a reported entry
 
-A reported entry's value is read back over its own dimensions, which fall out of
-its body, so there is no `foreach` and no `where`. Where a masked row leaves a
-solved quantity absent, the reported value is absent there too. See
+A reported entry has the dimensions of its body, so there is no `foreach` and no
+`where`. Where a masked row leaves a solved quantity absent, the reported value
+is absent there too. See
 [absence](absence.md#reported-values-follow-the-rows-that-were-built).
 
-Nothing in this package evaluates a reported body. The language says what the
-number is and which entries the math reads. Computing the number is a
-[consumer's](../../about/what-counts-as-language.md) work.
+Nothing in this package computes a reported value. The language says what the
+number is and which entries the math uses. The engine computes it from the
+solution.

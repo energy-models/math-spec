@@ -138,10 +138,10 @@ A missing parameter row can leave a row with nothing to decide, such as
 in that shape. An expression that names no variable _in the file_ is a different
 case, and it is refused at load, where the message can quote the line.
 
-The rows that were not built are the consumer's to report. They include the rows
-lost to a mask, to a spread absence and to this rule. The first row of a
-recurrence is among them, and it is the boundary of the recurrence rather than a
-bug.
+The engine that builds the model is the one that knows which rows it did not
+build, so it is the engine that reports them: rows lost to a mask, to a deleted
+variable, and to this rule. The first row of a storage balance is always among
+them, and that is the start of the recurrence rather than a bug.
 
 ## Reported values follow the rows that were built
 

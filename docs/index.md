@@ -73,13 +73,13 @@ and the file prints as the math it stands for.
     and no second source of truth. It answers _does this YAML say what I meant_
     before anything is bound or solved.
 
-- :material-source-branch: **One rule per question**
+- :material-source-branch: **One answer per question**
 
     ***
 
-    A rule belongs to the language when two programs reading the same file would
-    be wrong to answer it separately. That question decides who owns an answer:
-    the language, or the program reading it.
+    An engine, a renderer and a checker read the same file. Wherever they could
+    disagree about what it means, the language decides once, and all three read
+    the answer. What each solver can take, each engine decides for itself.
 
 </div>
 
@@ -220,12 +220,12 @@ choice, and **How** shows the one made here.
 
 <!-- home-math:end -->
 
-### How a consumer reads it
+### How a program reads it
 
 --8<-- "README.md:load"
 
-[Reading a loaded model](reference/language/reading.md) says what a program gets
-when it loads a model. Nothing a program does changes what the file means.
+[Reading a loaded model](reference/language/reading.md) says what an engine, a
+renderer or a checker gets when it loads a model.
 
 ## Where to next
 
@@ -263,8 +263,8 @@ when it loads a model. Nothing a program does changes what the file means.
 
     ***
 
-    What a program gets when it loads a model: a solver backend, a renderer, a
-    second front end.
+    What an engine, a renderer or a checker gets when it loads a model, and
+    which of the two objects each should read.
 
     [:octicons-arrow-right-24: Reading a loaded model](reference/language/reading.md) ·
     [Python API](reference/math_spec/validation.md)
@@ -278,12 +278,12 @@ when it loads a model. Nothing a program does changes what the file means.
 
     [:octicons-arrow-right-24: The limits](about/limits.md)
 
-- :material-scale-balance: **Who owns a rule**
+- :material-scale-balance: **Who decides what**
 
     ***
 
-    Which rules belong to the language, which belong to the program reading the
-    model, and the second rule that keeps the first from covering everything.
+    Which decisions the language makes for every program that reads a file,
+    and which each engine makes for itself.
 
     [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)
 

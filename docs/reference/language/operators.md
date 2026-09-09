@@ -44,7 +44,8 @@ An operand that is already scalar, and an `over=` naming a dimension the operand
 does not carry, are both errors rather than no-ops.
 
 `sum(x, by=l)` sums along a [lookup](dimensions.md#lookups) and lands the result
-on the dimension the lookup maps into. That is how topology stays data:
+on the dimension the lookup maps into. A nodal balance is one `sum(by=)` per
+kind of component, and the network's wiring stays in the lookup tables:
 
 ```yaml
 dimensions:

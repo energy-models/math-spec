@@ -23,11 +23,11 @@ language: a schema closed at every level, two small grammars, every check that
 can run before a number is bound, and a typesetter that prints the file as the
 math it stands for.
 
-It builds nothing and solves nothing. It hands a program a checked syntax tree
-with one answer per question, so that an engine, a renderer and a checker reading
-the same file cannot disagree about what it says. A question belongs here when
-two programs answering it separately would be a bug, and that is the whole
-[test](docs/about/what-counts-as-language.md).
+It builds nothing and solves nothing. An engine, a renderer and a checker all read
+the same file through it, and get the same checked syntax tree, so they cannot
+disagree about what the file means. Where they could have disagreed, the language
+decides once; that is the whole
+[test](docs/about/what-counts-as-language.md) for what belongs here.
 
 Three properties follow, and each is a page:
 
@@ -116,8 +116,9 @@ sorted(program.constraints)  # ['power_balance']
 ```
 
 Neither needs data or a solver, so a repository of models compiles in CI with
-nothing bound to any of them. **`Spec` is what the file says, and `Program` is
-what it means.** A consumer that builds reads the second.
+nothing bound to any of them. **A `Spec` holds the file as written, and a
+`Program` holds the model it builds**, with every macro expanded and every curve
+turned into its variables and constraints. An engine reads the second.
 
 <!--- --8<-- [end:load] -->
 
@@ -160,11 +161,11 @@ python -m math_spec markdown dispatch.yaml
   is fixed at load. The [ten rules](docs/reference/language/index.md) are one
   principle in ten positions.
 - **A closed operator set.** `sum`, `sum_back`, `at` and `shift`, with the
-  arithmetic and `where` grammars. A composition goes in `macros:`, which costs
-  nothing at build and cannot differ between consumers.
-- **A finite language.** A primitive is admissible when it is relational and
-  local, and the set of them is closed. Math the language cannot express is
-  refused with its rewrite named.
+  arithmetic and `where` grammars. A composition of them goes in `macros:`, so
+  every engine expands it the same way.
+- **A finite language.** An operator joins the language only if each output row
+  reads a bounded number of input rows, and a file cannot add one. Math the
+  language cannot express is refused, with the rewrite named.
 
 ## Docs
 

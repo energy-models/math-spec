@@ -26,44 +26,45 @@ Every dimension named anywhere in the file is declared here.
 | `dtype`       | `float`, `int`, `str`, `datetime` | default `str`  |
 | `description` | free text, never parsed           | default `null` |
 
-A declaration says that the axis exists and how its coordinates are typed. It
-never lists the coordinates. The members are data, and they arrive with the
-data. In a real model the generators, buses and snapshots are a table, not a
-list somebody keeps in step by hand.
+A declaration says that the axis exists and what type its labels have. It never
+lists the labels. The generators, buses and snapshots arrive with the data, as a
+table, not as a list somebody keeps in step by hand.
 
 ### Where the members come from
 
-Three rules decide which model a file and a table make together. Two programs
-that answered any of them differently would build different models from the
-same inputs, so the rules belong to the language. A program that reads a model
-implements them, and does not choose them.
+The engine that binds the data follows three rules, and every engine follows the
+same three. So two engines given the same file and the same tables build the
+same model.
 
-1. **The members come from the dimension's own source.** They are read from
-   the key named after the dimension, and from nowhere else. A parameter's
-   table is read for values, never for labels, and a lookup's map is not a
-   claim about which members exist. A dimension that a declaration reaches and
-   that nothing supplies is an error naming the dimension, not an empty axis.
-   An empty axis would silently delete every row indexed by it. A declared
-   dimension that no declaration reaches needs no source.
-2. **The members keep the order the source gives them.** They are not sorted,
-   whatever their type. [`shift`](operators.md#shift), `sum_back` and
-   `position()` all count along this order, so a consumer that sorted the axis
-   would answer `shift(p, over=snapshot, offset=1)` with a different row. A
-   model that wants a particular order states it in the source.
-3. **A table carries each coordinate at most once.** A second row for one
-   coordinate is an error that names the coordinate. It is never last-wins,
-   first-wins or a sum. _At most_ once, not exactly once: a coordinate with no
+1. **The members come from the key named after the dimension.** An engine reads
+   `generator` from the `generator` table, and from nowhere else. It reads
+   `p_max` for its values, never for its list of generators, and it does not
+   treat `gen_bus` as the list either. If a declaration uses `generator` and
+   no `generator` table arrives, the engine raises an error that names
+   `generator`. It does not build an empty axis, because an empty axis would
+   silently delete every row indexed by it. A declared dimension that no
+   declaration uses needs no table.
+2. **The members keep the order the table gives them.** The engine does not
+   sort them, whether they are strings, integers or dates.
+   [`shift`](operators.md#shift), `sum_back` and `position()` all count along
+   this order, so an engine that sorted `snapshot` would give
+   `shift(p, over=snapshot, offset=1)` a different meaning. To get a
+   particular order, write the table in that order.
+3. **A table has each coordinate at most once.** Two rows for `snapshot == 3`
+   is an error that names `3`. The engine does not keep the last, keep the
+   first, or add them. _At most_ once, not exactly once: a coordinate with no
    row is [absence](absence.md), and absence is how a model masks. A lookup's
-   map obeys the same rule.
+   table obeys the same rule.
 
-Every dimension has one coordinate set, and every parameter is reindexed onto it
-when the data binds. So two tables that disagree about which snapshots exist
-raise an error, rather than build a truncated model.
+Every dimension has one list of members, and every parameter is lined up against
+it when the data binds. So if `load` has 8760 snapshots and `price` has 8759, the
+engine raises an error rather than build a model with one snapshot dropped.
 
 ## `lookups`
 
-A lookup makes topology into data. A generator sits on a bus, and a line has two
-ends, and no adjacency matrix appears in the file.
+A lookup is how the network's wiring stays in the data. Which bus each generator
+sits on, and which two buses each line joins, are lookup tables, and the file
+holds no adjacency matrix.
 
 Declare each lookup under its own name. `over:` names the dimension whose
 members carry the value. **Exactly one** of `into:` and `dtype:` says which

@@ -478,6 +478,47 @@ is cut, however true it is.
 either tells them something they can act on, or goes. A page that only a
 maintainer can follow has failed, whatever rule it obeys.
 
+### Concrete before abstract
+
+A sentence can obey every rule below and still say nothing the reader can
+picture. This one does:
+
+> Where two different answers would mean the file says two different things, the
+> question belongs to the language, and one answer is allowed.
+
+Its subjects are "answers", "the question" and "one answer". Nobody in it does
+anything. The reader has to supply the engine, the renderer, the file and the
+disagreement themselves, and most will not. The same fact, written so that it
+can be pictured:
+
+> Suppose the engine sums `p` over `generator` and the renderer prints a sum
+> over `snapshot`. The file now has two meanings, and that is a bug. The rule
+> that stops it belongs to the language.
+
+Four rules make the difference, and they come before every rule under
+[Sentences](#sentences):
+
+- **The subject of a sentence is a person, a program or the file.** "You",
+  "the engine", "the renderer", "the solver", "`to_spec`", "the file", "the
+  table". Not "the question", "the rule", "the answer", "the construct", "the
+  limit" or "the difference". Where an abstract noun is the subject, ask who is
+  acting, and name them.
+- **Every general statement is followed by its instance, or replaced by it.** A
+  principle without an example is a sentence the reader has to trust. "Absence
+  spreads through arithmetic" is followed by `x + y` losing its row at `old`.
+  If no instance exists, the statement is cut.
+- **Write the common word.** "Decided by", not "belongs to". "Program", not
+  "consumer", except where the term is being defined. "Is wrong", not "is a
+  bug in the contract". "Reads", "prints", "builds", "refuses". A reader who
+  knows YAML and a solver, and nothing about this project, has to follow every
+  sentence without looking anything up.
+- **Read each sentence back and ask: could the reader draw it?** A sentence
+  about a file, a table, a row or a program, doing one thing, can be drawn. A
+  sentence about a rule owning a question cannot. Rewrite until it can.
+
+A paragraph of short abstract sentences is not plain. It is the same abstraction
+cut into pieces, and it is harder to read than one long concrete sentence.
+
 ### Sentences
 
 - **Put the fact first**, with no build-up to it.
@@ -507,7 +548,8 @@ maintainer can follow has failed, whatever rule it obeys.
 - **One thought per sentence.** The em dash that carries a turn, the appositive
   that carries a second thought and the tail that qualifies the claim each read
   as one sentence and parse as three. A sentence carrying three commas is two
-  sentences.
+  sentences. This rule does not license a run of short abstract sentences; see
+  [Concrete before abstract](#concrete-before-abstract).
 - **"when both of these are true", not "if and only if".**
 - **Never grade the language.** "says what it means", "reads naturally", "just
   works", "as you would expect", "elegantly" — the reader can neither check nor
