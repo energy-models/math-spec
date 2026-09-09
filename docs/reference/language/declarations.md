@@ -11,11 +11,14 @@ it is part of the loaded model, so it reaches everything downstream: the
 [typeset](../typeset.md) legend prints the one on a dimension, parameter or
 variable.
 
-A description is **plain prose, in no notation**. Every output format sets the
-same words as text, escaping whatever its own syntax would otherwise read as
-markup — an underscore stays an underscore, and a `$\ell$` prints as those five
-characters rather than as a symbol. Write the thing rather than its symbol —
-"flow on a line", not "flow on line $\ell$".
+A description is **plain prose, with one piece of notation**: a name in
+backticks sets in monospace, in every output format alike, which is how a
+declaration says what it stands for on the other side — `` `capital_cost` ``,
+`` `Generator-p_nom` ``. Everything else is text: every format escapes whatever
+its own syntax would otherwise read as markup — an underscore stays an
+underscore, and a `$\ell$` prints as those five characters rather than as a
+symbol. Write the thing rather than its symbol — "flow on a line", not "flow on
+line $\ell$".
 
 ## `parameters`
 

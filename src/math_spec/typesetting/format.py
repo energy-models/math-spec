@@ -9,11 +9,12 @@ The split, and each module's role in it, are in ``README.md`` beside this file.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, get_args
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
 #: The language a symbol table's entries are written in, and the one a format
 #: reads them as. Markdown is absent because its math is MathJax's, so it reads
@@ -136,6 +137,21 @@ class Glossary:
     entries: list[Entry]
 
 
+#: The one notation author prose carries: a name in backticks, set in monospace.
+_CODE_SPAN = re.compile(r'`([^`]+)`')
+
+
+def escaped(prose: str, text: Callable[[str], str], mono: Callable[[str], str]) -> str:
+    """*prose* with every backtick span set by *mono* and everything between by *text*.
+
+    The split behind every format's :meth:`Format.escape`, so that a
+    ``description:`` means the same in all three. An unpaired backtick is a
+    character, and *text* is asked to escape it.
+    """
+    pieces = _CODE_SPAN.split(prose)
+    return ''.join(mono(piece) if i % 2 else text(piece) for i, piece in enumerate(pieces))
+
+
 class Format(Protocol):
     """How one output format spells what a walk emits."""
 
@@ -179,7 +195,12 @@ class Format(Protocol):
         ...
 
     def escape(self, prose: str) -> str:
-        """Author prose — a ``description:`` — made safe for this format's text mode."""
+        """Author prose — a ``description:`` — made safe for this format's text mode.
+
+        A backtick span is the one notation a description carries, and sets as
+        :meth:`mono`; every other character is text. :func:`escaped` is the
+        split every format shares.
+        """
         ...
 
     def math(self, expression: str) -> str:

@@ -5,7 +5,7 @@
 \allowdisplaybreaks
 \begin{document}
 
-\noindent every character a notation escapes, set as text: link\_to, 100\% \& \#1 costs \$5 \{net\} \textasciitilde{} \textasciicircum{} \textbackslash{} *star* @ref <label>
+\noindent every character a notation escapes, set as text: link\_to, 100\% \& \#1 costs \$5 \{net\} \textasciitilde{} \textasciicircum{} \textbackslash{} *star* @ref <label>, and \texttt{a\_name} in backticks set in code
 
 \paragraph{Sets}
 \begin{description}

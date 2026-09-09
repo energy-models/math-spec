@@ -90,7 +90,7 @@ objective:
   expression: sum(p * cost)
 ```
 
-Unit commitment with a start-up ramp, the formulation \`cases:\` exists for. The state a unit carries into a snapshot has three regimes — a unit that is never off, the first snapshot, and every later one — and writing them at the constraint would fork \`ramp\_up\` three ways. With the regimes named once, the inequality is written once.
+Unit commitment with a start-up ramp, the formulation `cases:` exists for. The state a unit carries into a snapshot has three regimes — a unit that is never off, the first snapshot, and every later one — and writing them at the constraint would fork `ramp_up` three ways. With the regimes named once, the inequality is written once.
 
 #### Sets
 

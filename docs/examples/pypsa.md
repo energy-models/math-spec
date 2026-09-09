@@ -1217,7 +1217,7 @@ concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 ## The file
 
 <!-- gallery:begin -->
-The model a plain \`n.optimize()\` builds, stated in one file. Every declaration is named \`Component\_attribute\` after the PyPSA statement it stands for, and each constraint's description opens with the linopy name PyPSA gives that row, so the two can be read side by side. PyPSA's regimes — extendable, committable — are data columns and become \`where:\` masks. Bounds are the explicit rows PyPSA writes, so their duals are row duals. Parameters no PyPSA table carries verbatim are computed in data prep and say so in their description.
+The model a plain `n.optimize()` builds, stated in one file. Every declaration is named `Component_attribute` after the PyPSA statement it stands for, and each constraint's description opens with the linopy name PyPSA gives that row, so the two can be read side by side. PyPSA's regimes — extendable, committable — are data columns and become `where:` masks. Bounds are the explicit rows PyPSA writes, so their duals are row duals. Parameters no PyPSA table carries verbatim are computed in data prep and say so in their description.
 
 #### Sets
 
@@ -1227,19 +1227,19 @@ The model a plain \`n.optimize()\` builds, stated in one file. Every declaration
 | $\mathcal{N}$ | index $n$ — `bus` — network nodes |
 | $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}$ — generating units, each on one bus |
 | $\mathcal{L}$ | index $l$ — `link` with $\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}$ — controllable connections, each from one bus to the buses it delivers to |
-| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's \`bus1\`, \`bus2\`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
+| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $\mathcal{D}$ | index $d$ — `load` with $\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}$ — demands, each on one bus |
 | $\mathcal{S}$ | index $s$ — `storage_unit` with $\mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}$ — storage units, dispatch and store behind one bus connection |
 | $\mathcal{V}$ | index $v$ — `store` with $\mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}$ — pure energy stores, each on one bus |
 | $\mathcal{K}$ | index $k$ — `line` with $\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\enspace \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}$ — passive branches, each between two buses, their flow set by impedance |
 | $\mathcal{C}$ | index $c$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
-| $\mathcal{B}$ | index $b$ — `global_constraint` — PyPSA's \`GlobalConstraint\` rows, one label per declared limit |
+| $\mathcal{B}$ | index $b$ — `global_constraint` — PyPSA's `GlobalConstraint` rows, one label per declared limit |
 
 #### Parameters
 
 | Symbol | Meaning |
 |---|---|
-| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's \`snapshot\_weightings.objective\` — hours a snapshot stands for in the cost |
+| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
 | $\mathrm{p}^{\mathrm{nom}}$ | `Generator_p_nom` over $\mathcal{G}$ — nominal power |
 | $\mathrm{ext}$ | `Generator_p_nom_extendable` over $\mathcal{G}$ — whether the nominal power is a decision |
 | $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
@@ -1252,47 +1252,47 @@ The model a plain \`n.optimize()\` builds, stated in one file. Every declaration
 | $\mathrm{rd}^{\mathrm{dn}}$ | `Generator_ramp_limit_shut_down` over $\mathcal{G}$ — most output in the snapshot before a unit stops, per unit of nominal power |
 | $\mathrm{UT}$ | `Generator_min_up_time` over $\mathcal{G}$ — least snapshots a unit stays on once started |
 | $\mathrm{DT}$ | `Generator_min_down_time` over $\mathcal{G}$ — least snapshots a unit stays off once stopped |
-| $\mathrm{u}^{0}$ | `Generator_status_initial` over $\mathcal{G}$ — one where the unit was on before the first snapshot, zero where off — PyPSA's \`up\_time\_before \> 0\`, data prep |
-| $\mathrm{hold}$ | `Generator_must_stay_up` over $\mathcal{T} \times \mathcal{G}$ — true while the up time a unit brought into the horizon still binds — data prep, since \`position()\` compares against a literal rather than a parameter |
+| $\mathrm{u}^{0}$ | `Generator_status_initial` over $\mathcal{G}$ — one where the unit was on before the first snapshot, zero where off — PyPSA's `up_time_before > 0`, data prep |
+| $\mathrm{hold}$ | `Generator_must_stay_up` over $\mathcal{T} \times \mathcal{G}$ — true while the up time a unit brought into the horizon still binds — data prep, since `position()` compares against a literal rather than a parameter |
 | $\mathrm{c}^{\mathrm{up}}$ | `Generator_start_up_cost` over $\mathcal{G}$ — cost of one start |
 | $\mathrm{c}^{\mathrm{dn}}$ | `Generator_shut_down_cost` over $\mathcal{G}$ — cost of one stop |
 | $\mathrm{c}^{\mathrm{on}}$ | `Generator_stand_by_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one snapshot spent on |
 | $\mathrm{p}^{\mathrm{mod}}$ | `Generator_p_nom_mod` over $\mathcal{G}$ — the module size a build comes in whole numbers of; no value means the build is continuous |
-| $\mathrm{N}^{\mathrm{fix}}$ | `Generator_modules_installed` over $\mathcal{G}$ — how many whole modules a committable build has in place: \`Generator\_p\_nom / Generator\_p\_nom\_mod\` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
+| $\mathrm{N}^{\mathrm{fix}}$ | `Generator_modules_installed` over $\mathcal{G}$ — how many whole modules a committable build has in place: `Generator_p_nom / Generator_p_nom_mod` where a fixed build is modular, one where it is not, data prep. PyPSA refuses a fixed modular build whose nominal power is not a whole number of modules |
 | $\mathrm{M}$ | `Generator_big_m` over $\mathcal{G}$ — a bound safely above any feasible output — the build cap at full availability, data prep |
-| $\mathrm{nonneg}$ | `Generator_p_min_pu_nonneg` over $\mathcal{G}$ — true where none of the generator's own minimums-per-unit is negative — PyPSA's per-unit \`(p\_min\_pu \>= 0).all()\`, data prep |
+| $\mathrm{nonneg}$ | `Generator_p_min_pu_nonneg` over $\mathcal{G}$ — true where none of the generator's own minimums-per-unit is negative — PyPSA's per-unit `(p_min_pu >= 0).all()`, data prep |
 | $\mathrm{ru}^{f}$ | `Link_ramp_limit_up` over $\mathcal{L}$ — most a link may raise its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{rd}^{f}$ | `Link_ramp_limit_down` over $\mathcal{L}$ — most a link may lower its flow between snapshots, per unit of nominal power; no value means no limit |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
 | $\mathrm{ext}^{f}$ | `Link_p_nom_extendable` over $\mathcal{L}$ — whether the nominal power is a decision |
 | $\underline{\mathrm{f}}$ | `Link_p_min_pu` over $\mathcal{T} \times \mathcal{L}$ — least flow, per unit of nominal power — negative for a link that carries both ways |
 | $\overline{\mathrm{f}}$ | `Link_p_max_pu` over $\mathcal{T} \times \mathcal{L}$ — most flow, per unit of nominal power |
-| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's \`efficiency\`, \`efficiency2\`, … read long — negative where that port consumes rather than delivers |
-| $\mathrm{d}^{f}$ | `Link_output_delay` over $\mathcal{O}$ — snapshots a port's delivery lags its link's flow — PyPSA's \`delay\`, \`delay2\`, … read long, in \`snapshot\_weightings.generators\` units, which the file states as whole snapshots; zero for a port that delivers at once |
-| $\mathrm{cyc}^{f}$ | `Link_output_cyclic_delay` over $\mathcal{O}$ — whether a delayed port's flow wraps from the horizon's end — PyPSA's \`cyclic\_delay\`, \`cyclic\_delay2\`, …; where it does not, the flow still in transit at the first snapshots is lost |
+| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
+| $\mathrm{d}^{f}$ | `Link_output_delay` over $\mathcal{O}$ — snapshots a port's delivery lags its link's flow — PyPSA's `delay`, `delay2`, … read long, in `snapshot_weightings.generators` units, which the file states as whole snapshots; zero for a port that delivers at once |
+| $\mathrm{cyc}^{f}$ | `Link_output_cyclic_delay` over $\mathcal{O}$ — whether a delayed port's flow wraps from the horizon's end — PyPSA's `cyclic_delay`, `cyclic_delay2`, …; where it does not, the flow still in transit at the first snapshots is lost |
 | $\mathrm{c}^{f}$ | `Link_marginal_cost` over $\mathcal{T} \times \mathcal{L}$ — cost of one unit of flow |
 | $\mathrm{load}$ | `Load_p_set` over $\mathcal{T} \times \mathcal{D}$ — demand |
 | $\mathrm{p}^{\mathrm{set}}$ | `Generator_p_set` over $\mathcal{T} \times \mathcal{G}$ — a given output schedule; a generator without one has no row here |
 | $\mathrm{f}^{\mathrm{set}}$ | `Link_p_set` over $\mathcal{T} \times \mathcal{L}$ — a given flow schedule; a link without one has no row here |
-| $\mathrm{w}^{\mathrm{sto}}$ | `snapshot_weightings_stores` over $\mathcal{T}$ — PyPSA's \`snapshot\_weightings.stores\` — hours a snapshot stands for in a storage balance |
-| $\mathrm{w}^{\mathrm{gen}}$ | `snapshot_weightings_generators` over $\mathcal{T}$ — PyPSA's \`snapshot\_weightings.generators\` — hours a snapshot stands for in an energy total |
+| $\mathrm{w}^{\mathrm{sto}}$ | `snapshot_weightings_stores` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.stores` — hours a snapshot stands for in a storage balance |
+| $\mathrm{w}^{\mathrm{gen}}$ | `snapshot_weightings_generators` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.generators` — hours a snapshot stands for in an energy total |
 | $\underline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_min` over $\mathcal{G}$ — least nominal power an extendable generator may be built at |
 | $\overline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_max` over $\mathcal{G}$ — most nominal power an extendable generator may be built at |
-| $\mathrm{c}^{\mathrm{cap}}$ | `Generator_capital_cost` over $\mathcal{G}$ — cost of one unit of nominal power — PyPSA's \`capital\_cost\`, periodized as an annuity in data prep |
+| $\mathrm{c}^{\mathrm{cap}}$ | `Generator_capital_cost` over $\mathcal{G}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
 | $\mathrm{p}^{\mathrm{nom,set}}$ | `Generator_p_nom_set` over $\mathcal{G}$ — a given nominal power for an extendable generator; one without a value has no row here |
 | $\underline{\mathrm{E}}$ | `Generator_e_sum_min` over $\mathcal{G}$ — least energy over the horizon; minus infinity where no floor is meant |
 | $\overline{\mathrm{E}}$ | `Generator_e_sum_max` over $\mathcal{G}$ — most energy over the horizon — a fuel or emission budget in energy terms; infinity where no cap is meant |
 | $\underline{\mathrm{f}}^{\mathrm{nom}}$ | `Link_p_nom_min` over $\mathcal{L}$ — least nominal power an extendable link may be built at |
 | $\overline{\mathrm{f}}^{\mathrm{nom}}$ | `Link_p_nom_max` over $\mathcal{L}$ — most nominal power an extendable link may be built at |
-| $\mathrm{c}^{\mathrm{cap},f}$ | `Link_capital_cost` over $\mathcal{L}$ — cost of one unit of nominal power — PyPSA's \`capital\_cost\`, periodized as an annuity in data prep |
+| $\mathrm{c}^{\mathrm{cap},f}$ | `Link_capital_cost` over $\mathcal{L}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
 | $\mathrm{f}^{\mathrm{nom,set}}$ | `Link_p_nom_set` over $\mathcal{L}$ — a given nominal power for an extendable link; one without a value has no row here |
 | $\underline{\mathrm{h}}^{\mathrm{nom}}$ | `StorageUnit_p_nom_min` over $\mathcal{S}$ — least nominal power an extendable storage unit may be built at |
 | $\overline{\mathrm{h}}^{\mathrm{nom}}$ | `StorageUnit_p_nom_max` over $\mathcal{S}$ — most nominal power an extendable storage unit may be built at |
-| $\mathrm{c}^{\mathrm{cap},h}$ | `StorageUnit_capital_cost` over $\mathcal{S}$ — cost of one unit of nominal power — PyPSA's \`capital\_cost\`, periodized as an annuity in data prep |
+| $\mathrm{c}^{\mathrm{cap},h}$ | `StorageUnit_capital_cost` over $\mathcal{S}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
 | $\mathrm{h}^{\mathrm{nom,set}}$ | `StorageUnit_p_nom_set` over $\mathcal{S}$ — a given nominal power for an extendable storage unit; one without a value has no row here |
 | $\underline{\mathrm{e}}^{\mathrm{nom}}$ | `Store_e_nom_min` over $\mathcal{V}$ — least nominal capacity an extendable store may be built at |
 | $\overline{\mathrm{e}}^{\mathrm{nom}}$ | `Store_e_nom_max` over $\mathcal{V}$ — most nominal capacity an extendable store may be built at |
-| $\mathrm{c}^{\mathrm{cap},e}$ | `Store_capital_cost` over $\mathcal{V}$ — cost of one unit of nominal capacity — PyPSA's \`capital\_cost\`, periodized as an annuity in data prep |
+| $\mathrm{c}^{\mathrm{cap},e}$ | `Store_capital_cost` over $\mathcal{V}$ — cost of one unit of nominal capacity — PyPSA's `capital_cost`, periodized as an annuity in data prep |
 | $\mathrm{e}^{\mathrm{nom,set}}$ | `Store_e_nom_set` over $\mathcal{V}$ — a given nominal capacity for an extendable store; one without a value has no row here |
 | $\mathrm{h}^{\mathrm{nom}}$ | `StorageUnit_p_nom` over $\mathcal{S}$ — nominal power |
 | $\mathrm{ext}^{h}$ | `StorageUnit_p_nom_extendable` over $\mathcal{S}$ — whether the nominal power is a decision |
@@ -1301,7 +1301,7 @@ The model a plain \`n.optimize()\` builds, stated in one file. Every declaration
 | $\mathrm{T}^{h}$ | `StorageUnit_max_hours` over $\mathcal{S}$ — energy capacity, as hours of dispatch at nominal power |
 | $\eta^{-}$ | `StorageUnit_efficiency_store` over $\mathcal{S}$ — share of the power drawn from the bus that becomes charge |
 | $\eta^{+}$ | `StorageUnit_efficiency_dispatch` over $\mathcal{S}$ — share of the charge drawn down that reaches the bus |
-| $\rho$ | `StorageUnit_retention` over $\mathcal{T} \times \mathcal{S}$ — share of charge kept over a snapshot — PyPSA's \`(1 - standing\_loss) \*\* elapsed hours\`, data prep |
+| $\rho$ | `StorageUnit_retention` over $\mathcal{T} \times \mathcal{S}$ — share of charge kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
 | $\mathrm{inflow}$ | `StorageUnit_inflow` over $\mathcal{T} \times \mathcal{S}$ — energy arriving per hour, a river into a reservoir |
 | $\mathrm{soc}^{0}$ | `StorageUnit_state_of_charge_initial` over $\mathcal{S}$ — charge held before the first snapshot |
 | $\mathrm{cyc}$ | `StorageUnit_cyclic_state_of_charge` over $\mathcal{S}$ — whether the horizon closes on itself instead of opening on the initial charge |
@@ -1314,7 +1314,7 @@ The model a plain \`n.optimize()\` builds, stated in one file. Every declaration
 | $\mathrm{ext}^{e}$ | `Store_e_nom_extendable` over $\mathcal{V}$ — whether the nominal energy capacity is a decision |
 | $\underline{\mathrm{e}}$ | `Store_e_min_pu` over $\mathcal{T} \times \mathcal{V}$ — least energy held, per unit of nominal capacity — negative for a store that may go short |
 | $\overline{\mathrm{e}}$ | `Store_e_max_pu` over $\mathcal{T} \times \mathcal{V}$ — most energy held, per unit of nominal capacity |
-| $\rho^{e}$ | `Store_retention` over $\mathcal{T} \times \mathcal{V}$ — share of energy kept over a snapshot — PyPSA's \`(1 - standing\_loss) \*\* elapsed hours\`, data prep |
+| $\rho^{e}$ | `Store_retention` over $\mathcal{T} \times \mathcal{V}$ — share of energy kept over a snapshot — PyPSA's `(1 - standing_loss) ** elapsed hours`, data prep |
 | $\mathrm{e}^{0}$ | `Store_e_initial` over $\mathcal{V}$ — energy held before the first snapshot |
 | $\mathrm{cyc}^{e}$ | `Store_e_cyclic` over $\mathcal{V}$ — whether the horizon closes on itself instead of opening on the initial energy |
 | $\mathrm{c}^{q}$ | `Store_marginal_cost` over $\mathcal{T} \times \mathcal{V}$ — cost of one unit of power delivered |
@@ -1325,15 +1325,15 @@ The model a plain \`n.optimize()\` builds, stated in one file. Every declaration
 | $\overline{\mathrm{s}}$ | `Line_s_max_pu` over $\mathcal{T} \times \mathcal{K}$ — most flow either way, per unit of nominal apparent power |
 | $\underline{\mathrm{s}}^{\mathrm{nom}}$ | `Line_s_nom_min` over $\mathcal{K}$ — least nominal apparent power an extendable line may be built at |
 | $\overline{\mathrm{s}}^{\mathrm{nom}}$ | `Line_s_nom_max` over $\mathcal{K}$ — most nominal apparent power an extendable line may be built at |
-| $\mathrm{c}^{\mathrm{cap},s}$ | `Line_capital_cost` over $\mathcal{K}$ — cost of one unit of nominal apparent power — PyPSA's \`capital\_cost\`, periodized as an annuity in data prep |
+| $\mathrm{c}^{\mathrm{cap},s}$ | `Line_capital_cost` over $\mathcal{K}$ — cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
 | $\mathrm{s}^{\mathrm{nom,set}}$ | `Line_s_nom_set` over $\mathcal{K}$ — a given nominal apparent power for an extendable line; one without a value has no row here |
 | $\mathrm{s}^{\mathrm{set}}$ | `Line_s_set` over $\mathcal{T} \times \mathcal{K}$ — a given flow schedule; a line without one has no row here |
 | $\mathrm{x}$ | `Line_cycle_weight` over $\mathcal{K} \times \mathcal{C}$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
-| $\mathrm{type}$ | `GlobalConstraint_type` over $\mathcal{B}$ — which formula the row takes — \`primary\_energy\`, \`operational\_limit\`, \`transmission\_volume\_expansion\_limit\`, \`transmission\_expansion\_cost\_limit\` or \`tech\_capacity\_expansion\_limit\` |
-| $\mathrm{sense}$ | `GlobalConstraint_sense` over $\mathcal{B}$ — which way the row binds — \`\<=\`, \`\>=\` or \`==\` |
+| $\mathrm{type}$ | `GlobalConstraint_type` over $\mathcal{B}$ — which formula the row takes — `primary_energy`, `operational_limit`, `transmission_volume_expansion_limit`, `transmission_expansion_cost_limit` or `tech_capacity_expansion_limit` |
+| $\mathrm{sense}$ | `GlobalConstraint_sense` over $\mathcal{B}$ — which way the row binds — `<=`, `>=` or `==` |
 | $\mathrm{K}$ | `GlobalConstraint_constant` over $\mathcal{B}$ — the constant the total is held against; what a variable cannot carry — an initial charge, a non-extendable build — is folded in here by data prep |
 | $\mathrm{last}$ | `snapshot_is_last` over $\mathcal{T}$ — one at the horizon's last snapshot, zero elsewhere — data prep, how an expression reads a final level |
-| $\mathrm{a}$ | `Generator_primary_energy_weight` over $\mathcal{B} \times \mathcal{G}$ — the constrained attribute per unit of energy at the bus — the carrier's \`co2\_emissions\` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
+| $\mathrm{a}$ | `Generator_primary_energy_weight` over $\mathcal{B} \times \mathcal{G}$ — the constrained attribute per unit of energy at the bus — the carrier's `co2_emissions` over the generator's efficiency, data prep; a generator of an unweighted carrier has no row |
 | $\mathrm{a}^{h}$ | `StorageUnit_primary_energy_weight` over $\mathcal{B} \times \mathcal{S}$ — the constrained attribute per unit of charge depleted — data prep; an unweighted unit has no row |
 | $\mathrm{a}^{e}$ | `Store_primary_energy_weight` over $\mathcal{B} \times \mathcal{V}$ — the constrained attribute per unit of energy depleted — data prep; an unweighted store has no row |
 | $\mathrm{b}$ | `Generator_operational_limit_weight` over $\mathcal{B} \times \mathcal{G}$ — one where the generator is in the row's set — data prep; one outside it has no row |
@@ -1353,24 +1353,24 @@ The model a plain \`n.optimize()\` builds, stated in one file. Every declaration
 
 | Symbol | Meaning |
 |---|---|
-| $p$ | `Generator_p` over $\mathcal{T} \times \mathcal{G}$ — \`Generator-p\` — output of a generator in a snapshot |
-| $f$ | `Link_p` over $\mathcal{T} \times \mathcal{L}$ — \`Link-p\` — PyPSA's \`p0\`, the flow measured at the \`Link\_bus0\` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
-| $h^{+}$ | `StorageUnit_p_dispatch` over $\mathcal{T} \times \mathcal{S}$ — \`StorageUnit-p\_dispatch\` — power delivered to the bus |
-| $h^{-}$ | `StorageUnit_p_store` over $\mathcal{T} \times \mathcal{S}$ — \`StorageUnit-p\_store\` — power drawn from the bus into charge |
-| $\mathit{soc}$ | `StorageUnit_state_of_charge` over $\mathcal{T} \times \mathcal{S}$ — \`StorageUnit-state\_of\_charge\` — energy held at the end of a snapshot |
-| $\mathit{spill}$ | `StorageUnit_spill` over $\mathcal{T} \times \mathcal{S}$ — \`StorageUnit-spill\` — inflow passed on unused. Zero where there is no inflow, so the balance keeps its row there; the bounds are PyPSA's, on the variable rather than as rows |
-| $e$ | `Store_e` over $\mathcal{T} \times \mathcal{V}$ — \`Store-e\` — energy held at the end of a snapshot |
-| $q$ | `Store_p` over $\mathcal{T} \times \mathcal{V}$ — \`Store-p\` — power delivered to the bus; charging is negative |
-| $N$ | `Generator_n_mod` over $\mathcal{G}$ — \`Generator-n\_mod\` — how many modules of an extendable modular build |
-| $u$ | `Generator_status` over $\mathcal{T} \times \mathcal{G}$ — \`Generator-status\` — how much of a committable unit is on: an integer the rows below cap at one, or at the module count where the build is modular |
-| $\mathit{up}$ | `Generator_start_up` over $\mathcal{T} \times \mathcal{G}$ — \`Generator-start\_up\` — how much of a committable unit turns on this snapshot, capped as the status is |
-| $\mathit{dn}$ | `Generator_shut_down` over $\mathcal{T} \times \mathcal{G}$ — \`Generator-shut\_down\` — how much of a committable unit turns off this snapshot, capped as the status is |
-| $s$ | `Line_s` over $\mathcal{T} \times \mathcal{K}$ — \`Line-s\` — PyPSA's \`p0\`, the flow measured at the \`Line\_bus0\` end: a positive value withdraws there and injects at \`Line\_bus1\`, lossless |
-| $S$ | `Line_s_nom_ext` over $\mathcal{K}$ — \`Line-s\_nom\` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
-| $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — \`Generator-p\_nom\` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
-| $F$ | `Link_p_nom_ext` over $\mathcal{L}$ — \`Link-p\_nom\` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
-| $H$ | `StorageUnit_p_nom_ext` over $\mathcal{S}$ — \`StorageUnit-p\_nom\` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
-| $E$ | `Store_e_nom_ext` over $\mathcal{V}$ — \`Store-e\_nom\` — nominal capacity where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $p$ | `Generator_p` over $\mathcal{T} \times \mathcal{G}$ — `Generator-p` — output of a generator in a snapshot |
+| $f$ | `Link_p` over $\mathcal{T} \times \mathcal{L}$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
+| $h^{+}$ | `StorageUnit_p_dispatch` over $\mathcal{T} \times \mathcal{S}$ — `StorageUnit-p_dispatch` — power delivered to the bus |
+| $h^{-}$ | `StorageUnit_p_store` over $\mathcal{T} \times \mathcal{S}$ — `StorageUnit-p_store` — power drawn from the bus into charge |
+| $\mathit{soc}$ | `StorageUnit_state_of_charge` over $\mathcal{T} \times \mathcal{S}$ — `StorageUnit-state_of_charge` — energy held at the end of a snapshot |
+| $\mathit{spill}$ | `StorageUnit_spill` over $\mathcal{T} \times \mathcal{S}$ — `StorageUnit-spill` — inflow passed on unused. Zero where there is no inflow, so the balance keeps its row there; the bounds are PyPSA's, on the variable rather than as rows |
+| $e$ | `Store_e` over $\mathcal{T} \times \mathcal{V}$ — `Store-e` — energy held at the end of a snapshot |
+| $q$ | `Store_p` over $\mathcal{T} \times \mathcal{V}$ — `Store-p` — power delivered to the bus; charging is negative |
+| $N$ | `Generator_n_mod` over $\mathcal{G}$ — `Generator-n_mod` — how many modules of an extendable modular build |
+| $u$ | `Generator_status` over $\mathcal{T} \times \mathcal{G}$ — `Generator-status` — how much of a committable unit is on: an integer the rows below cap at one, or at the module count where the build is modular |
+| $\mathit{up}$ | `Generator_start_up` over $\mathcal{T} \times \mathcal{G}$ — `Generator-start_up` — how much of a committable unit turns on this snapshot, capped as the status is |
+| $\mathit{dn}$ | `Generator_shut_down` over $\mathcal{T} \times \mathcal{G}$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot, capped as the status is |
+| $s$ | `Line_s` over $\mathcal{T} \times \mathcal{K}$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1`, lossless |
+| $S$ | `Line_s_nom_ext` over $\mathcal{K}$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $F$ | `Link_p_nom_ext` over $\mathcal{L}$ — `Link-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $H$ | `StorageUnit_p_nom_ext` over $\mathcal{S}$ — `StorageUnit-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $E$ | `Store_e_nom_ext` over $\mathcal{V}$ — `Store-e_nom` — nominal capacity where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 
 #### Definitions
 
@@ -1384,12 +1384,12 @@ The model a plain \`n.optimize()\` builds, stated in one file. Every declaration
 | $\widetilde{\mathrm{f}}^{\mathrm{nom}}$ | `Link_p_nom_effective` over $\mathcal{L}$ — the build a link's limits are taken against — the chosen one where it is extendable, the given one otherwise |
 | $\overleftarrow{\mathit{soc}}$ | `StorageUnit_charge_carried_in` over $\mathcal{T} \times \mathcal{S}$ — the charge a unit opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial charge at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
 | $\overleftarrow{e}$ | `Store_energy_carried_in` over $\mathcal{T} \times \mathcal{V}$ — the energy a store opens a snapshot with — its last snapshot's less standing loss where it is cyclic, the given initial energy at the start of the horizon, which no standing loss has touched yet, and the previous snapshot's less standing loss otherwise |
-| $\overrightarrow{f}$ | `Link_output_arrival` over $\mathcal{T} \times \mathcal{O}$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's \`delay\`; where the port is \`cyclic\_delay\` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (\`delay\` zero) delivers its flow unshifted, cyclic or not |
-| $\mathit{primary\_energy}$ | `primary_energy` over $\mathcal{B}$ — what a \`primary\_energy\` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
-| $\mathit{operational\_limit}$ | `operational_limit` over $\mathcal{B}$ — what an \`operational\_limit\` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
-| $\mathit{transmission\_volume\_expansion}$ | `transmission_volume_expansion` over $\mathcal{B}$ — what a \`transmission\_volume\_expansion\_limit\` row totals — length times the chosen build of the row's branches |
-| $\mathit{transmission\_expansion\_cost}$ | `transmission_expansion_cost` over $\mathcal{B}$ — what a \`transmission\_expansion\_cost\_limit\` row totals — capital cost times the chosen build of the row's branches |
-| $\mathit{tech\_capacity\_expansion}$ | `tech_capacity_expansion` over $\mathcal{B}$ — what a \`tech\_capacity\_expansion\_limit\` row totals — the chosen build of the row's carrier-and-bus set |
+| $\overrightarrow{f}$ | `Link_output_arrival` over $\mathcal{T} \times \mathcal{O}$ — what a link delivers to an output port at a snapshot — its flow after the port's efficiency, delayed by the port's `delay`; where the port is `cyclic_delay` the delayed flow wraps from the horizon's end, and where it is not the flow still in transit at the first snapshots is lost. A port that does not delay (`delay` zero) delivers its flow unshifted, cyclic or not |
+| $\mathit{primary\_energy}$ | `primary_energy` over $\mathcal{B}$ — what a `primary_energy` row totals — weighted generator energy, less the charge left in weighted storage at the horizon's end; the initial charge it is compared against is folded into the row's constant |
+| $\mathit{operational\_limit}$ | `operational_limit` over $\mathcal{B}$ — what an `operational_limit` row totals — the weighted energy its generators deliver, plus what its non-cyclic storage draws down; the initial charge it draws from is folded into the row's constant |
+| $\mathit{transmission\_volume\_expansion}$ | `transmission_volume_expansion` over $\mathcal{B}$ — what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches |
+| $\mathit{transmission\_expansion\_cost}$ | `transmission_expansion_cost` over $\mathcal{B}$ — what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches |
+| $\mathit{tech\_capacity\_expansion}$ | `tech_capacity_expansion` over $\mathcal{B}$ — what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set |
 
 $t \ominus k$ denotes cyclic translation: index $t-k$ taken modulo the size of the dimension (`roll`). Plain $t-k$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
 

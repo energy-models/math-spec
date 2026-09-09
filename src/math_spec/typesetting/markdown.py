@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, ClassVar, override
 
-from math_spec.typesetting.format import paragraphs
+from math_spec.typesetting.format import escaped, paragraphs
 from math_spec.typesetting.latex import LatexFormat
 
 if TYPE_CHECKING:
@@ -64,8 +64,8 @@ class MarkdownFormat(LatexFormat):
 
     @override
     def escape(self, prose: str) -> str:
-        """Prose with every special escaped, as the other two notations do: a ``description:`` is in no notation, Markdown included."""
-        return _escape(prose)
+        """Prose with every special escaped, as the other two notations do, and a backtick span kept as the code span it is."""
+        return escaped(prose, _escape, self.mono)
 
     @override
     def joined(self, parts: list[str], operator: str) -> str:

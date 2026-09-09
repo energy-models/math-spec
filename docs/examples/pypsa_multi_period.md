@@ -109,18 +109,18 @@ def build():
 ## The file
 
 <!-- gallery:begin -->
-The multi-period class of a plain \`n.optimize()\`: \`multi\_investment\_periods\`, stated on rungs 1 and 3 in a file of its own. A snapshot belongs to an investment period, an asset stands in the periods its build year and lifetime span, and capacity is paid once per period it stands in, each period weighted; a carrier may grow only so much per period. Which snapshots an asset is active in is data prep, because a \`where\` reaches only the frame's own dimensions. A dimension a run may not have cannot ride on \`examples/pypsa.yaml\`, so this class lives here.
+The multi-period class of a plain `n.optimize()`: `multi_investment_periods`, stated on rungs 1 and 3 in a file of its own. A snapshot belongs to an investment period, an asset stands in the periods its build year and lifetime span, and capacity is paid once per period it stands in, each period weighted; a carrier may grow only so much per period. Which snapshots an asset is active in is data prep, because a `where` reaches only the frame's own dimensions. A dimension a run may not have cannot ride on `examples/pypsa.yaml`, so this class lives here.
 
 #### Sets
 
 | Symbol | Meaning |
 |---|---|
 | $\mathcal{T}$ | index $t$ — `snapshot` with $\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}$ — dispatch periods, positions across every investment period |
-| $\mathcal{Y}$ | index $y$ — `period` — investment periods — PyPSA's \`investment\_periods\` |
+| $\mathcal{Y}$ | index $y$ — `period` — investment periods — PyPSA's `investment_periods` |
 | $\mathcal{N}$ | index $n$ — `bus` — network nodes |
 | $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{C},\enspace \mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}$ — generating units, each on one bus |
 | $\mathcal{L}$ | index $l$ — `link` with $\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}$ — controllable connections, each from one bus to the buses it delivers to |
-| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's \`bus1\`, \`bus2\`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
+| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $\mathcal{D}$ | index $d$ — `load` with $\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}$ — demands, each on one bus |
 | $\mathcal{C}$ | index $c$ — `carrier` — energy carriers, what a growth limit is set per |
 
@@ -128,25 +128,25 @@ The multi-period class of a plain \`n.optimize()\`: \`multi\_investment\_periods
 
 | Symbol | Meaning |
 |---|---|
-| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's \`snapshot\_weightings.objective\` — hours a snapshot stands for in the cost |
-| $\mathrm{w}^{y}$ | `period_weight_objective` over $\mathcal{Y}$ — PyPSA's \`investment\_period\_weightings.objective\` — what a period's cost weighs |
-| $\mathrm{on}$ | `Generator_active` over $\mathcal{T} \times \mathcal{G}$ — whether a generator stands in a snapshot's period — PyPSA's \`active\`, from build year and lifetime, data prep |
-| $\mathrm{W}$ | `Generator_capital_weight` over $\mathcal{G}$ — the sum of period weights a generator stands in — PyPSA's \`active \* period\_weighting\`, summed, data prep |
-| $\mathrm{new}$ | `Generator_first_active` over $\mathcal{Y} \times \mathcal{G}$ — one in the first period a generator stands in, zero elsewhere — PyPSA's \`active.cumsum() == 1\`, data prep |
+| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
+| $\mathrm{w}^{y}$ | `period_weight_objective` over $\mathcal{Y}$ — PyPSA's `investment_period_weightings.objective` — what a period's cost weighs |
+| $\mathrm{on}$ | `Generator_active` over $\mathcal{T} \times \mathcal{G}$ — whether a generator stands in a snapshot's period — PyPSA's `active`, from build year and lifetime, data prep |
+| $\mathrm{W}$ | `Generator_capital_weight` over $\mathcal{G}$ — the sum of period weights a generator stands in — PyPSA's `active * period_weighting`, summed, data prep |
+| $\mathrm{new}$ | `Generator_first_active` over $\mathcal{Y} \times \mathcal{G}$ — one in the first period a generator stands in, zero elsewhere — PyPSA's `active.cumsum() == 1`, data prep |
 | $\overline{\Delta}$ | `Carrier_max_growth` over $\mathcal{C}$ — most capacity of a carrier that may be added in a period; no value means no limit |
 | $\mathrm{r}$ | `Carrier_max_relative_growth` over $\mathcal{C}$ — share of the previous period's additions that may be added on top |
 | $\mathrm{p}^{\mathrm{nom}}$ | `Generator_p_nom` over $\mathcal{G}$ — nominal power |
 | $\mathrm{ext}$ | `Generator_p_nom_extendable` over $\mathcal{G}$ — whether the nominal power is a decision |
 | $\underline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_min` over $\mathcal{G}$ — least nominal power an extendable generator may be built at |
 | $\overline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_max` over $\mathcal{G}$ — most nominal power an extendable generator may be built at |
-| $\mathrm{c}^{\mathrm{cap}}$ | `Generator_capital_cost` over $\mathcal{G}$ — cost of one unit of nominal power — PyPSA's \`capital\_cost\`, periodized as an annuity in data prep |
+| $\mathrm{c}^{\mathrm{cap}}$ | `Generator_capital_cost` over $\mathcal{G}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
 | $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
 | $\overline{\mathrm{p}}$ | `Generator_p_max_pu` over $\mathcal{T} \times \mathcal{G}$ — most output, per unit of nominal power — an availability profile |
 | $\mathrm{c}$ | `Generator_marginal_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one unit of output |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
 | $\underline{\mathrm{f}}$ | `Link_p_min_pu` over $\mathcal{T} \times \mathcal{L}$ — least flow, per unit of nominal power — negative for a link that carries both ways |
 | $\overline{\mathrm{f}}$ | `Link_p_max_pu` over $\mathcal{T} \times \mathcal{L}$ — most flow, per unit of nominal power |
-| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's \`efficiency\`, \`efficiency2\`, … read long — negative where that port consumes rather than delivers |
+| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
 | $\mathrm{c}^{f}$ | `Link_marginal_cost` over $\mathcal{T} \times \mathcal{L}$ — cost of one unit of flow |
 | $\mathrm{load}$ | `Load_p_set` over $\mathcal{T} \times \mathcal{D}$ — demand |
 
@@ -154,9 +154,9 @@ The multi-period class of a plain \`n.optimize()\`: \`multi\_investment\_periods
 
 | Symbol | Meaning |
 |---|---|
-| $p$ | `Generator_p` over $\mathcal{T} \times \mathcal{G}$ — \`Generator-p\` — output of a generator in a snapshot |
-| $f$ | `Link_p` over $\mathcal{T} \times \mathcal{L}$ — \`Link-p\` — PyPSA's \`p0\`, the flow measured at the \`Link\_bus0\` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
-| $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — \`Generator-p\_nom\` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $p$ | `Generator_p` over $\mathcal{T} \times \mathcal{G}$ — `Generator-p` — output of a generator in a snapshot |
+| $f$ | `Link_p` over $\mathcal{T} \times \mathcal{L}$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
+| $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
 
 $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $v$ rather than being dropped.
 

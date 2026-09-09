@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from math_spec.typesetting.format import OPERATOR_SPELLINGS, aligned_rows, paragraphs
+from math_spec.typesetting.format import OPERATOR_SPELLINGS, aligned_rows, escaped, paragraphs
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -76,7 +76,7 @@ class LatexFormat:
         return rf'\texttt{{{_escape(text)}}}'
 
     def escape(self, prose: str) -> str:
-        return _escape(prose)
+        return escaped(prose, _escape, self.mono)
 
     def math(self, expression: str) -> str:
         return f'${expression}$'
