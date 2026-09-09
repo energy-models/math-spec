@@ -12,11 +12,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import lru_cache
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, assert_never, cast, get_args
 
 import pyparsing as pp
 
+from math_spec._sealed import Sealed
 from math_spec.errors import SchemaError
 
 if TYPE_CHECKING:
@@ -173,7 +173,7 @@ class FunctionCallNode:
     kwargs: Mapping[str, ArithmeticNode] = field(default_factory=dict, hash=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, 'kwargs', MappingProxyType(dict(self.kwargs)))
+        object.__setattr__(self, 'kwargs', Sealed(self.kwargs))
 
 
 @dataclass(frozen=True)
