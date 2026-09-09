@@ -35,6 +35,9 @@ nav:
   # the Python API in front of them.
   - How-to guides:
       - Installation: howto/installation.md
+      - Check a model without data: howto/check.md
+      - Print a model as math: howto/print.md
+      - State a rule that differs by regime: howto/regimes.md
   - Reference:
       - Language:
           - reference/language/index.md
