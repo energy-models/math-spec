@@ -112,13 +112,26 @@ that dimension, so `over: {bus: line}` is refused.
 
 ### The key is the claim
 
-`key: generator` says the table holds **one row per generator** — that the
-other column is a function of it — and it is checked at bind: a generator on
-two buses is refused, where a `0`/`1` membership parameter would have said so
-legally and silently ([#161](https://github.com/energy-models/math-spec/issues/161)).
-The columns the key determines are the lookup's **value columns**. A key has
-one column per dimension: it is read at its dimensions, and no frame carries a
-dimension twice, so `key: [bus0, bus1]` is refused where both are over `bus`.
+`key:` names the columns that are unique together. `key: generator` says the
+generator column holds each label once: the table has **one row per
+generator**, so the other column is a function of it. `key: [generator, period]`
+says the pair holds each combination once. Neither column need be unique on its
+own: a generator appears once per period, and a period once per generator.
+The claim is checked at bind: a generator on two buses is refused, where a
+`0`/`1` membership parameter would have said so legally and silently
+([#161](https://github.com/energy-models/math-spec/issues/161)). The columns
+the key determines are the lookup's **value columns**. A key has one column per
+dimension: it is read at its dimensions, and no frame carries a dimension
+twice, so `key: [bus0, bus1]` is refused where both are over `bus`.
+
+Each cardinality is one declaration, and the key is the side that is one:
+
+| to say                                     | write                                                                                                             | checked at bind                       |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| many-to-one, each generator on one bus     | `{over: [generator, bus], key: generator}`                                                                        | one row per generator                 |
+| one-to-many, a bus and its generators      | the same table: `sum(p, by=gen_bus)` collects a bus's generators, `at(price, by=gen_bus)` reads a generator's bus | the same                              |
+| many-to-many, a generator on several buses | `{over: [generator, bus]}`, no key                                                                                | nothing: a row exists, or it does not |
+| one-to-one                                 | not a claim the language has: a key is one set of columns, so the other side stays many                           |                                       |
 
 The key is also what decides which walks the table admits:
 
