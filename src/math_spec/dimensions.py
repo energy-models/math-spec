@@ -152,17 +152,17 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
         return inner - {over.name}
 
     assert isinstance(by, LookupNode)
-    if by.dimension not in inner:
+    if missing := sorted(set(by.dimensions) - inner):
         raise DimensionError(
             _not_carried(
                 context,
-                f"sum(by={by.shown}) consumes '{by.dimension}', the dim it walks from,",
+                f'sum(by={by.shown}) consumes {missing}, the dims it walks from,',
                 inner,
                 'drop the sum, or fix the dim',
             )
         )
     _check_joined(f'sum(by={by.shown})', by, inner, context)
-    return (inner - {by.dimension}) | set(by.into)
+    return (inner - set(by.dimensions)) | set(by.into)
 
 
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
@@ -178,7 +178,7 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
             f'sum is the direction that produces them.'
         )
     _check_joined(f'at(by={by.shown})', by, inner, context)
-    return (inner - set(by.into)) | {by.dimension}
+    return (inner - set(by.into)) | set(by.dimensions)
 
 
 def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
@@ -207,10 +207,10 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
                 f'which group a term lands in, so it names one lookup — partition by a lookup whose '
                 f'values already distinguish them.'
             )
-        if partition.dimension != over.name:
+        if partition.dimensions != (over.name,):
             raise DimensionError(
                 f'{context}: {node.name}(over={over.name}, by={partition.shown}) walks '
-                f"'{over.name}' but groups along '{partition.dimension}'. No row of "
+                f"'{over.name}' but groups along '{partition.dimensions[0]}'. No row of "
                 f"'{over.name}' carries it, so no coordinate has a neighbour inside a group — "
                 f"partition by a lookup with a key column over '{over.name}', walked from it."
             )
@@ -229,7 +229,7 @@ def _check_joined(call: str, by: LookupNode, inner: frozenset[str], context: str
                 f'walked between two of its columns and read at the others — index the operand by them, or '
                 f'walk between different columns.'
             )
-        twice = sorted({d for d in dims if dims.count(d) > 1 or d == by.dimension})
+        twice = sorted({d for d in dims if dims.count(d) > 1 or d in by.dimensions})
         if twice:
             raise DimensionError(
                 f"{context}: {call} joins '{walk.name}' on {twice} through more than one column, and the operand "

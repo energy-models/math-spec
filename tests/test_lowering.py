@@ -83,8 +83,8 @@ TINY = {
 }
 
 #: `lk` and `lk2` as `sum` walks them: key consumed, value produced, nothing joined.
-LK_WALK = Walk('lk', 'g', 'h', (), (('g', 'g'), ('h', 'h')), ('g',))
-LK2_WALK = Walk('lk2', 'g', 'z', (), (('g', 'g'), ('z', 'z')), ('g',))
+LK_WALK = Walk('lk', ('g',), ('h',), (), (('g', 'g'), ('h', 'h')), ('g',))
+LK2_WALK = Walk('lk2', ('g',), ('z',), (), (('g', 'g'), ('z', 'z')), ('g',))
 
 #: `fixtures.SMALL_MODEL` plus a second lookup and a per-entity
 #: offset. Which node a construct becomes is mostly a claim about the dim it
@@ -409,27 +409,27 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk)',
-            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',), walks=(LK_WALK,)),
+            GroupSum(Variable('p'), over=('g',), coordinate=('lk',), into=('h',), walks=(LK_WALK,)),
             id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
         ),
         pytest.param(
             'sum(p, by=[lk])',
-            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',), walks=(LK_WALK,)),
+            GroupSum(Variable('p'), over=('g',), coordinate=('lk',), into=('h',), walks=(LK_WALK,)),
             id='a-one-element-list-is-the-plain-form',
         ),
         pytest.param(
             'sum(p, by=[lk, lk2])',
-            GroupSum(Variable('p'), over='g', coordinate=('lk', 'lk2'), into=('h', 'z'), walks=(LK_WALK, LK2_WALK)),
+            GroupSum(Variable('p'), over=('g',), coordinate=('lk', 'lk2'), into=('h', 'z'), walks=(LK_WALK, LK2_WALK)),
             id='two-coordinates-are-one-grouping-with-paired-tuples',
         ),
         pytest.param(
             'at(r, by=lk)',
             At(
                 Variable('r'),
-                over='g',
+                over=('g',),
                 coordinate=('lk',),
                 into=('h',),
-                walks=(Walk('lk', 'h', 'g', (), (('g', 'g'), ('h', 'h')), ('g',)),),
+                walks=(Walk('lk', ('h',), ('g',), (), (('g', 'g'), ('h', 'h')), ('g',)),),
             ),
             id='a-pullback-walks-the-same-table-back',
         ),
@@ -456,7 +456,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 offset=1,
                 wrap=False,
                 fill=0.0,
-                partition=Walk('lk', 'g', None, (), (('g', 'g'), ('h', 'h')), ('g',)),
+                partition=Walk('lk', ('g',), (), (), (('g', 'g'), ('h', 'h')), ('g',)),
             ),
             id='a-translation-stops-at-the-edges-of-the-lookup-it-names',
         ),
@@ -477,7 +477,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 'g',
                 width=2,
                 wrap=False,
-                partition=Walk('lk', 'g', None, (), (('g', 'g'), ('h', 'h')), ('g',)),
+                partition=Walk('lk', ('g',), (), (), (('g', 'g'), ('h', 'h')), ('g',)),
             ),
             id='a-window-stops-at-the-edges-of-the-lookup-it-names',
         ),
@@ -518,24 +518,24 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     assert program.lookups == {'zone_of': declared}, 'and once in the program'
     assert program.constraints['zonal'].lhs == GroupSum(
         Variable('p'),
-        over='generator',
+        over=('generator',),
         coordinate=('zone_of',),
         into=('zone',),
-        walks=(Walk('zone_of', 'generator', 'zone', ('snapshot',), columns, ('generator', 'snapshot')),),
+        walks=(Walk('zone_of', ('generator',), ('zone',), ('snapshot',), columns, ('generator', 'snapshot')),),
     ), 'a grouped sum names the column it consumes, the one it produces and the one it joins on'
     assert program.constraints['history'].lhs == GroupSum(
         Variable('p'),
-        over='snapshot',
+        over=('snapshot',),
         coordinate=('zone_of',),
         into=('zone',),
-        walks=(Walk('zone_of', 'snapshot', 'zone', ('generator',), columns, ('generator', 'snapshot')),),
+        walks=(Walk('zone_of', ('snapshot',), ('zone',), ('generator',), columns, ('generator', 'snapshot')),),
     ), 'the same table walked from its other key column'
     assert program.constraints['priced'].rhs == At(
         Parameter('price'),
-        over='generator',
+        over=('generator',),
         coordinate=('zone_of',),
         into=('zone',),
-        walks=(Walk('zone_of', 'zone', 'generator', ('snapshot',), columns, ('generator', 'snapshot')),),
+        walks=(Walk('zone_of', ('zone',), ('generator',), ('snapshot',), columns, ('generator', 'snapshot')),),
     ), 'and its adjoint consumes the value column and produces the key column'
     p_where = program.variable('p').where
     assert p_where is not None
@@ -596,8 +596,8 @@ FAN_IN = {
     Power(Parameter('c'), Constant(2.0)): 'one-to-one',
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
-    GroupSum(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'many-to-one',
-    At(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'one-to-one',
+    GroupSum(Variable('p'), over=('g',), coordinate=('at_bus',), into=('bus',)): 'many-to-one',
+    At(Variable('p'), over=('g',), coordinate=('at_bus',), into=('bus',)): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',

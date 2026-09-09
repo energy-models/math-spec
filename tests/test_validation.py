@@ -603,8 +603,31 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=lk, from=h, to=h))'}},
-                ("from= and to= both name column 'h'",),
+                ("from= and to= both name ['h']",),
                 id='from-and-to-the-same-column',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': ['g', 'h', 'z'], 'key': 'g'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, to=[h, h]))'},
+                },
+                ("to=['h', 'h'] names a column twice",),
+                id='a-to-list-naming-a-column-twice',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': ['g', 'h', 'z'], 'key': 'g'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, from=[g, h], to=h))'},
+                },
+                ("from= and to= both name ['h']",),
+                id='a-from-list-overlapping-to',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lk, from=[g, h]))'}},
+                ('names 2 columns, and a partition walks exactly one',),
+                id='a-partition-with-a-from-list',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, from=g))'}},

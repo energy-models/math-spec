@@ -37,6 +37,7 @@ BASE = {
         'snap_bus': {'over': ['snapshot', 'bus'], 'key': 'snapshot'},
         'gen_zone': {'over': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']},
         'rep_of': {'over': {'snapshot': 'snapshot', 'rep': 'snapshot'}, 'key': 'snapshot'},
+        'gen_bz': {'over': ['generator', 'bus', 'zone'], 'key': 'generator'},
     },
     'parameters': {
         'p_max': {'dims': ['generator']},
@@ -44,6 +45,7 @@ BASE = {
         'load': {'dims': ['snapshot', 'bus']},
         'zone_cap': {'dims': ['zone']},
         'zone_load': {'dims': ['snapshot', 'zone']},
+        'bz': {'dims': ['bus', 'zone']},
         'spinup': {'dims': ['generator'], 'dtype': 'int'},
         'horizon': {'dims': ['snapshot'], 'dtype': 'int'},
         'bus_lead': {'dims': ['bus'], 'dtype': 'int'},
@@ -133,6 +135,31 @@ def namespace() -> Namespace:
         pytest.param(
             'sum(p, by=gen_bus, from=generator)', {'snapshot', 'bus'}, id='the-dot-is-legal-on-a-one-key-lookup'
         ),
+        pytest.param(
+            'sum(p, by=gen_bz, to=[bus, zone])',
+            {'snapshot', 'bus', 'zone'},
+            id='a-to-list-lands-on-a-product-from-one-table',
+        ),
+        pytest.param(
+            'at(bz, by=gen_bz, from=[bus, zone])',
+            {'generator'},
+            id='a-from-list-reads-two-value-columns-at-once',
+        ),
+        pytest.param(
+            'sum(p, by=gen_zone, from=[generator, snapshot])',
+            {'zone'},
+            id='a-from-list-consumes-two-key-columns-at-once',
+        ),
+        pytest.param(
+            'sum(zone_load, by=gen_zone, from=zone, to=generator)',
+            {'snapshot', 'generator'},
+            id='a-value-column-consumed-fans-out-onto-the-key',
+        ),
+        pytest.param(
+            'sum(p, by=gen_bz, to=bus)',
+            {'snapshot', 'bus'},
+            id='a-value-column-not-walked-is-not-read',
+        ),
         pytest.param('sum(p, by=rep_of)', {'snapshot', 'generator'}, id='a-map-into-its-own-dimension-keeps-the-frame'),
         pytest.param('at(p, by=rep_of)', {'snapshot', 'generator'}, id='and-so-does-its-pullback'),
         pytest.param(
@@ -179,7 +206,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
         ),
         pytest.param(
             'sum(load, by=gen_bus)',
-            r"sum\(by=gen_bus\) consumes 'generator', the dim it walks from",
+            r"sum\(by=gen_bus\) consumes \['generator'\], the dims it walks from",
             id='sum-requires-the-grouped-dim',
         ),
         pytest.param(

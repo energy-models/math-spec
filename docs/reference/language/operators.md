@@ -17,8 +17,9 @@ Dimension arguments are name-checked at load time, so
 | `sum(array, by=lookup)`                            | the lookup's key column collapses onto its value column                                                                            |
 | `sum(array, by=[lookup, …])`                       | the same, onto every lookup's value column; they must consume the same dim                                                         |
 | `sum(array, by=lookup, from=a, to=b)`              | column `a` collapses onto column `b`; the other key columns are joined on, which the array carries and the result keeps            |
+| `sum(array, by=lookup, from=[a, …], to=[b, …])` | the same with several columns on either side: consumed together, landed on a product |
 | `at(array, by=lookup)`                             | the lookup's value column is replaced by its key column                                                                            |
-| `at(array, by=lookup, from=a, to=b)`               | column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns                      |
+| `at(array, by=lookup, from=a, to=b)`               | column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns; either may be a list                      |
 | `shift(array, over=dim, offset=n)`                 | the value at _t−n_ along `dim`; the vacated edge is **absent**                                                                     |
 | `shift(array, over=dim, offset=n, edge='wrap')`    | the value at _t−n_, cyclic: nothing is vacated                                                                                     |
 | `shift(array, over=dim, offset=n, edge=v)`         | the value at _t−n_, with the number `v` where the edge was vacated                                                                 |

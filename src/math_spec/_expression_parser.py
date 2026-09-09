@@ -117,16 +117,16 @@ class NameListNode:
 class LookupNode:
     """A resolved ``by=`` — one or more lookups, each with the walk the call takes through it.
 
-    ``dimension`` is the fine side every walk shares — what ``sum`` consumes
-    and ``at`` produces — and ``into`` the coarse dims, one per name in the
-    order written, which ``sum`` produces and ``at`` consumes;
-    ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two. The roles
-    joined on are the operand's to carry, and the operator passes them
-    through.
+    ``dimensions`` is the fine side every walk shares — what ``sum`` consumes
+    and ``at`` produces — and ``into`` the coarse dims, in the order the
+    names and their columns are written, which ``sum`` produces and ``at``
+    consumes; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
+    The roles joined on are the operand's to carry, and the operator passes
+    them through.
     """
 
     names: tuple[str, ...]
-    dimension: str
+    dimensions: tuple[str, ...]
     into: tuple[str, ...]
     walks: tuple[Walk, ...] = ()
 

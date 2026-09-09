@@ -119,13 +119,13 @@ The columns the key determines are the lookup's **value columns**.
 
 The key is also what decides which walks the table admits:
 
-| the walk                        | needs                                                                      | because                                                       |
-| ------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `sum(x, by=l, from=a, to=b)`    | nothing                                                                    | a sum lands every row it finds; several per coordinate add up |
-| `at(x, by=l, from=a, to=b)`     | a key inside the columns the operand fixes — `b` and the columns joined on | a read is one value per coordinate, or it is not a read       |
-| `shift`, `sum_back`, `position` | a key column over the dimension walked                                     | a coordinate is in one group, or it has no neighbour          |
-| `where: "l == 'north'"`         | a key, and the column compared a value column                              | a comparison is one value per coordinate                      |
-| `where: l` (bare)               | nothing                                                                    | a row exists, or it does not                                  |
+| the walk                        | needs                                                                                   | because                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `sum(x, by=l, from=a, to=b)`    | nothing                                                                                 | a sum lands every row it finds; several per coordinate add up |
+| `at(x, by=l, from=a, to=b)`     | a key inside the columns the operand fixes — the `to` columns and the columns joined on | a read is one value per coordinate, or it is not a read       |
+| `shift`, `sum_back`, `position` | a key column over the dimension walked                                                  | a coordinate is in one group, or it has no neighbour          |
+| `where: "l == 'north'"`         | a key, and the column compared a value column                                           | a comparison is one value per coordinate                      |
+| `where: l` (bare)               | nothing                                                                                 | a row exists, or it does not                                  |
 
 A bare relation — no `key:` — is walked by `sum` alone, with both ends named,
 and tested by a bare `where`. That is what a many-to-many relation can say,
@@ -181,8 +181,14 @@ value tuple.
 
 The rules, each decided at load with a refusal naming the rewrite:
 
-- **`from=` and `to=` name two different columns of the lookup `by=` names**,
-  and are refused without a `by=`.
+- **`from=` and `to=` name columns of the lookup `by=` names**, one each or a
+  list each, no column on both sides, and are refused without a `by=`.
+  `sum(p, by=gen_bt, to=[bus, technology])` lands one table with two value
+  columns on the product `bus × technology` in one join;
+  `sum(p, by=zone_of, from=[generator, period])` consumes both key columns
+  at once, which is `sum(sum(p, by=zone_of, from=generator), over=period)`
+  said once; `at(tech_cap, by=gen_bt, from=[bus, technology])` reads a
+  two-column slot at each generator.
 - **The operand carries every joined column's dimension, each once.** The map
   is read at the key columns not walked, so there is no reading it at a
   coordinate that lacks them; two joined columns over one dimension have

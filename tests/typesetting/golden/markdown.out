@@ -7,11 +7,11 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 | Symbol | Meaning |
 |---|---|
 | $\mathcal{T}$ | index $t$ — `snapshot` (`int` coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S},\enspace \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\enspace \mathrm{rep\_of}: \mathcal{T} \to \mathcal{T}$ |
-| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\enspace \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\enspace \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B}$ |
-| $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B}$ |
+| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\enspace \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\enspace \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B},\enspace \mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}$ |
+| $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B},\enspace \mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}$ |
 | $\mathcal{Z}$ | index $z$ — `zone` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}$ |
 | $\mathcal{S}$ | index $s$ — `season` with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$ |
-| $\mathcal{E}$ | index $e$ — `technology` with $\mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ |
+| $\mathcal{E}$ | index $e$ — `technology` with $\mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\enspace \mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}$ |
 
 #### Parameters
 
@@ -137,6 +137,14 @@ $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace 0 \le t -^{\mathrm{season\_of}(
 **`pullback`**
 
 $$\mathit{spill}_{t} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+
+**`grouped_once`**
+
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bt.bus}(g) = b \wedge \mathrm{gen\_bt.technology}(g) = e} p_{t,g} \le \mathrm{tech\_cap}_{b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$$
+
+**`pulled_back_once`**
+
+$$\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bt.bus}(g),\mathrm{gen\_bt.technology}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
 
 **`relational`**
 

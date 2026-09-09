@@ -140,18 +140,18 @@ Parameter `dims` and variable `foreach` are declared, and dimension arguments
 are name-checked, so **every expression's dim set is known before any data
 binds**:
 
-| Node                         | Dim set                                  | Error                                                                           |
-| ---------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------- |
-| number                       | `{}`                                     |                                                                                 |
-| parameter / variable         | its `dims` / its `foreach`               |                                                                                 |
-| `-x`, `+x`                   | `dims(x)`                                |                                                                                 |
-| `a + b`, `a * b`, `a / b`    | `dims(a) ∪ dims(b)`                      |                                                                                 |
-| `sum(x)`                     | `{}`                                     | if `dims(x)` is empty already                                                   |
-| `sum(x, over=d)`             | `dims(x) − {d}`                          | if `d ∉ dims(x)`                                                                |
-| `sum(x, by=l)`               | `(dims(x) − {from(l)}) ∪ {to(l)}`        | if `from(l) ∉ dims(x)`, or a joined column's dim is not in `dims(x)`            |
-| `sum(x, by=[l, m])`          | `(dims(x) − {from(l)}) ∪ {to(l), to(m)}` | the same, plus: if `l` and `m` consume different dims, or produce the same one  |
-| `at(x, by=l)`                | `(dims(x) − {from(l)}) ∪ {to(l)}`        | if `from(l) ∉ dims(x)`, a joined column's dim is not, or `l` has no key in `to` |
-| `shift(x, over=d, offset=n)` | `dims(x)`                                | if `d ∉ dims(x)`                                                                |
+| Node                         | Dim set                               | Error                                                                           |
+| ---------------------------- | ------------------------------------- | ------------------------------------------------------------------------------- |
+| number                       | `{}`                                  |                                                                                 |
+| parameter / variable         | its `dims` / its `foreach`            |                                                                                 |
+| `-x`, `+x`                   | `dims(x)`                             |                                                                                 |
+| `a + b`, `a * b`, `a / b`    | `dims(a) ∪ dims(b)`                   |                                                                                 |
+| `sum(x)`                     | `{}`                                  | if `dims(x)` is empty already                                                   |
+| `sum(x, over=d)`             | `dims(x) − {d}`                       | if `d ∉ dims(x)`                                                                |
+| `sum(x, by=l)`               | `(dims(x) − from(l)) ∪ to(l)`         | if `from(l) ⊄ dims(x)`, or a joined column's dim is not in `dims(x)`            |
+| `sum(x, by=[l, m])`          | `(dims(x) − from(l)) ∪ to(l) ∪ to(m)` | the same, plus: if `l` and `m` consume different dims, or produce the same one  |
+| `at(x, by=l)`                | `(dims(x) − from(l)) ∪ to(l)`         | if `from(l) ⊄ dims(x)`, a joined column's dim is not, or `l` has no key in `to` |
+| `shift(x, over=d, offset=n)` | `dims(x)`                             | if `d ∉ dims(x)`                                                                |
 
 Binary operators **union**: an outer product is legitimate when the frame
 declares the result. What must not be silent is a _declaration_ that disagrees,

@@ -627,66 +627,82 @@ class _Resolver:
             return value
         resolved = [w for w in walks if w is not None]
 
-        fine = {w.dim(w.consumed if operator != 'at' or w.produced is None else w.produced) for w in resolved}
+        def fine_of(w: Walk) -> tuple[str, ...]:
+            return w.produced_dims if operator == 'at' and w.produced else w.consumed_dims
+
+        def coarse_of(w: Walk) -> tuple[str, ...]:
+            return w.consumed_dims if operator == 'at' else w.produced_dims
+
+        fine = {frozenset(fine_of(w)) for w in resolved}
         if len(fine) > 1:
             self.errors.append(
                 f'{self.context}: {operator}({key}={shown(names)}) groups through lookups along different '
-                f'dimensions ({", ".join(f"{w.name} along {sorted(fine)}" for w in resolved)}). One grouping '
-                f'consumes one dimension, so every lookup in the list must walk the same one — group through '
+                f'dimensions ({", ".join(f"{w.name} along {sorted(fine_of(w))}" for w in resolved)}). One grouping '
+                f'consumes one set of dimensions, so every lookup in the list must walk the same — group through '
                 f'them in turn instead, one call each.'
             )
             return value
-        coarse = tuple(
-            w.dim(w.consumed) if operator == 'at' else w.dim(produced)
-            for w in resolved
-            if (produced := w.produced) is not None
-        )
+        coarse = tuple(dim for w in resolved for dim in coarse_of(w))
         repeated = sorted({t for t in coarse if coarse.count(t) > 1})
         if repeated:
             self.errors.append(
                 f'{self.context}: {operator}({key}={shown(names)}) produces {repeated} more than once. '
-                f'Each lookup in the list produces its own dimension, so two that land on the '
-                f'same one would need it twice — drop one, or declare one table with both columns.'
+                f'Each column walked to produces its own dimension, so two that land on the '
+                f'same one would need it twice — drop one.'
             )
             return value
-        return LookupNode(names, dimension=next(iter(fine)), into=coarse, walks=tuple(resolved))
+        return LookupNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
 
-    def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> str | None:
-        """``from=`` or ``to=`` as the bare column name it must be."""
+    def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
+        """``from=`` or ``to=`` as the column names it must be — one bare name, or a bracketed list of them."""
         if isinstance(value, NameNode):
-            return value.name
-        self.errors.append(f'{self.context}: {operator}({key}=...) names a column of the lookup, a bare name.')
+            return (value.name,)
+        if isinstance(value, NameListNode):
+            return value.names
+        self.errors.append(
+            f'{self.context}: {operator}({key}=...) names columns of the lookup — a bare name, or a list of them.'
+        )
         return None
 
     def _walk(
-        self, name: str, operator: str, from_role: str | None, to_role: str | None, walked_dim: str | None
+        self,
+        name: str,
+        operator: str,
+        from_roles: tuple[str, ...] | None,
+        to_roles: tuple[str, ...] | None,
+        walked_dim: str | None,
     ) -> Walk | None:
         """How *operator* walks lookup *name*, from the columns the call named and the declaration's defaults.
 
-        ``sum`` and ``at`` consume one column and produce one; a partition
-        (``shift``, ``sum_back``) consumes a key column over the dimension it
-        walks and groups by the value columns. A side the call leaves unsaid
-        is taken from the declaration where it has exactly one candidate, and
-        refused with the candidates otherwise.
+        ``sum`` and ``at`` consume one or more columns and produce one or
+        more; a partition (``shift``, ``sum_back``, ``position``) consumes
+        one key column over the dimension it walks and groups by the value
+        columns. A side the call leaves unsaid is taken from the declaration
+        where it has exactly one candidate, and refused with the candidates
+        otherwise.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
         call = f'{operator}(by={name})'
 
-        def known(role: str | None, kwarg: str) -> bool:
-            if role is not None and role not in shape.roles:
-                self.errors.append(
-                    f"{context}: {call}: {kwarg}={role} names no column of '{name}', whose columns are "
-                    f'{list(shape.roles)}.'
-                )
+        def known(roles: tuple[str, ...] | None, kwarg: str) -> bool:
+            for role in roles or ():
+                if role not in shape.roles:
+                    self.errors.append(
+                        f"{context}: {call}: {kwarg}={role} names no column of '{name}', whose columns are "
+                        f'{list(shape.roles)}.'
+                    )
+                    return False
+            if roles is not None and len(set(roles)) < len(roles):
+                self.errors.append(f'{context}: {call}: {kwarg}={list(roles)} names a column twice.')
                 return False
             return True
 
-        if not (known(from_role, 'from') and known(to_role, 'to')):
+        if not (known(from_roles, 'from') and known(to_roles, 'to')):
             return None
 
         if operator in ('shift', 'sum_back', 'position'):
-            if to_role is not None:
+            if to_roles is not None:
                 self.errors.append(
                     f'{context}: {call}: a partition takes from= alone — it walks one key column of the lookup '
                     f'and groups by its value columns, so there is no column to produce.'
@@ -698,7 +714,7 @@ class _Resolver:
                     f'Declare key: on the lookup, naming the column {operator} walks.'
                 )
                 return None
-            if from_role is None:
+            if from_roles is None:
                 over_keys = [r for r in shape.key if walked_dim is not None and shape.dim(r) == walked_dim]
                 if not over_keys:
                     self.errors.append(
@@ -712,7 +728,14 @@ class _Resolver:
                         f'({over_keys}), and a partition walks exactly one — say which with from=.'
                     )
                     return None
-                from_role = over_keys[0]
+                from_roles = (over_keys[0],)
+            if len(from_roles) != 1:
+                self.errors.append(
+                    f'{context}: {call}: from={list(from_roles)} names {len(from_roles)} columns, and a partition '
+                    f'walks exactly one.'
+                )
+                return None
+            (from_role,) = from_roles
             if from_role not in shape.key:
                 self.errors.append(
                     f"{context}: {call}: from={from_role} is not a key column of '{name}' (key {list(shape.key)}). "
@@ -720,31 +743,33 @@ class _Resolver:
                 )
                 return None
             joined = tuple(r for r in shape.key if r != from_role)
-            return Walk(name, from_role, None, joined, shape.columns, shape.key)
+            return Walk(name, (from_role,), (), joined, shape.columns, shape.key)
 
         forward = operator == 'sum'
-        if from_role is None:
+        if from_roles is None:
             side = shape.key if forward else shape.values
-            from_role = self._default_role(name, call, 'from', side, 'key' if forward else 'value')
-            if from_role is None:
+            default = self._default_role(name, call, 'from', side, 'key' if forward else 'value')
+            if default is None:
                 return None
-        if to_role is None:
+            from_roles = (default,)
+        if to_roles is None:
             side = shape.values if forward else shape.key
-            to_role = self._default_role(name, call, 'to', side, 'value' if forward else 'key')
-            if to_role is None:
+            default = self._default_role(name, call, 'to', side, 'value' if forward else 'key')
+            if default is None:
                 return None
-        if from_role == to_role:
+            to_roles = (default,)
+        if both := sorted(set(from_roles) & set(to_roles)):
             self.errors.append(
-                f'{context}: {call}: from= and to= both name column {from_role!r}, and a walk goes between two.'
+                f'{context}: {call}: from= and to= both name {both}, and a walk goes between two sets of columns.'
             )
             return None
-        joined = tuple(r for r in (shape.key or shape.roles) if r not in (from_role, to_role))
-        walk = Walk(name, from_role, to_role, joined, shape.columns, shape.key)
+        joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in to_roles)
+        walk = Walk(name, from_roles, to_roles, joined, shape.columns, shape.key)
         if not forward and not walk.is_function_read:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
-                f'{to_role!r} at the columns the operand fixes ({[to_role, *joined]}) — its key is {list(shape.key)}. '
-                f'Declare a key those columns contain, or read the other way.'
+                f'{list(from_roles)} at the columns the operand fixes ({[*to_roles, *joined]}) — its key is '
+                f'{list(shape.key)}. Declare a key those columns contain, or read the other way.'
             )
             return None
         return walk
@@ -871,16 +896,17 @@ class _Resolver:
                 f'{did_you_mean(node.by, ns.lookups, label="Lookups")}'
             )
             return node
-        walk = self._walk(node.by, 'position', node.walked, None, node.dimension)
+        walk = self._walk(node.by, 'position', None if node.walked is None else (node.walked,), None, node.dimension)
         if walk is None:
             return node
-        if walk.dim(walk.consumed) != node.dimension:
+        (walked,) = walk.consumed
+        if walk.dim(walked) != node.dimension:
             self.errors.append(
-                f"{context}: '{call}': position counts along '{node.dimension}' but from={walk.consumed} is a "
-                f"column over '{walk.dim(walk.consumed)}'. Walk a key column over '{node.dimension}'."
+                f"{context}: '{call}': position counts along '{node.dimension}' but from={walked} is a "
+                f"column over '{walk.dim(walked)}'. Walk a key column over '{node.dimension}'."
             )
             return node
-        return DimensionPositionNode(node.dimension, node.op, node.position, node.by, walk.consumed, walk.joined_dims)
+        return DimensionPositionNode(node.dimension, node.op, node.position, node.by, walked, walk.joined_dims)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``lookup <op> lookup``."""

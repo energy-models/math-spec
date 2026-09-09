@@ -76,5 +76,5 @@ def _produced_axes(program: Program) -> set[str]:
         if isinstance(node, GroupSum):
             axes.update(node.into)
         elif isinstance(node, At):
-            axes.add(node.over)
+            axes.update(node.over)
     return axes

@@ -274,16 +274,14 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _lookup_read(self, walk: LookupWalk, at: Mapping[str, str]) -> str:
-        """A lookup read as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
+    def _lookup_read(self, walk: LookupWalk, at: Mapping[str, str], read: str) -> str:
+        """A lookup's column *read* as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
 
         *at* maps each key role to the index it is read at. The function is
         named after the lookup alone where the key determines one column, and
         after the column read otherwise.
         """
-        values = walk.values
-        read = walk.consumed if walk.produced is None or walk.consumed in values else walk.produced
-        name = walk.name if len(values) == 1 else f'{walk.name}.{read}'
+        name = walk.name if len(walk.values) == 1 else f'{walk.name}.{read}'
         return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in walk.key], ''))
 
     def _lookup_member(self, walk: LookupWalk, at: Mapping[str, str]) -> str:
@@ -443,25 +441,23 @@ class Walk:
         if node.name == 'at':
             by = node.kwargs['by']
             assert isinstance(by, LookupNode)
-            for walk, into in zip(by.walks, by.into, strict=True):
-                assert walk.produced is not None
-                at = {
-                    walk.produced: ctx.subscript(by.dimension),
-                    **{r: ctx.subscript(walk.dim(r)) for r in walk.joined},
-                }
-                ctx = ctx.pulled_back(into, self._lookup_read(walk, at))
+            outer = ctx
+            for walk in by.walks:
+                at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
+                for read in walk.consumed:
+                    ctx = ctx.pulled_back(walk.dim(read), self._lookup_read(walk, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, LookupNode)
-            dummy, inner = ctx.reducing(by.dimension)
-            conditions = [
-                self._grouping(walk, dummy, ctx.subscript(into), ctx)
-                for walk, into in zip(by.walks, by.into, strict=True)
-            ]
+            dummies: dict[str, str] = {}
+            inner = ctx
+            for d in by.dimensions:
+                dummies[d], inner = inner.reducing(d)
+            conditions = [c for walk in by.walks for c in self._grouping(walk, dummies, ctx)]
             domain = (
-                f'{self._membership(by.dimension, dummy)} {self._op("such_that")} '
-                f'{self.format.joined(conditions, self._op("and"))}'
+                f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
+                f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
             )
         elif (over := node.kwargs.get('over')) is not None:
             assert isinstance(over, DimensionNode)
@@ -476,18 +472,21 @@ class Walk:
             domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
-    def _grouping(self, walk: LookupWalk, dummy: str, target: str, ctx: _Context) -> str:
-        """The condition a grouped sum's domain carries for one walk: a function equal to the target, or a row in the relation.
+    def _grouping(self, walk: LookupWalk, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
+        """The conditions a grouped sum's domain carries for one walk: each produced column as a function equal to its target, or one row in the relation.
 
         The function form holds where the key lies inside the consumed and
         joined columns — one value per summand — and the relation form is the
         reading that is always right.
         """
-        assert walk.produced is not None
-        at = {walk.consumed: dummy, **{r: ctx.subscript(walk.dim(r)) for r in walk.joined}}
-        if walk.key and set(walk.key) <= set(at) and walk.produced not in walk.key:
-            return f'{self._lookup_read(walk, at)} {self._op("equal")} {target}'
-        return self._lookup_member(walk, {**at, walk.produced: target})
+        at = {
+            **{r: dummies[walk.dim(r)] for r in walk.consumed},
+            **{r: ctx.subscript(walk.dim(r)) for r in walk.joined},
+        }
+        targets = {r: ctx.subscript(walk.dim(r)) for r in walk.produced}
+        if walk.key and set(walk.key) <= set(at) and not set(walk.produced) & set(walk.key):
+            return [f'{self._lookup_read(walk, at, r)} {self._op("equal")} {targets[r]}' for r in walk.produced]
+        return [self._lookup_member(walk, {**at, **targets})]
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A ``by=`` as the superscript its translation operator carries.
@@ -500,8 +499,8 @@ class Walk:
             return ''
         assert isinstance(by, LookupNode)
         walk = by.walks[0]
-        at = {walk.consumed: self.symbols.index[dim], **{r: self.symbols.index[walk.dim(r)] for r in walk.joined}}
-        return self._lookup_read(walk, at)
+        at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
+        return self.format.apply(self.format.upright(walk.name), self.format.joined([at[k] for k in walk.key], ''))
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``within=``: a number, or a parameter's own symbol.
