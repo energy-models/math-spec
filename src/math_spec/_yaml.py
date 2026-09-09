@@ -94,6 +94,29 @@ def read_yaml(path: Path | str) -> dict[str, Any]:
     return parse_yaml(Path(path).read_text(encoding='utf-8'), str(path))
 
 
+def read_model(model: str | Path) -> dict[str, Any]:
+    """A model from a file or from its text — a newline decides which a ``str`` is.
+
+    A :class:`~pathlib.Path` names a file, and so does a ``str`` with no
+    newline in it, since no path holds one; a ``str`` with a newline is the
+    YAML itself, which every file and every ``to_yaml()`` ends with. Nothing
+    else is read off the content and nothing is read off the disk to decide.
+
+    Raises:
+        FileNotFoundError: A ``str`` with no newline that names no file — a
+            one-line text is told to end with one.
+    """
+    if isinstance(model, str) and '\n' not in model and not Path(model).is_file():
+        msg = (
+            f'no file named {model!r}. A str with no newline in it is read as a path, and YAML text '
+            f'is told apart by one — end the text with a newline, or pass a Path.'
+        )
+        raise FileNotFoundError(msg)
+    if isinstance(model, Path) or '\n' not in model:
+        return read_yaml(Path(model))
+    return parse_yaml(model, 'YAML text')
+
+
 def parse_yaml(text: str, origin: str = '<string>') -> dict[str, Any]:
     """Parse YAML *text* as a mapping of sections.
 
