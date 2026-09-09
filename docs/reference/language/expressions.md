@@ -5,8 +5,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Expressions
 
-Every `expression:` in the file — a constraint's, the objective's, a named
-quantity's — is written in one small arithmetic language:
+This page says what an `expression:` and a `where:` string may contain, what a
+name may mean where, and how dims compose. Every `expression:` in the file, a
+constraint's, the objective's, a named quantity's, is written in one small
+arithmetic language:
 
 ```text
 expression  ::= arithmetic | arithmetic COMPARATOR arithmetic
@@ -22,82 +24,72 @@ NUMBER      ::= integer | float | "inf" | ".inf"
 ```
 
 Precedence, highest first: `**`, then unary `+` `-`, then `*` `/`, then binary
-`+` `-` — so `-x ** 2` is `-(x ** 2)` and `-x * y` is `(-x) * y`, as in Python.
+`+` `-`, as in Python. So `-x ** 2` is `-(x ** 2)` and `-x * y` is `(-x) * y`.
 Parentheses override. A float may carry an exponent (`1e5`, `2.5e-3`); a sign
 is always the unary operator's. A keyword given twice in one call is an error
 rather than the later one winning.
 
 **An expression nests at most 100 levels deep**, which is a chain of at most
-100 terms written out; a chain that long is one `sum()` over a dimension
-replaces. `where:` strings are bounded the same way.
+100 terms written out. One `sum()` over a dimension replaces a chain that long.
+`where:` strings are bounded the same way.
 
 ## Degree 2 in the math, degree 1 beside it
 
-**The objective and constraints take `variable * variable`.** So a quadratic
+**The objective and constraints take `variable * variable`.** A quadratic
 cost, `sum(p * p * wear, over=g)`, and a quadratic row, `p * q >= floor`, are
-both sayable and both say what they mean.
-
-Three rules bound it:
+both sayable. Three rules bound it:
 
 - **At most one factor may be a sum of terms.** `sum(p, over=g) * sum(q,
 over=g)` is refused: that is every term of one against every term of the
   other, and nothing in the file says how many that is. Multiply _before_
-  reducing, or give the reduction a name — a variable constrained to equal it
+  reducing, or give the reduction a name: a variable constrained to equal it
   is one term. Factors carrying different dims are fine: `x * y * link`
   broadcasts and joins through the table that couples them.
 - **Degree stops at 2.** `p * p * p` is refused where `p * p` is not.
-- **Everything beside the math stays affine** — a bound and a `piecewise:`
+- **Everything beside the math stays affine**: a bound, and a `piecewise:`
   link. A bound is a number per column; a link expands into declarations that
-  must themselves be affine. A named expression, by contrast, is read at the
-  ceiling of wherever the math reads it — degree 2 in the objective or a
-  constraint, affine in a piecewise link. One nothing in the math reads is held
-  to no degree at all: it is a **reported** quantity (below), which is what
-  lets it divide by a variable, cube one, or call `dual()`.
+  must themselves be affine. A named expression is read at the ceiling of
+  wherever the math reads it: degree 2 in the objective or a constraint,
+  affine in a piecewise link. One nothing in the math reads is held to no
+  degree at all; it is a **reported** quantity
+  ([reported expressions](reported.md)).
 
 `/` needs a variable-free divisor everywhere, and a single factor rather than a
-sum — both decided at load time, since neither depends on the numbers that
-arrive, and a variable divisor is rational rather than polynomial, which is
-outside the language at any degree.
+sum. Both are decided at load, since neither depends on the numbers that
+arrive.
 
 `**` takes a base and an exponent that **carry no variable**, and nothing else.
-`growth ** period` is a discount factor — one number per coordinate, folded
-from a rate the model binds and a period it declares — so it is the arithmetic
-`*` already does, spelled the way the maths is written. Two refusals bound it,
-both at load:
+`growth ** period` is a discount factor, one number per coordinate, and is the
+arithmetic `*` already does. Two refusals bound it, both at load:
 
 - **A variable anywhere under it.** `x * x` is how a square gets written; above
-  degree 2 there is no rewrite at all. A variable _exponent_ is out for a
-  sharper reason — `p ** n` is affine at `n = 1` and quadratic at `n = 2`, so
-  the _degree_ would be a property of the data and `to_spec` could not
-  answer with nothing bound.
-- **An operand that adds.** Addition does not distribute over `**`, so
-  `(1 + rate) ** period` is two factors wearing one and is refused where
+  degree 2 there is no rewrite at all. A variable _exponent_ would make the
+  degree a property of the data: `p ** n` is affine at `n = 1` and quadratic
+  at `n = 2`.
+- **An operand that adds.** `(1 + rate) ** period` is refused where
   `growth ** period` is not. Bind the factor itself.
 
 ### What it costs is a consumer's question
 
-Saying it is one question; solving it is another
-([the ceiling](../../about/ceiling.md#capability-is-not-the-ceiling)). This
-language admits degree 2 in the objective and constraints and says nothing
-about which solver, lane or file format takes it — that is the consumer's
-axis, and each consumer answers for itself. Two things no consumer can answer
-from the model alone, because both are properties of the _data_: whether a
-quadratic form is **convex**, and whether a quadratic row can be priced.
+Saying a quadratic form is the language's question; solving it is the
+consumer's ([the ceiling](../../about/ceiling.md#capability-is-not-the-ceiling)).
+The language admits degree 2 in the objective and constraints and says nothing
+about which solver, lane or file format takes it. Whether a quadratic form is
+**convex**, and whether a quadratic row can be priced, are properties of the
+_data_, so no consumer can answer either from the model alone.
 
-A `piecewise:` block with `method: convex` remains the way to spend a curve and
-keep the LP, its duals and its warm start.
+A `piecewise:` block with `method: convex` spends a curve and keeps the LP, its
+duals and its warm start.
 
 ## Name resolution
 
-**A name is a letter or an underscore, then letters, digits or underscores** —
-the spelling an expression uses to refer to one. A declaration keyed by
-anything else is a load error, because nothing in the file could ever write it.
+**A name is a letter or an underscore, then letters, digits or underscores.** A
+declaration keyed by anything else is a load error, because nothing in the file
+could ever write it.
 
 **One flat namespace** covers dimensions, parameters, variables, named
 expressions, macros and the built-in operators. A collision is a load error
-naming both declarations — there is no shadowing, because under it declaring a
-parameter named `snapshot` would silently change what an existing
-`where: "snapshot > 0"` means.
+naming both declarations; there is no shadowing.
 
 **Position decides which kinds of name are legal**, and every name's kind is
 fixed when the file loads:
@@ -113,26 +105,24 @@ fixed when the file loads:
 | `dual` argument (`dual(c)`)             | constraint — resolved against constraints alone, never the flat namespace ([reported](reported.md#reading-a-constraints-dual)) |
 
 A bare word in a keyword-argument value is _a name to resolve_, which is why
-`wrap` is quoted: `shift(x, over=wrap, edge='wrap')` reads unambiguously even
+`wrap` is quoted. `shift(x, over=wrap, edge='wrap')` reads unambiguously even
 where a dimension is called `wrap`. `edge` is the one keyword whose _key_ is
 fixed rather than naming a dimension, so a dimension called `edge` does not
 change what it means.
 
-**A dimension in a value position is an error** — it is a coordinate space, not
+**A dimension in a value position is an error**: it is a coordinate space, not
 data. To use its coordinates as data, declare a parameter over it.
 
-**A `str` or `bool` parameter there is an error too** — data, but not a number.
-A label selects and a flag masks, which is what a `where` is for; multiplying by
-either is a cast the file never wrote, so only `dtype: float` and `dtype: int`
-stand as a coefficient, a term or a divisor
-([dtype](declarations.md#parameters)).
+**A `str` or `bool` parameter there is an error too**: data, but not a number.
+Only `dtype: float` and `dtype: int` stand as a coefficient, a term or a
+divisor ([dtype](declarations.md#parameters)). A label selects and a flag
+masks, which is what a `where` is for.
 
 **Constraints are outside the flat namespace.** The one position that names a
-constraint is [`dual`'s argument](reported.md#reading-a-constraints-dual),
-resolved against constraints alone — so a bare name never reaches a constraint
-and a model may still name a constraint after a variable. What reads a solve
-back keys on the label space as well as the name for that reason. The objective
-carries no name at all.
+constraint is `dual`'s argument, resolved against constraints alone. So a bare
+name never reaches a constraint, and a model may name a constraint after a
+variable. What reads a solve back keys on the label space as well as the name
+for that reason. The objective carries no name at all.
 
 ## Dim algebra
 
@@ -154,19 +144,15 @@ binds**:
 | `shift(x, over=d, offset=n)` | `dims(x)`                                    | if `d ∉ dims(x)`                                                               |
 
 Binary operators **union**: an outer product is legitimate when the frame
-declares the result. What must not be silent is a _declaration_ that disagrees,
-so:
+declares the result. A _declaration_ that disagrees is a load error, so:
 
 - a **constraint** requires `dims(lhs) ∪ dims(rhs)` to **equal** its `foreach`.
-  A stray dim multiplies rows and an unused `foreach` dim repeats one row
-  across them — either way you would build a different model than the file
-  reads as;
-- an **objective** must carry **no dims at all** — it is one number, and the
+  A stray dim multiplies rows, and an unused `foreach` dim repeats one row
+  across them;
+- an **objective** must carry **no dims at all**: it is one number, and the
   sums that make it one are written in the expression;
 - a **`where` predicate**'s dims and a **bound parameter**'s dims must not
   _exceed_ the frame they sit in.
-
-Get it wrong and you are told at load time, not at solve time.
 
 ## Where strings
 
@@ -199,43 +185,36 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `True` / `False`                 | —                                | literals, decided at load wherever they stand: `True` is the same as no `where`, `False` is a declaration with no rows, and one under an `AND` or an `OR` settles that side — `x AND False` is the declaration with no rows too. A double negation goes the same way, `NOT NOT x` being `x`, so what a page prints is what the mask decides rather than how it was spelled. A case [`when:`](#the-rules) is the one place a mask that folds to a literal is refused instead |
 
 The mask's dims must not exceed the frame it sits in
-([dim algebra](#dim-algebra)), and an undeclared bare name is a
-load error.
+([dim algebra](#dim-algebra)), and an undeclared bare name is a load error.
 
-**Defined is not non-zero**, and the difference is a property of the data rather
-than of the model. A bare parameter name is true wherever the table _has a row_,
-`0.0` included — so one `where:` masks nothing against a table padded with zeros
-and deletes rows against a sparse one carrying the same information. Where the
-intent is _non-zero_, compare for it: `where: "inflow != 0"` rather than
-`where: inflow`, which a padded zero satisfies.
+**Defined is not non-zero.** A bare parameter name is true wherever the table
+_has a row_, `0.0` included. So one `where:` masks nothing against a table
+padded with zeros and deletes rows against a sparse one carrying the same
+information. Where the intent is _non-zero_, compare for it:
+`where: "inflow != 0"` rather than `where: inflow`.
 
-**Comparing two parameters is not in the language** — precompute a boolean
-parameter in data prep — and neither is comparing two dimensions. Two
-_lookups_ are the exception, and only two that share both ends: over one
-dimension they are two columns of one index, so the comparison is a filter on
-that table rather than a join between two, and into one dimension they draw
-from one label set, so a match is possible at all. Over different dimensions no
-row carries both, and into different label sets no value can ever match —
-either is a load error. A label space owns its values and is therefore never
-the other side of one.
+**Comparing two parameters is not in the language**, and neither is comparing
+two dimensions; precompute a boolean parameter in data prep. Two _lookups_ are
+the exception, and only two that share both ends. Over one dimension they are
+two columns of one index, and into one dimension they draw from one label set.
+Over different dimensions, or into different label sets, is a load error. A
+label space owns its values and is never the other side of one.
 
 The string reading of a right-hand-side name is for names the model does _not_
-declare, which is how a string coordinate is compared; a **declared** name
-there is a load error naming the near miss, because reading it as text would
-compare a coordinate column against another declaration's name and mask
-everything out.
+declare, which is how a string coordinate is compared. A **declared** name
+there is a load error naming the near miss.
 
 **Quote a label that is not an identifier, and quote a date.** A bare word has
 to look like a name, so `combined-cycle`, `IT-north` and `CCGT 400MW` are only
-sayable in quotes — and quoting is also what says _label, not name_, so a
-quoted word is never read as a declaration and never a near-miss error.
+sayable in quotes. Quoting also says _label, not name_: a quoted word is never
+read as a declaration and never a near-miss error.
 
-**A comparison is checked against the declared `dtype`.** This matters most for
-dates: a `datetime` dimension compared to a number is compared against the
-**epoch**, so `snapshot > 0` would silently mean "after 1970-01-01". That is a
-load error naming the fix. A datetime boundary is a quoted ISO date —
-`snapshot > '2030-01-01'`, or `'2030-01-01T06:00'` with a time. Calendar
-arithmetic, resampling and timezone conversion stay data prep.
+**A comparison is checked against the declared `dtype`.** A `datetime`
+dimension compared to a number is a load error naming the fix: the number
+would be read against the **epoch**, and `snapshot > 0` would mean "after
+1970-01-01". A datetime boundary is a quoted ISO date, `snapshot >
+'2030-01-01'`, or `'2030-01-01T06:00'` with a time. Calendar arithmetic,
+resampling and timezone conversion stay data prep.
 
 **`position(dim)` converts a dimension to where the row sits along it**, so a
 boundary clause survives the index being relabelled:
@@ -254,29 +233,24 @@ constraints:
     expression: soc == soc_initial
 ```
 
-A recurrence needs its first position seeded, and the label that happens to be
-there is a property of the data — relabel `[0, 1, 2]` to `[1, 2, 3]` and
-`snapshot == 0` matches nothing, leaving the recurrence unanchored. `-1` is the
-last position, `-2` the one before it. A position no coordinate occupies is
-an **error at bind**, not an empty mask: the clause exists to seed a row, and
-seeding none is the failure it was written to prevent.
-
-The order counted along is the dimension's own — the one `shift` walks, and the
-one the index declares — not the bytewise order a label comparison uses.
+A recurrence needs its first position seeded, and the label there is a
+property of the data: relabel `[0, 1, 2]` to `[1, 2, 3]` and `snapshot == 0`
+matches nothing. `-1` is the last position, `-2` the one before it. A position
+no coordinate occupies is an **error at bind**, not an empty mask: the clause
+exists to seed a row, and seeding none is the failure it was written to
+prevent. The order counted along is the dimension's own, the one `shift` walks
+and the index declares, not the bytewise order a label comparison uses.
 
 **The conversion is on the left, and that is what makes an ordering readable.**
-`position(snapshot) > 0` is "not the first row", on any axis, because both
-sides are integers. Naming the coordinate _at_ a position and comparing
-coordinates against it would have made the same clause mean either that or "a
-coordinate sorting after the first one" — two different masks wherever the
-coordinates do not arrive sorted, and nothing in a file says they do
+`position(snapshot) > 0` is "not the first row" on any axis, because both
+sides are integers. Comparing coordinates against the coordinate _at_ a
+position would mean either that or "a coordinate sorting after the first one",
+two masks wherever the coordinates do not arrive sorted
 ([#32](https://github.com/energy-models/math-spec/issues/32)). A comparison of
-_values_ is still written against the dimension itself, where it always was:
-`snapshot > '2030-01-01'`.
+_values_ is written against the dimension itself: `snapshot > '2030-01-01'`.
 
-**`by=` counts inside each group a lookup makes**, which is the boundary a
-multi-period model wants — one seeded row per period rather than one per
-horizon:
+**`by=` counts inside each group a lookup makes**: one seeded row per period
+rather than one per horizon.
 
 ```yaml
 dimensions:
@@ -295,25 +269,21 @@ constraints:
     expression: soc == at(soc_initial, by=period_of)
 ```
 
-`by=` takes a lookup **over the dimension being counted** — groups a row of
-that dimension is actually in. Unlike [`sum(by=)` and `at(by=)`](operators.md)
-it need not be a _groupable_ one: counting inside a group lands no terms
-anywhere, so a label space partitions the rows just as well ([#280](https://github.com/energy-models/math-spec/issues/280)). A row reads its own group's boundary, the broadcast `at(by=)`
-already defines, and `-1` is each group's last however long that group is.
-Periods of different lengths therefore need nothing special, which is the case
-no single position along the whole axis can express.
-
-A coordinate the lookup sends nowhere is in no group, so it is no group's
-boundary — the same reading a null value gets everywhere else. A group _shorter_
-than the position is an error at bind, for the reason the ungrouped form has
-one: a boundary naming no coordinate leaves those rows unseeded.
+`by=` takes a lookup **over the dimension being counted**. Unlike
+[`sum(by=)` and `at(by=)`](operators.md) it need not be a _groupable_ one:
+counting inside a group lands no terms anywhere, so a label space partitions
+the rows as well ([#280](https://github.com/energy-models/math-spec/issues/280)).
+A row reads its own group's boundary, and `-1` is each group's last however
+long that group is, so periods of different lengths need nothing special. A
+coordinate the lookup sends nowhere is in no group, so it is no group's
+boundary. A group _shorter_ than the position is an error at bind, as for the
+ungrouped form.
 
 **String labels order bytewise**, whatever order the dimension declared them
-in. Declaration order is a different axis — it is what `shift` walks — and a
-`where` never reads it: `node >= 'b'` means the same thing however the nodes
-were listed. A label the dimension does not carry compares equal to nothing, so
-the mask is false there rather than an error: quoting already said _label, not
-name_, and a label is data.
+in. Declaration order is what `shift` walks, and a `where` never reads it:
+`node >= 'b'` means the same however the nodes were listed. A label the
+dimension does not carry compares equal to nothing, so the mask is false there
+rather than an error: a label is data.
 
 ## Named expressions
 
@@ -336,38 +306,29 @@ expressions:
 Written as a bare string until it carries a `description:`, which is when it
 gains the mapping form.
 
-A named expression has **fixed dims** — they fall out of its body, so there is
-no `foreach` — and an **observable identity**: after a solve,
-a consumer can read its value back over its own dims.
-That is the point of naming a
-quantity: the CO₂ a constraint bounds and the CO₂ a summary reports are one
-definition, validated once.
+A named expression has **fixed dims**, which fall out of its body, so there is
+no `foreach`. It has an **observable identity**. After a solve, a consumer can
+read its value back over its own dims. The CO₂ a constraint bounds and the CO₂
+a summary reports are one definition, validated once.
 
 Where a constraint or the objective references one, it is substituted before
-anything consumes the model, so a reference costs nothing at build time. It is
-lowered only when it is _read_, so a model with fifty named expressions that
-reads none pays for none.
+anything consumes the model. It is lowered only when it is _read_, so a model
+with fifty named expressions that reads none pays for none.
 
-A named expression is one of **two things**, and the file never says which —
-the objective and the constraints do. One they inline, directly or through
-another entry or a macro, is **in the math**: it stands inside the program a
-solver sees, held to the same
-[degree-2 ceiling](#degree-2-in-the-math-degree-1-beside-it) the math holds to
-everywhere else, where it is read. One nothing in the math names is
-**reported**: a statistic the solver never sees, arithmetic over numbers a
-solve has already produced, where those restrictions lift — which is what lets
-it divide by a variable, cube one, or call
-[`dual()`](reported.md#reading-a-constraints-dual). See
-[Reported expressions](reported.md) for what lifts, and how the split is
-decided.
+A named expression is one of **two things**, and the objective and the
+constraints decide which. One they inline, directly or through another entry
+or a macro, is **in the math**, held to the
+[degree-2 ceiling](#degree-2-in-the-math-degree-1-beside-it) where it is read.
+One nothing in the math names is **reported**, and there the math's
+restrictions lift. [Reported expressions](reported.md) says what lifts, and
+how the split is decided.
 
 ### `cases:` — one quantity, a value per region
 
 Some quantities have no single expression. The commitment state a unit carries
 into a snapshot has three regimes: `1` for a unit that is never switched off, an
 initial condition at the first snapshot, and the last snapshot's status
-everywhere else. Written at the constraint, those regimes fork the inequality
-three ways. Named here, the inequality is written once:
+everywhere else. Named here, the inequality that reads it is written once:
 
 ```yaml
 expressions:
@@ -396,20 +357,20 @@ $$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{co
 
 **The shape.** A named expression carries exactly one of two things: an
 `expression:`, or a `cases:` block. A `cases:` block is a map of named cases,
-each with a `when:` and an `expression:`. Two keys sit beside it: the
-`otherwise:`, which carries whatever the cases leave, and the `foreach:`, which
+each with a `when:` and an `expression:`. Two keys sit beside it. `otherwise:`
+carries whatever the cases leave, and is written as a bare value. `foreach:`
 declares the dimensions all of them range over.
 
-Those dimensions are the block's **frame**, and one point of it — one snapshot
-for one generator, in the example above — is a **coordinate**. Every rule below
+Those dimensions are the block's **frame**, and one point of it, one snapshot
+for one generator in the example above, is a **coordinate**. Every rule below
 is about which case owns which coordinate.
 
 #### The rules
 
 **No two cases may claim one coordinate.** One generator at one snapshot
-cannot have two previous statuses, so a file where two `when:` masks can hold
-at once is refused at load. The refusal comes before any data binds, and it
-names the pair, a coordinate they both claim, and the rewrite:
+cannot have two previous statuses. So a file where two `when:` masks can hold
+at once is refused at load, before any data binds. The refusal names the pair,
+a coordinate they both claim, and the rewrite:
 
 > `Named expression 'previous_status'`: cases `always_on` and `boundary` both
 > claim the value where committable is false, the position of snapshot is 0. A
@@ -417,41 +378,42 @@ names the pair, a coordinate they both claim, and the rewrite:
 > two `when:` strings by the negation of the other, or drop the wider one and
 > let `otherwise:` carry that region.
 
-That is why `boundary` above says `committable and`.
+That is why `boundary` above says `committable and`. The cases are kept apart
+by proof, not ranked by position, so they mean the same in any order. A tool
+that re-sorts the keys of a file cannot change what the file means.
 
 **A `when:` the data cannot decide is not a case.** A mask the connectives
-settle on their own — `True`, `False`, or anything that folds to one, like
-`committable OR True` — states no condition for the data to answer, so it names
-no region. Both halves are refused at load, and the refusal names the rewrite:
+settle on their own, `True`, `False`, or anything that folds to one like
+`committable OR True`, names no region. Both halves are refused at load, and
+the refusal names the rewrite:
 
 > `Named expression 'previous_status', case 'always_on'`: the mask admits every
 > row, so no other arm can hold anywhere and `otherwise:` covers nothing. Write
 > the expression without `cases:`, or narrow the `when`.
 
-An always-false arm is the other half — it never applies, so delete it or widen
-it. A **declaration's** `where:` is not held to this rule and cannot be: there
-`False` is how a file says the declaration has no rows, and `True` is the same
-as writing no mask at all. It is the `when:` on an arm that has to be a
-question, because the arms are kept apart by proof.
+An always-false arm is the other half: it never applies, so delete it or widen
+it. A **declaration's** `where:` is not held to this rule: there `False` says
+the declaration has no rows, and `True` is the same as writing no mask at all.
 
 **A pair the check cannot decide is refused too**, and that refusal names its
 rewrite as well. The one that comes up is `position(snapshot) == 0` against
 `position(snapshot) == -1`. On an axis with a single member those two pick the
-same row, and how many members an axis has is data rather than declaration. So
-count from one end only.
+same row, and how many members an axis has is data rather than declaration.
+Count from one end only.
 
-**`otherwise:` is the value wherever no `when` holds**, and it takes every
-coordinate the cases leave. It carries no mask of its own, so nothing narrows
-the frame it is written against. It is the one value that has to hold up at
-every coordinate — those where a parameter is absent or a label is unnamed
-included.
+**`otherwise:` is required, and is the value wherever no `when` holds.** It
+carries no mask of its own, so nothing narrows the frame it is written
+against. It has to hold up at every coordinate the cases leave, those where a
+parameter is absent or a label is unnamed included. A coordinate with no value
+would be absent, and absence [spreads](absence.md), so a constraint reading the
+expression would lose rows it never masked.
 
-**Covering a coordinate is not the same as having a value there**, and a case
-that claims a coordinate may still be empty at it. The `otherwise:` above shows
-how. Its `shift` carries no `edge=`, so it produces nothing at the first
-snapshot; `previous_status` is whole there only because every unit at that
-snapshot is claimed by `boundary` or by `always_on` instead. Close such a hole
-in one of three ways:
+**Covering a coordinate is not the same as having a value there.** A case that
+claims a coordinate may still be empty at it. The `otherwise:` above shows
+how: its `shift` carries no `edge=`, so it produces nothing at the first
+snapshot. `previous_status` is whole there only because `boundary` or
+`always_on` claims every unit at that snapshot. Close such a hole in one of
+three ways:
 
 - widen a `when` until it covers the coordinate the case drops out at,
 - give the `shift` an `edge=`,
@@ -463,50 +425,29 @@ depends on the data.
 **`foreach:` is required with cases and refused without.** The dims of an
 uncased expression fall out of its body. The dims of a cased one cannot,
 because a case may be a single number while the condition that selects it
-ranges over dimensions — `always_on` above is exactly that. So the frame is
-declared. Each `when:` is held to it, the way a variable's or a constraint's
-mask is, and each case's value must sit inside it.
+ranges over dimensions; `always_on` above is exactly that. Each `when:` is held
+to the frame, the way a variable's or a constraint's mask is, and each case's
+value must sit inside it.
 
 **The dims of a reference are the declared `foreach`**, not the union of the
-cases: one narrower than the frame broadcasts, exactly as a parameter with
+cases: a case narrower than the frame broadcasts, exactly as a parameter with
 fewer dims does.
 
 **`cases:` inside a `macros:` template is not supported.** The `otherwise:`
 would have to cover a frame the macro does not have until it is called.
 
-#### Why it is shaped this way
-
-A coordinate with two values has no single value, so it is no longer a
-quantity. The regimes are therefore kept apart by proof rather than ranked by
-position. That is what makes the cases readable in any order: each one says
-where it applies on its own terms, without the ones above it in mind. A tool
-that re-sorts the keys of a file cannot change what the file means.
-
-`otherwise:` is required because it makes the quantity whole without a second
-proof: it carries no condition, so there is no condition on it to fail. A
-coordinate that no `when` matched would have no value at all, and absence
-[spreads](absence.md), so any constraint reading the expression would lose rows
-it never masked.
-
-It is written beside `cases:` rather than inside them because it is not a
-region like they are. It is what is left over. And since it carries a value and
-nothing else, it is written as a bare value — the same shorthand `expressions:`
-itself takes.
-
 ### How a named expression prints
 
 A use prints the symbol, and the body prints once under a **Definitions**
-heading between `Subject to` and `Variable domains`, in declaration order,
-where a paper states a quantity it names. The symbol is italic where a variable
-reaches the body and upright where none does, the cut every other name follows,
-and a named expression joins the symbol pool like any other quantity, so
-`--symbols` can rename one.
+heading between `Subject to` and `Variable domains`, in declaration order. The
+symbol is italic where a variable reaches the body and upright where none does,
+the cut every other name follows. A named expression joins the symbol pool like
+any other quantity, so `--symbols` can rename one.
 
-`inline_expressions` (`--inline-expressions`) substitutes each plain expression where it is used
-instead, which is the math a backend builds. A cased one is a definition either
-way, by decision: a `cases` block is taller than the line it would sit in, and
-it would print once per use though the file writes it once, which is what
-naming it avoids.
+`inline_expressions` (`--inline-expressions`) substitutes each plain expression
+where it is used instead, which is the math a backend builds. A cased one is a
+definition either way: a `cases` block is taller than the line it would sit in,
+and would print once per use though the file writes it once.
 
 [The unit commitment example](../../examples/commitment.md) is the whole model
 this section is drawn from.
@@ -514,7 +455,7 @@ this section is drawn from.
 ## Macros
 
 A **parameterised** template. It has no dims until it is called, and each call
-site may give it different ones — so it has no value a solve could report, and
+site may give it different ones, so it has no value a solve could report and
 is never readable:
 
 <!-- doctest: wrap=macros -->
@@ -529,11 +470,11 @@ weighted_sum:
 Both blocks hold arithmetic and no comparison. Arguments expand before
 substitution (call-by-value), so they may themselves use macros and named
 expressions. Formals shadow model names inside a template but may not collide
-with a declared **dimension**. Arity is checked per call site, and cycles are
+with a declared **dimension**. Arity is checked per call site, and a cycle is
 reported with the reference chain.
 
 **Every template is parsed and name-checked at load time even if it is never
-called** — a macro nobody uses cannot hide a typo.
+called**, so a macro nobody uses cannot hide a typo.
 
 Anything composable out of the [built-in operators](operators.md) belongs here.
 Math that is not sayable at all is out of scope
