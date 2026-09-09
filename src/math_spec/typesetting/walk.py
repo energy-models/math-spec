@@ -297,10 +297,11 @@ class Walk:
 
     def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
         """The group a grouped position counts within: the lookup's group columns read at the row's key."""
-        assert node.by is not None
-        lk = self.schema.lookups[node.by]
-        keyed = self.format.joined([ctx.subscript(dict(lk.columns)[k]) for k in lk.keys], '')
-        reads = [self.format.apply(self._column(node.by, column, len(lk.values) == 1), keyed) for column in node.group]
+        assert node.partition is not None
+        walk = node.partition
+        keyed = self.format.joined([ctx.subscript(walk.dim(k)) for k in walk.key], '')
+        single = len(walk.values) == 1
+        reads = [self.format.apply(self._column(walk.name, column, single), keyed) for column in walk.produced]
         return self._tuple(reads)
 
     def _tuple(self, reads: list[str]) -> str:
@@ -587,7 +588,7 @@ class Walk:
             )
 
         if isinstance(node, DimensionPositionNode):
-            grouping = None if node.by is None else self._position_group(node, ctx)
+            grouping = None if node.partition is None else self._position_group(node, ctx)
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
             return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison

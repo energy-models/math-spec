@@ -455,7 +455,7 @@ class TestPositionResolves:
         assert isinstance(node, DimensionPositionNode)
         assert node.name == 'snapshot'
         assert node.position == position
-        assert node.by == by
+        assert (node.partition.name if node.partition is not None else None) == by
 
     @pytest.mark.parametrize(
         ('mask', 'fragments'),
@@ -633,6 +633,14 @@ class TestRulesDecidedWithoutData:
                 },
                 ("from= and into= both name ['h']",),
                 id='a-from-list-overlapping-to',
+            ),
+            pytest.param(
+                {
+                    'lookups.lz': {'over': {'g': 'g', 'h0': 'h', 'h1': 'h'}, 'key': 'g'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, from=[h0, h1], into=g))'},
+                },
+                ("from=['h0', 'h1'] names two columns over ['h'], and the operand carries each dimension once",),
+                id='a-from-list-naming-two-columns-over-one-dimension',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lk, from=g))'}},
