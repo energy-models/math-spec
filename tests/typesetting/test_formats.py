@@ -81,7 +81,7 @@ def test_the_model_description_opens_the_document(name: FormatName, fmt: Format,
 # ---------------------------------------------------------------------------
 
 
-#: Every character the two typeset notations have to escape, in prose a
+#: Every character the three formats have to escape, in prose a
 #: modeller would plausibly write: the underscore in a coordinate's name is
 #: what #827 hit, on a description `examples/ports/pypsa_ac_dc.yaml` carried.
 SPECIALS = r'flow to link_to, 100% & #1 costs $5 {net} ~ ^ \ *star* @ref <label> a/b [x] `raw`'
@@ -100,6 +100,13 @@ ESCAPED = {
         r'\$5 {net}',
         r'\~ ^ \\',
         r'\*star\* \@ref \<label\> a\/b \[x\] \`raw\`',
+    ),
+    'markdown': (
+        r'link\_to',
+        r'100% & \#1',
+        r'\$5 {net}',
+        r'\~ ^ \\',
+        r'\*star\* @ref \<label\> a/b \[x\] \`raw\`',
     ),
 }
 

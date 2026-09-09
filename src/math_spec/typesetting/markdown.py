@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, ClassVar, override
 
 from math_spec.typesetting.format import paragraphs
@@ -15,6 +16,20 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from math_spec.typesetting.format import Entry, Line, OperatorName
+
+
+#: What Markdown reads as markup inside a paragraph, each escaped by a leading
+#: backslash — CommonMark lets any ASCII punctuation be. ``$`` is GitHub's
+#: inline math, ``~`` its strikethrough; the pipe is a table cell's to escape.
+_SPECIALS = frozenset('\\`*_[]<>~$#')
+
+#: A list, quote or heading marker is markup only at the start of a line.
+_LEADING_MARKER = re.compile(r'(^|\n)([-+>]|\d+[.)])(?= )')
+
+
+def _escape(text: str) -> str:
+    escaped = ''.join(f'\\{c}' if c in _SPECIALS else c for c in text)
+    return _LEADING_MARKER.sub(r'\1\\\2', escaped)
 
 
 def _cell(text: str) -> str:
@@ -49,8 +64,8 @@ class MarkdownFormat(LatexFormat):
 
     @override
     def escape(self, prose: str) -> str:
-        """Markdown's text mode *is* prose, so author prose is already in it."""
-        return prose
+        """Prose with every special escaped, as the other two notations do: a ``description:`` is in no notation, Markdown included."""
+        return _escape(prose)
 
     @override
     def joined(self, parts: list[str], operator: str) -> str:

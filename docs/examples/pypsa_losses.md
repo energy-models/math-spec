@@ -74,7 +74,7 @@ def build():
 ## The file
 
 <!-- gallery:begin -->
-The lossy class of a plain `n.optimize()`: `transmission_losses` in its tangent form, stated on rung 6's lines in a file of its own. A line dissipates a loss its flow buys along a fan of tangents to the quadratic curve, half at either end — a variable and rows the keyword adds, which no `where:` can add to `examples/pypsa.yaml`. The fan's slopes and offsets are data prep, one per segment.
+The lossy class of a plain \`n.optimize()\`: \`transmission\_losses\` in its tangent form, stated on rung 6's lines in a file of its own. A line dissipates a loss its flow buys along a fan of tangents to the quadratic curve, half at either end — a variable and rows the keyword adds, which no \`where:\` can add to \`examples/pypsa.yaml\`. The fan's slopes and offsets are data prep, one per segment.
 
 #### Sets
 
@@ -84,17 +84,17 @@ The lossy class of a plain `n.optimize()`: `transmission_losses` in its tangent 
 | $\mathcal{N}$ | index $n$ — `bus` — network nodes |
 | $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}$ — generating units, each on one bus |
 | $\mathcal{L}$ | index $l$ — `link` with $\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}$ — controllable connections, each from one bus to the buses it delivers to |
-| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
+| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's \`bus1\`, \`bus2\`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $\mathcal{K}$ | index $k$ — `line` with $\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\enspace \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}$ — passive branches, each between two buses, their flow set by impedance |
 | $\mathcal{C}$ | index $c$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
-| $\mathcal{K}$ | index $k$ — `segment` — the tangents the loss curve is approximated by, PyPSA's `segments` |
+| $\mathcal{K}$ | index $k$ — `segment` — the tangents the loss curve is approximated by, PyPSA's \`segments\` |
 | $\mathcal{D}$ | index $d$ — `load` with $\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}$ — demands, each on one bus |
 
 #### Parameters
 
 | Symbol | Meaning |
 |---|---|
-| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
+| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's \`snapshot\_weightings.objective\` — hours a snapshot stands for in the cost |
 | $\mathrm{p}^{\mathrm{nom}}$ | `Generator_p_nom` over $\mathcal{G}$ — nominal power |
 | $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
 | $\overline{\mathrm{p}}$ | `Generator_p_max_pu` over $\mathcal{T} \times \mathcal{G}$ — most output, per unit of nominal power — an availability profile |
@@ -104,15 +104,15 @@ The lossy class of a plain `n.optimize()`: `transmission_losses` in its tangent 
 | $\overline{\mathrm{s}}$ | `Line_s_max_pu` over $\mathcal{T} \times \mathcal{K}$ — most flow either way, per unit of nominal apparent power |
 | $\underline{\mathrm{s}}^{\mathrm{nom}}$ | `Line_s_nom_min` over $\mathcal{K}$ — least nominal apparent power an extendable line may be built at |
 | $\overline{\mathrm{s}}^{\mathrm{nom}}$ | `Line_s_nom_max` over $\mathcal{K}$ — most nominal apparent power an extendable line may be built at |
-| $\mathrm{c}^{\mathrm{cap},s}$ | `Line_capital_cost` over $\mathcal{K}$ — cost of one unit of nominal apparent power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $\mathrm{c}^{\mathrm{cap},s}$ | `Line_capital_cost` over $\mathcal{K}$ — cost of one unit of nominal apparent power — PyPSA's \`capital\_cost\`, periodized as an annuity in data prep |
 | $\mathrm{x}$ | `Line_cycle_weight` over $\mathcal{K} \times \mathcal{C}$ — the line's series impedance, signed by its orientation in the cycle — the cycle basis, data prep; a line in no cycle has no row |
-| $\overline{\ell}$ | `Line_loss_max` over $\mathcal{T} \times \mathcal{K}$ — the loss at a line's rating — PyPSA's `r_pu_eff * (s_max_pu * s_nom_max)**2`, data prep |
-| $\mathrm{a}$ | `Line_loss_slope` over $\mathcal{T} \times \mathcal{K} \times \mathcal{K}$ — the slope of a tangent to the loss curve at its segment's flow — `2 * r_pu_eff * p_k`, data prep |
-| $\mathrm{b}$ | `Line_loss_offset` over $\mathcal{T} \times \mathcal{K} \times \mathcal{K}$ — where that tangent meets the loss axis — `loss_k - slope_k * p_k`, negative, data prep |
+| $\overline{\ell}$ | `Line_loss_max` over $\mathcal{T} \times \mathcal{K}$ — the loss at a line's rating — PyPSA's \`r\_pu\_eff \* (s\_max\_pu \* s\_nom\_max)\*\*2\`, data prep |
+| $\mathrm{a}$ | `Line_loss_slope` over $\mathcal{T} \times \mathcal{K} \times \mathcal{K}$ — the slope of a tangent to the loss curve at its segment's flow — \`2 \* r\_pu\_eff \* p\_k\`, data prep |
+| $\mathrm{b}$ | `Line_loss_offset` over $\mathcal{T} \times \mathcal{K} \times \mathcal{K}$ — where that tangent meets the loss axis — \`loss\_k - slope\_k \* p\_k\`, negative, data prep |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
 | $\underline{\mathrm{f}}$ | `Link_p_min_pu` over $\mathcal{T} \times \mathcal{L}$ — least flow, per unit of nominal power — negative for a link that carries both ways |
 | $\overline{\mathrm{f}}$ | `Link_p_max_pu` over $\mathcal{T} \times \mathcal{L}$ — most flow, per unit of nominal power |
-| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
+| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's \`efficiency\`, \`efficiency2\`, … read long — negative where that port consumes rather than delivers |
 | $\mathrm{c}^{f}$ | `Link_marginal_cost` over $\mathcal{T} \times \mathcal{L}$ — cost of one unit of flow |
 | $\mathrm{load}$ | `Load_p_set` over $\mathcal{T} \times \mathcal{D}$ — demand |
 
@@ -120,11 +120,11 @@ The lossy class of a plain `n.optimize()`: `transmission_losses` in its tangent 
 
 | Symbol | Meaning |
 |---|---|
-| $p$ | `Generator_p` over $\mathcal{T} \times \mathcal{G}$ — `Generator-p` — output of a generator in a snapshot |
-| $s$ | `Line_s` over $\mathcal{T} \times \mathcal{K}$ — `Line-s` — PyPSA's `p0`, the flow measured at the `Line_bus0` end: a positive value withdraws there and injects at `Line_bus1` |
-| $S$ | `Line_s_nom_ext` over $\mathcal{K}$ — `Line-s_nom` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
-| $f$ | `Link_p` over $\mathcal{T} \times \mathcal{L}$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
-| $\ell$ | `Line_loss` over $\mathcal{T} \times \mathcal{K}$ — `Line-loss` — what a line dissipates carrying its flow, pushed down by the cost and held up by the tangents |
+| $p$ | `Generator_p` over $\mathcal{T} \times \mathcal{G}$ — \`Generator-p\` — output of a generator in a snapshot |
+| $s$ | `Line_s` over $\mathcal{T} \times \mathcal{K}$ — \`Line-s\` — PyPSA's \`p0\`, the flow measured at the \`Line\_bus0\` end: a positive value withdraws there and injects at \`Line\_bus1\` |
+| $S$ | `Line_s_nom_ext` over $\mathcal{K}$ — \`Line-s\_nom\` — nominal apparent power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $f$ | `Link_p` over $\mathcal{T} \times \mathcal{L}$ — \`Link-p\` — PyPSA's \`p0\`, the flow measured at the \`Link\_bus0\` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
+| $\ell$ | `Line_loss` over $\mathcal{T} \times \mathcal{K}$ — \`Line-loss\` — what a line dissipates carrying its flow, pushed down by the cost and held up by the tangents |
 
 ### Objective
 
