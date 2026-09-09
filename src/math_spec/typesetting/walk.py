@@ -502,6 +502,7 @@ class Walk:
         return self.format.parenthesise(text) if precedence < need else text
 
     def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
+        comparison = _WHERE_PRECEDENCE['comparison']
         if isinstance(node, BooleanLiteralNode):
             assert not node.value, 'an always-true mask is folded away or refused before anything prints it'
             return self._op('false'), _ATOM
@@ -510,49 +511,45 @@ class Walk:
             indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             if self.schema.parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
-            return f'{indexed} {self.format.prose(" is defined")}', _WHERE_PRECEDENCE['comparison']
+            return f'{indexed} {self.format.prose(" is defined")}', comparison
 
         if isinstance(node, VariableDefinedNode):
             return (
                 f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}',
-                _WHERE_PRECEDENCE['comparison'],
+                comparison,
             )
 
         if isinstance(node, ParameterComparisonNode):
             left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
-            return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', _WHERE_PRECEDENCE[
-                'comparison'
-            ]
+            return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, DimensionComparisonNode):
             if isinstance(node.value, int | float):
                 self.noticed.numeric_coordinates.add(node.name)
             return (
                 f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}',
-                _WHERE_PRECEDENCE['comparison'],
+                comparison,
             )
 
         if isinstance(node, DimensionPositionNode):
             grouping = None if node.by is None else self._lookup(node.by, ctx.subscript(node.name))
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
-            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', _WHERE_PRECEDENCE['comparison']
+            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
 
         if isinstance(node, LookupComparisonNode):
             applied = self._lookup(node.name, ctx.subscript(node.over))
-            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', _WHERE_PRECEDENCE[
-                'comparison'
-            ]
+            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, LookupPairComparisonNode):
             index = ctx.subscript(node.over)
             left = self._lookup(node.name, index)
             right = self._lookup(node.other, index)
-            return f'{left} {self._op(_PREDICATES[node.op])} {right}', _WHERE_PRECEDENCE['comparison']
+            return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
 
         if isinstance(node, LookupDefinedNode):
             applied = self._lookup(node.name, ctx.subscript(node.over))
-            return f'{applied} {self.format.prose(" is defined")}', _WHERE_PRECEDENCE['comparison']
+            return f'{applied} {self.format.prose(" is defined")}', comparison
 
         if isinstance(node, NotNode):
             return (
