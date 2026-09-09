@@ -150,6 +150,10 @@ $$\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bt.bus}(g),\mathrm{gen
 
 $$\sum_{g \in \mathcal{G} \thinspace:\thinspace \left( g,\enspace b \right) \in \mathrm{connection}} p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
+**`connected`**
+
+$$p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace \left( g,\enspace b \right) \in \mathrm{connection}$$
+
 **`representative`**
 
 $$\sum_{t' \in \mathcal{T} \thinspace:\thinspace \mathrm{rep\_of}(t') = t} \mathit{spill}_{t'} \le \mathit{spill}_{\mathrm{rep\_of}(t)} \qquad \forall\thinspace t \in \mathcal{T}$$

@@ -383,6 +383,19 @@ relational:
 
 $$\sum_{g \in \mathcal{G} \thinspace:\thinspace \left( g,\enspace b \right) \in \mathrm{connection}} p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
+#### `connected`
+
+a bare relation as a where: the row of the frame has to be a member of the relation
+
+```yaml
+connected:
+  foreach: [snapshot, generator, bus]
+  where: "connection"
+  expression: p <= load
+```
+
+$$p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace \left( g,\enspace b \right) \in \mathrm{connection}$$
+
 #### `representative`
 
 a map into its own dimension, walked both ways: the frame is unchanged and the index is primed

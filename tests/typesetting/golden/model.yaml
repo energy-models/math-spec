@@ -159,6 +159,10 @@ constraints:
   relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
     foreach: [snapshot, bus]
     expression: sum(p, by=connection, from=generator, to=bus) <= load
+  connected: # a bare relation as a where: the row of the frame has to be a member of the relation
+    foreach: [snapshot, generator, bus]
+    where: "connection"
+    expression: p <= load
   representative: # a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
     foreach: [snapshot]
     expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
