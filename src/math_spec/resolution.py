@@ -143,7 +143,7 @@ class Namespace:
             },
             {
                 **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
-                **{v: tuple(vd.foreach) for v, vd in schema.variables.items()},
+                **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
             },
             schema.constraints,
         )
@@ -437,7 +437,7 @@ class _Resolver:
                 self.errors.append(
                     f"{self.context}: '{node.name}' is a dimension, and a dimension is "
                     f'not a value in an expression. Dimensions appear in '
-                    f"'foreach:', in operator arguments (sum(x, over={node.name})), "
+                    f"'dims:', in operator arguments (sum(x, over={node.name})), "
                     f'and in where-comparisons — to use its coordinates as data, '
                     f'declare a parameter over it.'
                 )

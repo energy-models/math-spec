@@ -45,7 +45,7 @@ def test_a_dimension_index_never_steals_a_letter_a_variable_owns(name: FormatNam
     model = {
         'dimensions': {'plant': {'dtype': 'str'}, 'snapshot': {'dtype': 'int'}},
         'parameters': {'cost': {'dims': ['plant']}},
-        'variables': {'p': {'foreach': ['snapshot', 'plant'], 'bounds': {'lower': 0}}},
+        'variables': {'p': {'dims': ['snapshot', 'plant'], 'bounds': {'lower': 0}}},
         'objective': {'expression': 'sum(p * cost)'},
     }
     text = typeset(model, name)
@@ -70,8 +70,8 @@ def _masked(dtype: str) -> dict[str, object]:
         'dimensions': {'g': {'dtype': 'str'}},
         'parameters': {'flag': {'dims': ['g'], 'dtype': dtype}},
         'variables': {
-            'keep': {'foreach': ['g'], 'where': 'flag', 'bounds': {'lower': 0, 'upper': 1}},
-            'drop': {'foreach': ['g'], 'where': 'NOT flag', 'bounds': {'lower': 0, 'upper': 1}},
+            'keep': {'dims': ['g'], 'where': 'flag', 'bounds': {'lower': 0, 'upper': 1}},
+            'drop': {'dims': ['g'], 'where': 'NOT flag', 'bounds': {'lower': 0, 'upper': 1}},
         },
         'objective': {'sense': 'minimize', 'expression': 'sum(keep, over=g)'},
     }
@@ -114,10 +114,8 @@ def _storage(shift: str) -> dict[str, object]:
     """
     return {
         'dimensions': {'snapshot': {'dtype': 'int'}},
-        'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0, 'upper': 100}}},
-        'constraints': {
-            'balance': {'foreach': ['snapshot'], 'expression': f'soc == shift(soc, over=snapshot, {shift})'}
-        },
+        'variables': {'soc': {'dims': ['snapshot'], 'bounds': {'lower': 0, 'upper': 100}}},
+        'constraints': {'balance': {'dims': ['snapshot'], 'expression': f'soc == shift(soc, over=snapshot, {shift})'}},
     }
 
 
@@ -159,10 +157,10 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
         'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
-        'variables': {'p': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
+        'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'held': {
-                'foreach': ['snapshot'],
+                'dims': ['snapshot'],
                 'expression': 'p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)',
             }
         },
@@ -193,10 +191,10 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
         },
         'lookups': {'period_of': {'over': 'snapshot', 'into': 'period'}},
         'parameters': {'cap': {'dims': ['period']}},
-        'variables': {'p': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
+        'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'within': {
-                'foreach': ['snapshot'],
+                'dims': ['snapshot'],
                 'expression': 'p <= at(shift(cap, over=period, offset=1, edge=0), by=period_of)',
             }
         },
@@ -217,10 +215,10 @@ def test_translations_that_disagree_at_the_edge_do_not_merge(name: FormatName, f
     """
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}},
-        'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
+        'variables': {'soc': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'b': {
-                'foreach': ['snapshot'],
+                'dims': ['snapshot'],
                 'expression': "soc <= shift(shift(soc, over=snapshot, offset=1, edge='wrap'), over=snapshot, offset=1)",
             }
         },
@@ -266,8 +264,8 @@ def test_a_negative_fill_prints(name: FormatName, fmt: Format):
     model = {
         'dimensions': {'g': {}},
         'parameters': {'cap': {'dims': ['g']}},
-        'variables': {'p': {'foreach': ['g']}},
-        'constraints': {'k': {'foreach': ['g'], 'expression': 'p <= shift(cap, over=g, offset=1, edge=-1)'}},
+        'variables': {'p': {'dims': ['g']}},
+        'constraints': {'k': {'dims': ['g'], 'expression': 'p <= shift(cap, over=g, offset=1, edge=-1)'}},
     }
     assert fmt.operators['edge_minus'] in typeset(model, name, legend=False)
 
@@ -277,8 +275,8 @@ def _selected(mask: str) -> dict[str, Any]:
     return {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
         'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
-        'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
-        'constraints': {'seed': {'foreach': ['snapshot'], 'where': mask, 'expression': 'soc == 0'}},
+        'variables': {'soc': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
+        'constraints': {'seed': {'dims': ['snapshot'], 'where': mask, 'expression': 'soc == 0'}},
     }
 
 
@@ -431,7 +429,7 @@ def test_a_dual_prints_the_constraint_symbol_not_a_same_named_variable(name: For
     model = override(
         DISPATCH_MODEL,
         **{
-            'variables.balance': {'foreach': ['snapshot'], 'bounds': {'lower': 0}},
+            'variables.balance': {'dims': ['snapshot'], 'bounds': {'lower': 0}},
             'expressions.mp': 'dual(balance)',
         },
     )
@@ -498,7 +496,7 @@ def test_a_given_quantity_is_upright(name: str, expected: str):
 def test_a_name_that_is_a_greek_letter_prints_as_the_letter(name: FormatName, fmt: Format):
     """A variable called `theta` set as the italic word *theta* is the one
     derived symbol no paper would accept."""
-    model = override(DISPATCH_MODEL, **{'variables.theta': {'foreach': ['snapshot']}})
+    model = override(DISPATCH_MODEL, **{'variables.theta': {'dims': ['snapshot']}})
     assert fmt.greek('theta') in typeset(model, name)
 
 
@@ -577,8 +575,8 @@ MIXED = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
     'parameters': {'cost': {'dims': ['generator']}, 'capex': {'dims': ['generator']}},
     'variables': {
-        'p': {'foreach': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
-        'p_nom': {'foreach': ['generator'], 'bounds': {'lower': 0}},
+        'p': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0}},
+        'p_nom': {'dims': ['generator'], 'bounds': {'lower': 0}},
     },
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost) + sum(p_nom * capex)'},
 }
@@ -644,14 +642,14 @@ BUSES = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
     'lookups': {'bus_of': {'over': 'generator', 'into': 'bus'}},
     'parameters': {'load': {'dims': ['snapshot']}, 'k': {'dims': []}, 'flag': {'dims': ['snapshot'], 'dtype': 'bool'}},
-    'variables': {'p': {'foreach': ['snapshot', 'generator']}, 'q': {'foreach': ['snapshot', 'generator']}},
+    'variables': {'p': {'dims': ['snapshot', 'generator']}, 'q': {'dims': ['snapshot', 'generator']}},
 }
 
 
 def _row(expression: str, where: str | None = None, **patch: object) -> str:
     model = override(
         BUSES,
-        **{'constraints.k': {'foreach': ['snapshot', 'generator'], 'expression': expression, 'where': where}},
+        **{'constraints.k': {'dims': ['snapshot', 'generator'], 'expression': expression, 'where': where}},
         **patch,
     )
     return next(line for line in to_latex(model, legend=False).splitlines() if line.startswith(r'\text{k}'))
@@ -754,7 +752,7 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(name: FormatName, fm
     model = {
         'dimensions': {'plant': {'dtype': 'str'}},
         'parameters': {'fuel': {'dims': ['plant'], 'dtype': 'str'}, 'cost': {'dims': ['plant']}},
-        'variables': {'p': {'foreach': ['plant'], 'where': "fuel == 'gas_ccgt'"}},
+        'variables': {'p': {'dims': ['plant'], 'where': "fuel == 'gas_ccgt'"}},
         'objective': {'expression': 'sum(p * cost)'},
     }
     text = typeset(model, name, legend=False)

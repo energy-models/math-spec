@@ -11,12 +11,12 @@ dimensions:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap')
 
 objective: { sense: minimize, expression: sum(p) }

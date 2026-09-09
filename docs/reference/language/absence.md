@@ -16,7 +16,7 @@ parameters:
   p_max: { dims: [g] }
 variables:
   p:
-    foreach: [g]
+    dims: [g]
     where: "p_max > 0"
 ```
 
@@ -50,17 +50,17 @@ operator, it does not.
 
 ```yaml
 variables:
-  x: { foreach: [g] }
-  y: { foreach: [g], where: "p_max > 0" } # no y[old]
+  x: { dims: [g] }
+  y: { dims: [g], where: "p_max > 0" } # no y[old]
 constraints:
   each:
-    foreach: [g]
+    dims: [g]
     expression: x + y >= 1 # rows at wind and gas; no row at old
   total:
-    foreach: []
+    dims: []
     expression: sum(x + y, over=g) >= 1 # x[wind] + y[wind] + x[gas] + y[gas] >= 1
   split:
-    foreach: []
+    dims: []
     expression: sum(x, over=g) + sum(y, over=g) >= 1 # x[old] is back in
 ```
 
@@ -75,7 +75,7 @@ Beside a parameter, the rule reads the other way:
 ```yaml
 constraints:
   cap:
-    foreach: [g]
+    dims: [g]
     expression: x - rel_max * y <= 0
 ```
 
@@ -112,15 +112,15 @@ applies:
 ```yaml
 variables:
   spill:
-    foreach: [storage]
+    dims: [storage]
     where: has_inflow
     absence: zero # outside the mask spill is 0 and the row stands
   soc:
-    foreach: [storage]
+    dims: [storage]
     where: has_store # the default, absence: undefined — no row
 constraints:
   balance:
-    foreach: [storage]
+    dims: [storage]
     expression: inflow - spill - soc == 0
 ```
 

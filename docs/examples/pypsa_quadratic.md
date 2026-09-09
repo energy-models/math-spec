@@ -127,7 +127,7 @@ objective:
 ```yaml
 Generator_fix_p_lower:
   description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
 ```
 
@@ -142,7 +142,7 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qq
 ```yaml
 Generator_fix_p_upper:
   description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
 ```
 
@@ -157,7 +157,7 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qqu
 ```yaml
 Link_fix_p_lower:
   description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
-  foreach: [snapshot, link]
+  dims: [snapshot, link]
   expression: Link_p >= Link_p_min_pu * Link_p_nom
 ```
 
@@ -172,7 +172,7 @@ f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qq
 ```yaml
 Link_fix_p_upper:
   description: "`Link-fix-p-upper` — a link carries at most its nominal power"
-  foreach: [snapshot, link]
+  dims: [snapshot, link]
   expression: Link_p <= Link_p_max_pu * Link_p_nom
 ```
 
@@ -190,7 +190,7 @@ Bus_nodal_balance:
     `Bus-nodal_balance` — what is generated at a bus, less what the links
     take away, plus what arrives over them after losses, meets the load
     there
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   expression: >-
     sum(Generator_p, by=Generator_bus)
     - sum(Link_p, by=Link_bus0)

@@ -16,13 +16,13 @@ parameters:
 variables:
   p:
     description: output of a generator in a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     where: "p_max > 0"
     bounds: { lower: 0, upper: p_max }
 
 constraints:
   power_balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, over=generator) == load
 
 objective:

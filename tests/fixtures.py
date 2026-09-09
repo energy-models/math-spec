@@ -31,8 +31,8 @@ DISPATCH_MODEL: dict[str, Any] = {
         'cost': {'dims': ['generator']},
         'load': {'dims': ['snapshot']},
     },
-    'variables': {'p': {'foreach': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
-    'constraints': {'balance': {'foreach': ['snapshot'], 'expression': 'sum(p, over=generator) == load'}},
+    'variables': {'p': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
+    'constraints': {'balance': {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) == load'}},
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
 }
 
@@ -49,7 +49,7 @@ SMALL_MODEL: dict[str, Any] = {
         'flag': {'dims': ['g'], 'dtype': 'bool'},
         'tag': {'dims': ['g'], 'dtype': 'str'},
     },
-    'variables': {'p': {'foreach': ['g']}, 'q': {'foreach': ['g', 'h']}, 'r': {'foreach': ['h']}},
+    'variables': {'p': {'dims': ['g']}, 'q': {'dims': ['g', 'h']}, 'r': {'dims': ['h']}},
 }
 
 

@@ -237,5 +237,5 @@ def test_macro_templates_validated_even_when_unused(macros, match):
 @pytest.mark.parametrize('fragment', ['my_python_helper', 'macros:', 'escape'])
 def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
     with pytest.raises(LanguageError) as exc:
-        schema(constraints={'c': {'foreach': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
+        schema(constraints={'c': {'dims': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
     assert fragment in str(exc.value)

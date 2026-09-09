@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 #: ``h`` is the target of ``lk`` and nothing else reaches it; ``g`` is an axis.
 TARGET_ONLY = override(
     SMALL_MODEL,
-    variables={'p': {'foreach': ['g']}},
+    variables={'p': {'dims': ['g']}},
     objective={'sense': 'minimize', 'expression': 'sum(p * c)'},
 )
 
@@ -44,10 +44,10 @@ def test_a_dimension_nothing_reaches_is_named():
     [
         pytest.param({}, id='targeted-by-a-lookup'),
         pytest.param(
-            {'constraints': {'cap': {'foreach': ['h'], 'expression': 'sum(p, by=lk) <= k'}}},
+            {'constraints': {'cap': {'dims': ['h'], 'expression': 'sum(p, by=lk) <= k'}}},
             id='grouping-into-it',
         ),
-        pytest.param({'variables.r': {'foreach': ['h']}}, id='indexing-by-it'),
+        pytest.param({'variables.r': {'dims': ['h']}}, id='indexing-by-it'),
     ],
 )
 def test_a_dimension_something_reaches_is_in_use(patch):

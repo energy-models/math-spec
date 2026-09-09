@@ -28,7 +28,7 @@ PLAIN = override(
         'expressions.spend': 'sum(p * cost, over=generator)',
         'expressions.total': 'sum(p)',
         'expressions.priced': 'cost * 2',
-        'constraints.budgeted': {'foreach': ['snapshot'], 'where': 'load > 0', 'expression': 'spend <= 10'},
+        'constraints.budgeted': {'dims': ['snapshot'], 'where': 'load > 0', 'expression': 'spend <= 10'},
     },
 )
 
@@ -77,7 +77,7 @@ PLAIN = override(
     ],
 )
 def test_a_declaration_prints_the_line_the_whole_model_render_prints(model: dict, name: str, expected: str):
-    """The frame comes from the declared `foreach` of a cased expression, a
+    """The frame comes from the declared `dims` of a cased expression, a
     constraint or a variable, and from the body's own dims of a plain
     expression; the given/chosen cut a variable inside it decides."""
     assert typeset_declaration(model, name, 'latex') == expected
@@ -138,7 +138,7 @@ def test_a_name_declared_as_none_of_the_three_is_refused(name: str, match: str):
 
 def test_a_name_shared_by_a_constraint_and_a_variable_is_refused_rather_than_guessed():
     """Constraints sit outside the flat namespace, so the model admits the pair; one line prints one of them."""
-    model = override(PLAIN, **{'constraints.p': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= 1'}})
+    model = override(PLAIN, **{'constraints.p': {'dims': ['snapshot', 'generator'], 'expression': 'p <= 1'}})
     with pytest.raises(SchemaError, match="'p' is both a constraint and a variable"):
         typeset_declaration(model, 'p', 'latex')
 

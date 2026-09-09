@@ -168,14 +168,14 @@ class _Block:
     def _weight(self, name: str, **fields: Any) -> None:
         """A variable over the frame and the breakpoint dim, masked as the block is."""
         self.raw['variables'][name] = {
-            'foreach': [*self.frame, self.pw.over],
+            'dims': [*self.frame, self.pw.over],
             **({'where': self.mask} if self.mask else {}),
             **fields,
         }
 
-    def _constraint(self, name: str, foreach: list[str], expression: str, where: str | None = None) -> None:
+    def _constraint(self, name: str, dims: list[str], expression: str, where: str | None = None) -> None:
         self.raw['constraints'][name] = {
-            'foreach': foreach,
+            'dims': dims,
             **({'where': where} if where else {}),
             'expression': expression,
         }
@@ -315,7 +315,7 @@ class _Block:
         """Add each labelled dim set to *frame* in declaration order, refusing the breakpoint dim.
 
         Declaration order, because iterating a set would vary the emitted
-        ``foreach`` — and every column index behind it — per process.
+        ``dims`` — and every column index behind it — per process.
         """
         for what, found in dims:
             for d in (d for d in self.schema.dimensions if d in found):
