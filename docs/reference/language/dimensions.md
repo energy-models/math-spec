@@ -107,7 +107,8 @@ safe, and the reason a label set the model only ever _selects_ on is declared
 as a dimension all the same: nothing is indexed by `period` above, and
 `where: "period_of == 1"` ([where strings](expressions.md#where-strings)) is
 how a declaration selects on it. A lookup has at least two columns; a label on
-one dimension is a parameter over it.
+one dimension is a parameter over it. A column named like a dimension is over
+that dimension, so `over: {bus: line}` is refused.
 
 ### The key is the claim
 
@@ -115,7 +116,9 @@ one dimension is a parameter over it.
 other column is a function of it — and it is checked at bind: a generator on
 two buses is refused, where a `0`/`1` membership parameter would have said so
 legally and silently ([#161](https://github.com/energy-models/math-spec/issues/161)).
-The columns the key determines are the lookup's **value columns**.
+The columns the key determines are the lookup's **value columns**. A key has
+one column per dimension: it is read at its dimensions, and no frame carries a
+dimension twice, so `key: [bus0, bus1]` is refused where both are over `bus`.
 
 The key is also what decides which walks the table admits:
 
@@ -175,9 +178,8 @@ could have been left out.
 
 **A partition walks a key column and groups by the value columns.**
 `shift(x, over=d, by=l)`, `sum_back(x, over=d, by=l)` and
-`position(d, by=l)` take the one key column over `d` — a lookup with two key
-columns over it is refused; the other key columns are joined on, and the group
-is the value tuple. `into=` names the value columns the group is made of
+`position(d, by=l)` take the one key column over `d`; the other key columns
+are joined on, and the group is the value tuple. `into=` names the value columns the group is made of
 where the table has several: `shift(x, over=snapshot, by=cal, into=week)`
 walks within weeks of a calendar declared once over `[snapshot, day, week]`,
 and a value column not named is not read.
@@ -204,8 +206,10 @@ The rules, each decided at load with a refusal naming the rewrite:
   or the call is refused; a bare relation is never read by `at`.
 - **A partition walks the one key column over the dimension it walks, and
   groups by the value columns `into=` names** — all of them where it names
-  none. Two key columns over it is refused, `into=` naming a key column is
-  refused, and a bare relation partitions nothing.
+  none. `into=` naming a key column is refused, and a bare relation
+  partitions nothing. The group may hold two columns over one dimension, a
+  pair of buses say: a partition lands nothing, so nothing needs the
+  dimension twice.
 - **A `by=` list walks each lookup by its declared arrow.** `by=[a, b]` is one
   grouping, so `from=` and `into=` have nothing to name; every lookup in it
   consumes the same dimension, joins on its own other columns, and no two

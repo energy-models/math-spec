@@ -38,6 +38,7 @@ BASE = {
         'gen_zone': {'over': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']},
         'rep_of': {'over': {'snapshot': 'snapshot', 'rep': 'snapshot'}, 'key': 'snapshot'},
         'gen_bz': {'over': ['generator', 'bus', 'zone'], 'key': 'generator'},
+        'pair': {'over': {'g': 'generator', 'b0': 'bus', 'b1': 'bus'}, 'key': 'g'},
     },
     'parameters': {
         'p_max': {'dims': ['generator']},
@@ -141,6 +142,11 @@ def namespace() -> Namespace:
             'sum_back(p, over=generator, within=2, by=gen_bz, into=[bus, zone])',
             {'snapshot', 'generator'},
             id='a-window-grouped-by-both-value-columns-named',
+        ),
+        pytest.param(
+            "shift(p, over=generator, offset=1, edge='wrap', by=pair)",
+            {'snapshot', 'generator'},
+            id='a-partition-grouped-by-two-columns-over-one-dimension-lands-nothing',
         ),
         pytest.param(
             'sum(p, by=gen_bus, from=generator)', {'snapshot', 'bus'}, id='the-dot-is-legal-on-a-one-key-lookup'

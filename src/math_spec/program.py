@@ -265,21 +265,30 @@ class Sum(Expression):
 class GroupSum(Expression):
     """Sum ``operand`` through lookups, consuming the dims ``over`` and producing ``into``.
 
-    ``coordinate`` names the lookups and ``walks`` says, per lookup, which
-    columns are consumed, which produced and which joined on; the result
-    replaces every dim in ``over`` with every dim in ``into``. ``coordinate``,
-    ``walks`` and the walks' produced dims pair up in order: several
-    coordinates are one grouping into a product of targets, consumed in a
-    single join. The join keys on the consumed columns and every joined
-    column, and on a produced column too where the operand already carries
-    its dimension.
+    ``walks`` says, per lookup, which columns are consumed, which produced
+    and which joined on, and is the one fact the node holds: ``coordinate``
+    names the lookups, ``over`` is the dims every walk consumes and ``into``
+    the dims they produce, in walk order, so that several coordinates are
+    one grouping into a product of targets, consumed in a single join. The
+    result replaces every dim in ``over`` with every dim in ``into``. The
+    join keys on the consumed columns and every joined column, and on a
+    produced column too where the operand already carries its dimension.
     """
 
     operand: ExpressionNode
-    over: tuple[str, ...]
-    coordinate: tuple[str, ...]
-    into: tuple[str, ...]
-    walks: tuple[Walk, ...] = ()
+    walks: tuple[Walk, ...]
+
+    @property
+    def coordinate(self) -> tuple[str, ...]:
+        return tuple(walk.name for walk in self.walks)
+
+    @property
+    def over(self) -> tuple[str, ...]:
+        return self.walks[0].consumed_dims
+
+    @property
+    def into(self) -> tuple[str, ...]:
+        return tuple(dim for walk in self.walks for dim in walk.produced_dims)
 
 
 @dataclass(frozen=True)
@@ -291,14 +300,24 @@ class At(Expression):
     walk reads value columns at a key the operand fixes
     (``Walk.is_function_read``). The join fans out, many ``over`` tuples
     sharing one ``into`` tuple — at each coordinate of the joined columns,
-    which the operand carries and the result keeps.
+    which the operand carries and the result keeps. As on
+    :class:`GroupSum`, ``walks`` is the fact and the three are read off it.
     """
 
     operand: ExpressionNode
-    over: tuple[str, ...]
-    coordinate: tuple[str, ...]
-    into: tuple[str, ...]
-    walks: tuple[Walk, ...] = ()
+    walks: tuple[Walk, ...]
+
+    @property
+    def coordinate(self) -> tuple[str, ...]:
+        return tuple(walk.name for walk in self.walks)
+
+    @property
+    def over(self) -> tuple[str, ...]:
+        return self.walks[0].produced_dims
+
+    @property
+    def into(self) -> tuple[str, ...]:
+        return tuple(dim for walk in self.walks for dim in walk.consumed_dims)
 
 
 @dataclass(frozen=True)
@@ -448,57 +467,6 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 # --------------------------------------------------------------------------
 
 
-class Walk(NamedTuple):
-    """One lookup as an operator walks it — which columns are consumed, which produced, which joined on.
-
-    ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
-    the lookup — and ``columns`` binds every role to its dimension in
-    declared order, with ``key`` the roles the table is single-valued per.
-    ``joined`` is the key roles not walked (every role, for a bare relation):
-    the join keys on them, and a value role not walked is not read. For a
-    partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
-    role over the dimension walked and ``produced`` the value roles that make
-    the group — every value role unless the call named some with ``into=``.
-    """
-
-    name: str
-    consumed: tuple[str, ...]
-    produced: tuple[str, ...]
-    joined: tuple[str, ...]
-    columns: tuple[tuple[str, str], ...]
-    key: tuple[str, ...]
-
-    def dim(self, role: str) -> str:
-        """The dimension *role* is bound to."""
-        return dict(self.columns)[role]
-
-    @property
-    def roles(self) -> tuple[str, ...]:
-        return tuple(role for role, _ in self.columns)
-
-    @property
-    def values(self) -> tuple[str, ...]:
-        """The roles the key determines — every role that is not a key."""
-        return tuple(role for role in self.roles if role not in self.key)
-
-    @property
-    def consumed_dims(self) -> tuple[str, ...]:
-        return tuple(self.dim(role) for role in self.consumed)
-
-    @property
-    def produced_dims(self) -> tuple[str, ...]:
-        return tuple(self.dim(role) for role in self.produced)
-
-    @property
-    def joined_dims(self) -> tuple[str, ...]:
-        return tuple(self.dim(role) for role in self.joined)
-
-    @property
-    def is_function_read(self) -> bool:
-        """Whether the walk reads one value per coordinate: the key lies inside what is fixed."""
-        return bool(self.key) and set(self.key) <= {*self.joined, *self.produced}
-
-
 class LookupDeclaration(NamedTuple):
     """One declared lookup: a relation over its ``columns``, single-valued per ``key``.
 
@@ -529,6 +497,61 @@ class LookupDeclaration(NamedTuple):
 
     def dim(self, role: str) -> str:
         return dict(self.columns)[role]
+
+
+class Walk(NamedTuple):
+    """One lookup as an operator walks it — which columns are consumed, which produced, which joined on.
+
+    ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
+    ``lookup``, which binds every role to its dimension and names the key.
+    ``joined`` is the key roles not walked (every role, for a bare relation):
+    the join keys on them, and a value role not walked is not read. For a
+    partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
+    role over the dimension walked and ``produced`` the value roles that make
+    the group — every value role unless the call named some with ``into=``.
+    """
+
+    lookup: LookupDeclaration
+    consumed: tuple[str, ...]
+    produced: tuple[str, ...]
+    joined: tuple[str, ...]
+
+    @property
+    def name(self) -> str:
+        return self.lookup.name
+
+    @property
+    def key(self) -> tuple[str, ...]:
+        return self.lookup.key
+
+    @property
+    def roles(self) -> tuple[str, ...]:
+        return self.lookup.roles
+
+    @property
+    def values(self) -> tuple[str, ...]:
+        return self.lookup.values
+
+    def dim(self, role: str) -> str:
+        """The dimension *role* is bound to."""
+        return self.lookup.dim(role)
+
+    @property
+    def consumed_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.consumed)
+
+    @property
+    def produced_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.produced)
+
+    @property
+    def joined_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.joined)
+
+    @property
+    def is_function_read(self) -> bool:
+        """Whether the walk reads one value per coordinate: the key lies inside what is fixed."""
+        return bool(self.key) and set(self.key) <= {*self.joined, *self.produced}
 
 
 @dataclass(frozen=True)

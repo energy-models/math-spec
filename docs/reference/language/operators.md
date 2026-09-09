@@ -242,9 +242,9 @@ starting level every period asks for; `edge=v` puts `v` at each group's edge.
 
 `by=` takes a lookup **with a key column over the dimension being walked**,
 and the group is the value columns — all of them, or the ones `into=` names,
-so one calendar table serves `into=day` and `into=week` alike; a lookup with
-two key columns over that dimension is refused. The group columns are what a
-named `offset=` may vary over, so each group is reached by its own. A coordinate the lookup sends
+so one calendar table serves `into=day` and `into=week` alike. The group
+columns are what a named `offset=` may vary over, so each group is reached by
+its own. A coordinate the lookup sends
 nowhere is in no group, so it reaches nothing — and no `edge=` speaks for it. Reaching off a group's start is what a policy
 answers; belonging to no group is the null a partial lookup gives everywhere
 else, so the row drops under `edge=0` exactly as it does bare.

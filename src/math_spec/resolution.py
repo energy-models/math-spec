@@ -66,6 +66,7 @@ from math_spec.program import (
     DimensionComparisonNode,
     DimensionPositionNode,
     LookupComparisonNode,
+    LookupDeclaration,
     LookupDefinedNode,
     LookupPairComparisonNode,
     Mask,
@@ -91,28 +92,6 @@ if TYPE_CHECKING:
 DeclarationKind = Literal['variable', 'parameter', 'dimension', 'lookup']
 
 
-class LookupShape(NamedTuple):
-    """A lookup as the resolver reads it: ``(role, dimension)`` per column, and the key roles."""
-
-    columns: tuple[tuple[str, str], ...]
-    key: tuple[str, ...]
-
-    @property
-    def roles(self) -> tuple[str, ...]:
-        return tuple(role for role, _ in self.columns)
-
-    @property
-    def values(self) -> tuple[str, ...]:
-        return tuple(role for role in self.roles if role not in self.key)
-
-    def dim(self, role: str) -> str:
-        return dict(self.columns)[role]
-
-    def roles_over(self, dimension: str) -> tuple[str, ...]:
-        """The roles bound to *dimension*."""
-        return tuple(role for role, dim in self.columns if dim == dimension)
-
-
 class Namespace:
     """The declared names of one schema, by kind.
 
@@ -126,7 +105,7 @@ class Namespace:
         variables: Iterable[str],
         parameters: Iterable[str],
         dimensions: Iterable[str],
-        lookups: Mapping[str, LookupShape],
+        lookups: Mapping[str, LookupDeclaration],
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
         constraints: Iterable[str],
@@ -142,7 +121,7 @@ class Namespace:
         #: what a where comparison checks its literal against.
         self.dtypes: dict[str, DeclaredDtype] = dict(dtypes)
         #: lookup name -> its columns and key, as declared.
-        self.lookups: dict[str, LookupShape] = dict(lookups)
+        self.lookups: dict[str, LookupDeclaration] = dict(lookups)
         #: parameter or variable name -> the dims it is read through —
         #: parameters by their ``dims``, variables by their frame. Stamped onto
         #: each leaf a where names, the way a lookup leaf carries ``over``.
@@ -155,7 +134,7 @@ class Namespace:
             schema.variables,
             schema.parameters,
             schema.dimensions,
-            {n: LookupShape(lk.columns, lk.keys) for n, lk in schema.lookups.items()},
+            {n: LookupDeclaration(n, lk.columns, lk.keys) for n, lk in schema.lookups.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
@@ -179,7 +158,7 @@ class Namespace:
             return 'lookup'
         return None
 
-    def shape_of(self, lookup: str) -> LookupShape:
+    def shape_of(self, lookup: str) -> LookupDeclaration:
         """The columns and key of *lookup*, as declared."""
         return self.lookups[lookup]
 
@@ -630,10 +609,15 @@ class _Resolver:
             return value
         resolved = [w for w in walks if w is not None]
 
+        partition = operator in ('shift', 'sum_back')
+
         def fine_of(w: Walk) -> tuple[str, ...]:
-            return w.produced_dims if operator == 'at' and w.produced else w.consumed_dims
+            return w.produced_dims if operator == 'at' else w.consumed_dims
 
         def coarse_of(w: Walk) -> tuple[str, ...]:
+            """The dims the call lands on — none for a partition, whose produced columns are a group, not a frame."""
+            if partition:
+                return ()
             return w.consumed_dims if operator == 'at' else w.produced_dims
 
         fine = {frozenset(fine_of(w)) for w in resolved}
@@ -707,7 +691,7 @@ class _Resolver:
             )
             return None
         joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in into_roles)
-        walk = Walk(name, from_roles, into_roles, joined, shape.columns, shape.key)
+        walk = Walk(shape, from_roles, into_roles, joined)
         if not forward and not walk.is_function_read:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
@@ -737,11 +721,12 @@ class _Resolver:
     ) -> Walk | None:
         """How a partition (``shift``, ``sum_back``, ``position``) walks lookup *name* along *walked_dim*.
 
-        It walks the one key column over that dimension, joins on the other
-        key columns and groups by the value columns *into_roles* names — every
-        value column where the call names none. ``None`` where the dimension
-        is not one (already refused), the lookup has no key column over it, or
-        two, or ``into=`` names a column that is not a value column.
+        It walks the one key column over that dimension (a key has one column
+        per dimension), joins on the other key columns and groups by the value
+        columns *into_roles* names — every value column where the call names
+        none. ``None`` where the dimension is not one (already refused), the
+        lookup has no key column over it, or ``into=`` names a column that is
+        not a value column.
         """
         context = self.context
         shape = self.ns.shape_of(name)
@@ -761,12 +746,6 @@ class _Resolver:
                 f'{list(shape.key)} — and a partition walks a key column over the dimension it groups.'
             )
             return None
-        if len(over_keys) > 1:
-            self.errors.append(
-                f"{context}: {call}: '{name}' has {len(over_keys)} key columns over '{walked_dim}' ({over_keys}), "
-                f"and a partition walks exactly one. Declare a lookup keyed by one column over '{walked_dim}'."
-            )
-            return None
         if keyed := [r for r in into_roles or () if r in shape.key]:
             self.errors.append(
                 f"{context}: {call}: into={keyed} names a key column of '{name}', and a partition groups by "
@@ -775,9 +754,7 @@ class _Resolver:
             return None
         (walked,) = over_keys
         joined = tuple(r for r in shape.key if r != walked)
-        return Walk(
-            name, (walked,), shape.values if into_roles is None else into_roles, joined, shape.columns, shape.key
-        )
+        return Walk(shape, (walked,), shape.values if into_roles is None else into_roles, joined)
 
     def _default_role(self, name: str, call: str, kwarg: str, side: tuple[str, ...], what: str) -> str | None:
         """The one column *side* offers, or the refusal naming what the call has to choose from."""
