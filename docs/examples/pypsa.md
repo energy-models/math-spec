@@ -5,47 +5,41 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA in one file
 
-This is the model that a plain `n.optimize()` builds, stated as one file. It
-grows one **rung** at a time, where a rung is one group of PyPSA rows stated in
-full, towards
-[milestone 1](https://github.com/energy-models/math-spec/milestone/1).
+The model that a plain `n.optimize()` builds, stated as one file. It grows one
+**rung** at a time, where a rung is one `n.optimize()` keyword stated in full,
+towards [milestone 1](https://github.com/energy-models/math-spec/milestone/1).
 
-The index below lists every row that PyPSA emits, from PyPSA `1.3.0`,
-`pypsa/optimization/`. Once a row is stated here, the index links it to its
-block in the file. The blocks are generated, so a row that stops loading, or
-changes its math, fails CI.
+The index below lists every row that PyPSA `1.3.0` emits from
+`pypsa/optimization/`. Once a row is stated here, the index links it to its block
+in the file. The blocks are generated, so a row that stops loading or changes its
+math fails CI.
 
 Three rules shape the file:
 
 - Bounds are the explicit rows that PyPSA writes, so their duals are row duals.
-- Regimes are data columns and `where:` masks. They are never variants of the
-  file.
-- Names are PyPSA's own, in the form `Component_attribute`. A symbol table,
-  `examples/symbols/pypsa.yaml`, is what makes the math read as math.
+- Regimes are data columns and `where:` masks, never variants of the file.
+- Names are PyPSA's own, in the form `Component_attribute`. The symbol table
+  `examples/symbols/pypsa.yaml` makes the math read as math.
 
 ## Index
 
-A row is **done**, and gets a link, once the file states it as the one block
-that PyPSA builds. That means on this branch, as it stands. A fix that is still
-on its way stays not-done, and the note carries its PR or issue.
+A row is **done**, and gets a link, once the file states it as the one block that
+PyPSA builds, on this branch as it stands. A fix still on its way stays not-done,
+and the note carries its PR or issue. Three words say how far a row has to go:
 
-Three words say how far a row still has to go:
-
-- **split** means the same feasible region and the same optimum, under a
-  different statement. That statement is either several `where:` blocks, or a
-  bookkeeping difference that the note names.
-- **open** means it is not stated yet.
-- **out** means it is never stated, deliberately. PyPSA emits it only under the
-  keyword, scope or version that the note names.
+- **split**: the same feasible region and the same optimum, stated differently,
+  as several `where:` blocks or with a bookkeeping difference the note names.
+- **open**: not stated yet.
+- **out**: never stated, deliberately. PyPSA emits it only under the keyword,
+  scope or version the note names.
 
 A name that carries `{k}` or `{s}` stands for the family that PyPSA numbers per
 segment or per scenario.
 
-Each rung's banner below states what PyPSA solved its reference network to.
-
-What an engine makes of the same rung is that engine's own record. That covers
-the objective, the prices, and the two linopy models compared label for label. lpspec certifies itself against these rungs under
-`differential/pypsa/` in its own tree.
+Each rung's banner below states what PyPSA solved its reference network to. What
+an engine makes of the same rung is that engine's own record: the objective, the
+prices, and the two linopy models compared label for label. lpspec certifies
+itself against these rungs under `differential/pypsa/` in its own tree.
 
 <!-- reference:spine:begin -->
 > Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to the file, and what it makes of it, is that engine's own record.

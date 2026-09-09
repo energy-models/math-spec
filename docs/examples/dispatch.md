@@ -10,10 +10,10 @@ load to meet, and a cost to minimise. It is the model on the
 [home page](../index.md) and in the README, and the one the language reference
 varies when it needs a base to change one thing in.
 
-Two things worth reading for. The `where:` on `p` deletes the rows where a
-generator has no capacity — [absence](../reference/language/absence.md) is a
-declaration, not a runtime check. And `sum(p, over=generator)` names the
-dimension it reduces, so the constraint's frame is what remains.
+The `where:` on `p` deletes the rows where a generator has no capacity, so
+[absence](../reference/language/absence.md) is declared in the file rather than
+checked at run time. `sum(p, over=generator)` names the dimension it reduces, so
+the constraint's `foreach` is what remains.
 
 <!-- gallery:begin -->
 ```yaml

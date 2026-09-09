@@ -5,29 +5,21 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Errors and limits
 
-This page says when a model fails to load, what the message tells you, and what
-the language refuses to say at all.
-
 ## `to_spec` is the check
 
-There is one entry point, and it binds no data. Before `ms.to_spec('model.yaml')`
-returns a `Spec`, it does all of the following:
+`to_spec` is the one entry point, and it binds no data. Before
+`ms.to_spec('model.yaml')` returns a `Spec`, it parses the file, expands every
+`piecewise:` block, resolves every name, checks every dimension rule and every
+degree, and reads every `where` string and every macro template, including the
+templates that nothing calls.
 
-- parses the file;
-- expands every `piecewise:` block;
-- resolves every name;
-- checks every dimension rule and every degree;
-- reads every `where` string and every macro template, including the templates
-  that nothing calls.
-
-Anything the language refuses is refused there. So you can validate a whole
-repository of models in CI, with no data and no solver. It also means that the
-worst errors are not this package's to give you. Those are an opaque array, and
-a solver exception with no pointer back to a declaration, and both come from
-whatever builds and solves the model.
+Anything the language refuses is refused there. So a repository of models
+validates in CI with no data and no solver. Errors that come later, such as an
+array that does not bind or a solver exception, come from the program that
+builds and solves the model, not from this package.
 
 Every message names what went wrong and what to do about it. Where it helps, the
-message also lists the valid options:
+message lists the valid options:
 
 ```text
 Constraint 'balance', equation 0: 'p_charge' not found.
@@ -36,37 +28,29 @@ Constraint 'balance', equation 0: 'p_charge' not found.
 Check for typos, or ensure 'p_charge' is declared.
 ```
 
-When you use a construct that is outside the language, the error names the
-construct and its rewrite. You never get a silent fallback.
+A construct outside the language is refused with its rewrite. Nothing falls back
+silently.
 
 ## `advice` reports what is decidable but not an error
 
-Two more things can be decided without data, and each one is advice rather than
-a refusal.
+Two more things can be decided without data, and each is advice rather than a
+refusal. `ms.advice(model)` returns them as a tuple of `ms.Advice`. Each carries a
+`kind`, which is `never-an-axis` or `unbounded`, the `subject` declaration it is
+about, and its `text`. `str()` on one gives the sentence, and the sentences belong
+to the language, so no consumer writes its own.
 
-`ms.advice(model)` returns both as a tuple of `ms.Advice`. Each `Advice` carries
-a `kind`, which is one of `ms.ADVICE_KINDS`, so either `never-an-axis` or
-`unbounded`. It also carries the `subject` declaration it is about, and its
-`text`. Calling `str()` on one gives you the sentence.
+From a shell, `python -m math_spec check model.yaml` runs both. A refusal prints
+to stderr and exits with status 1. Advice prints, and the status is 0.
 
-A consumer either prints these, or filters on the two fields. The sentences
-belong to the language, so no consumer writes its own.
+**`never-an-axis`.** A dimension that nothing is indexed by, and that nothing
+aggregates into, is never an axis. If a lookup targets it, it is a label space
+wearing a dimension's declaration, and the note says how to declare it as one. If
+nothing reaches it, it is unused.
 
-From a shell, `python -m math_spec check model.yaml` runs the two together. A
-refusal prints its message on stderr and exits with status 1. Advice is printed
-and the status is 0.
-
-The first kind of advice is about an axis. A dimension that nothing is indexed
-by, and that nothing aggregates into, is never an axis. If a lookup targets it,
-then it is a label space wearing a dimension's declaration, and the note says
-how to declare it as a label space. If nothing reaches it at all, then it is
-unused.
-
-The second kind is about an unbounded variable. Take a variable that no
-constraint names, and whose bounds leave open the side that its objective term
-improves toward. That variable runs to infinity for every dataset there is. A
-solver reports this with a bare `unbounded` that names nothing. The note reports
-it with the variable and the side:
+**`unbounded`.** A variable that no constraint names, and whose bounds leave open
+the side its objective term improves toward, runs to infinity for every dataset.
+A solver reports this as a bare `unbounded` that names nothing. The note names
+the variable and the side:
 
 ```text
 Variable 'slack' makes this model unbounded: no constraint names it, and
@@ -77,72 +61,53 @@ Give it a finite bounds.lower, or the constraint that was meant to define it.
 ```
 
 This is advice rather than an error because a half-written model has the same
-shape. A variable declared before the constraint that will hold it looks exactly
-like this, and `to_spec` stays open to a half-written model.
-
-So advice is a list that a consumer asks for, not an error that it is handed. If
-you build straight from the model, the solver's bare answer is still the first
-word you get.
-
-Both halves of the condition are needed, and neither half alone is wrong. A
-variable held by nothing but its own `bounds:` is ordinary. So is an unbounded
-variable that a constraint names.
-
-Nothing is said where the sign that a variable enters the objective with is
-_data_. That happens with a parameter coefficient, which may be zero or either
-sign. A note against a model that solves would be the worse error.
-
-There is also a per-coordinate case, where a `where:` mask leaves one slice of a
-variable with no constraint row. That case cannot be decided from the file
+shape, and `to_spec` stays open to a half-written model. Both halves of the
+condition are needed: a variable held only by its `bounds:` is ordinary, and so
+is an unbounded variable that a constraint names. Nothing is said where the sign
+a variable enters the objective with is data, because a parameter coefficient
+may be zero or either sign. A slice of a variable that a `where:` leaves with no
+constraint row cannot be decided from the file
 ([#229](https://github.com/fluxopt/lpspec/issues/229)).
 
 ## Which error you get
 
 |                           |                                                                                                                                  |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `MathSpecError`           | The root of the tree. Everything below it is an instance of it                                                                   |
+| `MathSpecError`           | The root. Everything below is an instance of it                                                                                  |
 | `LanguageError`           | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
 | `SchemaError`             | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
 | `DimensionError`          | Dimensions that disagree, such as a constraint whose expression does not equal its `foreach`                                     |
-| `PiecewiseExpansionError` | a `piecewise:` block that cannot be expanded                                                                                     |
+| `PiecewiseExpansionError` | A `piecewise:` block that cannot be expanded                                                                                     |
 
-Every one of these means the _file_ is wrong, and every one is reproducible from
-the YAML alone, with no data and no solver.
+Every one of these means the file is wrong, and every one is reproducible from
+the YAML alone. A consumer that binds numbers or calls a solver adds its own
+errors below `MathSpecError`, and documents them itself.
 
-That is the whole tree that this package raises. A consumer that binds numbers
-or calls a solver adds its own errors below `MathSpecError`, and says so in its
-own documentation.
+## What the language will not express
 
-## What the language will not say
+None of these is an unimplemented feature. Each is a boundary the design keeps,
+and [the limits](../../about/limits.md) is the argument for where it sits.
 
-This section lists the refusals, and what to reach for instead. None of these is
-an unimplemented feature. Each one is a boundary that the design keeps on
-purpose, and [the limits](../../about/limits.md) is the argument for where the
-boundary sits.
+| Not in the language                                                            | Instead                                                                                                                                                             |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `variable * variable` in a bound or a `piecewise:` link                        | The objective and the constraints take it. Everywhere else, use a parameter coefficient ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed)) |
+| `sum(x, over=d) * sum(y, over=d)`                                              | Multiply before you reduce, or constrain a variable to equal the reduction. A product of two sums pairs every term against every term                               |
+| degree 3 (`x * y * z`)                                                         | A variable constrained to equal one product, multiplied by the third                                                                                                |
+| `**` with a variable in it                                                     | `x * x` for a square. Over variable-free operands `**` is in the language ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))               |
+| arithmetic in `bounds:`                                                        | A name or a number. Ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31))                                                            |
+| time-series processing (resample, cluster, interpolate, align), file IO, units | Data preparation. Pass a parameter                                                                                                                                  |
+| indicator constraints                                                          | What a solver can take is a question of its own, and `sos:` is where it landed ([#220](https://github.com/fluxopt/lpspec/issues/220))                               |
+| multi-objective                                                                | There is one `objective:` block. Weight the goals into one expression                                                                                               |
+| arbitrary array operations (`merge`, `reindex`, `apply_ufunc`)                 | Data preparation. The closed operator set is what lets a build stream its terms                                                                                     |
+| filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if the coordinate should not exist. Inside the language, only `shift(..., edge=)` fills ([absence](absence.md))                      |
+| schema migrations                                                              | —                                                                                                                                                                   |
 
-| Not here                                                                       | Instead                                                                                                                                                                              |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| variable × variable in a bound, a named expression or a `piecewise:` link      | The objective and the constraints take it. Everywhere else, use a parameter coefficient ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))                  |
-| `sum(x, over=d) * sum(y, over=d)`                                              | Multiply before you reduce, or name the reduction with a variable. A product of two sums is a cross join                                                                             |
-| degree 3 (`x * y * z`)                                                         | a variable constrained to equal one product, then multiplied by the third                                                                                                            |
-| `**`                                                                           | `x * x` ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))                                                                                                  |
-| arithmetic in `bounds:`                                                        | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31))                                                                             |
-| time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter                                                                                                                                                          |
-| indicator constraints                                                          | This is not a language question. What a solver can take is a question of its own, and that is where `sos:` landed ([#220](https://github.com/fluxopt/lpspec/issues/220))             |
-| multi-objective                                                                | There is one `objective:` block, and a second one cannot be said. Weight the goals into one expression                                                                               |
-| arbitrary array ops (`merge`, `reindex`, `apply_ufunc`)                        | Data preparation. The closed operator set is what makes streaming possible                                                                                                           |
-| filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if you meant the coordinate not to exist. Fill inside the language only where the data cannot reach, with `shift(..., edge=)` ([absence](absence.md)) |
-| schema migrations                                                              | —                                                                                                                                                                                    |
+A model built partly in Python has no readable `.yaml` form. The strings could
+not make the round trip: `expression:` and `where:` come back as unnamed arrays,
+which would build the same model and would not be a file anyone can review. A
+framework that emits declarations passes a dict, and gets `to_yaml()` back.
 
-A model built partly in Python has no readable `.yaml` form, and it will not get
-one. The math itself could make the round trip. The strings could not:
-`expression:` and `where:` come back as unnamed arrays, so what you got back
-would build the same model and would not be a file anyone can review. A
-framework that wants to emit declarations passes a dict, and gets `to_yaml()`
-back.
-
-Where the language genuinely cannot say the math, the way out is a declared
-`escape:` island. An island is named in the file, bounded by the `where` mask in
-front of it, terminal, and billed against a label budget before any Python runs.
-It is [#38](https://github.com/fluxopt/lpspec/issues/38), and it has not
-shipped.
+Math the language cannot express is meant for an `escape:` block: Python, named
+in the file, that emits the rows the language cannot state, capped by a label
+budget before it runs. It is
+[#38](https://github.com/fluxopt/lpspec/issues/38), and it has not shipped.

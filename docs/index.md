@@ -10,10 +10,10 @@ hide:
 
 # math-spec
 
-**The language an optimisation model is written in — and the math it means.**
+**The language an optimisation model is written in, and the math it means.**
 
-Write the math in YAML. Everything decidable without data is decided without
-data — and the file prints as the math it stands for.
+Write the math in YAML. Everything decidable without data is decided at load,
+and the file prints as the math it stands for.
 
 --8<-- "README.md:badges"
 
@@ -39,47 +39,47 @@ data — and the file prints as the math it stands for.
 
     One file declares the axes, the data, the decisions and the rules. You can
     read it without knowing what builds it, and no Python state changes what it
-    means. It diffs cleanly in review, and it travels as a research artefact.
+    means. It diffs in review, and it travels as a research artefact.
 
 - :material-shield-check-outline: **Decided before the data**
 
     ***
 
-    Every expression, every `where` string and even an _uncalled_ macro
-    template is parsed and name-checked at load. A repository of models
-    compiles in CI with nothing bound to any of them.
+    Every expression, every `where` string and every macro template, called or
+    not, is parsed and name-checked at load. A repository of models compiles in
+    CI with no data bound to any of them.
 
 - :material-alert-octagon-outline: **Fail early, fail loud**
 
     ***
 
     Nothing is guessed and nothing falls back silently. Where a file does not
-    determine the answer, loading fails and the message names the construct
-    _and_ its rewrite.
+    decide the answer, loading fails, and the message names the construct and
+    its rewrite.
 
-- :material-fence: **A closed language, with a declared way out**
+- :material-fence: **A closed language**
 
     ***
 
-    The operators are a fixed set, and nothing can register another one. Math
-    the language cannot express goes in an `escape:` block of Python, named in
-    the file and capped before it runs.
+    The operators are a fixed set, and nothing can register another one. A
+    composition of them is a macro. Math the language cannot express is refused,
+    with the rewrite named.
 
 - :material-function-variant: **The file is the document**
 
     ***
 
     LaTeX, Typst or Markdown, printed from the file alone. No data, no solver,
-    and no second source of truth. It answers _does this YAML say what I
-    meant_ before anything is bound or solved.
+    and no second source of truth. It answers _does this YAML say what I meant_
+    before anything is bound or solved.
 
 - :material-source-branch: **One rule per question**
 
     ***
 
-    A rule belongs to the language when two programs reading the same file
-    would be wrong to answer it separately. That question decides who owns an
-    answer: the language, or the engine reading it.
+    A rule belongs to the language when two programs reading the same file would
+    be wrong to answer it separately. That question decides who owns an answer:
+    the language, or the program reading it.
 
 </div>
 
@@ -91,8 +91,8 @@ data — and the file prints as the math it stands for.
 
 ### What that file says
 
-Generated from the YAML above — no data, no solver, no second source of truth.
-Only the notation is a choice, and **How** shows the one that was made here.
+Generated from the YAML above, with no data and no solver. Only the notation is a
+choice, and **How** shows the one made here.
 
 <!-- home-math:begin -->
 
@@ -224,9 +224,8 @@ Only the notation is a choice, and **How** shows the one that was made here.
 
 --8<-- "README.md:load"
 
-[One page](reference/language/reading.md) covers that boundary: what a program
-gets when it loads a model. Nothing a program does changes what the file
-means.
+[Reading a loaded model](reference/language/reading.md) says what a program gets
+when it loads a model. Nothing a program does changes what the file means.
 
 ## Where to next
 
@@ -237,8 +236,8 @@ means.
 
     ***
 
-    What a YAML file may contain, and what it means — ten rules, ten
-    declaration keys, one closed set of operators.
+    What a YAML file may contain, and what it means: ten rules, ten declaration
+    keys, one closed set of operators.
 
     [:octicons-arrow-right-24: The language](reference/language/index.md)
 
@@ -246,8 +245,8 @@ means.
 
     ***
 
-    All of it at once, beside the notation the typesetter gives it — so the
-    notation can be read as the one system it has to be.
+    All of it at once, beside the notation the typesetter gives it, so the
+    notation can be read as one system.
 
     [:octicons-arrow-right-24: The notation](reference/notation.md)
 
@@ -264,10 +263,10 @@ means.
 
     ***
 
-    The contract between the language and anything that reads the AST — a
-    solver backend, a renderer, a second front end.
+    What a program gets when it loads a model: a solver backend, a renderer, a
+    second front end.
 
-    [:octicons-arrow-right-24: The boundary](reference/language/reading.md) ·
+    [:octicons-arrow-right-24: Reading a loaded model](reference/language/reading.md) ·
     [Python API](reference/math_spec/validation.md)
 
 - :material-fence: **What may enter the language**
@@ -277,15 +276,14 @@ means.
     The test a new operator has to pass, why a solver's own limits stay out of
     the language, and what has been refused and why.
 
-    [:octicons-arrow-right-24: The limit](about/limits.md)
+    [:octicons-arrow-right-24: The limits](about/limits.md)
 
 - :material-scale-balance: **Who owns a rule**
 
     ***
 
-    Which rules belong to the language, which belong to the program reading
-    the model, and the second rule that keeps the first from covering
-    everything.
+    Which rules belong to the language, which belong to the program reading the
+    model, and the second rule that keeps the first from covering everything.
 
     [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)
 
@@ -295,7 +293,7 @@ means.
 
 --8<-- "README.md:docs-install-dev"
 
-Or as a dependency, once the project leaves the alpha stream — see
+Or as a dependency, once the project leaves the alpha stream. See
 [installation](installation.md) for every package manager.
 
 !!! warning "Alpha, pre-1.0"
