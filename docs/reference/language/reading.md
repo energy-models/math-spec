@@ -138,7 +138,7 @@ model does not use the construct, not that the construct does not exist.
 !!! note "The footprint says what the model uses, and never what to do about it"
 
     Whether your solver or file format can take a construct is your question.
-    See [what a solver can take](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
+    See [what a solver can take](../../about/limits.md#solver-capability).
     Whether a quadratic form is convex is not reported at all, because it depends
     on the numbers.
 
@@ -199,8 +199,8 @@ window, and both are models somebody means.
 ## Writing a spec back out
 
 `spec.to_dict()` returns the spec as plain data, and `spec.to_yaml()` returns
-that data as a file. Both round-trip: `to_spec(spec.to_dict()) == spec`, and the
-same through `to_yaml()`. So a model that a library assembled as a `dict` still
+that data as a file. Both round-trip, so `to_spec(spec.to_dict()) == spec`, and the
+same holds through `to_yaml()`. So a model that a library assembled as a `dict` still
 gets a file for a reviewer to read.
 
 `to_yaml()` writes every value and omits every absence. `domain: continuous` is

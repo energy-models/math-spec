@@ -21,8 +21,8 @@ NAME        ::= [a-zA-Z_][a-zA-Z0-9_]*
 NUMBER      ::= integer | float | "inf" | ".inf"
 ```
 
-- Precedence, highest first: `**`, then unary `+` and `-`, then `*` and `/`,
-  then binary `+` and `-`. So `-x ** 2` is `-(x ** 2)`, and `-x * y` is
+- Operators bind in this order, highest first: `**`, then unary `+` and `-`,
+  then `*` and `/`, then binary `+` and `-`. So `-x ** 2` is `-(x ** 2)`, and `-x * y` is
   `(-x) * y`, as in Python. Parentheses override precedence.
 - A float may carry an exponent, as in `1e5` or `2.5e-3`. A sign is always the
   unary operator, never part of the number.
@@ -64,11 +64,11 @@ A variable under `**` is refused because the exponent would decide the degree:
 `p ** n` is affine at `n = 1` and quadratic at `n = 2`, and `to_spec` reads no
 data. Write `x * x` for a square.
 
-### Whether a solver takes it is a separate question
+### Solver support
 
 The language admits degree 2 in the objective and the constraints. Which solver
 or file format takes the result is decided by the tool that builds the model.
-See [the limits](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
+See [the limits](../../about/limits.md#solver-capability).
 Whether a quadratic form is convex is a property of the data, so no tool can
 answer it from the file alone. A `piecewise:` block with `method: convex` spends
 a curve and keeps the linear program, with its duals.

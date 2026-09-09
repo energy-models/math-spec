@@ -142,11 +142,12 @@ Two rules follow, and a PR that adds a construct keeps them:
 
 ## Adding an operator
 
-Grammar first, which is usually free because `f(x, k=v)` already parses. Then
-its signature in `operators.BUILTINS`, which holds the number of arguments and
-which arguments name dimensions; resolution, validation and lowering all read it
-from there. Then its dimension rule in `dimensions.py`, its degree verdict in
-`degree.py`, the node it lowers to in `program.py`, and its entry in the
+Start with the grammar, which is usually free because `f(x, k=v)` already
+parses. Then declare the signature in `operators.BUILTINS`. It holds the number
+of arguments and says which arguments name dimensions, and resolution,
+validation and lowering all read it from there. Then write the dimension rule in
+`dimensions.py`, the degree verdict in `degree.py`, the node it lowers to in
+`program.py`, and the entry in the
 [language reference](reference/language/operators.md).
 
 A consumer that builds models cannot lower an operator that the version it pins

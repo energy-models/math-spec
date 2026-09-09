@@ -131,7 +131,7 @@ a storage with inflow and no store, there is no row.
 changes nothing inside a summing operator, because a summing operator never
 spread absence.
 
-## A row with no variable terms is not built
+## Rows with no variable terms
 
 A missing parameter row can leave a row with nothing to decide, such as
 `0 == load` at a bus with no generator. Such a row is not built, whatever left it
@@ -143,7 +143,7 @@ build, so it is the engine that reports them: rows lost to a mask, to a deleted
 variable, and to this rule. The first row of a storage balance is always among
 them, and that is the start of the recurrence rather than a bug.
 
-## Reported values follow the rows that were built
+## Reported values
 
 A [reported expression](reported.md) is arithmetic over solved numbers, so it
 inherits their absence by the same rule as above. Through pointwise arithmetic,

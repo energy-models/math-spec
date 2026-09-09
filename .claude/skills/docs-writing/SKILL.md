@@ -150,6 +150,13 @@ The obvious rule gets one sentence.
   the search box should land on this heading.
 - **Never a conclusion the reader cannot parse yet.** A heading is read before
   the section, so it cannot depend on it.
+- **A heading names a subject. It does not narrate one.** "Solver capability",
+  not "What a solver can take is a separate question". "Unknown keys", not "An
+  unknown key is refused". A heading that argues, concludes or tells a small
+  story is the section leaking upward: put the claim in the first sentence,
+  where the reader can act on it.
+- **No second clause after a comma or a dash.** "Two states, and the difference
+  between them" carries a heading and an aside. Keep the heading.
 - **One `##` per idea.** A section that needs a paragraph of preamble before
   its first rule is two sections.
 
@@ -209,14 +216,25 @@ The bar, and it is checkable:
 5. **A full stop, not an em dash, between two independent clauses.** Both
    halves having a subject and a verb is the test. Keep the dash for an aside
    inside one clause, and use few.
-6. **No fronted participles** that suspend the subject: "Having no mask to
+6. **Every sentence has a subject and a finite verb.** A paragraph never opens
+   on a title-like fragment: "Grammar first, which is usually free because
+   `f(x, k=v)` already parses" is a caption, not a sentence. Write "Start with
+   the grammar, which is usually free". A heading already labels the section, so
+   a label under it says nothing twice.
+7. **A colon or a dash does not excuse a missing verb.** "The probes: for each
+   operator, the smallest model that declares it, beside the equation it
+   renders" is three noun phrases and no claim. So is "A dispatch model with a
+   start-up ramp — the formulation `cases:` exists for", which closes on a
+   stranded preposition. Say who does what: "Each probe declares one operator in
+   the smallest model that can, and prints the equation beside it."
+8. **No fronted participles** that suspend the subject: "Having no mask to
    narrow its frame, it is the one that…".
-7. **No elided possessives**: "The dims of a cased one cannot", not "A cased
+9. **No elided possessives**: "The dims of a cased one cannot", not "A cased
    one's cannot".
-8. **A pronoun names its subject again** once a clause has intervened.
-9. **No double negatives, no metaphor stacked on metaphor, no relative clauses
-   stacked without _that_.**
-10. **Say it once.** The same claim in three paragraphs is load-bearing in
+10. **A pronoun names its subject again** once a clause has intervened.
+11. **No double negatives, no metaphor stacked on metaphor, no relative clauses
+    stacked without _that_.**
+12. **Say it once.** The same claim in three paragraphs is load-bearing in
     none.
 
 Measure before committing, and put the numbers in the commit body. The number

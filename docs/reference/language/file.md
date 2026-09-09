@@ -65,7 +65,7 @@ model declares version 1, and math_spec 0.0.1a75 understands [0].
 Upgrade math_spec, or write the version this file actually targets.
 ```
 
-## An unknown key is refused
+## Unknown keys
 
 An unknown key is a load error that names the near miss, at the top level and
 inside every declaration:

@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Errors and limits
 
-## `to_spec` is the check
+## What `to_spec` checks
 
 `to_spec` is the one entry point, and it binds no data. Before
 `ms.to_spec('model.yaml')` returns a `Spec`, it parses the file, expands every
@@ -31,7 +31,7 @@ Check for typos, or ensure 'p_charge' is declared.
 A construct outside the language is refused with its rewrite. Nothing falls back
 silently.
 
-## `advice` warns about two things that load
+## What `advice` warns about
 
 `ms.advice(model)` returns a tuple of `ms.Advice`, one per warning. Each has a
 `kind`, the `subject` declaration, and a `text`; `str()` gives the sentence.

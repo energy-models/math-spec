@@ -32,7 +32,7 @@ The largest gain available is not a function. It is writing a `Program` out in a
 format another language can read. Then an engine - whether in Python, Julia, Rust, etc. -
 reads the resolved tree instead of re-implementing the parser and every rule behind it.
 
-## A new feature is a new key in the file, not a new function
+## Where a new feature lands
 
 When the language gained piecewise-linear curves, it gained a `piecewise:` key
 in the YAML, not a call such as `ms.add_curve(spec, ...)`. The same holds for

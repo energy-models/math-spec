@@ -5,8 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Unit commitment
 
-A dispatch model with a commitment decision and a start-up ramp. It is the model
-that
+This model adds a commitment decision and a start-up ramp to least-cost
+dispatch. It is the model that
 [`cases:`](../reference/language/expressions.md#cases--one-quantity-a-value-per-region)
 exists for. Read `previous_status` first, then `ramp_up`.
 

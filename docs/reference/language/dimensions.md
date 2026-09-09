@@ -68,7 +68,8 @@ is a lookup table, and the file holds no adjacency matrix.
 
 Declare each lookup under its own name. `over:` names the dimension whose
 members carry the value, and `into:` names the dimension the values are labels
-of — which is what [`sum(by=)` and `at(by=)`](operators.md) land terms on:
+of. [`sum(by=)` and `at(by=)`](operators.md) land terms on that target
+dimension:
 
 ```yaml
 dimensions:
@@ -162,4 +163,4 @@ a value belongs, because it is a coordinate space and not data. To use a
 dimension's coordinates as data, declare a parameter over it.
 `python -m math_spec check` advises on a declared dimension that nothing is
 indexed by, nothing aggregates into and no lookup targets
-([errors](errors.md#advice-warns-about-two-things-that-load)).
+([errors](errors.md#what-advice-warns-about)).

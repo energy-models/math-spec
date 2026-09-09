@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA in one file
 
-The model that a plain `n.optimize()` builds, stated as one file. It grows one
+This file states the model that a plain `n.optimize()` builds. It grows one
 **rung** at a time, where a rung is one `n.optimize()` keyword stated in full,
 towards [milestone 1](https://github.com/energy-models/math-spec/milestone/1).
 
