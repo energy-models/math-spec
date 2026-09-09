@@ -570,14 +570,8 @@ class TestRulesDecidedWithoutData:
                 {'lookups.lk.over': 'z'}, ("references undeclared dimension 'z'",), id='lookup-over-undeclared'
             ),
             pytest.param({'lookups.lk.into': 'z'}, ("targets undeclared dimension 'z'",), id='lookup-into-undeclared'),
-            pytest.param({'lookups.lk.into': 'g'}, ("maps 'g' into itself",), id='lookup-into-itself'),
             pytest.param(
                 {'lookups.lk.over': ['g', 'z']}, ("references undeclared dimension 'z'",), id='lookup-key-undeclared'
-            ),
-            pytest.param(
-                {'dimensions.z': {}, 'lookups.lk.over': ['g', 'h']},
-                ("maps 'h' into itself",),
-                id='lookup-into-one-of-its-keys',
             ),
             pytest.param(
                 {'lookups.lk.over': ['g', 'g']}, ("names 'g' twice under 'over:'",), id='lookup-keyed-by-a-dim-twice'

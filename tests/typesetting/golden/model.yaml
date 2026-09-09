@@ -27,6 +27,7 @@ lookups:
   area_of: { over: bus, into: zone } # a second map into the same set, to compare against
   season_of: { over: snapshot, into: season }
   gen_zone: { over: [generator, snapshot], into: zone } # a map keyed by two dimensions: a call walks one and joins on the other
+  rep_of: { over: snapshot, into: snapshot } # a map into its own dimension: the representative snapshot
 
 parameters:
   p_max: { dims: [generator] }
@@ -147,6 +148,9 @@ constraints:
   pullback: # at(), which re-indexes through a lookup instead of an offset
     foreach: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of)
+  representative: # a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
+    foreach: [snapshot]
+    expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
   grouped_twice: # one grouping through two maps: the domain carries both conditions
     foreach: [snapshot, bus, technology]
     expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap

@@ -154,18 +154,20 @@ def _also_written_as(
 
 
 class LookupBlock(_StrictBlock):
-    """A named single-valued map from one or more key dimensions ``into:`` another.
+    """A named single-valued map from one or more key dimensions ``into:`` a dimension.
 
     Its values are labels of ``into``, which is what ``sum(by=)`` and
     ``at(by=)`` land terms on. ``over:`` is one dimension or a list — the
-    map's key columns, in the order the table carries them::
+    map's key columns, in the order the table carries them — and ``into``
+    may be one of them, which is how a representative snapshot is declared::
 
         lookups:
           bus_of: {over: generator, into: bus}
           zone_of: {over: [generator, period], into: zone}
+          rep_of: {over: snapshot, into: snapshot}
 
     The map itself is data, and arrives at bind time under the lookup's name,
-    single-valued per key tuple.
+    single-valued per key tuple, its value column named after the lookup.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
@@ -815,7 +817,7 @@ class Spec(_StrictBlock):
             )
 
     def _lookup_targets(self) -> Iterator[str]:
-        """A lookup is keyed by declared dimensions, each once, and maps into another declared one."""
+        """A lookup is keyed by declared dimensions, each once, and maps into a declared one — its own included."""
         for lname, lk in self.lookups.items():
             if not lk.keys:
                 yield f"Lookup '{lname}' has no key dimension: 'over:' names the dimension(s) the map is keyed by."
@@ -831,8 +833,6 @@ class Spec(_StrictBlock):
                     f"Declare it under 'dimensions:' — the target is what the "
                     f'lookup values are checked against.'
                 )
-            elif lk.into in lk.keys:
-                yield (f"Lookup '{lname}' maps '{lk.into}' into itself. A lookup maps into a different dimension.")
 
     def _bound_names(self) -> Iterator[str]:
         """A named bound is a numeric parameter."""

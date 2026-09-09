@@ -218,7 +218,7 @@
     },
     "LookupBlock": {
       "additionalProperties": false,
-      "description": "A named single-valued map from one or more key dimensions ``into:`` another.\n\nIts values are labels of ``into``, which is what ``sum(by=)`` and\n``at(by=)`` land terms on. ``over:`` is one dimension or a list \u2014 the\nmap's key columns, in the order the table carries them::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n      zone_of: {over: [generator, period], into: zone}\n\nThe map itself is data, and arrives at bind time under the lookup's name,\nsingle-valued per key tuple.",
+      "description": "A named single-valued map from one or more key dimensions ``into:`` a dimension.\n\nIts values are labels of ``into``, which is what ``sum(by=)`` and\n``at(by=)`` land terms on. ``over:`` is one dimension or a list \u2014 the\nmap's key columns, in the order the table carries them \u2014 and ``into``\nmay be one of them, which is how a representative snapshot is declared::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n      zone_of: {over: [generator, period], into: zone}\n      rep_of: {over: snapshot, into: snapshot}\n\nThe map itself is data, and arrives at bind time under the lookup's name,\nsingle-valued per key tuple, its value column named after the lookup.",
       "properties": {
         "description": {
           "anyOf": [
