@@ -98,4 +98,4 @@ uvx check-jsonschema --schemafile https://raw.githubusercontent.com/energy-model
 
 The schema validates structure only. `expression:` and `where:` are strings
 to it; the math inside them is checked by
-[`to_spec`](reference/language/errors.md#to_spec-is-the-check).
+[`to_spec`](../reference/language/errors.md#to_spec-is-the-check).

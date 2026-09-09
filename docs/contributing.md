@@ -77,15 +77,19 @@ Here are some use-cases that you may come across in which you are considering up
 
 ??? question annotate "I want to add a new page"
 
-    Add a Markdown file to the top-level in `docs`, e.g. `docs/my-page.md`.
-    Then, add a reference to that file within the `nav` key in `mkdocs.yml`, e.g.:
+    Decide what the page is for first — a tutorial, a how-to guide, reference or
+    explanation, the four kinds of [Diátaxis](https://diataxis.fr). The kind
+    decides the folder (`docs/`, `docs/howto/`, `docs/reference/` with the model
+    pages in `docs/examples/`, `docs/about/`) and the nav section of the same
+    name in `mkdocs.yml`. The rules each kind has to meet are
+    [the docs-writing skill](https://github.com/energy-models/math-spec/blob/main/.claude/skills/docs-writing/SKILL.md).
+    Then add the file under its section in the `nav` key, e.g.:
 
     ```yaml
     nav:
-    - Home: index.md
-    - Installation: installation.md
-    - Getting started: getting_started.md
-    - My Page: my-page.md
+    - How-to guides:
+        - Installation: howto/installation.md
+        - My recipe: howto/my-recipe.md
     ```
 
     You can also just rely on your document header to define the name in the navigation:

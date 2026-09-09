@@ -45,18 +45,19 @@ Two questions decide it, and they work on a paragraph as well as a page:
 1. Does it inform **action** or **cognition**?
 2. Does it serve **acquiring** a skill or **applying** one?
 
-| Kind        | Informs   | Serves  | Answers                                               | Where it lives                                             |
-| ----------- | --------- | ------- | ----------------------------------------------------- | ---------------------------------------------------------- |
-| Tutorial    | action    | acquire | "Get me a first file that loads and prints"           | none yet: the home page's one model is the nearest thing   |
-| How-to      | action    | apply   | "I have this task"                                    | `installation.md`, at the root                             |
-| Reference   | cognition | apply   | "What exactly does X accept, and what does it print?" | Reference · `docs/reference/`; Examples · `docs/examples/` |
-| Explanation | cognition | acquire | "Why is it like this?"                                | About · `docs/about/`                                      |
+| Kind        | Informs   | Serves  | Answers                                               | Nav section · folder                                           |
+| ----------- | --------- | ------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| Tutorial    | action    | acquire | "Get me a first file that loads and prints"           | Tutorials · `docs/`                                            |
+| How-to      | action    | apply   | "I have this task"                                    | How-to guides · `docs/howto/`                                  |
+| Reference   | cognition | apply   | "What exactly does X accept, and what does it print?" | Reference · `docs/reference/`, model pages in `docs/examples/` |
+| Explanation | cognition | acquire | "Why is it like this?"                                | About · `docs/about/`                                          |
 
-Reference and explanation each have a nav section and a folder of the same
-name, and a new page of either kind goes there. The model pages are reference
-in their own form and have a tab of their own. A first tutorial, or a second
-how-to, creates a folder and a nav section named for its kind rather than
-borrowing one.
+The nav and the tree are both arranged by kind. A new page goes in the folder
+of its kind and under the nav section of the same name; the first tutorial
+opens the `Tutorials:` section, above the how-to guides. The model pages sit at
+the end of the Reference section, after the pages a reader looks things up in.
+A worked example is neither a tutorial nor a how-to: it teaches no path and
+names no task, it shows that the language says a model.
 
 Each kind has one job, and one thing it must not do:
 

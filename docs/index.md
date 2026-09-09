@@ -296,7 +296,7 @@ changes what the file means.
 --8<-- "README.md:docs-install-dev"
 
 Or as a dependency, once the project leaves the alpha stream — see
-[installation](installation.md) for every package manager.
+[installation](howto/installation.md) for every package manager.
 
 !!! warning "Alpha, pre-1.0"
 
