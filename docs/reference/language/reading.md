@@ -216,3 +216,16 @@ one — a store carried over one row windows cleanly and a rolling solve of it i
 still a different answer — nor whether the modeller _wanted_ a restart: a
 `position(t) == 0` seed fires once over a horizon and once per window, and both
 are models somebody means.
+
+## Writing a spec back out
+
+**A `Spec` goes back out two ways, and they agree.** `to_dict()` is the spec
+as plain data, and `to_yaml()` is that dict as the file a reviewer reads. Both
+reproduce the model: `to_spec(spec.to_dict()) == spec`, and the same through
+`to_yaml()`. So a model built as a `dict` still gets a file, which is what a
+framework that emits declarations hands to review.
+
+**A value is written and an absence is not.** A default is a fact the reviewer
+reads, so `domain: continuous` is written out. A null, an infinite bound and a
+section that declares nothing say nothing, so they are not. An empty list is a
+value: `foreach: []` is a scalar declaration and stays.
