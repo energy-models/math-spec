@@ -15,7 +15,7 @@ templates that nothing calls.
 
 Anything the language refuses is refused there. So a repository of models
 validates in CI with no data and no solver. Errors that come later, such as an
-array that does not bind or a solver exception, come from the program that
+array that does not bind or a solver exception, come from the tool that
 builds and solves the model, not from this package.
 
 Every message names what went wrong and what to do about it. Where it helps, the
@@ -36,7 +36,7 @@ silently.
 Two more things can be decided without data, and each is advice rather than a
 refusal. `ms.advice(model)` returns them as a tuple of `ms.Advice`. Each carries a
 `kind`, which is `never-an-axis` or `unbounded`, the `subject` declaration it is
-about, and its `text`. `str()` on one gives the sentence, and every program that
+about, and its `text`. `str()` on one gives the sentence, and every tool that
 shows advice shows this same sentence.
 
 From a shell, `python -m math_spec check model.yaml` runs both. A refusal prints

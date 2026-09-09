@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 A model is one YAML file. It declares the axes the model runs over, the data it
 expects, the decisions the solver makes, and the rules those decisions obey.
-Every program that reads the file reads the same model.
+Every tool that reads the file reads the same model.
 
 ```yaml title="dispatch.yaml"
 description: Least-cost dispatch of a generator fleet against an hourly load.
@@ -69,9 +69,9 @@ message that names the fix. These ten rules are what it checks.
 | [Operators](operators.md)                                               | `sum`, `sum_back`, `at` and `shift`                                                                           |
 | [Absence and `where`](absence.md)                                       | which rows are built, and which are not                                                                       |
 | [Piecewise curves and SOS](piecewise.md)                                | `piecewise:` and `sos:`                                                                                       |
-| [Reading a loaded model](reading.md)                                    | what a program gets when it loads a model                                                                     |
+| [Reading a loaded model](reading.md)                                    | what a tool gets when it loads a model                                                                        |
 | [Errors and limits](errors.md)                                          | what fails when, and what the language will not express                                                       |
 
 Building the model, solving it and reading the answer back are the work of the
-program that reads the file, such as an engine or a renderer. Nothing that
-program does changes what the file means.
+tool that reads the file, such as an engine or a renderer. Nothing that
+tool does changes what the file means.

@@ -24,9 +24,9 @@ A function may join the public API when both of these hold:
 
 ## What makes this package more useful
 
-This package builds nothing and solves nothing. Its value is what other programs
-build on it, so a small API that a dozen programs read is worth more than a wide
-one that one program uses.
+This package builds nothing and solves nothing. Its value is what other tools
+build on it, so a small API that a dozen tools read is worth more than a wide
+one that one tool uses.
 
 The largest gain available is not a function. It is writing a `Program` out in a
 format another language can read. Then an engine - whether in Python, Julia, Rust, etc. -
@@ -50,7 +50,7 @@ only for Python. So wherever a feature can be a key in the file, it is one.
   `Spec` or raises an error that names the rewrite. It never returns a
   half-built value with a warning attached. `advice()` is separate: it talks
   about a file the language accepts, and changes nothing.
-- **Safe to call again.** `to_program(program)` returns `program` unchanged, so
+- **Safe to call again.** `to_program(tool)` returns `program` unchanged, so
   a caller that does not know whether it holds a `Spec` or a `Program` can call
   it either way.
 

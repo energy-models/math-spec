@@ -220,7 +220,7 @@ choice, and **How** shows the one made here.
 
 <!-- home-math:end -->
 
-### How a program reads it
+### How a tool reads it
 
 --8<-- "README.md:load"
 
@@ -282,7 +282,7 @@ renderer or a checker gets when it loads a model.
 
     ***
 
-    Which decisions the language makes for every program that reads a file,
+    Which decisions the language makes for every tool that reads a file,
     and which each engine makes for itself.
 
     [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)

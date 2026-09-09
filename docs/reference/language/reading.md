@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Reading a loaded model
 
-The other pages say what a file may declare. This page says what a program gets
+The other pages say what a file may declare. This page says what a tool gets
 when it loads one. You need none of it to write a model. It is for whoever writes
 an engine that builds models, a renderer, or a checker, and they read the model
 through two objects:
@@ -82,7 +82,7 @@ constraints and a variable missing. That model solves, and the answer is wrong
 with nothing to show why. `Program` is a different type from `Spec`, so an
 engine typed to take a `Program` cannot make that mistake.
 
-!!! note "A program cannot answer what the file wrote"
+!!! note "A `Program` cannot answer what the file wrote"
 
     It has no `macros:`, no `description:`, and no link expression. Anything that
     renders is handed what `to_spec` returned.
@@ -118,8 +118,9 @@ classes live in `math_spec.program`.
 
 ## Asking what a program uses
 
-`program.footprint` says which of the language's constructs one program uses. It
-is walked once and then held, because a program cannot change after it is built.
+`program.footprint` says which of the language's constructs one model uses. It
+is computed once and then held, because a `Program` cannot change after it is
+built.
 
 ```python
 footprint = program.footprint

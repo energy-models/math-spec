@@ -147,5 +147,5 @@ A key that names nothing in the model is an error with the near miss. The
 alternative is a symbol that silently never applies.
 
 Nothing in a symbol table changes what the file means, and no solver reads it.
-What a declaration _is_ stays in its own `description:`, which every program that
+What a declaration _is_ stays in its own `description:`, which every tool that
 reads the model can print. See [declarations](language/declarations.md).

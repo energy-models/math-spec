@@ -39,7 +39,7 @@ dimensions: ...
 ```
 
 A `#` comment can say the same thing, but the parser throws a comment away.
-A `description:` reaches every program that reads the model.
+A `description:` reaches every tool that reads the model.
 
 ## `version`
 

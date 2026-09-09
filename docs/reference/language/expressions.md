@@ -67,9 +67,9 @@ data. Write `x * x` for a square.
 ### Whether a solver takes it is a separate question
 
 The language admits degree 2 in the objective and the constraints. Which solver
-or file format takes the result is decided by the program that builds the model.
+or file format takes the result is decided by the tool that builds the model.
 See [the limits](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
-Whether a quadratic form is convex is a property of the data, so no program can
+Whether a quadratic form is convex is a property of the data, so no tool can
 answer it from the file alone. A `piecewise:` block with `method: convex` spends
 a curve and keeps the linear program, with its duals.
 

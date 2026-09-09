@@ -498,7 +498,7 @@ can be pictured:
 Four rules make the difference, and they come before every rule under
 [Sentences](#sentences):
 
-- **The subject of a sentence is a person, a program or the file.** "You",
+- **The subject of a sentence is a person, a tool or the file.** "You",
   "the engine", "the renderer", "the solver", "`to_spec`", "the file", "the
   table". Not "the question", "the rule", "the answer", "the construct", "the
   limit" or "the difference". Where an abstract noun is the subject, ask who is
@@ -513,7 +513,7 @@ Four rules make the difference, and they come before every rule under
   knows YAML and a solver, and nothing about this project, has to follow every
   sentence without looking anything up.
 - **Read each sentence back and ask: could the reader draw it?** A sentence
-  about a file, a table, a row or a program, doing one thing, can be drawn. A
+  about a file, a table, a row or a tool, doing one thing, can be drawn. A
   sentence about a rule owning a question cannot. Rewrite until it can.
 
 A paragraph of short abstract sentences is not plain. It is the same abstraction
@@ -606,19 +606,20 @@ its name and gains a clause saying it counts how many things are non-zero.
 the words, and the clause each one takes. Shorten a clause to fit the sentence,
 and never drop it:
 
-| Project word   | Define it at first use as                                                                      |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| a consumer     | a program that reads a loaded model, such as an engine, a renderer or a checker                |
-| a sink         | whatever a built model is handed to, which is a solver's API or a file format                  |
-| a backend      | one of the two implementations that build a model from the same syntax tree                    |
-| a primitive    | an operator built into the language, which no file can add to                                  |
-| a macro        | a template that takes arguments and is substituted into an expression before anything reads it |
-| a formulation  | a block that expands into ordinary declarations before the model is built                      |
-| an `escape:`   | a block of Python, named in the file, that emits rows the language cannot state                |
-| a label budget | a cap on how many rows and columns an `escape:` may emit                                       |
-| a frame        | the dimensions a declaration ranges over                                                       |
-| bounded-halo   | reads a fixed number of neighbouring positions, and no more                                    |
-| a rung         | one step of the PyPSA ladder, which is one `n.optimize()` keyword stated in full               |
+| Project word   | Define it at first use as                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a consumer     | a tool that reads a loaded model, such as an engine, a renderer or a checker                                                                      |
+| a tool         | a piece of software that reads a model: an engine, a renderer, a checker. Never "a program", because `Program` is the object `to_program` returns |
+| a sink         | whatever a built model is handed to, which is a solver's API or a file format                                                                     |
+| a backend      | one of the two implementations that build a model from the same syntax tree                                                                       |
+| a primitive    | an operator built into the language, which no file can add to                                                                                     |
+| a macro        | a template that takes arguments and is substituted into an expression before anything reads it                                                    |
+| a formulation  | a block that expands into ordinary declarations before the model is built                                                                         |
+| an `escape:`   | a block of Python, named in the file, that emits rows the language cannot state                                                                   |
+| a label budget | a cap on how many rows and columns an `escape:` may emit                                                                                          |
+| a frame        | the dimensions a declaration ranges over                                                                                                          |
+| bounded-halo   | reads a fixed number of neighbouring positions, and no more                                                                                       |
+| a rung         | one step of the PyPSA ladder, which is one `n.optimize()` keyword stated in full                                                                  |
 
 ### A reference entry
 

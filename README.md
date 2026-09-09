@@ -52,7 +52,7 @@ flowchart LR
     Q -->|"no"| ERR["load error<br/>naming the construct + rewrite"]
     Q -->|"yes"| M["Spec<br/>what the file says"]
     M -->|"to_program"| P["Program<br/>names, dimensions and operators resolved"]
-    P --> ENG["a program that builds → solver"]
+    P --> ENG["an engine that builds → solver"]
     M --> T["to_latex / to_typst / to_markdown"]
 
     classDef spec fill:#f0f7f0,stroke:#3a7d44,stroke-width:2px,color:#111
@@ -122,7 +122,7 @@ turned into its variables and constraints. An engine reads the second.
 
 <!--- --8<-- [end:load] -->
 
-[Reading a loaded model](docs/reference/language/reading.md) says what a program
+[Reading a loaded model](docs/reference/language/reading.md) says what a tool
 gets from each.
 
 The same `spec` prints as math. It is read and checked once, then printed three
@@ -204,7 +204,7 @@ git reference until then; see [RELEASING.md](RELEASING.md).
 ## Prior art
 
 Every file under `src/` was written in [lpspec](https://github.com/fluxopt/lpspec)
-and extracted here, so that the language and the syntax tree a program reads it
+and extracted here, so that the language and the syntax tree a tool reads it
 through are a dependency rather than one engine's internals. The keys themselves,
 which are YAML math, a block per component, `foreach:` and a `where:` string,
 come from [Calliope](https://github.com/calliope-project/calliope).
