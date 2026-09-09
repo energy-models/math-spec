@@ -5,17 +5,15 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the relaxed commitment
 
-This is rung 12 of [PyPSA in one file](pypsa.md). It states
-`n.optimize(linearized_unit_commitment=True)` on rungs 1 and 7, in a file of its
-own. The model's description below says why it has its own file. Its network is
-the shared spine plus the script's own additions.
+Rung 12 of [PyPSA in one file](pypsa.md): `n.optimize(linearized_unit_commitment=True)`, stated on rungs 1 and 7 in a
+file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
 
 ## Rung 12 — linearized unit commitment
 
 | PyPSA | status | note |
 | --- | --- | --- |
 | [`Generator-status`, `-start_up`, `-shut_down`](#variable-domains) | done | shares in [0, 1], not binaries |
-| [`Generator-com-p-before`](#generator-com-p-before) | done | used where a start and a stop cost the same. It is a boolean from data preparation |
+| [`Generator-com-p-before`](#generator-com-p-before) | done | where start and stop cost the same — a data-prep bool |
 | [`Generator-com-p-current`](#generator-com-p-current) | done | |
 | [`Generator-com-partly-start-up`](#generator-com-partly-start-up) | done | |
 | [`Generator-com-partly-shut-down`](#generator-com-partly-shut-down) | done | |
@@ -100,9 +98,9 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
-| $`\mathcal{N}`$ | index $`n`$ — `bus` — network nodes |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — network nodes |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
-| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
 

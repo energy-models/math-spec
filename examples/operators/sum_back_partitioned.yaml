@@ -13,7 +13,7 @@ dimensions:
   day: { dtype: str }
 
 lookups:
-  day_of: { over: hour, into: day }
+  day_of: { over: [hour, day], key: hour }
 
 variables:
   started:

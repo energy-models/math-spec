@@ -358,6 +358,8 @@ def _check_template_names(
                     )
                 case 'value':
                     _check_template_names(value, context, ns, formals, errors)
+                case 'role':
+                    pass
                 case 'edge':
                     pass  # a keyword or a number: nothing in it to name
         return

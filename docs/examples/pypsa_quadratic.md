@@ -5,18 +5,16 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the quadratic class
 
-This is rung 10 of [PyPSA in one file](pypsa.md). It states PyPSA's
-`marginal_cost_quadratic` on the transport surface of rung 1, in a file of its
-own. The model's description below says why it has its own file.
-
-Its reference network starts from the same shared spine, `data/base/`, which is
-shown once on [the rung ladder's page](pypsa.md#index).
+Rung 10 of [PyPSA in one file](pypsa.md): PyPSA's `marginal_cost_quadratic`,
+stated on rung 1's transport surface in a file of its own — the model's
+description below says why. Its reference network starts from the same shared
+spine, `data/base/`, shown once on [the rung ladder's page](pypsa.md#index).
 
 ## Rung 10 — quadratic costs
 
 | PyPSA                                   | status | note                                                                       |
 | --------------------------------------- | ------ | -------------------------------------------------------------------------- |
-| [`marginal_cost_quadratic`](#objective) | done   | degree 2 in the objective, on Generator and Link here. PyPSA also carries it on storage units and stores, which is one more term each of the same shape |
+| [`marginal_cost_quadratic`](#objective) | done   | degree 2 in the objective; Generator and Link here — PyPSA also carries it on storage units and stores, one more term each of the same shape |
 
 <!-- reference:rung_10_quadratic_costs:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12587.437500000098`, 60 rows.
@@ -72,9 +70,9 @@ The quadratic class of a plain `n.optimize()`: PyPSA's `marginal_cost_quadratic`
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
-| $`\mathcal{N}`$ | index $`n`$ — `bus` — network nodes |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — network nodes |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
-| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
 

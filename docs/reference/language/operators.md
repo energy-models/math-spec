@@ -15,9 +15,11 @@ model can never depend on what a caller registered. A composition of them goes i
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sum(array)`                                       | Every dimension that `array` carries collapses. The result is a scalar                                                                            |
 | `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
-| `sum(array, by=lookup)`                            | The dimension that the lookup is over collapses onto the dimension it maps into                                                                   |
-| `sum(array, by=[lookup, …])`                       | The same, onto every dimension that the lookups map into. All the lookups must be over the same dimension                                         |
-| `at(array, by=lookup)`                             | The dimension that the lookup maps into is replaced by the dimension it is over                                                                   |
+| `sum(array, by=lookup)`                            | The lookup's key column collapses onto its value column                                                                                          |
+| `sum(array, by=[lookup, …])`                       | The same, onto every lookup's value column. All the lookups must consume the same dimension                                                       |
+| `sum(array, by=lookup, from=a, to=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them                    |
+| `at(array, by=lookup)`                             | The lookup's value column is replaced by its key column                                                                                          |
+| `at(array, by=lookup, from=a, to=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns                                     |
 | `shift(array, over=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
 | `shift(array, over=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, over=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
@@ -44,8 +46,9 @@ An operand that is already scalar, and an `over=` naming a dimension the operand
 does not carry, are both errors rather than no-ops.
 
 `sum(x, by=l)` sums along a [lookup](dimensions.md#lookups) and lands the result
-on the dimension the lookup maps into. A nodal balance is one `sum(by=)` per
-kind of component, and the network's wiring stays in the lookup tables:
+on the column it walks to: the value column, where the key draws the arrow, or
+the one `to=` names. A nodal balance is one `sum(by=)` per kind of component,
+and the network's wiring stays in the lookup tables:
 
 ```yaml
 dimensions:
@@ -53,9 +56,9 @@ dimensions:
   generator: { dtype: str }
   line: { dtype: str }
 lookups:
-  gen_bus: { over: generator, into: bus }
-  line_from: { over: line, into: bus }
-  line_to: { over: line, into: bus }
+  gen_bus: { over: [generator, bus], key: generator }
+  line_from: { over: [line, bus], key: line }
+  line_to: { over: [line, bus], key: line }
 parameters:
   load: { dims: [bus] }
 variables:
@@ -77,7 +80,13 @@ outflow, with no adjacency matrix and no join written by hand.
 Give **at most one** of `over=` and `by=`. A lookup carries its own dimensions,
 so `by=` leaves `over=` nothing to add.
 
-The lookup's values are the group labels, checked against the target dimension
+`from=` and `to=` say [which columns the walk runs between](dimensions.md#a-walk-names-its-ends)
+where the declaration leaves a choice. Every other key column is joined on, so
+the operand carries it, the sum keeps it, and each group is one coordinate of
+it. A value column that is not walked is not read. A bare relation, one with no
+`key:`, is summed with both ends named, and a row it holds twice counts twice.
+
+The lookup's values are the group labels, checked against their own dimension
 when the data binds. A group with no members contributes nothing, and a member
 whose lookup value is null belongs to no group. An empty group is a value rather
 than a gap: on the constant side of a comparison it reads as zero, where a
@@ -86,15 +95,20 @@ coordinate the data never covered is refused. See [absence](absence.md).
 ## `at`
 
 `at(x, by=l)` walks the same lookup table the other way. `sum(by=)` consumes the
-dimension the lookup is over and produces the target. `at` consumes the target
-and produces the dimension the lookup is over: it reads one coarse value once for
-each fine label that points at it.
+key column and produces the value column. `at` consumes the value column and
+produces the key column: it reads one coarse value once for each fine label that
+points at it. `from=` and `to=` name the two columns where the key leaves a
+choice. A read is one value per coordinate, so the lookup's key must lie inside
+`to=` and the columns joined on, and a bare relation is never read by `at`.
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus)`.
 
 A fine label whose lookup value is null reads nothing, and its row is absent.
-That matches the null group in `sum(by=)`.
+That matches the null group in `sum(by=)`. Through a lookup with a
+[column joined on](dimensions.md#a-walk-names-its-ends) `at` reads the coarse
+value at the row's own coordinate of that column, which is the price of the zone
+this generator sat in that period.
 
 ## `sum_back`
 
@@ -212,7 +226,7 @@ dimensions:
   snapshot: { dtype: int }
   season: { dtype: str }
 lookups:
-  season_of: { over: snapshot, into: season }
+  season_of: { over: [snapshot, season], key: snapshot }
 parameters:
   inflow: { dims: [snapshot] }
 variables:
@@ -229,9 +243,10 @@ coordinate of each group is vacated and its row drops. `edge='wrap'` closes each
 group onto its own last coordinate, which a store that returns to its starting
 level every period asks for. `edge=v` puts `v` at the edge of each group.
 
-`by=` takes a lookup over the dimension being walked, and groups a row by the
-group of that dimension it is in. The lookup's target is what a named `offset=`
-may vary over, so each group is reached by its own offset.
+`by=` takes a lookup with a key column over the dimension being walked, and the
+group is the value columns. `from=` says which key column where there are two
+over that dimension. The value columns are what a named `offset=` may vary over,
+so each group is reached by its own offset.
 
 A coordinate the lookup sends nowhere is in no group, so it reaches nothing, and
 no `edge=` speaks for it. Its row drops under `edge=0` exactly as it does bare.
@@ -294,7 +309,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 lookups:
-  period_of: { over: snapshot, into: period }
+  period_of: { over: [snapshot, period], key: snapshot }
 parameters:
   lead: { dims: [period], dtype: int }
   demand: { dims: [snapshot] }

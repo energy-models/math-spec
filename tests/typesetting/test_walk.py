@@ -158,7 +158,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
     """
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
+        'lookups': {'season_of': {'over': ['snapshot', 'season'], 'key': 'snapshot'}},
         'variables': {'p': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'held': {
@@ -191,7 +191,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
             'snapshot': {'dtype': 'int'},
             'period': {'dtype': 'int'},
         },
-        'lookups': {'period_of': {'over': 'snapshot', 'into': 'period'}},
+        'lookups': {'period_of': {'over': ['snapshot', 'period'], 'key': 'snapshot'}},
         'parameters': {'cap': {'dims': ['period']}},
         'variables': {'p': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
@@ -276,7 +276,7 @@ def _selected(mask: str) -> dict[str, Any]:
     """One constraint carrying *mask*, over a dimension a lookup groups."""
     return {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
+        'lookups': {'season_of': {'over': ['snapshot', 'season'], 'key': 'snapshot'}},
         'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {'seed': {'foreach': ['snapshot'], 'where': mask, 'expression': 'soc == 0'}},
     }
@@ -642,7 +642,7 @@ def test_every_operator_probe_renders(path, name: FormatName, fmt: Format):
 #: scope and bracketing cases are written against.
 BUSES = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
-    'lookups': {'bus_of': {'over': 'generator', 'into': 'bus'}},
+    'lookups': {'bus_of': {'over': ['generator', 'bus'], 'key': 'generator'}},
     'parameters': {'load': {'dims': ['snapshot']}, 'k': {'dims': []}, 'flag': {'dims': ['snapshot'], 'dtype': 'bool'}},
     'variables': {'p': {'foreach': ['snapshot', 'generator']}, 'q': {'foreach': ['snapshot', 'generator']}},
 }

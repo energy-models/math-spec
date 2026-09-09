@@ -422,43 +422,43 @@ parameters:
 lookups:
   Generator_bus:
     description: the bus a generator sits on
-    over: generator
-    into: bus
+    over: [generator, bus]
+    key: generator
   Link_bus0:
     description: the bus a link leaves
-    over: link
-    into: bus
+    over: [link, bus]
+    key: link
   Link_output_link:
     description: the link an output port belongs to
-    over: link_output
-    into: link
+    over: [link_output, link]
+    key: link_output
   Link_output_bus:
     description: >-
       the bus an output port delivers to — PyPSA's `bus1`, `bus2`, … columns.
       A link of three output ports is three labels here rather than a third
       lookup, so the file states any number of them
-    over: link_output
-    into: bus
+    over: [link_output, bus]
+    key: link_output
   Load_bus:
     description: the bus a load sits on
-    over: load
-    into: bus
+    over: [load, bus]
+    key: load
   StorageUnit_bus:
     description: the bus a storage unit sits on
-    over: storage_unit
-    into: bus
+    over: [storage_unit, bus]
+    key: storage_unit
   Line_bus0:
     description: the bus a line's flow is measured at
-    over: line
-    into: bus
+    over: [line, bus]
+    key: line
   Line_bus1:
     description: the bus at a line's other end
-    over: line
-    into: bus
+    over: [line, bus]
+    key: line
   Store_bus:
     description: the bus a store sits on
-    over: store
-    into: bus
+    over: [store, bus]
+    key: store
 
 variables:
   Generator_p:

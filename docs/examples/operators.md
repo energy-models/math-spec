@@ -80,7 +80,7 @@ $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in
 ```yaml
 description: >-
   The membership reduction — `sum(array, by=lookup)` lands the result on the
-  dimension the lookup maps into, which is what makes topology data rather than
+  column the lookup is walked to, which is what makes topology data rather than
   structure.
 
 dimensions:
@@ -89,7 +89,7 @@ dimensions:
   bus: { dtype: str }
 
 lookups:
-  gen_bus: { over: generator, into: bus }
+  gen_bus: { over: [generator, bus], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus] }
@@ -126,8 +126,8 @@ dimensions:
   technology: { dtype: str }
 
 lookups:
-  gen_bus: { over: generator, into: bus }
-  gen_tech: { over: generator, into: technology }
+  gen_bus: { over: [generator, bus], key: generator }
+  gen_tech: { over: [generator, technology], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus, technology] }
@@ -161,7 +161,7 @@ dimensions:
   period: { dtype: int }
 
 lookups:
-  period_of: { over: snapshot, into: period }
+  period_of: { over: [snapshot, period], key: snapshot }
 
 parameters:
   cap: { dims: [period] }
@@ -309,7 +309,7 @@ dimensions:
   season: { dtype: str }
 
 lookups:
-  season_of: { over: snapshot, into: season }
+  season_of: { over: [snapshot, season], key: snapshot }
 
 variables:
   p:
@@ -444,7 +444,7 @@ dimensions:
   day: { dtype: str }
 
 lookups:
-  day_of: { over: hour, into: day }
+  day_of: { over: [hour, day], key: hour }
 
 variables:
   started:

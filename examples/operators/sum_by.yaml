@@ -4,7 +4,7 @@
 
 description: >-
   The membership reduction — `sum(array, by=lookup)` lands the result on the
-  dimension the lookup maps into, which is what makes topology data rather than
+  column the lookup is walked to, which is what makes topology data rather than
   structure.
 
 dimensions:
@@ -13,7 +13,7 @@ dimensions:
   bus: { dtype: str }
 
 lookups:
-  gen_bus: { over: generator, into: bus }
+  gen_bus: { over: [generator, bus], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus] }

@@ -106,7 +106,7 @@ def separabilities(program: Program) -> dict[str, Separability]:
                     )
                     continue
                 if node.partition is not None:
-                    waits_on(dimension, label, node.partition, 'partition')
+                    waits_on(dimension, label, node.partition.name, 'partition')
                 if isinstance(node, Window):
                     continue
                 if isinstance(node.offset, str):
