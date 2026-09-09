@@ -465,9 +465,9 @@ def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
     assert lowered == expected, 'the whole frozen node, so no field is asserted by omission'
 
 
-def test_a_binary_variable_lowers_to_a_vtype():
+def test_a_binary_variable_lowers_to_a_binary_domain():
     program = to_program(schema_of(DISPATCH_YAML, **{'variables.p.domain': 'binary', 'variables.p.bounds': {}}))
-    assert program.variable('p').variable_type == 'binary'
+    assert program.variable('p').domain == 'binary'
 
 
 def test_a_divisor_under_a_pullback_is_still_named():
@@ -660,7 +660,7 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
 
     assert footprint.sos_types == frozenset(), 'a file declaring no sos'
     assert footprint.quadratic == frozenset(), 'a file with no quadratic anywhere'
-    assert footprint.variable_types == {'continuous'}, 'never empty — a program has variables'
+    assert footprint.domains == {'continuous'}, 'never empty — a program has variables'
     assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.shapes)} == {frozenset}, (
         'every field is a set, so one rule reads all of them'
     )

@@ -99,7 +99,7 @@ __all__ = [
     'VariableAbsence',
     'VariableDeclaration',
     'VariableDefinedNode',
-    'VariableType',
+    'VariableDomain',
     'WhereNode',
     'Window',
     'carries_variable',
@@ -145,9 +145,8 @@ ParameterDtype = _model.ParameterDtype
 #: (:data:`~math_spec.model.VariableAbsence`).
 VariableAbsence = _model.VariableAbsence
 
-#: A variable's domain (:data:`~math_spec.model.VariableDomain`), under the
-#: name this module's field carries.
-VariableType = _model.VariableDomain
+#: A variable's domain (:data:`~math_spec.model.VariableDomain`).
+VariableDomain = _model.VariableDomain
 
 
 # --------------------------------------------------------------------------
@@ -652,7 +651,7 @@ class VariableDeclaration:
     where: Mask | None = None
     lower: ExpressionNode = field(default_factory=lambda: Constant(float('-inf')))
     upper: ExpressionNode = field(default_factory=lambda: Constant(float('inf')))
-    variable_type: VariableType = 'continuous'
+    domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
 
 
@@ -727,13 +726,13 @@ class Footprint:
     Attributes:
         quadratic: Each position a product of two variable-carrying operands
             stands in; empty is affine throughout.
-        variable_types: Every domain declared.
+        domains: Every domain declared.
         sos_types: The order of each special-ordered set declared.
         shapes: Every expression node kind that appears.
     """
 
     quadratic: frozenset[QuadraticPosition]
-    variable_types: frozenset[VariableType]
+    domains: frozenset[VariableDomain]
     sos_types: frozenset[Literal[1, 2]]
     shapes: frozenset[type[ExpressionNode]]
 
@@ -900,7 +899,7 @@ class Program:
             quadratic=frozenset(
                 position for position, group in self._by_position() if any(is_quadratic(e) for e in group)
             ),
-            variable_types=frozenset(v.variable_type for v in self.variables.values()),
+            domains=frozenset(v.domain for v in self.variables.values()),
             sos_types=frozenset(s.sos_type for s in self.sos.values()),
             shapes=frozenset(type(node) for node in walk(*self.expressions)),
         )
