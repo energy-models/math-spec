@@ -54,7 +54,7 @@ When you contribute for the first time, ensure your reviewer [adds you as a cont
 Before submitting a pull request, check whether you have:
 
 - Written the PR title as a conventional commit subject (see below) — this, not a hand-written entry, is what appears in `CHANGELOG.md`.
-- Added or updated documentation for your changes.
+- Added or updated documentation for your changes, to [the docs-writing skill](https://github.com/energy-models/math-spec/blob/main/.claude/skills/docs-writing/SKILL.md).
 - Added tests if you implemented new functionality.
 
 When opening a pull request, please provide a clear summary of your changes!

@@ -130,7 +130,9 @@ rather than the alpha counter. Describe the break in the PR body instead.
   the [language reference](docs/reference/language/index.md) — and
   [ceiling.md](docs/about/ceiling.md) if the change moves the ceiling itself,
   which is a decision to raise in the PR rather than a paragraph to edit
-  quietly.
+  quietly. The prose meets
+  [the docs-writing skill](.claude/skills/docs-writing/SKILL.md): what a page
+  is for, how it is shaped, and the sentence-level bar.
 - **After a decision in conversation, sweep for what now contradicts it**, stale
   rationale included: a stale sentence outranks correct code in every reader's
   head.
