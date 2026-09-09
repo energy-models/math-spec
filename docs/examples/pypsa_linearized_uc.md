@@ -93,7 +93,7 @@ def build():
 ## The file
 
 <!-- gallery:begin -->
-The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, stated on rung 1's transport surface in a file of its own. The status, its starts and its stops are shares in [0, 1] rather than binaries — a domain is the model's, not the data's — and four rows PyPSA adds only under the keyword tighten the relaxation where a unit's start and stop cost the same. `examples/pypsa.yaml` stays the integer one.
+The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, stated on rung 1's transport surface in a file of its own. The status, its starts and its stops are shares in \[0, 1\] rather than binaries — a domain is the model's, not the data's — and four rows PyPSA adds only under the keyword tighten the relaxation where a unit's start and stop cost the same. `examples/pypsa.yaml` stays the integer one.
 
 #### Sets
 
@@ -141,7 +141,7 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 |---|---|
 | $p$ | `Generator_p` over $\mathcal{T} \times \mathcal{G}$ — `Generator-p` — output of a generator in a snapshot |
 | $f$ | `Link_p` over $\mathcal{T} \times \mathcal{L}$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
-| $u$ | `Generator_status` over $\mathcal{T} \times \mathcal{G}$ — `Generator-status` — how much of a committable unit is on, a share in [0, 1] rather than a binary: the relaxation `linearized_unit_commitment` solves |
+| $u$ | `Generator_status` over $\mathcal{T} \times \mathcal{G}$ — `Generator-status` — how much of a committable unit is on, a share in \[0, 1\] rather than a binary: the relaxation `linearized_unit_commitment` solves |
 | $\mathit{up}$ | `Generator_start_up` over $\mathcal{T} \times \mathcal{G}$ — `Generator-start_up` — how much of a committable unit turns on this snapshot |
 | $\mathit{dn}$ | `Generator_shut_down` over $\mathcal{T} \times \mathcal{G}$ — `Generator-shut_down` — how much of a committable unit turns off this snapshot |
 

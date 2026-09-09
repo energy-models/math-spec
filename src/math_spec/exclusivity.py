@@ -34,6 +34,7 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    TypedPredicateNode,
     VariableDefinedNode,
 )
 
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
     from math_spec.model import DeclaredDtype
-    from math_spec.program import PredicateOperator, TypedPredicateNode, WhereNode
+    from math_spec.program import PredicateOperator, WhereNode
 
 #: The most cells one pair may multiply out to; a pair past it is several expressions.
 CELL_BUDGET = 8192
@@ -91,16 +92,16 @@ def overlapping(cases: Mapping[str, WhereNode], dtypes: Mapping[str, DeclaredDty
 def _witness(first: WhereNode, second: WhereNode, dtypes: Mapping[str, DeclaredDtype]) -> str | None:
     """A coordinate both masks claim, rendered — ``None`` where no cell holds both."""
     masks = (Mask(first), Mask(second))
-    frame = _Frame.of(masks, dtypes)
-    if frame.size > CELL_BUDGET:
+    grid = _Grid.of(masks, dtypes)
+    if grid.size > CELL_BUDGET:
         msg = (
-            f'{frame.size} regions to check exceeds the budget of {CELL_BUDGET} — '
+            f'{grid.size} regions to check exceeds the budget of {CELL_BUDGET} — '
             f'split this into fewer, wider cases, or into named expressions of its own'
         )
         raise Undecidable(msg)
-    for cell in frame.cells():
-        if all(_evaluate(mask.root, cell, frame) for mask in masks):
-            return frame.witness(cell)
+    for cell in grid.cells():
+        if all(_evaluate(mask.root, cell, grid) for mask in masks):
+            return grid.witness(cell)
     return None
 
 
@@ -149,7 +150,7 @@ class Subject:
 
 
 @dataclass(frozen=True)
-class _Frame:
+class _Grid:
     """The cells to check, and what reading an atom on one of them needs.
 
     ``subjects`` is keyed by ``id(node)``: the where nodes are ``@dataclass``
@@ -160,7 +161,7 @@ class _Frame:
     subjects: dict[int, Subject]
 
     @classmethod
-    def of(cls, masks: Iterable[Mask], dtypes: Mapping[str, DeclaredDtype]) -> _Frame:
+    def of(cls, masks: Iterable[Mask], dtypes: Mapping[str, DeclaredDtype]) -> _Grid:
         values: dict[Subject, set[Any]] = {}
         subjects: dict[int, Subject] = {}
         for mask in masks:
@@ -375,23 +376,25 @@ def _shown(subject: Subject, value: Cell) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _evaluate(node: WhereNode, cell: dict[Subject, Cell], frame: _Frame) -> bool:
+def _evaluate(node: WhereNode, cell: dict[Subject, Cell], grid: _Grid) -> bool:
     """Is *node* true in this cell?"""
+    if isinstance(node, TypedPredicateNode):
+        return _atom(node, cell, grid)
     match node:
         case BooleanLiteralNode(value=value):
             return value
         case NotNode(operand=operand):
-            return not _evaluate(operand, cell, frame)
+            return not _evaluate(operand, cell, grid)
         case AndNode(left=left, right=right):
-            return _evaluate(left, cell, frame) and _evaluate(right, cell, frame)
+            return _evaluate(left, cell, grid) and _evaluate(right, cell, grid)
         case OrNode(left=left, right=right):
-            return _evaluate(left, cell, frame) or _evaluate(right, cell, frame)
+            return _evaluate(left, cell, grid) or _evaluate(right, cell, grid)
         case _:
-            return _atom(node, cell, frame)
+            assert_never(node)
 
 
-def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], frame: _Frame) -> bool:
-    subject = frame.subjects[id(node)]
+def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], grid: _Grid) -> bool:
+    subject = grid.subjects[id(node)]
     value = cell[subject]
     match node:
         case ParameterDefinedNode() | LookupDefinedNode():

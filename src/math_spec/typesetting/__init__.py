@@ -30,7 +30,6 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from math_spec.errors import SchemaError, did_you_mean
 from math_spec.piecewise import expand_piecewise
-from math_spec.resolution import Namespace
 from math_spec.typesetting.latex import LatexFormat
 from math_spec.typesetting.markdown import MarkdownFormat
 from math_spec.typesetting.symbols import Symbols, SymbolTable
@@ -79,14 +78,12 @@ def _walk(
         msg = f"'{fmt}' is not a format this package prints. Formats: {', '.join(FORMATS)}."
         raise ValueError(msg)
     schema = expand_piecewise(to_spec(model))
-    namespace = Namespace.of(schema)
     format_ = FORMATS[fmt]
     if symbols is None:
         symbols = SymbolTable(format_.notation)
     table = symbols if isinstance(symbols, SymbolTable) else SymbolTable.load(symbols)
     return Walk(
         schema,
-        namespace,
         Symbols(schema, format_, table.checked_against(schema)),
         format_,
         inline_expressions=inline_expressions,

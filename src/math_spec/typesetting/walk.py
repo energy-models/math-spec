@@ -20,7 +20,6 @@ from math_spec._expression_parser import (
     BinaryOperator,
     BinaryOperatorNode,
     CasesNode,
-    ComparisonNode,
     DefinitionNode,
     DimensionNode,
     DualNode,
@@ -52,10 +51,6 @@ from math_spec.program import (
     VariableDefinedNode,
     WhereNode,
 )
-from math_spec.resolution import (
-    expression_of,
-    where_of,
-)
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
 
 if TYPE_CHECKING:
@@ -63,7 +58,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from math_spec.model import SosBlock, _ExpandedSpec
-    from math_spec.resolution import Namespace
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -72,6 +66,10 @@ if TYPE_CHECKING:
 #: a factor it has to be bracketed.
 _PRECEDENCE: dict[BinaryOperator, int] = {'+': 1, '-': 1, '*': 2, '/': 2, '**': 3}
 _ATOM = 5
+
+#: The same for a predicate: ``OR`` binds loosest, then ``AND``, then ``NOT``;
+#: a comparison sits above the connectives and is bracketed under none.
+_WHERE_PRECEDENCE = {'or': 0, 'and': 1, 'comparison': 2, 'not': 3}
 
 _PREDICATES: dict[PredicateOperator, OperatorName] = {
     '==': 'equal',
@@ -234,14 +232,12 @@ class Walk:
     def __init__(
         self,
         schema: _ExpandedSpec,
-        namespace: Namespace,
         symbols: Symbols,
         fmt: Format,
         *,
         inline_expressions: bool = False,
     ) -> None:
         self.schema = schema
-        self.namespace = namespace
         self.symbols = symbols
         self.format = fmt
         #: Substitute each plain named expression where it is used, rather than
@@ -256,7 +252,7 @@ class Walk:
         block = self.schema.expressions[name]
         if block.cases:
             return list(block.foreach or ())
-        return self._sorted(dims_of(self.schema.resolved_expressions[name], self.schema, f"expression '{name}'"))
+        return self._sorted(dims_of(self.schema.resolved.expressions[name], self.schema, f"expression '{name}'"))
 
     def _op(self, name: OperatorName) -> str:
         return self.format.operators[name]
@@ -506,6 +502,7 @@ class Walk:
         return self.format.parenthesise(text) if precedence < need else text
 
     def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
+        comparison = _WHERE_PRECEDENCE['comparison']
         if isinstance(node, BooleanLiteralNode):
             assert not node.value, 'an always-true mask is folded away or refused before anything prints it'
             return self._op('false'), _ATOM
@@ -514,50 +511,61 @@ class Walk:
             indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             if self.schema.parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
-            return f'{indexed} {self.format.prose(" is defined")}', 2
+            return f'{indexed} {self.format.prose(" is defined")}', comparison
 
         if isinstance(node, VariableDefinedNode):
-            return f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}', 2
+            return (
+                f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}',
+                comparison,
+            )
 
         if isinstance(node, ParameterComparisonNode):
             left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
-            return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
+            return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, DimensionComparisonNode):
             if isinstance(node.value, int | float):
                 self.noticed.numeric_coordinates.add(node.name)
-            return f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
+            return (
+                f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}',
+                comparison,
+            )
 
         if isinstance(node, DimensionPositionNode):
             grouping = None if node.by is None else self._lookup(node.by, ctx.subscript(node.name))
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
-            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', 2
+            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
 
         if isinstance(node, LookupComparisonNode):
             applied = self._lookup(node.name, ctx.subscript(node.over))
-            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', 2
+            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, LookupPairComparisonNode):
             index = ctx.subscript(node.over)
             left = self._lookup(node.name, index)
             right = self._lookup(node.other, index)
-            return f'{left} {self._op(_PREDICATES[node.op])} {right}', 2
+            return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
 
         if isinstance(node, LookupDefinedNode):
             applied = self._lookup(node.name, ctx.subscript(node.over))
-            return f'{applied} {self.format.prose(" is defined")}', 2
+            return f'{applied} {self.format.prose(" is defined")}', comparison
 
         if isinstance(node, NotNode):
-            return f'{self._op("not")} {self._predicate(node.operand, ctx, need=3)}', 3
+            return (
+                f'{self._op("not")} {self._predicate(node.operand, ctx, need=_WHERE_PRECEDENCE["not"])}',
+                _WHERE_PRECEDENCE['not'],
+            )
 
         if isinstance(node, AndNode):
-            sides = [self._predicate(node.left, ctx, need=1), self._predicate(node.right, ctx, need=1)]
-            return self.format.joined(sides, self._op('and')), 1
+            need = _WHERE_PRECEDENCE['and']
+            sides = [self._predicate(node.left, ctx, need=need), self._predicate(node.right, ctx, need=need)]
+            return self.format.joined(sides, self._op('and')), need
 
         if isinstance(node, OrNode):
-            sides = [self._predicate(node.left, ctx, need=0), self._predicate(node.right, ctx, need=0)]
-            return self.format.joined(sides, self._op('or')), 0
+            need = _WHERE_PRECEDENCE['or']
+            sides = [self._predicate(node.left, ctx, need=need), self._predicate(node.right, ctx, need=need)]
+            return self.format.joined(sides, self._op('or')), need
 
         assert_never(node)
 
@@ -624,8 +632,8 @@ class Walk:
         if block is None:
             return []
         sense = self._op('minimize' if block.sense == 'minimize' else 'maximize')
-        node = expression_of(block.expression, self.schema, self.namespace, 'the objective')
-        assert not isinstance(node, ComparisonNode)
+        node = self.schema.resolved.objective
+        assert node is not None, 'validation resolves the objective the file declares'
         return [Line(label='', left=sense, right=self._expression(node, self._context()))]
 
     def _constraints(self) -> list[Line]:
@@ -633,13 +641,9 @@ class Walk:
 
     def _constraint(self, name: str) -> Line:
         block = self.schema.constraints[name]
-        context = f"constraint '{name}'"
-        node = expression_of(block.expression, self.schema, self.namespace, context)
-        if not isinstance(node, ComparisonNode):
-            msg = f'{context}: expected a comparison, got {type(node).__name__}'
-            raise AssertionError(msg)
+        node, where = self.schema.resolved.constraints[name]
         ctx = self._context(frame=block.foreach)
-        condition = self._condition(ctx, where_of(block.where, self.namespace, context))
+        condition = self._condition(ctx, where)
         return Line(
             label=name,
             left=self._expression(node.left, ctx),
@@ -667,12 +671,12 @@ class Walk:
         """
         if not self.inline_expressions:
             return list(self.schema.expressions)
-        read = self.schema.read_by_the_math
+        read = self.schema.resolved.read_by_the_math
         return [name for name, block in self.schema.expressions.items() if block.cases or name not in read]
 
     def definition(self, name: str) -> Line:
         """The line defining one named expression, ``symbol = body`` over its frame."""
-        node = self.schema.resolved_expressions[name]
+        node = self.schema.resolved.expressions[name]
         frame = self.frames[name]
         ctx = self._context(frame)
         body = (
@@ -710,7 +714,7 @@ class Walk:
             when = (
                 self.format.prose('otherwise')
                 if arm.when is None
-                else f'{self.format.prose("if ")} {self._predicate(arm.when, ctx, need=1)}'
+                else f'{self.format.prose("if ")} {self._predicate(arm.when, ctx, need=_WHERE_PRECEDENCE["and"])}'
             )
             arms.append((self._expression(arm.value, ctx), when))
         return arms
@@ -735,7 +739,7 @@ class Walk:
         block = self.schema.variables[name]
         ctx = self._context(frame=block.foreach)
         symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
-        where = where_of(block.where, self.namespace, f"variable '{name}'", self_variable=name)
+        where = self.schema.resolved.variables[name]
         condition = self._quantifier(list(block.foreach), self._condition(ctx, where))
         lower, upper = block.bounds.lower, block.bounds.upper
 

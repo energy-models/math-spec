@@ -14,7 +14,8 @@ from __future__ import annotations
 import datetime
 import re
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Literal, assert_never, cast
+from functools import cached_property
+from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
 from math_spec._expression_parser import (
     ArithmeticNode,
@@ -38,7 +39,9 @@ from math_spec._expression_parser import (
     UnaryOperatorNode,
     VariableNode,
     case_context,
+    nodes,
     shown,
+    with_children,
 )
 from math_spec._where_parser import (
     UnresolvedComparisonNode,
@@ -204,13 +207,67 @@ class Namespace:
         )
 
 
+class ResolvedConstraint(NamedTuple):
+    """One constraint's typed halves: the comparison it states, and the mask it holds under."""
+
+    expression: ComparisonNode
+    where: Mask | None
+
+
+@dataclass(frozen=True)
+class Resolved:
+    """Every expression and where string of one schema, typed once at load.
+
+    :func:`~math_spec.validation.validate_expressions` builds it, and every
+    reader after — the dim rules, lowering, the typesetter — walks these trees
+    rather than parsing, expanding and resolving the text again. Each mapping
+    is keyed as the schema's own section is. A ``where`` the file did not
+    write, or one every row passes, is ``None``.
+
+    Attributes:
+        expressions: Each ``expressions:`` entry as the node its name expands
+            to — a plain entry a :class:`~math_spec._expression_parser.DefinitionNode`
+            carrying its name over its body, a cased one a
+            :class:`~math_spec._expression_parser.CasesNode` with every arm's
+            ``when`` typed. Every entry either names is inlined where it
+            stood, so a walk over one sees the whole chain.
+        variables: Each variable's ``where``.
+        constraints: Each constraint's comparison and ``where``.
+        objective: The objective's expression, ``None`` where the file
+            declares none.
+    """
+
+    expressions: dict[str, CasesNode | DefinitionNode]
+    variables: dict[str, Mask | None]
+    constraints: dict[str, ResolvedConstraint]
+    objective: ArithmeticNode | None
+
+    @cached_property
+    def read_by_the_math(self) -> frozenset[str]:
+        """The named expressions the math reads: every entry the objective or a constraint reaches, transitively.
+
+        Read off those two positions alone: a bound and a ``where`` name no
+        entry, and a piecewise link's expression reaches here through the
+        constraints its expansion emitted. The rest of the ``expressions:``
+        section is read back after a solve and never fed to one
+        (:attr:`~math_spec.program.ExpressionDeclaration.in_math`).
+        """
+        roots: list[ParsedNode] = [constraint.expression for constraint in self.constraints.values()]
+        if self.objective is not None:
+            roots.append(self.objective)
+        return frozenset(node.name for node in nodes(*roots) if isinstance(node, CasesNode | DefinitionNode))
+
+
 # ---------------------------------------------------------------------------
 # the seam the rest of the package uses
 # ---------------------------------------------------------------------------
 
 
 def expression_of(text: str, schema: Spec, ns: Namespace, context: str) -> ParsedNode:
-    """Parse, expand and resolve *text* — the one path to a resolved spec-side tree.
+    """Parse, expand and resolve *text* in one call, raising rather than collecting.
+
+    A declaration's tree is on :class:`Resolved`; this is for a text that is
+    not one.
 
     Raises:
         LanguageError: Listing every problem the text has.
@@ -237,9 +294,21 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
     resolved = resolve_where_text(text, ns, context, errors, self_variable)
     if errors:
         raise LanguageError('\n'.join(errors))
-    if resolved is None or (isinstance(resolved, BooleanLiteralNode) and resolved.value):
+    return mask_of(resolved)
+
+
+def names_in(value: ArithmeticNode) -> tuple[str, ...]:
+    """The names a lookup kwarg carries: one bare, several bracketed, none otherwise."""
+    if isinstance(value, NameNode):
+        return (value.name,)
+    return value.names if isinstance(value, NameListNode) else ()
+
+
+def mask_of(node: WhereNode | None) -> Mask | None:
+    """The mask a declaration carries for a resolved where: ``None`` where there is none, or where every row passes."""
+    if node is None or (isinstance(node, BooleanLiteralNode) and node.value):
         return None
-    return Mask(resolved)
+    return Mask(node)
 
 
 # ---------------------------------------------------------------------------
@@ -342,10 +411,8 @@ class _Resolver:
             return node
         if isinstance(node, NameNode):
             return self._name(node, amount=amount)
-        if isinstance(node, UnaryOperatorNode):
-            return UnaryOperatorNode(node.op, self._arith(node.operand))
-        if isinstance(node, BinaryOperatorNode):
-            return BinaryOperatorNode(node.op, self._arith(node.left), self._arith(node.right))
+        if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | DefinitionNode):
+            return with_children(node, self._arith)
         if isinstance(node, FunctionCallNode):
             return self._call(node)
         if isinstance(node, KeywordNode):
@@ -364,8 +431,6 @@ class _Resolver:
             return node
         if isinstance(node, CasesNode):
             return self._cases(node)
-        if isinstance(node, DefinitionNode):
-            return DefinitionNode(node.name, self._arith(node.body))
         assert_never(node)
 
     def _name(self, node: NameNode, *, amount: bool) -> ArithmeticNode:
@@ -513,11 +578,8 @@ class _Resolver:
         maps at once rather than a composition of groupings, so its members must
         share the dim they are over and must not target the same dim twice.
         """
-        if isinstance(value, NameListNode):
-            names = value.names
-        elif isinstance(value, NameNode):
-            names = (value.name,)
-        else:
+        names = names_in(value)
+        if not names:
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a lookup.')
             return value
 

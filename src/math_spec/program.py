@@ -99,7 +99,7 @@ __all__ = [
     'VariableAbsence',
     'VariableDeclaration',
     'VariableDefinedNode',
-    'VariableType',
+    'VariableDomain',
     'WhereNode',
     'Window',
     'carries_variable',
@@ -112,6 +112,7 @@ __all__ = [
     'quotients',
     'variables_of',
     'walk',
+    'where_children',
 ]
 
 
@@ -144,9 +145,8 @@ ParameterDtype = _model.ParameterDtype
 #: (:data:`~math_spec.model.VariableAbsence`).
 VariableAbsence = _model.VariableAbsence
 
-#: A variable's domain (:data:`~math_spec.model.VariableDomain`), under the
-#: name this module's field carries.
-VariableType = _model.VariableDomain
+#: A variable's domain (:data:`~math_spec.model.VariableDomain`).
+VariableDomain = _model.VariableDomain
 
 
 # --------------------------------------------------------------------------
@@ -651,7 +651,7 @@ class VariableDeclaration:
     where: Mask | None = None
     lower: ExpressionNode = field(default_factory=lambda: Constant(float('-inf')))
     upper: ExpressionNode = field(default_factory=lambda: Constant(float('inf')))
-    variable_type: VariableType = 'continuous'
+    domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
 
 
@@ -726,13 +726,13 @@ class Footprint:
     Attributes:
         quadratic: Each position a product of two variable-carrying operands
             stands in; empty is affine throughout.
-        variable_types: Every domain declared.
+        domains: Every domain declared.
         sos_types: The order of each special-ordered set declared.
         shapes: Every expression node kind that appears.
     """
 
     quadratic: frozenset[QuadraticPosition]
-    variable_types: frozenset[VariableType]
+    domains: frozenset[VariableDomain]
     sos_types: frozenset[Literal[1, 2]]
     shapes: frozenset[type[ExpressionNode]]
 
@@ -899,7 +899,7 @@ class Program:
             quadratic=frozenset(
                 position for position, group in self._by_position() if any(is_quadratic(e) for e in group)
             ),
-            variable_types=frozenset(v.variable_type for v in self.variables.values()),
+            domains=frozenset(v.domain for v in self.variables.values()),
             sos_types=frozenset(s.sos_type for s in self.sos.values()),
             shapes=frozenset(type(node) for node in walk(*self.expressions)),
         )
@@ -938,21 +938,9 @@ class Program:
         answering for every axis costs what answering for one did, every
         construct that ties an axis naming the axis it ties (#248).
         """
-        return Sealed(_separabilities(self))
+        from math_spec.separability import separabilities
 
-    def _built_blocks(self) -> Iterator[tuple[str, tuple[ExpressionNode, ...], Mask | None, bool]]:
-        """Every block that builds rows, labelled as the lowering's own messages label it.
-
-        A named expression is not one: it is inlined where it is referenced, so
-        walking the constraint sides reaches it, and walking it again would
-        report one coupling twice.
-        """
-        for name, block in self.constraints.items():
-            yield f"constraint '{name}'", (block.lhs, block.rhs), block.where, True
-        for name, variable in self.variables.items():
-            yield f"variable '{name}'", (variable.lower, variable.upper), variable.where, True
-        if self.objective is not None:
-            yield 'the objective', (self.objective.expression,), None, False
+        return Sealed(separabilities(self))
 
 
 # --------------------------------------------------------------------------
@@ -1180,6 +1168,20 @@ TypedPredicateNode = (
 ConnectiveWhereNode = NotNode | AndNode | OrNode
 
 
+def where_children(where: WhereNode) -> tuple[WhereNode, ...]:
+    """The predicates under *where* — a connective's operands, and nothing under a leaf.
+
+    What every walk over a predicate recurses through, as :func:`children` is
+    for an expression. A leaf has nothing under it whether or not it is
+    resolved, so the grammar measures its own output with this too.
+    """
+    if isinstance(where, NotNode):
+        return (where.operand,)
+    if isinstance(where, (AndNode, OrNode)):
+        return (where.left, where.right)
+    return ()
+
+
 def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     """Every node in *where* that reads a declaration, connectives removed.
 
@@ -1188,15 +1190,11 @@ def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     Raises:
         AssertionError: An unresolved node reached the walk.
     """
-    if isinstance(where, NotNode):
-        yield from _atoms(where.operand)
-    elif isinstance(where, (AndNode, OrNode)):
-        yield from _atoms(where.left)
-        yield from _atoms(where.right)
-    elif isinstance(where, BooleanLiteralNode):
-        return
-    elif isinstance(where, TypedPredicateNode):
+    if isinstance(where, TypedPredicateNode):
         yield where
+    elif isinstance(where, BooleanLiteralNode | ConnectiveWhereNode):
+        for child in where_children(where):
+            yield from _atoms(child)
     else:
         msg = f'{type(where).__name__} reached a predicate walk unresolved.'
         raise AssertionError(msg)
@@ -1356,101 +1354,3 @@ class Mask:
     def __or__(self, other: Mask) -> Mask:
         """Either mask — construction absorbs a literal side rather than burying it."""
         return Mask(OrNode(self.root, other.root))
-
-
-def _separabilities(program: Program) -> dict[str, Separability]:
-    """Every axis's verdict, in one walk.
-
-    One traversal rather than one per axis, because every construct that ties an
-    axis together names the axis it ties: asking each node *which* dimension it
-    is about answers for all of them at what answering for one cost.
-
-    ``reductions_couple`` is the position a block stands in rather than anything
-    about the block — a sum over the axis couples a constraint row to the whole
-    horizon and leaves an objective additively separable. A translation reads
-    ahead for a negative offset; what one reads behind is the window's edge,
-    which is not asked. Each coupling carries the one modelling change that
-    would lift it, after the dash.
-    """
-    ahead = dict.fromkeys(program.dimensions, 0)
-    reasons: dict[str, dict[str, dict[str, list[str]]]] = {
-        kind: {dimension: {} for dimension in program.dimensions} for kind in ('coupled', 'restarts')
-    }
-    undecided: dict[str, dict[Reach, None]] = {dimension: {} for dimension in program.dimensions}
-
-    def report(kind: str, dimension: str, label: str, reason: str) -> None:
-        reasons[kind][dimension].setdefault(label, []).append(reason)
-
-    def waits_on(dimension: str, label: str, name: str, kind: Literal['offset', 'partition', 'coordinate']) -> None:
-        undecided[dimension][Reach(label, name, kind)] = None
-
-    for label, nodes, mask, reductions_couple in program._built_blocks():
-        masks: list[Mask | None] = [mask]
-        for node in walk(*nodes):
-            if isinstance(node, Cases):
-                masks.extend(region.when for region in node.regions)
-            elif isinstance(node, Sum):
-                if reductions_couple:
-                    for dimension in node.over:
-                        report(
-                            'coupled',
-                            dimension,
-                            label,
-                            f'sums over {dimension} — a rolling sum_back(within=n) windows, a total over the horizon does not',
-                        )
-            elif isinstance(node, GroupSum):
-                report(
-                    'coupled',
-                    node.over,
-                    label,
-                    f'groups {node.over} into {", ".join(node.into)} — window that dimension instead, or cut only at the group edges',
-                )
-            elif isinstance(node, At):
-                for dimension in node.into:
-                    for lookup in node.coordinate:
-                        waits_on(dimension, label, lookup, 'coordinate')
-            elif isinstance(node, (Translate, Window)):
-                dimension = node.dimension
-                if node.wrap:
-                    report(
-                        'coupled',
-                        dimension,
-                        label,
-                        f'wraps around {dimension}, so its first row reads its last — an opening-state seed at '
-                        f'position({dimension}) == 0 is what a rolling horizon replaces the wrap with',
-                    )
-                    continue
-                if node.partition is not None:
-                    waits_on(dimension, label, node.partition, 'partition')
-                if isinstance(node, Window):
-                    continue
-                if isinstance(node.offset, str):
-                    waits_on(dimension, label, node.offset, 'offset')
-                else:
-                    ahead[dimension] = max(ahead[dimension], -node.offset)
-        for candidate in masks:
-            for atom in candidate.atoms if candidate is not None else ():
-                if isinstance(atom, DimensionPositionNode):
-                    report('restarts', atom.name, label, f'counts a position along {atom.name}')
-
-    for name, block in program.sos.items():
-        report(
-            'coupled',
-            block.over,
-            f"set '{name}'",
-            f'is a set over {block.over}, which a window would cut — only a window holding every whole set keeps it',
-        )
-
-    def joined(kind: str, dimension: str) -> dict[str, str]:
-        return {label: ', '.join(dict.fromkeys(found)) for label, found in reasons[kind][dimension].items()}
-
-    return {
-        dimension: Separability(
-            dimension=dimension,
-            ahead=ahead[dimension],
-            coupled=joined('coupled', dimension),
-            undecided=tuple(undecided[dimension]),
-            restarts=joined('restarts', dimension),
-        )
-        for dimension in program.dimensions
-    }

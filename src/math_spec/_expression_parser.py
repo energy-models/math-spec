@@ -20,7 +20,7 @@ from math_spec._sealed import Sealed
 from math_spec.errors import SchemaError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterator, Mapping
 
     from math_spec.program import WhereNode
 
@@ -285,10 +285,6 @@ UnresolvedNode = NameNode | NameListNode | KeywordNode
 #: Every leaf — nothing below it to descend into.
 LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
 
-#: Every node carrying sub-expressions, which is exactly what :func:`children`
-#: descends and the only place a walk recurses.
-BranchNode = UnaryOperatorNode | BinaryOperatorNode | ComparisonNode | FunctionCallNode | CasesNode | DefinitionNode
-
 
 def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
     """The sub-expressions of *node* — the structural half of any walk.
@@ -310,6 +306,17 @@ def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
     if isinstance(node, DefinitionNode):
         return (node.body,)
     return ()
+
+
+def nodes(*roots: ParsedNode) -> Iterator[ParsedNode]:
+    """Every node under *roots*, each root itself included, parents first.
+
+    The traversal a question about a tree is a filter of, the way
+    :func:`math_spec.program.walk` is for a program.
+    """
+    for root in roots:
+        yield root
+        yield from nodes(*children(root))
 
 
 def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], ArithmeticNode]) -> ArithmeticNode:

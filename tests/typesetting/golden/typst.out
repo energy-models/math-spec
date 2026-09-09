@@ -1,7 +1,7 @@
 #set page(margin: 2.5cm)
 #set text(size: 11pt)
 
-every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 {net} \~ ^ \\ \*star\* \@ref \<label\>
+every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 {net} \~ ^ \\ \*star\* \@ref \<label\>, and `a_name` in backticks set in code
 
 == Sets
 / $cal(T)$: index $t$ --- `snapshot` (`int` coordinates) with $upright("season_of"): cal(T) arrow.r cal(S)$

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, cast, get_args
 import pyparsing as pp
 
 from math_spec._expression_parser import NAME, REAL, parse_text
-from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, PredicateOperator
+from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, PredicateOperator, where_children
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -192,15 +192,6 @@ _DEEP_REWRITE = (
 )
 
 
-def _connective_children(node: WhereNode | UnresolvedWhereNode) -> tuple[WhereNode | UnresolvedWhereNode, ...]:
-    """The connectives are the only where nodes carrying other where nodes, so a walk recurses only here."""
-    if isinstance(node, NotNode):
-        return (node.operand,)
-    if isinstance(node, (AndNode, OrNode)):
-        return (node.left, node.right)
-    return ()
-
-
 @lru_cache(maxsize=4096)
 def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
@@ -217,5 +208,5 @@ def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     """
     return cast(
         'WhereNode | UnresolvedWhereNode',
-        parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, _connective_children, _DEEP_REWRITE),
+        parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, where_children, _DEEP_REWRITE),
     )

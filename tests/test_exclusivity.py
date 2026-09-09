@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 
 from math_spec._where_parser import parse_where
-from math_spec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Frame, overlapping
+from math_spec.exclusivity import CELL_BUDGET, Special, Subject, _evaluate, _Grid, overlapping
 from math_spec.program import AndNode, Mask, NotNode, OrNode
 from math_spec.resolution import Namespace, resolve_where
 from math_spec.validation import to_spec
@@ -281,8 +281,8 @@ class TestSoundness:
             if list(overlapping({'a': first, 'b': second}, dtypes)):
                 continue
             proved += 1
-            frame = _Frame.of([Mask(first), Mask(second)], dtypes)
+            cells = _Grid.of([Mask(first), Mask(second)], dtypes)
             for point in grid:
-                both = _evaluate(first, point, frame) and _evaluate(second, point, frame)
+                both = _evaluate(first, point, cells) and _evaluate(second, point, cells)
                 assert not both, f'both cases claim {point} — the cells hid a witness'
         assert proved > 150, f'only {proved} pairs proved apart; the fuzz is not exercising the check'

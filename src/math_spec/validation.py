@@ -6,12 +6,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, assert_never
+from typing import TYPE_CHECKING, Any, Literal, assert_never, overload
 
 import math_spec.degree as degree
 from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
+    CaseArm,
     CasesNode,
     ComparisonNode,
     DefinitionNode,
@@ -23,9 +24,11 @@ from math_spec._expression_parser import (
     NameNode,
     NumberNode,
     ParameterNode,
+    ParsedNode,
     UnaryOperatorNode,
     VariableNode,
     case_context,
+    children,
 )
 from math_spec._yaml import read_model
 from math_spec.dimensions import check_schema
@@ -35,11 +38,20 @@ from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
 from math_spec.program import BooleanLiteralNode
-from math_spec.resolution import Namespace, resolve_expression, resolve_where_text
+from math_spec.resolution import (
+    Namespace,
+    Resolved,
+    ResolvedConstraint,
+    mask_of,
+    names_in,
+    resolve_expression,
+    resolve_where_text,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from math_spec.model import ExpressionBlock
     from math_spec.program import WhereNode
 
 
@@ -82,8 +94,8 @@ def _once(errors: list[str]) -> str:
     return '\n'.join(dict.fromkeys(errors))
 
 
-def validate_expressions(schema: Spec) -> None:
-    """Validate and resolve every expression and where string in *schema*.
+def validate_expressions(schema: Spec) -> Resolved:
+    """Validate and resolve every expression and where string in *schema*, once for every reader.
 
     What is checked:
 
@@ -97,8 +109,14 @@ def validate_expressions(schema: Spec) -> None:
       ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
+    Returns:
+        Every declaration's typed tree — what the dim rules, lowering and the
+        typesetter read instead of resolving the text again.
+
     Raises:
         SchemaError: Listing every problem found, one per line.
+        DimensionError: The first dim rule a declaration breaks, once every
+            name resolves.
     """
     ns = Namespace.of(schema)
     errors: list[str] = []
@@ -119,44 +137,73 @@ def validate_expressions(schema: Spec) -> None:
         )
         _check_template_names(body_ast, context, ns, formals, errors)
 
+    expressions: dict[str, CasesNode | DefinitionNode] = {}
     for ename, block in schema.expressions.items():
-        context = f"Named expression '{ename}'"
-        if not block.cases:
-            assert block.expression is not None
-            _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=None)
-            continue
-        found = len(errors)
-        masks: dict[str, WhereNode] = {}
-        for case_name, case in block.cases.items():
-            arm_context = case_context(ename, case_name)
-            if (mask := resolve_where_text(case.when, ns, arm_context, errors)) is not None:
-                if isinstance(mask, BooleanLiteralNode):
-                    errors.append(_constant_arm(arm_context, value=mask.value))
-                else:
-                    masks[case_name] = mask
-            _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=None)
-        assert block.otherwise is not None
-        _check_expression(
-            block.otherwise, schema, ns, case_context(ename, None), errors, comparison=False, ceiling=None
-        )
-        if len(errors) == found:
-            errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
+        if (node := _named(ename, block, schema, ns, errors)) is not None:
+            expressions[ename] = node
 
-    for vname, vdef in schema.variables.items():
-        resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname)
+    variables = {
+        vname: mask_of(resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname))
+        for vname, vdef in schema.variables.items()
+    }
 
+    constraints: dict[str, ResolvedConstraint] = {}
     for cname, cdef in schema.constraints.items():
         context = f"Constraint '{cname}'"
-        resolve_where_text(cdef.where, ns, context, errors)
-        _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
+        where = resolve_where_text(cdef.where, ns, context, errors)
+        expression = _check_expression(cdef.expression, schema, ns, context, errors, comparison=True, ceiling=2)
+        if expression is not None:
+            constraints[cname] = ResolvedConstraint(expression, mask_of(where))
 
+    objective = None
     if schema.objective is not None:
-        _check_expression(schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2)
+        objective = _check_expression(
+            schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2
+        )
 
     if errors:
         raise SchemaError(_once(errors))
 
-    check_schema(schema)
+    resolved = Resolved(expressions, variables, constraints, objective)
+    check_schema(schema, resolved)
+    return resolved
+
+
+def _named(
+    name: str, block: ExpressionBlock, schema: Spec, ns: Namespace, errors: list[str]
+) -> CasesNode | DefinitionNode | None:
+    """One ``expressions:`` entry as the node its name expands to, or ``None`` once anything in it failed.
+
+    A cased entry's arms are checked one by one, so every fault is collected
+    rather than the first, and proved apart only once all of them resolve.
+    """
+    context = f"Named expression '{name}'"
+    if not block.cases:
+        assert block.expression is not None
+        body = _check_expression(block.expression, schema, ns, context, errors, comparison=False, ceiling=None)
+        return None if body is None else DefinitionNode(name, body)
+
+    found = len(errors)
+    arms: list[CaseArm] = []
+    masks: dict[str, WhereNode] = {}
+    for case_name, case in block.cases.items():
+        arm_context = case_context(name, case_name)
+        when = resolve_where_text(case.when, ns, arm_context, errors)
+        if isinstance(when, BooleanLiteralNode):
+            errors.append(_constant_arm(arm_context, value=when.value))
+        elif when is not None:
+            masks[case_name] = when
+        value = _check_expression(case.expression, schema, ns, arm_context, errors, comparison=False, ceiling=None)
+        if when is not None and value is not None:
+            arms.append(CaseArm(case_name, when, value))
+    assert block.otherwise is not None
+    fallback = _check_expression(
+        block.otherwise, schema, ns, case_context(name, None), errors, comparison=False, ceiling=None
+    )
+    if len(errors) > found or fallback is None:
+        return None
+    errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
+    return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
 
 
 def _prefixed(context: str, e: ValueError) -> str:
@@ -181,6 +228,30 @@ def _constant_arm(context: str, *, value: bool) -> str:
     return f'{context}: the mask admits no row, so this arm never applies. Delete the arm, or widen the `when`.'
 
 
+@overload
+def _check_expression(
+    expression: str,
+    schema: Spec,
+    ns: Namespace,
+    context: str,
+    errors: list[str],
+    *,
+    comparison: Literal[True],
+    ceiling: int | None,
+) -> ComparisonNode | None: ...
+@overload
+def _check_expression(
+    expression: str,
+    schema: Spec,
+    ns: Namespace,
+    context: str,
+    errors: list[str],
+    *,
+    comparison: Literal[False],
+    ceiling: int | None,
+) -> ArithmeticNode | None: ...
+
+
 def _check_expression(
     expression: str,
     schema: Spec,
@@ -190,11 +261,12 @@ def _check_expression(
     *,
     comparison: bool,
     ceiling: int | None,
-) -> None:
+) -> ParsedNode | None:
     """Parse, expand, resolve and degree-check one expression — nothing resolves once the shape is wrong, and a comparison must carry a variable (#1171).
 
-    ``ceiling`` is the degree the position honours, and ``None`` for an
-    ``expressions:`` entry's body: what the math admits
+    Returns the typed tree, or ``None`` once anything failed, the problem
+    appended to *errors*. ``ceiling`` is the degree the position honours, and
+    ``None`` for an ``expressions:`` entry's body: what the math admits
     (:func:`~math_spec.degree.check_expression`) is a rule about the position
     that *reads* it, so it fires on the expanded tree of every constraint,
     objective, bound, where and piecewise link, and not where an entry is
@@ -204,25 +276,23 @@ def _check_expression(
         ast = parse_and_expand(expression, schema, context)
     except ValueError as e:
         errors.append(_prefixed(context, e))
-        return
+        return None
     if comparison and not isinstance(ast, ComparisonNode):
         errors.append(
             f'{context}: expression must contain exactly one comparison operator (<=, >=, ==).\nGot: {expression!r}'
         )
-        return
+        return None
     if not comparison and isinstance(ast, ComparisonNode):
         errors.append(f'{context}: expression must not contain a comparison operator.\nGot: {expression!r}')
-        return
+        return None
     resolved = resolve_expression(ast, ns, context, errors)
-    if resolved is None:
-        return
-    if ceiling is None:
-        return
+    if resolved is None or ceiling is None:
+        return resolved
     try:
         degree.check_expression(resolved, context, ceiling=ceiling)
     except LanguageError as e:
         errors.append(str(e))
-        return
+        return None
     if isinstance(resolved, ComparisonNode) and not degree.carries_variable(resolved):
         errors.append(
             f'{context}: neither side of the comparison carries a variable, so the row decides nothing.\n'
@@ -231,13 +301,8 @@ def _check_expression(
             f'is settled before the solve — no lane builds a row for it. Name the variable it should '
             f'bound, or drop the declaration and check the fact where the data is prepared.'
         )
-
-
-def _names_in(value: ArithmeticNode) -> tuple[str, ...]:
-    """The names a lookup kwarg carries: one bare, several bracketed, none otherwise."""
-    if isinstance(value, NameNode):
-        return (value.name,)
-    return value.names if isinstance(value, NameListNode) else ()
+        return None
+    return resolved
 
 
 def _check_template_names(
@@ -259,13 +324,9 @@ def _check_template_names(
             errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
         return
 
-    if isinstance(node, UnaryOperatorNode):
-        _check_template_names(node.operand, context, ns, formals, errors)
-        return
-
-    if isinstance(node, BinaryOperatorNode):
-        _check_template_names(node.left, context, ns, formals, errors)
-        _check_template_names(node.right, context, ns, formals, errors)
+    if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | CasesNode | DefinitionNode):
+        for child in children(node):
+            _check_template_names(child, context, ns, formals, errors)
         return
 
     if isinstance(node, FunctionCallNode):
@@ -292,22 +353,13 @@ def _check_template_names(
                 case 'lookup':
                     errors.extend(
                         f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
-                        for one in _names_in(value)
+                        for one in names_in(value)
                         if one not in formals and ns.kind(one) != 'lookup'
                     )
                 case 'value':
                     _check_template_names(value, context, ns, formals, errors)
                 case 'edge':
                     pass  # a keyword or a number: nothing in it to name
-        return
-
-    if isinstance(node, CasesNode):
-        for arm in node.arms:
-            _check_template_names(arm.value, context, ns, formals, errors)
-        return
-
-    if isinstance(node, DefinitionNode):
-        _check_template_names(node.body, context, ns, formals, errors)
         return
 
     assert_never(node)

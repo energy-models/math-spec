@@ -1,6 +1,6 @@
 ## The math
 
-every character a notation escapes, set as text: link_to, 100% & #1 costs $5 {net} ~ ^ \ *star* @ref <label>
+every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 {net} \~ ^ \\ \*star\* @ref \<label\>, and `a_name` in backticks set in code
 
 #### Sets
 

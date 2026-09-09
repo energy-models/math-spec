@@ -58,6 +58,7 @@ from math_spec.program import (
     quotients,
     variables_of,
     walk,
+    where_children,
 )
 from math_spec.resolution import Namespace, expression_of, where_of
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
@@ -296,6 +297,31 @@ def test_a_lowered_mask_answers_its_dims_conjuncts_and_atoms(variable, where, di
     assert len(mask.atoms) == atoms, 'the leaves of every arm, connectives removed'
 
 
+FLAG = ParameterDefinedNode('flag', ('generator',))
+
+
+@pytest.mark.parametrize(
+    ('where', 'under'),
+    [
+        pytest.param(NotNode(P_MAX_POSITIVE), (P_MAX_POSITIVE,), id='a-not-carries-its-operand'),
+        pytest.param(AndNode(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-and-carries-both-sides'),
+        pytest.param(OrNode(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-or-carries-both-sides'),
+        pytest.param(P_MAX_POSITIVE, (), id='a-leaf-carries-nothing'),
+        pytest.param(BooleanLiteralNode(False), (), id='a-literal-carries-nothing'),
+    ],
+)
+def test_where_children_is_the_one_walk_under_a_predicate(where, under):
+    """`where_children` is to a mask what `children` is to an expression.
+
+    The where tree was dispatched by hand at every walk — the grammar's depth
+    measure, `Mask.atoms`, each consumer's own — with no shared answer to
+    what sits under a node (#401). This is that answer, in file order.
+    """
+    assert where_children(where) == under, (
+        'a connective carries its operands, left before right; a leaf carries nothing'
+    )
+
+
 def test_a_synthetic_predicate_answers_its_own_dims():
     """A tree built from resolved pieces answers like a declaration's own mask.
 
@@ -439,9 +465,9 @@ def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
     assert lowered == expected, 'the whole frozen node, so no field is asserted by omission'
 
 
-def test_a_binary_variable_lowers_to_a_vtype():
+def test_a_binary_variable_lowers_to_a_binary_domain():
     program = to_program(schema_of(DISPATCH_YAML, **{'variables.p.domain': 'binary', 'variables.p.bounds': {}}))
-    assert program.variable('p').variable_type == 'binary'
+    assert program.variable('p').domain == 'binary'
 
 
 def test_a_divisor_under_a_pullback_is_still_named():
@@ -634,7 +660,7 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
 
     assert footprint.sos_types == frozenset(), 'a file declaring no sos'
     assert footprint.quadratic == frozenset(), 'a file with no quadratic anywhere'
-    assert footprint.variable_types == {'continuous'}, 'never empty — a program has variables'
+    assert footprint.domains == {'continuous'}, 'never empty — a program has variables'
     assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.shapes)} == {frozenset}, (
         'every field is a set, so one rule reads all of them'
     )
