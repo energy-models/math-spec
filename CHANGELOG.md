@@ -17,6 +17,18 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.83](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.82...v0.0.0-alpha.83) (2026-09-09)
+
+
+### Features
+
+* **language:** a lookup always maps into a declared dimension ([#422](https://github.com/energy-models/math-spec/issues/422)) ([533665c](https://github.com/energy-models/math-spec/commit/533665cb15e5f03f37f261f276b1a2e920db5de7))
+
+
+### Refactoring
+
+* **program:** a variable's domain is called domain in the program, as the file calls it ([#427](https://github.com/energy-models/math-spec/issues/427)) ([62564a2](https://github.com/energy-models/math-spec/commit/62564a26e48ebba5a0fa34d0f2e889481db90b4c))
+
 ## [0.0.0-alpha.82](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.81...v0.0.0-alpha.82) (2026-09-09)
 
 
