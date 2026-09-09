@@ -578,6 +578,16 @@ class TestRulesDecidedWithoutData:
                 {'lookups.lk.key': ['g', 'h']}, ('has every column in its key',), id='lookup-keyed-by-every-column'
             ),
             pytest.param(
+                {'lookups.pair': {'over': {'g0': 'g', 'g1': 'g', 'h': 'h'}, 'key': ['g0', 'g1']}},
+                ("has two key columns over 'g' (['g0', 'g1'])", 'no frame carries a dimension twice'),
+                id='lookup-keyed-twice-over-one-dimension',
+            ),
+            pytest.param(
+                {'lookups.odd': {'over': {'h': 'g', 'x': 'h'}, 'key': 'h'}},
+                ("names column 'h' after dimension 'h', but the column is over 'g'",),
+                id='lookup-column-named-after-a-dimension-it-is-not-over',
+            ),
+            pytest.param(
                 {'lookups.lk.over': ['g', 'z']}, ("references undeclared dimension 'z'",), id='lookup-key-undeclared'
             ),
             pytest.param(
@@ -671,14 +681,6 @@ class TestRulesDecidedWithoutData:
                 },
                 ("'rel' declares no key, so no coordinate is in exactly one group",),
                 id='a-partition-through-a-bare-relation',
-            ),
-            pytest.param(
-                {
-                    'lookups.pair': {'over': {'g0': 'g', 'g1': 'g', 'h': 'h'}, 'key': ['g0', 'g1']},
-                    'variables.q.where': 'position(g, by=pair) == 0',
-                },
-                ("'pair' has 2 key columns over 'g'",),
-                id='position-by-a-lookup-with-two-key-columns-over-the-dim',
             ),
             pytest.param(
                 {'lookups.rel': {'over': ['g', 'h']}, 'variables.q.where': "rel == 'x'"},

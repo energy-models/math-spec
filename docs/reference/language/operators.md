@@ -246,9 +246,8 @@ level every period asks for. `edge=v` puts `v` at the edge of each group.
 
 `by=` takes a lookup with a key column over the dimension being walked, and the
 group is the value columns: all of them, or the ones `into=` names, so one
-calendar table serves `into=day` and `into=week` alike. A lookup with two key
-columns over that dimension is refused. The group columns are what a named
-`offset=` may vary over, so each group is reached by its own offset.
+calendar table serves `into=day` and `into=week` alike. The group columns are
+what a named `offset=` may vary over, so each group is reached by its own offset.
 
 A coordinate the lookup sends nowhere is in no group, so it reaches nothing, and
 no `edge=` speaks for it. Its row drops under `edge=0` exactly as it does bare.

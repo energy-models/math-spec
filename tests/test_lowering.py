@@ -83,8 +83,11 @@ TINY = {
 }
 
 #: `lk` and `lk2` as `sum` walks them: key consumed, value produced, nothing joined.
-LK_WALK = Walk('lk', ('g',), ('h',), (), (('g', 'g'), ('h', 'h')), ('g',))
-LK2_WALK = Walk('lk2', ('g',), ('z',), (), (('g', 'g'), ('z', 'z')), ('g',))
+LK = LookupDeclaration('lk', (('g', 'g'), ('h', 'h')), ('g',))
+LK2 = LookupDeclaration('lk2', (('g', 'g'), ('z', 'z')), ('g',))
+LK_WALK = Walk(LK, ('g',), ('h',), ())
+LK2_WALK = Walk(LK2, ('g',), ('z',), ())
+AT_BUS = LookupDeclaration('at_bus', (('g', 'g'), ('bus', 'bus')), ('g',))
 
 #: `fixtures.SMALL_MODEL` plus a second lookup and a per-entity
 #: offset. Which node a construct becomes is mostly a claim about the dim it
@@ -409,28 +412,22 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk)',
-            GroupSum(Variable('p'), over=('g',), coordinate=('lk',), into=('h',), walks=(LK_WALK,)),
+            GroupSum(Variable('p'), walks=(LK_WALK,)),
             id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
         ),
         pytest.param(
             'sum(p, by=[lk])',
-            GroupSum(Variable('p'), over=('g',), coordinate=('lk',), into=('h',), walks=(LK_WALK,)),
+            GroupSum(Variable('p'), walks=(LK_WALK,)),
             id='a-one-element-list-is-the-plain-form',
         ),
         pytest.param(
             'sum(p, by=[lk, lk2])',
-            GroupSum(Variable('p'), over=('g',), coordinate=('lk', 'lk2'), into=('h', 'z'), walks=(LK_WALK, LK2_WALK)),
+            GroupSum(Variable('p'), walks=(LK_WALK, LK2_WALK)),
             id='two-coordinates-are-one-grouping-with-paired-tuples',
         ),
         pytest.param(
             'at(r, by=lk)',
-            At(
-                Variable('r'),
-                over=('g',),
-                coordinate=('lk',),
-                into=('h',),
-                walks=(Walk('lk', ('h',), ('g',), (), (('g', 'g'), ('h', 'h')), ('g',)),),
-            ),
+            At(Variable('r'), walks=(Walk(LK, ('h',), ('g',), ()),)),
             id='a-pullback-walks-the-same-table-back',
         ),
         pytest.param(
@@ -456,7 +453,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 offset=1,
                 wrap=False,
                 fill=0.0,
-                partition=Walk('lk', ('g',), ('h',), (), (('g', 'g'), ('h', 'h')), ('g',)),
+                partition=Walk(LK, ('g',), ('h',), ()),
             ),
             id='a-translation-stops-at-the-edges-of-the-lookup-it-names',
         ),
@@ -477,7 +474,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 'g',
                 width=2,
                 wrap=False,
-                partition=Walk('lk', ('g',), ('h',), (), (('g', 'g'), ('h', 'h')), ('g',)),
+                partition=Walk(LK, ('g',), ('h',), ()),
             ),
             id='a-window-stops-at-the-edges-of-the-lookup-it-names',
         ),
@@ -516,27 +513,25 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     assert program.dimension('generator').lookups == (declared,), 'the lookup sits under its first column'
     assert program.dimension('zone').lookups == (declared,), 'and under its last'
     assert program.lookups == {'zone_of': declared}, 'and once in the program'
-    assert program.constraints['zonal'].lhs == GroupSum(
-        Variable('p'),
-        over=('generator',),
-        coordinate=('zone_of',),
-        into=('zone',),
-        walks=(Walk('zone_of', ('generator',), ('zone',), ('snapshot',), columns, ('generator', 'snapshot')),),
-    ), 'a grouped sum names the column it consumes, the one it produces and the one it joins on'
+    zonal = program.constraints['zonal'].lhs
+    assert zonal == GroupSum(Variable('p'), walks=(Walk(declared, ('generator',), ('zone',), ('snapshot',)),)), (
+        'a grouped sum names the column it consumes, the one it produces and the one it joins on'
+    )
+    assert isinstance(zonal, GroupSum)
+    assert (zonal.over, zonal.into, zonal.coordinate) == (('generator',), ('zone',), ('zone_of',)), (
+        'the dims a consumer reads are read off the walk'
+    )
     assert program.constraints['history'].lhs == GroupSum(
-        Variable('p'),
-        over=('snapshot',),
-        coordinate=('zone_of',),
-        into=('zone',),
-        walks=(Walk('zone_of', ('snapshot',), ('zone',), ('generator',), columns, ('generator', 'snapshot')),),
+        Variable('p'), walks=(Walk(declared, ('snapshot',), ('zone',), ('generator',)),)
     ), 'the same table walked from its other key column'
-    assert program.constraints['priced'].rhs == At(
-        Parameter('price'),
-        over=('generator',),
-        coordinate=('zone_of',),
-        into=('zone',),
-        walks=(Walk('zone_of', ('zone',), ('generator',), ('snapshot',), columns, ('generator', 'snapshot')),),
-    ), 'and its adjoint consumes the value column and produces the key column'
+    priced = program.constraints['priced'].rhs
+    assert priced == At(Parameter('price'), walks=(Walk(declared, ('zone',), ('generator',), ('snapshot',)),)), (
+        'and its adjoint consumes the value column and produces the key column'
+    )
+    assert isinstance(priced, At)
+    assert (priced.over, priced.into) == (('generator',), ('zone',)), (
+        'an at produces the fine dims and consumes the coarse'
+    )
     p_where = program.variable('p').where
     assert p_where is not None
     assert [(type(a).__name__, a.dims) for a in p_where.atoms] == [
@@ -556,7 +551,8 @@ def test_a_binary_variable_lowers_to_a_binary_domain():
 def test_a_divisor_under_a_pullback_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
-    pulled = At(quotient, over='flow', coordinate=('component',), into=('component',))
+    component_of = LookupDeclaration('component_of', (('flow', 'flow'), ('component', 'component')), ('flow',))
+    pulled = At(quotient, walks=(Walk(component_of, ('component',), ('flow',), ()),))
 
     assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `At`'
     assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
@@ -596,8 +592,8 @@ FAN_IN = {
     Power(Parameter('c'), Constant(2.0)): 'one-to-one',
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
-    GroupSum(Variable('p'), over=('g',), coordinate=('at_bus',), into=('bus',)): 'many-to-one',
-    At(Variable('p'), over=('g',), coordinate=('at_bus',), into=('bus',)): 'one-to-one',
+    GroupSum(Variable('p'), walks=(Walk(AT_BUS, ('g',), ('bus',), ()),)): 'many-to-one',
+    At(Variable('p'), walks=(Walk(AT_BUS, ('bus',), ('g',), ()),)): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',

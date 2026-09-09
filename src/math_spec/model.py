@@ -861,6 +861,12 @@ class Spec(_StrictBlock):
                 undeclared_dimension('Lookup', lname, d) for d in dict.fromkeys(lk.dims) if d not in self.dimensions
             )
             yield from (
+                f"Lookup '{lname}' names column '{role}' after dimension '{role}', but the column is over "
+                f"'{dim}'. A column named like a dimension is read as over it — name it after what it holds."
+                for role, dim in lk.columns
+                if role in self.dimensions and role != dim
+            )
+            yield from (
                 f"Lookup '{lname}' has key column '{k}', which is not one of its columns {list(lk.roles)}."
                 for k in lk.keys
                 if k not in lk.roles
@@ -868,6 +874,13 @@ class Spec(_StrictBlock):
             yield from (
                 f"Lookup '{lname}' names '{k}' twice under 'key:'. A key names each column once."
                 for k, count in Counter(lk.keys).items()
+                if count > 1
+            )
+            yield from (
+                f"Lookup '{lname}' has two key columns over '{d}' ({[k for k in lk.keys if dict(lk.columns)[k] == d]}). "
+                f'A key is read at its dimensions, and no frame carries a dimension twice — key the table by '
+                f'one column over each, or leave one of them a value column.'
+                for d, count in Counter(dict(lk.columns)[k] for k in lk.keys if k in lk.roles).items()
                 if count > 1
             )
             if lk.key is not None and set(lk.keys) >= set(lk.roles):
