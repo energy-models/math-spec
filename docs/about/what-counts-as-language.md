@@ -60,4 +60,4 @@ build. Accepting and building are different steps.
 
 [The limits](limits.md) answer a different question: which operators and blocks
 may be added to the language at all. This page answers who decides a rule once
-the operator or block exists. Ask the limits first, then this page.
+the operator or block exists.

@@ -80,7 +80,7 @@ answer here is the mistake.
   every expression, every `where` string, and every macro template, including
   the ones nothing calls. Where a file does not determine the answer, loading
   fails, and the message names the rewrite.
-- **Triage a new construct first: is it a primitive, a macro, or an `escape:`?**
+- **Triage a new construct first: is it a primitive, a macro, or refused?**
   A primitive is admissible when it is relational and local. Read the
   deliberate non-primitives in
   [limits.md](docs/about/limits.md) first. The argument for admitting one of
@@ -457,8 +457,7 @@ does not get annotated.
 - **Do not widen the scope.** Name the adjacent thing in one sentence instead.
 - **Recommend. Do not survey.**
 - **Triage a language feature before you design it.** Decide whether it is a
-  primitive, a macro or an `escape:`, against
-  [limits.md](docs/about/limits.md).
+  primitive, a macro or refused, against [limits.md](docs/about/limits.md).
 
 ## Prose
 
@@ -606,20 +605,18 @@ its name and gains a clause saying it counts how many things are non-zero.
 the words, and the clause each one takes. Shorten a clause to fit the sentence,
 and never drop it:
 
-| Project word   | Define it at first use as                                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a consumer     | a tool that reads a loaded model, such as an engine, a renderer or a checker                                                                      |
-| a tool         | a piece of software that reads a model: an engine, a renderer, a checker. Never "a program", because `Program` is the object `to_program` returns |
-| a sink         | whatever a built model is handed to, which is a solver's API or a file format                                                                     |
-| a backend      | one of the two implementations that build a model from the same syntax tree                                                                       |
-| a primitive    | an operator built into the language, which no file can add to                                                                                     |
-| a macro        | a template that takes arguments and is substituted into an expression before anything reads it                                                    |
-| a formulation  | a block that expands into ordinary declarations before the model is built                                                                         |
-| an `escape:`   | a block of Python, named in the file, that emits rows the language cannot state                                                                   |
-| a label budget | a cap on how many rows and columns an `escape:` may emit                                                                                          |
-| a frame        | the dimensions a declaration ranges over                                                                                                          |
-| bounded-halo   | reads a fixed number of neighbouring positions, and no more                                                                                       |
-| a rung         | one step of the PyPSA ladder, which is one `n.optimize()` keyword stated in full                                                                  |
+| Project word  | Define it at first use as                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a consumer    | a tool that reads a loaded model, such as an engine, a renderer or a checker                                                                      |
+| a tool        | a piece of software that reads a model: an engine, a renderer, a checker. Never "a program", because `Program` is the object `to_program` returns |
+| a sink        | whatever a built model is handed to, which is a solver's API or a file format                                                                     |
+| a backend     | one of the two implementations that build a model from the same syntax tree                                                                       |
+| a primitive   | an operator built into the language, which no file can add to                                                                                     |
+| a macro       | a template that takes arguments and is substituted into an expression before anything reads it                                                    |
+| a formulation | a block that expands into ordinary declarations before the model is built                                                                         |
+| a frame       | the dimensions a declaration ranges over                                                                                                          |
+| bounded-halo  | reads a fixed number of neighbouring positions, and no more                                                                                       |
+| a rung        | one step of the PyPSA ladder, which is one `n.optimize()` keyword stated in full                                                                  |
 
 ### A reference entry
 

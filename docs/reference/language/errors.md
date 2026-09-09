@@ -108,7 +108,7 @@ The arrays it holds would build the same model, but an `expression:` string and 
 reviewer could read. A library that wants a file passes a `dict` with the file's
 keys to `to_spec`, and calls `to_yaml()`.
 
-For math the language cannot express, an `escape:` block is planned: Python,
-named in the file, that emits the rows the language cannot write, with a cap on
-how many rows and columns it may emit checked before it runs. It is
-[#38](https://github.com/fluxopt/lpspec/issues/38), and it has not shipped.
+For math the language cannot express, a block of Python named in the file, with
+a cap on how many rows and columns it may emit, is planned as
+[#38](https://github.com/fluxopt/lpspec/issues/38). It has not shipped, and no
+key for it exists yet.

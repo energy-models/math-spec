@@ -12,7 +12,7 @@ or keyword. For the rules a model itself has to obey, read
 
 ## How a new construct enters
 
-A request for something new is one of four kinds, and the kind decides what it
+A request for something new is one of three kinds, and the kind decides what it
 costs to add.
 
 - **A macro** is a template with arguments, written in the file under `macros:`,
@@ -28,9 +28,10 @@ costs to add.
   constraints before the model is built. `piecewise:` is the only one. It costs
   as much as a primitive to build, but composes as freely as a macro, because
   the rest of the model only sees the variables and constraints it emitted.
-- **An `escape:`** is a block of Python, named in the file, that emits the rows
-  the language cannot write. It is planned as
-  [#38](https://github.com/fluxopt/lpspec/issues/38) and has not shipped.
+
+A request that is none of the three is refused, and the
+[table of refusals](#deliberate-non-primitives) records it with what to write
+instead.
 
 ### What a new primitive has to satisfy
 
@@ -47,13 +48,13 @@ refused, because an engine cannot then build the model one chunk of rows at a
 time. Reading only the coordinate labels does not count: "the last snapshot"
 looks at the list of snapshots, not at the data, and is allowed.
 
-| The operator                                         | Allowed?                                                          |
-| ---------------------------------------------------- | ----------------------------------------------------------------- |
-| filters rows on a column they already carry          | yes                                                               |
-| joins each row against a parameter or a lookup table | yes                                                               |
-| reads a fixed number of neighbouring rows            | yes                                                               |
-| reads only the coordinate labels                     | yes                                                               |
-| reads every row, or calls itself                     | no, and the message names the macro or `escape:` to write instead |
+| The operator                                         | Allowed?                                        |
+| ---------------------------------------------------- | ----------------------------------------------- |
+| filters rows on a column they already carry          | yes                                             |
+| joins each row against a parameter or a lookup table | yes                                             |
+| reads a fixed number of neighbouring rows            | yes                                             |
+| reads only the coordinate labels                     | yes                                             |
+| reads every row, or calls itself                     | no, and the message names what to write instead |
 
 **Degree is not a third test.** `p * q` at one coordinate is a join of a table
 with itself, so the objective and the constraints take it. Two things limit the
@@ -73,11 +74,11 @@ the same model written out by hand.
 
 ### Three kinds of refusal
 
-| The language refuses it because…                                                   | Examples                                                                                                                                                            | Can it change?                             |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| **one solver cannot take it**                                                      | indicator constraints (#220); a quadratic constraint. `sos:` was in this group, and entered: a solver with sets takes it as one, and a solver without gets binaries | yes, solver by solver                      |
-| **it exceeds the label budget**, the cap on rows and columns an `escape:` may emit | an operator that reads a whole table; arbitrary Python                                                                                                              | into an `escape:`, once one ships          |
-| **this project puts the work elsewhere**                                           | data preparation such as resampling; helpers for one domain; Python that decides which declarations exist                                                           | it could; this project does not want it to |
+| The language refuses it because…                         | Examples                                                                                                                                                            | Can it change?                                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **one solver cannot take it**                            | indicator constraints (#220); a quadratic constraint. `sos:` was in this group, and entered: a solver with sets takes it as one, and a solver without gets binaries | yes, solver by solver                                                                                         |
+| **no engine could build it one chunk of rows at a time** | an operator that reads a whole table; arbitrary Python                                                                                                              | not today. A capped block of Python for this is planned as [#38](https://github.com/fluxopt/lpspec/issues/38) |
+| **this project puts the work elsewhere**                 | data preparation such as resampling; helpers for one domain; Python that decides which declarations exist                                                           | it could; this project does not want it to                                                                    |
 
 Three things never appear inside one model: an `if`, a loop, and a set of
 declarations that depends on the data. `foreach: [snapshot]` does not know how
