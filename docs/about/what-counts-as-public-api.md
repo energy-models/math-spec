@@ -29,16 +29,17 @@ build on it, so a small API that a dozen programs read is worth more than a wide
 one that one program uses.
 
 The largest gain available is not a function. It is writing a `Program` out in a
-format another language can read. Then an engine in Julia or Rust reads the
-resolved tree instead of re-implementing the parser and every rule behind it.
+format another language can read. Then an engine - whether in Python, Julia, Rust, etc. -
+reads the resolved tree instead of re-implementing the parser and every rule behind it.
 
-## New capability arrives as a declaration
+## A new feature is a new key in the file, not a new function
 
-`cases:`, `piecewise:` and `sos:` each added a capability and no function. A
-declaration can be read, printed, diffed and written back out, because it is
-part of the file. A callback or a plugin cannot be reviewed in a diff, cannot be
-printed as math, and cannot cross into another language. So a feature that can
-be a declaration is one.
+When the language gained piecewise-linear curves, it gained a `piecewise:` key
+in the YAML, not a call such as `ms.add_curve(spec, ...)`. The same holds for
+`cases:` and `sos:`. A key in the file shows up in a git diff, the typesetter
+prints it as math, and an engine written in Julia can read it. A Python call does
+none of these: the curve would exist only in the script that made the call, and
+only for Python. So wherever a feature can be a key in the file, it is one.
 
 ## What every function keeps
 
