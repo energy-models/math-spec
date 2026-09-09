@@ -85,12 +85,13 @@ lookups:
   connection: { over: [generator, bus] } # no key: a generator may connect to several buses
 ```
 
-| Field         |                                                                                                                                      |                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
-| `over`        | required — the columns: a list of dimensions, or a mapping of column name to dimension where two columns share one ([roles](#roles)) |                |
-| `into`        | not a field: a lookup declares no direction                                                                                          |                |
-| `key`         | the columns a row is identified by, one name or a list; omitted, the table is a bare relation ([below](#the-key-is-the-claim))       | default none   |
-| `description` | free text, never parsed                                                                                                              | default `null` |
+| Field         |                                                                                                                                          |                 |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `over`        | required — the columns: a list of dimensions, or a mapping of column name to dimension where two columns share one ([roles](#roles))     |                 |
+| `into`        | not a field: a lookup declares no direction                                                                                              |                 |
+| `key`         | the columns a row is identified by, one name or a list; omitted, the table is a bare relation ([below](#the-key-is-the-claim))           | default none    |
+| `coverage`    | `total`, `masked` — whether every key tuple has a row ([below](#coverage-says-whether-a-missing-key-was-meant)); not for a bare relation | default `total` |
+| `description` | free text, never parsed                                                                                                                  | default `null`  |
 
 Every column is over a declared dimension, and its values are checked against
 that dimension's labels once data is bound — the check that makes `sum(by=)`
@@ -137,6 +138,37 @@ The key is also what decides which walks the table admits:
 A bare relation — no `key:` — is walked by `sum` alone, with both ends named,
 and tested by a bare `where`. That is what a many-to-many relation can say,
 and all it can say.
+
+### `coverage` says whether a missing key was meant
+
+A key says _at most_ one row per key tuple. Whether there is _at least_ one is
+`coverage:`. A table short of a generator and a table that never had one look
+identical in the data, and they mean opposite things: `total`, the default, is
+the claim that every key tuple has a row, so a generator with no bus is an
+error at bind naming the generator rather than a term that quietly lands
+nowhere. `masked` is the file saying the gap is the point: a generator on no
+bus, a line with one open end, and `sum(by=)` places their terms in no group.
+
+```yaml
+lookups:
+  gen_bus: { over: [generator, bus], key: generator } # total: every generator is on a bus
+  line_to: { over: [line, bus], key: line, coverage: masked } # an open end is meant
+```
+
+A composite key is total over the product of its dimensions: `zone_of` keyed by
+`[generator, period]` has a row for every generator in every period. A bare
+relation has no key, so it declares no `coverage:` and is the rows it has:
+
+```
+Lookup 'connection' declares no key, so nothing is there for 'coverage:' to be total over — a bare relation is the rows it has. Drop the coverage line, or declare key: for the columns each row is identified by.
+```
+
+The bare `where: gen_bus`, which tests that a row exists, is refused on a
+`total` lookup, where every key has one:
+
+```
+Constraint 'wired': 'gen_bus' is total, so a row exists at every ['generator'] and the mask has no effect. Remove it, or declare coverage: masked on the lookup if a key may have no row.
+```
 
 ### A walk names its ends
 
@@ -223,7 +255,8 @@ The rules, each decided at load with a refusal naming the rewrite:
   names the columns where there are several. The frame carries the key's
   dimensions, and two lookups compared have keys over the same dimensions and
   columns over one. A bare name — `where: gen_bus` — tests that a row exists:
-  at the key for a keyed lookup, at every column for a bare relation.
+  at the key for a keyed lookup, at every column for a bare relation; on a
+  `total` lookup every key has one, and the bare name is refused.
 - **Every column is over a declared dimension, every column name is distinct,
   the key names columns the lookup has, and does not name all of them.**
 
@@ -285,10 +318,11 @@ sources = {
 }
 ```
 
-**A partial map is the rows it has.** `g3` is in no row, so `g3` sits on no
-bus — absence is the absent row, exactly as it is for a parameter, and a null
-in any column is refused for saying both at once. A keyed table holds one row
-per key tuple, and a value matching no label of its column's dimension is a
+**A partial map is the rows it has, where the declaration allows one.** `g3`
+is in no row: under `coverage: masked` `g3` sits on no bus, absence being the
+absent row, and under the default `total` the bind is refused naming `g3`. A
+null in any column is refused for saying both at once. A keyed table holds one
+row per key tuple, and a value matching no label of its column's dimension is a
 typo rather than a new member. Values are never inferred from the parameters
 that use a dimension: inferring would let a mistyped label extend the label
 set instead of being rejected.

@@ -562,7 +562,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'lookups.tag': {'over': 'g', 'dtype': 'str'}},
-                ("unknown key 'dtype' in a lookup declaration. Valid keys: description, key, over.",),
+                ("unknown key 'dtype' in a lookup declaration. Valid keys: coverage, description, key, over.",),
                 id='lookup-with-a-dtype-of-its-own',
             ),
             pytest.param({'lookups.tag': {'over': 'g'}}, ('has 1 column(s)',), id='lookup-with-one-column'),
@@ -573,6 +573,21 @@ class TestRulesDecidedWithoutData:
                 {'lookups.lk.key': 'z'},
                 ("has key column 'z', which is not one of its columns",),
                 id='lookup-key-not-a-column',
+            ),
+            pytest.param(
+                {'lookups.rel': {'over': ['g', 'h'], 'coverage': 'total'}},
+                ("Lookup 'rel' declares no key, so nothing is there for 'coverage:' to be total over", 'declare key:'),
+                id='coverage-total-on-a-bare-relation',
+            ),
+            pytest.param(
+                {'lookups.rel': {'over': ['g', 'h'], 'coverage': 'masked'}},
+                ("Lookup 'rel' declares no key, so nothing is there for 'coverage:' to be total over",),
+                id='coverage-masked-on-a-bare-relation',
+            ),
+            pytest.param(
+                {'variables.p.where': 'lk'},
+                ("'lk' is total, so a row exists at every ['g'] and the mask has no effect", 'coverage: masked'),
+                id='a-bare-where-on-a-total-lookup',
             ),
             pytest.param(
                 {'lookups.lk.key': ['g', 'h']}, ('has every column in its key',), id='lookup-keyed-by-every-column'
@@ -905,6 +920,21 @@ class TestRulesDecidedWithoutData:
         message = _refusal(**patch)
         for fragment in fragments:
             assert fragment in message
+
+
+class TestLookupCoverage:
+    """A map short of a key lands its terms in no group, and the file says whether that was meant."""
+
+    def test_a_bare_where_selects_the_keys_a_masked_lookup_maps(self):
+        """`where: lk` asks which keys have a row, which only a `masked` lookup can answer with anything but
+        every key — so the same predicate a `total` lookup refuses is the masked one's whole point."""
+        spec = to_spec(override(SMALL_MODEL, **{'lookups.lk.coverage': 'masked', 'variables.p.where': 'lk'}))
+        assert spec.lookups['lk'].coverage_or_default == 'masked'
+
+    def test_a_bare_relation_answers_for_no_coverage(self):
+        spec = to_spec(override(SMALL_MODEL, **{'lookups.rel': {'over': ['g', 'h']}}))
+        assert spec.lookups['rel'].coverage_or_default is None, 'no key, so nothing to be total over'
+        assert spec.lookups['lk'].coverage_or_default == 'total', 'and a keyed lookup that says nothing is total'
 
 
 class TestTheFrontDoor:

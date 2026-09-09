@@ -49,6 +49,7 @@ __all__ = [
     'ConstraintDeclaration',
     'ConstraintSense',
     'Contiguous',
+    'Coverage',
     'Curved',
     'Derivation',
     'DimensionComparisonNode',
@@ -141,6 +142,10 @@ DimensionDtype = _model.DimensionDtype
 
 #: What a parameter's values are (:data:`~math_spec.model.ParameterDtype`).
 ParameterDtype = _model.ParameterDtype
+
+#: Whether a lookup's map must carry every key tuple
+#: (:data:`~math_spec.model.Coverage`).
+Coverage = _model.Coverage
 
 #: What a masked variable's non-existence means
 #: (:data:`~math_spec.model.VariableAbsence`).
@@ -481,6 +486,10 @@ class LookupDeclaration(NamedTuple):
     name: str
     columns: tuple[tuple[str, str], ...]
     key: tuple[str, ...] = ()
+    #: Whether every key tuple has a row (``total``) or a missing one is meant
+    #: (``masked``), checked by whatever binds the table. ``None`` for a bare
+    #: relation, which has no key to be total over.
+    coverage: Coverage | None = 'total'
 
     @property
     def roles(self) -> tuple[str, ...]:

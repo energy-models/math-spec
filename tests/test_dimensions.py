@@ -33,9 +33,9 @@ BASE = {
         'zone': {'dtype': 'str'},
     },
     'lookups': {
-        'gen_bus': {'over': ['generator', 'bus'], 'key': 'generator'},
+        'gen_bus': {'over': ['generator', 'bus'], 'key': 'generator', 'coverage': 'masked'},
         'snap_bus': {'over': ['snapshot', 'bus'], 'key': 'snapshot'},
-        'gen_zone': {'over': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']},
+        'gen_zone': {'over': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot'], 'coverage': 'masked'},
         'rep_of': {'over': {'snapshot': 'snapshot', 'rep': 'snapshot'}, 'key': 'snapshot'},
         'gen_bz': {'over': ['generator', 'bus', 'zone'], 'key': 'generator'},
         'pair': {'over': {'g': 'generator', 'b0': 'bus', 'b1': 'bus'}, 'key': 'g'},

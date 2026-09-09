@@ -94,6 +94,13 @@ ParameterDtype = Literal['float', 'int', 'bool', 'str']
 #: half, because a mask names all three kinds and reads the dtype the same way.
 DeclaredDtype = ParameterDtype | DimensionDtype
 
+#: Whether a lookup's map must carry every key tuple. ``total`` is every
+#: coordinate of the key columns' dimensions; ``masked`` says a missing row is
+#: deliberate — a generator on no bus, a line with one open end. The two are
+#: indistinguishable in the data, which is why the declaration says which was
+#: meant rather than a consumer guessing.
+Coverage = Literal['total', 'masked']
+
 #: The domain a variable may declare.
 VariableDomain = Literal['continuous', 'integer', 'binary']
 
@@ -172,13 +179,16 @@ class LookupBlock(_StrictBlock):
     (``from=``, ``into=``), joining on the other key columns; the declaration
     fixes no direction. The map itself
     is data, and arrives at bind time under the lookup's name, one column per
-    role.
+    role. ``coverage:`` says whether every key tuple has a row (``total``, the
+    default) or a missing one is meant (``masked``); a bare relation has no
+    key to be total over, and declares none.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
 
     over: str | list[str] | dict[str, str]
     key: str | list[str] | None = None
+    coverage: Coverage | None = None
     description: str | None = None
 
     @property
@@ -207,6 +217,18 @@ class LookupBlock(_StrictBlock):
     def values(self) -> tuple[str, ...]:
         """The roles the key determines; empty where there is no key."""
         return tuple(role for role in self.roles if role not in self.keys) if self.key is not None else ()
+
+    @property
+    def coverage_or_default(self) -> Coverage | None:
+        """What the map must carry: what the file wrote, ``total`` where it wrote nothing, and ``None`` for a bare relation.
+
+        ``coverage`` itself stays ``None`` where the file is silent, because the
+        bare-relation refusal has to know whether the file spoke and a round
+        trip through :meth:`Spec.to_dict` writes back what was written.
+        """
+        if self.key is None:
+            return None
+        return self.coverage or 'total'
 
 
 class DimensionBlock(_StrictBlock):
@@ -887,6 +909,12 @@ class Spec(_StrictBlock):
                 yield (
                     f"Lookup '{lname}' has every column in its key, so the key determines nothing. Leave one "
                     f'column out of it, or drop the key for a bare relation.'
+                )
+            if lk.key is None and lk.coverage is not None:
+                yield (
+                    f"Lookup '{lname}' declares no key, so nothing is there for 'coverage:' to be total over — "
+                    f'a bare relation is the rows it has. Drop the coverage line, or declare key: for the columns '
+                    f'each row is identified by.'
                 )
 
     def _bound_names(self) -> Iterator[str]:
