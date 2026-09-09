@@ -48,12 +48,12 @@ You can install `math-spec` via all common package managers:
     pip install math_spec
     ```
 
-`math-spec` is written and tested to be compatible with Python 3.12 and above.
-We recommend to use the latest version with active support (see [endoflife.date](https://endoflife.date/python)).
+`math-spec` is written and tested against Python 3.12 and above.
+Use the latest version with active support (see [endoflife.date](https://endoflife.date/python)).
 
 ## Installing a development environment
 
-The install instructions are slightly different to create a development environment compared to a user environment:
+A development environment installs differently from a user environment:
 
 --8<-- "README.md:docs-install-dev"
 

@@ -6,13 +6,13 @@ SPDX-License-Identifier: CC-BY-4.0
 # Examples
 
 Whole models, each shown as the file and as the math it prints. The reference
-pages take the language a construct at a time; these take it a **model** at a
-time, which is the form anyone writing one actually needs.
+pages take the language a construct at a time. These pages take it a **model**
+at a time.
 
 Every model here is a real file under `examples/` in the repository, not a
 fragment written for the page. They are the same files the test suite loads and
-the LaTeX gate compiles, so a model that stopped being valid — or that started
-printing different math — fails CI rather than going stale here.
+the LaTeX gate compiles. So a model that stops being valid, or that starts
+printing different math, fails CI rather than going stale here.
 
 - [Least-cost dispatch](dispatch.md) — the smallest model that is a model: a
   balance, a bound, and a cost to minimise.

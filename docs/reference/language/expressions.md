@@ -44,15 +44,15 @@ is `sum(p * p * wear, over=g)`, and a quadratic row is `p * q >= floor`.
 
 Three rules bound this:
 
-- **At most one factor may be a sum of terms.** So `sum(p, over=g) * sum(q,
+- At most one factor may be a sum of terms. So `sum(p, over=g) * sum(q,
 over=g)` is refused. That product pairs every term of one sum against every
   term of the other, and nothing in the file says how many terms that is.
   Instead, multiply _before_ you reduce, or give the reduction a name, because a
   variable constrained to equal a reduction is one term. Factors that carry
   different dimensions are fine: `x * y * link` broadcasts and joins through
   the table that couples the two.
-- **Degree stops at 2.** `p * p * p` is refused, where `p * p` is not.
-- **Everything beside the math stays affine.** This covers a bound and a
+- Degree stops at 2. `p * p * p` is refused, where `p * p` is not.
+- Everything beside the math stays affine. This covers a bound and a
   `piecewise:` link. A bound is one number per column. A link expands into
   declarations, and those declarations must themselves be affine.
 
@@ -75,26 +75,24 @@ written.
 
 Two refusals bound `**`, and both happen at load:
 
-- **A variable anywhere under it.** Write `x * x` for a square. Above degree 2
+- A variable anywhere under it. Write `x * x` for a square. Above degree 2
   there is no rewrite at all. A variable _exponent_ is out for a sharper
   reason: `p ** n` is affine at `n = 1` and quadratic at `n = 2`, so the
   _degree_ would become a property of the data, and `to_spec` could not answer
   with nothing bound.
-- **An operand that adds.** Addition does not distribute over `**`. So
+- An operand that adds. Addition does not distribute over `**`. So
   `(1 + rate) ** period` is two factors dressed as one, and it is refused where
   `growth ** period` is not. Bind the factor itself instead.
 
-### What it costs to solve is a consumer's question
-
-Saying something is one question. Solving it is another. See
-[the limits](../../about/limits.md#capability-is-not-the-limit).
+### Whether a solver takes it is a separate question
 
 This language admits degree 2 in the objective and in the constraints. It says
-nothing about which solver, lane or file format will take it. That is the
-consumer's axis, and each consumer answers for itself.
+nothing about which solver or file format will take the result. That question
+belongs to whatever builds and solves the model, and each one answers it for
+itself. See [the limits](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
 
 Two things no consumer can answer from the model alone, because both are
-properties of the _data_: whether a quadratic form is **convex**, and whether a
+properties of the _data_: whether a quadratic form is convex, and whether a
 quadratic row can be priced.
 
 A `piecewise:` block with `method: convex` is still the way to spend a curve and
@@ -124,7 +122,7 @@ fixed when the file loads:
 | lookup argument (`by=` on `sum` / `at`) | a lookup, and never a dimension                                                                                                                |
 | `where` string                          | a parameter, variable, dimension or lookup ([where strings](#where-strings))                                                                   |
 | `bounds.lower` / `bounds.upper`         | a parameter name, or a number                                                                                                                  |
-| the `edge` key of `shift`               | `'wrap'` in **quotes**, or a bare number. Never a dimension                                                                                    |
+| the `edge` key of `shift`               | `'wrap'` in quotes, or a bare number. Never a dimension                                                                                        |
 | `dual` argument (`dual(c)`)             | a constraint. It resolves against the constraints alone, never against the flat namespace ([reported](reported.md#reading-a-constraints-dual)) |
 
 A bare word in the value of a keyword argument is _a name to resolve_. That is
@@ -170,17 +168,18 @@ is known before any data binds**:
 | `shift(x, over=d, offset=n)` | `dims(x)`                                    | error if `d ∉ dims(x)`                                                                                            |
 
 Binary operators take the **union** of the two dimension sets. An outer product
-is legitimate whenever the frame declares the result. What must never be silent
+is allowed wherever the declaration's own dimensions, its **frame**, cover the
+result. What must never be silent
 is a _declaration_ that disagrees with its expression. So:
 
-- A **constraint** requires `dims(lhs) ∪ dims(rhs)` to **equal** its `foreach`.
+- A constraint requires `dims(lhs) ∪ dims(rhs)` to **equal** its `foreach`.
   A stray dimension multiplies the rows, and an unused `foreach` dimension
   repeats one row across them. Either way, you would build a different model
   from the one the file reads as.
-- An **objective** must carry **no dimensions at all.** It is one number, and
+- An objective must carry **no dimensions at all**. It is one number, and
   the sums that reduce it to one number are written in the expression.
-- The dimensions of a **`where` predicate**, and the dimensions of a **bound
-  parameter**, must not _exceed_ the frame they sit in.
+- The dimensions of a `where` predicate, and the dimensions of a bound
+  parameter, must not _exceed_ the frame they sit in.
 
 If you get any of this wrong, you are told at load time, not at solve time.
 
@@ -201,16 +200,16 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 
 | Surface                          | Names a…                         | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | -------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `name` (bare)                    | parameter                        | The **declaration** says what "defined" means here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not, although `inf` is a value everywhere else                                                                                                                                                                                                                                                                             |
+| `name` (bare)                    | parameter                        | The declaration says what "defined" means here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not, although `inf` is a value everywhere else                                                                                                                                                                                                                                                                                 |
 | `name` (bare)                    | variable                         | The variable exists at this coordinate. This is the counterpart of the parameter row, and it is how you say which coordinates the row-dropping rule applies to                                                                                                                                                                                                                                                                                                                                                                       |
 | `name` (bare)                    | dimension                        | This is a load error. It is true everywhere, so it looks like a condition without being one. Compare it against something instead                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `name OP value`                  | parameter                        | The comparison is element-wise, and a null compares false. The right-hand side is a literal number, or a bare name that is read as a string coordinate                                                                                                                                                                                                                                                                                                                                                                               |
 | `name OP value`                  | dimension                        | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `name` (bare)                    | lookup                           | Defined means that the label maps somewhere. A lookup may be [partial](dimensions.md#lookups), and this is how a declaration asks for the labels that do map                                                                                                                                                                                                                                                                                                                                                                         |
-| `name OP value`                  | lookup                           | A filter on the lookup's column in the index of its `over` dimension. That dimension therefore has to be in the frame. A null value is **false**, whatever the comparator                                                                                                                                                                                                                                                                                                                                                            |
-| `name OP name`                   | two lookups                      | The one comparison where both sides are structure. It is legal only where both lookups map out of the **same** dimension _and_ into the **same** dimension. For example, `from != to` excludes a self-loop                                                                                                                                                                                                                                                                                                                           |
+| `name OP value`                  | lookup                           | A filter on the lookup's column in the index of its `over` dimension. That dimension therefore has to be in the frame. A null value is false, whatever the comparator                                                                                                                                                                                                                                                                                                                                                                |
+| `name OP name`                   | two lookups                      | The one comparison where both sides are structure. It is legal only where both lookups map out of the _same_ dimension and into the _same_ dimension. For example, `from != to` excludes a self-loop                                                                                                                                                                                                                                                                                                                                 |
 | `position(name) OP i`            | one dimension                    | Where the row sits along that dimension's own order, as an integer. `0` is first, and a negative number counts from the end. Both sides are integers, so every comparator reads one way only                                                                                                                                                                                                                                                                                                                                         |
-| `position(name, by=lookup) OP i` | a dimension and a lookup over it | The same, but counted **within each group** that the lookup makes. This picks out the first snapshot of every period, whatever the length of each period                                                                                                                                                                                                                                                                                                                                                                             |
+| `position(name, by=lookup) OP i` | a dimension and a lookup over it | The same, but counted within each group that the lookup makes. This picks out the first snapshot of every period, whatever the length of each period                                                                                                                                                                                                                                                                                                                                                                                 |
 | `AND` `OR` `NOT`                 | —                                | These are case-insensitive. `NOT` binds tighter than `AND`, and `AND` binds tighter than `OR`                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `True` / `False`                 | —                                | These are literals, and they are decided at load wherever they stand. `True` is the same as no `where`. `False` gives a declaration with no rows. A literal under an `AND` or an `OR` settles that side, so `x AND False` also gives a declaration with no rows. A double negation folds the same way, and `NOT NOT x` is `x`. So a page prints what the mask decides, not how the mask was spelled. A case [`when:`](#the-rules-that-keep-the-cases-apart) is the one place where a mask that folds to a literal is refused instead |
 
@@ -245,7 +244,7 @@ comparison.
 
 On the right-hand side of a comparison, a name is read as a string when the
 model does _not_ declare it. That is how you compare a string coordinate. A
-**declared** name there is a load error that names the near miss. Reading a
+A declared name there is a load error that names the near miss. Reading a
 declared name as text would compare a coordinate column against another
 declaration's name, and mask everything out.
 
@@ -288,7 +287,7 @@ there is a property of the data. Relabel `[0, 1, 2]` to `[1, 2, 3]`, and
 `snapshot == 0` matches nothing, which leaves the recurrence unanchored.
 
 `-1` is the last position, and `-2` is the one before it. A position that no
-coordinate occupies is an **error at bind**, not an empty mask. The clause
+coordinate occupies is an error at bind, and not an empty mask. The clause
 exists to seed a row, so seeding no row is the exact failure it was written to
 prevent.
 
@@ -330,7 +329,7 @@ constraints:
     expression: soc == at(soc_initial, by=period_of)
 ```
 
-`by=` takes a lookup **over the dimension being counted**, so the groups are
+`by=` takes a lookup over the dimension being counted, so the groups are
 groups that a row of that dimension is actually in.
 
 Unlike [`sum(by=)` and `at(by=)`](operators.md), this lookup need not be a
@@ -379,9 +378,9 @@ expressions:
 Write a named expression as a bare string. It gains the mapping form when it
 needs to carry a `description:`.
 
-A named expression has **fixed dimensions**. They fall out of its body, so there
-is no `foreach`. It also has an **observable identity**: after a solve, a
-consumer can read its value back over its own dimensions.
+A named expression has **fixed dimensions**, which fall out of its body, so
+there is no `foreach`. Its identity can also be observed: after a solve, a consumer can
+read its value back over its own dimensions.
 
 Naming a quantity is what makes that possible. The CO₂ that a constraint bounds
 and the CO₂ that a summary reports are then one definition, validated once.
@@ -391,14 +390,14 @@ expression is substituted before anything consumes the model. So a reference
 costs nothing at build time. It is lowered only when it is _read_. So a model
 with fifty named expressions that reads none of them pays for none of them.
 
-A named expression is one of **two things**, and the file never says which. The
+A named expression is one of two things, and the file never says which. The
 objective and the constraints decide.
 
 If the objective or a constraint inlines it, directly or through another entry
 or a macro, then it is **in the math**. It stands inside the program that a
-solver sees, and it is held to the same
-[degree-2 limit](#where-a-product-of-two-variables-is-allowed) that the math is
-held to everywhere else, at the place where it is read.
+solver sees. So it is held to the
+[degree-2 limit](#where-a-product-of-two-variables-is-allowed) at the place
+where it is read, exactly as the rest of the math is.
 
 If nothing in the math names it, then it is **reported**. It is a statistic that
 the solver never sees, and it is arithmetic over numbers that a solve has
@@ -485,7 +484,7 @@ at load, and the refusal names the rewrite:
 An always-false arm is the other half of the same rule. It never applies, so
 either delete it or widen it.
 
-A **declaration's** `where:` is not held to this rule, and it cannot be. There,
+A declaration's `where:` is not held to this rule, and it cannot be. There,
 `False` is how a file says that the declaration has no rows, and `True` is the
 same as writing no mask at all. It is only the `when:` on an arm that has to be
 a question, because the arms are kept apart by proof.
@@ -543,10 +542,9 @@ cases above it in mind. So a tool that re-sorts the keys of a file cannot change
 what the file means.
 
 `otherwise:` is required because it makes the quantity whole without a second
-proof. It carries no condition, so there is no condition on it to fail. A
-coordinate that no `when` matched would have no value at all, and absence
-[spreads](absence.md), so any constraint that read the expression would lose
-rows it never masked.
+proof. It carries no condition, so there is no condition on it to fail. A coordinate that no `when` matched would have no value at all. Absence
+[spreads](absence.md), so a constraint reading the expression would lose rows it
+never masked.
 
 `otherwise:` is written beside `cases:` rather than inside it, because it is not
 a region in the way the cases are. It is what is left over. And because it
@@ -577,7 +575,7 @@ model that this section is drawn from.
 
 ## Macros
 
-A macro is a **parameterised** template. It has no dimensions until it is
+A macro is a parameterised template. It has no dimensions until it is
 called, and each call site may give it different ones. So it has no value that a
 solve could report, and you can never read it back:
 
@@ -595,11 +593,11 @@ Both blocks hold arithmetic, and neither holds a comparison.
 Arguments expand before substitution, which is call-by-value. So an argument may
 itself use macros and named expressions.
 
-Inside a template, the formal parameters shadow model names. But a formal
-parameter may not collide with a declared **dimension**.
+Inside a template, the formal parameters shadow model names. A formal parameter
+may not collide with a declared dimension.
 
-Arity is checked at each call site. A cycle is reported together with the
-reference chain.
+The number of arguments is checked at each call site. A cycle is reported
+together with the reference chain.
 
 Every template is parsed and name-checked at load time, even if it is never
 called. So a macro that nobody uses cannot hide a typo.

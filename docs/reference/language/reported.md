@@ -41,30 +41,30 @@ objective and every constraint, and notes each entry that they inline.
 
 ## Which restrictions do not apply, and why
 
-An entry that the math reads is substituted before anything consumes the model,
-so it stays inside the limit that the math is held to.
+An entry that the math reads is substituted into the math before anything reads
+the model. So it is held to the same limits as the math around it.
 
-A reported entry is read by **nothing in the model**. It is arithmetic over
-numbers that a solve has already produced. The math carries its restrictions
-because a sink has to build it, and for a body that nothing ingests, all of
-those restrictions no longer apply:
+A reported entry is read by nothing in the model. It is arithmetic over numbers
+that a solve has already produced. The math carries its restrictions because a
+solver has to build it, and none of those restrictions applies to a body that no
+solver ever sees:
 
-- **There is no degree cap.** `system_cost / delivered` above divides one
+- There is no degree cap. `system_cost / delivered` above divides one
   variable quantity by another. `p * p * p` is allowed. A quotient, a cube and a
   ratio of two sums are each just a number once the solve is done.
-- **The divisor may carry variables**, and so may an exponent. In the math, `/`
+- The divisor may carry variables, and so may an exponent. In the math, `/`
   and `**` require an operand free of variables. Here they drop that
   requirement, because there is no degree left for a variable operand to change.
   Where such a divisor solves to zero, the quotient is absent at that
   coordinate. That is the same null a masked row leaves. See
   [absence](absence.md#reported-values-follow-the-rows-that-were-built).
-- **A divisor, a base or an exponent may be a sum.** The math refuses
+- A divisor, a base or an exponent may be a sum. The math refuses
   `x / (a + b)` and `(1 + rate) ** period` even when there is no variable in
   sight. It refuses them because a quotient compiles to one reciprocal factor,
   and neither operator distributes over `+`. A reported body compiles to
   nothing, so you no longer need the precompute that an entry in the math would
   need, which is `(1 + rate) ** period` bound as a parameter.
-- **A factor may be a sum of terms, with no limit on the other factor.**
+- A factor may be a sum of terms, with no limit on the other factor.
   [The one-sum-factor rule](expressions.md#where-a-product-of-two-variables-is-allowed)
   is about how many rows a product builds, and a reported body builds none.
 
@@ -100,7 +100,7 @@ quantity instead of failing.
 A consumer reads the answer off the program, at
 `Program.named_expressions[name].in_math`.
 
-On the page, every named expression prints its body once under **Definitions**,
+On the page, every named expression prints its body once under a **Definitions** heading,
 and prints its symbol where it is used. So a reported entry reads no differently
 from one in the math. What `in_math` decides on the page is what
 [`inline_expressions=`](../typeset.md) may substitute away. An entry that the
@@ -114,8 +114,8 @@ The declaration of an entry is not degree-checked at all. There is nothing to
 check it _against_ until something reads it.
 
 Degree is a rule about the position that does the reading. So it fires
-unconditionally on the expanded tree of **every** constraint, of the objective,
-and of each piecewise link. Those are the same rules and the same messages that
+unconditionally on the expanded tree of every constraint, of the objective, and
+of each piecewise link. Those are the same rules and the same messages that
 would refuse a variable divisor, or a degree-3 product, written out by hand.
 
 A constraint that references `lcoe` inlines its body, and hits the divisor rule
@@ -156,7 +156,7 @@ Constraint 'd': a dual exists only after a solve; the math cannot read one —
 keep the entry that carries it out of constraints, the objective, bounds and where.
 ```
 
-The check runs on the **expanded** tree. So a macro, or an inlined named
+The check runs on the expanded tree. So a macro, or an inlined named
 expression, cannot smuggle a `dual` into the math.
 
 Where a constraint's `where:` deletes a row, that row has no dual. So `dual(c)`
@@ -170,11 +170,11 @@ also differ, legitimately, on which rows those are.
 
 The language refuses none of these at load, because capability is not the
 limit. See
-[limits](../../about/limits.md#capability-is-not-the-limit), where a set
+[limits](../../about/limits.md#what-a-solver-can-take-is-a-separate-question), where a set
 reformulated into binaries "returns no duals where the native form does".
 
-So `dual(c)` where a solve reports no dual is a **documented absence that a
-consumer names**. It is the same null. It is not a value that the language
+So `dual(c)` where a solve reports no dual is an absence that the consumer
+names. It is the same null. It is not a value that the language
 promises is there.
 
 The sign is fixed by the constraint as written, together with the declared
@@ -190,13 +190,13 @@ reading the same model still agree on the sign.
 
 ## How a consumer reads a reported entry
 
-A reported entry is **observable**, just like an entry in the math. After a
+A reported entry can be read back, just like an entry in the math. After a
 solve, a consumer reads its value back over its own dimensions. Those dimensions
 fall out of its body, exactly as any entry's do, so there is no `foreach` and no
 `where`.
 
 The difference between the two is _what the math reads_. An entry in the math is
-a form that a sink ingests, and it is inlined wherever the objective or a
+a form that a solver takes, and it is inlined wherever the objective or a
 constraint names it. A reported entry is read by nothing in the model.
 
 Where a masked row leaves a solved quantity absent, the reported value is absent

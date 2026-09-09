@@ -6,7 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA in one file
 
 This is the model that a plain `n.optimize()` builds, stated as one file. It
-grows one rung at a time, towards
+grows one **rung** at a time, where a rung is one group of PyPSA rows stated in
+full, towards
 [milestone 1](https://github.com/energy-models/math-spec/milestone/1).
 
 The index below lists every row that PyPSA emits, from PyPSA `1.3.0`,
@@ -43,8 +44,7 @@ segment or per scenario.
 Each rung's banner below states what PyPSA solved its reference network to.
 
 What an engine makes of the same rung is that engine's own record. That covers
-the objective and the prices across the fence, and the two linopy models
-compared label for label. lpspec certifies itself against these rungs under
+the objective, the prices, and the two linopy models compared label for label. lpspec certifies itself against these rungs under
 `differential/pypsa/` in its own tree.
 
 <!-- reference:spine:begin -->

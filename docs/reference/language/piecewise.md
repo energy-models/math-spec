@@ -5,14 +5,15 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Piecewise curves and SOS
 
-These are two blocks for shapes that a purely affine language cannot state
-directly. The first is a curve through breakpoints. The second is a family of
-variables of which only one, or only two neighbours, may be non-zero.
+Two blocks state shapes that no `expression:` can, because an expression is
+affine. `piecewise:` states a curve through breakpoints. `sos:` states a family
+of variables of which only one, or only two neighbours, may be non-zero.
 
 ## `piecewise`
 
-A `piecewise` block pins several expressions together to a piecewise-linear
-curve that is indexed by breakpoints.
+A `piecewise` block ties two or more expressions to one piecewise-linear curve.
+The curve is given as breakpoints, which are the corner values each expression
+takes together.
 
 <!-- doctest: wrap=piecewise -->
 
@@ -45,11 +46,11 @@ curve runs, and it is described below. `activity:` answers a different question
 again: not how long a curve is, but whether the curve _applies_ at all, gated by
 a variable.
 
-A block **expands before building**, into plain variables and constraints. For
-three of the four methods it expands through a λ convex combination: weights in
-`[0,1]`, a convexity row, and one link row per tuple. That expansion is what the
-rest of the model sees, and it is what the
-[typeset output](../typeset.md) shows.
+A block expands before building, into plain variables and constraints. Three of
+the four methods expand the same way: one weight per breakpoint, each in
+`[0, 1]`, one row making the weights sum to 1, and one row per link that ties
+its expression to the weighted breakpoints. That expansion is what the rest of
+the model sees, and it is what the [typeset output](../typeset.md) shows.
 
 A curve is supplied everywhere it is built. The expansion emits one weight per
 breakpoint over the whole product of its dimensions, and it masks none of them.
@@ -99,7 +100,7 @@ dimension has: the order in which its labels are first written. It is the order
 
 So the `bp` index is the x-axis of the curve, and a values parameter is a lookup
 against that index. A table is a function of its coordinates, and the order its
-rows arrive in means nothing, on either lane.
+rows arrive in means nothing, in any consumer.
 
 "Strictly increasing breakpoints" below means increasing _in that index order_.
 Write the index backwards, and the curve really does run backwards, which is
@@ -124,7 +125,7 @@ A length is a fact about the curve, so this keeps the length there. The other
 links are still read against the parameter you named, so a row missing from
 `bp_y` is refused.
 
-Where the length is its own data, name a **boolean parameter** instead. That
+Where the length is its own data, name a boolean parameter instead. That
 answers a different question: not _how long the curve is_, but _how much of it
 to use_.
 
@@ -137,14 +138,13 @@ gap, or a curve with no points at all, is refused when the data binds. The chord
 row joins each breakpoint to the one before it, and the two domain rows sit on
 the curve's own first and last breakpoints.
 
-Sometimes the number of tied expressions is data: one component ties three
-where another ties two. Then you
-[write the λ formulation out directly](#when-the-number-of-tied-expressions-is-data-the-formulation-is-four-declarations)
-instead of using this block
-([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
+Sometimes the number of tied expressions is data, as when one component ties
+three flows and another ties two. Then
+[write the curve out by hand](#writing-the-curve-out-by-hand) instead of using
+this block ([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
 
-`method` is the one thing that varies. For the three methods that share the
-λ expansion, it varies in exactly one place: how the weights are restricted,
+`method` is the one thing that varies. Across the three methods that share the
+expansion above, it varies in one place only: how the weights are restricted,
 once they exist.
 
 | `method`                | What it adds                                                                   |                                                                 |
@@ -158,18 +158,18 @@ once they exist.
 They differ in what the solver is handed. So which one is faster is a property
 of the solver, not of the model.
 
-`convex` is a **different model**. It is exact only for a curve whose curvature
+`convex` is a different model. It is exact only for a curve whose curvature
 matches the optimisation pressure, and that match is checked against the
 breakpoint _values_ when the data binds. It takes exactly two links, and no
 `activity:`.
 
 ### `lp`, which declares no auxiliary variable
 
-`lp` states the curve as its **segment lines**, instead of interpolating between
+`lp` states the curve as its segment lines, instead of interpolating between
 its breakpoints. So it declares no auxiliary variable at all, where the other
 methods carry one weight per breakpoint per frame row.
 
-It needs exactly two links, and one of the two must be bounded with `<=` or
+It needs **exactly two links**, and one of the two must be bounded with `<=` or
 `>=`. It takes no `activity:`, because there are no weights for a gate to pin
 down.
 
@@ -184,7 +184,7 @@ cost_curve:
     - [op_cost, bp_y, ">="] # cost bounded below by the curve
 ```
 
-The trade is **columns for rows**. You get one row per segment plus the two
+The block trades columns for rows. You get one row per segment plus the two
 domain rows, in place of K weight columns. On a dispatch model with 20
 generators, 48 snapshots and 6 breakpoints, that is 7680 columns down to 1920,
 and 2928 rows up to 6768, at the same optimum
@@ -192,19 +192,19 @@ and 2928 rows up to 6768, at the same optimum
 
 Two things follow from stating lines rather than weights:
 
-- **The curvature has to match the sign**, and getting it wrong is silent. Lines
+- The curvature has to match the sign, and getting it wrong is silent. Lines
   that envelope a convex curve _cut_ a concave one, and the solve then comes
   back optimal with a wrong answer. So `>=` requires a convex curve, and `<=`
   requires a concave one. Both are checked against the values when the data
   binds. This check is stricter than the one `convex` runs, which only refuses a
   _mixed_ curve.
-- **A line does not stop where its segment does.** So the block emits the two
+- A line does not stop where its segment does. So the block emits the two
   domain rows that hold the pinned link inside the breakpoint range. Without
   those rows, the formulation would extrapolate along the end segments, where the
   weight forms cannot go. These are the same rows that `linopy`'s own `lp`
   method emits.
 
-### When the number of tied expressions is data, the formulation is four declarations
+### Writing the curve out by hand
 
 `links:` is a list, so the number of expressions a block ties is written in the
 file. Sometimes that number is a property of the system, as when a boiler ties
@@ -258,13 +258,13 @@ pick_one_size:
   big_m: 500 # optional, and only read by a solver that has to reformulate
 ```
 
-`type: 1` is a **choice**: at most one member of the family is non-zero.
+`type: 1` is a choice: at most one member of the family is non-zero.
 
-`type: 2` is an **interpolation**: at most two members are non-zero, and those
+`type: 2` is an interpolation: at most two members are non-zero, and those
 two must be _consecutive_. That is what makes `type: 2` the native spelling of a
 piecewise-linear curve.
 
-A set is over one variable, and a variable holds one set. A second block
+A set is over **one** variable, and a variable holds **one** set. A second block
 that names the same variable is a load error.
 
 Membership belongs to the variable. The variable's `where` decides which
@@ -284,7 +284,7 @@ model, so neither one is silent:
 
 - The rewrite is **mixed-integer**. So a set on an otherwise continuous model
   gives up its duals.
-- **M has to be finite.** So every member needs either a `bounds.upper` or a
+- M has to be **finite**. So every member needs either a `bounds.upper` or a
   `big_m:`, and a negative `bounds.lower` is refused. `big_m` caps a loose
   bound, and the _tighter_ of the two values is used, because tighter gives a
   better relaxation.

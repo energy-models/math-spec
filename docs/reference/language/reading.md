@@ -105,18 +105,17 @@ as a `checks` tuple. Each check carries the names it is about. So the consumer
 that holds the numbers runs the check, and `check_message` gives the sentence to
 raise.
 
-What the expansion emitted is answered where you ask it instead. A
-`ParameterDeclaration.derivation` says how that parameter is filled, and `None`
+To find out where a declaration came from, ask the declaration.
+`ParameterDeclaration.derivation` says how a parameter is filled, and `None`
 means the caller binds it.
 
-Nothing here is built by hand. The program's nodes are exported so that you
-dispatch on them with `isinstance` and read them. That is why what ships beside
-them is the walk, `children()`, and not a set of builders.
+You never build a node yourself. The node classes are exported so that you can
+test one with `isinstance` and read it. That is why `children()`, which walks a
+node's operands, ships beside them, and no builders do.
 
-A mask is a `Mask`. Its `.root` is the language's own resolved `where`, which is
-the node an engine still dispatches on with `isinstance`. Every other question
-is derived from that root and carried on the mask, in the way a dimension
-carries `.maps`:
+Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate, which
+is the node an engine tests with `isinstance`. The mask answers four more
+questions about that root, so that no consumer works them out again:
 
 - `.conjuncts` flattens the `AND` spine, and stops at an `OR` or a `NOT`.
 - `.names_read` gives the declarations that the mask names.
@@ -125,29 +124,24 @@ carries `.maps`:
   leaves, which resolution stamped with their declarations' dimensions, in the
   same way a lookup leaf carries the dimension it maps out of.
 
-So a predicate that a consumer builds from resolved pieces answers exactly as a
-declaration's own predicate does. Wrap it in `Mask`, or build it there with `~`,
-`&` and `|`.
+A predicate you build yourself answers the same four questions. Wrap it in
+`Mask`, or build it there with `~`, `&` and `|`.
 
-Construction folds as it goes. A double negation cancels. A literal flips or is
-absorbed, rather than being buried in the tree. So a boolean literal stands at a
-mask's root or nowhere at all, whether the mask was derived or carried. A tree
-with unresolved leaves is refused at the door.
+A mask folds as it is built. A double negation cancels, and a `True` or `False`
+is absorbed instead of being buried in the tree. So a boolean literal stands at
+a mask's root or nowhere at all. A tree with an unresolved leaf is refused.
 
-A consumer asks the mask rather than re-deriving any of this from `.root`. So two
-consumers cannot come to disagree about what a conjunct, a name or a comparison
-is.
+Ask the mask rather than reading `.root` again yourself. Then two consumers
+cannot disagree about what a conjunct, a name or a comparison is.
 
-A `Region`'s `when` arrives in the same carrier. The node classes that a `.root`
-is built from live in `math_spec.program`, beside every other node a consumer
-dispatches on.
+A `Region`'s `when` arrives as a `Mask` too. The node classes a `.root` is built
+from live in `math_spec.program`, beside every other node a consumer reads.
 
 ## Asking what a program uses
 
 `program.footprint` tells you which of the language's constructs one program
-actually reaches for. It is a subset, and never the whole language. It is
-walked once and then held, which is safe because a program cannot change after
-it is built.
+uses. It is walked once and then held, which is safe because a program cannot
+change after it is built.
 
 ```python
 footprint = program.footprint
@@ -166,33 +160,32 @@ that the construct does not exist. When a construct is admitted to the language
 later, it widens one of these sets, rather than needing a new field that no
 consumer yet reads.
 
-!!! note "The footprint answers what the program uses, and never what you can do about it"
+!!! note "The footprint says what the program uses, and never what to do about it"
 
-    What a sink can ingest is a separate axis; see
-    [capability is not the limit](../../about/limits.md). On that axis, a
-    capability is neither a flat set nor a single verdict per construct. SOS is
-    solver-bounded. Quadratic is bounded twice over on a single sink, once by
-    convexity and again by what it stands beside.
+    Whether your sink can take a construct is your question, and not the
+    footprint's. See
+    [what a solver can take](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
+    One construct can have more than one answer on one sink: a quadratic form is
+    bounded once by whether it is convex, and again by what stands beside it in
+    the model.
 
-So the footprint carries no verdict for a consumer to read in place of deciding
-for itself. Convexity is absent for a different reason: it depends on
-coefficient data, rather than on anything a program states.
+Whether a form is convex is not reported at all, because it depends on the
+numbers rather than on anything the file states.
 
 The footprint stops at the kind of construct. Take a sink that accepts a window
-but not a wrapped window. It reads `Window in footprint.shapes`, and then it
-walks the tree. Refinements such as `wrap`, `partition` and a named width go on
-without end, and each one is a single line of code once the set has said where
-to look.
+but not a wrapped one. It reads `Window in footprint.shapes`, and then walks the
+tree for the detail. There is no end to such details, and each is one line of
+code once the footprint has said where to look.
 
 ## Asking whether an axis can be cut
 
-A driver that solves a horizon in windows needs one thing from the model before
-it starts. A rolling horizon and a myopic pathway are both such drivers, and the
-question is whether every row it builds is complete inside some window.
+A program that solves one long horizon in short windows has to know one thing
+first: whether every row of the model is complete inside a single window. A
+rolling horizon and a myopic pathway both need that answer.
 
-Storage carried over a snapshot is complete inside a window, once the windows
-overlap by one row. An annual budget never is. And the windows still solve, so
-nothing else in the pipeline would tell you.
+Storage carried from one snapshot to the next is complete inside a window, as
+long as neighbouring windows overlap by one row. An annual budget never is. The
+windows still solve either way, so nothing later would tell you.
 
 ```python
 program.separability['bp'].windowable  # False
@@ -206,14 +199,13 @@ ties each one. That includes the three declarations that the `piecewise:` block
 emitted, so a coupling introduced by an expansion is named under the name the
 expansion gave it, rather than under the block that a reader wrote.
 
-This is the same locality that [the limits](../../about/limits.md) already
-argues in, which is pointwise, bounded halo and global. Here the question is
-asked about a dimension rather than about an operator.
+[The limits](../../about/limits.md) asks the same question about one operator.
+Here it is asked about one dimension of one model.
 
 Every declared axis has an entry. The report is walked once and held, like
-[`footprint`](#asking-what-a-program-uses). Answering for every axis costs what
-answering for one axis did, because every construct that ties an axis also names
-the axis it ties.
+[`footprint`](#asking-what-a-program-uses). Answering for every axis costs no
+more than answering for one, because a construct that ties an axis names that
+axis.
 
 `ahead` is how many coordinates a window must see past its last row. It is `0`
 where every row is pointwise, and `2` for a `shift` of `-2`.
@@ -222,28 +214,30 @@ What a row reads _behind_ is not reported. A window starts where the driver puts
 it, and what its first rows meet there is a matter of edge policy. That policy is
 the opening state a rolling horizon seeds, and it is the driver's to carry.
 
-What would break comes in three kinds, so that a driver can act on each one.
+What stops an axis being cut comes in three kinds, and each one asks something
+different of the caller.
 
-`coupled` names each declaration that ties the axis together. Such a declaration
-can be a sum over the axis in a constraint, a grouping that consumes the axis, a
-wrapped shift, or a set. After the dash, it names the one modelling change that
-would remove the coupling: a horizon total becomes a rolling `sum_back`, a wrap
-becomes an opening-state seed, and a grouping is windowed along the dimension it
-groups into. No window satisfies a coupling, and no rewrite keeps the meaning of
-the model, so the remedy is named and not applied.
+`coupled` names each declaration that ties the whole axis together. That can be
+a sum over the axis in a constraint, a grouping that consumes the axis, a
+wrapped shift, or a set. After the dash, each entry names the one change to the
+model that would remove the tie: a horizon total becomes a rolling `sum_back`, a
+wrap becomes an opening state that the caller seeds, and a grouping is windowed
+along the dimension it groups into. No window size satisfies a tie, and no
+rewrite keeps the model's meaning, so the report names the change and never
+applies it.
 
 `undecided` lists each read whose reach only the data can say. Each entry is a
-`Reach`, carrying the declaration, the parameter or lookup, and what that stands
-as. It stands as an `offset` taken from a parameter, a `partition` that a shift
-is grouped by, or a `coordinate` read through `at()`.
+`Reach`, and it carries the declaration, the parameter or lookup it reads, and
+which kind of read it is: an `offset` taken from a parameter, a `partition` that
+a shift is grouped by, or a `coordinate` read through `at()`.
 
-A driver that holds the data reads the least value of each named parameter and
-hands it to `resolved`. That folds the value in, and returns the same verdict
-with those reads decided. One rule has one home there: a negative offset reads
-ahead, and a positive offset reads behind and asks nothing.
+A caller that holds the data reads the smallest value of each named parameter
+and hands it to `resolved`. That returns the same report with those reads
+decided. A negative offset reads ahead; a positive offset reads behind, and asks
+for nothing.
 
-A reach that a lookup decides is not a value. So it stays undecided, and the
-driver either refuses it or resolves it itself.
+A reach that a lookup decides is not a number, so it stays undecided. The caller
+either refuses it or resolves it itself.
 
 `restarts` names each declaration that counts a `position()` along the axis,
 because a window restarts that count at its first row.
@@ -251,13 +245,13 @@ because a window restarts that count at its first row.
 `windowable` is false while anything is coupled or undecided. A restart does not
 count against it.
 
-A reduction means opposite things depending on its position. In a constraint, a
-sum over the axis ties every window to every other window. In the objective,
-the same sum is additively separable, because an objective is a sum already.
+The same sum means opposite things in the two places it can stand. In a
+constraint, a sum over the axis ties every window to every other window. In the
+objective, it does not, because an objective is a sum of windows already.
 
-Two things are not decided here. The first is whether the windowed answer is the
-whole-horizon answer. A store carried over one row windows cleanly, and a
-rolling solve of it is still a different answer. The second is whether the
-modeller _wanted_ a restart. A `position(t) == 0` seed fires once over a
-horizon, and once per window, and both of those are models that somebody
+Two things this report does not decide. It does not say whether the windowed
+answer equals the whole-horizon answer: a store carried over one row windows
+cleanly, and a rolling solve of it is still a different answer. And it does not
+say whether the modeller wanted a restart, because a `position(t) == 0` seed
+fires once over a horizon and once per window, and both are models that somebody
 means.

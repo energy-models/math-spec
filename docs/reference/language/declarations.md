@@ -13,7 +13,7 @@ A `#` comment is thrown away, but a description is part of the loaded model, so
 it reaches everything downstream. The [typeset](../typeset.md) legend prints
 the description on a dimension, a parameter or a variable.
 
-A description is **plain prose, in no notation.** Every output format sets the
+A description is **plain prose**, in no notation. Every output format sets the
 same words as text. Each format escapes whatever its own syntax would otherwise
 read as markup. So an underscore stays an underscore, and `$\ell$` prints as
 those five characters instead of a symbol. Write the thing itself rather than
@@ -22,9 +22,9 @@ its symbol: write "flow on a line", not "flow on line $\ell$".
 ## `parameters`
 
 A parameter declares a shape and nothing more. The numbers bind by name at run
-time, inside whatever consumes the syntax tree.
+time, inside the program that reads the model and builds it.
 
-Three things about that binding are not the consumer's to decide: where a
+Three things about that binding are not that program's to decide: where a
 dimension's members come from, what order they stand in, and the rule that a
 table carries each coordinate at most once. Those three are covered in
 [dimensions](dimensions.md).
@@ -58,12 +58,12 @@ decides four things:
 So a column that disagrees with the declared `dtype` describes a model that the
 data does not build. Such a column does not bind.
 
-| declared | the column                             |                                                                 |
-| -------- | -------------------------------------- | --------------------------------------------------------------- |
-| `float`  | a float column — **or an integer one** | whole numbers are numbers, the one widening                     |
-| `int`    | an integer column                      | which is why a fractional position cannot arrive                |
-| `bool`   | a boolean column                       | `1` and `0` are not booleans. Cast the column, or declare `int` |
-| `str`    | a string column                        |                                                                 |
+| declared | the column                            |                                                                 |
+| -------- | ------------------------------------- | --------------------------------------------------------------- |
+| `float`  | a float column, or **an integer one** | whole numbers are numbers, and this is the one widening allowed |
+| `int`    | an integer column                     | which is why a fractional position cannot arrive                |
+| `bool`   | a boolean column                      | `1` and `0` are not booleans. Cast the column, or declare `int` |
+| `str`    | a string column                       |                                                                 |
 
 Arithmetic works over numbers, so only `float` and `int` are values. A `str`
 parameter is a label, and a `bool` parameter is a mask. Each of them names
@@ -176,7 +176,7 @@ one value for a parameter's `dims: []`, one column for a variable's
 `foreach: []`, and one row for a constraint's. So you never write a scalar as a
 dummy dimension of size 1.
 
-There is one gap here. A scalar **variable** may not carry a `where`
+There is one gap here. A scalar _variable_ may not carry a `where`
 ([#340](https://github.com/fluxopt/lpspec/issues/340)). Put the condition on the
 constraints that use it instead.
 
@@ -227,7 +227,7 @@ objective:
 | `sense`       | `minimize` or `maximize`                 | default `minimize` |
 | `description` | free text                                | default `null`     |
 
-There is no `foreach` here, and **the expression must be scalar.** Anything
+There is no `foreach` here, and the expression must be **scalar**. Anything
 else is a load error, and the message names the wrapper it wants.
 
 Nothing is summed for you. So the file says where the sum closes, and you do not

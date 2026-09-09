@@ -23,12 +23,11 @@ language: a schema closed at every level, two small grammars, every check that
 can be run before a single number is bound — and a typesetter that prints the
 file as the math it stands for.
 
-It builds nothing and it solves nothing. What it hands a consumer is a checked
-AST and one rule per question, so that an engine, a renderer and a checker
-reading the same file cannot disagree about what it says. Whether two consumers
-answering a question separately would be a bug is the whole
-[test](docs/about/what-counts-as-language.md) for whether that question belongs
-here at all.
+It builds nothing and it solves nothing. What it hands a program is a checked
+syntax tree, with one answer per question, so that an engine, a renderer and a
+checker reading the same file cannot disagree about what it says. A question
+belongs here when two programs answering it separately would be a bug, and that
+is the whole [test](docs/about/what-counts-as-language.md).
 
 Three properties follow from that, and each is a page:
 
@@ -37,10 +36,10 @@ Three properties follow from that, and each is a page:
   template is parsed and name-checked at load. Where a file does not determine
   the answer, loading fails and the message names the rewrite
   ([errors and limits](docs/reference/language/errors.md)).
-- **The language is finite, and the limit is argued rather than drawn.** A
-  primitive is admissible if it is relational and local; everything else is a
-  macro, or an `escape:` island that is visible in the file and billed before it
-  runs ([the limits](docs/about/limits.md)).
+- **The operators are a fixed set.** Nothing registers another one. Anything
+  else is a macro over the operators that exist, or an `escape:` block of
+  Python, named in the file and capped before it runs
+  ([the limits](docs/about/limits.md)).
 - **The file is the document.** A model prints as LaTeX, Typst or Markdown from
   the file alone — no data, no solver, no second source of truth
   ([typeset](docs/reference/typeset.md)).
@@ -50,12 +49,12 @@ Three properties follow from that, and each is a page:
 ```mermaid
 flowchart LR
     Y["model.yaml"] --> S["schema<br/>closed at every level"]
-    S --> AST["core AST<br/>two grammars"]
+    S --> AST["syntax tree<br/>two grammars"]
     AST --> Q{"inside the<br/>language?"}
     Q -->|"no"| ERR["load error<br/>naming the construct + rewrite"]
     Q -->|"yes"| M["Spec<br/>what the file says"]
-    M -->|"to_program"| P["Program<br/>names, dims and operators resolved"]
-    P --> ENG["a consumer → solver"]
+    M -->|"to_program"| P["Program<br/>names, dimensions and operators resolved"]
+    P --> ENG["a program that builds → solver"]
     M --> T["to_latex / to_typst / to_markdown"]
 
     classDef spec fill:#f0f7f0,stroke:#3a7d44,stroke-width:2px,color:#111
@@ -210,12 +209,12 @@ git reference until then; see [RELEASING.md](RELEASING.md).
 
 Every file under `src/` was written in
 [lpspec](https://github.com/fluxopt/lpspec) and extracted here so that the
-language, and the AST a consumer reads it through, are a dependency rather than
-one engine's internals. The surface — YAML math, a block per component,
-`foreach:`, a `where:` string — comes from
-[Calliope](https://github.com/calliope-project/calliope);
-[linopy](https://github.com/PyPSA/linopy) supplies the shared vocabulary that
-`sum(over=)` and the dim algebra are named against. Issue numbers in these pages
+language, and the syntax tree a program reads it through, are a dependency rather than
+one engine's internals. The keys themselves — YAML math, a block per component,
+`foreach:`, a `where:` string — come from
+[Calliope](https://github.com/calliope-project/calliope).
+[linopy](https://github.com/PyPSA/linopy) supplies the vocabulary that
+`sum(over=)` and the dimension rules are named against. Issue numbers in these pages
 point at lpspec, which is where the arguments happened.
 
 ## Status

@@ -56,8 +56,7 @@ version: 0
 dimensions: ...
 ```
 
-`0` means unstable. The surface may change in any release, and saying so in the
-file is more honest than saying nothing.
+`0` means unstable. The surface may change in any release, and the file says so.
 `0` will not become `1` without a changelog entry that names what moved.
 
 If this release does not know the version you give, that is a load error and
@@ -69,7 +68,7 @@ model declares version 1, and math_spec 0.0.1a75 understands [0].
 Upgrade math_spec, or write the version this file actually targets.
 ```
 
-This is a **language** version, not a package version. It moves when the
+This is a language version, and not a package version. It moves when the
 accepted YAML surface moves, and most releases do not move it.
 
 ## An unrecognised key is refused
@@ -87,18 +86,18 @@ unmasked.
 
 ## How the YAML is read
 
-- **Booleans follow YAML 1.2**, so only `true` and `false` are booleans.
+- Booleans follow **YAML 1.2**, so only `true` and `false` are booleans.
   Everything else is read as YAML 1.1. Under 1.1, the values `on`, `off`, `yes`,
   `no`, `y` and `n` all become booleans, and a declaration named after a country
   code stops being a name. Because booleans are 1.2 here, `no: {dtype: str}` is
   a dimension called `no`.
-- **Implicit timestamps** such as `2024-01-01`, and sexagesimal integers such as
+- Implicit timestamps such as `2024-01-01`, and sexagesimal integers such as
   `12:30`, which becomes `750`, both survive. Neither of them reaches a
   coordinate, because a coordinate is data. The one place you read such a value
   as a label is a literal in a `where` string. There, the `dtype` of the name it
   is compared against catches the problem. See
   [expressions](expressions.md#where-strings).
-- **A duplicate key is a load error**, and the message names both lines.
-- **`<<:` merge keys are honoured.** If the mapping declares a key itself, that
+- A duplicate key is a **load error**, and the message names both lines.
+- `<<:` merge keys are honoured. If the mapping declares a key itself, that
   key overrides the merged value.
 - The document must be a mapping.

@@ -5,11 +5,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Dimensions and lookups
 
-A **dimension** is an axis of the model. Something is indexed by it, or an
-aggregation lands terms on it.
+A **dimension** is an axis of the model, such as `snapshot` or `generator`.
+Declarations are indexed by it, and `sum` can add terms up along it.
 
-A **lookup** is a named map out of a dimension that gives one value per label.
-A generator's bus and a snapshot's period are both lookups.
+A **lookup** is a named map out of a dimension, giving one value for each of its
+members. A generator's bus is a lookup, and so is a snapshot's period.
 
 The two are different things, and the file keeps them apart.
 
@@ -44,9 +44,10 @@ say. The three rules below say how the data says it.
 
 The file declares an axis. The data supplies its members. Between those two
 sentences sit three facts that together decide which model a file and a table
-make. If a consumer answered any of the three differently, it would build a
-different model from the same two inputs. So these facts belong to the
-language. A consumer implements them; it does not choose them.
+make. If two programs answered any of the three differently, they would build
+different models from the same two inputs. So these facts belong to the
+language. A program that reads a model implements them, and does not choose
+them.
 
 The members come from the dimension's own source. They are read from the
 key named after the dimension, and from nowhere else. A parameter's table is
@@ -72,7 +73,7 @@ order they arrive.
     order, it states that order in the source it hands over.
 
 A parameter's table carries each coordinate of its
-`dims` at most once. A second row for one coordinate is an error that names the
+`dims` **at most once**. A second row for one coordinate is an error that names the
 coordinate. It is never a last-wins, a first-wins, or a sum. Each of those
 three readings is defensible, which is why the file may not leave the choice
 open. A lookup's map obeys the same rule one axis over, and says so
@@ -197,8 +198,8 @@ instead of being rejected.
 
 ## Dimension or lookup?
 
-If `b` has one value per `a`, then **`b` is a lookup over `a`, and not a
-dimension**. Take a `foreach` product over dimensions that are functionally
+If `b` has one value per `a`, then `b` is a **lookup** over `a`, and not a
+dimension. Take a `foreach` product over dimensions that are functionally
 dependent, then cut it back with a mask. That shape is exactly what `lookups`
 exists to replace.
 

@@ -5,11 +5,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Contributing
 
-math-spec is an actively maintained and utilised project.
+math-spec is actively maintained and used.
 
 ## How to contribute
 
-to report issues, request features, or exchange with our community, just follow the links below.
+To report an issue, request a feature, or talk to the community, follow the links below.
 
 <div class="grid cards" markdown>
 
@@ -22,7 +22,7 @@ to report issues, request features, or exchange with our community, just follow 
 
 ## Developing `math-spec`
 
-To find beginner-friendly existing bugs and feature requests you may like to start out with, take a look at our [good first issues](https://github.com/energy-models/math-spec/contribute).
+Our [good first issues](https://github.com/energy-models/math-spec/contribute) are the bugs and feature requests to start out with.
 
 ### Setting up a development environment
 
@@ -35,7 +35,7 @@ To create a development environment for `math-spec`, use [pixi](https://pixi.pre
 pixi install
 ```
 
-If you plan to make changes to the code then please make regular use of the following tools to verify the codebase while you work:
+If you plan to change the code, use these tools while you work:
 
 - `pre-commit`: run `pixi run pre-commit-install` in your command line to load inbuilt checks that will run every time you commit your changes.
   The checks include:
@@ -47,14 +47,14 @@ If you plan to make changes to the code then please make regular use of the foll
 - `pixi run test` - run the unit test suite.
 - `pixi run test-coverage` - the same, with test coverage.
 - `pixi run compile-tex` - render every model in the tree to standalone LaTeX and compile it, which is how the typeset output is proven to be a real document.
-- `pixi run ci` - all four gates CI runs — lint, tests, a strict docs build and the LaTeX compile — in the order a failure is cheapest to read. About fifteen seconds; worth a run before you push.
+- `pixi run ci` - the four gates CI runs: lint, tests, a strict docs build and the LaTeX compile, in the order a failure is cheapest to read. Run it before you push.
 
 ## Documentation
 
-With any contribution, you may need to update / add to the documentation (in the `docs` directory).
-We use [MkDocs](https://www.mkdocs.org/) and the [Material](https://squidfunk.github.io/mkdocs-material/) theme to build and render our documentation, meaning you can write your documentation in Markdown files.
+A contribution may need the documentation in the `docs` directory updated with it.
+The pages are Markdown, built by [MkDocs](https://www.mkdocs.org/) with the [Material](https://squidfunk.github.io/mkdocs-material/) theme.
 
-Here are some use-cases that you may come across in which you are considering updating the documentation:
+These are the cases that come up:
 
 ??? question "I have updated the README.md"
 
@@ -127,8 +127,8 @@ Here are some use-cases that you may come across in which you are considering up
 
 ??? question "I want to update the Python API docs"
 
-    As with example notebooks, we update these pages automatically.
-    So, if you've added content within your project (a new class, module, etc.), you will see them in your next iteration of the documentation.
+    These pages are generated.
+    A new class or module appears in the next documentation build.
 
 ??? question "I want to automatically process a number of files into pages in the docs"
 
@@ -144,7 +144,7 @@ Here are some use-cases that you may come across in which you are considering up
 
 ??? question "I want to do something else"
 
-    We recommend exploring the [MkDocs](https://www.mkdocs.org/) and the [Material](https://squidfunk.github.io/mkdocs-material/) documentation if we haven't answered your question.
+    The [MkDocs](https://www.mkdocs.org/) and [Material](https://squidfunk.github.io/mkdocs-material/) documentation answers what this page does not.
 
 ## Submitting changes
 

@@ -8,24 +8,24 @@ SPDX-License-Identifier: CC-BY-4.0
 An operator reduces an expression along a dimension, or re-indexes it. These
 are the operators the language has:
 
-| Operator                                           | Result                                                                                                                             |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `sum(array)`                                       | Every dimension that `array` carries collapses. The result is a scalar                                                             |
-| `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                          |
-| `sum(array, by=lookup)`                            | The dimension that the lookup is over collapses onto the dimension it maps into                                                    |
-| `sum(array, by=[lookup, …])`                       | The same, onto every dimension that the lookups map into. All the lookups must be over the same dimension                          |
-| `at(array, by=lookup)`                             | The dimension that the lookup maps into is replaced by the dimension it is over                                                    |
-| `shift(array, over=dim, offset=n)`                 | The value at _t−n_ along `dim`. The vacated edge is **absent**                                                                     |
-| `shift(array, over=dim, offset=n, edge='wrap')`    | The value at _t−n_, taken cyclically, so nothing is vacated                                                                        |
-| `shift(array, over=dim, offset=n, edge=v)`         | The value at _t−n_, with the number `v` standing where the edge was vacated                                                        |
-| `shift(array, over=dim, offset=p, edge=…)`         | Here `p` is an integer parameter, so each entity is reached by **its own** offset. Declared over what a `by=` groups into, it gives one lag per group |
-| `shift(array, over=dim, offset=n, by=lookup)`      | The translation walks **inside each group** that the lookup makes. Neighbours, edges and a wrap all belong to that group           |
-| `sum_back(array, over=dim, within=n)`              | The sum of the last `n` positions along `dim`, ending at _t_                                                                       |
-| `sum_back(array, over=dim, within=p)`              | Here `p` is an integer parameter, so each entity gets **its own** window length                                                    |
-| `sum_back(array, over=dim, within=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                         |
+| Operator                                           | Result                                                                                                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sum(array)`                                       | Every dimension that `array` carries collapses. The result is a scalar                                                                            |
+| `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
+| `sum(array, by=lookup)`                            | The dimension that the lookup is over collapses onto the dimension it maps into                                                                   |
+| `sum(array, by=[lookup, …])`                       | The same, onto every dimension that the lookups map into. All the lookups must be over the same dimension                                         |
+| `at(array, by=lookup)`                             | The dimension that the lookup maps into is replaced by the dimension it is over                                                                   |
+| `shift(array, over=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                           |
+| `shift(array, over=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
+| `shift(array, over=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
+| `shift(array, over=dim, offset=p, edge=…)`         | Here `p` is an integer parameter, so each entity is reached by its own offset. Declared over what a `by=` groups into, it gives one lag per group |
+| `shift(array, over=dim, offset=n, by=lookup)`      | The translation walks inside each group that the lookup makes. Neighbours, edges and a wrap all belong to that group                              |
+| `sum_back(array, over=dim, within=n)`              | The sum of the last `n` positions along `dim`, ending at the position being written                                                               |
+| `sum_back(array, over=dim, within=p)`              | Here `p` is an integer parameter, so each entity gets its own window length                                                                       |
+| `sum_back(array, over=dim, within=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                        |
 
 `array` is any expression with the right dimension set, so each of these
-operators reads a **parameter** just as readily as a variable. Dimension
+operators reads a parameter just as readily as a variable. Dimension
 arguments are name-checked at load, so `sum(p, over=snapshto)` is an error
 rather than a silent no-op. To see how the typesetter prints each row, see
 [Every operator as math](#every-operator-as-math) below.
@@ -48,7 +48,7 @@ otherwise leave implied.
 Two things are errors rather than no-ops here: an operand that is already
 scalar, and an `over=` that names a dimension the operand does not carry.
 
-`sum(x, by=l)` sums **along a lookup**, and it lands the result on the
+`sum(x, by=l)` sums along a lookup, and it lands the result on the
 dimension that the lookup maps into. See [lookups](dimensions.md#lookups). This
 is the membership sum that makes topology into data rather than structure:
 
@@ -79,7 +79,7 @@ constraints:
 The same `f` is summed twice, through two different lookups: once as inflow and
 once as outflow. There is no adjacency matrix, and no join written by hand.
 
-Give at most one of `over=` and `by=`. A lookup carries its own dimensions,
+Give **at most one** of `over=` and `by=`. A lookup carries its own dimensions,
 so `by=` leaves `over=` nothing to add. If you give neither, you get the bare
 form shown above.
 
@@ -87,13 +87,13 @@ The values of the lookup are the group labels, and they are checked against the
 target dimension when the data binds. A group with no members contributes
 nothing. A member whose lookup value is null belongs to no group.
 
-An empty group holds a **value** rather than a gap. On the constant side of a
+An empty group holds a value rather than a gap. On the constant side of a
 comparison it reads as zero, whereas a coordinate that the data never covered
 is refused. See [absence](absence.md).
 
 ## `at`
 
-`at(x, by=l)` is the **adjoint of `sum(by=)`**, and it deliberately takes the
+`at(x, by=l)` is the adjoint of `sum(by=)`, and it deliberately takes the
 same single argument. The lookup names one mapping table, and the operator says
 which way that table is walked.
 
@@ -139,7 +139,7 @@ constraints:
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-`within=` takes a number or the name of an **integer parameter**. Those two
+`within=` takes a number or the name of an integer parameter. Those two
 forms and nothing else, so never an expression. With a named parameter, each
 entity gets a window of its own length, and that is the case with no
 workaround. You can write a fixed width as a run of `shift`s. You cannot write
@@ -149,16 +149,16 @@ table over the dimension twice, built outside the model and shipped with it.
 Two rules make a named width mean one thing, and breaking either is a load
 error:
 
-- **The width is integral.** A width counts positions; it does not measure a
+- The width is integral. A width counts positions; it does not measure a
   distance. `dtype: int` says so at load, and an `int` declaration binds only
   an integer column, so a width of `2.5` has nowhere to arrive from.
-- **The width does not span the dimension being summed over.** A width that
+- The width does not span the dimension being summed over. A width that
   changed along that axis would give a different window at every position, and
   that is no longer "the last _n_".
 
 `edge=` takes `'wrap'` or nothing at all.
 
-A window that reaches past the start of the axis is **short**, not empty. The
+A window that reaches past the start of the axis is **short**, and not empty. The
 position being written is always inside its own window, so no row is lost and
 there is nothing vacated to fill. A number here is a load error, because the
 expression can add a constant for itself.
@@ -195,28 +195,28 @@ condition out: the first snapshot reads the last.
 
 There are three settings, and two further rules that hold across all of them:
 
-- **Bare.** The vacated coordinate is **absent**. Absence propagates, and the
+- Bare. The vacated coordinate is **absent**. Absence propagates, and the
   row it would have fed is not built. See [absence](absence.md). So an acyclic
   recurrence has no row at its first coordinate, instead of a row asserting
   that the quantity starts at zero. The model then states an initial condition
   itself, under a complementary `where`. See
   [two regimes, two blocks](declarations.md#constraints).
-- **`'wrap'`.** The translation is cyclic. Coordinates stay put and values wrap
+- `'wrap'`. The translation is cyclic. Coordinates stay put and values wrap
   around, so nothing is vacated.
-- **A number.** That number stands where the slot was vacated, and the row
+- A number. That number stands where the slot was vacated, and the row
   survives. It is a number rather than a flag because the identity depends on
   the position: `0` for a sum, and `1` for a product. The library cannot see
   which position it is in, and the model can.
-- **Over a variable, the only numeric edge that can be represented is `0`.** A
+- Over a variable, the only numeric edge that can be represented is **`0`**. A
   vacated slot there contributes no term at all. A non-zero edge would be a
   constant standing where a term used to be.
-- **A bare `shift` over a variable-free expression is a load error.** A
+- A bare `shift` over a variable-free expression is a load error. A
   parameter's missing row is a zero coefficient, so there is no absence for the
   vacated slot to carry. Inventing one would silently turn
   `x <= shift(dt, over=t, offset=1)` into `x <= 0`.
 
   The error names what you could have meant: `edge='wrap'`, `edge=0`, or
-  `edge=0` **together with** a `where` that excludes the vacated coordinate.
+  `edge=0` together with a `where` that excludes the vacated coordinate.
   Those last two go together; they are not two alternatives. A `where` on its
   own does not remove the refusal, and `edge=0` on its own leaves a row at that
   coordinate whose bound is the zero.
@@ -224,7 +224,7 @@ There are three settings, and two further rules that hold across all of them:
 ### A translation that stops at each group's edge
 
 `by=` partitions the axis that the operator walks. So the neighbour of a
-coordinate is the coordinate before it **in its own group**. A group can be a
+coordinate is the coordinate before it in its own group. A group can be a
 season, an investment period, or a representative day:
 
 ```yaml
@@ -247,13 +247,13 @@ objective: { sense: minimize, expression: sum(soc) }
 Every `edge=` rule then reads the same way, one group at a time:
 
 - Bare, the first coordinate of each group is vacated, and its row drops.
-- `edge='wrap'` closes **each group** onto its own last coordinate. That is what
+- `edge='wrap'` closes each group onto its own last coordinate. That is what
   a store which must return to its starting level every period asks for.
 - `edge=v` puts `v` at the edge of each group.
 
 `by=` takes a **groupable** lookup, which means one that declares `into:`. The
-lookup must be **over the dimension being walked**, so that its groups are
-groups a row of that dimension is in.
+lookup must be over the dimension being walked, so that its groups are groups a
+row of that dimension is in.
 
 The target of the lookup is what a named `offset=` may vary over, so each group
 can be reached by its own offset. A label space targets nothing, so a label
@@ -276,7 +276,7 @@ the model already has.
 
 ### An offset that differs per entity
 
-`offset=` may name an **integer parameter** instead of a number. Then each
+`offset=` may name an integer parameter instead of a number. Then each
 entity is reached by its own offset. Use this for a construction lead time, a
 transit time, or any delay that the source data already carries as a column:
 
@@ -301,13 +301,13 @@ objective: { sense: minimize, expression: sum(order) }
 Three rules keep this a translation and not something else. Breaking any of
 them is a load error, and each error names its rewrite:
 
-- **The parameter is integral.** An offset lands on a coordinate, so it counts
+- The parameter is integral. An offset lands on a coordinate, so it counts
   positions rather than measuring a distance. `dtype: int` says so at load, and
   an `int` declaration binds only an integer column, so a value of `1.5` has
   nowhere to arrive from.
-- **The parameter does not span the dimension being translated.** An offset that
+- The parameter does not span the dimension being translated. An offset that
   varied along the axis it moves along would be a permutation, not a lag.
-- **The parameter varies only over dimensions where the shift can read it.**
+- The parameter varies only over dimensions where the shift can read it.
   Those are the dimensions of the shifted expression itself, and the dimension
   that a `by=` lookup groups into, which is covered below. An offset is read at
   the coordinate it moves. A dimension that the coordinate does not have is no
@@ -316,24 +316,21 @@ them is a load error, and each error names its rewrite:
 `edge=` is not one of these rules. A named offset may be bare, and its vacated
 positions are absent in exactly the way a numeric offset's are. Its vacated
 positions differ per entity, and the edge frame is keyed by the offset's own
-dimensions, so both lanes say the same thing.
+dimensions, so every consumer reads the same edge.
 
-What stays refused is a bare `shift` over a **variable-free** operand, for the
+What stays refused is a bare `shift` over a variable-free operand, for the
 separate reason given [above](#shift): a parameter's missing row is a zero
 coefficient, so there is no absence for the vacated slot to carry.
 
-A named offset also carries its **sign in the values**. `lag=-lead` is refused.
+A named offset also carries its sign in the values. `lag=-lead` is refused.
 So a row that points backwards says so where the data is read.
-
-This is the one construct whose cost is not obviously linear in the size of the
-model.
 
 ### A lag that differs per group
 
 The second half of the third rule above is a formulation in its own right.
 `offset=` may name a parameter that is declared over the dimension which a
 [`by=`](#a-translation-that-stops-at-each-groups-edge) lookup groups into. Then
-the lag belongs to **the group**.
+the lag belongs to the group.
 
 Every snapshot of an investment period moves by that period's own lead time. The
 opening rows of each period vacate by that period's own distance. And no
@@ -375,7 +372,7 @@ Anything you can build out of these operators belongs in
 ## Every operator as math
 
 This table shows each operator above as the [typesetter](../typeset.md) prints
-it. The table is **generated** from one model per row, in
+it. The table is generated from one model per row, in
 [`examples/operators/`](https://github.com/energy-models/math-spec/tree/main/examples/operators).
 So a row cannot outlive the operator it documents. And if two operators render
 the same way, you see that here rather than in somebody's paper.

@@ -73,7 +73,7 @@ own domain, so `x[old]` counts.
 These are different questions. If you rewrite one into the other, you read the
 absent `y[old]` as a zero.
 
-The same rule beside a parameter gives the asymmetry that catches people out:
+Beside a parameter, the same rule reads the other way:
 
 ```yaml
 constraints:
@@ -88,7 +88,7 @@ want the row dropped there instead, say so with `where: rel_max` on the
 constraint.
 
 Every operator falls on one side of that line, and one question decides which
-side: **does one output slot stand for several input slots, or for one?**
+side: does one output slot stand for several input slots, or for one?
 
 | Operator                        | An output slot reads            | An absent input                      |
 | ------------------------------- | ------------------------------- | ------------------------------------ |
@@ -114,7 +114,7 @@ rewriting `total` into `split` above, one operator further down.
 By default a masked coordinate has **no value**. A store that is not there has
 no state of charge, so a row that needs that state is not asserted.
 
-But some quantities are **zero** outside their mask. A reservoir with no inflow
+Some quantities are **zero** outside their mask instead. A reservoir with no inflow
 spills nothing, and a model like that wants its row. The variable says which of
 the two readings applies:
 
@@ -170,16 +170,15 @@ summand shorter where a `p[g]` is masked, and it still stands as long as one
 slot does. So a statistic is defined at exactly the coordinates where the rows
 it reduces over were built, and it is absent everywhere else.
 
-A quotient whose divisor **solved to zero** is absent in the same way. The row
+A quotient whose divisor solved to zero is absent in the same way. The row
 was built and the numbers are in hand, but the arithmetic has no value there.
 So the reported quantity reads that same null. The language has one "no value",
 and an undefined quotient joins it rather than raising a separate
 not-a-number.
 
 A [`dual(c)`](reported.md#reading-a-constraints-dual) follows the same rule
-from the constraint side. A constraint's `where:` leaves its row **unbuilt** at
-the masked coordinates. An unbuilt row has no shadow price, so `dual(c)` has
-**no value** there. That is the same null, and not a zero. The dual is defined
+from the constraint side. A constraint's `where:` leaves its row **unbuilt** at the masked coordinates. An
+unbuilt row has no shadow price, so `dual(c)` has **no value** there. That is the same null, and not a zero. The dual is defined
 at exactly those coordinates of `c`'s frame where the row was built.
 
 ## Asking for the opposite reading

@@ -37,10 +37,9 @@ data — and the file prints as the math it stands for.
 
     ***
 
-    One file declares the axes, the data, the decisions and the rules.
-    Readable without knowing any implementation, and self-contained: no Python
-    state changes what it means. It diffs cleanly in review and travels as a
-    research artefact.
+    One file declares the axes, the data, the decisions and the rules. You can
+    read it without knowing what builds it, and no Python state changes what it
+    means. It diffs cleanly in review, and it travels as a research artefact.
 
 - :material-shield-check-outline: **Decided before the data**
 
@@ -58,29 +57,29 @@ data — and the file prints as the math it stands for.
     determine the answer, loading fails and the message names the construct
     _and_ its rewrite.
 
-- :material-fence: **A finite language, with a priced way out**
+- :material-fence: **A closed language, with a declared way out**
 
     ***
 
-    A primitive is admissible when it is relational and local, and the set of
-    them is closed. Math the language cannot express goes in an `escape:`
-    island: visible in the file, billed before it runs.
+    The operators are a fixed set, and nothing can register another one. Math
+    the language cannot express goes in an `escape:` block of Python, named in
+    the file and capped before it runs.
 
 - :material-function-variant: **The file is the document**
 
     ***
 
     LaTeX, Typst or Markdown, printed from the file alone. No data, no solver,
-    no second source of truth — the cheapest review tool there is for _does
-    this YAML say what I meant_.
+    and no second source of truth. It answers _does this YAML say what I
+    meant_ before anything is bound or solved.
 
 - :material-source-branch: **One rule per question**
 
     ***
 
-    A rule is language iff two consumers answering it separately would be a
-    bug. That test is what decides who owns a question — the language, or the
-    engine reading it.
+    A rule belongs to the language when two programs reading the same file
+    would be wrong to answer it separately. That question decides who owns an
+    answer: the language, or the engine reading it.
 
 </div>
 
@@ -275,8 +274,8 @@ means.
 
     ***
 
-    The test a candidate primitive has to pass, why capability is a second
-    axis, and what has been refused and why.
+    The test a new operator has to pass, why a solver's own limits stay out of
+    the language, and what has been refused and why.
 
     [:octicons-arrow-right-24: The limit](about/limits.md)
 
@@ -284,8 +283,9 @@ means.
 
     ***
 
-    A rule is language iff two consumers answering it separately would be a
-    bug — and the sharp edge that keeps that from swallowing everything.
+    Which rules belong to the language, which belong to the program reading
+    the model, and the second rule that keeps the first from covering
+    everything.
 
     [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)
 

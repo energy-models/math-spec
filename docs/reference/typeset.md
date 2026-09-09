@@ -5,11 +5,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Typeset the math
 
-A model is a declaration, so you can print it the way a paper prints it,
-straight from the file, with no data and no solver.
+`to_latex`, `to_typst` and `to_markdown` print a model as the equations it
+stands for, from the file alone. No data binds, and no solver runs.
 
-It answers _"does this YAML say what I meant?"_ without binding data or running
-a solver. It is also how a model states its math using nothing but the file.
+Print a model to check that the YAML says what you meant, and to publish the
+math beside the file that states it.
 
 One page shows every construct the language has, beside the math it prints:
 [Every construct, as math](notation.md). Look there when your question is
@@ -32,8 +32,8 @@ Hand one of them a `Spec` instead, and the file is read and checked once rather
 than once per format. That is also how you print a `Spec` you already hold,
 without a second trip through the loader.
 
-You can do the same from a shell, where this belongs in a Makefile next to
-`pdflatex`:
+The same three formats come from a shell, so a build can print the math beside
+the paper:
 
 ```bash
 python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
@@ -56,20 +56,21 @@ each keyword as a flag.
 
 `-o FILE` writes to a file instead of stdout.
 
-The model's own `description:` opens the document in either case. It is what the
-file says it is, and it is not part of a symbol table.
+The model's own `description:` opens the document, whatever the options say. It
+is prose from the file, and no symbol table touches it.
 
-A `piecewise:` block prints as the λ formulation it _expands to_, not as the
-shorthand it was written in, because the expansion is the math the solver
-receives.
+A `piecewise:` block prints as the variables and constraints it expands into,
+and not as the shorter block that was written, because the expansion is the math
+the solver receives.
 
-Inlining reaches only what something reads. A `cases:` block has no single body
-to substitute. A [reported entry](language/reported.md) is read by nothing in
-the math. So both of those keep their definition under either setting.
+Inlining reaches only an expression that the math reads. A `cases:` block has no
+single body to substitute, and a [reported entry](language/reported.md) is read
+by nothing in the math. So both keep their own definition line under either
+setting.
 
-Where the math translates an index, which means `shift` in any of its edge
-spellings, the document also prints a line saying what that notation means. So a
-reader never meets a symbol that the page has not defined.
+Where the math moves an index, which is what every spelling of `shift` does, the
+document prints a line saying what that notation means. So a reader never meets
+a symbol the document has not defined.
 
 A model that does not load does not print. Typesetting runs the same load-time
 checks that everything else runs.
@@ -107,17 +108,18 @@ expressions it uses are substituted, which is `inline_expressions=True`, unless
 you say otherwise. A cased expression prints by symbol, and a second call with
 its name prints its block.
 
-Two names are refused. A name that the model declares as none of the three kinds
-is refused, with the near miss. A name that the model declares as both a
-constraint and a variable is also refused, because constraints sit outside the
-[flat namespace](language/expressions.md#name-resolution), and one line can only
-print one of the two.
+Two names are refused. A name the model declares as none of the three kinds is
+refused, with the near miss. A name the model declares as both a constraint and
+a variable is refused as well, because one line can print only one of the two.
+Constraints sit outside the
+[flat namespace](language/expressions.md#name-resolution), so a model may use
+one name for both.
 
 ## Symbol tables
 
-With no table, the symbols are **derived**. Derived symbols are unambiguous
-rather than beautiful, which means a model prints with no setup at all. Examples
-are $\mathit{load}_t$ and $p^{\mathrm{max}}_g$. A `SymbolTable` makes the output
+With no table, the symbols are **derived** from the names in the file, such as
+$\mathit{load}_t$ and $p^{\mathrm{max}}_g$. A derived symbol names one
+declaration and no other, so a model prints with no setup at all. A `SymbolTable` makes the output
 conventional:
 
 ```python

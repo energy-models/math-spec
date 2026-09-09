@@ -469,24 +469,45 @@ in this repository, and to issues, PRs and commit messages. In conversation,
 keep the same plainness, and put the emphasis on explaining technical subjects
 and mathematics so that the user understands them.
 
-The reader of a page came to find out what the language accepts, and what
-happens if they write X. A sentence that does not move that answer forward is
-cut, however true it is.
+The reader of a page is a modeller who writes YAML, and who has read no other
+page in this repository. They came to find out what the language accepts, and
+what happens if they write X. A sentence that does not move that answer forward
+is cut, however true it is.
+
+**Read the page back as that reader before you call it done.** Every sentence
+either tells them something they can act on, or goes. A page that only a
+maintainer can follow has failed, whatever rule it obeys.
 
 ### Sentences
 
 - **Put the fact first**, with no build-up to it.
-- **Bold names a rule in a normative document**, which is this file and
-  [CONTRIBUTING.md](CONTRIBUTING.md), whether the rule opens a list item or a
-  paragraph. On a page under `docs/` it marks a term where the page defines it,
-  and nothing else — not a claim, not a whole sentence, not a warning. A
-  paragraph that needs bold for its point to land has buried its point.
+- **Define a word this project owns, in the sentence that first uses it.** Link
+  to the page that owns the term where one exists, and give the defining clause
+  anyway. The [Words](#words) table below carries the clause for each of them.
+  A page that uses one bare has left the reader guessing.
+- **Say what happens, not what kind of thing something is.** "A model is a
+  declaration, so it prints the way a paper prints it" gives the reader nothing
+  to do. "`to_latex` prints the model as LaTeX equations, from the file alone"
+  does. Cut any sentence that would stay true of another tool, another language,
+  or nothing at all.
+- **Do not describe the page.** "This page holds the argument in between", "Two
+  things this page is not" and "The point of putting them together is" are all
+  frames around a sentence. Write the sentence and delete the frame. A page
+  opens by saying what the reader can do once they have read it.
+- **Bold marks what the reader must not miss.** That is a term where the page
+  defines it, and a short phrase that changes what the sentence permits —
+  **exactly one** of two keys, **at most once** per coordinate, the vacated edge
+  is **absent**. It is never a whole sentence, and never a claim that reads
+  better written out. In this file and in
+  [CONTRIBUTING.md](CONTRIBUTING.md) it also names the rule that opens a list
+  item or a paragraph.
 - **A heading names what the section answers.** "How a new construct enters",
   not "Two tiers, and the limit". "Renaming and deleting", not "Breaking
   changes are free".
 - **One thought per sentence.** The em dash that carries a turn, the appositive
   that carries a second thought and the tail that qualifies the claim each read
-  as one sentence and parse as three.
+  as one sentence and parse as three. A sentence carrying three commas is two
+  sentences.
 - **"when both of these are true", not "if and only if".**
 - **Never grade the language.** "says what it means", "reads naturally", "just
   works", "as you would expect", "elegantly" — the reader can neither check nor
@@ -515,24 +536,47 @@ the language can express is **the limit**. A word standing in for three
 ordinary words is replaced by them: `sayable` is _allowed_, or _written_, or
 _the language can express it_.
 
-| Not this            | This                                                                   |
-| ------------------- | ---------------------------------------------------------------------- |
-| idempotent          | calling it again returns the same object unchanged                     |
-| the seam            | the boundary between a model file and an engine, or name the functions |
-| the export surface  | the public API                                                         |
-| a verb              | a function, or a public function                                       |
-| the ceiling         | the limit of what the language can express, then the limit             |
-| sayable, unsayable  | allowed, written, or the language cannot express it                    |
-| a restriction lifts | a restriction no longer applies                                        |
-| arity               | the number of arguments                                                |
-| memoised            | cached                                                                 |
-| the two-backend tax | implemented twice, once for each backend                               |
+| Not this              | This                                                                   |
+| --------------------- | ---------------------------------------------------------------------- |
+| idempotent            | calling it again returns the same object unchanged                     |
+| the seam              | the boundary between a model file and an engine, or name the functions |
+| the export surface    | the public API                                                         |
+| a verb                | a function, or a public function                                       |
+| the ceiling           | the limit of what the language can express, then the limit             |
+| sayable, unsayable    | allowed, written, or the language cannot express it                    |
+| a restriction lifts   | a restriction no longer applies                                        |
+| arity                 | the number of arguments                                                |
+| memoised              | cached                                                                 |
+| the two-backend tax   | implemented twice, once for each backend                               |
+| the closure           | the set of constructs the language admits                              |
+| streamability         | what a build that streams its terms can carry                          |
+| a lane                | a backend                                                              |
+| affine COO rows       | rows of coefficients                                                   |
+| a differential oracle | a second implementation whose answer the test compares against         |
+| a surface             | the keys the language accepts, or name them                            |
 
 Domain terms stay, because replacing one costs the reader more than it saves:
-affine, degree, dimension, coordinate, broadcast, declaration, primitive,
-macro, formulation, invariant, agnostic, and PyPSA's own names such as
-`p_nom`. A cardinality constraint keeps its name and gains a clause saying it
-counts how many things are non-zero.
+affine, degree, dimension, coordinate, broadcast, declaration, invariant,
+agnostic, and PyPSA's own names such as `p_nom`. A cardinality constraint keeps
+its name and gains a clause saying it counts how many things are non-zero.
+
+**A word this project owns is defined where a page first uses it.** These are
+the words, and the clause each one takes. Shorten a clause to fit the sentence,
+and never drop it:
+
+| Project word   | Define it at first use as                                                                      |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| a consumer     | a program that reads a loaded model, such as an engine, a renderer or a checker                |
+| a sink         | whatever a built model is handed to, which is a solver's API or a file format                  |
+| a backend      | one of the two implementations that build a model from the same syntax tree                    |
+| a primitive    | an operator built into the language, which no file can add to                                  |
+| a macro        | a template that takes arguments and is substituted into an expression before anything reads it |
+| a formulation  | a block that expands into ordinary declarations before the model is built                      |
+| an `escape:`   | a block of Python, named in the file, that emits rows the language cannot state                |
+| a label budget | a cap on how many rows and columns an `escape:` may emit                                       |
+| a frame        | the dimensions a declaration ranges over                                                       |
+| bounded-halo   | reads a fixed number of neighbouring positions, and no more                                    |
+| a rung         | one step of the PyPSA ladder, which is one `n.optimize()` keyword stated in full               |
 
 ### A reference entry
 

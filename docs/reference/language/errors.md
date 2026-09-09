@@ -21,10 +21,10 @@ returns a `Spec`, it does all of the following:
   that nothing calls.
 
 Anything the language refuses is refused there. So you can validate a whole
-repository of models in CI, with no data and no solver. It also means the worst
-error a downstream consumer could hand you cannot come from this package. That
-worst error is an opaque array, or a solver exception with no pointer back to a
-declaration.
+repository of models in CI, with no data and no solver. It also means that the
+worst errors are not this package's to give you. Those are an opaque array, and
+a solver exception with no pointer back to a declaration, and both come from
+whatever builds and solves the model.
 
 Every message names what went wrong and what to do about it. Where it helps, the
 message also lists the valid options:
@@ -122,26 +122,26 @@ boundary sits.
 
 | Not here                                                                       | Instead                                                                                                                                                                              |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| variable × variable in a **bound, a named expression or a `piecewise:` link**  | The objective and the constraints take it. Everywhere else, use a parameter coefficient ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))                  |
+| variable × variable in a bound, a named expression or a `piecewise:` link      | The objective and the constraints take it. Everywhere else, use a parameter coefficient ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))                  |
 | `sum(x, over=d) * sum(y, over=d)`                                              | Multiply before you reduce, or name the reduction with a variable. A product of two sums is a cross join                                                                             |
 | degree 3 (`x * y * z`)                                                         | a variable constrained to equal one product, then multiplied by the third                                                                                                            |
 | `**`                                                                           | `x * x` ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))                                                                                                  |
 | arithmetic in `bounds:`                                                        | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31))                                                                             |
 | time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter                                                                                                                                                          |
-| indicator constraints                                                          | This is not a language question. What a consumer can take is its own axis, and that is the axis `sos:` landed on ([#220](https://github.com/fluxopt/lpspec/issues/220))              |
+| indicator constraints                                                          | This is not a language question. What a solver can take is a question of its own, and that is where `sos:` landed ([#220](https://github.com/fluxopt/lpspec/issues/220))             |
 | multi-objective                                                                | There is one `objective:` block, and a second one cannot be said. Weight the goals into one expression                                                                               |
 | arbitrary array ops (`merge`, `reindex`, `apply_ufunc`)                        | Data preparation. The closed operator set is what makes streaming possible                                                                                                           |
 | filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if you meant the coordinate not to exist. Fill inside the language only where the data cannot reach, with `shift(..., edge=)` ([absence](absence.md)) |
 | schema migrations                                                              | —                                                                                                                                                                                    |
 
-A model built partly in Python has no readable `.yaml` representation, and it
-will not get one. The _math_ side of such a round trip is feasible. But
-expression strings and `where` strings come back as anonymous arrays, so the
-round trip would be functional and not reviewable, and being reviewable is the
-whole point of the file. A framework that wants to _emit_ declarations passes a
-dict, and gets `to_yaml()` back.
+A model built partly in Python has no readable `.yaml` form, and it will not get
+one. The math itself could make the round trip. The strings could not:
+`expression:` and `where:` come back as unnamed arrays, so what you got back
+would build the same model and would not be a file anyone can review. A
+framework that wants to emit declarations passes a dict, and gets `to_yaml()`
+back.
 
-Where the language genuinely cannot say the math, the escape hatch is a declared
+Where the language genuinely cannot say the math, the way out is a declared
 `escape:` island. An island is named in the file, bounded by the `where` mask in
 front of it, terminal, and billed against a label budget before any Python runs.
 It is [#38](https://github.com/fluxopt/lpspec/issues/38), and it has not
