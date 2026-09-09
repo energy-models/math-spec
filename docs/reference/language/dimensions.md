@@ -201,14 +201,23 @@ but a column named after the lookup is refused rather than read.
 Every column of data is one of the three. What decides which is what the math
 does with the column, not what the column holds:
 
-| The column…                                                                                                                               | is declared as                        | because                                                                                       |
-| ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
-| is an axis: something is indexed by it, or an aggregation lands terms on it                                                               | a `dimension`                         | its members are the coordinate set every table over it is reindexed onto                      |
-| has one value per member of a dimension, or per tuple of several, and points at another — a generator's bus, a generator's zone by period | a `lookup` into that dimension        | it is a map that `sum(by=)` and `at(by=)` walk, and its values are checked against the target |
-| is a label set the model only selects on or counts within — a period, a season, a zone                                                    | a `dimension`, and a `lookup` into it | the membership check is worth one line and one member list                                    |
-| scales terms — a coefficient, a bound, an offset                                                                                          | a `parameter` (`float` or `int`)      | arithmetic is over numbers ([dtype](declarations.md#parameters))                              |
-| is a per-row attribute the math only selects on — a fuel, a constraint's sense                                                            | a `str` parameter                     | it names rows rather than scaling them, and no set is declared to check its values against    |
-| is a mask                                                                                                                                 | a `bool` parameter                    | a bare name in a `where` is its own answer                                                    |
+| The column…                                                                                                                               | is declared as                        | because                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| is an axis: something is indexed by it, or an aggregation lands terms on it                                                               | a `dimension`                         | its members are the coordinate set every table over it is reindexed onto                                                              |
+| has one value per member of a dimension, or per tuple of several, and points at another — a generator's bus, a generator's zone by period | a `lookup` into that dimension        | it is a map that `sum(by=)` and `at(by=)` walk, and its values are checked against the target                                         |
+| relates members of two dimensions many-to-many — a link's several buses with their efficiencies, a cycle's lines                          | a `parameter` over both               | `bool` where it only selects, numeric where it weights. The aggregation is `sum(w * x, over=a)`, and a pair the table lacks is absent |
+| is a label set the model only selects on or counts within — a period, a season, a zone                                                    | a `dimension`, and a `lookup` into it | the membership check is worth one line and one member list                                                                            |
+| scales terms — a coefficient, a bound, an offset                                                                                          | a `parameter` (`float` or `int`)      | arithmetic is over numbers ([dtype](declarations.md#parameters))                                                                      |
+| is a per-row attribute the math only selects on — a fuel, a constraint's sense                                                            | a `str` parameter                     | it names rows rather than scaling them, and no set is declared to check its values against                                            |
+| is a mask                                                                                                                                 | a `bool` parameter                    | a bare name in a `where` is its own answer                                                                                            |
+
+**A many-to-many relation is a parameter, weighted or not.** Pairs alone are a
+`bool` parameter, written `connection: {dims: [entity, bus], dtype: bool}` and
+read with `where: connection`. Pairs with a weight are a numeric one, and the
+aggregation needs no lookup: `sum(efficiency * p, over=entity)` lands on `bus`,
+because `efficiency[entity, bus]` has a row exactly where the pair exists. A
+lookup is the single-valued case, where the language checks a claim a parameter
+cannot make.
 
 Two rules follow from the table. If `b` has one value per `a`, then `b` is a
 **lookup** over `a`, and not a dimension: a `foreach` product over two
