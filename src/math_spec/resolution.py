@@ -589,10 +589,10 @@ class _Resolver:
         roles: Mapping[str, ArithmeticNode],
         over: ArithmeticNode | None,
     ) -> ArithmeticNode:
-        """An operator's ``by=``, with the ``from=`` and ``to=`` that say how each lookup is walked.
+        """An operator's ``by=``, with the ``from=`` and ``into=`` that say how each lookup is walked.
 
         A lookup carries its own dimensions, so the call names columns rather
-        than dims: ``from=`` the column consumed, ``to=`` the column produced,
+        than dims: ``from=`` the column consumed, ``into=`` the column produced,
         every other key column joined on — a value column not walked is not
         read, and a bare relation's columns are all key. Where the declaration
         leaves one choice
@@ -614,15 +614,18 @@ class _Resolver:
         if len(names) > 1 and roles:
             self.errors.append(
                 f'{self.context}: {operator}({key}={shown(names)}, {", ".join(f"{k}=" for k in roles)}): a list '
-                f'walks each lookup by its declared key and value, so from= and to= have nothing to name. '
+                f'walks each lookup by its declared key and value, so from= and into= have nothing to name. '
                 f'Name one lookup, or declare one table with the columns of both.'
             )
             return value
         named = {k: self._role_name(v, operator, k) for k, v in roles.items()}
         if any(r is None for r in named.values()):
             return value
-        walked_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-        walks = [self._walk(n, operator, named.get('from'), named.get('to'), walked_dim) for n in names]
+        if operator in ('shift', 'sum_back'):
+            over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
+            walks = [self._partition_walk(n, operator, over_dim) for n in names]
+        else:
+            walks = [self._walk(n, operator, named.get('from'), named.get('into')) for n in names]
         if any(w is None for w in walks):
             return value
         resolved = [w for w in walks if w is not None]
@@ -654,7 +657,7 @@ class _Resolver:
         return LookupNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
-        """``from=`` or ``to=`` as the column names it must be — one bare name, or a bracketed list of them."""
+        """``from=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
         if isinstance(value, NameNode):
             return (value.name,)
         if isinstance(value, NameListNode):
@@ -669,17 +672,13 @@ class _Resolver:
         name: str,
         operator: str,
         from_roles: tuple[str, ...] | None,
-        to_roles: tuple[str, ...] | None,
-        walked_dim: str | None,
+        into_roles: tuple[str, ...] | None,
     ) -> Walk | None:
-        """How *operator* walks lookup *name*, from the columns the call named and the declaration's defaults.
+        """How ``sum`` or ``at`` walks lookup *name*, from the columns the call named and the declaration's defaults.
 
-        ``sum`` and ``at`` consume one or more columns and produce one or
-        more; a partition (``shift``, ``sum_back``, ``position``) consumes
-        one key column over the dimension it walks and groups by the value
-        columns. A side the call leaves unsaid is taken from the declaration
-        where it has exactly one candidate, and refused with the candidates
-        otherwise.
+        The call consumes one or more columns and produces one or more; a
+        side it leaves unsaid is taken from the declaration where it has
+        exactly one candidate, and refused with the candidates otherwise.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
@@ -698,52 +697,8 @@ class _Resolver:
                 return False
             return True
 
-        if not (known(from_roles, 'from') and known(to_roles, 'to')):
+        if not (known(from_roles, 'from') and known(into_roles, 'into')):
             return None
-
-        if operator in ('shift', 'sum_back', 'position'):
-            if to_roles is not None:
-                self.errors.append(
-                    f'{context}: {call}: a partition takes from= alone — it walks one key column of the lookup '
-                    f'and groups by its value columns, so there is no column to produce.'
-                )
-                return None
-            if not shape.key:
-                self.errors.append(
-                    f"{context}: {call}: '{name}' declares no key, so no coordinate is in exactly one group. "
-                    f'Declare key: on the lookup, naming the column {operator} walks.'
-                )
-                return None
-            if from_roles is None:
-                over_keys = [r for r in shape.key if walked_dim is not None and shape.dim(r) == walked_dim]
-                if not over_keys:
-                    self.errors.append(
-                        f"{context}: {call}: '{name}' has no key column over '{walked_dim}' — its key is "
-                        f'{list(shape.key)} — and a partition walks a key column over the dimension it groups.'
-                    )
-                    return None
-                if len(over_keys) > 1:
-                    self.errors.append(
-                        f"{context}: {call}: '{name}' has {len(over_keys)} key column(s) over '{walked_dim}' "
-                        f'({over_keys}), and a partition walks exactly one — say which with from=.'
-                    )
-                    return None
-                from_roles = (over_keys[0],)
-            if len(from_roles) != 1:
-                self.errors.append(
-                    f'{context}: {call}: from={list(from_roles)} names {len(from_roles)} columns, and a partition '
-                    f'walks exactly one.'
-                )
-                return None
-            (from_role,) = from_roles
-            if from_role not in shape.key:
-                self.errors.append(
-                    f"{context}: {call}: from={from_role} is not a key column of '{name}' (key {list(shape.key)}). "
-                    f'A partition walks a key column, so that each coordinate is in one group.'
-                )
-                return None
-            joined = tuple(r for r in shape.key if r != from_role)
-            return Walk(name, (from_role,), (), joined, shape.columns, shape.key)
 
         forward = operator == 'sum'
         if from_roles is None:
@@ -752,27 +707,63 @@ class _Resolver:
             if default is None:
                 return None
             from_roles = (default,)
-        if to_roles is None:
+        if into_roles is None:
             side = shape.values if forward else shape.key
-            default = self._default_role(name, call, 'to', side, 'value' if forward else 'key')
+            default = self._default_role(name, call, 'into', side, 'value' if forward else 'key')
             if default is None:
                 return None
-            to_roles = (default,)
-        if both := sorted(set(from_roles) & set(to_roles)):
+            into_roles = (default,)
+        if both := sorted(set(from_roles) & set(into_roles)):
             self.errors.append(
-                f'{context}: {call}: from= and to= both name {both}, and a walk goes between two sets of columns.'
+                f'{context}: {call}: from= and into= both name {both}, and a walk goes between two sets of columns.'
             )
             return None
-        joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in to_roles)
-        walk = Walk(name, from_roles, to_roles, joined, shape.columns, shape.key)
+        joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in into_roles)
+        walk = Walk(name, from_roles, into_roles, joined, shape.columns, shape.key)
         if not forward and not walk.is_function_read:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
-                f'{list(from_roles)} at the columns the operand fixes ({[*to_roles, *joined]}) — its key is '
+                f'{list(from_roles)} at the columns the operand fixes ({[*into_roles, *joined]}) — its key is '
                 f'{list(shape.key)}. Declare a key those columns contain, or read the other way.'
             )
             return None
         return walk
+
+    def _partition_walk(self, name: str, operator: str, walked_dim: str | None) -> Walk | None:
+        """How a partition (``shift``, ``sum_back``, ``position``) walks lookup *name* along *walked_dim*.
+
+        It walks the one key column over that dimension, joins on the other
+        key columns and groups by the value columns. ``None`` where the
+        dimension is not one (already refused) or the lookup has no such
+        column, or two.
+        """
+        context = self.context
+        shape = self.ns.shape_of(name)
+        call = f'{operator}(by={name})'
+        if walked_dim is None:
+            return None
+        if not shape.key:
+            self.errors.append(
+                f"{context}: {call}: '{name}' declares no key, so no coordinate is in exactly one group. "
+                f'Declare key: on the lookup, naming the column {operator} walks.'
+            )
+            return None
+        over_keys = [r for r in shape.key if shape.dim(r) == walked_dim]
+        if not over_keys:
+            self.errors.append(
+                f"{context}: {call}: '{name}' has no key column over '{walked_dim}' — its key is "
+                f'{list(shape.key)} — and a partition walks a key column over the dimension it groups.'
+            )
+            return None
+        if len(over_keys) > 1:
+            self.errors.append(
+                f"{context}: {call}: '{name}' has {len(over_keys)} key columns over '{walked_dim}' ({over_keys}), "
+                f"and a partition walks exactly one. Declare a lookup keyed by one column over '{walked_dim}'."
+            )
+            return None
+        (walked,) = over_keys
+        joined = tuple(r for r in shape.key if r != walked)
+        return Walk(name, (walked,), (), joined, shape.columns, shape.key)
 
     def _default_role(self, name: str, call: str, kwarg: str, side: tuple[str, ...], what: str) -> str | None:
         """The one column *side* offers, or the refusal naming what the call has to choose from."""
@@ -877,7 +868,7 @@ class _Resolver:
         return node
 
     def _position(self, node: UnresolvedPositionNode) -> DimensionPositionNode | UnresolvedPositionNode:
-        """``position(dim[, by=lookup[, from=column]]) <op> i``: the name a dimension, ``by=`` a lookup keyed over it."""
+        """``position(dim[, by=lookup]) <op> i``: the name a dimension, ``by=`` a lookup keyed over it."""
         ns, context = self.ns, self.context
         if node.dimension not in ns.dimensions:
             self.errors.append(
@@ -896,16 +887,10 @@ class _Resolver:
                 f'{did_you_mean(node.by, ns.lookups, label="Lookups")}'
             )
             return node
-        walk = self._walk(node.by, 'position', None if node.walked is None else (node.walked,), None, node.dimension)
+        walk = self._partition_walk(node.by, 'position', node.dimension)
         if walk is None:
             return node
         (walked,) = walk.consumed
-        if walk.dim(walked) != node.dimension:
-            self.errors.append(
-                f"{context}: '{call}': position counts along '{node.dimension}' but from={walked} is a "
-                f"column over '{walk.dim(walked)}'. Walk a key column over '{node.dimension}'."
-            )
-            return node
         return DimensionPositionNode(node.dimension, node.op, node.position, node.by, walked, walk.joined_dims)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:

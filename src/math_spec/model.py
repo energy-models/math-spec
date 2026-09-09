@@ -169,7 +169,7 @@ class LookupBlock(_StrictBlock):
           connection: {over: [entity, bus]}
 
     An operator walks the table in the direction the call names
-    (``from=``, ``to=``), joining on the other key columns; the declaration
+    (``from=``, ``into=``), joining on the other key columns; the declaration
     fixes no direction. The map itself
     is data, and arrives at bind time under the lookup's name, one column per
     role.

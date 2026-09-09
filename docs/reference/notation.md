@@ -388,7 +388,7 @@ one table walked to two value columns: the domain carries a condition per column
 ```yaml
 grouped_once:
   foreach: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt, to=[bus, technology]) <= tech_cap
+  expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -416,7 +416,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 ```yaml
 relational:
   foreach: [snapshot, bus]
-  expression: sum(p, by=connection, from=generator, to=bus) <= load
+  expression: sum(p, by=connection, from=generator, into=bus) <= load
 ```
 
 ```math
@@ -434,7 +434,9 @@ connected:
   expression: p <= load
 ```
 
-$$p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G},\enspace b \in \mathcal{B} \thinspace:\thinspace \left( g,\enspace b \right) \in \mathrm{connection}$$
+```math
+p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \left( g,\ b \right) \in \mathrm{connection}
+```
 
 #### `representative`
 
@@ -513,8 +515,8 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 ```yaml
 zonal_pullback:
   foreach: [snapshot, generator]
-  where: "gen_zone == 'north' AND position(generator, by=gen_zone, from=generator) == 0"
-  expression: p <= at(spill * zone_cap, by=gen_zone, to=generator)
+  where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
+  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
 ```
 
 ```math

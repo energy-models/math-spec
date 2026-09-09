@@ -152,13 +152,13 @@ constraints:
     expression: spill <= at(zone_cap, by=zone_of)
   grouped_once: # one table walked to two value columns: the domain carries a condition per column
     foreach: [snapshot, bus, technology]
-    expression: sum(p, by=gen_bt, to=[bus, technology]) <= tech_cap
+    expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
   pulled_back_once: # its adjoint, reading one slot through two columns of one table
     foreach: [generator]
     expression: units <= at(tech_cap, by=gen_bt, from=[bus, technology])
   relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
     foreach: [snapshot, bus]
-    expression: sum(p, by=connection, from=generator, to=bus) <= load
+    expression: sum(p, by=connection, from=generator, into=bus) <= load
   connected: # a bare relation as a where: the row of the frame has to be a member of the relation
     foreach: [snapshot, generator, bus]
     where: "connection"
@@ -180,8 +180,8 @@ constraints:
     expression: sum(p, by=gen_zone, from=snapshot) <= zone_cap
   zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
     foreach: [snapshot, generator]
-    where: "gen_zone == 'north' AND position(generator, by=gen_zone, from=generator) == 0"
-    expression: p <= at(spill * zone_cap, by=gen_zone, to=generator)
+    where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
+    expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
   arithmetic: # division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
     foreach: [snapshot]
     expression: >-

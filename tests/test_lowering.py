@@ -504,7 +504,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
                 'zonal': {'foreach': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, from=generator) <= 1'},
                 'priced': {
                     'foreach': ['snapshot', 'generator'],
-                    'expression': 'p <= at(price, by=zone_of, to=generator)',
+                    'expression': 'p <= at(price, by=zone_of, into=generator)',
                 },
                 'history': {'foreach': ['generator', 'zone'], 'expression': 'sum(p, by=zone_of, from=snapshot) <= 1'},
             },
