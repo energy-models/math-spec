@@ -5,6 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Errors and limits
 
+This page says when a model fails to load, what the message tells you, and what
+the language refuses to say at all.
+
 ## `to_spec` is the check
 
 There is one entry point, and it binds no data. Before `ms.to_spec('model.yaml')`
@@ -36,7 +39,7 @@ Check for typos, or ensure 'p_charge' is declared.
 When you use a construct that is outside the language, the error names the
 construct and its rewrite. You never get a silent fallback.
 
-## `advice` is what is decidable and not an error
+## `advice` reports what is decidable but not an error
 
 Two more things can be decided without data, and each one is advice rather than
 a refusal.
@@ -114,15 +117,15 @@ own documentation.
 
 This section lists the refusals, and what to reach for instead. None of these is
 an unimplemented feature. Each one is a boundary that the design keeps on
-purpose, and [the ceiling](../../about/ceiling.md) is the argument for where the
+purpose, and [the limits](../../about/limits.md) is the argument for where the
 boundary sits.
 
 | Not here                                                                       | Instead                                                                                                                                                                              |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| variable × variable in a **bound, a named expression or a `piecewise:` link**  | The objective and the constraints take it. Everywhere else, use a parameter coefficient ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it))                      |
+| variable × variable in a **bound, a named expression or a `piecewise:` link**  | The objective and the constraints take it. Everywhere else, use a parameter coefficient ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))                  |
 | `sum(x, over=d) * sum(y, over=d)`                                              | Multiply before you reduce, or name the reduction with a variable. A product of two sums is a cross join                                                                             |
 | degree 3 (`x * y * z`)                                                         | a variable constrained to equal one product, then multiplied by the third                                                                                                            |
-| `**`                                                                           | `x * x` ([expressions](expressions.md#degree-2-in-the-math-degree-1-beside-it))                                                                                                      |
+| `**`                                                                           | `x * x` ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))                                                                                                  |
 | arithmetic in `bounds:`                                                        | a name or a number; ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31))                                                                             |
 | time-series processing (resample, cluster, interpolate, align), file IO, units | data prep; pass a parameter                                                                                                                                                          |
 | indicator constraints                                                          | This is not a language question. What a consumer can take is its own axis, and that is the axis `sos:` landed on ([#220](https://github.com/fluxopt/lpspec/issues/220))              |

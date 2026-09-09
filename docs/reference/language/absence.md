@@ -46,8 +46,8 @@ comparison, and a [`piecewise:`](piecewise.md) breakpoint.
 
 ## How absence travels
 
-**Through arithmetic, absence spreads and takes the row with it. Out of a
-summing operator, it does not.**
+Through arithmetic, absence spreads and takes the row with it. Out of a
+summing operator, it does not.
 
 ```yaml
 variables:
@@ -182,7 +182,7 @@ the masked coordinates. An unbuilt row has no shadow price, so `dual(c)` has
 **no value** there. That is the same null, and not a zero. The dual is defined
 at exactly those coordinates of `c`'s frame where the row was built.
 
-## Asking for the other reading
+## Asking for the opposite reading
 
 | You want                                       | You write                                                                                                                    |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |

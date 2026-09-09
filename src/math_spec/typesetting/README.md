@@ -13,13 +13,13 @@ it.
 | ------------- | ------------------------------------------------------------------------------------------------------ |
 | `__init__.py` | `typeset` / `to_latex` / `to_markdown` / `to_typst`, `typeset_declaration`, and the `FORMATS` registry |
 | `walk.py`     | resolved syntax tree to `Line`s. Every decision about the **math**, written once                       |
-| `format.py`   | the seam: what a format must spell, and the operator vocabulary                                        |
+| `format.py`   | the boundary: what a format must spell, and the operator vocabulary                                    |
 | `symbols.py`  | which symbol a name gets, and the `SymbolTable` sidecar that overrides it                              |
 | `latex.py`    | amsmath, the format that lands in a journal                                                            |
 | `typst.py`    | Typst, the format that compiles without a toolchain                                                    |
 | `markdown.py` | GitHub-flavoured Markdown: LaTeX math, with a Markdown document layer                                  |
 
-## The split, and why it is here
+## Why the walk and the formats are separate files
 
 `walk.py` makes the decisions about the math. It decides where a bracket changes
 the reading, which dimension a reduction binds, that a mask belongs on the ∀
@@ -86,7 +86,7 @@ words.
 2. Add a row to `FORMATS` in `__init__.py`. The command-line verb comes from the
    key.
 3. Change nothing in `walk.py`. If you find that you need to, then either the
-   walk is making a syntax decision that it should not make, or the seam is
+   walk is making a syntax decision that it should not make, or `format.py` is
    missing a method. Fix that, rather than adding a special case.
 
 `markdown.py` is the cheap case. Markdown has no math of its own, so it
@@ -97,7 +97,7 @@ subclasses `LatexFormat` and overrides only the document layer.
 those expectations are the point: every operator name is spelled, and no format
 leaks another format's syntax.
 
-## Verified, not assumed
+## What CI checks, and what it cannot
 
 LaTeX and Typst are **compiled** in CI, not just matched as strings. LaTeX needs
 a two-package apt install. Typst is a pip wheel, so the suite compiles it

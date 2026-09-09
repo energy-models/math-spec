@@ -51,14 +51,17 @@ three of the four methods it expands through a λ convex combination: weights in
 rest of the model sees, and it is what the
 [typeset output](../typeset.md) shows.
 
-**A curve is supplied everywhere it is built.** The expansion emits one weight
-per breakpoint over the whole product of its dimensions, and it masks none of
-them. So a values parameter that is short of a row does not build a shorter
-curve. The [absence rules](absence.md#what-creates-absence) read the missing row
-as a zero coefficient, which is a breakpoint at the origin that the file never
-declared. Such a table is refused when the data binds.
+A curve is supplied everywhere it is built. The expansion emits one weight per
+breakpoint over the whole product of its dimensions, and it masks none of them.
 
-**A gate is a variable, or there is no gate.** `activity:` names a binary
+!!! warning "A values parameter short of a row does not build a shorter curve"
+
+    The [absence rules](absence.md#what-creates-absence) read the missing row
+    as a zero coefficient, which is a breakpoint at the origin that the file
+    never declared. Such a table is refused when the data binds. To say how far
+    a curve runs, use `points:`.
+
+A gate is a variable, or there is no gate. `activity:` names a binary
 variable, and then the weights sum to that variable instead of to 1. So `0` pins
 the curve off, columns and all.
 
@@ -75,7 +78,7 @@ running:
   where: committable # only some units have a commitment decision
 ```
 
-**Where the gate does not exist, the curve is ungated.** The block emits the
+Where the gate does not exist, the curve is ungated. The block emits the
 convexity row twice, under complementary masks: `== running` where the gate
 exists, and `== 1` where it does not. That second row is what a block with no
 `activity:` at all gets.
@@ -90,7 +93,7 @@ row is `sum(lam, over=bp) == (activity)`, and
 an absent right-hand side would take the whole row with it, and leave the
 weights with nothing to make them a curve.
 
-**The breakpoint order is the index order of `over`.** That is the order every
+The breakpoint order is the index order of `over`. That is the order every
 dimension has: the order in which its labels are first written. It is the order
 `shift` walks, and the order that `position(bp) == 0` names.
 
@@ -102,8 +105,8 @@ rows arrive in means nothing, on either lane.
 Write the index backwards, and the curve really does run backwards, which is
 refused.
 
-**A curve with fewer breakpoints than the dimension holds says how far it runs,
-using `points:`.** Name one of the block's own values parameters, and the curve
+A curve with fewer breakpoints than the dimension holds says how far it runs,
+using `points:`. Name one of the block's own values parameters, and the curve
 is as long as that parameter's rows:
 
 <!-- doctest: wrap=piecewise -->
@@ -128,19 +131,19 @@ to use_.
 A breakpoint that is left out declares no weight and no segment binary, and its
 values are not asked for.
 
-**The marked breakpoints must be consecutive.** They need not start at the head
+The marked breakpoints must be consecutive. They need not start at the head
 of the axis, so a curve numbered from 1 is the same curve one label along. A
 gap, or a curve with no points at all, is refused when the data binds. The chord
 row joins each breakpoint to the one before it, and the two domain rows sit on
 the curve's own first and last breakpoints.
 
-Sometimes the _arity_ is data, because one component ties three expressions
+Sometimes the number of tied expressions is data: one component ties three
 where another ties two. Then you
-[write the λ formulation out directly](#when-the-arity-is-data-the-formulation-is-four-declarations)
+[write the λ formulation out directly](#when-the-number-of-tied-expressions-is-data-the-formulation-is-four-declarations)
 instead of using this block
 ([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
 
-**`method` is the one thing that varies.** For the three methods that share the
+`method` is the one thing that varies. For the three methods that share the
 λ expansion, it varies in exactly one place: how the weights are restricted,
 once they exist.
 
@@ -160,7 +163,7 @@ matches the optimisation pressure, and that match is checked against the
 breakpoint _values_ when the data binds. It takes exactly two links, and no
 `activity:`.
 
-### `lp`, the one that declares nothing
+### `lp`, which declares no auxiliary variable
 
 `lp` states the curve as its **segment lines**, instead of interpolating between
 its breakpoints. So it declares no auxiliary variable at all, where the other
@@ -201,7 +204,7 @@ Two things follow from stating lines rather than weights:
   weight forms cannot go. These are the same rows that `linopy`'s own `lp`
   method emits.
 
-### When the arity is data, the formulation is four declarations
+### When the number of tied expressions is data, the formulation is four declarations
 
 `links:` is a list, so the number of expressions a block ties is written in the
 file. Sometimes that number is a property of the system, as when a boiler ties
@@ -224,12 +227,12 @@ constraints:
   one_operating_point:
     foreach: [converter, time]
     expression: sum(weight, over=bp) == 1
-  on_the_curve: # one row per flow — this is where the arity goes
+  on_the_curve: # one row per flow — this is where the count goes
     foreach: [flow, time]
     expression: rate == sum(at(weight, by=converter_of) * bp_rate, over=bp)
 ```
 
-Making the tie a _row_ is what turns the arity into data. A converter with a
+Making the tie a _row_ is what turns that count into data. A converter with a
 fourth flow is then a row in a table, rather than an edit to the model.
 
 `sos: type: 2` states the same restriction that `method: sos2` emits. A solver
@@ -261,15 +264,15 @@ pick_one_size:
 two must be _consecutive_. That is what makes `type: 2` the native spelling of a
 piecewise-linear curve.
 
-**A set is over one variable, and a variable holds one set.** A second block
+A set is over one variable, and a variable holds one set. A second block
 that names the same variable is a load error.
 
-**Membership belongs to the variable.** The variable's `where` decides which
+Membership belongs to the variable. The variable's `where` decides which
 coordinates exist, so a masked-out member is not in the set. For `type: 2`,
 consecutive means consecutive _among the members that are present_, so a
 coordinate that was masked away leaves no hole.
 
-**The order is the declared order of the `over` dimension**, which is the same
+The order is the declared order of the `over` dimension, which is the same
 order `shift` walks. So to reorder the set, reorder that index. There is no
 per-set weight to supply.
 

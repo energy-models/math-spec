@@ -41,7 +41,7 @@ nav:
       - Language:
           - reference/language/index.md
           - File shape: reference/language/file.md
-          - Parameters, variables, constraints: reference/language/declarations.md
+          - Parameters, variables, constraints and the objective: reference/language/declarations.md
           - Dimensions and lookups: reference/language/dimensions.md
           - Expressions: reference/language/expressions.md
           - Reported expressions: reference/language/reported.md
@@ -53,9 +53,9 @@ nav:
       - Every construct, as math: reference/notation.md
       - Typeset the math: reference/typeset.md
   - About:
-      - The ceiling: about/ceiling.md
+      - The limits: about/limits.md
       - What counts as language: about/what-counts-as-language.md
-      - What counts as a verb: about/what-counts-as-a-verb.md
+      - What counts as a function: about/what-counts-as-a-function.md
   - Contributing: contributing.md
   - Changelog: CHANGELOG.md
 
@@ -151,11 +151,11 @@ markdown_extensions:
       permalink: "#"
       toc_depth: 3
       # GitHub's slug rules, not mkdocs'. Every page here is read in both
-      # places and they cross-link by anchor — `errors.md#the-ceiling--in-one
-      # -table`, whose double hyphen is an em dash GitHub drops. The default
-      # slugifier collapses that to one, so such a link would 404 on the site
-      # while working in the repository. Same file, same anchor, both
-      # renderings.
+      # places and they cross-link by anchor — `pypsa_losses.md#rung-13
+      # --transmission-losses`, whose double hyphen is an em dash GitHub
+      # drops. The default slugifier collapses that to one, so such a link
+      # would 404 on the site while working in the repository. Same file,
+      # same anchor, both renderings.
       slugify: !!python/object/apply:pymdownx.slugs.slugify { kwds: { case: lower } }
 hooks:
   - docs/static/hooks.py

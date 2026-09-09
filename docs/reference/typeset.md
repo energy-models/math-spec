@@ -8,9 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 A model is a declaration, so you can print it the way a paper prints it,
 straight from the file, with no data and no solver.
 
-This is the cheapest review tool there is for the question _"does this YAML say
-what I meant?"_. It is also how a model states its math using nothing but the
-file.
+It answers _"does this YAML say what I meant?"_ without binding data or running
+a solver. It is also how a model states its math using nothing but the file.
 
 One page shows every construct the language has, beside the math it prints:
 [Every construct, as math](notation.md). Look there when your question is
@@ -75,10 +74,12 @@ reader never meets a symbol that the page has not defined.
 A model that does not load does not print. Typesetting runs the same load-time
 checks that everything else runs.
 
-**Typesetting does not break lines.** A wide equation runs off the page. That is
-a formatting decision this package does not make for you.
+!!! note "Typesetting does not break lines"
 
-## One declaration
+    A wide equation runs off the page. That is a formatting decision this
+    package does not make for you.
+
+## Printing one declaration on its own
 
 The whole-model functions print the objective, the constraints, the definitions
 and the domains.
@@ -159,16 +160,16 @@ names:
 | `dimensions` | For each dimension, an `index` letter and a `set` symbol. You may omit either one |
 | `names`      | For each parameter, variable or named expression, its symbol                      |
 
-**Every spelling is printed exactly as you wrote it.** Nothing parses or
+Every spelling is printed exactly as you wrote it. Nothing parses or
 translates notation. That is why `notation:` is required, and why rendering a
 LaTeX table as Typst is refused instead of producing something that nearly
 works.
 
-**A key that names nothing in the model is an error**, and the message gives the
+A key that names nothing in the model is an error, and the message gives the
 near miss. The alternative would be a symbol that silently never applies, and a
 reader who never finds out.
 
-**Presentation is not language.** Nothing in a symbol table changes what the
+Presentation is not language. Nothing in a symbol table changes what the
 file means, and no solver reads it. What a declaration _is_ stays the model's own
 `description:`; see [declarations](language/declarations.md). The description
 travels with the declaration, and it reaches every consumer.

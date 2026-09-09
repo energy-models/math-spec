@@ -37,10 +37,10 @@ Three properties follow from that, and each is a page:
   template is parsed and name-checked at load. Where a file does not determine
   the answer, loading fails and the message names the rewrite
   ([errors and limits](docs/reference/language/errors.md)).
-- **The language is finite, and the ceiling is argued rather than drawn.** A
+- **The language is finite, and the limit is argued rather than drawn.** A
   primitive is admissible if it is relational and local; everything else is a
   macro, or an `escape:` island that is visible in the file and billed before it
-  runs ([the ceiling](docs/about/ceiling.md)).
+  runs ([the limits](docs/about/limits.md)).
 - **The file is the document.** A model prints as LaTeX, Typst or Markdown from
   the file alone — no data, no solver, no second source of truth
   ([typeset](docs/reference/typeset.md)).
@@ -119,16 +119,15 @@ sorted(program.constraints)  # ['power_balance']
 ```
 
 Neither needs data or a solver: a repository of models can be compiled in CI
-with nothing bound to any of them. The two states are the whole seam — **`Spec`
+with nothing bound to any of them. The two states are the whole boundary — **`Spec`
 is what the file says, `Program` is what it means** — and a consumer that
 builds reads the second.
 
 <!--- --8<-- [end:load] -->
 
-That seam is [one page](docs/reference/language/reading.md), and it is the whole
-of it.
+[One page](docs/reference/language/reading.md) covers that boundary.
 
-And that same `spec` says, in print — read and checked once, then printed
+That same `spec` prints as math. It is read and checked once, then printed
 three ways:
 
 ```python
@@ -168,9 +167,10 @@ python -m math_spec markdown dispatch.yaml
 - **A closed operator set** — `sum`, `at`, `shift`, and the arithmetic and
   `where` grammars. Compositions go in `macros:`, which cost nothing at build
   and cannot diverge between consumers.
-- **A finite language with a priced way out** — the ceiling is a closure
-  (relational ∩ local), not a feature race; genuinely unsayable math goes in an
-  `escape:` island, visible in the file and billed before it runs.
+- **A finite language with a priced way out** — a primitive is admissible when
+  it is relational and local, and the set of them is closed. Math the language
+  cannot express goes in an `escape:` island, visible in the file and billed
+  before it runs.
 
 ## Docs
 
@@ -181,7 +181,7 @@ which prints all of it beside the notation the typesetter gives it, and
 [typeset the math](https://math-spec.readthedocs.io/latest/reference/typeset/)
 for how to print your own. Why the language is shaped this way — what may enter
 it, and who owns a rule once it is in — is under
-[about](https://math-spec.readthedocs.io/latest/about/ceiling/). To work on it,
+[about](https://math-spec.readthedocs.io/latest/about/limits/). To work on it,
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Installation

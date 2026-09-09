@@ -25,7 +25,7 @@ objective: { sense: minimize, expression: system_cost }
 
 `system_cost` is **in the math**. The objective inlines it, so its body stands
 inside the program that a solver sees. It is held to the
-[degree-2 ceiling](expressions.md#degree-2-in-the-math-degree-1-beside-it) at
+[degree-2 limit](expressions.md#where-a-product-of-two-variables-is-allowed) at
 the place where it is read.
 
 `delivered` and `lcoe` are **reported**. Nothing in the objective or in a
@@ -39,18 +39,18 @@ not. Nothing in the YAML marks either one.
 Which entry is which is decided at load, with no data. The loader expands the
 objective and every constraint, and notes each entry that they inline.
 
-## What lifts and why
+## Which restrictions do not apply, and why
 
 An entry that the math reads is substituted before anything consumes the model,
-so it stays inside the ceiling that the math is held to.
+so it stays inside the limit that the math is held to.
 
 A reported entry is read by **nothing in the model**. It is arithmetic over
 numbers that a solve has already produced. The math carries its restrictions
 because a sink has to build it, and for a body that nothing ingests, all of
-those restrictions lift:
+those restrictions no longer apply:
 
 - **There is no degree cap.** `system_cost / delivered` above divides one
-  variable quantity by another. `p * p * p` is sayable. A quotient, a cube and a
+  variable quantity by another. `p * p * p` is allowed. A quotient, a cube and a
   ratio of two sums are each just a number once the solve is done.
 - **The divisor may carry variables**, and so may an exponent. In the math, `/`
   and `**` require an operand free of variables. Here they drop that
@@ -65,16 +65,16 @@ those restrictions lift:
   nothing, so you no longer need the precompute that an entry in the math would
   need, which is `(1 + rate) ** period` bound as a parameter.
 - **A factor may be a sum of terms, with no limit on the other factor.**
-  [The one-sum-factor rule](expressions.md#degree-2-in-the-math-degree-1-beside-it)
+  [The one-sum-factor rule](expressions.md#where-a-product-of-two-variables-is-allowed)
   is about how many rows a product builds, and a reported body builds none.
 
-Without this lift you could not say LCOE, which is cost over delivered energy,
+Without this exception you could not write LCOE, which is cost over delivered energy,
 because its divisor is a variable.
 
-**Comparisons stay out**, exactly as they do for an entry in the math. An
+Comparisons stay out, exactly as they do for an entry in the math. An
 `expressions:` body is arithmetic, and `>=` belongs to a constraint.
 
-## Which is which
+## Which entries are in the math
 
 An entry is in the math when the objective or a constraint inlines it.
 
@@ -108,7 +108,7 @@ math reads is substituted into the equations that read it. A reported entry has
 nowhere to be substituted into, so its definition stands either way. The two
 cannot disagree, because one function decides both.
 
-## The math reads at its own ceiling
+## An entry is checked at the limit of whatever reads it
 
 The declaration of an entry is not degree-checked at all. There is nothing to
 check it _against_ until something reads it.
@@ -128,7 +128,7 @@ by a parameter, or precompute the reciprocal as one.
 
 The message names the constraint, and the operation that the inlined body
 performs. It does not name the entry `lcoe` that the author wrote, because
-expansion has already substituted `lcoe` away by the time the ceiling is
+expansion has already substituted `lcoe` away by the time the limit is
 checked.
 
 If a constraint needs a quantity, move that quantity into an entry whose shape
@@ -163,22 +163,22 @@ Where a constraint's `where:` deletes a row, that row has no dual. So `dual(c)`
 is absent there too, and that is the same null reading a lookup gets. See
 [absence](absence.md#reported-values-follow-the-rows-that-were-built).
 
-**A solve does not always return a dual.** A model with integer or binary
+A solve does not always return a dual. A model with integer or binary
 variables, a quadratic constraint, or a set reformulated into binaries may come
 back with no dual for a row that would carry one in a pure linear model. Solvers
 also differ, legitimately, on which rows those are.
 
 The language refuses none of these at load, because capability is not the
-ceiling. See
-[ceiling](../../about/ceiling.md#capability-is-not-the-ceiling), where a set
+limit. See
+[limits](../../about/limits.md#capability-is-not-the-limit), where a set
 reformulated into binaries "returns no duals where the native form does".
 
 So `dual(c)` where a solve reports no dual is a **documented absence that a
 consumer names**. It is the same null. It is not a value that the language
 promises is there.
 
-**The sign is fixed by the constraint as written, together with the declared
-sense.** `dual(c)` is the rate at which the optimal objective improves as `c` is
+The sign is fixed by the constraint as written, together with the declared
+sense. `dual(c)` is the rate at which the optimal objective improves as `c` is
 relaxed in the direction its `sense` points, under the model's own `minimize` or
 `maximize`.
 
@@ -188,7 +188,7 @@ facts that the file states. A solver that normalises signs in its own way is
 reconciling its own representation, not the language's, and two consumers
 reading the same model still agree on the sign.
 
-## What a consumer does with it
+## How a consumer reads a reported entry
 
 A reported entry is **observable**, just like an entry in the math. After a
 solve, a consumer reads its value back over its own dimensions. Those dimensions

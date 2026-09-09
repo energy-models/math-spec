@@ -5,12 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Operators
 
-The built-in set of operators is **closed**. These are all of them, there is no
-registry to add to, and so a model can never depend on what a caller
-registered.
-
-Dimension arguments are name-checked at load time. So `sum(p, over=snapshto)`
-is an error, not a silent no-op.
+An operator reduces an expression along a dimension, or re-indexes it. These
+are the operators the language has:
 
 | Operator                                           | Result                                                                                                                             |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,9 +24,16 @@ is an error, not a silent no-op.
 | `sum_back(array, over=dim, within=p)`              | Here `p` is an integer parameter, so each entity gets **its own** window length                                                    |
 | `sum_back(array, over=dim, within=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                         |
 
-`array` is any expression with the right dimension set. So each of these
-operators reads a **parameter** just as readily as a variable. To see how the
-typesetter prints each row, see [As math](#as-math) below.
+`array` is any expression with the right dimension set, so each of these
+operators reads a **parameter** just as readily as a variable. Dimension
+arguments are name-checked at load, so `sum(p, over=snapshto)` is an error
+rather than a silent no-op. To see how the typesetter prints each row, see
+[Every operator as math](#every-operator-as-math) below.
+
+!!! note "The operator set is closed"
+
+    The table above is all of them. There is no registry to add to, so a model
+    can never depend on what a caller registered.
 
 ## `sum`
 
@@ -76,7 +79,7 @@ constraints:
 The same `f` is summed twice, through two different lookups: once as inflow and
 once as outflow. There is no adjacency matrix, and no join written by hand.
 
-**Give at most one of `over=` and `by=`.** A lookup carries its own dimensions,
+Give at most one of `over=` and `by=`. A lookup carries its own dimensions,
 so `by=` leaves `over=` nothing to add. If you give neither, you get the bare
 form shown above.
 
@@ -165,9 +168,11 @@ representative period that repeats asks for.
 
 ## `shift`
 
-`shift(x, over=d, offset=n)` reaches along an axis. It is the value at _t−n_,
-counted in the dimension's **declared order**. `edge=` says what happens at the
-boundary, and that boundary behaviour is the whole subtlety of the operator.
+`shift(x, over=d, offset=n)` moves values along one dimension by a given
+offset, counted in the dimension's **declared order**: the value at each
+coordinate becomes the value that stood _n_ places before it. Only the values
+move, and the coordinates stay where they are. An `edge=` argument says what
+stands where nothing moved in.
 
 ```yaml
 dimensions:
@@ -213,7 +218,7 @@ There are three settings, and two further rules that hold across all of them:
   The error names what you could have meant: `edge='wrap'`, `edge=0`, or
   `edge=0` **together with** a `where` that excludes the vacated coordinate.
   Those last two go together; they are not two alternatives. A `where` on its
-  own does not lift the refusal, and `edge=0` on its own leaves a row at that
+  own does not remove the refusal, and `edge=0` on its own leaves a row at that
   coordinate whose bound is the zero.
 
 ### A translation that stops at each group's edge
@@ -362,12 +367,12 @@ is legal because the partition puts each snapshot's period within reach.
 The two keys compose. `lead: {dims: [technology, period]}` gives one lag per
 technology per period.
 
-## Composing
+## Composing operators
 
 Anything you can build out of these operators belongs in
 [`macros:`](expressions.md#macros). The operator set does not grow to hold it.
 
-## As math
+## Every operator as math
 
 This table shows each operator above as the [typesetter](../typeset.md) prints
 it. The table is **generated** from one model per row, in
@@ -375,8 +380,8 @@ it. The table is **generated** from one model per row, in
 So a row cannot outlive the operator it documents. And if two operators render
 the same way, you see that here rather than in somebody's paper.
 
-Read the three `shift` rows together. They differ only at the boundary, and that
-difference is the whole of the identity rule in this position.
+Read the three `shift` rows together. They differ only at the boundary, which
+is where the identity rule for this position applies.
 
 Each row comes from a model of its own, and those models are on
 [One construct per model](../../examples/operators.md). The rest of the language

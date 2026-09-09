@@ -26,29 +26,29 @@ Every dimension named anywhere in the file must be declared here.
 | `dtype`       | `float`, `int`, `str`, `datetime` | default `str`  |
 | `description` | free text, never parsed           | default `null` |
 
-**A declaration says that the axis exists, and how its coordinates are typed.
-It never says which coordinates there are.** The members are data, and they
+A declaration says that the axis exists, and how its coordinates are typed. It
+never says which coordinates there are. The members are data, and they
 arrive with the data. If the file named them, that would be a second place to
 look. In a real model the generators, the buses and the snapshots are a table,
 not a list that somebody keeps in step by hand.
 
-**Each dimension has one master coordinate set, resolved before any data
-binds.** Every parameter is reindexed onto that set. So if two tables disagree
+Each dimension has one master coordinate set, resolved before any data binds.
+Every parameter is reindexed onto that set. So if two tables disagree
 about which snapshots exist, you get an error at load time instead of a model
 that was quietly truncated.
 
 Which coordinates there are, and what order they stand in, is for the data to
 say. The three rules below say how the data says it.
 
-### Binding belongs to the language, even though the data does not
+### Why these three rules belong to the language
 
 The file declares an axis. The data supplies its members. Between those two
-sentences sit three facts that together decide **which model a file and a table
-make**. If a consumer answered any of the three differently, it would build a
+sentences sit three facts that together decide which model a file and a table
+make. If a consumer answered any of the three differently, it would build a
 different model from the same two inputs. So these facts belong to the
 language. A consumer implements them; it does not choose them.
 
-**The members come from the dimension's own source.** They are read from the
+The members come from the dimension's own source. They are read from the
 key named after the dimension, and from nowhere else. A parameter's table is
 read for values, never for labels. A lookup's map is not a claim about which
 members exist.
@@ -58,22 +58,24 @@ that names the dimension. It is not an empty axis. An axis with no members
 would quietly delete every row indexed by it. A declared dimension that no
 declaration reaches asks nothing of the data, so it needs no source.
 
-**The order of the members is the order that the source gives them**, first row
+The order of the members is the order that the source gives them, first row
 first. They are not sorted, and the type of a label changes nothing. An axis of
 strings, an axis of integers and an axis of timestamps are all read in the
 order they arrive.
 
-The order is observable, because [`shift`](operators.md#shift), `sum_back` and
-`position()` all walk it. A consumer that sorted the axis would answer
-`shift(p, over=snapshot, offset=1)` with a different row, and the file could
-not tell you which answer it meant. If a model wants a particular order, it
-states that order in the source it hands over.
+!!! warning "The order you hand over is the order the model uses"
 
-**One row per coordinate.** A parameter's table carries each coordinate of its
+    [`shift`](operators.md#shift), `sum_back` and `position()` all walk the
+    declared order. A consumer that sorted the axis would answer
+    `shift(p, over=snapshot, offset=1)` with a different row, and the file
+    could not tell you which answer it meant. If a model wants a particular
+    order, it states that order in the source it hands over.
+
+A parameter's table carries each coordinate of its
 `dims` at most once. A second row for one coordinate is an error that names the
 coordinate. It is never a last-wins, a first-wins, or a sum. Each of those
-three readings is defensible, and that is exactly why the file may not leave
-the choice open. A lookup's map obeys the same rule one axis over, and says so
+three readings is defensible, which is why the file may not leave the choice
+open. A lookup's map obeys the same rule one axis over, and says so
 under `lookups` below: it gives one value per label of `over`.
 
 Note that this is _at most_ once, not exactly once. A coordinate with no row is
@@ -109,13 +111,13 @@ The target must be a declared dimension, and it must not be the same dimension
 as `over`. The values are checked against the target once the data is bound,
 and that check is what makes `sum(by=)` safe.
 
-**A partial lookup is legal.** A label that the map leaves out belongs to no
+A partial lookup is legal. A label that the map leaves out belongs to no
 group. A generator can sit on no bus, and a line can have one open end. For
 such a label, `sum(by=)` places its terms nowhere. A value that names no label
 of the target is a typo, and it is an error. You spell "left out" by omission,
 which means a label with no row in the map.
 
-**You can use several lookups at once.** `sum(x, by=[gen_bus, gen_tech])`
+Several lookups may be used at once. `sum(x, by=[gen_bus, gen_tech])`
 groups through both maps in one reduction, and lands on `bus` _and_
 `technology`. Every lookup in the list must be `over:` the same dimension,
 because one grouping consumes one dimension. Each must also target a different
@@ -169,7 +171,7 @@ kind, name it after the **target dimension**, because that is what its values
 are labels of. For a label space, name it after the **lookup itself**, because
 a label space owns its values and targets nothing.
 
-**A partial map is exactly the rows it has.** `g3` appears in no row, so `g3`
+A partial map is exactly the rows it has. `g3` appears in no row, so `g3`
 sits on no bus. Absence is the absent row, exactly as it is for a parameter. A
 null in the value column is refused, because it says both things at once. The
 relation gives one value per label of `over`, and a key that matches no label
@@ -177,14 +179,14 @@ of `over` is a typo rather than a new member.
 
 Supplying a lookup this way touches no table except its own. That is what a
 caller who did not generate the index needs, because it means you can extend a
-model with a lookup in the same way you extend it with a parameter. **A column
-of the `over` index named after the lookup is refused** rather than read. An
+model with a lookup in the same way you extend it with a parameter. A column of
+the `over` index named after the lookup is refused rather than read. An
 index may carry any other extra column, but that one would be a map read by
 accident.
 
-### Both kinds
+### Rules that both kinds share
 
-**Every lookup name joins the flat namespace.** So a lookup may not shadow a
+Every lookup name joins the flat namespace. So a lookup may not shadow a
 dimension, and that includes its own target. The map from `generator` onto
 `bus` is called `gen_bus`, and never a second `bus`.
 

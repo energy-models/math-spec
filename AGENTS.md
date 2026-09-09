@@ -25,7 +25,7 @@ decision, and not a slip.
 
 # Part 1 — Philosophy
 
-## Who is speaking
+## Marking what a session wrote
 
 Code is checked. A discussion is trusted. So mark which is which. These are
 [linopy's rules](https://github.com/PyPSA/linopy/blob/master/AGENTS.md), and
@@ -64,7 +64,7 @@ What was implemented, and how it was verified.
 
 In the tree, nothing is marked. `Co-Authored-By: Claude …` is the record.
 
-## One question, one answer
+## What belongs in this repository
 
 This repository owns a language. Its whole promise is that two consumers
 reading the same file cannot disagree about what that file says.
@@ -81,16 +81,17 @@ answer here is the mistake.
   the ones nothing calls. Where a file does not determine the answer, loading
   fails, and the message names the rewrite.
 - **Triage a new construct first: is it a primitive, a macro, or an `escape:`?**
-  The ceiling is relational ∩ local. Read the deliberate non-primitives in
-  [ceiling.md](docs/about/ceiling.md) first. The argument for admitting one of
+  A primitive is admissible when it is relational and local. Read the
+  deliberate non-primitives in
+  [limits.md](docs/about/limits.md) first. The argument for admitting one of
   those is the argument that page is already making, not a new argument.
 - **A construct that cannot be printed is not in the language.** Whatever the
   loader admits, the typesetter renders in all three formats.
 
-## Simplicity is the design
+## Keeping the design simple
 
 - **Build the simplest thing that works.** Add no new layer, protocol,
-  registry, config object or plugin seam unless something concrete needs it
+  registry, config object or plugin system unless something concrete needs it
   _now_. Concrete means a second implementation, an extension point that a third
   party builds against, or a constraint that nothing else meets. "It will make
   the next change easier" is not evidence. The next change can add it, and by
@@ -105,7 +106,7 @@ answer here is the mistake.
 - **A cleanup pass has to end in fewer lines and fewer concepts.** One whose
   output is a defensive rename gets sent back.
 
-## Breaking changes are free
+## Renaming and deleting
 
 The project is on the `0.0.0-alphaN` stream, and it holds no compatibility
 promise.
@@ -124,7 +125,7 @@ a `!`, or a `BREAKING CHANGE:` footer. It is refused because it would move the
 base version rather than the alpha counter. Describe the break in the PR body
 instead.
 
-## A claim carries its evidence
+## Numbers and claims
 
 - **A number lives in the PR that took it**, beside its method and its base
   commit. What stays behind in the tree is the conclusion, **and a `#nnn`, which
@@ -139,21 +140,21 @@ instead.
   `pixi run test`, `pixi run ci`, or one file. Then name what you did not run.
 - **Check the user's numbers too.**
 
-## The tree holds facts, the PR holds the story
+## Where rationale goes
 
 - Rationale and alternatives belong in the PR description. History belongs in
   git, and that covers "previously this used to…", "renamed from…" and "as of
   the parser rewrite…". Neither of the two belongs in the code.
 - **Docs move with the change.** A construct that is added, renamed or retired
   updates the [language reference](docs/reference/language/index.md). If the
-  change moves the ceiling itself, it also updates
-  [ceiling.md](docs/about/ceiling.md). Moving the ceiling is a decision to raise
+  change moves the limit itself, it also updates
+  [limits.md](docs/about/limits.md). Moving the limit is a decision to raise
   in the PR, not a paragraph to edit quietly.
 - **After a decision in conversation, sweep for what now contradicts it.** That
   includes stale rationale. In every reader's head, a stale sentence outranks
   correct code.
 
-## Generated files are generated
+## Files that a tool writes
 
 Some files in this tree are written by a tool and then committed. They are the
 schema, the golden typesetter output, and six documentation pages, which include
@@ -174,13 +175,13 @@ generator lands together with a row in the `GENERATED` table in
 `tests/test_docs.py`. If it does not, `test_every_generator_is_asked` says
 so.
 
-## The maintainer decides
+## What the user decides
 
 - **The user merges.** An agent does not decide that work is finished. If you
   are told directly to merge, then merge. Never force-push, and never delete a
   branch that you did not create.
 - The suite enforces the invariants, so this file does not repeat them. The
-  export surface is enforced by `tests/test_public_surface.py`. The committed
+  public API is enforced by `tests/test_public_surface.py`. The committed
   schema is enforced by `tests/test_schema.py`. The generated pages are enforced
   by `tests/test_docs.py`. The version comes from the git tag. The version is
   written down nowhere in the tree, so never "fix" it into a file.
@@ -214,7 +215,7 @@ so.
 
   ```python
   # no
-  program = to_program(spec)  # hold it — this one is not memoised, unlike the expansion
+  program = to_program(spec)  # hold it — this one is not cached, unlike the expansion
 
   # yes — the sentence lives in to_program()'s docstring
   program = to_program(spec)
@@ -457,14 +458,98 @@ does not get annotated.
 - **Recommend. Do not survey.**
 - **Triage a language feature before you design it.** Decide whether it is a
   primitive, a macro or an `escape:`, against
-  [ceiling.md](docs/about/ceiling.md).
+  [limits.md](docs/about/limits.md).
 
-## Language
+## Prose
 
-Keep responses in natural, conversational language. Put the emphasis on
-explaining complex technical subjects and mathematics, so that the user
-understands them.
+Write the docs and this file the way the Python packages that NumFOCUS sponsors
+write theirs: plain declarative sentences that answer a question. Use
+Simplified Technical English (ASD-STE100). This applies to the Markdown pages
+in this repository, and to issues, PRs and commit messages. In conversation,
+keep the same plainness, and put the emphasis on explaining technical subjects
+and mathematics so that the user understands them.
 
-Use Simplified Technical English (ASD-STE100) to keep the text readable. This
-applies to issues, PRs and commit messages, and to the Markdown pages in this
-repository.
+The reader of a page came to find out what the language accepts, and what
+happens if they write X. A sentence that does not move that answer forward is
+cut, however true it is.
+
+### Sentences
+
+- **Put the fact first**, with no build-up to it.
+- **Bold names a rule in a normative document**, which is this file and
+  [CONTRIBUTING.md](CONTRIBUTING.md), whether the rule opens a list item or a
+  paragraph. On a page under `docs/` it marks a term where the page defines it,
+  and nothing else — not a claim, not a whole sentence, not a warning. A
+  paragraph that needs bold for its point to land has buried its point.
+- **A heading names what the section answers.** "How a new construct enters",
+  not "Two tiers, and the limit". "Renaming and deleting", not "Breaking
+  changes are free".
+- **One thought per sentence.** The em dash that carries a turn, the appositive
+  that carries a second thought and the tail that qualifies the claim each read
+  as one sentence and parse as three.
+- **"when both of these are true", not "if and only if".**
+- **Never grade the language.** "says what it means", "reads naturally", "just
+  works", "as you would expect", "elegantly" — the reader can neither check nor
+  act on any of them. They are the page arguing for a decision it has already
+  made.
+- **Never say that something is subtle, important or the crux.** Say the thing.
+  "that boundary behaviour is the whole subtlety of the operator" asks a
+  question and leaves the reader holding it.
+- **An example is the statement, so the paragraph ends on it.**
+- **`So …`, `In other words …`, `That is to say …`** earn their place only where
+  the second sentence adds the mechanism, the reason or the refusal.
+- **The test is subtraction.** Cover a clause and ask what the reader can no
+  longer do. No answer means cut it, and the shorter paragraph ships.
+- **A clause pointing at a missing rule is replaced, not deleted** — it was
+  standing where the rule belongs.
+
+### Words
+
+**A word the reader would have to look up is either replaced, or defined in the
+sentence that first uses it.** Check it against the vocabulary those packages
+already use.
+
+**One word, one meaning across the docs.** A word that already names an
+operator cannot also name a concept: `ceiling` rounds up, so the limit of what
+the language can express is **the limit**. A word standing in for three
+ordinary words is replaced by them: `sayable` is _allowed_, or _written_, or
+_the language can express it_.
+
+| Not this            | This                                                                   |
+| ------------------- | ---------------------------------------------------------------------- |
+| idempotent          | calling it again returns the same object unchanged                     |
+| the seam            | the boundary between a model file and an engine, or name the functions |
+| the export surface  | the public API                                                         |
+| a verb              | a function, or a public function                                       |
+| the ceiling         | the limit of what the language can express, then the limit             |
+| sayable, unsayable  | allowed, written, or the language cannot express it                    |
+| a restriction lifts | a restriction no longer applies                                        |
+| arity               | the number of arguments                                                |
+| memoised            | cached                                                                 |
+| the two-backend tax | implemented twice, once for each backend                               |
+
+Domain terms stay, because replacing one costs the reader more than it saves:
+affine, degree, dimension, coordinate, broadcast, declaration, primitive,
+macro, formulation, invariant, agnostic, and PyPSA's own names such as
+`p_nom`. A cardinality constraint keeps its name and gains a clause saying it
+counts how many things are non-zero.
+
+### A reference entry
+
+An entry in `docs/reference/` has three parts, in this order.
+
+1. **What it does to the data, verb first, arguments in plain words** — "shifts
+   array elements by a given offset along a single dimension". Not a metaphor
+   ("reaches along an axis"), and not notation the reader must bind to the
+   signature themselves (_t−n_).
+2. **What it does not do** — "only data is moved; coordinates stay in place".
+   The sentence that stops a wrong assumption is worth more than any other in
+   the entry, and it is the one most often missing.
+3. **What each remaining argument is for**, at that altitude — "an additional
+   `edge=` argument handles values shifted beyond the array bounds". The
+   enumeration of its values follows, or lives in the section that owns it.
+
+- **No metaphor the reader has to decode**: a tax, a seam, a fence, a front
+  door, a tier. Name the thing. Where a metaphor is a defined term of this
+  project with a page behind it — a **rung** of the examples ladder — keep it,
+  define it at first use on the page, and do not grow a new one beside it.

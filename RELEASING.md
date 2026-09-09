@@ -37,7 +37,7 @@ Three files own it:
 `.github/workflows/pr-title.yml` guards the input.
 `.github/workflows/build.yml` consumes the output.
 
-## Why the two halves fit without a bridge
+## Why release-please and `pyproject.toml` need no glue
 
 `release-type` is `simple`, and `simple` never touches `pyproject.toml`.
 release-please maintains `CHANGELOG.md`, the manifest and the tag, and nothing

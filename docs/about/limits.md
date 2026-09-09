@@ -3,14 +3,14 @@ SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# The ceiling
+# The limits of the language
 
-**This page says what is allowed to enter the language, and what is never
-allowed.** The rules that a model itself must obey are
+This page says what is allowed to enter the language, and what is never
+allowed. The rules that a model itself must obey are
 [the ten rules](../reference/language/index.md#ten-rules-the-language-reduces-to).
 This page holds the argument in between. It gives the test that a candidate
 primitive must pass. It explains why capability is a second, separate axis
-rather than part of the ceiling. It records
+rather than part of the limit. It records
 [what has been refused and why](#deliberate-non-primitives). And it says what
 composition would force on us.
 
@@ -18,13 +18,16 @@ This page makes a claim, so it carries evidence. When a ported model needs math
 that this language cannot state, that becomes a row in a ledger against the port
 that needed it, with the triage verdict beside it.
 
-## Two tiers, and the ceiling
+## How a new construct enters
+
+A new construct arrives as one of four kinds, and the kind decides what it
+costs.
 
 **Primitives** are the operators, `sum`, `sum(by=)`, `shift` and the `where`
-predicates. They set the expressive ceiling. Each new primitive costs the full
-two-backend tax: an eager implementation, a plan node and a locality class, an
-engine case, a lowering case, differential tests, and an entry in the language
-reference.
+predicates. They set the limit of what the language can express. Each new
+primitive must be built in both backends: an eager implementation, a plan node
+and a locality class, an engine case, a lowering case, differential tests, and
+an entry in the language reference.
 
 **`macros:`** are pure substitution in the syntax tree. They give you every
 composition of the primitives at no extra cost and with no risk that the two
@@ -41,8 +44,8 @@ that shared compiler is what keeps the divergence risk at zero. A macro is
 different: it takes parameters, it has no dimensions until you call it, and you
 can never read it back.
 
-**Formulations**, which today means `piecewise:`, are taxed like a primitive but
-compose like a macro. They emit _new declarations_ before dispatch, and they
+**Formulations**, which today means `piecewise:`, cost as much as a primitive
+but compose like a macro. They emit _new declarations_ before dispatch, and they
 never enter the plan as expression nodes.
 
 For any request, start with triage: **is this a macro, a primitive, or an
@@ -55,7 +58,7 @@ offset=1)` takes its dimension as a keyword argument _value_, so a macro can
 pass a formal parameter there. The earlier design, which put the dimension in
 the key, could not do this, and it is gone.
 
-A candidate primitive is admissible if and only if it is both relational and
+A candidate primitive is admissible when it is both relational and
 local.
 
 - **Relational** means it is a filter, a join, or a group-by aggregation over
@@ -67,7 +70,7 @@ Judge locality in **data space**. A reduction over a _coordinate_ space, such as
 "the last snapshot", only reads the small dimension tables that are already
 materialised. So it stays admissible even though it looks global.
 
-**Degree is not a third rule.** This page stated it as one for a while, and that
+Degree is not a third rule. This page stated it as one for a while, and that
 was a mistake. There is nothing non-relational or non-local about
 `variable × variable`. A coordinate-aligned product is a pointwise self-join.
 That prediction has since been cashed in: **the objective takes degree 2.** What
@@ -95,7 +98,7 @@ Two things bound the quadratic case, and neither of them is streamability:
   honest general bilinear form, and it is admissible, because it is coupled
   through a declared table.
 
-**Read the verdict off the plan.** Relational and local are one question asked
+Read the verdict off the plan. Relational and local are one question asked
 twice, and the compiler already answers it. Write the candidate's query over the
 term stream first, then read `.explain()`:
 
@@ -122,7 +125,7 @@ wrong artefact.
 A primitive is finished when `lowering.py` accepts it and the differential test
 against the linopy oracle passes.
 
-**The ceiling is a claim, so it needs evidence.** In the ports ledger, math that
+The limit is a claim, so it needs evidence. In the ports ledger, math that
 a ported model needed and this language could not state becomes a ledger row
 with its triage verdict beside it. That ledger is what the roadmap should be
 argued from.
@@ -163,8 +166,7 @@ What is outside **the plan** is work that needs the solver's _answer_ before it
 can decide the next row. Lazy cut generation is the example, because there is no
 "before" for it to happen in.
 
-**Outside the plan is not outside the engine**, and that difference is the whole
-of decomposition. A plan cannot contain a loop. But a _process_ may loop over
+Outside the plan is not outside the engine. A plan cannot contain a loop. But a _process_ may loop over
 plans, and each plan has its own shape fixed before its own data. A rolling
 horizon has exactly that shape and is in scope
 ([Track 2](https://github.com/fluxopt/lpspec/issues/471)). So are Benders
@@ -177,15 +179,15 @@ mask. So adding _rows_ moves no column and renumbers no existing row, and
 
 What such a scheme still owes an answer on is **who writes the cut**. Rule 5
 refuses a Python modeling API. So either a decomposition driver ships that reads
-the model frames, or we bless the narrow seam for emitting affine rows that is
+the model frames, or we allow the narrow exception for emitting affine rows that is
 discussed under [Composition](#composition-component-libraries). That is a
-question of scope, not a question about the ceiling.
+question of scope, not a question about the limit.
 
 Streamability is a different property from how much a build costs, though the
 two meet at the escape hatch. That is why an `escape:` island (#38) is
 admissible where a registered Python helper was not. Its extent is fixed by the
 `where` mask in front of it, it is terminal, and it is named in the file. Its
-**label budget is what keeps it accountable.** The cost of an island is bounded
+label budget is what keeps it accountable. The cost of an island is bounded
 by what it is allowed to emit, and that bound is declared and enforced before
 any Python runs, rather than discovered after the Python has allocated.
 
@@ -195,9 +197,9 @@ still emits affine rows, just O(T²) of them. But an escape never buys back
 island _emits_, not on what a sink accepts, so the capability findings below do
 not affect it.
 
-### Capability is not the ceiling
+### Capability is not the limit
 
-The ceiling described above is about **streamability**, and it does not depend on
+The limit described above is about **streamability**, and it does not depend on
 the solver. What a _sink_ can ingest is a separate axis. Mixing the two axes
 together let one solver's limits read as architectural law. The claim that "no
 sink carries the stream" described a solver, not the architecture.
@@ -213,7 +215,7 @@ says which sink is which:
 So a capability is neither a flat set nor a single verdict per construct. The
 whole-Hessian handoff is a difference in implementation, not a violation of rule 4.
 
-**`sos:` is that finding cashed in**, and it shows what the axis is worth. The
+`sos:` is that finding put to use, and it shows what the axis is worth. The
 construct entered on the streamability argument alone, because a set names
 columns that a variable has already made, so it is neither an expression node
 nor a formulation. Each sink then answers for itself, either `native` or
@@ -261,10 +263,11 @@ the width off the column. Minimum up and down times is the witness for this.
 [#849](https://github.com/fluxopt/lpspec/issues/849) is what remains of that
 gap.
 
-The first kind is a design decision. The second kind was a tax. Refusing both
-under a single rule reads as principle while it bills as friction.
+The first kind is a design decision. The second kind was a cost we no longer
+have to pay. Refusing both under a single rule reads as principle while it
+charges the modeller for nothing.
 
-**The trade-off is deliberate, and Calliope made it differently.** Calliope's
+The trade-off is deliberate, and Calliope made it differently. Calliope's
 components take a list of `where`-guarded equations. So alternatives that differ
 by a regime live in the file, instead of being flattened into data. Calliope has
 one block for cyclic and non-cyclic storage, where this language wants the
@@ -272,7 +275,7 @@ constraint written twice ([#711](https://github.com/fluxopt/lpspec/issues/711)).
 
 What we buy with the difference is that the _shape_ of the plan stays fixed
 before any data is read. That is what makes a streaming engine and a second
-independent lane possible at all. So the ceiling stays. What is worth importing
+independent lane possible at all. So the limit stays. What is worth importing
 from Calliope is the **checks and the rules, not the machinery**: validate that
 alternatives cover their rows exactly once, and stop making the modeller write
 out an argument the compiler could derive. Neither of those widens the closure.
@@ -293,12 +296,12 @@ Parity with another tool is not by itself a reason to add anything.
 | Arbitrary array ops (`merge`, `reindex`)                                  | unbounded; xarray with extra steps                                                                                                                                                                                                                                                                                                                                                                               | data prep                                                                                                                                                                                                              |
 | Domain helpers (`reduce_carrier_dim`)                                     | encodes one domain into the language                                                                                                                                                                                                                                                                                                                                                                             | component libraries over generic primitives                                                                                                                                                                            |
 | A tracked-metric vocabulary — `impacts:`, `effects:`, a `costs` dimension | the three fates are already reference-it-or-don't                                                                                                                                                                                                                                                                                                                                                                | an `impact` dim and one named expression: cap it with a constraint whose dual is the shadow price, weight it in the objective, read it with `result.expression` ([#124](https://github.com/fluxopt/lpspec/issues/124)) |
-| `**` with a **variable** base or exponent                                 | the exponent would decide the degree, and no data is read at load — `p ** n` is affine at 1, quadratic at 2 and over the ceiling at 3, and the file says which only once the numbers arrive                                                                                                                                                                                                                      | `x * x` for a square; above degree 2 there is no rewrite. Over variable-free operands `**` **is** in the language ([#1175](https://github.com/fluxopt/lpspec/issues/1175))                                             |
+| `**` with a **variable** base or exponent                                 | the exponent would decide the degree, and no data is read at load — `p ** n` is affine at 1, quadratic at 2 and over the limit at 3, and the file says which only once the numbers arrive                                                                                                                                                                                                                        | `x * x` for a square; above degree 2 there is no rewrite. Over variable-free operands `**` **is** in the language ([#1175](https://github.com/fluxopt/lpspec/issues/1175))                                             |
 | Normalisation (`x / sum(x)`)                                              | a _variable divisor_ is rational, not polynomial — no sink takes it at any degree                                                                                                                                                                                                                                                                                                                                | state the ratio as a constraint, or fix the denominator                                                                                                                                                                |
 | Conditionals, iteration, data-dependent structure **inside one plan**     | destroys the closed AST                                                                                                                                                                                                                                                                                                                                                                                          | `where` masks + `foreach` dims. A _process_ may loop over plans                                                                                                                                                        |
 | A Python API for constructing models                                      | hard rule 5 — the model is the file you review and diff                                                                                                                                                                                                                                                                                                                                                          | YAML. Whether Python may _emit_ declarations is [#381](https://github.com/fluxopt/lpspec/issues/381)                                                                                                                   |
 
-Math that is genuinely unsayable goes into a declared `escape:` island
+Math that this language cannot express goes into a declared `escape:` island
 ([#38](https://github.com/fluxopt/lpspec/issues/38)). An island is named in the
 file, it is bounded by the `where` in front of it, it is terminal, and it is
 billed against a label budget before any Python runs. It buys back _relational_
@@ -312,7 +315,7 @@ templates agree on one convention for ports and flows. They are merged into a
 single program, wired together through a connectivity table in the data, and
 closed with a single `sum(by=)` balance.
 
-**Topology is data, not structure.** Wiring up a specific system means rows in a
+Topology is data, not structure. Wiring up a specific system means rows in a
 connectivity table, and never generated YAML. So the amount of structure is
 bounded by the number of component _types_, while cardinality lives entirely in
 the data.
@@ -330,15 +333,15 @@ Variable port counts and component types that are unknown until runtime are the
 examples. That layer must emit **more rows or more templates, and never
 per-instance YAML.**
 
-That layer has a supported thing to call. Every verb takes
+That layer has a supported thing to call. Every function takes
 `str | Path | dict | Spec`. So a model built programmatically goes through
 validation, expansion, resolution and dimension checking in exactly the same way
 a file does, and `Spec.to_yaml` gives it the review copy that rule 5 requires.
 
-That is the whole of the blessed contract. Note that it sits at the schema
-level, not at the plan level. It is a narrow way to emit _declarations_. It is
-not a Python modeling API, which rule 5 still refuses, and that refusal is why
-this section still forbids generated YAML text.
+The contract stops there. It sits at the schema level rather than at the plan
+level, and it is a narrow way to emit _declarations_. It is not a Python
+modeling API, which rule 5 still refuses, and that refusal is why this section
+still forbids generated YAML text.
 
 Namespacing (#29) and a native schema merge (#30) were closed against this
 contract. A library that composes optional features varies its declarations by

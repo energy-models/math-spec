@@ -56,8 +56,8 @@ version: 0
 dimensions: ...
 ```
 
-**`0` means unstable, and that is the promise we are making.** The surface may
-change in any release. Saying so in the file is more honest than saying nothing.
+`0` means unstable. The surface may change in any release, and saying so in the
+file is more honest than saying nothing.
 `0` will not become `1` without a changelog entry that names what moved.
 
 If this release does not know the version you give, that is a load error and
@@ -72,7 +72,7 @@ Upgrade math_spec, or write the version this file actually targets.
 This is a **language** version, not a package version. It moves when the
 accepted YAML surface moves, and most releases do not move it.
 
-## The schema is closed
+## An unrecognised key is refused
 
 An unrecognised key is a load error that names the near miss. This applies at
 the top level and inside any declaration:

@@ -62,9 +62,9 @@ data — and the file prints as the math it stands for.
 
     ***
 
-    The ceiling is a closure — relational ∩ local — not a feature race.
-    Genuinely unsayable math goes in an `escape:` island: visible in the file,
-    billed before it runs.
+    A primitive is admissible when it is relational and local, and the set of
+    them is closed. Math the language cannot express goes in an `escape:`
+    island: visible in the file, billed before it runs.
 
 - :material-function-variant: **The file is the document**
 
@@ -90,7 +90,7 @@ data — and the file prints as the math it stands for.
 
 --8<-- "README.md:model"
 
-### And that file says, exactly this
+### What that file says
 
 Generated from the YAML above — no data, no solver, no second source of truth.
 Only the notation is a choice, and **How** shows the one that was made here.
@@ -221,13 +221,13 @@ Only the notation is a choice, and **How** shows the one that was made here.
 
 <!-- home-math:end -->
 
-### And a consumer reads it like this
+### How a consumer reads it
 
 --8<-- "README.md:load"
 
-That seam is [one page](reference/language/reading.md), and it is the whole of
-it: what a program gets when it loads a model, and nothing a program does
-changes what the file means.
+[One page](reference/language/reading.md) covers that boundary: what a program
+gets when it loads a model. Nothing a program does changes what the file
+means.
 
 ## Where to next
 
@@ -268,7 +268,7 @@ changes what the file means.
     The contract between the language and anything that reads the AST — a
     solver backend, a renderer, a second front end.
 
-    [:octicons-arrow-right-24: The seam](reference/language/reading.md) ·
+    [:octicons-arrow-right-24: The boundary](reference/language/reading.md) ·
     [Python API](reference/math_spec/validation.md)
 
 - :material-fence: **What may enter the language**
@@ -278,7 +278,7 @@ changes what the file means.
     The test a candidate primitive has to pass, why capability is a second
     axis, and what has been refused and why.
 
-    [:octicons-arrow-right-24: The ceiling](about/ceiling.md)
+    [:octicons-arrow-right-24: The limit](about/limits.md)
 
 - :material-scale-balance: **Who owns a rule**
 

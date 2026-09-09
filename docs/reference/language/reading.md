@@ -11,15 +11,15 @@ anything that reads the syntax tree, such as a solver backend, a renderer, or a
 second front end.
 
 You need none of this to write a model. These are the names that a **consumer**
-reads a model through, and they are the whole of the seam:
+reads a model through:
 
 ```text
 to_spec  →  Spec  →  to_program  →  Program
 ```
 
-## Two states, and the difference between them
+## `Spec` and `Program`
 
-**A `Spec` is what the file says. A `Program` is what the file means.** In a
+A `Spec` is what the file says. A `Program` is what the file means. In a
 `Program`, the macros are expanded, each curve has become the declarations it
 stands for, the names are typed, the operators are resolved to nodes, and every
 dimension rule and degree rule is already checked.
@@ -75,27 +75,29 @@ sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
 `to_program` takes whatever you have: a path, the YAML, a mapping, a `Spec`, or
-a `Program` that already exists. It is idempotent. So a consumer that does not
-know which of these it holds can call `to_program` and be sure of the result.
+a `Program` that already exists. Calling it again returns the same program
+unchanged. So a consumer that does not know which of these it holds can call
+`to_program` and be sure of the result.
 
-## Which one to take
+## Which of the two a consumer takes
 
 | you are                                                                      | take      | because                                       |
 | ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
 | building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved      |
 | reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts, not its text |
 
-**Take a `Program` to build.** Suppose a consumer reads `constraints:` off a
+A consumer that builds takes a `Program`. Suppose one reads `constraints:` off a
 `Spec` that still carries a curve. It then builds a model with declarations
 missing. A model with declarations missing is still a model, so it solves, and
 the answer is wrong with nothing to show you why. `Program` is a different type
 from `Spec`, so the signature refuses that mistake instead of the numbers
 reporting it later.
 
-**A program cannot answer what the file wrote.** It has no `macros:`, no
-`description:`, and no link expression. Those belong to the `Spec`, so anything
-that renders has to be handed what `to_spec` returned. The projection runs one
-way on purpose.
+!!! note "A program cannot answer what the file wrote"
+
+    It has no `macros:`, no `description:`, and no link expression. Those
+    belong to the `Spec`, so anything that renders has to be handed what
+    `to_spec` returned. The projection runs one way on purpose.
 
 What a program keeps of a `piecewise:` block is `program.piecewise`. That holds
 which parameters carry the curve, and what the block assumes about the numbers,
@@ -107,7 +109,7 @@ What the expansion emitted is answered where you ask it instead. A
 `ParameterDeclaration.derivation` says how that parameter is filled, and `None`
 means the caller binds it.
 
-**Nothing here is built by hand.** The program's nodes are exported so that you
+Nothing here is built by hand. The program's nodes are exported so that you
 dispatch on them with `isinstance` and read them. That is why what ships beside
 them is the walk, `children()`, and not a set of builders.
 
@@ -143,7 +145,7 @@ dispatches on.
 ## Asking what a program uses
 
 `program.footprint` tells you which of the language's constructs one program
-actually reaches for. It is a **subset**, and never the whole language. It is
+actually reaches for. It is a subset, and never the whole language. It is
 walked once and then held, which is safe because a program cannot change after
 it is built.
 
@@ -164,16 +166,17 @@ that the construct does not exist. When a construct is admitted to the language
 later, it widens one of these sets, rather than needing a new field that no
 consumer yet reads.
 
-**The footprint answers what the program uses, and never what you can do about
-it.** What a sink can ingest is a separate axis; see
-[capability is not the ceiling](../../about/ceiling.md). On that axis, a
-capability is neither a flat set nor a single verdict per construct. SOS is
-solver-bounded. Quadratic is bounded twice over on a single sink, once by
-convexity and again by what it stands beside.
+!!! note "The footprint answers what the program uses, and never what you can do about it"
 
-So there is deliberately no verdict here for you to read in place of giving one.
-Convexity is absent for a different reason: it depends on coefficient data,
-rather than on anything a program states.
+    What a sink can ingest is a separate axis; see
+    [capability is not the limit](../../about/limits.md). On that axis, a
+    capability is neither a flat set nor a single verdict per construct. SOS is
+    solver-bounded. Quadratic is bounded twice over on a single sink, once by
+    convexity and again by what it stands beside.
+
+So the footprint carries no verdict for a consumer to read in place of deciding
+for itself. Convexity is absent for a different reason: it depends on
+coefficient data, rather than on anything a program states.
 
 The footprint stops at the kind of construct. Take a sink that accepts a window
 but not a wrapped window. It reads `Window in footprint.shapes`, and then it
@@ -185,7 +188,7 @@ to look.
 
 A driver that solves a horizon in windows needs one thing from the model before
 it starts. A rolling horizon and a myopic pathway are both such drivers, and the
-question is: **is every row it builds complete inside some window?**
+question is whether every row it builds is complete inside some window.
 
 Storage carried over a snapshot is complete inside a window, once the windows
 overlap by one row. An annual budget never is. And the windows still solve, so
@@ -203,7 +206,7 @@ ties each one. That includes the three declarations that the `piecewise:` block
 emitted, so a coupling introduced by an expansion is named under the name the
 expansion gave it, rather than under the block that a reader wrote.
 
-This is the same locality that [the ceiling](../../about/ceiling.md) already
+This is the same locality that [the limits](../../about/limits.md) already
 argues in, which is pointwise, bounded halo and global. Here the question is
 asked about a dimension rather than about an operator.
 
@@ -224,7 +227,7 @@ What would break comes in three kinds, so that a driver can act on each one.
 `coupled` names each declaration that ties the axis together. Such a declaration
 can be a sum over the axis in a constraint, a grouping that consumes the axis, a
 wrapped shift, or a set. After the dash, it names the one modelling change that
-would lift the coupling: a horizon total becomes a rolling `sum_back`, a wrap
+would remove the coupling: a horizon total becomes a rolling `sum_back`, a wrap
 becomes an opening-state seed, and a grouping is windowed along the dimension it
 groups into. No window satisfies a coupling, and no rewrite keeps the meaning of
 the model, so the remedy is named and not applied.
@@ -248,10 +251,9 @@ because a window restarts that count at its first row.
 `windowable` is false while anything is coupled or undecided. A restart does not
 count against it.
 
-**A reduction means opposite things depending on its position**, and that is the
-whole of the care needed here. In a constraint, a sum over the axis ties every
-window to every other window. In the objective, the same sum is additively
-separable, because an objective is a sum already.
+A reduction means opposite things depending on its position. In a constraint, a
+sum over the axis ties every window to every other window. In the objective,
+the same sum is additively separable, because an objective is a sum already.
 
 Two things are not decided here. The first is whether the windowed answer is the
 whole-horizon answer. A store carried over one row windows cleanly, and a

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Degree — the one admissibility rule that is a scope choice (docs/about/ceiling.md).
+"""Degree — the one admissibility rule that is a scope choice (docs/about/limits.md).
 
 **Degree 2 in the math, degree 1 in what stands beside it.** An objective and a
 constraint both take ``variable * variable``; a *bound* and a ``piecewise:``
@@ -153,7 +153,7 @@ def _a_variable_under_a_power_message(where: str) -> str:
         f'carry none.\n'
         f'Write the product out — `x * x` for a square — or precompute the factor as a parameter. '
         f'A variable base above degree 2 has no rewrite at all, and one whose exponent is data has '
-        f'no degree until the data arrives — see docs/about/ceiling.md.'
+        f'no degree until the data arrives — see docs/about/limits.md.'
     )
 
 

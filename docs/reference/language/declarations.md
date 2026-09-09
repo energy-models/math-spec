@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Parameters, variables, constraints
+# Parameters, variables, constraints and the objective
 
 These are the four blocks that carry the math. Each block takes an optional
 `description:`. A description is free text, it is never parsed, and it has no
@@ -45,8 +45,8 @@ parameters:
 | `dtype`       | `float`, `int`, `bool`, `str`                                  | default `float` |
 | `description` | free text                                                      | default `null`  |
 
-**`dtype` is a claim about the values, and the column has to match it.** The
-`dtype` decides four things:
+The `dtype` is a claim about the values, and the column has to match it. It
+decides four things:
 
 - whether the name is a value in an [expression](expressions.md) at all;
 - what a `where` comparison is checked against;
@@ -65,8 +65,8 @@ data does not build. Such a column does not bind.
 | `bool`   | a boolean column                       | `1` and `0` are not booleans. Cast the column, or declare `int` |
 | `str`    | a string column                        |                                                                 |
 
-**Arithmetic works over numbers, so only `float` and `int` are values.** A
-`str` parameter is a label, and a `bool` parameter is a mask. Each of them names
+Arithmetic works over numbers, so only `float` and `int` are values. A `str`
+parameter is a label, and a `bool` parameter is a mask. Each of them names
 rows rather than scaling them. So if you write either one as a coefficient, a
 term or a divisor, you get a load error. The engine does not quietly cast it on
 the way past.
@@ -108,16 +108,17 @@ variables:
 | `absence`                       | `undefined` or `zero`. This says what the masked-out coordinates _mean_ ([absence](absence.md#what-a-missing-coordinate-means))              | default `undefined`    |
 | `description`                   | free text                                                                                                                                    | default `null`         |
 
-**If you omit a bound, the variable is unbounded on that side.** You write
-non-negativity; the language does not assume it.
+!!! warning "A bound you omit leaves the variable unbounded on that side"
 
-**Bounds take a name or a number, and never arithmetic.** `upper: p_max` is
+    You write non-negativity. The language does not assume it.
+
+Bounds take a name or a number, and never arithmetic. `upper: p_max` is
 fine. `upper: -rating` is not, and the error says exactly that instead of
 reporting a parse failure. Ship the negated column as data. Allowing
 expressions there is [#31](https://github.com/fluxopt/lpspec/issues/31). The
 dimensions of a bound parameter must not exceed `foreach`.
 
-**Equal bounds pin a variable.** This is how one declaration can cover a
+Equal bounds pin a variable. This is how one declaration can cover a
 quantity that is a decision in one model and data in another. Bind `lower` and
 `upper` to the same value where the quantity is fixed. Then
 `rate - relmax * size <= 0` is one equation, whether `size` is chosen or given.
@@ -131,7 +132,7 @@ variable's `bounds`.
 
 ## `constraints`
 
-**One rule per block.** The name of the block _is_ the name of the constraint,
+One block is one rule. The name of the block _is_ the name of the constraint,
 and that name is how you read a row back after a solve.
 
 ```yaml
@@ -156,7 +157,7 @@ constraints:
 | `description` | free text                                           | default `null` |
 
 The dimensions of the expression must **equal** `foreach`. See
-[dim algebra](expressions.md#dim-algebra).
+[how dimensions combine](expressions.md#how-dimensions-combine).
 
 Either side of the comparator may carry the variables, and one side must carry
 them. A comparison between numbers and parameters is settled before the solve,
@@ -165,7 +166,7 @@ with no variables, because the data left its terms nowhere to sit. Such a row is
 not a constraint, and it is not built. See
 [absence](absence.md#a-row-with-no-variable-terms-is-not-built).
 
-**`foreach: []` gives you one scalar row.** Use it for a single system-wide
+`foreach: []` gives one scalar row. Use it for a single system-wide
 budget, where the expression reduces every dimension away. There is nothing
 special about it: `sum(x, over=f) <= 120` has no free dimensions, so `[]` is the
 signature that matches.
@@ -179,7 +180,7 @@ There is one gap here. A scalar **variable** may not carry a `where`
 ([#340](https://github.com/fluxopt/lpspec/issues/340)). Put the condition on the
 constraints that use it instead.
 
-**Two regimes of one rule are two blocks.** Each block then gets a name that a
+Two regimes of one rule are two blocks. Each block then gets a name that a
 reader chose, rather than a position in a list:
 
 <!-- doctest: wrap=constraints -->

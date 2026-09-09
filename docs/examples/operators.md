@@ -436,7 +436,7 @@ $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathrm{min
 description: >-
   A window that stops at each group's edge: representative days are separate
   samples rather than consecutive hours, so a window must not reach across the
-  seam between two of them.
+  boundary between two of them.
 
 dimensions:
   unit: { dtype: str }
