@@ -690,6 +690,15 @@ class _Resolver:
                 f'{context}: {call}: from= and into= both name {both}, and a walk goes between two sets of columns.'
             )
             return None
+        for kwarg, roles in (('from', from_roles), ('into', into_roles)):
+            dims = [shape.dim(r) for r in roles]
+            if shared := sorted({d for d in dims if dims.count(d) > 1}):
+                self.errors.append(
+                    f'{context}: {call}: {kwarg}={list(roles)} names two columns over {shared}, and the operand '
+                    f'carries each dimension once, so nothing says which column its coordinate is read at. Walk '
+                    f'between columns over distinct dimensions.'
+                )
+                return None
         joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in into_roles)
         walk = Walk(shape, from_roles, into_roles, joined)
         if not forward and not walk.is_function_read:
