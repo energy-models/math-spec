@@ -34,6 +34,7 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    TypedPredicateNode,
     VariableDefinedNode,
 )
 
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
     from math_spec.model import DeclaredDtype
-    from math_spec.program import PredicateOperator, TypedPredicateNode, WhereNode
+    from math_spec.program import PredicateOperator, WhereNode
 
 #: The most cells one pair may multiply out to; a pair past it is several expressions.
 CELL_BUDGET = 8192
@@ -377,6 +378,8 @@ def _shown(subject: Subject, value: Cell) -> str:
 
 def _evaluate(node: WhereNode, cell: dict[Subject, Cell], frame: _Frame) -> bool:
     """Is *node* true in this cell?"""
+    if isinstance(node, TypedPredicateNode):
+        return _atom(node, cell, frame)
     match node:
         case BooleanLiteralNode(value=value):
             return value
@@ -387,7 +390,7 @@ def _evaluate(node: WhereNode, cell: dict[Subject, Cell], frame: _Frame) -> bool
         case OrNode(left=left, right=right):
             return _evaluate(left, cell, frame) or _evaluate(right, cell, frame)
         case _:
-            return _atom(node, cell, frame)
+            assert_never(node)
 
 
 def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], frame: _Frame) -> bool:

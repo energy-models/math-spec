@@ -58,6 +58,7 @@ from math_spec.program import (
     quotients,
     variables_of,
     walk,
+    where_children,
 )
 from math_spec.resolution import Namespace, expression_of, where_of
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
@@ -294,6 +295,31 @@ def test_a_lowered_mask_answers_its_dims_conjuncts_and_atoms(variable, where, di
     assert mask.dims == frozenset(dims)
     assert len(mask.conjuncts) == conjuncts, 'an OR is one conjunct, a leaf is one conjunct'
     assert len(mask.atoms) == atoms, 'the leaves of every arm, connectives removed'
+
+
+FLAG = ParameterDefinedNode('flag', ('generator',))
+
+
+@pytest.mark.parametrize(
+    ('where', 'under'),
+    [
+        pytest.param(NotNode(P_MAX_POSITIVE), (P_MAX_POSITIVE,), id='a-not-carries-its-operand'),
+        pytest.param(AndNode(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-and-carries-both-sides'),
+        pytest.param(OrNode(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-or-carries-both-sides'),
+        pytest.param(P_MAX_POSITIVE, (), id='a-leaf-carries-nothing'),
+        pytest.param(BooleanLiteralNode(False), (), id='a-literal-carries-nothing'),
+    ],
+)
+def test_where_children_is_the_one_walk_under_a_predicate(where, under):
+    """`where_children` is to a mask what `children` is to an expression.
+
+    The where tree was dispatched by hand at every walk — the grammar's depth
+    measure, `Mask.atoms`, each consumer's own — with no shared answer to
+    what sits under a node (#401). This is that answer, in file order.
+    """
+    assert where_children(where) == under, (
+        'a connective carries its operands, left before right; a leaf carries nothing'
+    )
 
 
 def test_a_synthetic_predicate_answers_its_own_dims():

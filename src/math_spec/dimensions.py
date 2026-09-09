@@ -35,6 +35,7 @@ from math_spec._expression_parser import (
     UnresolvedNode,
     VariableNode,
     case_context,
+    children,
 )
 from math_spec.errors import DimensionError
 from math_spec.operators import BUILTINS
@@ -77,7 +78,11 @@ def _dims(
     schema: Spec,
     context: str,
 ) -> frozenset[str]:
-    """The recursive worker under :func:`dims_of`."""
+    """The recursive worker under :func:`dims_of`.
+
+    An operator has a rule of its own and a cased entry declares its frame;
+    every other branch carries the union of what is under it.
+    """
     if isinstance(node, NumberNode):
         return frozenset()
 
@@ -94,20 +99,14 @@ def _dims(
     if isinstance(node, DualNode):
         return frozenset(schema.constraints[node.constraint].foreach)
 
-    if isinstance(node, UnaryOperatorNode):
-        return _dims(node.operand, schema, context)
-
-    if isinstance(node, BinaryOperatorNode):
-        return _dims(node.left, schema, context) | _dims(node.right, schema, context)
-
     if isinstance(node, FunctionCallNode):
         return _dims_call(node, schema, context)
 
     if isinstance(node, CasesNode):
         return _cases_dims(node, schema)
 
-    if isinstance(node, DefinitionNode):
-        return _dims(node.body, schema, context)
+    if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | DefinitionNode):
+        return frozenset().union(*(_dims(child, schema, context) for child in children(node)))
 
     assert_never(node)
 
