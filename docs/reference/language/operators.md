@@ -321,9 +321,7 @@ from one model per row in
 [`examples/operators/`](https://github.com/energy-models/math-spec/tree/main/examples/operators),
 so a row cannot outlive the operator it documents. The three `shift` rows
 differ only at the boundary, which is the whole of the identity rule in this
-position. Each row's model is on
-[One construct per model](../../examples/operators.md); the rest of the
-language is rendered the same way on
+position. The rest of the language is rendered the same way on
 [Every construct, as math](../notation.md).
 
 <!-- operator-math:begin -->
