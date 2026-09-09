@@ -12,8 +12,8 @@ hide:
 
 **The language an optimisation model is written in — and the math it means.**
 
-Write the math in YAML. Everything decidable without data is decided without
-data — and the file prints as the math it stands for.
+Write the math in YAML. Everything decidable without data is decided at load,
+and the file prints as the math it stands for.
 
 --8<-- "README.md:badges"
 
@@ -37,18 +37,17 @@ data — and the file prints as the math it stands for.
 
     ***
 
-    One file declares the axes, the data, the decisions and the rules.
-    Readable without knowing any implementation, and self-contained: no Python
-    state changes what it means. It diffs cleanly in review and travels as a
+    One file declares the dimensions, the data, the decisions and the rules.
+    It is readable without knowing any implementation, and no Python state
+    changes what it means. It diffs cleanly in review and travels as a
     research artefact.
 
 - :material-shield-check-outline: **Decided before the data**
 
     ***
 
-    Every expression, every `where` string and even an _uncalled_ macro
-    template is parsed and name-checked at load. A repository of models
-    compiles in CI with nothing bound to any of them.
+    Every expression, every `where` string and every _uncalled_ macro
+    template is parsed and name-checked at load.
 
 - :material-alert-octagon-outline: **Fail early, fail loud**
 
@@ -56,31 +55,30 @@ data — and the file prints as the math it stands for.
 
     Nothing is guessed and nothing falls back silently. Where a file does not
     determine the answer, loading fails and the message names the construct
-    _and_ its rewrite.
+    and its rewrite.
 
 - :material-fence: **A finite language, with a priced way out**
 
     ***
 
-    The ceiling is a closure — relational ∩ local — not a feature race.
-    Genuinely unsayable math goes in an `escape:` island: visible in the file,
-    billed before it runs.
+    The ceiling is a closure, relational ∩ local, not a feature race.
+    Unsayable math goes in an `escape:` island: visible in the file, billed
+    before it runs.
 
 - :material-function-variant: **The file is the document**
 
     ***
 
     LaTeX, Typst or Markdown, printed from the file alone. No data, no solver,
-    no second source of truth — the cheapest review tool there is for _does
-    this YAML say what I meant_.
+    no second source of truth.
 
 - :material-source-branch: **One rule per question**
 
     ***
 
     A rule is language iff two consumers answering it separately would be a
-    bug. That test is what decides who owns a question — the language, or the
-    engine reading it.
+    bug. That test decides who owns a question: the language, or the engine
+    reading it.
 
 </div>
 
@@ -92,8 +90,8 @@ data — and the file prints as the math it stands for.
 
 ### And that file says, exactly this
 
-Generated from the YAML above — no data, no solver, no second source of truth.
-Only the notation is a choice, and **How** shows the one that was made here.
+Generated from the YAML above, with no data and no solver. Only the notation
+is a choice, and **How** shows the one made here.
 
 <!-- home-math:begin -->
 
@@ -225,9 +223,9 @@ Only the notation is a choice, and **How** shows the one that was made here.
 
 --8<-- "README.md:load"
 
-That seam is [one page](reference/language/reading.md), and it is the whole of
-it: what a program gets when it loads a model, and nothing a program does
-changes what the file means.
+[Reading a loaded model](reference/language/reading.md) is the whole of that
+seam: what a program gets when it loads a model. Nothing a program does changes
+what the file means.
 
 ## Where to next
 
@@ -238,7 +236,7 @@ changes what the file means.
 
     ***
 
-    What a YAML file may contain, and what it means — ten rules, ten
+    What a YAML file may contain, and what it means: ten rules, ten
     declaration keys, one closed set of operators.
 
     [:octicons-arrow-right-24: The language](reference/language/index.md)
@@ -247,8 +245,8 @@ changes what the file means.
 
     ***
 
-    All of it at once, beside the notation the typesetter gives it — so the
-    notation can be read as the one system it has to be.
+    All of it at once, beside the notation the typesetter gives it, so the
+    notation reads as one system.
 
     [:octicons-arrow-right-24: The notation](reference/notation.md)
 
@@ -265,7 +263,7 @@ changes what the file means.
 
     ***
 
-    The contract between the language and anything that reads the AST — a
+    The contract between the language and anything that reads the AST: a
     solver backend, a renderer, a second front end.
 
     [:octicons-arrow-right-24: The seam](reference/language/reading.md) ·
@@ -284,8 +282,8 @@ changes what the file means.
 
     ***
 
-    A rule is language iff two consumers answering it separately would be a
-    bug — and the sharp edge that keeps that from swallowing everything.
+    The test that decides whether a rule is language, and the sharp edge that
+    keeps it from swallowing everything.
 
     [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)
 
@@ -295,8 +293,8 @@ changes what the file means.
 
 --8<-- "README.md:docs-install-dev"
 
-Or as a dependency, once the project leaves the alpha stream — see
-[installation](howto/installation.md) for every package manager.
+As a dependency, once the project leaves the alpha stream:
+[installation](howto/installation.md) covers every package manager.
 
 !!! warning "Alpha, pre-1.0"
 
