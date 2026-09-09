@@ -112,7 +112,7 @@ def _build_where_grammar() -> pp.ParserElement:
         lambda t: _Quoted(t[0])
     )
 
-    grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name
+    grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + pp.Regex(rf'{NAME}(\.{NAME})?')
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
     position_call = (

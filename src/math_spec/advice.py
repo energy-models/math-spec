@@ -51,7 +51,7 @@ def _never_an_axis(program: Program) -> list[Advice]:
     for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
         reached.update(declaration.dims)
     reached |= _produced_axes(program)
-    reached |= {lk.target for _, lk in program.lookups}
+    reached |= {lk.target for lk in program.lookups.values()}
 
     return [
         Advice(

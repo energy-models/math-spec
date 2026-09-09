@@ -85,13 +85,13 @@ lookups:
   period_of: { over: snapshot, into: period }
 ```
 
-| Field         |                                                                      |                |
-| ------------- | -------------------------------------------------------------------- | -------------- |
-| `over`        | required — the dimension whose members carry the map                 |                |
-| `into`        | required — the dimension its values are labels of, other than `over` |                |
-| `description` | free text, never parsed                                              | default `null` |
+| Field         |                                                                                                                                 |                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `over`        | required — the map's key dimensions: one, or a list in the order the table carries them ([below](#keyed-by-several-dimensions)) |                |
+| `into`        | required — the dimension its values are labels of, which is not a key                                                           |                |
+| `description` | free text, never parsed                                                                                                         | default `null` |
 
-The target must be a declared dimension, and it must differ from `over`. The
+The target must be a declared dimension, and it must be none of the keys. The
 values are checked against it when the data binds, which is the check that makes
 `sum(by=)` safe.
 
@@ -107,12 +107,65 @@ error.
 
 Several lookups may group at once. `sum(x, by=[gen_bus, gen_tech])` groups
 through both maps in one reduction and lands on `bus` and `technology`. Every
-lookup in the list must be `over:` the same dimension, and each must target a
+lookup in the list must walk the same dimension, and each must target a
 different one. A member that either map leaves out belongs to no group.
 
 Every lookup name joins the flat namespace, so a lookup may not shadow a
 dimension, and that includes its own target. The map from `generator` onto `bus`
 is called `gen_bus`, never a second `bus`.
+
+### Keyed by several dimensions
+
+A map keyed by one dimension gives every generator one zone for the whole
+model. A generator whose bidding zone changes by period needs a second key, and
+`over:` takes a list of them:
+
+```yaml
+dimensions:
+  generator: { dtype: str }
+  zone: { dtype: str }
+  period: { dtype: int }
+lookups:
+  zone_of: { over: [generator, period], into: zone }
+parameters:
+  demand: { dims: [zone, period] }
+variables:
+  p: { foreach: [generator, period] }
+constraints:
+  zone_balance:
+    foreach: [zone, period]
+    expression: sum(p, by=zone_of.generator) >= demand
+```
+
+A call walks one key and joins on the rest. The dot says which:
+`by=zone_of.generator` consumes `generator`, produces `zone`, and joins on
+`period`. So `sum(p, by=zone_of.generator)` takes `p[generator, period]` to
+`[zone, period]`, and `at(price, by=zone_of.generator)` reads
+`price[zone, period]` back at `[generator, period]`, which is the price of the
+zone this generator sat in that period. The same table walked along its other
+key is a different sum: `sum(p, by=zone_of.period)` takes `p` to
+`[generator, zone]`, each generator's output over the periods it spent in each
+zone.
+
+Six rules follow, and the loader decides each of them before any data binds:
+
+- **The dot names a key.** Write it wherever the lookup has more than one key.
+  Without it the call is refused, because the operator cannot know which key it
+  consumes. With one key the dot is redundant and legal, so `by=gen_bus` and
+  `by=gen_bus.generator` are the same call.
+- **The operand carries every key but the one walked.** The map is read at
+  those keys, so there is no reading it at a coordinate that lacks them.
+- **The walked key is the walked dimension.** `shift(x, over=d, by=l.k)`,
+  `sum_back(x, over=d, by=l.k)` and `position(d, by=l.k)` need `k` to be `d`.
+  Each groups the rows of `d` within one coordinate of the other keys.
+- **A `by=` list walks one dimension.** `by=[a.k, b.k]` is one grouping, so
+  every lookup in it names the same key dimension. Each joins on its own other
+  keys.
+- **A `where` reads every key.** `zone_of == 'north'`, a bare `zone_of` and
+  `zone_of != area_of` are filters on the key table, so the frame carries all of
+  a lookup's keys, and two lookups compared carry the same keys.
+- **Each key is a declared dimension, named once.** The target is not one of
+  them.
 
 ### How the map is supplied
 
@@ -132,6 +185,10 @@ on no bus. A null in the value column is refused, because a missing row already
 says the same thing. A key that matches no label of `over` is an error rather
 than a new member.
 
+A map with several keys carries one column per key, named after its dimension,
+and is single-valued per key tuple. A generator in two zones in one period is
+refused, where a `0`/`1` membership parameter says it legally and silently.
+
 Values are never inferred from the parameters that use the target. If they were,
 a mistyped label would extend the label set instead of being rejected.
 
@@ -144,14 +201,14 @@ but a column named after the lookup is refused rather than read.
 Every column of data is one of the three. What decides which is what the math
 does with the column, not what the column holds:
 
-| The column…                                                                            | is declared as                        | because                                                                                       |
-| -------------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
-| is an axis: something is indexed by it, or an aggregation lands terms on it            | a `dimension`                         | its members are the coordinate set every table over it is reindexed onto                      |
-| has one value per member of a dimension and points at another — a generator's bus      | a `lookup` into that dimension        | it is a map that `sum(by=)` and `at(by=)` walk, and its values are checked against the target |
-| is a label set the model only selects on or counts within — a period, a season, a zone | a `dimension`, and a `lookup` into it | the membership check is worth one line and one member list                                    |
-| scales terms — a coefficient, a bound, an offset                                       | a `parameter` (`float` or `int`)      | arithmetic is over numbers ([dtype](declarations.md#parameters))                              |
-| is a per-row attribute the math only selects on — a fuel, a constraint's sense         | a `str` parameter                     | it names rows rather than scaling them, and no set is declared to check its values against    |
-| is a mask                                                                              | a `bool` parameter                    | a bare name in a `where` is its own answer                                                    |
+| The column…                                                                                                                               | is declared as                        | because                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| is an axis: something is indexed by it, or an aggregation lands terms on it                                                               | a `dimension`                         | its members are the coordinate set every table over it is reindexed onto                      |
+| has one value per member of a dimension, or per tuple of several, and points at another — a generator's bus, a generator's zone by period | a `lookup` into that dimension        | it is a map that `sum(by=)` and `at(by=)` walk, and its values are checked against the target |
+| is a label set the model only selects on or counts within — a period, a season, a zone                                                    | a `dimension`, and a `lookup` into it | the membership check is worth one line and one member list                                    |
+| scales terms — a coefficient, a bound, an offset                                                                                          | a `parameter` (`float` or `int`)      | arithmetic is over numbers ([dtype](declarations.md#parameters))                              |
+| is a per-row attribute the math only selects on — a fuel, a constraint's sense                                                            | a `str` parameter                     | it names rows rather than scaling them, and no set is declared to check its values against    |
+| is a mask                                                                                                                                 | a `bool` parameter                    | a bare name in a `where` is its own answer                                                    |
 
 Two rules follow from the table. If `b` has one value per `a`, then `b` is a
 **lookup** over `a`, and not a dimension: a `foreach` product over two

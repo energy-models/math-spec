@@ -55,7 +55,12 @@ class NumberNode:
 
 @dataclass(frozen=True)
 class NameNode:
-    """A bare name whose kind only the schema knows; resolution rewrites every one into a typed node."""
+    """A bare name whose kind only the schema knows; resolution rewrites every one into a typed node.
+
+    In a kwarg value it may be dotted — ``by=zone_of.generator`` — which names
+    a lookup and the key column the operator walks; the grammar admits the
+    dot nowhere else.
+    """
 
     name: str
 
@@ -117,19 +122,26 @@ class NameListNode:
 class LookupNode:
     """A resolved reference to one or more declared lookups, legal only in a kwarg value.
 
-    ``dimension`` is the one every lookup is over — what ``sum`` consumes and
-    ``at`` produces — and ``into`` the targets, one per name in the order
-    written; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
+    ``dimension`` is the key column every lookup is walked along — what
+    ``sum`` consumes and ``at`` produces — and ``into`` the targets, one per
+    name in the order written; ``sum(x, by=[gen_bus, gen_tech])`` is one
+    grouping, not two. ``keys`` is each lookup's key columns in declared
+    order; the ones other than ``dimension`` are joined on, so the operand
+    must carry them and the operator passes them through.
     """
 
     names: tuple[str, ...]
     dimension: str
     into: tuple[str, ...]
+    keys: tuple[tuple[str, ...], ...] = ()
 
     @property
     def shown(self) -> str:
-        """The kwarg value as the author wrote it, for an error message."""
-        return shown(self.names)
+        """The kwarg value as the author wrote it, for an error message: dotted where the lookup has several keys."""
+        keys = self.keys or tuple((self.dimension,) for _ in self.names)
+        return shown(
+            tuple(n if len(k) == 1 else f'{n}.{self.dimension}' for n, k in zip(self.names, keys, strict=True))
+        )
 
 
 @dataclass(frozen=True)
@@ -358,12 +370,16 @@ def _build_grammar() -> pp.ParserElement:
     number = inf_literal | pp.Regex(rf'{REAL}|\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
 
     name = pp.Regex(NAME)
+    dotted = pp.Regex(rf'{NAME}\.{NAME}')
 
     quoted = (pp.QuotedString("'") | pp.QuotedString('"')).set_parse_action(lambda t: KeywordNode(str(t[0])))
-    name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
+    name_list = (pp.Suppress('[') + pp.DelimitedList(dotted | name) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
+    dotted_node = dotted.copy().set_parse_action(lambda t: NameNode(str(t[0])))
+    kwarg = (name + pp.Suppress('=') + (quoted | name_list | dotted_node | arith)).set_parse_action(
+        lambda t: (t[0], t[1])
+    )
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)

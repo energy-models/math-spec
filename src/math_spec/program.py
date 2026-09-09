@@ -262,19 +262,22 @@ class Sum(Expression):
 
 @dataclass(frozen=True)
 class GroupSum(Expression):
-    """Sum ``operand`` through coordinates declared on dim ``over``.
+    """Sum ``operand`` through coordinates keyed by dim ``over``.
 
-    ``coordinate`` names lookups carried by dim ``over`` whose values are
-    labels of the matching dim in ``into``; the result replaces ``over`` with
-    all of them. The two tuples are the same length and their order pairs
-    them: several coordinates are one grouping into a product of targets,
-    consumed in a single join.
+    ``coordinate`` names lookups whose values are labels of the matching dim
+    in ``into``; the result replaces ``over`` with all of them. The tuples
+    are the same length and their order pairs them: several coordinates are
+    one grouping into a product of targets, consumed in a single join.
+    ``keys`` is each coordinate's key columns in declared order — ``over``
+    among them — and the join keys on all of them: the operand carries every
+    key but ``over``, and they survive in the result.
     """
 
     operand: ExpressionNode
     over: str
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
+    keys: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -283,13 +286,16 @@ class At(Expression):
 
     Same mapping table, walked the other way: ``GroupSum`` consumes ``over``
     and produces ``into``, this consumes ``into`` and produces ``over``. The
-    join fans out, many ``over`` labels sharing one ``into`` tuple.
+    join fans out, many ``over`` labels sharing one ``into`` tuple — at each
+    coordinate of the other ``keys``, which the operand carries and the
+    result keeps.
     """
 
     operand: ExpressionNode
     over: str
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
+    keys: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -438,21 +444,24 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 
 
 class LookupDeclaration(NamedTuple):
-    """One declared lookup over a dimension.
+    """One declared lookup: a map from its ``keys`` into ``target``.
 
     Its values are labels of ``target``, checked for containment once the dim
     tables exist — which keeps a mistyped label from silently dropping its
     terms in the join that places them — and it is what ``sum(by=)`` lands
-    terms on.
+    terms on. ``keys`` is the key dimensions in the order the table carries
+    them; the map is single-valued per key tuple. An operator walks one key
+    and joins on the rest.
     """
 
     name: str
     target: str
+    keys: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class DimensionDeclaration:
-    """A dimension and the lookups its labels carry."""
+    """A dimension and the lookups keyed by it — by it alone, or by it among others."""
 
     lookups: tuple[LookupDeclaration, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
@@ -463,7 +472,7 @@ class DimensionDeclaration:
 
     @property
     def targets(self) -> dict[str, str]:
-        """Each map over the dimension, to the dimension its values are labels of.
+        """Each map keyed by the dimension, to the dimension its values are labels of.
 
         The question every consumer of a ``by=`` asks, and asked here so it has
         one answer: an operator grouping through a lookup names the target as
@@ -894,9 +903,9 @@ class Program:
         return _declared(self.dimensions, name, 'dimension')
 
     @property
-    def lookups(self) -> tuple[tuple[str, LookupDeclaration], ...]:
-        """Every lookup in the program, with the dimension it is over."""
-        return tuple((dimension, lk) for dimension, d in self.dimensions.items() for lk in d.lookups)
+    def lookups(self) -> dict[str, LookupDeclaration]:
+        """Every lookup in the program by name, each once — a lookup keyed by two dimensions sits under both."""
+        return {lk.name: lk for d in self.dimensions.values() for lk in d.lookups}
 
     def parameter(self, name: str) -> ParameterDeclaration:
         return _declared(self.parameters, name, 'parameter')
@@ -1057,44 +1066,46 @@ class DimensionPositionNode:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
     Both sides are integers, negative counting from the end. With ``by`` the
-    position is counted within each group the lookup makes.
+    position is counted within each group the lookup makes, at each coordinate
+    of the lookup's other ``keys`` — ``name`` is one of them.
     """
 
     name: str
     op: PredicateOperator
     position: int
     by: str | None = None
+    keys: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class LookupComparisonNode:
     """Compare a lookup's values against a literal — ``period_of == 2030``.
 
-    ``over`` is the dimension the lookup maps out of.
+    ``keys`` is the lookup's key dimensions; the leaf is read at all of them.
     """
 
     name: str
-    over: str
+    keys: tuple[str, ...]
     op: PredicateOperator
     value: float | str | datetime.date
 
 
 @dataclass(frozen=True)
 class LookupPairComparisonNode:
-    """Compare two lookups over one dimension — ``from != to``, row by row on that dimension's table."""
+    """Compare two lookups with the same ``keys`` — ``from != to``, row by row on that key table."""
 
     name: str
     other: str
-    over: str
+    keys: tuple[str, ...]
     op: PredicateOperator
 
 
 @dataclass(frozen=True)
 class LookupDefinedNode:
-    """True where the named lookup has a value — a null says the label belongs to no group."""
+    """True where the named lookup has a value — a null says the key belongs to no group."""
 
     name: str
-    over: str
+    keys: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -1191,19 +1202,21 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
 
     A parameter or variable leaf carries its own dims off the declaration; a
     comparison on a dimension is read through that dimension, and a lookup
-    through the dimension it maps out of — the dim it leaves, not the one it
-    lands in. Separate from the union because the load-time frame check
-    reports per leaf. Closed by ``assert_never``: a predicate node added
-    without a reading is a type error here, at the one place that has to grow
-    a branch, rather than a wrong dim set at the first model to use it.
+    through its key dimensions — the dims it leaves, not the one it lands in.
+    Separate from the union because the load-time frame check reports per
+    leaf. Closed by ``assert_never``: a predicate node added without a reading
+    is a type error here, at the one place that has to grow a branch, rather
+    than a wrong dim set at the first model to use it.
     """
     match atom:
         case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
             return frozenset(atom.dims)
-        case DimensionComparisonNode() | DimensionPositionNode():
+        case DimensionComparisonNode():
             return frozenset({atom.name})
+        case DimensionPositionNode():
+            return frozenset({atom.name, *atom.keys})
         case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
-            return frozenset({atom.over})
+            return frozenset(atom.keys)
         case _:
             assert_never(atom)
 

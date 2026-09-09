@@ -273,9 +273,20 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _lookup(self, name: str, index: str) -> str:
-        """A coordinate map applied to an index: ``bus(g)``."""
-        return self.format.apply(self.format.upright(name), index)
+    def _lookup(self, name: str, keys: Iterable[str], walked: str, index: str, ctx: _Context | None = None) -> str:
+        """A coordinate map applied to its keys in declared order: ``bus(g)``, or ``zone(g, p)``.
+
+        The key *walked* reads *index* — a reduction's dummy, or the row's own
+        subscript — and every other key reads under *ctx*, as the row being
+        written reads it: pulled back or translated where the row is.
+        """
+
+        def at(dim: str) -> str:
+            if dim == walked:
+                return index
+            return ctx.subscript(dim) if ctx is not None else self.symbols.index[dim]
+
+        return self.format.apply(self.format.upright(name), self.format.joined([at(d) for d in keys], ''))
 
     def _context(self, frame: Iterable[str] = ()) -> _Context:
         return _Context(self, bound=tuple(frame))
@@ -412,16 +423,16 @@ class Walk:
         if node.name == 'at':
             by = node.kwargs['by']
             assert isinstance(by, LookupNode)
-            for name, into in zip(by.names, by.into, strict=True):
-                ctx = ctx.pulled_back(into, self._lookup(name, ctx.subscript(by.dimension)))
+            for name, into, keys in zip(by.names, by.into, by.keys, strict=True):
+                ctx = ctx.pulled_back(into, self._lookup(name, keys, by.dimension, ctx.subscript(by.dimension), ctx))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, LookupNode)
             dummy, inner = ctx.reducing(by.dimension)
             conditions = [
-                f'{self._lookup(name, dummy)} {self._op("equal")} {ctx.subscript(into)}'
-                for name, into in zip(by.names, by.into, strict=True)
+                f'{self._lookup(name, keys, by.dimension, dummy, ctx)} {self._op("equal")} {ctx.subscript(into)}'
+                for name, into, keys in zip(by.names, by.into, by.keys, strict=True)
             ]
             domain = (
                 f'{self._membership(by.dimension, dummy)} {self._op("such_that")} '
@@ -450,7 +461,7 @@ class Walk:
         if by is None:
             return ''
         assert isinstance(by, LookupNode)
-        return self._lookup(by.names[0], self.symbols.index[dim])
+        return self._lookup(by.names[0], by.keys[0], dim, self.symbols.index[dim])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``within=``: a number, or a parameter's own symbol.
@@ -532,23 +543,22 @@ class Walk:
             )
 
         if isinstance(node, DimensionPositionNode):
-            grouping = None if node.by is None else self._lookup(node.by, ctx.subscript(node.name))
+            grouping = None if node.by is None else self._lookup(node.by, node.keys, '', '', ctx)
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
             return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
 
         if isinstance(node, LookupComparisonNode):
-            applied = self._lookup(node.name, ctx.subscript(node.over))
+            applied = self._lookup(node.name, node.keys, '', '', ctx)
             return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, LookupPairComparisonNode):
-            index = ctx.subscript(node.over)
-            left = self._lookup(node.name, index)
-            right = self._lookup(node.other, index)
+            left = self._lookup(node.name, node.keys, '', '', ctx)
+            right = self._lookup(node.other, node.keys, '', '', ctx)
             return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
 
         if isinstance(node, LookupDefinedNode):
-            applied = self._lookup(node.name, ctx.subscript(node.over))
+            applied = self._lookup(node.name, node.keys, '', '', ctx)
             return f'{applied} {self.format.prose(" is defined")}', comparison
 
         if isinstance(node, NotNode):
@@ -824,6 +834,10 @@ class Walk:
         product = self.format.joined([self.symbols.set[d] for d in dims], self._op('times'))
         return f' over {self.format.math(product)}'
 
+    def _domain(self, keys: Iterable[str]) -> str:
+        """A map's domain in the legend: the product of its key sets, in declared order."""
+        return self.format.joined([self.symbols.set[d] for d in keys], self._op('times'))
+
     def _coords(self, dim: str, noticed: Noticed) -> str:
         """The dimension's carried structure: each lookup as the map it is (``bus_of: G ↦ B``).
 
@@ -838,8 +852,8 @@ class Walk:
         if targeted:
             maps = self.format.joined(
                 [
-                    f'{self.format.upright(c)}: {self.symbols.set[dim]} {self._op("maps_to")} {self.symbols.set[target]}'
-                    for c, target in targeted.items()
+                    f'{self.format.upright(c)}: {self._domain(lk.keys)} {self._op("maps_to")} {self.symbols.set[lk.into]}'
+                    for c, lk in targeted.items()
                 ],
                 '',
             )
@@ -885,7 +899,7 @@ class Walk:
                 f'at that boundary is built and carries {self.format.math("v")} rather than being dropped.'
             )
         if noticed.grouped:
-            applied = self._lookup('lookup', 't')
+            applied = self._lookup('lookup', ('t',), 't', 't')
             counted = self.format.math(f't {self.format.superscript(self._op("cyclic_minus"), applied)} k')
             note = (
                 f'{counted} denotes a translation counted inside the group a lookup puts {self.format.math("t")} '
@@ -914,7 +928,7 @@ class Walk:
                 f'labels and {place} against positions.'
             )
         if 'grouped' in noticed.positions:
-            applied = self._lookup('lookup', 't')
+            applied = self._lookup('lookup', ('t',), 't', 't')
             grouped = self.format.math(self.format.apply(self.format.subscript(self._op('position'), [applied]), 't'))
             group = self.format.math(self.format.subscript(self.format.script('T'), [applied]))
             notes.append(
