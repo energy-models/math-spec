@@ -17,6 +17,24 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.82](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.81...v0.0.0-alpha.82) (2026-09-09)
+
+
+### Features
+
+* **program:** a where predicate's operands are walked with where_children, as an expression's are with children ([#416](https://github.com/energy-models/math-spec/issues/416)) ([b653537](https://github.com/energy-models/math-spec/commit/b653537970f33ca01bcc56b524dc7cf8e3e70d4c))
+* **typesetting:** a backticked name in a description sets in monospace in every format ([#421](https://github.com/energy-models/math-spec/issues/421)) ([a2dcee7](https://github.com/energy-models/math-spec/commit/a2dcee759adc5cbe7db884a09cfca45849325400))
+
+
+### Bug Fixes
+
+* **typesetting:** a Markdown description sets as text rather than as markup ([#420](https://github.com/energy-models/math-spec/issues/420)) ([a793961](https://github.com/energy-models/math-spec/commit/a7939613393aa4dbd2df926d934a99786562e7ce))
+
+
+### Performance
+
+* **validation:** a model's expressions and where strings are resolved once per load rather than once per reader ([#415](https://github.com/energy-models/math-spec/issues/415)) ([bd86867](https://github.com/energy-models/math-spec/commit/bd86867fef29b233dcf9016b1d22077152935907))
+
 ## [0.0.0-alpha.81](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.80...v0.0.0-alpha.81) (2026-09-09)
 
 
