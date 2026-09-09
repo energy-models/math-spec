@@ -5,8 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Reported expressions
 
-A [named expression](expressions.md#named-expressions) is one of two things,
-and the file never says which — the objective and the constraints do:
+A [named expression](expressions.md#named-expressions) is either **in the
+math** or **reported**. The file never says which. The objective and the
+constraints decide:
 
 ```yaml
 dimensions:
@@ -23,155 +24,101 @@ expressions:
 objective: { sense: minimize, expression: system_cost }
 ```
 
-`system_cost` is **in the math**: the objective inlines it, so its body stands
-inside the program a solver sees, held to the
-[degree-2 ceiling](expressions.md#degree-2-in-the-math-degree-1-beside-it)
-where it is read. `delivered` and `lcoe` are **reported**: nothing in the
-objective or a constraint names them, so no solver sees them — each is a
-quantity read back after a solve. `lcoe` could be nothing else, since a
-variable divisor is a shape the math refuses; `delivered` could have stood in
-the math and simply does not. Nothing about the YAML marks either. Which is
-which is decided at load, no data, by expanding the objective and every
-constraint and noting each entry they inline.
+`system_cost` is in the math: the objective uses it, so the solver sees its body.
+`delivered` and `lcoe` are reported: no constraint and no objective uses them, so
+the solver never sees them, and the engine computes them from the solution
+afterwards.
 
-## What lifts and why
+## Which entries are in the math
 
-An entry the math reads is substituted before anything consumes the model, so
-it stays inside the ceiling the math holds to. A reported entry is read by
-**nothing in the model**: it is arithmetic over numbers a solve has already
-produced, and the restrictions the math carries because a sink must build it
-all lift for a body nothing ingests:
+An entry is in the math when the objective or a constraint inlines it. The
+question is answered at load, on the expanded tree, so an entry reached through
+another entry or a macro call counts the same as one named in place. A bound and
+a `where` name no entry. A `piecewise:` link may name one, and it reaches the
+math through the constraints the link expands into.
 
-- **No degree cap.** `system_cost / delivered` above divides one variable
-  quantity by another. `p * p * p` is sayable. A quotient, a cube, a ratio of
-  two sums — each is a number once the solve is done.
-- **The divisor may carry variables**, and so may an exponent. `/` and `**`
-  drop the variable-free operand they require in the math, because there is no
-  degree left for a variable operand to change. Where such a divisor solves to
-  zero the quotient is absent there, the null a masked row leaves
-  ([absence](absence.md#reported-values-follow-the-rows-that-were-built)).
-- **A divisor, a base or an exponent may be a sum.** The math refuses `x / (a +
-b)` and `(1 + rate) ** period` even with no variable in sight, because a
-  quotient compiles to one reciprocal factor and neither operator distributes
-  over `+`. A reported body compiles to nothing, so the precompute an entry in
-  the math needs — `(1 + rate) ** period` bound as a parameter — is no longer
-  needed.
-- **A factor may be a sum of terms with no ceiling on the other.**
-  [The one-sum-factor rule](expressions.md#degree-2-in-the-math-degree-1-beside-it)
-  is about how many rows a product builds; a reported body builds none.
+"Reported" is about what the math reads, not about the shape of the body.
+`delivered` is affine and reported, because nothing reads it. An entry with no
+variable in it, such as `(1 + rate) ** period`, is reported all the same.
 
-Without this lift, LCOE — cost over delivered energy — is unsayable, because
-its divisor is a variable.
+Deciding by use costs one thing: an entry meant for a constraint, and never named
+there, loads as a reported quantity instead of failing.
 
-**Comparisons stay out**, exactly as for an entry in the math: an
-`expressions:` body is arithmetic, and `>=` belongs to a constraint.
+An engine reads the answer at `Program.named_expressions[name].in_math`.
 
-## Which is which
+## Which restrictions do not apply
 
-An entry is in the math when the objective or a constraint inlines it.
-Expansion substitutes every reference before anything reads an expression, so
-the question is answered on the expanded tree, and an entry reached through
-another entry or through a macro call counts the same as one named in place. A
-bound and a `where` name no entry; a `piecewise:` link may, and reaches the
-math through the constraints its expansion emits. A cased entry is in the math
-on the same terms as a plain one.
+The math carries its restrictions because a solver has to build it. A reported
+body is built by nothing, so:
 
-Reported is about what the math reads, not about the body's shape or when its
-value exists. `delivered` above is affine and reported, because nothing reads
-it. A quantity such as `(1 + rate) ** period`, with no variable in it, needs no
-solve at all, and is reported all the same. The one cost of deciding by use
-rather than by shape is a typo: an entry meant for a constraint and never
-named there loads as a reported quantity instead of failing.
+- **There is no degree limit.** `system_cost / delivered` divides one variable
+  quantity by another, and `p * p * p` is allowed.
+- **A divisor, a base or an exponent may carry variables, and may be a sum.**
+  In the math, `/` and `**` need a variable-free single factor. Here
+  `x / (a + b)` and `(1 + rate) ** period` need no precomputed parameter.
+- **Both factors of a product may be sums.** The
+  [one-sum-factor rule](expressions.md#where-a-product-of-two-variables-is-allowed)
+  is about how many rows a product builds, and a reported body builds none.
 
-A consumer reads the answer off the program —
-`Program.named_expressions[name].in_math`. On the page every named expression
-prints its body once under **Definitions** and its symbol where it is used, so
-a reported entry reads no differently from one in the math; what `in_math`
-decides there is what
-[`inline_expressions=`](../typeset.md) may substitute away. An entry the math
-reads is substituted into the equations that read it; a reported one has
-nowhere to be substituted into, so its definition stands either way. The two
-cannot disagree: one function decides both.
+Without this, LCOE, which is cost over delivered energy, could not be written.
 
-## The math reads at its own ceiling
+A comparison stays out: an `expressions:` body is arithmetic, and `>=` belongs
+to a constraint.
 
-An entry's declaration is not degree-checked at all — there is nothing to
-check it _against_ until something reads it. Degree is a rule about the
-position doing the reading, so it fires, unconditionally, on the expanded tree
-of **every** constraint, the objective and each piecewise link — the same
-rules and the same messages that would refuse a variable divisor or a degree-3
-product written out by hand. A constraint that references `lcoe` inlines its
-body and hits the divisor rule at that position:
+## An entry is checked where it is read
+
+The declaration of an entry is not degree-checked. Degree is a rule about the
+position that reads, so it applies to the expanded tree of every constraint, the
+objective and each piecewise link. A constraint that references `lcoe` inlines
+its body and hits the divisor rule there:
 
 ```text
 Constraint 'cap': the divisor contains variables, which is not affine. Divide
 by a parameter, or precompute the reciprocal as one.
 ```
 
-The message names the constraint and the operation the inlined body performs,
-not the entry `lcoe` the author wrote — expansion has already substituted it
-away by the time the ceiling is checked. Move the quantity a constraint needs
-into an entry whose shape the math can read; a reported one is for reading back
-after the solve, never for feeding one.
+The message names the constraint and the operation, not the entry `lcoe`,
+because expansion has already substituted `lcoe` away. If a constraint needs a
+quantity, move that quantity into an entry whose shape the math can read.
 
 ## Reading a constraint's dual
 
-`dual(c)` is the one builtin only a reported entry may call: it reads the
-**row dual** of constraint `c` — the shadow price a solve puts on it — over
-`c`'s own `foreach` frame. `c` names a constraint, and only a constraint: it
-[resolves against constraints alone](expressions.md#name-resolution), never the
-flat namespace, so a variable or parameter sharing the name is not what `dual`
-reads.
+`dual(c)` reads the **row dual** of the constraint `c`: the shadow price a solve
+puts on that row, over `c`'s own `foreach`. It is the one built-in that only a
+reported entry may call.
 
-A dual exists only after a solve, so it may stand only in an entry the math
-never reads. Written anywhere the solver ingests — a constraint, the objective,
-a piecewise link, or an entry one of those inlines — it is a load error naming
-the rewrite:
+`c` [resolves against the constraints alone](expressions.md#name-resolution),
+so a variable or parameter sharing the name is not what `dual` reads.
+
+A dual exists only after a solve, so `dual` is refused anywhere the solver
+ingests: a constraint, the objective, a piecewise link, and any entry one of
+those inlines. The check runs on the expanded tree, so a macro cannot carry a
+`dual` into the math:
 
 ```text
 Constraint 'd': a dual exists only after a solve; the math cannot read one —
 keep the entry that carries it out of constraints, the objective, bounds and where.
 ```
 
-The check runs on the **expanded** tree, so a macro or an inlined named
-expression cannot smuggle a `dual` into the math.
+The sign is fixed by the file. `dual(c)` is the rate at which the optimal
+objective improves as `c` is relaxed in the direction its comparator points,
+under the model's own `minimize` or `maximize`. A solver that normalises signs
+its own way reconciles its representation, not the language's.
 
-Where a constraint's `where:` deletes a row, that row has no dual, so `dual(c)`
-is absent there too — the null reading a lookup gets
-([absence](absence.md#reported-values-follow-the-rows-that-were-built)).
+A row that a constraint's `where:` deletes has no dual, so `dual(c)` has no
+value there. A solver may also return no dual for a row that would have one in a
+pure linear program: a model with integer variables, or a set rewritten as
+binaries. `to_spec` refuses none of these, because
+[what a solver returns is not the language's limit](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
+Where the solver returns no dual, the engine reports no value.
 
-**A solve does not always return one.** A model with integer or binary
-variables, a quadratic constraint, or a set reformulated into binaries may come
-back with no dual for a row that carries one in a pure linear model — and
-solvers legitimately differ on which. The language refuses none of these at
-load: capability is not the ceiling
-([ceiling](../../about/ceiling.md#capability-is-not-the-ceiling)), where a set
-reformulated into binaries "returns no duals where the native form does". So
-`dual(c)` where a solve reports none is a **documented absence a consumer
-names**, the same null — not a value the language promises is there.
+## How an engine reads a reported entry
 
-**The sign is fixed by the constraint as written and the declared sense.**
-`dual(c)` is the rate the optimal objective improves as `c` is relaxed in the
-direction its `sense` points, under the model's own `minimize` or `maximize`.
-The orientation the file wrote — which side is `lhs`, which is `rhs`, which way
-the `sense` faces — is kept verbatim, so the sign is a function of two facts the
-file states. A solver that normalises signs its own way is reconciling its
-representation, not the language's; two consumers reading the same model still
-agree on the sign.
+A reported entry has the dimensions of its body, so there is no `foreach` and no
+`where`. Where a masked row leaves a solved quantity absent, the reported value
+is absent there too. See
+[absence](absence.md#reported-values-follow-the-rows-that-were-built).
 
-## What a consumer does with it
-
-A reported entry is **observable**, like one in the math: after a solve, a
-consumer reads its value back over its own dims, which fall out of its body
-exactly as any entry's do — no `foreach`, no `where`. The difference is _what
-the math reads_: an entry in the math is a form a sink ingests, inlined
-wherever the objective or a constraint names it; a reported entry is read by
-nothing in the model. Where a masked row leaves a solved quantity absent, the
-reported value is absent there too — the null reading a lookup gets
-([absence](absence.md#reported-values-follow-the-rows-that-were-built)).
-
-Nothing in this repository evaluates a reported body; computing the number is
-a consumer's business
-([what counts as language](../../about/what-counts-as-language.md)). The
-language's job is to say, once and unambiguously, what the number _is_, and
-which entries the math reads.
+Nothing in this package computes a reported value. The language says what the
+number is and which entries the math uses. The engine computes it from the
+solution.

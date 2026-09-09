@@ -5,10 +5,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Dimensions and lookups
 
-A **dimension** is an axis of the model — something is indexed by it, or an
-aggregation lands terms on it. A **lookup** is a named single-valued map out of
-a dimension: a generator's bus, a snapshot's period. The two are different
-things and the file keeps them apart.
+A **dimension** is an axis of the model, such as `snapshot` or `generator`.
+Declarations are indexed by it, and `sum` reduces along it.
+
+A **lookup** is a named map out of a dimension: one value for each of its
+members. A generator's bus is a lookup, and so is a snapshot's period.
+
+## `dimensions`
 
 ```yaml
 dimensions:
@@ -16,67 +19,56 @@ dimensions:
   generator: { dtype: str }
 ```
 
-Every dimension named anywhere in the file must be declared here.
+Every dimension named anywhere in the file is declared here.
 
 | Field         |                                   |                |
 | ------------- | --------------------------------- | -------------- |
 | `dtype`       | `float`, `int`, `str`, `datetime` | default `str`  |
 | `description` | free text, never parsed           | default `null` |
 
-**A declaration says the axis exists and what its coordinates are typed as,
-never which coordinates there are.** The members are data and arrive with it —
-a file naming them would be a second place to look, and a real model's
-generators, buses and snapshots are a table rather than a list somebody keeps
-in step by hand.
+A declaration says that the axis exists and what type its labels have. It never
+lists the labels. The generators, buses and snapshots arrive with the data, as a
+table, not as a list somebody keeps in step by hand.
 
-**One master coordinate set per dimension, resolved before any data binds.**
-Every parameter is reindexed onto it, so two tables that disagree about which
-snapshots exist is an error at load time rather than a silently truncated
-model. Which coordinates those are, and in what order they stand, is data's to
-say — and the three rules below say how it says it.
+### Where the members come from
 
-### Binding is the language's, even though the data is not
+The engine that binds the data follows three rules, and every engine follows the
+same three. So two engines given the same file and the same tables build the
+same model.
 
-The file declares an axis; the data supplies its members. Between those two
-sentences sit three facts that decide **which model a file and a table make
-together** — and a consumer answering any of them differently would build a
-different model from the same two inputs. So they are the language's, and a
-consumer implements them rather than choosing them.
+1. **The members come from the key named after the dimension.** An engine reads
+   `generator` from the `generator` table, and from nowhere else. It reads
+   `p_max` for its values, never for its list of generators, and it does not
+   treat `gen_bus` as the list either. If a declaration uses `generator` and
+   no `generator` table arrives, the engine raises an error that names
+   `generator`. It does not build an empty axis, because an empty axis would
+   silently delete every row indexed by it. A declared dimension that no
+   declaration uses needs no table.
+2. **The members keep the order the table gives them.** The engine does not
+   sort them, whether they are strings, integers or dates.
+   [`shift`](operators.md#shift), `sum_back` and `position()` all count along
+   this order, so an engine that sorted `snapshot` would give
+   `shift(p, over=snapshot, offset=1)` a different meaning. To get a
+   particular order, write the table in that order.
+3. **A table has each coordinate at most once.** Two rows for `snapshot == 3`
+   is an error that names `3`. The engine does not keep the last, keep the
+   first, or add them. _At most_ once, not exactly once: a coordinate with no
+   row is [absence](absence.md), and absence is how a model masks. A lookup's
+   table obeys the same rule.
 
-**The dimension's own source supplies its members.** They are read from the key
-named after the dimension, and from nothing else: a parameter's table is read
-for values, never for labels, and a lookup's map is not a claim about which
-members exist. A dimension a declaration reaches and nothing supplies is an
-error naming it, not an empty axis — an axis with no members would delete every
-row indexed by it, silently. A declared dimension no declaration reaches asks
-nothing of the data, and needs no source.
-
-**Their order is the order that source gives them**, first row first. It is not
-sorted, and nothing about a label's type changes that: an axis of strings, of
-integers and of timestamps are all read in the order they arrive. The order is
-observable — [`shift`](operators.md#shift), `sum_back` and `position()` all walk
-it — so a consumer that sorted would answer `shift(p, over=snapshot, offset=1)`
-with a different row, and the file could not tell you which it meant. A model
-wanting a particular order states it in the source it hands over.
-
-**One row per coordinate.** A parameter's table carries each coordinate of its
-`dims` at most once, and a second row for one coordinate is an error naming the
-coordinate — never a last-wins, a first-wins or a sum, each of which is a
-defensible reading, which is exactly why the file may not leave the choice
-open. A lookup's map obeys the same rule one axis over, and says so under
-`lookups` below: it is single-valued per label of `over`.
-
-_At most_ once, rather than exactly once: a coordinate with no row is
-[absence](absence.md), which is how a model masks.
+Every dimension has one list of members, and every parameter is lined up against
+it when the data binds. So if `load` has 8760 snapshots and `price` has 8759, the
+engine raises an error rather than build a model with one snapshot dropped.
 
 ## `lookups`
 
-A lookup is what makes topology _data_: a generator sits on a bus, a line has
-two endpoints, a snapshot falls in a period, and no adjacency matrix or
-hand-written join appears anywhere. Each is declared under its own name,
-`over:` the dimension whose members carry it and `into:` the dimension its
-values are labels of — which is what [`sum(by=)` and `at(by=)`](operators.md)
-land terms on:
+A lookup is how the network's wiring stays in the data. Which bus each generator
+sits on, which two buses each line joins, which period a snapshot falls in: each
+is a lookup table, and the file holds no adjacency matrix.
+
+Declare each lookup under its own name. `over:` names the dimension whose
+members carry the value, and `into:` names the dimension the values are labels
+of — which is what [`sum(by=)` and `at(by=)`](operators.md) land terms on:
 
 ```yaml
 dimensions:
@@ -98,33 +90,34 @@ lookups:
 | `into`        | required — the dimension its values are labels of, other than `over` |                |
 | `description` | free text, never parsed                                              | default `null` |
 
-The target must be a declared dimension other than `over`. Values are checked
-against it once data is bound — the check that makes `sum(by=)` safe, and the
-reason a label set the model only ever _selects_ on is declared as a dimension
-all the same: nothing is indexed by `period` above, and
-`where: "period_of == 1"` ([where strings](expressions.md#where-strings)) is
-how a declaration selects on it.
+The target must be a declared dimension, and it must differ from `over`. The
+values are checked against it when the data binds, which is the check that makes
+`sum(by=)` safe.
 
-**A partial lookup is legal**: a label the map leaves out belongs to no group —
-a generator on no bus, a line with one open end — and `sum(by=)` places its
-terms nowhere. A value naming no label of the target is a typo, and an error.
-"Left out" is spelled by omission: a label with no row in the map.
+That check is also why a label set the model only ever _selects_ on is declared
+as a dimension all the same. Nothing above is indexed by `period`; a declaration
+selects on it with `where: "period_of == 1"`
+([where strings](expressions.md#where-strings)).
 
-**Several at once**: `sum(x, by=[gen_bus, gen_tech])` groups through both maps
-in one reduction, landing on `bus` _and_ `technology`. Every lookup in the list
-must be `over:` the same dimension — one grouping consumes one dimension — and
-must target a different one. A member either map leaves out belongs to no group
-at all, the same reading one unmapped member gets.
+A partial lookup is legal. A label the map leaves out belongs to no group, so a
+generator can sit on no bus and a line can have one open end. `sum(by=)` places
+such a label's terms nowhere. A value that names no label of the target is an
+error.
 
-**Every lookup name joins the flat namespace**, so a lookup may not shadow a
-dimension — its own target included. `generator`'s map onto `bus` is `gen_bus`,
-never a second `bus`.
+Several lookups may group at once. `sum(x, by=[gen_bus, gen_tech])` groups
+through both maps in one reduction and lands on `bus` and `technology`. Every
+lookup in the list must be `over:` the same dimension, and each must target a
+different one. A member that either map leaves out belongs to no group.
 
-### The map is supplied under the lookup's own name
+Every lookup name joins the flat namespace, so a lookup may not shadow a
+dimension, and that includes its own target. The map from `generator` onto `bus`
+is called `gen_bus`, never a second `bus`.
 
-`gen_bus` is a source key like any other, carrying two columns — the dimension
-it runs `over`, and the dimension its values are labels of, each named after
-that dimension:
+### How the map is supplied
+
+The map is a source key like any other, under the lookup's own name. It carries
+two columns, each named after the dimension it holds: the `over` dimension, and
+the target:
 
 ```python
 sources = {
@@ -133,39 +126,40 @@ sources = {
 }
 ```
 
-**A partial map is the rows it has.** `g3` is in no row, so `g3` sits on no
-bus — absence is the absent row, exactly as it is for a parameter, and a null
-in the value column is refused for saying both at once. The relation is
-single-valued per label of `over`, and a key matching no label of it is a typo
-rather than a new member. Values are never inferred from the parameters that
-use the target: inferring would let a mistyped label extend the label set
-instead of being rejected.
+A partial map is exactly the rows it has: `g3` appears in no row, so `g3` sits
+on no bus. A null in the value column is refused, because a missing row already
+says the same thing. A key that matches no label of `over` is an error rather
+than a new member.
 
-Supplying it this way touches no table but its own, which is what a caller who
-did not generate the index needs: a model can be extended with a lookup the
-same way it can be extended with a parameter. **A column of the `over` index
-named after the lookup is refused** rather than read — an index may carry any
-other extra, and this one would be a map read by accident.
+Values are never inferred from the parameters that use the target. If they were,
+a mistyped label would extend the label set instead of being rejected.
+
+The map touches no table but its own, so you can add a lookup to a model the way
+you add a parameter. The index of the `over` dimension may carry other columns,
+but a column named after the lookup is refused rather than read.
 
 ## Dimension, lookup or parameter?
 
-Every column of data is one of the three, and the block it goes under is
-decided by what the math does with it rather than by what it holds:
+Every column of data is one of the three. What decides which is what the math
+does with the column, not what the column holds:
 
-| The column…                                                                                                                  | is declared as                        | because                                                                                                                    |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| is an axis: something is indexed by it, or an aggregation lands terms on it                                                  | a `dimension`                         | its members are the coordinate set every table over it is reindexed onto                                                   |
-| is single-valued per member of a dimension and points at another — a generator's bus, a snapshot's period, a line's two ends | a `lookup` into that dimension        | it is a map `sum(by=)` and `at(by=)` walk, whose values are checked against the set they name                              |
-| is a label set the model selects on or counts within, and nothing is indexed by it — a period, a season, a zone              | a `dimension`, and a `lookup` into it | a set worth a `where` or a `position(by=)` is worth the membership check; the dimension costs one line and one member list |
-| scales terms — a coefficient, a bound, an offset                                                                             | a `parameter` (`float` or `int`)      | arithmetic is over numbers ([dtype](declarations.md#parameters))                                                           |
-| is a per-row attribute the math only ever selects on — a fuel, a constraint's sense                                          | a `str` parameter                     | it names rows rather than scaling them, and no set is declared for its values to be checked against                        |
-| is a mask                                                                                                                    | a `bool` parameter                    | a bare name in a `where` is its own answer                                                                                 |
+| The column…                                                                            | is declared as                        | because                                                                                       |
+| -------------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| is an axis: something is indexed by it, or an aggregation lands terms on it            | a `dimension`                         | its members are the coordinate set every table over it is reindexed onto                      |
+| has one value per member of a dimension and points at another — a generator's bus      | a `lookup` into that dimension        | it is a map that `sum(by=)` and `at(by=)` walk, and its values are checked against the target |
+| is a label set the model only selects on or counts within — a period, a season, a zone | a `dimension`, and a `lookup` into it | the membership check is worth one line and one member list                                    |
+| scales terms — a coefficient, a bound, an offset                                       | a `parameter` (`float` or `int`)      | arithmetic is over numbers ([dtype](declarations.md#parameters))                              |
+| is a per-row attribute the math only selects on — a fuel, a constraint's sense         | a `str` parameter                     | it names rows rather than scaling them, and no set is declared to check its values against    |
+| is a mask                                                                              | a `bool` parameter                    | a bare name in a `where` is its own answer                                                    |
 
-Two rules the table follows from. **If `b` is single-valued per `a`, then `b`
-is a lookup over `a`, not a dimension**: a `foreach` product over functionally
-dependent dims, cut back by a mask, is exactly the shape `lookups` exists to
-replace. And **everything under `dimensions:` is a set** — a dimension is never
-legal in a value position, it is a coordinate space rather than data, and
-`check` warns about a declared dimension that nothing is indexed by, nothing
-aggregates into and no lookup targets. To use a dimension's coordinates _as
-data_, declare a parameter over it.
+Two rules follow from the table. If `b` has one value per `a`, then `b` is a
+**lookup** over `a`, and not a dimension: a `foreach` product over two
+dimensions that depend on each other, cut back with a mask, is the shape that
+`lookups` replaces.
+
+And everything under `dimensions:` is an axis. A dimension is never legal where
+a value belongs, because it is a coordinate space and not data. To use a
+dimension's coordinates as data, declare a parameter over it.
+`python -m math_spec check` advises on a declared dimension that nothing is
+indexed by, nothing aggregates into and no lookup targets
+([errors](errors.md#advice-warns-about-two-things-that-load)).

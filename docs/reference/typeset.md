@@ -5,14 +5,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Typeset the math
 
-A model is a declaration, so it can be printed the way a paper prints it — from
-the file itself, with no data and no solver. It is the cheapest review tool
-available for _"does this YAML say what I meant"_, and it is how a model
-states its math with nothing but the file.
+`to_latex`, `to_typst` and `to_markdown` print a model as the equations it
+stands for, from the file alone. No data binds, and no solver runs. Print a model
+to check that the YAML says what you meant, and to publish the math beside the
+file that states it.
 
-Every construct the language has, beside the math it prints, is one page:
-[Every construct, as math](notation.md) — which is where to look when the
-question is whether the notation is right, rather than how to print it.
+[Print a model as math](../howto/print.md) is the recipe;
+[every construct, as math](notation.md) shows what each construct prints.
 
 ```python
 import math_spec as ms
@@ -24,12 +23,11 @@ print(ms.to_typst(spec))  # compiles without a TeX toolchain
 print(ms.to_markdown(spec))  # renders as-is on GitHub
 ```
 
-Each of the three takes what `to_spec` takes — a path, the YAML, a mapping —
-and reads it. Hand it the `Spec` instead and the file is read and checked once
-rather than once per format, which is also how a `Spec` you already hold gets
-printed without a second trip through the loader.
+Each function takes what `to_spec` takes: a path, the YAML, a mapping or a
+`Spec`. Hand it a `Spec` to read and check the file once rather than once per
+format.
 
-Or from a shell, where this belongs in a Makefile next to `pdflatex`:
+The same three formats come from a shell:
 
 ```bash
 python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
@@ -37,44 +35,44 @@ python -m math_spec typst model.yaml --standalone -o model.typ
 python -m math_spec markdown model.yaml
 ```
 
+[Every construct, as math](notation.md) shows every construct the language has
+beside the math it prints. Look there when the question is whether the notation
+is right.
+
 ## Options
 
-The three functions take the same keywords; the CLI spells each as a flag.
+The three functions take the same keywords, and the command line spells each as
+a flag.
 
-|                      |                        |                                                                                                                           |
-| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `symbols`            | `--symbols FILE`       | how names should print — [below](#symbol-tables). Default: derived                                                        |
-| `standalone`         | `--standalone`         | emit a document that compiles, rather than a fragment to include. Default: fragment                                       |
-| `legend`             | `--no-legend`          | the sets / parameters / variables / definitions table above the math. Default: on                                         |
-| `numbered`           | `--no-numbers`         | number the equations. Default: on                                                                                         |
-| `inline_expressions` | `--inline-expressions` | substitute each named expression the math reads into the equations reading it, rather than defining it once. Default: off |
+|                      |                        |                                                                                                                                 |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `symbols`            | `--symbols FILE`       | How the names print. See [symbol tables](#symbol-tables). Default: derived from the names in the file                           |
+| `standalone`         | `--standalone`         | Emit a document that compiles, rather than a fragment to include. Default: a fragment                                           |
+| `legend`             | `--no-legend`          | Print the table of sets, parameters, variables and definitions above the math. Default: on                                      |
+| `numbered`           | `--no-numbers`         | Number the equations. Default: on                                                                                               |
+| `inline_expressions` | `--inline-expressions` | Substitute each named expression that the math reads into the equations that read it, instead of defining it once. Default: off |
 
 `-o FILE` writes to a file instead of stdout.
 
-The model's own `description:` opens the document either way — it is what the
-file says it is, not a symbol table. A `piecewise:` block prints as the
-λ-formulation it _expands to_ rather than the sugar it was written as, because
-that is the math the solver receives. Inlining reaches only what something
-reads: a `cases:` block has no single body to substitute, and a
-[reported entry](language/reported.md) is read by nothing in the math, so both
-keep their definition under either setting. Where the math translates an index —
-`shift`, in any of its edge spellings — the document also prints a line saying
-what the notation for it means, so a reader meets no symbol the page has not
-defined.
+- The model's `description:` opens the document, whatever the options say. No
+  symbol table touches it.
+- A `piecewise:` block prints as the variables and constraints it expands into,
+  because the expansion is the math the solver receives.
+- Inlining reaches only an expression that the math reads. A `cases:` block has
+  no single body to substitute, and a [reported entry](language/reported.md) is
+  read by nothing, so both keep their definition line under either setting.
+- Wherever the math moves an index, which every `shift` does, the document
+  prints a line saying what that notation means.
+- A model that does not load does not print. Typesetting runs the same
+  load-time checks as everything else.
+- Lines are not broken. A wide equation runs off the page.
 
-A model that does not compile does not print: typesetting runs the same
-load-time checks everything else does.
+## Printing one declaration on its own
 
-**It does not line-break.** A wide equation runs off the page; that is a
-formatting decision this package does not make for you.
-
-## One declaration
-
-The whole-model functions print objective, constraints, definitions and
-domains. To pull one declaration out on its own — for a docstring, a table cell, a
-comment beside the value it computes — `typeset_declaration` returns the line the
-document prints for a named expression, a constraint or a variable, quantifier
-included, with no document, label, number or math delimiters around it:
+`typeset_declaration` returns the line the document prints for one named
+expression, constraint or variable, with its quantifier and without a document,
+a label, a number or math delimiters. Use it for a docstring, a table cell or a
+comment beside the value it computes:
 
 <!-- doctest: skip -->
 
@@ -85,21 +83,25 @@ ms.typeset_declaration('model.yaml', 'balance', 'latex')
 # \sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
-It takes what the others take — a path, the YAML, a mapping, a `Spec` — plus
-the name, the format and an optional `symbols` table. A line on its own has no
-_Definitions_ section beside it, so the plain named expressions it uses are
-substituted, `inline_expressions=True`, unless told otherwise; a cased one prints by symbol,
-and a second call with its name prints its block. A name the model declares
-as none of the three is refused with the near miss; one it declares as both a
-constraint and a variable is refused too, since constraints sit outside the
-[flat namespace](language/expressions.md#name-resolution) and one line prints
-one of them.
+It takes what the other functions take, plus the name, the format and an
+optional `symbols` table.
+
+A line on its own has no _Definitions_ section beside it, so the plain named
+expressions it uses are substituted unless you say otherwise. A cased expression
+prints by symbol, and a second call with its name prints its block.
+
+A name that is none of the three kinds is refused with the near miss. A name that
+is both a constraint and a variable is refused too, because one line can print
+only one of them. Constraints sit outside the
+[flat namespace](language/expressions.md#name-resolution), so a model may use one
+name for both.
 
 ## Symbol tables
 
-With no table, symbols are **derived** — unambiguous rather than beautiful, so
-a model prints with no setup at all: $\mathit{load}_t$, $p^{\mathrm{max}}_g$. A
-`SymbolTable` makes it conventional:
+With no table, the symbols are **derived** from the names in the file, such as
+$\mathit{load}_t$ and $p^{\mathrm{max}}_g$. A derived symbol names one
+declaration and no other, so a model prints with no setup. A symbol table makes
+the output conventional:
 
 ```python
 symbols = {
@@ -118,7 +120,7 @@ symbols = {
 ms.to_latex('dispatch.yaml', symbols=symbols)
 ```
 
-A dict, a YAML path, or a `ms.SymbolTable`. As a sidecar file:
+Pass a dict, a path to a YAML file, or a `ms.SymbolTable`. As a file:
 
 <!-- doctest: skip -->
 
@@ -134,20 +136,19 @@ names:
   p_max: "\\bar p"
 ```
 
-| Section      |                                                                            |
-| ------------ | -------------------------------------------------------------------------- |
-| `notation`   | **required** — `latex` or `typst`, the language the entries are written in |
-| `dimensions` | per dimension, an `index` letter and a `set` symbol; either may be omitted |
-| `names`      | per parameter, variable or named expression, its symbol                    |
+| Section      |                                                                                 |
+| ------------ | ------------------------------------------------------------------------------- |
+| `notation`   | **Required.** `latex` or `typst`: the language the entries are written in       |
+| `dimensions` | For each dimension, an `index` letter and a `set` symbol. Either may be omitted |
+| `names`      | For each parameter, variable or named expression, its symbol                    |
 
-**Every spelling is printed verbatim.** Nothing parses or translates notation,
-which is why `notation:` is required and why rendering a LaTeX table as Typst
-refuses rather than producing something that nearly works.
+Every spelling is printed as you wrote it, and nothing translates notation. That
+is why `notation:` is required, and why rendering a LaTeX table as Typst is
+refused.
 
-**A key naming nothing in the model is an error**, with the near miss — not a
-symbol that silently never applies and a reader who never finds out.
+A key that names nothing in the model is an error with the near miss. The
+alternative is a symbol that silently never applies.
 
-**Presentation is not language.** Nothing in a symbol table changes what the
-file means, no solver reads it, and what a declaration _is_ stays the model's
-own `description:` ([declarations](language/declarations.md)), which travels
-with the declaration and reaches every consumer.
+Nothing in a symbol table changes what the file means, and no solver reads it.
+What a declaration _is_ stays in its own `description:`, which every tool that
+reads the model can print. See [declarations](language/declarations.md).

@@ -5,11 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Contributing
 
-math-spec is an actively maintained and utilised project.
-
 ## How to contribute
-
-to report issues, request features, or exchange with our community, just follow the links below.
 
 <div class="grid cards" markdown>
 
@@ -20,136 +16,115 @@ to report issues, request features, or exchange with our community, just follow 
 
 </div>
 
-## Developing `math-spec`
+The [good first issues](https://github.com/energy-models/math-spec/contribute)
+are the bugs and feature requests to start with.
 
-To find beginner-friendly existing bugs and feature requests you may like to start out with, take a look at our [good first issues](https://github.com/energy-models/math-spec/contribute).
+## Setting up a development environment
 
-### Setting up a development environment
+The project runs in [pixi](https://pixi.prefix.dev/).
 
-To create a development environment for `math-spec`, use [pixi](https://pixi.prefix.dev/).
-
-1. Install pixi following the [official instructions](https://pixi.prefix.dev/latest/installation/).
-1. Install the development environment in your local clone of the `math-spec` repository:
+1. Install pixi following the
+   [official instructions](https://pixi.prefix.dev/latest/installation/).
+1. In your clone of the repository, install the environment and the commit hooks:
 
 ```sh
 pixi install
+pixi run pre-commit-install
 ```
 
-If you plan to make changes to the code then please make regular use of the following tools to verify the codebase while you work:
+The hooks run on every commit. They format Python, Markdown, YAML and TOML,
+lint and type-check the Python, and check the licence headers. These commands run
+the same checks and the rest of the gate by hand:
 
-- `pre-commit`: run `pixi run pre-commit-install` in your command line to load inbuilt checks that will run every time you commit your changes.
-  The checks include:
-  1. check no large files have been staged
-  2. lint python files for major errors
-  3. format python files to conform with the [PEP8 standard](https://peps.python.org/pep-0008/)
-  4. type-check the package with [pyrefly](https://pyrefly.org/).
-     You can also run these checks yourself at any time to ensure the tree is clean by calling `pixi run lint`.
-- `pixi run test` - run the unit test suite.
-- `pixi run test-coverage` - the same, with test coverage.
-- `pixi run compile-tex` - render every model in the tree to standalone LaTeX and compile it, which is how the typeset output is proven to be a real document.
-- `pixi run ci` - all four gates CI runs — lint, tests, a strict docs build and the LaTeX compile — in the order a failure is cheapest to read. About fifteen seconds; worth a run before you push.
+- `pixi run lint`: every commit hook, over every file.
+- `pixi run test`: the test suite. `pixi run test-coverage` adds coverage.
+- `pixi run compile-tex`: print every model in the tree to standalone LaTeX and
+  compile it, which is how the typeset output is proven to be a real document.
+- `pixi run ci`: lint, tests, a strict docs build and the LaTeX compile, in the
+  order a failure is cheapest to read. This is what CI runs. Run it before you
+  push.
 
 ## Documentation
 
-With any contribution, you may need to update / add to the documentation (in the `docs` directory).
-We use [MkDocs](https://www.mkdocs.org/) and the [Material](https://squidfunk.github.io/mkdocs-material/) theme to build and render our documentation, meaning you can write your documentation in Markdown files.
-
-Here are some use-cases that you may come across in which you are considering updating the documentation:
+The pages under `docs/` are Markdown, built by [MkDocs](https://www.mkdocs.org/)
+with the [Material](https://squidfunk.github.io/mkdocs-material/) theme. The
+build is strict: a page with no `nav` entry in `mkdocs.yml`, a dead link or a
+stale anchor fails it.
 
 ??? question "I have updated the README.md"
 
-    Sections of the README are piped into the site rather than copied wholesale: the homepage includes the badges, the diagram, the model, the load snippet, the development install and the status note, each by name.
-    A section is delimited in the README by `:::md <!--- --8<-- [start:name] -->` and `:::md <!--- --8<-- [end:name] -->`, and `docs/index.md` pulls it in with `:::md --8<-- "README.md:name"`.
-    Edit inside the markers and the site follows.
-    Keep the sections themselves link-free or absolutely linked: a relative link inside one resolves against `docs/index.md` on the site and against the repository root on GitHub, and only one of those can be right.
+    The home page includes named sections of the README rather than a copy: the
+    badges, the diagram, the model, the load snippet, the development install and
+    the status note. A section is delimited in the README by
+    `:::md <!--- --8<-- [start:name] -->` and `:::md <!--- --8<-- [end:name] -->`,
+    and `docs/index.md` pulls it in with `:::md --8<-- "README.md:name"`. Edit
+    inside the markers, and the site follows.
+
+    Keep the sections link-free, or link absolutely. A relative link resolves
+    against `docs/index.md` on the site and against the repository root on GitHub,
+    and only one of those can be right.
 
 ??? question "I have changed what a model prints"
 
-    The model in the README and the math block under it on the homepage both come out of `examples/dispatch.yaml` and its symbol table, so the page shows what the typesetter prints rather than what somebody typed — and the model shown cannot drift from the model rendered:
+    Six pages carry a block that a tool writes, and a test compares each block
+    to its generator. Regenerate rather than edit, and read the diff:
 
     ```bash
-    pixi run python -m tools.home_math           # rewrite the block
-    pixi run python -m tools.home_math --check   # fail if it has drifted
+    pixi run python -m tools.home_math   # docs/index.md and README.md, from examples/dispatch.yaml
+    pixi run python -m tools.notation    # docs/reference/notation.md, from tests/typesetting/golden/model.yaml
+    pixi run python -m tools.spec_math   # the operator table on docs/reference/language/operators.md
+    pixi run python -m tools.gallery     # the example pages, from examples/
     ```
 
-    `tools/notation.py` does the same for `docs/reference/notation.md`, out of `tests/typesetting/golden/model.yaml`.
-    It also wants the four `piecewise:` models one section of that page is built from, which the extraction from lpspec has not brought over yet — so it raises `FileNotFoundError` until they arrive, and the committed page is the last one lpspec generated.
+    Each tool takes `--check` to report drift without writing.
 
-??? question annotate "I want to add a new page"
+??? question "I want to add a new page"
 
-    Add a Markdown file to the top-level in `docs`, e.g. `docs/my-page.md`.
-    Then, add a reference to that file within the `nav` key in `mkdocs.yml`, e.g.:
+    Add a Markdown file under `docs/`, then add it to the `nav` key in
+    `mkdocs.yml`:
 
     ```yaml
     nav:
-    - Home: index.md
-    - Installation: installation.md
-    - Getting started: getting_started.md
-    - My Page: my-page.md
+      - Home: index.md
+      - My Page: my-page.md
     ```
 
-    You can also just rely on your document header to define the name in the navigation:
-    `my-page.md`
-
-    ```md
-    # My Page
-    ...
-    ```
-
-    `mkdocs.yml`
-
-    ```yaml
-    nav:
-    ...
-    - my-page.md
-    ...
-    ```
+    Without a title in `nav`, the page's first heading names it.
 
 ??? question "I want to add images to my docs"
 
-    You should add any new images to the top-level `resources/` directory.
-    Within your Markdown, you will be able to reference these as follows:
-
-    ``` html
-    <figure>
-    <img src="../resources/filename.png", width="100%", style="background-color:white;", alt="accessible alternative text">
-    <figcaption>My caption.</figcaption>
-    </figure>
-    ```
-
-    Or:
+    Put the image under `resources/` and reference it from the Markdown:
 
     ``` md
     ![accessible alternative text](../resources/filename.png)
     ```
 
-    The first approach gives you a bit more power, including having a figure caption.
+    For a caption, use a `<figure>` with an `<img>` and a `<figcaption>`.
 
 ??? question "I want to update the Python API docs"
 
-    As with example notebooks, we update these pages automatically.
-    So, if you've added content within your project (a new class, module, etc.), you will see them in your next iteration of the documentation.
+    These pages are generated. A new class or module appears in the next build.
 
-??? question "I want to automatically process a number of files into pages in the docs"
+??? question "I want to process files into pages automatically"
 
-    You may have configuration files you want to add to the documentation for reference.
-    You should add your workflow to process these files to `docs/hooks.py`.
-    In that file, you can find examples of how we do it for other files (e.g. the python API docs).
+    Add the workflow to `docs/hooks.py`, beside the one that builds the Python
+    API pages.
 
 ??? question "I want to view my documentation changes locally"
 
-    You can serve your documentation locally by calling `pixi run docs-serve` from the command line.
-    Once the documentation has been built you will see a link to navigate to in your browser, most likely <http://127.0.0.1:8000>.
-    When you make changes to your documentation, `mkdocs` will automatically rebuild everything so that you can check the effects of your changes without needing to rerun manually.
+    `pixi run docs-serve` builds the site and serves it, usually at
+    <http://127.0.0.1:8000>. It rebuilds when a page changes.
 
 ??? question "I want to do something else"
 
-    We recommend exploring the [MkDocs](https://www.mkdocs.org/) and the [Material](https://squidfunk.github.io/mkdocs-material/) documentation if we haven't answered your question.
+    The [MkDocs](https://www.mkdocs.org/) and
+    [Material](https://squidfunk.github.io/mkdocs-material/) documentation
+    answers what this page does not.
 
 ## Naming across the layers
 
-The same construct passes through three layers, and each names it in full.
-The layer is the suffix, which keeps the three vocabularies from colliding:
+The same construct passes through three layers, and each names it in full. The
+suffix says which layer, which keeps the three vocabularies from colliding:
 
 | Layer                           | Suffix               | Example                                   |
 | ------------------------------- | -------------------- | ----------------------------------------- |
@@ -159,25 +134,24 @@ The layer is the suffix, which keeps the three vocabularies from colliding:
 
 Two rules follow, and a PR that adds a construct keeps them:
 
-- **A node names the coordinate map, not a surface spelling.** The translation
-  node is `Translate`, and it stayed that way when the surface collapsed to a
-  single `shift(…, edge=)`.
+- **A node names the coordinate map, not a spelling in the file.** The
+  translation node is `Translate`, and it stayed that way when the file's
+  spelling became a single `shift(…, edge=)`.
 - **Nothing is abbreviated.** `Cmp` became `ParameterComparison`, and `vtype`
   became `domain`.
 
 ## Adding an operator
 
-Grammar first, which is usually free since `f(x, k=v)` already parses. Then
-its signature in `operators.BUILTINS`, which holds the arity and which
-arguments name dimensions; resolution, validation and lowering all read it
-from there. Then its dim rule in `dimensions.py` and its degree verdict in
-`degree.py`, the plan node it lowers to in `program.py`, and its page in the
+Grammar first, which is usually free because `f(x, k=v)` already parses. Then
+its signature in `operators.BUILTINS`, which holds the number of arguments and
+which arguments name dimensions; resolution, validation and lowering all read it
+from there. Then its dimension rule in `dimensions.py`, its degree verdict in
+`degree.py`, the node it lowers to in `program.py`, and its entry in the
 [language reference](reference/language/operators.md).
 
-A consumer that builds models cannot lower an operator the version it pins
-does not parse, so the operator lands and is tagged here before any
-consumer's half. What a consumer still owns is what is about building: the
-query or call it makes for the node.
+A consumer that builds models cannot lower an operator that the version it pins
+does not parse, so the operator lands here before any consumer's half. What a
+consumer owns is the building: the query or call it makes for the node.
 
 ## Submitting changes
 

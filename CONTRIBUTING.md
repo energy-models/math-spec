@@ -54,10 +54,23 @@ When you contribute for the first time, ensure your reviewer [adds you as a cont
 Before submitting a pull request, check whether you have:
 
 - Written the PR title as a conventional commit subject (see below) — this, not a hand-written entry, is what appears in `CHANGELOG.md`.
-- Added or updated documentation for your changes.
+- Added or updated documentation for your changes (see [The docs](#the-docs)).
 - Added tests if you implemented new functionality.
 
 When opening a pull request, please provide a clear summary of your changes!
+
+### The docs
+
+`docs/` is both the site and what you read on GitHub. **What a page is for
+decides where it goes, in the nav and in the tree**: a tutorial (`docs/`), a
+how-to guide (`docs/howto/`), reference (`docs/reference/`, and the model pages
+in `docs/examples/`) or explanation (`docs/about/`) — the four kinds of
+[Diátaxis](https://diataxis.fr) — and one page is one kind. The rules each kind
+has to meet, and the sentence-level bar, are in
+[the docs-writing skill](https://github.com/energy-models/math-spec/blob/main/.claude/skills/docs-writing/SKILL.md).
+Every page needs a `nav:` entry in `mkdocs.yml`, links inside `docs/` are
+relative, and a link outside it is the full GitHub URL; `pixi run docs-build`
+is `--strict` and refuses the rest.
 
 ### Commit messages
 

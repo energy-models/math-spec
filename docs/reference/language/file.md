@@ -6,32 +6,30 @@ SPDX-License-Identifier: CC-BY-4.0
 # File shape
 
 A model file is a YAML mapping with **ten declaration keys**, plus `version`
-and `description`:
+and `description`. Any subset of the ten is accepted.
 
-| Key           |                                                                                                              |
-| ------------- | ------------------------------------------------------------------------------------------------------------ |
-| `dimensions`  | the axes ([dimensions](dimensions.md))                                                                       |
-| `lookups`     | named maps out of a dimension ([lookups](dimensions.md#lookups))                                             |
-| `parameters`  | the data the model expects ([declarations](declarations.md))                                                 |
-| `variables`   | what the solver decides                                                                                      |
-| `constraints` | the rules those decisions obey                                                                               |
-| `objective`   | what is minimised or maximised                                                                               |
-| `expressions` | named quantities, reusable and readable back after a solve ([expressions](expressions.md#named-expressions)) |
-| `macros`      | parameterised templates ([macros](expressions.md#macros))                                                    |
-| `piecewise`   | piecewise-linear curves ([piecewise](piecewise.md))                                                          |
-| `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                               |
+| Key           |                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `dimensions`  | the axes ([dimensions](dimensions.md))                                                                              |
+| `lookups`     | named maps out of a dimension ([lookups](dimensions.md#lookups))                                                    |
+| `parameters`  | the data the model expects ([declarations](declarations.md))                                                        |
+| `variables`   | what the solver decides                                                                                             |
+| `constraints` | the rules those decisions obey                                                                                      |
+| `objective`   | what is minimised or maximised                                                                                      |
+| `expressions` | named quantities, reusable in the math and readable after a solve ([expressions](expressions.md#named-expressions)) |
+| `macros`      | templates that take arguments ([macros](expressions.md#macros))                                                     |
+| `piecewise`   | piecewise-linear curves ([piecewise](piecewise.md))                                                                 |
+| `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                                      |
 
-Any subset is accepted, `objective` included: a file with none is a
-**feasibility problem**, and the answer is whether the constraints can be met
-at all. It solves, its variables read back, and `result.objective` is the zero
-the solver was handed.
+A file with no `objective` is a **feasibility problem**: it asks whether the
+constraints can all be met. It loads and solves like any other model, and the
+solver reports an objective of zero.
 
 ## `description`
 
-What the file as a whole is: the same plain prose a declaration's
-`description:` takes, and the first thing a
-[typeset document](../typeset.md) prints. Optional, never parsed, default
-`null`.
+Plain prose that says what the file as a whole is. It is optional, it is never
+parsed, and it defaults to `null`. A [typeset document](../typeset.md) prints
+it first.
 
 <!-- doctest: skip -->
 
@@ -40,12 +38,13 @@ description: Least-cost dispatch of a generator fleet against an hourly load.
 dimensions: ...
 ```
 
-A `#` comment above the file says this too, and the parser throws it away. A
-`description:` is the version a reader who never opens the YAML still gets.
+A `#` comment can say the same thing, but the parser throws a comment away.
+A `description:` reaches every tool that reads the model.
 
 ## `version`
 
-Which language surface the file is written against. Optional; absent means `0`:
+The language version the file is written against. It is optional, and it
+defaults to `0`:
 
 <!-- doctest: skip -->
 
@@ -54,45 +53,42 @@ version: 0
 dimensions: ...
 ```
 
-**`0` means unstable, and that is the promise being made.** The surface may
-change in any release, and saying so in the file is more honest than silence.
-`0` does not become `1` without a changelog entry naming what moved.
+`0` means that the accepted YAML may change in any release. It becomes `1` only
+with a changelog entry that names what moved. This is a language version, not
+the package version, and most releases do not move it.
 
-A version this release does not know is a load error, and nothing else — the
-field gates no behaviour and never selects an alternative surface:
+A version this release does not know is a load error. The field selects
+nothing else:
 
 ```text
 model declares version 1, and math_spec 0.0.1a75 understands [0].
 Upgrade math_spec, or write the version this file actually targets.
 ```
 
-It is a **language** version, not a package one: it moves when the accepted
-YAML surface moves, which most releases do not.
+## An unknown key is refused
 
-## The schema is closed
-
-An unrecognised key — top level or inside any declaration — is a load error
-naming the near miss:
+An unknown key is a load error that names the near miss, at the top level and
+inside every declaration:
 
 ```text
 unknown key 'boundz' … Did you mean 'bounds'?
 ```
 
-Ignoring it would let a typo change the model: a dropped `bounds:` leaves a
-variable unbounded, a dropped `where:` leaves it unmasked.
+An ignored key would change the model silently. A dropped `bounds:` leaves a
+variable unbounded, and a dropped `where:` leaves it unmasked.
 
 ## How the YAML is read
 
-- **Booleans are YAML 1.2** (`true` / `false` only); everything else is read as
-  1.1. Under 1.1 `on` / `off` / `yes` / `no` / `y` / `n` become booleans and a
-  declaration named after a country code stops being one, so `no: {dtype: str}`
-  is a dimension called `no` here.
-- **Implicit timestamps** (`2024-01-01`) and sexagesimal integers (`12:30` →
-  `750`) survive. Neither reaches a coordinate, which is data; a literal in a
-  `where` string is where one is read as a label, and there the `dtype` of the
-  name it is compared against catches it
-  ([expressions](expressions.md#where-strings)).
-- **A duplicate key is a load error** naming both lines.
-- **`<<:` merge keys are honoured**, and a key the mapping declares itself
-  overrides the merged value.
+- **Booleans follow YAML 1.2**, so only `true` and `false` are booleans.
+  Everything else follows YAML 1.1. Under 1.1, `on`, `off`, `yes`, `no`, `y`
+  and `n` are booleans, and a declaration named after a country code stops
+  being a name. Here, `no: {dtype: str}` is a dimension called `no`.
+- Implicit timestamps such as `2024-01-01`, and sexagesimal integers such as
+  `12:30`, which reads as `750`, survive. Neither reaches a coordinate, because
+  coordinates are data. The one place such a value is read as a label is a
+  literal in a `where` string, where the `dtype` of the name it is compared
+  against catches it. See [where strings](expressions.md#where-strings).
+- A duplicate key is a load error, and the message names both lines.
+- `<<:` merge keys are honoured. A key the mapping declares itself overrides
+  the merged value.
 - The document must be a mapping.

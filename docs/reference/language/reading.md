@@ -5,30 +5,27 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Reading a loaded model
 
-Every other page here says what a _file_ may declare. This one says what a
-_program_ gets when it loads one: the contract between the language and
-anything that reads the AST — a solver backend, a renderer, a second front end.
-
-None of it is needed to write a model: these are the names a **consumer**
-reads a model through, and they are the whole of the seam:
+The other pages say what a file may declare. This page says what a tool gets
+when it loads one. You need none of it to write a model. It is for whoever writes
+an engine that builds models, a renderer, or a checker, and they read the model
+through two objects:
 
 ```text
 to_spec  →  Spec  →  to_program  →  Program
 ```
 
-## Two states, and the difference between them
+## `Spec` and `Program`
 
-**A `Spec` is what the file says. A `Program` is what it means** — macros
-expanded, curves become the declarations they stand for, names typed,
-operators resolved to nodes, and every dim and degree rule already checked. A
-consumer that _builds_ reads the second; one that asks what the file _wrote_
-reads the first.
+A `Spec` holds the file as written: its `macros:`, its descriptions, and a
+`piecewise:` block as one block. A `Program` holds the model the file builds:
+every macro expanded, every curve turned into the variables and constraints it
+stands for, every name typed, every operator resolved to a node, and every
+dimension and degree rule already checked.
 
-A file may declare a construct whose variables and constraints do not exist
-yet. `piecewise:` is the one that does — a curve
-[expands](piecewise.md) into weights, a convexity row and one link row per
-tuple, and those declarations are the model as much as the ones that were
-typed.
+A `piecewise:` block is what makes the two differ. The curve below
+[expands](piecewise.md) into a weight per breakpoint, a convexity row and one
+row per link, and those are as much part of the model as the constraint you
+typed:
 
 ```yaml title="curve.yaml"
 dimensions:
@@ -71,61 +68,59 @@ sorted(program.constraints)  # ['curve_convexity', 'curve_link0', 'curve_link1',
 sorted(program.variables)  # ['cost', 'curve_lam', 'p']
 ```
 
-`to_program` takes whatever you have — a path, the YAML, a mapping, a `Spec`,
-or a `Program` already — and is idempotent, so a consumer that does not know
-which it holds can call it and be sure.
+`to_program` takes a path, the YAML, a mapping, a `Spec` or a `Program`. Called
+on a `Program`, it returns the same object unchanged, so a function that does not
+know which it was handed can call `to_program` and be sure of the result.
 
-## Which one to take
+| you are                                                                      | take      | because                                       |
+| ---------------------------------------------------------------------------- | --------- | --------------------------------------------- |
+| building rows, as a solver backend or a second front end does                | `Program` | Every declaration is there, and resolved      |
+| reading the file, for `macros:`, `description:`, or a link as it was written | `Spec`    | A program keeps a curve's facts, not its text |
 
-| you are                                                                | take      | because                                       |
-| ---------------------------------------------------------------------- | --------- | --------------------------------------------- |
-| building rows — a solver backend, a second front end                   | `Program` | every declaration is there, resolved          |
-| reading the file — `macros:`, `description:`, a link as it was written | `Spec`    | a program keeps a curve's facts, not its text |
+An engine that read `spec.constraints` above would build a model with three
+constraints and a variable missing. That model solves, and the answer is wrong
+with nothing to show why. `Program` is a different type from `Spec`, so an
+engine typed to take a `Program` cannot make that mistake.
 
-**Take a `Program` to build.** A consumer that reads `constraints:` off a
-`Spec` still carrying a curve builds a model missing declarations — and a
-model missing declarations is a model, so it solves, and the answer is wrong
-with nothing to see. `Program` is a different type from `Spec`, so that
-mistake is one the signature refuses rather than one the numbers report.
+!!! note "A `Program` cannot answer what the file wrote"
 
-**A program cannot answer what the file wrote.** It has no `macros:`, no
-`description:`, and no link expression — those are the `Spec`'s, and
-rendering has to be handed what `to_spec` returned. The projection runs one
-way on purpose. What it keeps of a `piecewise:` block is `program.piecewise`:
-which parameters carry the curve, and what the block assumes of the numbers as
-a `checks` tuple — each check carrying the names it is about, so the consumer
-holding the numbers runs it, with `check_message` for the sentence to raise.
-What the expansion emitted is answered where it is asked instead: a
-`ParameterDeclaration.derivation` says how that parameter is filled, and `None`
-means the caller binds it.
+    It has no `macros:`, no `description:`, and no link expression. Anything that
+    renders is handed what `to_spec` returned.
 
-**Nothing here is built by hand.** The program's nodes are exported to be
-dispatched on with `isinstance` and read, which is why what ships beside them
-is the walk (`children()`, and `where_children()` for a predicate) and not
-builders. A mask is `Mask`: the language's
-own resolved `where` as its `.root` — the node an engine still dispatches on
-with `isinstance` — and every question derived from it, the way a dimension
-carries `.maps`. `.conjuncts` flattens the `AND` spine and stops at an `OR` or
-a `NOT`; `.names_read` gives the declarations the mask names; `.atoms` its
-leaves, connectives removed; and `.dims` the dimensions it is read at — read
-off the leaves, which resolution stamped with their declarations' dims the way
-a lookup leaf carries the dimension it maps out of. So a predicate a consumer
-builds from resolved pieces answers exactly as a declaration's own does: wrap
-it in `Mask`, or build it there with `~`, `&` and `|`. Construction
-folds — a double negation cancels, a literal flips or is absorbed rather than
-buried — so a boolean literal stands at a mask's root or nowhere, derived or
-carried alike, and a tree with unresolved leaves is refused at the door. A
-consumer asks the mask rather than re-deriving any of these from `.root`, so
-two cannot come to disagree about what a conjunct, a name or a comparison is.
-A `Region`'s `when` arrives in the same carrier, and the node classes a
-`.root` is built of live in `math_spec.program` beside every other node a
-consumer dispatches on.
+`program.piecewise` keeps what the block assumed about the numbers, such as
+"the breakpoints in `bp_x` increase", as a `checks` tuple. Each check names the
+parameters it is about. The engine, which has the numbers, runs the check, and
+`check_message` gives it the sentence to raise. `ParameterDeclaration.derivation`
+says how a parameter is filled, and `None` means the engine binds it from its
+data.
+
+## Nodes and masks
+
+You never build a node yourself. The node classes are exported so that you can
+test one with `isinstance` and read its fields. `children()` walks an expression
+node's operands, and `where_children()` walks a predicate's.
+
+Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate, which
+is the node an engine tests with `isinstance`. The mask also answers four
+questions that every engine would otherwise work out for itself:
+
+- `.conjuncts` flattens the `AND` spine, and stops at an `OR` or a `NOT`.
+- `.names_read` gives the declarations the mask names.
+- `.atoms` gives its leaves, with the connectives removed.
+- `.dims` gives the dimensions the mask is read at.
+
+A predicate you build yourself answers the same four questions: wrap it in `Mask`,
+or build it there with `~`, `&` and `|`. A mask folds as it is built: a double
+negation cancels, and a `True` or `False` is absorbed rather than buried in the
+tree, so a boolean literal stands at a mask's root or nowhere. A tree with an
+unresolved leaf is refused. A `Region`'s `when` arrives as a `Mask` too. The node
+classes live in `math_spec.program`.
 
 ## Asking what a program uses
 
-`program.footprint` is which of the language's constructs one program actually
-reaches for — a **subset**, never the whole. It is walked once and held, which
-is safe because a program cannot change after it is built.
+`program.footprint` says which of the language's constructs one model uses. It
+is computed once and then held, because a `Program` cannot change after it is
+built.
 
 ```python
 footprint = program.footprint
@@ -136,33 +131,28 @@ sorted(footprint.sos_types)  # []
 sorted(kind.__name__ for kind in footprint.shapes)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
 ```
 
-Every field is a set, so `if footprint.sos_types` asks whether sets appear at
-all and `2 in footprint.sos_types` asks about one kind. An empty field says
-this program does not use that construct — never that the construct does not
-exist. A construct admitted later widens a set rather than needing a field no
-consumer yet reads.
+Every field is a set. `if footprint.sos_types` asks whether sets appear at all,
+and `2 in footprint.sos_types` asks about one kind. An empty field means this
+model does not use the construct, not that the construct does not exist.
 
-**It answers what the program uses, never what you can do about it.** What a
-sink can ingest is a separate axis — [capability is not the
-ceiling](../../about/ceiling.md) — where a capability is neither a flat set nor
-one verdict per construct: SOS is solver-bounded, and quadratic is bounded
-twice over on a single sink, by convexity and again by what it stands beside.
-So there is deliberately no verdict here to read instead of giving one, and
-convexity is absent because it depends on coefficient data rather than on
-anything a program states.
+!!! note "The footprint says what the model uses, and never what to do about it"
 
-The footprint stops at the kind. A sink that takes a window but not a wrapped
-one reads `Window in footprint.shapes` and then walks: `wrap`, `partition` and
-a named width are refinements without end, and each is one line once the set
-has said where to look.
+    Whether your solver or file format can take a construct is your question.
+    See [what a solver can take](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
+    Whether a quadratic form is convex is not reported at all, because it depends
+    on the numbers.
+
+The footprint stops at the kind of construct. An engine whose solver accepts a
+window but not a wrapped one reads `Window in footprint.shapes`, then walks the
+tree for the detail.
 
 ## Asking whether an axis can be cut
 
-A driver that solves a horizon in windows — a rolling horizon, a myopic
-pathway — needs one thing from the model before it starts: **is every row it
-builds complete inside some window?** Storage carried over a snapshot is, once
-the windows overlap by a row. An annual budget never is, and the windows still
-solve, so nothing else would say so.
+An engine that solves a year in weekly windows has to know whether every row of
+the model fits inside one window. A storage balance that reads the previous
+snapshot does, as long as neighbouring windows overlap by one row. An annual
+emissions cap does not, because it sums over all 52 weeks. The windows solve
+either way, so nothing later would tell you.
 
 ```python
 program.separability['bp'].windowable  # False
@@ -171,62 +161,49 @@ tied.partition(' — ')[0]  # 'sums over generator'
 'sum_back(within=n)' in tied  # True
 ```
 
-Neither axis of the model above may be cut, and the report says which
-declaration ties each one — including the three the `piecewise:` block emitted,
-so a coupling introduced by an expansion is named under the name the expansion
-gave it rather than under the block a reader wrote.
+Every declared axis has an entry, and the report is walked once and held, like
+[`footprint`](#asking-what-a-program-uses). A coupling that a `piecewise:`
+expansion introduced is named under the declaration the expansion emitted.
 
-It is the locality [the ceiling](../../about/ceiling.md) already argues in —
-pointwise, bounded halo and global — asked about a dimension rather than about
-an operator. Every declared axis has an entry, walked once and held like
-[`footprint`](#asking-what-a-program-uses): answering for every axis costs what
-answering for one did, since every construct that ties an axis names the axis it
-ties.
+- `coupled` names each declaration that ties the whole axis together: a sum over
+  the axis in a constraint, a grouping that consumes the axis, a wrapped shift,
+  or a set. After the dash, each entry names the one change that would remove the
+  tie: a horizon total becomes a rolling `sum_back`, a wrap becomes an opening
+  state the caller seeds, and a grouping is windowed along the dimension it
+  groups into. The report names the change and never applies it.
+- `undecided` lists each read whose reach only the data can say. Each entry is a
+  `Reach`, carrying the declaration, the parameter or lookup it reads, and the
+  kind of read: an `offset` from a parameter, a `partition` a shift is grouped
+  by, or a `coordinate` read through `at()`. A caller that holds the data reads
+  the smallest value of each named parameter and hands it to `resolved`, which
+  returns the report with those reads decided. A reach that a lookup decides is
+  not a number, so it stays undecided.
+- `restarts` names each declaration that counts a `position()` along the axis,
+  because a window restarts that count at its first row.
+- `ahead` is how many coordinates a window must see past its last row: `0` where
+  every row is pointwise, and `2` for a `shift` of `-2`. What a row reads behind
+  is not reported, because what a window's first rows meet is the opening state
+  the driver seeds.
+- `windowable` is false while anything is coupled or undecided. A restart does
+  not count against it.
 
-`ahead` is how many coordinates a window must see past its last row — `0`
-where every row is pointwise, `2` for a `shift` of `-2`. What a row reads
-_behind_ is not reported: a window starts where the driver puts it, and what
-its first rows meet there is the edge policy — the opening state a rolling
-horizon seeds, and the driver's to carry.
+A sum over the axis ties every window to every other window in a constraint, and
+not in the objective, because an objective is a sum of windows already.
 
-What would break comes in three kinds, so a driver can act on each. `coupled`
-names each declaration that ties the axis together — a sum over it in a
-constraint, a grouping that consumes it, a wrapped shift, a set — and, after
-the dash, the one modelling change that would lift it: a horizon total becomes
-a rolling `sum_back`, a wrap becomes an opening-state seed, a grouping is
-windowed along the dimension it groups into. No window satisfies a coupling and
-no rewrite keeps the model's meaning, so the remedy is named and not applied.
-`undecided` lists each read whose reach only the data can say — a `Reach` of
-the declaration, the parameter or lookup, and what it stands as: an `offset`
-taken from a parameter, a `partition` a shift is grouped by, a `coordinate`
-read through `at()`. A driver holding the data reads the least value of each
-named parameter and hands it to `resolved`, which folds it in and returns the
-same verdict with those reads decided — the rule that a negative offset reads
-ahead, and a positive one reads behind and asks nothing, has one home. A reach
-a lookup decides is not a value, so it stays undecided and the driver refuses
-or resolves it itself. `restarts` names each
-declaration counting a `position()` along the axis, which a window restarts at
-its first row. `windowable` is false while anything is coupled or undecided; a
-restart does not count against it.
-
-**A reduction means opposite things by position**, which is the whole of the
-care: in a constraint a sum over the axis ties every window to every other, and
-in the objective it is additively separable, an objective being a sum already.
-What is not decided here is whether the windowed answer is the whole-horizon
-one — a store carried over one row windows cleanly and a rolling solve of it is
-still a different answer — nor whether the modeller _wanted_ a restart: a
-`position(t) == 0` seed fires once over a horizon and once per window, and both
-are models somebody means.
+The report does not say whether the windowed answer equals the whole-horizon
+answer: a store carried over one row windows cleanly, and a rolling solve of it
+is still a different answer. It does not say whether the modeller wanted a
+restart, because a `position(t) == 0` seed fires once over a horizon and once per
+window, and both are models somebody means.
 
 ## Writing a spec back out
 
-**A `Spec` goes back out two ways, and they agree.** `to_dict()` is the spec
-as plain data, and `to_yaml()` is that dict as the file a reviewer reads. Both
-reproduce the model: `to_spec(spec.to_dict()) == spec`, and the same through
-`to_yaml()`. So a model built as a `dict` still gets a file, which is what a
-framework that emits declarations hands to review.
+`spec.to_dict()` returns the spec as plain data, and `spec.to_yaml()` returns
+that data as a file. Both round-trip: `to_spec(spec.to_dict()) == spec`, and the
+same through `to_yaml()`. So a model that a library assembled as a `dict` still
+gets a file for a reviewer to read.
 
-**A value is written and an absence is not.** A default is a fact the reviewer
-reads, so `domain: continuous` is written out. A null, an infinite bound and a
-section that declares nothing say nothing, so they are not. An empty list is a
-value: `foreach: []` is a scalar declaration and stays.
+`to_yaml()` writes every value and omits every absence. `domain: continuous` is
+written out, because a reviewer should see the default. A `null`, an infinite
+bound and an empty section are left out. `foreach: []` is written, because an
+empty list is a value: it says the declaration is a scalar.

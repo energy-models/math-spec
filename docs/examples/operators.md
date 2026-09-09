@@ -5,14 +5,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # One construct per model
 
-The probes: for each built-in [operator](../reference/language/operators.md),
-the smallest model that declares it, beside the equation it renders. The
-reference page shows the same equations as a table — what each operator _looks
-like_, side by side. This page shows the **file** that produced each one.
+For each built-in [operator](../reference/language/operators.md), the smallest
+model that declares it, beside the equation it prints. The reference page shows
+the same equations as one table. This page shows the **file** that produced each
+one.
 
-They are models rather than fragments on purpose. A probe whose operator
-changed shape stops loading, in CI, in the run that would otherwise have
-shipped the old math.
+Each is a whole model rather than a fragment, so a model whose operator changed
+shape stops loading in CI, in the run that would otherwise have shipped the old
+math.
 
 <!-- gallery:begin -->
 ### `sum(array)`
@@ -436,7 +436,7 @@ $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathrm{min
 description: >-
   A window that stops at each group's edge: representative days are separate
   samples rather than consecutive hours, so a window must not reach across the
-  seam between two of them.
+  boundary between two of them.
 
 dimensions:
   unit: { dtype: str }

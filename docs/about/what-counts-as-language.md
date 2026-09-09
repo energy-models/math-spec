@@ -5,51 +5,59 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # What counts as language
 
-A fence says what may not happen; it does not say what belongs. The test is:
+Several tools read the same model file. An engine builds the model and hands
+it to a solver. A renderer prints it as equations. A checker reads it in CI with
+no data. This page says which decisions the language makes for all of them, and
+which each tool makes for itself.
 
-> **A rule is language iff two consumers answering it separately would be a
-> bug.**
+The test is one question:
 
-Not "is it about syntax", not "does it run early" — _would a second opinion be
-wrong?_ A model file is read by more than one thing: an engine that builds it, a
-renderer that prints it, a checker that judges it without data. Wherever two of
-them could reach different answers and both be defensible, the question is
-theirs. Wherever two different answers would mean the file meant two things, the
-question is the language's, and exactly one implementation of it may exist.
+> If two tools answered this differently, would the file have two meanings?
 
-That is why names resolve once, the operator set is closed, an operator's dim
-rule has a single home that consumers **ask** rather than re-derive, and degree
-is decided before any plan exists. Nothing about `x * y` is relational. A
-formulation that emits declarations is language too, because declarations are.
+Suppose the engine sums `p` over `generator` and the renderer prints a sum over
+`snapshot`. The file now means two things, and that is a bug. So the language
+decides what `sum(p, over=generator)` means, and both tools read the answer
+instead of working it out.
 
-## The test cuts the other way
+Suppose instead that the engine writes the model in one solver's file format and
+the renderer sets the page width to 80 characters. They disagree, and nothing is
+wrong. Each tool decides those things for itself.
 
-This is what keeps it from swallowing everything. A consumer legitimately
-refuses what its own representation cannot hold — an offset that must be a
-literal, a grouping that must name a declared lookup, a set a solver has no
-concept of. A second opinion about those is not a bug; it is the other
-consumer's own business, and forcing them into the language would make every
-consumer inherit the narrowest one's limits.
+Four rules follow from the test:
 
-So the rule has a sharp edge on both sides:
+- A name means one thing. `p` cannot be a variable in the engine and a parameter
+  in the renderer.
+- The set of operators is fixed. A tool cannot add a `roll` that the others
+  do not know.
+- Each operator has one rule for the dimensions it produces. `sum(p, by=gen_bus)`
+  lands on `bus` for every program.
+- Degree is decided when the file loads. Whether `x * y` is allowed does not
+  depend on which engine builds the model.
 
-- A consumer may not state a rule about the **language** that another consumer
-  then has to restate.
-- The language may not state a rule about what a **consumer** can represent.
+A `piecewise:` block expands into ordinary variables and constraints, so the
+language decides that expansion too. Otherwise two engines could build two
+different curves from one block.
 
-A refusal that fails the first test is a language error. One that fails the
-second is the consumer saying so in its own words — which is why _accepting is
-not building_, and why a model every reader accepts may still meet a wall inside
-one of them.
+## What each tool decides for itself
 
-## Beside the ceiling
+A tool can refuse a model for a reason of its own. One engine can only take
+a literal offset in `shift`. Another has no concept of a special-ordered set. A
+file format has no way to write a quadratic constraint. None of these is a
+disagreement about what the file means, so none of them is the language's to
+settle. If the language refused everything one tool cannot build, every
+other tool would inherit that limit.
 
-[The ceiling](ceiling.md) answers a different question and they are easy to
-confuse. The ceiling says **what may enter the language at all** — the triage
-into macro, primitive or escape, and the intersection a primitive has to sit
-inside. This says **who owns a rule once it is in**: the language, or one
-consumer.
+So the boundary runs both ways:
 
-A construct can pass the ceiling and still not be the language's business, and a
-rule can be plainly the language's while the construct it governs is refused
-outright. Asked to place something new, both questions get asked, in that order.
+- A tool must not invent a rule about what the file _means_. If it needs
+  one, the rule goes into the language, once.
+- The language must not state a rule about what one tool can _build_.
+
+A file that every tool accepts can still be a file that one engine cannot
+build. Accepting and building are different steps.
+
+## How this differs from the limits
+
+[The limits](limits.md) answer a different question: which operators and blocks
+may be added to the language at all. This page answers who decides a rule once
+the operator or block exists.

@@ -616,7 +616,7 @@ def _footprint_of(constraint: str, objective: str) -> Footprint:
 def test_the_footprint_says_which_position_a_quadratic_stands_in():
     """A sink may take a quadratic objective and refuse a quadratic constraint.
 
-    One flag for both would collapse the distinction `ceiling.md` says sinks
+    One flag for both would collapse the distinction `limits.md` says sinks
     actually make — quadratic is bounded "by convexity and again by what it
     stands beside" — and leave the sink walking the program to recover it.
     """
