@@ -5,14 +5,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # One construct per model
 
-The probes: for each built-in [operator](../reference/language/operators.md),
-the smallest model that declares it, beside the equation it renders. The
-reference page shows the same equations as a table — what each operator _looks
-like_, side by side. This page shows the **file** that produced each one.
+The probes: for each built-in
+[operator](../reference/language/operators.md), the smallest model that
+declares it, beside the equation it renders. The reference page shows the
+same equations in a table, side by side. This page shows the file that
+produced each one.
 
-They are models rather than fragments on purpose. A probe whose operator
-changed shape stops loading, in CI, in the run that would otherwise have
-shipped the old math.
+Each probe is a whole model rather than a fragment, so a probe whose operator
+changed shape stops loading in CI.
 
 <!-- gallery:begin -->
 ### `sum(array)`
@@ -495,5 +495,3 @@ objective: { sense: minimize, expression: sum(p) }
 
 $\mathit{price}_{t} = \lambda_{\mathrm{balance},t} \qquad \forall\thinspace t \in \mathcal{T}$
 <!-- gallery:end -->
-
-Regenerate with `pixi run python -m tools.gallery`.

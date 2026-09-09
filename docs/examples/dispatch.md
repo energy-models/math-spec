@@ -7,13 +7,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 The smallest file that is a whole model: generators with a capacity, an hourly
 load to meet, and a cost to minimise. It is the model on the
-[home page](../index.md) and in the README, and the one the language reference
-varies when it needs a base to change one thing in.
+[home page](../index.md) and in the README, and the base the language
+reference varies when it needs to change one thing.
 
-Two things worth reading for. The `where:` on `p` deletes the rows where a
-generator has no capacity — [absence](../reference/language/absence.md) is a
+Two things are worth reading for. The `where:` on `p` deletes the rows where a
+generator has no capacity. [Absence](../reference/language/absence.md) is a
 declaration, not a runtime check. And `sum(p, over=generator)` names the
-dimension it reduces, so the constraint's frame is what remains.
+dimension it reduces, so the constraint's frame (the dimensions it ranges
+over) is what remains.
 
 <!-- gallery:begin -->
 ```yaml
@@ -86,5 +87,3 @@ $$\sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\thinspace 
 
 $$0 \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{p}^{\mathrm{max}}_{g} > 0$$
 <!-- gallery:end -->
-
-Regenerate with `pixi run python -m tools.gallery`.

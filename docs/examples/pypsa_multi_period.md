@@ -5,8 +5,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the multi-period class
 
-Rung 15 of [PyPSA in one file](pypsa.md): `n.optimize(multi_investment_periods=True)`, stated on rungs 1 and 3 in a
-file of its own — the model's description below says why. Its network is a whole one: eight snapshots over two investment periods, build years and lifetimes on the script.
+Rung 15 of [PyPSA in one file](pypsa.md):
+`n.optimize(multi_investment_periods=True)`, stated on rungs 1 and 3 in a file
+of its own. The file's description below says why. Its network is a whole one
+of its own: eight snapshots over two investment periods, with build years and
+lifetimes on the script.
 
 ## Rung 15 — investment periods, with a growth limit
 
@@ -340,5 +343,3 @@ $$f_{t,l} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \
 
 $$P_{g} \in \mathbb{R} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
 <!-- gallery:end -->
-
-Regenerate with `pixi run python -m tools.gallery`.

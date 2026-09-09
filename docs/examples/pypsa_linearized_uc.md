@@ -5,8 +5,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the relaxed commitment
 
-Rung 12 of [PyPSA in one file](pypsa.md): `n.optimize(linearized_unit_commitment=True)`, stated on rungs 1 and 7 in a
-file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
+Rung 12 of [PyPSA in one file](pypsa.md):
+`n.optimize(linearized_unit_commitment=True)`, stated on rungs 1 and 7 in a
+file of its own. The file's description below says why. Its network is the
+spine plus the script's own additions.
 
 ## Rung 12 — linearized unit commitment
 
@@ -564,5 +566,3 @@ $$\mathit{up}_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g 
 
 $$\mathit{dn}_{t,g} \ge 0 \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{com}_{g}$$
 <!-- gallery:end -->
-
-Regenerate with `pixi run python -m tools.gallery`.

@@ -6,9 +6,9 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA, the quadratic class
 
 Rung 10 of [PyPSA in one file](pypsa.md): PyPSA's `marginal_cost_quadratic`,
-stated on rung 1's transport surface in a file of its own — the model's
-description below says why. Its reference network starts from the same shared
-spine, `data/base/`, shown once on [the rung ladder's page](pypsa.md#index).
+stated on rung 1's transport surface in a file of its own. The file's
+description below says why. Its reference network starts from the shared
+spine, `spine.py`, shown once on [the rung ladder's page](pypsa.md#index).
 
 ## Rung 10 — quadratic costs
 
@@ -198,5 +198,3 @@ $$p_{t,g} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \
 
 $$f_{t,l} \in \mathbb{R} \qquad \forall\thinspace t \in \mathcal{T},\enspace l \in \mathcal{L}$$
 <!-- gallery:end -->
-
-Regenerate with `pixi run python -m tools.gallery`.

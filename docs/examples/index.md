@@ -5,14 +5,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Examples
 
-Whole models, each shown as the file and as the math it prints. The reference
-pages take the language a construct at a time; these take it a **model** at a
-time, which is the form anyone writing one actually needs.
+These pages show whole models, each as its file and as the math the
+typesetter prints from it. The reference pages take the language a construct at a time;
+these take it a model at a time.
 
-Every model here is a real file under `examples/` in the repository, not a
-fragment written for the page. They are the same files the test suite loads and
-the LaTeX gate compiles, so a model that stopped being valid — or that started
-printing different math — fails CI rather than going stale here.
+Every model is a file under `examples/` in the repository. The test suite
+loads each one and the LaTeX gate compiles it, so a model that stops loading,
+or starts printing different math, fails CI.
 
 - [Least-cost dispatch](dispatch.md) — the smallest model that is a model: a
   balance, a bound, and a cost to minimise.
@@ -22,6 +21,15 @@ printing different math — fails CI rather than going stale here.
   file that declares each built-in, beside the equation it renders.
 - [PyPSA in one file](pypsa.md) — the model `n.optimize()` builds, a
   declaration at a time: PyPSA's name for the row, the YAML, the equation.
+- [PyPSA, the quadratic class](pypsa_quadratic.md) — rung 10,
+  `marginal_cost_quadratic`, in a file of its own.
+- [PyPSA, the relaxed commitment](pypsa_linearized_uc.md) — rung 12,
+  `linearized_unit_commitment=True`.
+- [PyPSA, the lossy lines](pypsa_losses.md) — rung 13, `transmission_losses`
+  as tangent segments.
+- [PyPSA, the two-stage class](pypsa_stochastic.md) — rung 14, scenarios with a
+  risk preference.
+- [PyPSA, the multi-period class](pypsa_multi_period.md) — rung 15,
+  `multi_investment_periods=True` over build years and lifetimes.
 
-The math on these pages is written by the typesetter, from the file above it —
-see [Typeset the math](../reference/typeset.md) for how to print your own.
+[Typeset the math](../reference/typeset.md) says how to print your own.
