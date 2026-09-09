@@ -58,3 +58,44 @@ The install instructions are slightly different to create a development environm
 --8<-- "README.md:docs-install-dev"
 
 For more detailed installation instructions specific to developing the `math-spec` codebase, see our [development documentation][setting-up-a-development-environment].
+
+## Editor completion and offline checking
+
+The YAML surface ships as a JSON Schema,
+[`schema/math-spec.schema.json`](https://github.com/energy-models/math-spec/blob/main/schema/math-spec.schema.json),
+generated from the same declarations `to_spec` validates against. An editor
+reads it for key completion, and a job with no Python reads it for a
+structure check. The examples below read it over the network; a vendored copy
+takes a path in the same slot.
+
+### Map the schema in VS Code
+
+Install the
+[Red Hat YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml),
+then map the schema per workspace:
+
+```jsonc
+// .vscode/settings.json
+"yaml.schemas": { "https://raw.githubusercontent.com/energy-models/math-spec/main/schema/math-spec.schema.json": ["*.model.yaml"] }
+```
+
+or per file, with a modeline on its first line:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/energy-models/math-spec/main/schema/math-spec.schema.json
+```
+
+That gives key completion, hover docs, the closed vocabulary behind
+`dtype:`, `domain:` and `sense:`, and a squiggle on a misspelled key.
+
+### Check a file without Python
+
+For a pre-commit hook or a non-Python CI job:
+
+```bash
+uvx check-jsonschema --schemafile https://raw.githubusercontent.com/energy-models/math-spec/main/schema/math-spec.schema.json model.yaml
+```
+
+The schema validates structure only. `expression:` and `where:` are strings
+to it; the math inside them is checked by
+[`to_spec`](reference/language/errors.md#to_spec-is-the-check).

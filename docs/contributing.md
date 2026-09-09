@@ -146,6 +146,39 @@ Here are some use-cases that you may come across in which you are considering up
 
     We recommend exploring the [MkDocs](https://www.mkdocs.org/) and the [Material](https://squidfunk.github.io/mkdocs-material/) documentation if we haven't answered your question.
 
+## Naming across the layers
+
+The same construct passes through three layers, and each names it in full.
+The layer is the suffix, which keeps the three vocabularies from colliding:
+
+| Layer                           | Suffix               | Example                                   |
+| ------------------------------- | -------------------- | ----------------------------------------- |
+| YAML block (`math_spec.model`)  | `Block`              | `VariableBlock`, `PiecewiseBlock`         |
+| Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `DimensionComparisonNode` |
+| Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`         |
+
+Two rules follow, and a PR that adds a construct keeps them:
+
+- **A node names the coordinate map, not a surface spelling.** The translation
+  node is `Translate`, and it stayed that way when the surface collapsed to a
+  single `shift(…, edge=)`.
+- **Nothing is abbreviated.** `Cmp` became `ParameterComparison`, and `vtype`
+  became `variable_type`.
+
+## Adding an operator
+
+Grammar first, which is usually free since `f(x, k=v)` already parses. Then
+its signature in `operators.BUILTINS`, which holds the arity and which
+arguments name dimensions; resolution, validation and lowering all read it
+from there. Then its dim rule in `dimensions.py` and its degree verdict in
+`degree.py`, the plan node it lowers to in `program.py`, and its page in the
+[language reference](reference/language/operators.md).
+
+A consumer that builds models cannot lower an operator the version it pins
+does not parse, so the operator lands and is tagged here before any
+consumer's half. What a consumer still owns is what is about building: the
+query or call it makes for the node.
+
 ## Submitting changes
 
 --8<-- "CONTRIBUTING.md:docs"
