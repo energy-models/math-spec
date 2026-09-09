@@ -15,31 +15,33 @@ SPDX-License-Identifier: CC-BY-4.0
 
 <!--- --8<-- [end:badges] -->
 
-**The language an optimisation model is written in, and the math it means.**
+**Write an optimisation model as a YAML file. Check it and print it as math,
+with no data and no solver.**
 
-One YAML file declares the axes a model runs over, the data it expects, the
-decisions a solver makes, and the rules those decisions obey. math-spec is that
-language: a schema closed at every level, two small grammars, every check that
-can run before a number is bound, and a typesetter that prints the file as the
-math it stands for.
+A math-spec file declares four things: the axes the model runs over, such as
+`snapshot` and `generator`; the data it expects, such as `load` and `cost`; the
+decisions the solver makes, such as `p`; and the rules those decisions obey, such
+as `sum(p, over=generator) == load`. The file [below](#example) is a complete
+model.
 
-It builds nothing and solves nothing. An engine, a renderer and a checker all read
-the same file through it, and get the same checked syntax tree, so they cannot
-disagree about what the file means. Where they could have disagreed, the language
-decides once; that is the whole
-[test](docs/about/what-counts-as-language.md) for what belongs here.
+math-spec reads that file, checks everything that can be checked without data,
+and hands the result on: to an engine that builds and solves the model, or to the
+typesetter that prints it as LaTeX, Typst or Markdown. It builds nothing and
+solves nothing itself. Every tool reads the file through the same checked syntax
+tree, so an engine and a renderer cannot disagree about what the file means; that
+is the [test](docs/about/what-counts-as-language.md) for what belongs here.
 
-Three properties follow, and each is a page:
+Three properties follow:
 
-- **Nothing is guessed.** Every expression, every `where` string and every macro
-  template, called or not, is parsed and name-checked at load. Where a file does
-  not decide the answer, loading fails, and the message names the rewrite
-  ([errors and limits](docs/reference/language/errors.md)).
-- **The operators are a fixed set.** Nothing registers another one. A
-  composition of them is a macro over the operators that exist
-  ([the limits](docs/about/limits.md)).
-- **The file is the document.** A model prints as LaTeX, Typst or Markdown from
-  the file alone, with no data, no solver and no second source of truth
+- **Nothing is guessed.** A misspelled name, a `where` string on an undeclared
+  parameter, a constraint whose dimensions do not match its `foreach`: each fails
+  when the file loads, with a message that names the fix. A repository of models
+  checks in CI with no data ([errors](docs/reference/language/errors.md)).
+- **The operators are a fixed set.** `sum`, `sum_back`, `at` and `shift`. A file
+  cannot add one, so a model never depends on what one engine registered. A
+  composition of them goes in `macros:` ([the limits](docs/about/limits.md)).
+- **The file is the document.** `to_latex(spec)` prints the model as equations
+  from the file alone, so the math you publish is the math you solve
   ([typeset](docs/reference/typeset.md)).
 
 <!--- --8<-- [start:flow] -->
