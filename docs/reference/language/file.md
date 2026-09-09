@@ -11,7 +11,7 @@ and `description`:
 | Key           |                                                                                                              |
 | ------------- | ------------------------------------------------------------------------------------------------------------ |
 | `dimensions`  | the axes ([dimensions](dimensions.md))                                                                       |
-| `lookups`     | named maps out of a dimension ([lookups](dimensions.md#lookups))                                             |
+| `lookups`     | named relations between dimensions ([lookups](dimensions.md#lookups))                                        |
 | `parameters`  | the data the model expects ([declarations](declarations.md))                                                 |
 | `variables`   | what the solver decides                                                                                      |
 | `constraints` | the rules those decisions obey                                                                               |

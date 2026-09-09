@@ -100,6 +100,7 @@ __all__ = [
     'VariableDeclaration',
     'VariableDefinedNode',
     'VariableDomain',
+    'Walk',
     'WhereNode',
     'Window',
     'carries_variable',
@@ -262,34 +263,41 @@ class Sum(Expression):
 
 @dataclass(frozen=True)
 class GroupSum(Expression):
-    """Sum ``operand`` through coordinates declared on dim ``over``.
+    """Sum ``operand`` through lookups, consuming dim ``over`` and producing ``into``.
 
-    ``coordinate`` names lookups carried by dim ``over`` whose values are
-    labels of the matching dim in ``into``; the result replaces ``over`` with
-    all of them. The two tuples are the same length and their order pairs
-    them: several coordinates are one grouping into a product of targets,
-    consumed in a single join.
+    ``coordinate`` names the lookups and ``walks`` says, per lookup, which
+    column is consumed, which produced and which joined on; the result
+    replaces ``over`` with every dim in ``into``. The tuples are the same
+    length and their order pairs them: several coordinates are one grouping
+    into a product of targets, consumed in a single join. The join keys on
+    the consumed column and every joined column, and on the produced column
+    too where the operand already carries its dimension.
     """
 
     operand: ExpressionNode
     over: str
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
+    walks: tuple[Walk, ...] = ()
 
 
 @dataclass(frozen=True)
 class At(Expression):
-    """Read ``operand`` through a lookup — the adjoint of :class:`GroupSum`.
+    """Read ``operand`` through lookups — the adjoint of :class:`GroupSum`.
 
-    Same mapping table, walked the other way: ``GroupSum`` consumes ``over``
-    and produces ``into``, this consumes ``into`` and produces ``over``. The
-    join fans out, many ``over`` labels sharing one ``into`` tuple.
+    Same tables, walked the other way: this consumes the dims in ``into`` and
+    produces ``over``, one value per coordinate because every walk reads a
+    value column at a key the operand fixes (``Walk.is_function_read``). The
+    join fans out, many ``over`` labels sharing one ``into`` tuple — at each
+    coordinate of the joined columns, which the operand carries and the
+    result keeps.
     """
 
     operand: ExpressionNode
     over: str
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
+    walks: tuple[Walk, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -304,10 +312,12 @@ class Translate(Expression):
     ``offset`` is an integer, or the name of an integer parameter that does
     not depend on ``dimension`` and carries its sign in the values.
 
-    ``partition`` names a lookup over ``dimension``, and the translation then
-    happens inside each group it makes: the neighbour is the one before in
-    the same group, the edge is the group's, and a wrap closes each group onto
-    itself. A coordinate the lookup sends nowhere reaches nothing.
+    ``partition`` is a lookup walked along ``dimension`` — its consumed
+    column is a key over that dimension, its value columns are the group —
+    and the translation then happens inside each group: the neighbour is the
+    one before in the same group, the edge is the group's, and a wrap closes
+    each group onto itself. A coordinate the lookup sends nowhere reaches
+    nothing.
     """
 
     operand: ExpressionNode
@@ -315,7 +325,7 @@ class Translate(Expression):
     offset: int | str
     wrap: bool
     fill: float | None = None
-    partition: str | None = None
+    partition: Walk | None = None
 
 
 @dataclass(frozen=True)
@@ -343,7 +353,7 @@ class Window(Expression):
     dimension: str
     width: int | str
     wrap: bool
-    partition: str | None = None
+    partition: Walk | None = None
 
 
 @dataclass(frozen=True)
@@ -437,22 +447,84 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 # --------------------------------------------------------------------------
 
 
-class LookupDeclaration(NamedTuple):
-    """One declared lookup over a dimension.
+class Walk(NamedTuple):
+    """One lookup as an operator walks it — which column is consumed, which produced, which joined on.
 
-    Its values are labels of ``target``, checked for containment once the dim
-    tables exist — which keeps a mistyped label from silently dropping its
-    terms in the join that places them — and it is what ``sum(by=)`` lands
-    terms on.
+    ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
+    the lookup — and ``columns`` binds every role to its dimension in
+    declared order, with ``key`` the roles the table is single-valued per.
+    ``joined`` is the key roles not walked (every role, for a bare relation):
+    the join keys on them, and a value role not walked is not read.
+    ``produced`` is ``None`` for a partition (``shift``, ``sum_back``,
+    ``position``), which walks a key role and groups by the value roles.
     """
 
     name: str
-    target: str
+    consumed: str
+    produced: str | None
+    joined: tuple[str, ...]
+    columns: tuple[tuple[str, str], ...]
+    key: tuple[str, ...]
+
+    def dim(self, role: str) -> str:
+        """The dimension *role* is bound to."""
+        return dict(self.columns)[role]
+
+    @property
+    def roles(self) -> tuple[str, ...]:
+        return tuple(role for role, _ in self.columns)
+
+    @property
+    def values(self) -> tuple[str, ...]:
+        """The roles the key determines — every role that is not a key."""
+        return tuple(role for role in self.roles if role not in self.key)
+
+    @property
+    def joined_dims(self) -> tuple[str, ...]:
+        return tuple(self.dim(role) for role in self.joined)
+
+    @property
+    def is_function_read(self) -> bool:
+        """Whether the walk reads one value per coordinate: the key lies inside what is fixed."""
+        fixed = {*self.joined, *(() if self.produced is None else (self.produced,))}
+        return bool(self.key) and set(self.key) <= fixed
+
+
+class LookupDeclaration(NamedTuple):
+    """One declared lookup: a relation over its ``columns``, single-valued per ``key``.
+
+    ``columns`` binds each role to its dimension in the order the table
+    carries them; ``key`` is the roles a row is identified by, empty for a
+    bare relation. Every value is checked at bind to be a label of its
+    column's dimension, and a keyed table to have one row per key tuple —
+    which keeps a mistyped label from silently dropping its terms in the join
+    that places them, and is what lets ``at`` read one value.
+    """
+
+    name: str
+    columns: tuple[tuple[str, str], ...]
+    key: tuple[str, ...] = ()
+
+    @property
+    def roles(self) -> tuple[str, ...]:
+        return tuple(role for role, _ in self.columns)
+
+    @property
+    def dims(self) -> tuple[str, ...]:
+        return tuple(dim for _, dim in self.columns)
+
+    @property
+    def values(self) -> tuple[str, ...]:
+        """The roles the key determines."""
+        return tuple(role for role in self.roles if role not in self.key)
+
+    def dim(self, role: str) -> str:
+        return dict(self.columns)[role]
 
 
 @dataclass(frozen=True)
 class DimensionDeclaration:
-    """A dimension and the lookups its labels carry."""
+    """A dimension and the lookups with a column over it."""
 
     lookups: tuple[LookupDeclaration, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
@@ -460,17 +532,6 @@ class DimensionDeclaration:
     #: checked against — the same claim ``ParameterDeclaration.dtype`` makes
     #: about a value column, one axis over.
     dtype: DimensionDtype = 'str'
-
-    @property
-    def targets(self) -> dict[str, str]:
-        """Each map over the dimension, to the dimension its values are labels of.
-
-        The question every consumer of a ``by=`` asks, and asked here so it has
-        one answer: an operator grouping through a lookup names the target as
-        the dim it lands on, and a partition array is named for it so an amount
-        declared over the group's own dim can be read through it.
-        """
-        return {lk.name: lk.target for lk in self.lookups}
 
 
 @dataclass(frozen=True)
@@ -894,9 +955,9 @@ class Program:
         return _declared(self.dimensions, name, 'dimension')
 
     @property
-    def lookups(self) -> tuple[tuple[str, LookupDeclaration], ...]:
-        """Every lookup in the program, with the dimension it is over."""
-        return tuple((dimension, lk) for dimension, d in self.dimensions.items() for lk in d.lookups)
+    def lookups(self) -> dict[str, LookupDeclaration]:
+        """Every lookup in the program by name, each once — a lookup keyed by two dimensions sits under both."""
+        return {lk.name: lk for d in self.dimensions.values() for lk in d.lookups}
 
     def parameter(self, name: str) -> ParameterDeclaration:
         return _declared(self.parameters, name, 'parameter')
@@ -1057,44 +1118,61 @@ class DimensionPositionNode:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
     Both sides are integers, negative counting from the end. With ``by`` the
-    position is counted within each group the lookup makes.
+    position is counted within each group the lookup makes: ``walked`` is its
+    key column over ``name``, the group is its value columns, and ``dims``
+    the dimensions of its other key columns, which the frame carries.
     """
 
     name: str
     op: PredicateOperator
     position: int
     by: str | None = None
+    walked: str | None = None
+    dims: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class LookupComparisonNode:
-    """Compare a lookup's values against a literal — ``period_of == 2030``.
+    """Compare one value column of a keyed lookup against a literal — ``period_of == 2030``.
 
-    ``over`` is the dimension the lookup maps out of.
+    ``column`` is the role read, and ``dims`` the dimensions of the key
+    columns: the leaf is read at them, one value per coordinate.
     """
 
     name: str
-    over: str
+    column: str
     op: PredicateOperator
     value: float | str | datetime.date
+    dims: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class LookupPairComparisonNode:
-    """Compare two lookups over one dimension — ``from != to``, row by row on that dimension's table."""
+    """Compare a value column of one keyed lookup with one of another — ``from_bus != to_bus`` — row by row on the key.
+
+    Both keys are over the same ``dims``, and the two columns are over one
+    dimension, so a match is possible at all.
+    """
 
     name: str
+    column: str
     other: str
-    over: str
+    other_column: str
     op: PredicateOperator
+    dims: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class LookupDefinedNode:
-    """True where the named lookup has a value — a null says the label belongs to no group."""
+    """True where the lookup has a row at the frame's coordinates.
+
+    ``dims`` is what the frame supplies: the key's dimensions for a keyed
+    lookup, whose row is then the one the key finds; every column's for a
+    bare relation, where a row is the whole tuple.
+    """
 
     name: str
-    over: str
+    dims: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1191,19 +1269,22 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
 
     A parameter or variable leaf carries its own dims off the declaration; a
     comparison on a dimension is read through that dimension, and a lookup
-    through the dimension it maps out of — the dim it leaves, not the one it
-    lands in. Separate from the union because the load-time frame check
-    reports per leaf. Closed by ``assert_never``: a predicate node added
-    without a reading is a type error here, at the one place that has to grow
-    a branch, rather than a wrong dim set at the first model to use it.
+    through the dimensions of the columns it is read at — its key for a
+    comparison, every column for a bare existence.
+    Separate from the union because the load-time frame check reports per
+    leaf. Closed by ``assert_never``: a predicate node added without a reading
+    is a type error here, at the one place that has to grow a branch, rather
+    than a wrong dim set at the first model to use it.
     """
     match atom:
         case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
             return frozenset(atom.dims)
-        case DimensionComparisonNode() | DimensionPositionNode():
+        case DimensionComparisonNode():
             return frozenset({atom.name})
+        case DimensionPositionNode():
+            return frozenset({atom.name, *atom.dims})
         case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
-            return frozenset({atom.over})
+            return frozenset(atom.dims)
         case _:
             assert_never(atom)
 

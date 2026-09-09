@@ -47,11 +47,14 @@ dimensions:
   technology: { dtype: str }
 
 lookups:
-  gen_bus: { over: generator, into: bus }
-  gen_tech: { over: generator, into: technology } # a second map out of `generator`, to group through both at once
-  zone_of: { over: bus, into: zone }
-  area_of: { over: bus, into: zone } # a second map into the same set, to compare against
-  season_of: { over: snapshot, into: season }
+  gen_bus: { over: [generator, bus], key: generator }
+  gen_tech: { over: [generator, technology], key: generator } # a second map out of `generator`, to group through both at once
+  zone_of: { over: [bus, zone], key: bus }
+  area_of: { over: [bus, zone], key: bus } # a second map into the same set, to compare against
+  season_of: { over: [snapshot, season], key: snapshot }
+  gen_zone: { over: [generator, snapshot, zone], key: [generator, snapshot] } # a map keyed by two dimensions: a call walks one and joins on the other
+  rep_of: { over: { snapshot: snapshot, rep: snapshot }, key: snapshot } # a map into its own dimension: the representative snapshot
+  connection: { over: [generator, bus] } # a bare relation, no key: many-to-many, walked only by sum with both ends named
 
 parameters:
   p_max: { dims: [generator] }
@@ -72,12 +75,12 @@ parameters:
 
 | Symbol | Meaning |
 |---|---|
-| $\mathcal{T}$ | index $t$ — `snapshot` (`int` coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$ |
-| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ |
-| $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$ |
-| $\mathcal{Z}$ | index $z$ — `zone` |
-| $\mathcal{S}$ | index $s$ — `season` |
-| $\mathcal{E}$ | index $e$ — `technology` |
+| $\mathcal{T}$ | index $t$ — `snapshot` (`int` coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S},\enspace \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\enspace \mathrm{rep\_of}: \mathcal{T} \to \mathcal{T}$ |
+| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\enspace \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\enspace \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B}$ |
+| $\mathcal{B}$ | index $b$ — `bus` with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\enspace \mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B}$ |
+| $\mathcal{Z}$ | index $z$ — `zone` with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\enspace \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}$ |
+| $\mathcal{S}$ | index $s$ — `season` with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$ |
+| $\mathcal{E}$ | index $e$ — `technology` with $\mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$ |
 
 #### Parameters
 
@@ -343,6 +346,30 @@ pullback:
 
 $$\mathit{spill}_{t} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
 
+#### `relational`
+
+a sum through a bare relation: the domain is a row of the relation rather than a function's value
+
+```yaml
+relational:
+  foreach: [snapshot, bus]
+  expression: sum(p, by=connection, from=generator, to=bus) <= load
+```
+
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \left( g,\enspace b \right) \in \mathrm{connection}} p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$$
+
+#### `representative`
+
+a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
+
+```yaml
+representative:
+  foreach: [snapshot]
+  expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
+```
+
+$$\sum_{t' \in \mathcal{T} \thinspace:\thinspace \mathrm{rep\_of}(t') = t} \mathit{spill}_{t'} \le \mathit{spill}_{\mathrm{rep\_of}(t)} \qquad \forall\thinspace t \in \mathcal{T}$$
+
 #### `grouped_twice`
 
 one grouping through two maps: the domain carries both conditions
@@ -366,6 +393,43 @@ pulled_back_twice:
 ```
 
 $$\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\thinspace g \in \mathcal{G}$$
+
+#### `zonal`
+
+a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
+
+```yaml
+zonal:
+  foreach: [snapshot, zone]
+  expression: sum(p, by=gen_zone, from=generator) <= zone_cap
+```
+
+$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_zone}(g,\enspace t) = z} p_{t,g} \le \mathrm{zone\_cap}_{z} \qquad \forall\thinspace t \in \mathcal{T},\enspace z \in \mathcal{Z}$$
+
+#### `zonal_history`
+
+the same table walked along its other key
+
+```yaml
+zonal_history:
+  foreach: [generator, zone]
+  expression: sum(p, by=gen_zone, from=snapshot) <= zone_cap
+```
+
+$$\sum_{t \in \mathcal{T} \thinspace:\thinspace \mathrm{gen\_zone}(g,\enspace t) = z} p_{t,g} \le \mathrm{zone\_cap}_{z} \qquad \forall\thinspace g \in \mathcal{G},\enspace z \in \mathcal{Z}$$
+
+#### `zonal_pullback`
+
+its adjoint, reading the slot the row's own snapshot puts the generator in
+
+```yaml
+zonal_pullback:
+  foreach: [snapshot, generator]
+  where: "gen_zone == 'north' AND position(generator, by=gen_zone, from=generator) == 0"
+  expression: p <= at(spill * zone_cap, by=gen_zone, to=generator)
+```
+
+$$p_{t,g} \le \mathit{spill}_{t} \cdot \mathrm{zone\_cap}_{\mathrm{gen\_zone}(g,\enspace t)} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_zone}(g,\enspace t) = \text{'}\mathrm{north}\text{'} \wedge \mathrm{pos}_{\mathrm{gen\_zone}(g,\enspace t)}(g) = 0$$
 
 #### `arithmetic`
 

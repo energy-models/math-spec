@@ -21,11 +21,14 @@ dimensions:
   technology: { dtype: str }
 
 lookups:
-  gen_bus: { over: generator, into: bus }
-  gen_tech: { over: generator, into: technology } # a second map out of `generator`, to group through both at once
-  zone_of: { over: bus, into: zone }
-  area_of: { over: bus, into: zone } # a second map into the same set, to compare against
-  season_of: { over: snapshot, into: season }
+  gen_bus: { over: [generator, bus], key: generator }
+  gen_tech: { over: [generator, technology], key: generator } # a second map out of `generator`, to group through both at once
+  zone_of: { over: [bus, zone], key: bus }
+  area_of: { over: [bus, zone], key: bus } # a second map into the same set, to compare against
+  season_of: { over: [snapshot, season], key: snapshot }
+  gen_zone: { over: [generator, snapshot, zone], key: [generator, snapshot] } # a map keyed by two dimensions: a call walks one and joins on the other
+  rep_of: { over: { snapshot: snapshot, rep: snapshot }, key: snapshot } # a map into its own dimension: the representative snapshot
+  connection: { over: [generator, bus] } # a bare relation, no key: many-to-many, walked only by sum with both ends named
 
 parameters:
   p_max: { dims: [generator] }
@@ -146,12 +149,28 @@ constraints:
   pullback: # at(), which re-indexes through a lookup instead of an offset
     foreach: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of)
+  relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
+    foreach: [snapshot, bus]
+    expression: sum(p, by=connection, from=generator, to=bus) <= load
+  representative: # a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
+    foreach: [snapshot]
+    expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
   grouped_twice: # one grouping through two maps: the domain carries both conditions
     foreach: [snapshot, bus, technology]
     expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap
   pulled_back_twice: # its adjoint, reading one slot through a pair of labels
     foreach: [generator]
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
+  zonal: # a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
+    foreach: [snapshot, zone]
+    expression: sum(p, by=gen_zone, from=generator) <= zone_cap
+  zonal_history: # the same table walked along its other key
+    foreach: [generator, zone]
+    expression: sum(p, by=gen_zone, from=snapshot) <= zone_cap
+  zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
+    foreach: [snapshot, generator]
+    where: "gen_zone == 'north' AND position(generator, by=gen_zone, from=generator) == 0"
+    expression: p <= at(spill * zone_cap, by=gen_zone, to=generator)
   arithmetic: # division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
     foreach: [snapshot]
     expression: >-

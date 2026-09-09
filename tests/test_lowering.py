@@ -51,6 +51,7 @@ from math_spec.program import (
     Sum,
     Translate,
     Variable,
+    Walk,
     Window,
     children,
     divisor_parameters,
@@ -81,6 +82,10 @@ TINY = {
     'constraints': {'c': {'foreach': [], 'expression': 'sum(p, over=g) >= 1'}},
 }
 
+#: `lk` and `lk2` as `sum` walks them: key consumed, value produced, nothing joined.
+LK_WALK = Walk('lk', 'g', 'h', (), (('g', 'g'), ('h', 'h')), ('g',))
+LK2_WALK = Walk('lk2', 'g', 'z', (), (('g', 'g'), ('z', 'z')), ('g',))
+
 #: `fixtures.SMALL_MODEL` plus a second lookup and a per-entity
 #: offset. Which node a construct becomes is mostly a claim about the dim it
 #: consumes and the dim it lands on, and stating that needs a third dimension
@@ -89,7 +94,7 @@ SHAPES_MODEL = override(
     SMALL_MODEL,
     **{
         'dimensions.z': {'dtype': 'str'},
-        'lookups.lk2': {'over': 'g', 'into': 'z'},
+        'lookups.lk2': {'over': ['g', 'z'], 'key': 'g'},
         'parameters.lead': {'dims': ['g'], 'dtype': 'int'},
     },
 )
@@ -404,22 +409,28 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk)',
-            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',)),
+            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',), walks=(LK_WALK,)),
             id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
         ),
         pytest.param(
             'sum(p, by=[lk])',
-            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',)),
+            GroupSum(Variable('p'), over='g', coordinate=('lk',), into=('h',), walks=(LK_WALK,)),
             id='a-one-element-list-is-the-plain-form',
         ),
         pytest.param(
             'sum(p, by=[lk, lk2])',
-            GroupSum(Variable('p'), over='g', coordinate=('lk', 'lk2'), into=('h', 'z')),
+            GroupSum(Variable('p'), over='g', coordinate=('lk', 'lk2'), into=('h', 'z'), walks=(LK_WALK, LK2_WALK)),
             id='two-coordinates-are-one-grouping-with-paired-tuples',
         ),
         pytest.param(
             'at(r, by=lk)',
-            At(Variable('r'), over='g', coordinate=('lk',), into=('h',)),
+            At(
+                Variable('r'),
+                over='g',
+                coordinate=('lk',),
+                into=('h',),
+                walks=(Walk('lk', 'h', 'g', (), (('g', 'g'), ('h', 'h')), ('g',)),),
+            ),
             id='a-pullback-walks-the-same-table-back',
         ),
         pytest.param(
@@ -439,7 +450,14 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         ),
         pytest.param(
             'shift(p, over=g, offset=1, by=lk, edge=0)',
-            Translate(Variable('p'), 'g', offset=1, wrap=False, fill=0.0, partition='lk'),
+            Translate(
+                Variable('p'),
+                'g',
+                offset=1,
+                wrap=False,
+                fill=0.0,
+                partition=Walk('lk', 'g', None, (), (('g', 'g'), ('h', 'h')), ('g',)),
+            ),
             id='a-translation-stops-at-the-edges-of-the-lookup-it-names',
         ),
         pytest.param(
@@ -454,7 +472,13 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         ),
         pytest.param(
             'sum_back(p, over=g, within=2, by=lk)',
-            Window(Variable('p'), 'g', width=2, wrap=False, partition='lk'),
+            Window(
+                Variable('p'),
+                'g',
+                width=2,
+                wrap=False,
+                partition=Walk('lk', 'g', None, (), (('g', 'g'), ('h', 'h')), ('g',)),
+            ),
             id='a-window-stops-at-the-edges-of-the-lookup-it-names',
         ),
     ],
@@ -463,6 +487,65 @@ def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
     """Which node each surface construct becomes, and every field it arrives with."""
     lowered = _Lowering(shapes_schema, 't').expr(resolved(expression, shapes_schema))
     assert lowered == expected, 'the whole frozen node, so no field is asserted by omission'
+
+
+def test_a_relation_lowers_with_the_walk_each_call_takes():
+    """Every node reading a lookup carries its columns, its key and the walk, so a consumer joins on the right columns."""
+    program = to_program(
+        {
+            'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
+            'lookups': {'zone_of': {'over': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']}},
+            'parameters': {'price': {'dims': ['snapshot', 'zone']}},
+            'variables': {
+                'p': {'foreach': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
+                'first': {'foreach': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
+            },
+            'constraints': {
+                'zonal': {'foreach': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, from=generator) <= 1'},
+                'priced': {
+                    'foreach': ['snapshot', 'generator'],
+                    'expression': 'p <= at(price, by=zone_of, to=generator)',
+                },
+                'history': {'foreach': ['generator', 'zone'], 'expression': 'sum(p, by=zone_of, from=snapshot) <= 1'},
+            },
+        }
+    )
+
+    columns = (('generator', 'generator'), ('snapshot', 'snapshot'), ('zone', 'zone'))
+    declared = LookupDeclaration('zone_of', columns, ('generator', 'snapshot'))
+    assert program.dimension('generator').lookups == (declared,), 'the lookup sits under its first column'
+    assert program.dimension('zone').lookups == (declared,), 'and under its last'
+    assert program.lookups == {'zone_of': declared}, 'and once in the program'
+    assert program.constraints['zonal'].lhs == GroupSum(
+        Variable('p'),
+        over='generator',
+        coordinate=('zone_of',),
+        into=('zone',),
+        walks=(Walk('zone_of', 'generator', 'zone', ('snapshot',), columns, ('generator', 'snapshot')),),
+    ), 'a grouped sum names the column it consumes, the one it produces and the one it joins on'
+    assert program.constraints['history'].lhs == GroupSum(
+        Variable('p'),
+        over='snapshot',
+        coordinate=('zone_of',),
+        into=('zone',),
+        walks=(Walk('zone_of', 'snapshot', 'zone', ('generator',), columns, ('generator', 'snapshot')),),
+    ), 'the same table walked from its other key column'
+    assert program.constraints['priced'].rhs == At(
+        Parameter('price'),
+        over='generator',
+        coordinate=('zone_of',),
+        into=('zone',),
+        walks=(Walk('zone_of', 'zone', 'generator', ('snapshot',), columns, ('generator', 'snapshot')),),
+    ), 'and its adjoint consumes the value column and produces the key column'
+    p_where = program.variable('p').where
+    assert p_where is not None
+    assert [(type(a).__name__, a.dims) for a in p_where.atoms] == [
+        ('LookupComparisonNode', ('generator', 'snapshot')),
+        ('LookupDefinedNode', ('generator', 'snapshot')),
+    ], 'a comparison and an existence are both read at the key of a keyed lookup'
+    first_where = program.variable('first').where
+    assert first_where is not None
+    assert first_where.dims == {'generator', 'snapshot'}, 'a position within a group is read at every key column'
 
 
 def test_a_binary_variable_lowers_to_a_binary_domain():
@@ -543,19 +626,20 @@ def test_a_lookup_names_the_dimension_its_values_label():
         constraints={},
         objective=None,
         dimensions={
-            'snapshot': DimensionDeclaration((LookupDeclaration('season_of', 'season'),)),
-            'generator': DimensionDeclaration((LookupDeclaration('at_bus', 'bus'),)),
+            'snapshot': DimensionDeclaration(
+                (LookupDeclaration('season_of', (('snapshot', 'snapshot'), ('season', 'season')), ('snapshot',)),)
+            ),
+            'generator': DimensionDeclaration(
+                (LookupDeclaration('at_bus', (('generator', 'generator'), ('bus', 'bus')), ('generator',)),)
+            ),
         },
     )
 
-    assert program.dimension('snapshot').targets == {'season_of': 'season'}, (
+    assert [lk.name for lk in program.dimension('snapshot').lookups] == ['season_of'], (
         'one dimension names its own maps and no other dimension'
     )
-    assert program.dimension('generator').targets == {'at_bus': 'bus'}, 'and the same for the second'
-    assert [(d, lk.name) for d, lk in program.lookups] == [
-        ('snapshot', 'season_of'),
-        ('generator', 'at_bus'),
-    ], 'every map with the dimension it is over, in declaration order'
+    assert program.dimension('snapshot').lookups[0].values == ('season',), 'and the map says what its key determines'
+    assert list(program.lookups) == ['season_of', 'at_bus'], 'every map once, by name, in declaration order'
 
 
 def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():

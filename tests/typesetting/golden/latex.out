@@ -9,12 +9,12 @@
 
 \paragraph{Sets}
 \begin{description}
-\item[{$\mathcal{T}$}] index $t$ --- \texttt{snapshot} (\texttt{int} coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$
-\item[{$\mathcal{G}$}] index $g$ --- \texttt{generator} with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$
-\item[{$\mathcal{B}$}] index $b$ --- \texttt{bus} with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}$
-\item[{$\mathcal{Z}$}] index $z$ --- \texttt{zone}
-\item[{$\mathcal{S}$}] index $s$ --- \texttt{season}
-\item[{$\mathcal{E}$}] index $e$ --- \texttt{technology}
+\item[{$\mathcal{T}$}] index $t$ --- \texttt{snapshot} (\texttt{int} coordinates) with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\ \mathrm{rep\_of}: \mathcal{T} \to \mathcal{T}$
+\item[{$\mathcal{G}$}] index $g$ --- \texttt{generator} with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\ \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B}$
+\item[{$\mathcal{B}$}] index $b$ --- \texttt{bus} with $\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B}$
+\item[{$\mathcal{Z}$}] index $z$ --- \texttt{zone} with $\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}$
+\item[{$\mathcal{S}$}] index $s$ --- \texttt{season} with $\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}$
+\item[{$\mathcal{E}$}] index $e$ --- \texttt{technology} with $\mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}$
 \end{description}
 
 \paragraph{Parameters}
@@ -92,8 +92,13 @@
 \text{history} && \sum_{t' \in \mathcal{T} \,:\, 0 \le t \ominus t' < \mathrm{min\_up}} \mathit{on}_{t',g} & \le \mathit{units}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{seasonal\_window} && \sum_{t' \in \mathcal{T} \,:\, 0 \le t -^{\mathrm{season\_of}(t)} t' < 3} \mathit{on}_{t',g} & \le \mathit{units}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{pullback} && \mathit{spill}_{t} & \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
+\text{relational} && \sum_{g \in \mathcal{G} \,:\, \left( g,\ b \right) \in \mathrm{connection}} p_{t,g} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
+\text{representative} && \sum_{t' \in \mathcal{T} \,:\, \mathrm{rep\_of}(t') = t} \mathit{spill}_{t'} & \le \mathit{spill}_{\mathrm{rep\_of}(t)} && \forall\, t \in \mathcal{T} \\
 \text{grouped\_twice} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} & \le \mathrm{tech\_cap}_{b,e} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E} \\
 \text{pulled\_back\_twice} && \mathit{units}_{g} & \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} && \forall\, g \in \mathcal{G} \\
+\text{zonal} && \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) = z} p_{t,g} & \le \mathrm{zone\_cap}_{z} && \forall\, t \in \mathcal{T},\ z \in \mathcal{Z} \\
+\text{zonal\_history} && \sum_{t \in \mathcal{T} \,:\, \mathrm{gen\_zone}(g,\ t) = z} p_{t,g} & \le \mathrm{zone\_cap}_{z} && \forall\, g \in \mathcal{G},\ z \in \mathcal{Z} \\
+\text{zonal\_pullback} && p_{t,g} & \le \mathit{spill}_{t} \cdot \mathrm{zone\_cap}_{\mathrm{gen\_zone}(g,\ t)} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) = \text{'}\mathrm{north}\text{'} \wedge \mathrm{pos}_{\mathrm{gen\_zone}(g,\ t)}(g) = 0 \\
 \text{arithmetic} && \sum_{g \in \mathcal{G}} \left( \frac{p_{t,g}}{2} - \mathrm{cost}_{g} + 10^{-5} \cdot p_{t,g} + 2.5 \times 10^{-7} \cdot \mathrm{cost}_{g} + 0.5 \cdot p_{t,g} \right) & \ge -\left( \sum_{g \in \mathcal{G}} p_{t,g} \right) \cdot \left( -3 \right) && \forall\, t \in \mathcal{T} \\
 \text{total} && \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} & \le \mathrm{budget} \\
 \text{scalar} && \mathit{units}_{g} & \le \mathrm{budget} && \forall\, g \in \mathcal{G} \,:\, \mathrm{cost}_{g} \text{ is defined} \\

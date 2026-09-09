@@ -4,12 +4,12 @@
 every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 {net} \~ ^ \\ \*star\* \@ref \<label\>, and `a_name` in backticks set in code
 
 == Sets
-/ $cal(T)$: index $t$ --- `snapshot` (`int` coordinates) with $upright("season_of"): cal(T) arrow.r cal(S)$
-/ $cal(G)$: index $g$ --- `generator` with $upright("gen_bus"): cal(G) arrow.r cal(B), upright("gen_tech"): cal(G) arrow.r cal(E)$
-/ $cal(B)$: index $b$ --- `bus` with $upright("zone_of"): cal(B) arrow.r cal(Z), upright("area_of"): cal(B) arrow.r cal(Z)$
-/ $cal(Z)$: index $z$ --- `zone`
-/ $cal(S)$: index $s$ --- `season`
-/ $cal(E)$: index $e$ --- `technology`
+/ $cal(T)$: index $t$ --- `snapshot` (`int` coordinates) with $upright("season_of"): cal(T) arrow.r cal(S), upright("gen_zone"): cal(G) times cal(T) arrow.r cal(Z), upright("rep_of"): cal(T) arrow.r cal(T)$
+/ $cal(G)$: index $g$ --- `generator` with $upright("gen_bus"): cal(G) arrow.r cal(B), upright("gen_tech"): cal(G) arrow.r cal(E), upright("gen_zone"): cal(G) times cal(T) arrow.r cal(Z), upright("connection") subset.eq cal(G) times cal(B)$
+/ $cal(B)$: index $b$ --- `bus` with $upright("gen_bus"): cal(G) arrow.r cal(B), upright("zone_of"): cal(B) arrow.r cal(Z), upright("area_of"): cal(B) arrow.r cal(Z), upright("connection") subset.eq cal(G) times cal(B)$
+/ $cal(Z)$: index $z$ --- `zone` with $upright("zone_of"): cal(B) arrow.r cal(Z), upright("area_of"): cal(B) arrow.r cal(Z), upright("gen_zone"): cal(G) times cal(T) arrow.r cal(Z)$
+/ $cal(S)$: index $s$ --- `season` with $upright("season_of"): cal(T) arrow.r cal(S)$
+/ $cal(E)$: index $e$ --- `technology` with $upright("gen_tech"): cal(G) arrow.r cal(E)$
 
 == Parameters
 / $upright("p")^(upright("max"))$: `p_max` over $cal(G)$
@@ -79,8 +79,13 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
   upright("history") & sum_(t' in cal(T) colon 0 <= t minus.o t' < upright("min_up")) italic("on")_(t',g) & <= italic("units")_(g) & forall t in cal(T), g in cal(G) \
   upright("seasonal_window") & sum_(t' in cal(T) colon 0 <= t -^(upright("season_of")(t)) t' < 3) italic("on")_(t',g) & <= italic("units")_(g) & forall t in cal(T), g in cal(G) \
   upright("pullback") & italic("spill")_(t) & <= upright("zone_cap")_(upright("zone_of")(b)) & forall t in cal(T), b in cal(B) \
+  upright("relational") & sum_(g in cal(G) colon (g, b) in upright("connection")) p_(t,g) & <= upright("load")_(t,b) & forall t in cal(T), b in cal(B) \
+  upright("representative") & sum_(t' in cal(T) colon upright("rep_of")(t') = t) italic("spill")_(t') & <= italic("spill")_(upright("rep_of")(t)) & forall t in cal(T) \
   upright("grouped_twice") & sum_(g in cal(G) colon upright("gen_bus")(g) = b and upright("gen_tech")(g) = e) p_(t,g) & <= upright("tech_cap")_(b,e) & forall t in cal(T), b in cal(B), e in cal(E) \
   upright("pulled_back_twice") & italic("units")_(g) & <= upright("tech_cap")_(upright("gen_bus")(g),upright("gen_tech")(g)) & forall g in cal(G) \
+  upright("zonal") & sum_(g in cal(G) colon upright("gen_zone")(g, t) = z) p_(t,g) & <= upright("zone_cap")_(z) & forall t in cal(T), z in cal(Z) \
+  upright("zonal_history") & sum_(t in cal(T) colon upright("gen_zone")(g, t) = z) p_(t,g) & <= upright("zone_cap")_(z) & forall g in cal(G), z in cal(Z) \
+  upright("zonal_pullback") & p_(t,g) & <= italic("spill")_(t) dot upright("zone_cap")_(upright("gen_zone")(g, t)) & forall t in cal(T), g in cal(G) colon upright("gen_zone")(g, t) = upright("'north'") and upright("pos")_(upright("gen_zone")(g, t))(g) = 0 \
   upright("arithmetic") & sum_(g in cal(G)) (frac(p_(t,g), 2) - upright("cost")_(g) + 10^(-5) dot p_(t,g) + 2.5 times 10^(-7) dot upright("cost")_(g) + 0.5 dot p_(t,g)) & >= -(sum_(g in cal(G)) p_(t,g)) dot (-3) & forall t in cal(T) \
   upright("total") & sum_(t in cal(T), g in cal(G)) p_(t,g) & <= upright("budget") \
   upright("scalar") & italic("units")_(g) & <= upright("budget") & forall g in cal(G) colon upright("cost")_(g) upright(" is defined") \

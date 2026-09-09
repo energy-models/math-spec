@@ -42,7 +42,7 @@ DISPATCH_MODEL: dict[str, Any] = {
 #: share no dimension, which is what a rule about *different* dims needs.
 SMALL_MODEL: dict[str, Any] = {
     'dimensions': {'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}},
-    'lookups': {'lk': {'over': 'g', 'into': 'h'}},
+    'lookups': {'lk': {'over': ['g', 'h'], 'key': 'g'}},
     'parameters': {
         'c': {'dims': ['g']},
         'k': {'dims': []},

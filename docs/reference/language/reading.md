@@ -109,7 +109,7 @@ carries `.maps`. `.conjuncts` flattens the `AND` spine and stops at an `OR` or
 a `NOT`; `.names_read` gives the declarations the mask names; `.atoms` its
 leaves, connectives removed; and `.dims` the dimensions it is read at — read
 off the leaves, which resolution stamped with their declarations' dims the way
-a lookup leaf carries the dimension it maps out of. So a predicate a consumer
+a lookup leaf carries the dimensions of the columns it is read at. So a predicate a consumer
 builds from resolved pieces answers exactly as a declaration's own does: wrap
 it in `Mask`, or build it there with `~`, `&` and `|`. Construction
 folds — a double negation cancels, a literal flips or is absorbed rather than

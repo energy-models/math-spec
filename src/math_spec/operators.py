@@ -38,6 +38,9 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     lookup_kwargs: tuple[str, ...] = ()
+    #: Kwargs naming a column of the lookup ``by=`` names — ``from=`` and
+    #: ``to=`` — which resolution folds into the lookup's walk.
+    role_kwargs: tuple[str, ...] = ()
     #: Kwargs of which the call carries at most one — ``sum`` takes ``over=``
     #: (reduce the dim away) or ``by=`` (reduce it into the lookup's target),
     #: never both, and neither means every dim the operand carries. Members are
@@ -59,12 +62,14 @@ class Builtin:
             - frozenset(self.optional_kwargs)
         )
 
-    def kind_of(self, kwarg: str) -> Literal['dimension', 'lookup', 'edge', 'value']:
-        """What resolution turns the value of *kwarg* into: a dimension, a lookup, an edge policy, or a plain value."""
+    def kind_of(self, kwarg: str) -> Literal['dimension', 'lookup', 'role', 'edge', 'value']:
+        """What resolution turns the value of *kwarg* into: a dimension, a lookup, a column of it, an edge policy, or a plain value."""
         if kwarg in self.dimension_kwargs:
             return 'dimension'
         if kwarg in self.lookup_kwargs:
             return 'lookup'
+        if kwarg in self.role_kwargs:
+            return 'role'
         if kwarg in self.edge_kwargs:
             return 'edge'
         return 'value'
@@ -76,30 +81,36 @@ class Builtin:
 #: says which rows are neighbours, not which group a term lands in.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>)',
+        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>[, from=<column>, to=<column>])',
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
+        role_kwargs=('from', 'to'),
         at_most_one_of=('over', 'by'),
+        optional_kwargs=('from', 'to'),
     ),
     'at': Builtin(
-        'at(<expr>, by=<lookup>)',
+        'at(<expr>, by=<lookup>[, from=<column>, to=<column>])',
         lookup_kwargs=('by',),
+        role_kwargs=('from', 'to'),
+        optional_kwargs=('from', 'to'),
     ),
     'sum_back': Builtin(
-        "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>])",
+        "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>[, from=<column>]])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
+        role_kwargs=('from',),
         required_value_kwargs=('within',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by',),
+        optional_kwargs=('by', 'from'),
     ),
     'shift': Builtin(
-        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])",
+        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>[, from=<column>]])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
+        role_kwargs=('from',),
         required_value_kwargs=('offset',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by',),
+        optional_kwargs=('by', 'from'),
     ),
     'dual': Builtin('dual(<constraint>)'),
 }

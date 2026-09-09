@@ -143,7 +143,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     dimensions = {
         dname: program.DimensionDeclaration(
             tuple(
-                program.LookupDeclaration(lname, lk.into) for lname, lk in expanded.lookups.items() if lk.over == dname
+                program.LookupDeclaration(lname, lk.columns, lk.keys)
+                for lname, lk in expanded.lookups.items()
+                if dname in lk.dims
             ),
             ddef.dtype,
         )
@@ -272,7 +274,9 @@ class _Lowering:
             assert isinstance(over_node, DimensionNode), 'resolution refuses an over= that is not a dimension'
             return program.Sum(operand, (over_node.name,))
         assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
-        return program.GroupSum(operand, over=by_node.dimension, coordinate=by_node.names, into=by_node.into)
+        return program.GroupSum(
+            operand, over=by_node.dimension, coordinate=by_node.names, into=by_node.into, walks=by_node.walks
+        )
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``at(x, by=lookup)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
@@ -283,6 +287,7 @@ class _Lowering:
             over=by_node.dimension,
             coordinate=by_node.names,
             into=by_node.into,
+            walks=by_node.walks,
         )
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
@@ -345,10 +350,10 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 }
 
 
-def _partition_of(node: FunctionCallNode) -> str | None:
-    """The lookup a translation walks inside, if the call names one.
+def _partition_of(node: FunctionCallNode) -> program.Walk | None:
+    """The walk a translation partitions by, if the call names a lookup.
 
-    That it is a *single* lookup, and one *over the translated dimension*, is
+    That it is a *single* lookup, walked *along the translated dimension*, is
     checked with the other dim rules (``math_spec.dimensions``), where a model
     is refused before any data is read.
     """
@@ -356,7 +361,7 @@ def _partition_of(node: FunctionCallNode) -> str | None:
     if by_node is None:
         return None
     assert isinstance(by_node, LookupNode)
-    return by_node.names[0]
+    return by_node.walks[0]
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:

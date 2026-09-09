@@ -191,7 +191,7 @@ def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str,
             'bus': {'dtype': 'str'},
             'generator': {'dtype': 'str'},
         },
-        'lookups': {'zone': {'over': 'generator', 'into': 'bus'}},
+        'lookups': {'zone': {'over': ['generator', 'bus'], 'key': 'generator'}},
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'foreach': ['snapshot', 'generator']}},
         'constraints': {'c': {'foreach': ['snapshot'] if foreach is None else foreach, 'expression': expression}},
@@ -423,8 +423,8 @@ POSITION_SCHEMA = to_spec(
     {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int'}},
         'lookups': {
-            'period_of': {'over': 'snapshot', 'into': 'period'},
-            'starts_at': {'over': 'period', 'into': 'snapshot'},
+            'period_of': {'over': ['snapshot', 'period'], 'key': 'snapshot'},
+            'starts_at': {'over': ['period', 'snapshot'], 'key': 'period'},
         },
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'foreach': ['snapshot']}},
@@ -463,7 +463,7 @@ class TestPositionResolves:
             ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
             ('position(nope) == 0', ["'nope' is not declared"]),
             ('position(snapshot, by=load) == 0', ['groups by', '``by=`` takes a lookup']),
-            ('position(snapshot, by=starts_at) == 0', ["along 'snapshot'", "lookup over 'period'"]),
+            ('position(snapshot, by=starts_at) == 0', ["no key column over 'snapshot'", "its key is ['period']"]),
         ],
         ids=['a parameter', 'undeclared', 'by= is not a lookup', 'by= is over another dim'],
     )
@@ -562,17 +562,106 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'lookups.tag': {'over': 'g', 'dtype': 'str'}},
-                ("unknown key 'dtype' in a lookup declaration. Valid keys: description, into, over.",),
+                ("unknown key 'dtype' in a lookup declaration. Valid keys: description, key, over.",),
                 id='lookup-with-a-dtype-of-its-own',
             ),
-            pytest.param({'lookups.tag': {'over': 'g'}}, ('lookups.tag.into: Field required',), id='lookup-no-into'),
+            pytest.param({'lookups.tag': {'over': 'g'}}, ('has 1 column(s)',), id='lookup-with-one-column'),
             pytest.param(
                 {'lookups.lk.over': 'z'}, ("references undeclared dimension 'z'",), id='lookup-over-undeclared'
             ),
-            pytest.param({'lookups.lk.into': 'z'}, ("targets undeclared dimension 'z'",), id='lookup-into-undeclared'),
-            pytest.param({'lookups.lk.into': 'g'}, ("maps 'g' into itself",), id='lookup-into-itself'),
             pytest.param(
-                {'lookups.g': {'over': 'h', 'into': 'g'}},
+                {'lookups.lk.key': 'z'},
+                ("has key column 'z', which is not one of its columns",),
+                id='lookup-key-not-a-column',
+            ),
+            pytest.param(
+                {'lookups.lk.key': ['g', 'h']}, ('has every column in its key',), id='lookup-keyed-by-every-column'
+            ),
+            pytest.param(
+                {'lookups.lk.over': ['g', 'z']}, ("references undeclared dimension 'z'",), id='lookup-key-undeclared'
+            ),
+            pytest.param(
+                {'lookups.lk.over': ['g', 'g']},
+                ("names dimension 'g' twice under 'over:'", 'over: {g0: g, g1: g}'),
+                id='lookup-over-a-dim-twice-without-roles',
+            ),
+            pytest.param({'lookups.lk.over': []}, ('has 0 column(s)',), id='lookup-with-no-columns'),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lk': {'over': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'variables.q.foreach': ['g', 'h', 'z'],
+                    'objective': {'expression': 'sum(sum(q, by=lk))'},
+                },
+                ("'lk' has 2 key columns (['g', 'z']), and the call has to say which from= names",),
+                id='by-a-two-key-lookup-without-from',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=lk, from=z))'}},
+                ("from=z names no column of 'lk', whose columns are ['g', 'h']",),
+                id='from-a-column-the-lookup-lacks',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=lk, from=h, to=h))'}},
+                ("from= and to= both name column 'h'",),
+                id='from-and-to-the-same-column',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, from=g))'}},
+                ('names a column of a lookup, and no by= names the lookup',),
+                id='from-without-by',
+            ),
+            pytest.param(
+                {'lookups.rel': {'over': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
+                ("'rel' declares no key, so nothing says which column sum walks",),
+                id='a-bare-relation-needs-both-ends-named',
+            ),
+            pytest.param(
+                {'lookups.rel': {'over': ['g', 'h']}, 'objective': {'expression': 'sum(at(r, by=rel, from=h, to=g))'}},
+                ("at reads one value per coordinate, and 'rel' is not single-valued",),
+                id='at-through-a-bare-relation',
+            ),
+            pytest.param(
+                {
+                    'lookups.rel': {'over': ['g', 'h']},
+                    'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=rel))'},
+                },
+                ("'rel' declares no key, so no coordinate is in exactly one group",),
+                id='a-partition-through-a-bare-relation',
+            ),
+            pytest.param(
+                {'variables.q.where': 'position(g, by=lk, from=h) == 0'},
+                ("from=h is not a key column of 'lk'",),
+                id='position-from-a-value-column',
+            ),
+            pytest.param(
+                {
+                    'lookups.pair': {'over': {'g0': 'g', 'g1': 'g', 'h': 'h'}, 'key': ['g0', 'g1']},
+                    'variables.q.where': 'position(g, by=pair) == 0',
+                },
+                ("'pair' has 2 key column(s) over 'g'",),
+                id='position-by-a-lookup-with-two-key-columns-over-the-dim',
+            ),
+            pytest.param(
+                {'lookups.rel': {'over': ['g', 'h']}, 'variables.q.where': "rel == 'x'"},
+                ("compares a column of 'rel', which declares no key",),
+                id='where-compares-a-bare-relation',
+            ),
+            pytest.param(
+                {'variables.q.where': "lk.g == 'x'"},
+                ("'g' is a key column of 'lk', which the frame supplies rather than reads",),
+                id='where-compares-a-key-column',
+            ),
+            pytest.param(
+                {
+                    'lookups.pair': {'over': {'g0': 'g', 'g1': 'g'}},
+                    'variables.q.where': 'pair',
+                },
+                ('has two columns over one dimension', 'Compare a column'),
+                id='where-bare-name-of-a-lookup-with-two-columns-over-one-dim',
+            ),
+            pytest.param(
+                {'lookups.g': {'over': ['h', 'g'], 'key': 'h'}},
                 ("Lookup 'g' collides with the dimension",),
                 id='lookup-named-after-a-dimension',
             ),
@@ -700,14 +789,44 @@ class TestRulesDecidedWithoutData:
                 id='an-edge-that-is-an-expression',
             ),
             pytest.param(
-                {'lookups.hk': {'over': 'h', 'into': 'g'}, 'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'}},
-                ('groups through lookups over different dimensions',),
+                {
+                    'lookups.hk': {'over': ['h', 'g'], 'key': 'h'},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'},
+                },
+                ('groups through lookups along different dimensions',),
                 id='by-lookups-over-different-dimensions',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=[lk, lk]))'}},
-                ("targets ['h'] more than once",),
+                ("produces ['h'] more than once",),
                 id='by-the-same-target-twice',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': ['h', 'z'], 'key': 'h'},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, lz]))'},
+                },
+                ('groups through lookups along different dimensions',),
+                id='by-lookups-walking-different-dimensions',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, lz], from=g))'},
+                },
+                ('a list walks each lookup by its declared key and value, so from= and to= have nothing to name',),
+                id='by-a-list-with-from',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'variables.q.where': 'lk != lz',
+                },
+                ('compares lookups keyed over different dimensions',),
+                id='where-two-lookups-with-different-keys',
             ),
             pytest.param(
                 {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'
@@ -1079,7 +1198,7 @@ class TestADeclarationIsNamed:
     def test_a_name_no_expression_could_write_is_refused(self, section: str, name: str):
         declarations: dict[str, Any] = {
             'dimensions': {'dtype': 'str'},
-            'lookups': {'over': 'g', 'into': 'h'},
+            'lookups': {'over': ['g', 'h'], 'key': 'g'},
             'parameters': {'dims': ['g']},
             'variables': {'foreach': ['g']},
             'expressions': {'expression': 'c'},

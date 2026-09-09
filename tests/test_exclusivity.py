@@ -35,7 +35,7 @@ STORAGE: dict[str, Any] = {
         'storage': {},
         'period': {'dtype': 'int'},
     },
-    'lookups': {'period_of': {'over': 'snapshot', 'into': 'period'}},
+    'lookups': {'period_of': {'over': ['snapshot', 'period'], 'key': 'snapshot'}},
     'parameters': {
         'cyclic': {'dims': ['storage'], 'dtype': 'bool'},
         'committable': {'dims': ['storage'], 'dtype': 'bool'},

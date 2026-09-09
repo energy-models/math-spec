@@ -116,13 +116,13 @@ The multi-period class of a plain `n.optimize()`: `multi_investment_periods`, st
 | Symbol | Meaning |
 |---|---|
 | $\mathcal{T}$ | index $t$ — `snapshot` with $\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}$ — dispatch periods, positions across every investment period |
-| $\mathcal{Y}$ | index $y$ — `period` — investment periods — PyPSA's `investment_periods` |
-| $\mathcal{N}$ | index $n$ — `bus` — network nodes |
+| $\mathcal{Y}$ | index $y$ — `period` with $\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}$ — investment periods — PyPSA's `investment_periods` |
+| $\mathcal{N}$ | index $n$ — `bus` with $\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\enspace \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\enspace \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}$ — network nodes |
 | $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{C},\enspace \mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}$ — generating units, each on one bus |
-| $\mathcal{L}$ | index $l$ — `link` with $\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}$ — controllable connections, each from one bus to the buses it delivers to |
+| $\mathcal{L}$ | index $l$ — `link` with $\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\enspace \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}$ — controllable connections, each from one bus to the buses it delivers to |
 | $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $\mathcal{D}$ | index $d$ — `load` with $\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}$ — demands, each on one bus |
-| $\mathcal{C}$ | index $c$ — `carrier` — energy carriers, what a growth limit is set per |
+| $\mathcal{C}$ | index $c$ — `carrier` with $\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{C}$ — energy carriers, what a growth limit is set per |
 
 #### Parameters
 
