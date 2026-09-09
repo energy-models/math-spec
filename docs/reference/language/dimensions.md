@@ -194,7 +194,22 @@ No rule changes. The walked key is consumed and the target is produced, and
 here they are the same dimension, so `sum(by=)` and `at(by=)` both leave the
 frame as it was. A snapshot that no other snapshot names is an empty group, and
 contributes nothing. `shift(by=rep_of)` walks inside each representative's
-group, and `position(snapshot, by=rep_of)` counts within it.
+group, and `position(snapshot, by=rep_of)` counts within it. The table carries
+`snapshot` and `rep_of`, under the naming rule every lookup follows.
+
+A self-map is directional, because a lookup is a function: one value per key,
+and the declaration says which way the arrow points. `rep_of` sends every
+snapshot to its representative and never the other way. The two verbs are the
+two walks of that one arrow, as they are for every lookup. `at` reads along it,
+so each snapshot takes its representative's value. `sum` reads against it, so
+each representative collects the snapshots that point at it. The inverse of a
+many-to-one map is one-to-many, which is reachable as a grouping and never as a
+function. For a bijection, a successor map `next_of`, the two walks are the two
+directions outright. Two steps along the arrow are two nested calls,
+`at(at(x, by=rep_of), by=rep_of)`, because the frame is unchanged at each. What
+has no direction is not a lookup: an undirected neighbour relation between buses
+is a parameter over `[bus, bus]`, as every
+[many-to-many relation](#dimension-lookup-or-parameter) is.
 
 Selecting the representatives themselves, the rows where the map is the
 identity, is not a comparison the language has: a lookup is never compared to a
