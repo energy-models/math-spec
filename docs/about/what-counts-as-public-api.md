@@ -3,12 +3,14 @@ SPDX-FileCopyrightText: math-spec contributors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# What counts as a function
+# What counts as public API
 
-This page says which functions may join the public API. It exists so that the
+This page says which functions may join the package's public API, such as
+`to_spec` and `to_latex`. It is not about the operators a model may use, such as
+`sum` and `shift`; those are [the limits](limits.md). The page exists so that the
 API stays small while the language grows.
 
-A function may join when both of these hold:
+A function may join the public API when both of these hold:
 
 > Everything the function decides, the language has already written down. And
 > the function needs nothing but the file to decide it.

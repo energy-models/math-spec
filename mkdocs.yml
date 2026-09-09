@@ -55,7 +55,7 @@ nav:
   - About:
       - The limits: about/limits.md
       - What counts as language: about/what-counts-as-language.md
-      - What counts as a function: about/what-counts-as-a-function.md
+      - What counts as public API: about/what-counts-as-public-api.md
   - Contributing: contributing.md
   - Changelog: CHANGELOG.md
 
