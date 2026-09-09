@@ -51,4 +51,4 @@ machine and in CI.
 inside an `expression:` or `where:` string:
 [editor completion and offline checking](installation.md#editor-completion-and-offline-checking).
 What each refusal and each piece of advice means is under
-[what `to_spec` checks](../reference/language/errors.md#to_spec-is-the-check).
+[what `to_spec` checks](../reference/language/errors.md#what-to_spec-checks).

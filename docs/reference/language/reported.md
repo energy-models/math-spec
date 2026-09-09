@@ -65,7 +65,7 @@ Without this, LCOE, which is cost over delivered energy, could not be written.
 A comparison stays out: an `expressions:` body is arithmetic, and `>=` belongs
 to a constraint.
 
-## An entry is checked where it is read
+## Where an entry is checked
 
 The declaration of an entry is not degree-checked. Degree is a rule about the
 position that reads, so it applies to the expanded tree of every constraint, the
@@ -109,7 +109,7 @@ A row that a constraint's `where:` deletes has no dual, so `dual(c)` has no
 value there. A solver may also return no dual for a row that would have one in a
 pure linear program: a model with integer variables, or a set rewritten as
 binaries. `to_spec` refuses none of these, because
-[what a solver returns is not the language's limit](../../about/limits.md#what-a-solver-can-take-is-a-separate-question).
+[what a solver returns is not the language's limit](../../about/limits.md#solver-capability).
 Where the solver returns no dual, the engine reports no value.
 
 ## How an engine reads a reported entry
@@ -117,7 +117,7 @@ Where the solver returns no dual, the engine reports no value.
 A reported entry has the dimensions of its body, so there is no `foreach` and no
 `where`. Where a masked row leaves a solved quantity absent, the reported value
 is absent there too. See
-[absence](absence.md#reported-values-follow-the-rows-that-were-built).
+[absence](absence.md#reported-values).
 
 Nothing in this package computes a reported value. The language says what the
 number is and which entries the math uses. The engine computes it from the

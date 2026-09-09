@@ -62,7 +62,7 @@ quadratic case:
 
 - **Where it stands.** More solvers and file formats take a quadratic objective
   than a quadratic constraint. Which ones is the
-  [separate question below](#what-a-solver-can-take-is-a-separate-question).
+  [separate question below](#solver-capability).
 - **A product of two sums.** `sum(x, over=i) * sum(y, over=j)` multiplies every
   term of the first sum by every term of the second, and the file does not say
   how many terms either sum has. It is refused. `x[i] * y[j] * a[i, j]` is
@@ -91,7 +91,7 @@ models: a rolling horizon, Benders decomposition and successive substitution
 each build a model, solve it, and build the next
 ([Track 2](https://github.com/fluxopt/lpspec/issues/471)).
 
-### What a solver can take is a separate question
+### Solver capability
 
 The test above asks whether an engine can build the operator. Whether a given
 solver then accepts the result is a second question, and the language does not

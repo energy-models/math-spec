@@ -147,7 +147,7 @@ Either side of the comparator may carry variables, and one side must. A
 comparison between numbers and parameters alone is refused at load, because it
 is settled before the solve. A single _row_ can still end up with no variable
 terms, because the data left its terms nowhere to sit. Such a row is not built.
-See [absence](absence.md#a-row-with-no-variable-terms-is-not-built).
+See [absence](absence.md#rows-with-no-variable-terms).
 
 `foreach: []` gives one scalar row, for a rule such as a system-wide budget. An
 empty dimension list means one value for a parameter, one column for a variable
