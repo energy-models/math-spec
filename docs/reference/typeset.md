@@ -5,14 +5,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Typeset the math
 
-A model is a declaration, so it can be printed the way a paper prints it — from
-the file itself, with no data and no solver. It is the cheapest review tool
-available for _"does this YAML say what I meant"_, and it is how a model
-states its math with nothing but the file.
-
-Every construct the language has, beside the math it prints, is one page:
-[Every construct, as math](notation.md) — which is where to look when the
-question is whether the notation is right, rather than how to print it.
+Print a model the way a paper prints it, from the file alone, with no data and
+no solver. Use it to check that the YAML says what you meant.
+[Every construct, as math](notation.md) shows what each construct prints.
 
 ```python
 import math_spec as ms
@@ -24,12 +19,10 @@ print(ms.to_typst(spec))  # compiles without a TeX toolchain
 print(ms.to_markdown(spec))  # renders as-is on GitHub
 ```
 
-Each of the three takes what `to_spec` takes — a path, the YAML, a mapping —
-and reads it. Hand it the `Spec` instead and the file is read and checked once
-rather than once per format, which is also how a `Spec` you already hold gets
-printed without a second trip through the loader.
+Each of the three takes what `to_spec` takes: a path, the YAML, a mapping, or
+a `Spec`. A `Spec` is read and checked once rather than once per format.
 
-Or from a shell, where this belongs in a Makefile next to `pdflatex`:
+From a shell:
 
 ```bash
 python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
@@ -51,30 +44,25 @@ The three functions take the same keywords; the CLI spells each as a flag.
 
 `-o FILE` writes to a file instead of stdout.
 
-The model's own `description:` opens the document either way — it is what the
-file says it is, not a symbol table. A `piecewise:` block prints as the
-λ-formulation it _expands to_ rather than the sugar it was written as, because
-that is the math the solver receives. Inlining reaches only what something
-reads: a `cases:` block has no single body to substitute, and a
+The model's own `description:` opens the document under every setting. A
+`piecewise:` block prints as the λ-formulation it expands to, which is the math
+the solver receives. Inlining reaches only what the math reads: a `cases:`
+block has no single body to substitute, and a
 [reported entry](language/reported.md) is read by nothing in the math, so both
-keep their definition under either setting. Where the math translates an index —
-`shift`, in any of its edge spellings — the document also prints a line saying
-what the notation for it means, so a reader meets no symbol the page has not
-defined.
+keep their definition under either setting. Where the math translates an index
+(`shift`, in any of its edge spellings) the document prints a line saying what
+the notation means, so a reader meets no undefined symbol.
 
-A model that does not compile does not print: typesetting runs the same
-load-time checks everything else does.
+A model that does not load does not print: typesetting runs the same
+load-time checks as everything else.
 
-**It does not line-break.** A wide equation runs off the page; that is a
-formatting decision this package does not make for you.
+**It does not line-break.** A wide equation runs off the page.
 
 ## One declaration
 
-The whole-model functions print objective, constraints, definitions and
-domains. To pull one declaration out on its own — for a docstring, a table cell, a
-comment beside the value it computes — `typeset_declaration` returns the line the
-document prints for a named expression, a constraint or a variable, quantifier
-included, with no document, label, number or math delimiters around it:
+`typeset_declaration` returns the line the document prints for one named
+expression, constraint or variable, quantifier included, with no document,
+label, number or math delimiters around it:
 
 <!-- doctest: skip -->
 
@@ -85,21 +73,21 @@ ms.typeset_declaration('model.yaml', 'balance', 'latex')
 # \sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
-It takes what the others take — a path, the YAML, a mapping, a `Spec` — plus
-the name, the format and an optional `symbols` table. A line on its own has no
-_Definitions_ section beside it, so the plain named expressions it uses are
-substituted, `inline_expressions=True`, unless told otherwise; a cased one prints by symbol,
-and a second call with its name prints its block. A name the model declares
-as none of the three is refused with the near miss; one it declares as both a
-constraint and a variable is refused too, since constraints sit outside the
-[flat namespace](language/expressions.md#name-resolution) and one line prints
+It takes what the others take, plus the name, the format and an optional
+`symbols` table. A line on its own has no _Definitions_ section beside it, so
+the plain named expressions it uses are substituted (`inline_expressions=True`)
+unless told otherwise. A cased one prints by symbol, and a second call with
+its name prints its block. A name the model declares as none of the three is
+refused with the near miss. One declared as both a constraint and a variable
+is refused too: constraints sit outside the
+[flat namespace](language/expressions.md#name-resolution), and one line prints
 one of them.
 
 ## Symbol tables
 
-With no table, symbols are **derived** — unambiguous rather than beautiful, so
-a model prints with no setup at all: $\mathit{load}_t$, $p^{\mathrm{max}}_g$. A
-`SymbolTable` makes it conventional:
+With no table, symbols are **derived**, so a model prints with no setup:
+$\mathit{load}_t$, $p^{\mathrm{max}}_g$. A `SymbolTable` makes them
+conventional:
 
 ```python
 symbols = {
@@ -141,13 +129,11 @@ names:
 | `names`      | per parameter, variable or named expression, its symbol                    |
 
 **Every spelling is printed verbatim.** Nothing parses or translates notation,
-which is why `notation:` is required and why rendering a LaTeX table as Typst
-refuses rather than producing something that nearly works.
+so `notation:` is required, and rendering a LaTeX table as Typst is refused.
 
-**A key naming nothing in the model is an error**, with the near miss — not a
-symbol that silently never applies and a reader who never finds out.
+**A key naming nothing in the model is an error**, with the near miss.
 
-**Presentation is not language.** Nothing in a symbol table changes what the
-file means, no solver reads it, and what a declaration _is_ stays the model's
-own `description:` ([declarations](language/declarations.md)), which travels
-with the declaration and reaches every consumer.
+**Presentation is not language.** A symbol table changes nothing about what
+the file means, and no solver reads it. What a declaration _is_ stays the
+model's own `description:` ([declarations](language/declarations.md)), which
+travels with the declaration and reaches every consumer.
