@@ -5,16 +5,16 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Errors and limits
 
+What a file fails on before any data binds: the refusals, the advice, the
+exception each raises, and the constructs the language does not have.
+
 ## `to_spec` is the check
 
-There is one entry point, and it binds nothing. `ms.to_spec('model.yaml')`
-parses the file, expands every `piecewise:` block, resolves every name,
-checks every dim rule and every degree, and reads every `where` string and
-every macro template — the _uncalled_ ones included — before it returns a
-`Spec`. Anything the language refuses is refused there, so a repository of
-models is validated in CI with no data and no solver, and the worst error a
-consumer downstream could hand you — an opaque array or solver exception with
-no pointer back to a declaration — cannot be one of this package's.
+`ms.to_spec('model.yaml')` is the one entry point, and it binds no data. It
+parses the file, expands every `piecewise:` block, resolves every name, checks
+every dim rule and every degree, and reads every `where` string and every
+macro template, the _uncalled_ ones included, before it returns a `Spec`.
+Everything the language refuses is refused there, with no data and no solver.
 
 Every message names what went wrong, what to do about it, and where it helps,
 the valid options:
@@ -26,28 +26,26 @@ Constraint 'balance', equation 0: 'p_charge' not found.
 Check for typos, or ensure 'p_charge' is declared.
 ```
 
-A construct outside the language names the construct and its rewrite, never a
-silent fallback.
+A construct outside the language is refused with the construct and its rewrite
+named, never with a silent fallback.
 
 ## `advice` is what is decidable and not an error
 
 Two more things are decidable without data, and each is advice rather than a
-refusal. `ms.advice(model)` returns both as a tuple of `ms.Advice`, each with a
-`kind` (one of `ms.ADVICE_KINDS`: `never-an-axis` or `unbounded`), the `subject` declaration it is about,
-and its `text` — `str()` of one is the sentence. A consumer prints them, or
-filters on the two fields; the sentences are the language's, so no consumer
-writes its own.
-From a shell, `python -m math_spec check model.yaml` is the two together: a
-refusal is its message on stderr and exit status 1, advice is printed and the
-status is 0.
+refusal. `ms.advice(model)` returns them as a tuple of `ms.Advice`, each with a
+`kind` (one of `ms.ADVICE_KINDS`: `never-an-axis` or `unbounded`), the
+`subject` declaration it is about, and its `text`; `str()` of one is the
+sentence. The sentences are the language's, so no consumer writes its own.
+From a shell, `python -m math_spec check model.yaml` runs both: a refusal is
+its message on stderr and exit status 1, advice is printed and the status is 0.
 
 A dimension nothing is indexed by, nothing aggregates into and no lookup
 targets is unused, and the note says so.
 
-A variable that no constraint names, and whose bounds leave open the side its
-objective term improves toward, runs to infinity for every dataset there is. A
-solver says that with a bare `unbounded` naming nothing; the note says it with
-the variable and the side:
+**A variable no constraint names, whose bounds leave open the side its
+objective term improves toward, is unbounded for every dataset.** A solver
+says that with a bare `unbounded` naming nothing; the note names the variable
+and the side:
 
 ```text
 Variable 'slack' makes this model unbounded: no constraint names it, and
@@ -57,19 +55,14 @@ and name nothing.
 Give it a finite bounds.lower, or the constraint that was meant to define it.
 ```
 
-Advice, because the same shape is what a half-written model looks like — a
-variable declared before the constraint that will hold it — and `to_spec`
-stays open to one. It is a list a consumer asks for, not an error it is
-handed: build straight from the model and the solver's bare answer is still
-the first word.
+It is advice because a half-written model has the same shape, so `to_spec`
+accepts it. A consumer that does not ask gets the solver's bare answer.
 
-Both halves of the conjunction are needed, and neither alone is wrong: a
-variable held by nothing but its own `bounds:` is ordinary, and so is an
-unbounded one that a constraint names. Where the sign a variable enters the
-objective with is _data_ — a parameter coefficient, which may be zero or either
-sign — nothing is said, because a note against a model that solves is the worse
-error. The per-coordinate case, where a `where:` mask leaves one slice of a
-variable with no constraint row, is not decidable from the file
+Both halves are needed: a variable held only by its own `bounds:` is ordinary,
+and so is an unbounded one that a constraint names. Where the sign of the
+objective term is _data_, a parameter coefficient, nothing is said. The
+per-coordinate case, where a `where:` mask leaves one slice of a variable with
+no constraint row, is not decidable from the file
 ([#229](https://github.com/fluxopt/lpspec/issues/229)).
 
 ## Which error you get
@@ -82,15 +75,13 @@ variable with no constraint row, is not decidable from the file
 | `DimensionError`          | dims that disagree — a constraint whose expression does not equal its `foreach`                       |
 | `PiecewiseExpansionError` | a `piecewise:` block that cannot be expanded                                                          |
 
-Every one of them is the _file_ being wrong, and every one is reproducible from
-the YAML alone — no data, no solver. That is the whole tree this package
-raises: a consumer that binds numbers or calls a solver adds its own errors
-below `MathSpecError`, and says so in its own documentation.
+Every one of them is the _file_ being wrong, reproducible from the YAML alone.
+A consumer that binds numbers or calls a solver adds its own errors below
+`MathSpecError`, documented on its own pages.
 
 ## What the language will not say
 
-Refusals, and what to reach for instead. None of them is an unimplemented
-feature list: each is a boundary the design keeps on purpose, and
+Refusals, and what to write instead. Each is a boundary kept on purpose, and
 [the ceiling](../../about/ceiling.md) is the argument for where it sits.
 
 | Not here                                                                       | Instead                                                                                                                                                         |
@@ -107,13 +98,12 @@ feature list: each is a boundary the design keeps on purpose, and
 | filling a missing value (`.fillna`)                                            | data prep, or a `where` if you meant the coordinate not to exist. In the language only where the data cannot reach: `shift(..., edge=)` ([absence](absence.md)) |
 | schema migrations                                                              | —                                                                                                                                                               |
 
-A model built partly in Python has no readable `.yaml` representation and will
-not get one: the _math_ side is feasible, but expression and `where` strings
-come back as anonymous arrays, so the round trip would be functional and not
-reviewable — which is the whole point of the file. A framework that wants to
-_emit_ declarations passes a dict, and gets `to_yaml()` back.
+A model built partly in Python has no readable `.yaml` representation: its
+expression and `where` strings would come back as anonymous arrays, which a
+reviewer cannot read. A framework that _emits_ declarations passes a dict and
+gets `to_yaml()` back.
 
-Where the language genuinely cannot say the math, the escape hatch is a
-declared `escape:` island — named in the file, bounded by the preceding `where`
-mask, terminal, and billed against a label budget before any Python runs. It is
+Math the language cannot say goes to a declared `escape:` island: named in the
+file, bounded by the preceding `where` mask, terminal, and billed against a
+label budget before any Python runs. It is
 [#38](https://github.com/fluxopt/lpspec/issues/38) and not shipped.

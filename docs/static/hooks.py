@@ -127,7 +127,17 @@ def _update_nav(api_nav: dict, config: dict) -> None:
         config (dict): mkdocs config dictionary (in which `nav` can be found).
     """
     api_reference_nav = {'Python API': [*api_nav.pop('top_level'), *[{k: v} for k, v in api_nav.items()]]}
-    _get_nav_list(config['nav'], 'Reference').append(api_reference_nav)
+    reference = _get_nav_list(config['nav'], 'Reference')
+    reference.insert(_index_of(reference, 'Examples'), api_reference_nav)
+
+
+def _index_of(nav: list[dict | str], ref: str) -> int:
+    """Where the entry titled `ref` sits in `nav`, or the end when there is none.
+
+    The Examples entry is the model pages, which the nav keeps last in the
+    Reference section; the API is a lookup page and goes before them.
+    """
+    return next((i for i, idx in enumerate(nav) if isinstance(idx, dict) and set(idx.keys()) == {ref}), len(nav))
 
 
 def _get_nav_list(nav: list[dict | str], ref: str) -> list:

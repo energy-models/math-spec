@@ -17,33 +17,17 @@ SPDX-License-Identifier: CC-BY-4.0
 
 **The language an optimisation model is written in — and the math it means.**
 
-One YAML file declares the axes a model runs over, the data it expects, the
-decisions a solver makes, and the rules those decisions obey. math-spec is that
-language: a schema closed at every level, two small grammars, every check that
-can be run before a single number is bound — and a typesetter that prints the
-file as the math it stands for.
+One YAML file declares the dimensions a model runs over, the data it expects,
+the decisions a solver makes and the rules those decisions obey. math-spec is
+that language, and the typesetter that prints a file as the math it stands for.
+It is a schema closed at every level, two small grammars, and every check that
+runs before a number is bound.
 
-It builds nothing and it solves nothing. What it hands a consumer is a checked
-AST and one rule per question, so that an engine, a renderer and a checker
-reading the same file cannot disagree about what it says. Whether two consumers
-answering a question separately would be a bug is the whole
-[test](docs/about/what-counts-as-language.md) for whether that question belongs
-here at all.
-
-Three properties follow from that, and each is a page:
-
-- **Nothing is guessed.** Everything decidable without data is decided without
-  data — every expression, every `where` string, every _uncalled_ macro
-  template is parsed and name-checked at load. Where a file does not determine
-  the answer, loading fails and the message names the rewrite
-  ([errors and limits](docs/reference/language/errors.md)).
-- **The language is finite, and the ceiling is argued rather than drawn.** A
-  primitive is admissible if it is relational and local; everything else is a
-  macro, or an `escape:` island that is visible in the file and billed before it
-  runs ([the ceiling](docs/about/ceiling.md)).
-- **The file is the document.** A model prints as LaTeX, Typst or Markdown from
-  the file alone — no data, no solver, no second source of truth
-  ([typeset](docs/reference/typeset.md)).
+It builds nothing and solves nothing. It hands a consumer a checked AST and one
+rule per question, so an engine, a renderer and a checker reading the same file
+cannot disagree about what it says. A question belongs here iff two consumers
+answering it separately would be a bug
+([what counts as language](docs/about/what-counts-as-language.md)).
 
 <!--- --8<-- [start:flow] -->
 
@@ -118,18 +102,16 @@ program = ms.to_program(spec)  # curves expanded, names typed, operators resolve
 sorted(program.constraints)  # ['power_balance']
 ```
 
-Neither needs data or a solver: a repository of models can be compiled in CI
-with nothing bound to any of them. The two states are the whole seam — **`Spec`
-is what the file says, `Program` is what it means** — and a consumer that
-builds reads the second.
+Neither needs data or a solver, so a repository of models compiles in CI with
+nothing bound to any of them. **`Spec` is what the file says, and `Program` is
+what it means.** A consumer that builds reads the second.
 
 <!--- --8<-- [end:load] -->
 
-That seam is [one page](docs/reference/language/reading.md), and it is the whole
-of it.
+[Reading a loaded model](docs/reference/language/reading.md) is the whole of
+that seam.
 
-And that same `spec` says, in print — read and checked once, then printed
-three ways:
+The same `spec` prints three ways:
 
 ```python
 symbols = 'dispatch.symbols.yaml'  # optional: a dict, a path, or a SymbolTable
@@ -139,13 +121,12 @@ ms.to_typst(spec)  # compiles without a TeX toolchain
 ms.to_markdown(spec)  # renders as-is on GitHub
 ```
 
-Drop the symbol table and the same model prints as $\mathit{load}_t$,
-$p^{\mathrm{max}}_g$ — unambiguous rather than beautiful, and with no setup at
-all. Every spelling in a table is printed verbatim, a key naming nothing in the
-model is an error rather than a symbol that silently never applies, and nothing
-in a table changes what the file means.
+Without a symbol table the same model prints as $\mathit{load}_t$,
+$p^{\mathrm{max}}_g$. A table changes the spelling and nothing else: every
+spelling in it is printed verbatim, and a key naming nothing in the model is an
+error.
 
-Or from a shell, where this belongs in a Makefile next to `pdflatex`:
+Or from a shell:
 
 ```bash
 python -m math_spec latex dispatch.yaml --symbols dispatch.symbols.yaml --standalone -o dispatch.tex
@@ -155,38 +136,44 @@ python -m math_spec markdown dispatch.yaml
 
 ## Why
 
-- **Declarative math** — readable without knowing any implementation, and
-  self-contained: no Python state changes what a file means. It diffs cleanly in
-  review and travels as a research artefact.
-- **Fail early, fail loud** — nothing falls back silently, and an error names
-  the problem _and_ its rewrite. A model that does not compile does not print
-  either: typesetting runs the same load-time checks everything else does.
-- **One flat namespace, ten rules** — a collision is a load error naming both
+- **Declarative math.** A file is readable without knowing any implementation,
+  and no Python state changes what it means. It diffs cleanly in review and
+  travels as a research artefact.
+- **Nothing is guessed.** Everything decidable without data is decided at load:
+  every expression, every `where` string, every _uncalled_ macro template.
+  Where a file does not determine the answer, loading fails and the message
+  names the construct and its rewrite
+  ([errors and limits](docs/reference/language/errors.md)). A model that does
+  not load does not print either.
+- **One flat namespace, ten rules.** A collision is a load error naming both
   declarations, position decides which kinds of name are legal, and a name's
   kind is fixed at load. The [ten rules](docs/reference/language/index.md) are
   one principle in ten positions.
-- **A closed operator set** — `sum`, `at`, `shift`, and the arithmetic and
+- **A closed operator set.** `sum`, `at`, `shift`, and the arithmetic and
   `where` grammars. Compositions go in `macros:`, which cost nothing at build
   and cannot diverge between consumers.
-- **A finite language with a priced way out** — the ceiling is a closure
-  (relational ∩ local), not a feature race; genuinely unsayable math goes in an
-  `escape:` island, visible in the file and billed before it runs.
+- **A finite language with a priced way out.** The ceiling is a closure,
+  relational ∩ local: a primitive is admissible if it is both. Everything else
+  is a macro, or an `escape:` island that is visible in the file and billed
+  before it runs ([the ceiling](docs/about/ceiling.md)).
+- **The file is the document.** A model prints as LaTeX, Typst or Markdown
+  from the file alone: no data, no solver, no second source of truth
+  ([typeset](docs/reference/typeset.md)).
 
 ## Docs
 
-Start with [**the language**](https://math-spec.readthedocs.io/latest/reference/language/) —
-the ten rules, and eight pages that are the exact ones. Then
-[every construct as math](https://math-spec.readthedocs.io/latest/reference/notation/),
-which prints all of it beside the notation the typesetter gives it, and
+Start with [**the language**](https://math-spec.readthedocs.io/latest/reference/language/):
+the ten rules, and the pages that state them exactly.
+[Every construct as math](https://math-spec.readthedocs.io/latest/reference/notation/)
+prints all of it beside the notation the typesetter gives it, and
 [typeset the math](https://math-spec.readthedocs.io/latest/reference/typeset/)
-for how to print your own. Why the language is shaped this way — what may enter
-it, and who owns a rule once it is in — is under
+says how to print your own. Why the language is shaped this way is under
 [about](https://math-spec.readthedocs.io/latest/about/ceiling/). To work on it,
-[CONTRIBUTING.md](CONTRIBUTING.md).
+read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Installation
 
-This project is managed by [pixi](https://pixi.prefix.dev/). To develop against
+The project is managed by [pixi](https://pixi.prefix.dev/). To develop against
 it:
 
 <!--- --8<-- [start:docs-install-dev] -->
@@ -201,22 +188,20 @@ pixi run test
 
 <!--- --8<-- [end:docs-install-dev] -->
 
-Releases are on the alpha stream and **nothing is published yet** — the publish
-job is off until the project leaves it, so `pip install math-spec` is what the
-first release will look like, not what today does. Install from a checkout or a
-git reference until then; see [RELEASING.md](RELEASING.md).
+**Nothing is published yet.** The publish job is off while the project is on
+the alpha stream ([RELEASING.md](RELEASING.md)). Until it leaves it, install
+from a checkout or a git reference; `pip install math-spec` is what the first
+release will look like.
 
 ## Prior art
 
-Every file under `src/` was written in
-[lpspec](https://github.com/fluxopt/lpspec) and extracted here so that the
-language, and the AST a consumer reads it through, are a dependency rather than
-one engine's internals. The surface — YAML math, a block per component,
-`foreach:`, a `where:` string — comes from
-[Calliope](https://github.com/calliope-project/calliope);
-[linopy](https://github.com/PyPSA/linopy) supplies the shared vocabulary that
-`sum(over=)` and the dim algebra are named against. Issue numbers in these pages
-point at lpspec, which is where the arguments happened.
+The code was extracted from [lpspec](https://github.com/fluxopt/lpspec), so
+that the language and the AST a consumer reads it through are a dependency
+rather than one engine's internals. Issue numbers in these pages point at
+lpspec. The surface (YAML math, a block per component, `foreach:`, a `where:`
+string) comes from [Calliope](https://github.com/calliope-project/calliope).
+[linopy](https://github.com/PyPSA/linopy) supplies the vocabulary that
+`sum(over=)` and the dimension algebra are named against.
 
 ## Status
 
@@ -224,25 +209,23 @@ Alpha, pre-1.0.
 
 <!--- --8<-- [start:status] -->
 
-**Breaking changes land without a deprecation cycle.** When a construct is named
-wrong, a default is wrong, or a permissive input turns out to hide a silent
-wrong answer, it gets fixed rather than aliased — carrying a compatibility shim
-for every earlier spelling would defeat the point of a small language.
-
-In practice: pin an exact version if you depend on this, and read the
+**Breaking changes land without a deprecation cycle.** A construct named wrong,
+a default that is wrong, or a permissive input that hides a silent wrong answer
+is fixed rather than aliased. Pin an exact version if you depend on this, and
+read the
 [changelog](https://github.com/energy-models/math-spec/blob/main/CHANGELOG.md)
-before upgrading. What exists is tested — every construct the language has
-round-trips through the schema, the parsers and all three typeset formats, and
-the LaTeX is compiled rather than eyeballed. It is the _surface_ that is not yet
-frozen, not the behaviour.
+before upgrading.
+
+The surface is not frozen; the behaviour is tested. Every construct round-trips
+through the schema, the parsers and all three typeset formats, and the LaTeX is
+compiled rather than eyeballed.
 
 <!--- --8<-- [end:status] -->
 
 ## Licence
 
-The code is [MIT](LICENSE) — everything under `src/`, `tests/`, `tools/`, the
+The code is [MIT](LICENSE): everything under `src/`, `tests/`, `tools/`, the
 examples, and the generated schema.
 
-The prose is [CC-BY-4.0](LICENSES/CC-BY-4.0.txt) — everything under `docs/`, this
-README, `CHANGELOG.md`, and the logos in `resources/`. Reuse it freely, with
-attribution.
+The prose is [CC-BY-4.0](LICENSES/CC-BY-4.0.txt): everything under `docs/`,
+this README, `CHANGELOG.md`, and the logos in `resources/`.

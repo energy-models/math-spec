@@ -13,26 +13,26 @@ index below lists every row PyPSA emits (PyPSA `1.3.0`,
 there. The blocks are generated, so a row that stops loading or changes its
 math fails CI.
 
-Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
-their duals are row duals. Regimes are data columns and `where:` masks, never
-file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
-(`examples/symbols/pypsa.yaml`) making the math read as math.
+The file's description states the rules that shape it: bounds are the explicit
+rows PyPSA writes, regimes are `where:` masks over data columns, and names are
+PyPSA's `Component_attribute`. A symbol table, `examples/symbols/pypsa.yaml`,
+makes the math read as math.
 
 ## Index
 
-A row is **done** and links once the file states it as the one block PyPSA
-builds — on this branch, as it stands; a fix still on its way stays
-not-done, its PR or issue in the note. Three words say the distance:
-**split** — the same feasible region and optimum under a different
-statement: several `where:` blocks, or a bookkeeping difference the note
-names · **open** — not stated yet · **out** — never stated, deliberately:
-emitted only under the keyword, scope or version the note names. A name carrying `{k}` or `{s}` stands for the family PyPSA numbers per segment or scenario.
+A row is **done**, and links to its block, once the file states it as the one
+block PyPSA builds, on this branch as it stands. A fix still on its way leaves
+the row not done, with its PR or issue in the note. Three other words say the
+distance. **split**: the same feasible region and optimum under a different
+statement, several `where:` blocks or a bookkeeping difference the note names.
+**open**: not stated yet. **out**: never stated, deliberately, because PyPSA
+emits the row only under the keyword, scope or version the note names. A name
+carrying `{k}` or `{s}` stands for the family PyPSA numbers per segment or
+scenario.
 
-Each rung's banner below states what PyPSA solved its reference network
-to. What an engine makes of the same rung — the objective and prices across
-the fence, and the two linopy models label for label — is that engine's own
-record: lpspec certifies itself against these rungs under
-`differential/pypsa/` in its own tree.
+What an engine makes of a rung is that engine's own record. lpspec certifies
+itself against these rungs, the objective and prices and the two linopy models
+label for label, under `differential/pypsa/` in its own tree.
 
 <!-- reference:spine:begin -->
 > Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to the file, and what it makes of it, is that engine's own record.
@@ -413,8 +413,8 @@ def build():
 
 ### Rung 5 — global constraints
 
-`GlobalConstraint-{name}` for all; the type and the comparator are data, so
-each type is three blocks by sense.
+PyPSA names every row `GlobalConstraint-{name}`. The type and the comparator
+are data, so each type is three blocks, one per sense.
 
 | PyPSA type                            | status      | note                                              |
 | ------------------------------------- | ----------- | ------------------------------------------------- |
@@ -819,8 +819,8 @@ def build():
 ### Rung 11 — ac-dc-meshed
 
 PyPSA's `ac_dc_meshed` example, whole: meshed AC and DC, extendable lines,
-links and generators, carriers, a CO2 budget. Every statement above,
-composed; the first rung with an objective constant.
+links and generators, carriers, and a CO2 budget. It composes every statement
+above, and it is the first rung with an objective constant.
 
 <!-- reference:rung_11_ac_dc_meshed:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `-3474256.0405499237`, 468 rows.
@@ -1109,16 +1109,17 @@ def build():
 
 A source feeding two sinks over links whose energy arrives late. PyPSA's
 `delay` lags a port's delivery by a number of snapshots, and `cyclic_delay`
-says whether the flow still in transit at the horizon's edge wraps to the start
-or is lost. The two are a per-link number and a per-link kind, so the balance
-turns them on with a `cases:` block over `shift(…, offset=Link_output_delay,
-edge=…)` — one arm wrapping (`edge='wrap'`), the other vacating (`edge=0`).
+says whether flow still in transit at the horizon's end wraps to the start or
+is lost. The first is a per-link number and the second a per-link kind, so the
+balance takes them as a `cases:` block over `shift(…, offset=Link_output_delay,
+edge=…)`: one arm wraps (`edge='wrap'`), the other vacates (`edge=0`).
 
 This is the one rung whose `generators` weighting is uniform. PyPSA measures
-`delay` in those units, so a uniform column makes a delay of `n` a shift of
+`delay` in those units, so under a uniform column a delay of `n` is a shift of
 exactly `n` snapshot positions, which a positional `shift` reproduces. Under a
-non-uniform column PyPSA resamples by elapsed time rather than by position — a
-shift that varies along the snapshot axis, above what `shift` states (#299).
+non-uniform column PyPSA resamples by elapsed time rather than by position: a
+shift that varies along the snapshot dimension, beyond what `shift` states
+(#299).
 
 | PyPSA                     | status | note                                            |
 | ------------------------- | ------ | ----------------------------------------------- |
@@ -1197,10 +1198,10 @@ def build():
 
 ## Refusals
 
-Where PyPSA refuses to build, parity means refusing too. None is a language
-gap; each is a data check not made yet, and where it should live — language,
-data prep, or harness — is one open question. Line numbers are pinned pypsa
-1.3.0, the version the records above are from.
+Where PyPSA refuses to build, parity means refusing too. None of these is a
+language gap. Each is a data check not made yet, and where it should live
+(language, data prep or harness) is an open question. Line numbers are pinned
+pypsa 1.3.0, the version the records above are from.
 
 | PyPSA raises                                 | on                                                | here                    | note |
 | -------------------------------------------- | ------------------------------------------------- | ----------------------- | ---- |
@@ -1210,9 +1211,9 @@ data prep, or harness — is one open question. Line numbers are pinned pypsa
 | `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
 | `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | out                     |      |
 
-Duals and solutions are read back by the harness on the lpspec side:
-`marginal_price` is the balance dual over `w_objective`, `mu_upper` the
-concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
+The harness on the lpspec side reads duals and solutions back: `marginal_price`
+is the balance dual over `w_objective`, `mu_upper` the concatenation of the
+regime blocks, and `p0`/`p1` derive from `Link-p`.
 
 ## The file
 
@@ -3211,5 +3212,3 @@ $$H_{s} \in \mathbb{R} \qquad \forall\thinspace s \in \mathcal{S} \thinspace:\th
 
 $$E_{v} \in \mathbb{R} \qquad \forall\thinspace v \in \mathcal{V} \thinspace:\thinspace \mathrm{ext}^{e}_{v}$$
 <!-- gallery:end -->
-
-Regenerate with `pixi run python -m tools.gallery`.

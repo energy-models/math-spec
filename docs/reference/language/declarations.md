@@ -5,28 +5,23 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Parameters, variables, constraints
 
-The four blocks that carry the math. Each block takes an optional
-`description:` — free text, never parsed, no length limit. Unlike a `#` comment
-it is part of the loaded model, so it reaches everything downstream: the
+The four blocks that carry the math, and the fields each takes. Every block
+takes an optional `description:`: free text, never parsed, no length limit.
+Unlike a `#` comment it is part of the loaded model, and the
 [typeset](../typeset.md) legend prints the one on a dimension, parameter or
 variable.
 
-A description is **plain prose, with one piece of notation**: a name in
-backticks sets in monospace, in every output format alike, which is how a
-declaration says what it stands for on the other side — `` `capital_cost` ``,
-`` `Generator-p_nom` ``. Everything else is text: every format escapes whatever
-its own syntax would otherwise read as markup — an underscore stays an
-underscore, and a `$\ell$` prints as those five characters rather than as a
-symbol. Write the thing rather than its symbol — "flow on a line", not "flow on
-line $\ell$".
+A description is **plain prose, with one piece of notation**. A name in
+backticks sets in monospace in every output format: `` `capital_cost` ``,
+`` `Generator-p_nom` ``. Everything else is text, and every format escapes what
+its own syntax would read as markup: an underscore stays an underscore, and
+`$\ell$` prints as those five characters.
 
 ## `parameters`
 
-Declared shape only; the numbers bind by name at run time, in whatever
-consumes the AST. What that binding may not decide for itself — where a
-dimension's members come from, the order they stand in, and that a table
-carries each coordinate at most once — is in
-[dimensions](dimensions.md).
+A parameter declares a shape only. The numbers bind by name at run time, in
+whatever consumes the loaded model, and the three rules that binding obeys are
+under [dimensions](dimensions.md).
 
 ```yaml
 dimensions:
@@ -44,14 +39,13 @@ parameters:
 | `dtype`       | `float`, `int`, `bool`, `str`                                | default `float` |
 | `description` | free text                                                    | default `null`  |
 
-**`dtype` is a claim about the values, and the column has to be it.** It
-decides four things — whether the name is a value in an
-[expression](expressions.md) at all, what a `where` comparison is checked
-against, what a bare `where` on the name _means_
-([where strings](expressions.md#where-strings)), and whether the name may stand
-where an operator reads a
-[position](operators.md#an-offset-that-differs-per-entity) — so a column that
-disagrees describes a model the data does not build, and does not bind.
+**`dtype` is a claim about the values, and the bound column must match it.**
+It decides whether the name is a value in an [expression](expressions.md) at
+all, what a `where` comparison is checked against, what a bare `where` on the
+name means ([where strings](expressions.md#where-strings)), and whether the
+name may stand where an operator reads a
+[position](operators.md#an-offset-that-differs-per-entity). A column that
+disagrees does not bind.
 
 | declared | the column                             |                                                  |
 | -------- | -------------------------------------- | ------------------------------------------------ |
@@ -60,18 +54,16 @@ disagrees describes a model the data does not build, and does not bind.
 | `bool`   | a boolean column                       | `1`/`0` is not one; cast it, or declare `int`    |
 | `str`    | a string column                        |                                                  |
 
-**Arithmetic is over numbers, so only `float` and `int` are values.** A `str`
-parameter is a label and a `bool` one is a mask — each of them names rows
-rather than scaling them — so writing either as a coefficient, a term or a
-divisor is a load error, not a cast the engine performs on the way past.
-Select with the label (`where: "fuel == 'gas'"`) and carry the numbers it picks
-out in a parameter of its own; mask with the flag (`where: "committable"`), or
-declare it `dtype: int` where the `0`/`1` is meant to arrive as data and be
-multiplied by.
+**Only `float` and `int` are values.** A `str` parameter is a label and a
+`bool` one is a mask; either one as a coefficient, a term or a divisor is a
+load error. Select with the label (`where: "fuel == 'gas'"`) and carry the
+numbers it picks out in a parameter of its own. Mask with the flag
+(`where: "committable"`), or declare `dtype: int` where the `0`/`1` is data to
+multiply by.
 
 ## `variables`
 
-What the solver decides — one column per coordinate of `foreach`.
+What the solver decides: one column per coordinate of `foreach`.
 
 ```yaml
 dimensions:
@@ -97,28 +89,26 @@ variables:
 | `absence`                       | `undefined` or `zero` — what the masked-out coordinates _mean_ ([absence](absence.md#what-a-missing-coordinate-means))                       | default `undefined`    |
 | `description`                   | free text                                                                                                                                    | default `null`         |
 
-**Omitting a bound means unbounded on that side** — non-negativity is written,
+**Omitting a bound means unbounded on that side.** Non-negativity is written,
 not assumed.
 
-**Bounds take a name or a number, never arithmetic.** `upper: p_max` is fine;
-`upper: -rating` is not, and the error says so rather than reporting a parse
-failure. Ship the negated column as data. (Expressions there are
-[#31](https://github.com/fluxopt/lpspec/issues/31).) A bound parameter's dims
-must not exceed `foreach`.
+**Bounds take a name or a number, never arithmetic.** `upper: p_max` loads;
+`upper: -rating` is refused, and the message says so rather than reporting a
+parse failure ([#31](https://github.com/fluxopt/lpspec/issues/31)). Ship the
+negated column as data. A bound parameter's dims must not exceed `foreach`.
 
-**Equal bounds pin a variable**, which is how one declaration covers a quantity
-that is a decision in one model and data in another: bind `lower` and `upper`
-to the same value where it is fixed, and `rate - relmax * size <= 0` is one
-equation whether `size` is chosen or given. Presolve substitutes the pinned
-column, so the solver receives the LP the pre-multiplied form would have
-produced. Two limits: a pinned variable is still a variable, so `size * on` is
-refused as variable × variable ([expressions](expressions.md)), and it cannot
-appear in another variable's `bounds`.
+**Equal bounds pin a variable.** Bind `lower` and `upper` to the same value
+where a quantity is given, and `rate - relmax * size <= 0` is one equation
+whether `size` is chosen or data. Presolve substitutes the pinned column, so
+the solver receives the LP the pre-multiplied form would have produced. A
+pinned variable is still a variable: `size * on` is refused as variable ×
+variable ([expressions](expressions.md)), and it cannot appear in another
+variable's `bounds`.
 
 ## `constraints`
 
-**One rule per block.** The block's name _is_ the constraint's name, which is
-what a row is read back by after a solve.
+**One rule per block.** The block's name _is_ the constraint's name, and a row
+is read back by it after a solve.
 
 ```yaml
 dimensions:
@@ -142,25 +132,20 @@ constraints:
 | `description` | free text                                    | default `null` |
 
 The expression's dims must **equal** `foreach`
-([dim algebra](expressions.md#dim-algebra)). Either side may carry the
-variables, and one of them must: a comparison of numbers and parameters is
-settled before the solve, so it is refused when the file is read. A _row_ that
-ends up with none, because the data left its terms nowhere to sit, is not a
-constraint and is not built
-([absence](absence.md#a-row-with-no-variable-terms-is-not-built)).
+([dim algebra](expressions.md#dim-algebra)). Either side may carry variables,
+and one side must: a comparison of numbers and parameters alone is refused at
+load. A row the data leaves with no variable terms is
+[not built](absence.md#a-row-with-no-variable-terms-is-not-built).
 
-**`foreach: []` is one scalar row** — a single system-wide budget, where the
-expression reduces every dim away. Nothing special: `sum(x, over=f) <= 120` has
-no free dims, so `[]` is the signature that matches it. An empty dim list is
-the empty coordinate everywhere it appears — one value for a parameter's
-`dims: []`, one column for a variable's `foreach: []`, one row for a
-constraint's — so a dummy dimension of size 1 is never how a scalar is written.
-One gap: a scalar **variable** may not carry a `where`
+**`foreach: []` is one scalar row.** `sum(x, over=f) <= 120` has no free dims,
+so `[]` is the signature that matches it. An empty dim list is one value for a
+parameter's `dims: []`, one column for a variable's `foreach: []`, and one row
+for a constraint's; a dummy dimension of size 1 is never how a scalar is
+written. A scalar **variable** may not carry a `where`
 ([#340](https://github.com/fluxopt/lpspec/issues/340)); put the condition on
 the constraints that use it.
 
-**Two regimes of one rule are two blocks**, and each gets a name a reader chose
-rather than a position in a list:
+**Two regimes of one rule are two blocks**, each under its own name:
 
 <!-- doctest: wrap=constraints -->
 
@@ -175,16 +160,16 @@ storage_balance_initial:
   expression: soc == soc_initial
 ```
 
-`shift` vacates the first snapshot and a vacated position is
-[absent](absence.md), so that row drops without a `where` saying so. Spelling
-it `edge='wrap'` gated on `where: "snapshot > 0"` builds the same rows here and
-a _different_ model on a horizon that does not start at 0 — the gate hardcodes
-the origin, the operator does not.
+`shift` vacates the first snapshot, and a vacated position is
+[absent](absence.md), so that row drops without a `where`. `edge='wrap'` gated
+on `where: "snapshot > 0"` builds the same rows on this horizon and a
+_different_ model on one that does not start at 0: the gate hardcodes the
+origin.
 
 ## `objective`
 
-A single block, not a mapping, and it carries no name — there is nothing a name
-would read back, the value being scalar.
+A single block, not a mapping, and it carries no name: the value is scalar, so
+nothing reads back by name.
 
 ```yaml
 dimensions:
@@ -204,12 +189,11 @@ objective:
 | `sense`       | `minimize` or `maximize`             | default `minimize` |
 | `description` | free text                            | default `null`     |
 
-There is no `foreach`, and **the expression must be scalar**: a load error
-otherwise, naming the wrapper it wants. Nothing is summed for you, so where the
-sum closes is a thing the file says rather than a rule to remember —
-`sum(x * a) + sum(y * b)` with `x, a` on `i` and `y, b` on `j` is `|i| + |j|`
-summands, and `sum(x * a + y * b)` is `|i| · |j|`. Both are sayable, they are
-different models, and the bracket is the difference.
+There is no `foreach`, and **the expression must be scalar**; otherwise a load
+error names the wrapper it wants. Nothing is summed for you, so the file says
+where each sum closes. With `x, a` on `i` and `y, b` on `j`,
+`sum(x * a) + sum(y * b)` is `|i| + |j|` summands and `sum(x * a + y * b)` is
+`|i| · |j|`: two models, and the bracket is the difference.
 
-A second objective is unsayable rather than checked — the schema holds one
-block. Weight several goals into one expression.
+The schema holds one `objective` block, so a second objective is unsayable.
+Weight several goals into one expression.

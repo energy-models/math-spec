@@ -5,18 +5,17 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Unit commitment
 
-A dispatch model with a commitment decision and a start-up ramp — the
-formulation [`cases:`](../reference/language/expressions.md#cases--one-quantity-a-value-per-region)
-exists for.
+Dispatch with a commitment decision and a start-up ramp, stated with
+[`cases:`](../reference/language/expressions.md#cases--one-quantity-a-value-per-region).
 
-Read `previous_status` and then `ramp_up`. The cases carry no order: no two of
-them can claim one coordinate, which is proved at load before any data binds,
-and `otherwise:` carries every coordinate they leave. One value at every
-coordinate — never two, never none — is what lets `ramp_up` use the quantity the
-way it uses a parameter.
+Read `previous_status`, then `ramp_up`. The cases carry no order. No two of
+them may claim one coordinate (one unit in one snapshot), which the loader
+proves before any data binds, and `otherwise:` takes every coordinate they
+leave. So the quantity has one value at every coordinate, never two and never
+none, and `ramp_up` uses it the way it uses a parameter.
 
-It prints the way a paper writes it: `ramp_up` names the quantity, and the
-block itself prints once below, under **Definitions**.
+The typesetter prints it the way a paper would: `ramp_up` names the quantity,
+and the block itself prints once below, under **Definitions**.
 
 <!-- gallery:begin -->
 ```yaml
@@ -169,5 +168,3 @@ $$0 \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\thinspace t \in
 
 $$\mathit{status}_{t,g} \in \{0, 1\} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
 <!-- gallery:end -->
-
-Regenerate with `pixi run python -m tools.gallery`.
