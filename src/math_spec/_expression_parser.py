@@ -120,11 +120,14 @@ class LookupNode:
     ``dimension`` is the one every lookup is over — what ``sum`` consumes and
     ``at`` produces — and ``into`` the targets, one per name in the order
     written; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
+    ``per`` is the dims every one of them is conditioned on, which the
+    operand must carry and the operator passes through.
     """
 
     names: tuple[str, ...]
     dimension: str
     into: tuple[str, ...]
+    per: tuple[str, ...] = ()
 
     @property
     def shown(self) -> str:

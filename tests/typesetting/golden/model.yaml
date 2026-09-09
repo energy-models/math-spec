@@ -26,6 +26,7 @@ lookups:
   zone_of: { over: bus, into: zone }
   area_of: { over: bus, into: zone } # a second map into the same set, to compare against
   season_of: { over: snapshot, into: season }
+  gen_zone: { over: generator, into: zone, per: [snapshot] } # a map conditioned on a second dimension, which it is read at and keeps
 
 parameters:
   p_max: { dims: [generator] }
@@ -152,6 +153,13 @@ constraints:
   pulled_back_twice: # its adjoint, reading one slot through a pair of labels
     foreach: [generator]
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
+  zonal: # a grouping through a conditioned map: the condition reads the dim the map is per, and the row keeps it
+    foreach: [snapshot, zone]
+    expression: sum(p, by=gen_zone) <= zone_cap
+  zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
+    foreach: [snapshot, generator]
+    where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
+    expression: p <= at(spill * zone_cap, by=gen_zone)
   arithmetic: # division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
     foreach: [snapshot]
     expression: >-

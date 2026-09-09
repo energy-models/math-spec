@@ -30,15 +30,19 @@ BASE = {
         'snapshot': {'dtype': 'int'},
         'generator': {'dtype': 'str'},
         'bus': {'dtype': 'str'},
+        'zone': {'dtype': 'str'},
     },
     'lookups': {
         'gen_bus': {'over': 'generator', 'into': 'bus'},
         'snap_bus': {'over': 'snapshot', 'into': 'bus'},
+        'gen_zone': {'over': 'generator', 'into': 'zone', 'per': ['snapshot']},
     },
     'parameters': {
         'p_max': {'dims': ['generator']},
         'cost': {'dims': ['generator']},
         'load': {'dims': ['snapshot', 'bus']},
+        'zone_cap': {'dims': ['zone']},
+        'zone_load': {'dims': ['snapshot', 'zone']},
         'spinup': {'dims': ['generator'], 'dtype': 'int'},
         'horizon': {'dims': ['snapshot'], 'dtype': 'int'},
         'bus_lead': {'dims': ['bus'], 'dtype': 'int'},
@@ -100,6 +104,21 @@ def namespace() -> Namespace:
             id='a-by-makes-a-width-over-another-dim-readable-one-window-per-group',
         ),
         pytest.param('p + 1', {'snapshot', 'generator'}, id='a-scalar-broadcasts'),
+        pytest.param(
+            'sum(p, by=gen_zone)',
+            {'snapshot', 'zone'},
+            id='a-conditioned-lookup-consumes-over-produces-into-and-keeps-what-it-is-per',
+        ),
+        pytest.param(
+            'at(zone_load, by=gen_zone)',
+            {'snapshot', 'generator'},
+            id='its-pullback-keeps-what-it-is-per-too',
+        ),
+        pytest.param(
+            "shift(p, over=generator, offset=1, edge='wrap', by=gen_zone)",
+            {'snapshot', 'generator'},
+            id='a-partition-conditioned-per-a-dim-the-operand-carries',
+        ),
     ],
 )
 def test_dim_inference(expr, expected):
@@ -186,6 +205,21 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             "shift(p, over=snapshot, offset=bus_lead, edge='wrap')",
             r"varies over \['bus'\], which that coordinate does not carry",
             id='a-named-offset-is-read-where-the-expression-has-a-coordinate',
+        ),
+        pytest.param(
+            'sum(cost, by=gen_zone)',
+            r"sum\(by=gen_zone\) reads a lookup conditioned per \['snapshot'\], which the expression does not carry",
+            id='a-grouped-sum-needs-the-dims-the-lookup-is-per',
+        ),
+        pytest.param(
+            'at(zone_cap, by=gen_zone)',
+            r"at\(by=gen_zone\) reads a lookup conditioned per \['snapshot'\]",
+            id='a-pullback-needs-the-dims-the-lookup-is-per',
+        ),
+        pytest.param(
+            "shift(cost, over=generator, offset=1, edge='wrap', by=gen_zone)",
+            r"by=gen_zone\) reads a lookup conditioned per \['snapshot'\]",
+            id='a-partition-needs-the-dims-the-lookup-is-per',
         ),
     ],
 )
@@ -328,6 +362,15 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         pytest.param('snapshot == 0', {'snapshot'}, id='a-dimension-through-itself'),
         pytest.param('position(snapshot) == 0', {'snapshot'}, id='a-position-through-the-axis-it-counts'),
         pytest.param('snap_bus == "b1"', {'snapshot'}, id='a-lookup-through-the-dim-it-maps-out-of'),
+        pytest.param(
+            'gen_zone == "z1"', {'generator', 'snapshot'}, id='a-conditioned-lookup-through-the-dims-it-is-per-as-well'
+        ),
+        pytest.param('gen_zone', {'generator', 'snapshot'}, id='a-bare-conditioned-lookup-the-same'),
+        pytest.param(
+            'position(generator, by=gen_zone) == 0',
+            {'generator', 'snapshot'},
+            id='a-position-within-a-conditioned-group-reads-the-dims-it-is-per',
+        ),
         pytest.param('p_max > 0 AND snapshot == 0', {'generator', 'snapshot'}, id='a-conjunction-reads-both-sides'),
         pytest.param('NOT p_max > 0', {'generator'}, id='a-negation-reads-what-it-negates'),
         pytest.param('False', set(), id='a-literal-reads-nothing'),

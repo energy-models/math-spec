@@ -465,6 +465,46 @@ def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
     assert lowered == expected, 'the whole frozen node, so no field is asserted by omission'
 
 
+def test_a_conditioned_lookup_lowers_with_the_dims_it_is_per():
+    """`per:` reaches every node that reads the lookup, so a consumer joins on the right keys."""
+    program = to_program(
+        {
+            'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
+            'lookups': {'zone_of': {'over': 'generator', 'into': 'zone', 'per': ['snapshot']}},
+            'parameters': {'price': {'dims': ['snapshot', 'zone']}},
+            'variables': {
+                'p': {'foreach': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
+                'first': {'foreach': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
+            },
+            'constraints': {
+                'zonal': {'foreach': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of) <= 1'},
+                'priced': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= at(price, by=zone_of)'},
+            },
+        }
+    )
+
+    assert program.dimension('generator').lookups == (LookupDeclaration('zone_of', 'zone', ('snapshot',)),), (
+        'the declaration carries its per dims'
+    )
+    assert program.constraints['zonal'].lhs == GroupSum(
+        Variable('p'), over='generator', coordinate=('zone_of',), into=('zone',), per=('snapshot',)
+    ), 'a grouped sum names what it is per'
+    assert program.constraints['priced'].rhs == At(
+        Parameter('price'), over='generator', coordinate=('zone_of',), into=('zone',), per=('snapshot',)
+    ), 'and so does its adjoint'
+    p_where = program.variable('p').where
+    assert p_where is not None
+    assert [(type(a).__name__, a.per) for a in p_where.atoms] == [
+        ('LookupComparisonNode', ('snapshot',)),
+        ('LookupDefinedNode', ('snapshot',)),
+    ], 'every where leaf reading the lookup carries its per dims'
+    first_where = program.variable('first').where
+    assert first_where is not None
+    assert first_where.dims == {'generator', 'snapshot'}, (
+        'a position within a conditioned group is read at the per dims'
+    )
+
+
 def test_a_binary_variable_lowers_to_a_binary_domain():
     program = to_program(schema_of(DISPATCH_YAML, **{'variables.p.domain': 'binary', 'variables.p.bounds': {}}))
     assert program.variable('p').domain == 'binary'

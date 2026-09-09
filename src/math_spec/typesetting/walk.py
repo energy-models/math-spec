@@ -273,9 +273,14 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _lookup(self, name: str, index: str) -> str:
-        """A coordinate map applied to an index: ``bus(g)``."""
-        return self.format.apply(self.format.upright(name), index)
+    def _lookup(self, name: str, index: str, per: Iterable[str] = (), ctx: _Context | None = None) -> str:
+        """A coordinate map applied to an index: ``bus(g)``, or ``zone(g, p)`` where it is conditioned per ``p``.
+
+        The conditioning indices are read under *ctx*, as the row being
+        written reads them — pulled back or translated where the row is.
+        """
+        indices = [index, *(ctx.subscript(d) if ctx is not None else self.symbols.index[d] for d in per)]
+        return self.format.apply(self.format.upright(name), self.format.joined(indices, ''))
 
     def _context(self, frame: Iterable[str] = ()) -> _Context:
         return _Context(self, bound=tuple(frame))
@@ -413,14 +418,14 @@ class Walk:
             by = node.kwargs['by']
             assert isinstance(by, LookupNode)
             for name, into in zip(by.names, by.into, strict=True):
-                ctx = ctx.pulled_back(into, self._lookup(name, ctx.subscript(by.dimension)))
+                ctx = ctx.pulled_back(into, self._lookup(name, ctx.subscript(by.dimension), by.per, ctx))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, LookupNode)
             dummy, inner = ctx.reducing(by.dimension)
             conditions = [
-                f'{self._lookup(name, dummy)} {self._op("equal")} {ctx.subscript(into)}'
+                f'{self._lookup(name, dummy, by.per, ctx)} {self._op("equal")} {ctx.subscript(into)}'
                 for name, into in zip(by.names, by.into, strict=True)
             ]
             domain = (
@@ -450,7 +455,7 @@ class Walk:
         if by is None:
             return ''
         assert isinstance(by, LookupNode)
-        return self._lookup(by.names[0], self.symbols.index[dim])
+        return self._lookup(by.names[0], self.symbols.index[dim], by.per)
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``within=``: a number, or a parameter's own symbol.
@@ -532,23 +537,23 @@ class Walk:
             )
 
         if isinstance(node, DimensionPositionNode):
-            grouping = None if node.by is None else self._lookup(node.by, ctx.subscript(node.name))
+            grouping = None if node.by is None else self._lookup(node.by, ctx.subscript(node.name), node.per, ctx)
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
             return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
 
         if isinstance(node, LookupComparisonNode):
-            applied = self._lookup(node.name, ctx.subscript(node.over))
+            applied = self._lookup(node.name, ctx.subscript(node.over), node.per, ctx)
             return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, LookupPairComparisonNode):
             index = ctx.subscript(node.over)
-            left = self._lookup(node.name, index)
-            right = self._lookup(node.other, index)
+            left = self._lookup(node.name, index, node.per, ctx)
+            right = self._lookup(node.other, index, node.per, ctx)
             return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
 
         if isinstance(node, LookupDefinedNode):
-            applied = self._lookup(node.name, ctx.subscript(node.over))
+            applied = self._lookup(node.name, ctx.subscript(node.over), node.per, ctx)
             return f'{applied} {self.format.prose(" is defined")}', comparison
 
         if isinstance(node, NotNode):
@@ -824,6 +829,10 @@ class Walk:
         product = self.format.joined([self.symbols.set[d] for d in dims], self._op('times'))
         return f' over {self.format.math(product)}'
 
+    def _domain(self, dim: str, per: Iterable[str]) -> str:
+        """A map's domain in the legend: the set it is over, times each set it is conditioned on."""
+        return self.format.joined([self.symbols.set[d] for d in (dim, *per)], self._op('times'))
+
     def _coords(self, dim: str, noticed: Noticed) -> str:
         """The dimension's carried structure: each lookup as the map it is (``bus_of: G ↦ B``).
 
@@ -838,8 +847,8 @@ class Walk:
         if targeted:
             maps = self.format.joined(
                 [
-                    f'{self.format.upright(c)}: {self.symbols.set[dim]} {self._op("maps_to")} {self.symbols.set[target]}'
-                    for c, target in targeted.items()
+                    f'{self.format.upright(c)}: {self._domain(dim, lk.per)} {self._op("maps_to")} {self.symbols.set[lk.into]}'
+                    for c, lk in targeted.items()
                 ],
                 '',
             )

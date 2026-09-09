@@ -562,7 +562,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'lookups.tag': {'over': 'g', 'dtype': 'str'}},
-                ("unknown key 'dtype' in a lookup declaration. Valid keys: description, into, over.",),
+                ("unknown key 'dtype' in a lookup declaration. Valid keys: description, into, over, per.",),
                 id='lookup-with-a-dtype-of-its-own',
             ),
             pytest.param({'lookups.tag': {'over': 'g'}}, ('lookups.tag.into: Field required',), id='lookup-no-into'),
@@ -571,6 +571,24 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param({'lookups.lk.into': 'z'}, ("targets undeclared dimension 'z'",), id='lookup-into-undeclared'),
             pytest.param({'lookups.lk.into': 'g'}, ("maps 'g' into itself",), id='lookup-into-itself'),
+            pytest.param(
+                {'lookups.lk.per': ['z']}, ("references undeclared dimension 'z'",), id='lookup-per-undeclared'
+            ),
+            pytest.param(
+                {'lookups.lk.per': ['g']},
+                ("conditioned per 'g', which is the dimension it maps out of",),
+                id='lookup-per-the-dim-it-is-over',
+            ),
+            pytest.param(
+                {'lookups.lk.per': ['h']},
+                ("conditioned per 'h', which is the dimension it maps into",),
+                id='lookup-per-the-dim-it-targets',
+            ),
+            pytest.param(
+                {'dimensions.z': {}, 'lookups.lk.per': ['z', 'z']},
+                ("names 'z' twice under 'per:'",),
+                id='lookup-per-a-dim-twice',
+            ),
             pytest.param(
                 {'lookups.g': {'over': 'h', 'into': 'g'}},
                 ("Lookup 'g' collides with the dimension",),
@@ -708,6 +726,24 @@ class TestRulesDecidedWithoutData:
                 {'objective': {'expression': 'sum(sum(p, by=[lk, lk]))'}},
                 ("targets ['h'] more than once",),
                 id='by-the-same-target-twice',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': 'g', 'into': 'z', 'per': ['h']},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, lz]))'},
+                },
+                ('groups through lookups conditioned on different dimensions',),
+                id='by-lookups-with-different-per',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': 'g', 'into': 'h', 'per': ['z']},
+                    'variables.q.where': 'lk != lz',
+                },
+                ('compares lookups conditioned on different dimensions',),
+                id='where-two-lookups-with-different-per',
             ),
             pytest.param(
                 {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'

@@ -7,7 +7,7 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` (`int` coordinates) with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}`$ |
-| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}`$ |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$ |
 | $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}`$ |
 | $`\mathcal{Z}`$ | index $`z`$ — `zone` |
 | $`\mathcal{S}`$ | index $`s`$ — `season` |
@@ -182,6 +182,18 @@ p_{t,g} \le p_{t \boxminus_{0}^{\mathrm{season\_of}(t)} 1,g} \qquad \forall\, t 
 
 ```math
 \mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\, g \in \mathcal{G}
+```
+
+**`zonal`**
+
+```math
+\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) = z} p_{t,g} \le \mathrm{zone\_cap}_{z} \qquad \forall\, t \in \mathcal{T},\ z \in \mathcal{Z}
+```
+
+**`zonal_pullback`**
+
+```math
+p_{t,g} \le \mathit{spill}_{t} \cdot \mathrm{zone\_cap}_{\mathrm{gen\_zone}(g,\ t)} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) = \text{'}\mathrm{north}\text{'} \wedge \mathrm{pos}_{\mathrm{gen\_zone}(g,\ t)}(g) = 0
 ```
 
 **`arithmetic`**

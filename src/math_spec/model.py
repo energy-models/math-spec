@@ -157,18 +157,22 @@ class LookupBlock(_StrictBlock):
     """A named single-valued map out of one dimension ``into:`` another.
 
     Its values are labels of ``into``, which is what ``sum(by=)`` and
-    ``at(by=)`` land terms on::
+    ``at(by=)`` land terms on. ``per:`` conditions the map on further
+    dimensions, which every operator joins on and passes through::
 
         lookups:
           bus_of: {over: generator, into: bus}
+          zone_of: {over: generator, into: zone, per: [period]}
 
-    The map itself is data, and arrives at bind time under the lookup's name.
+    The map itself is data, and arrives at bind time under the lookup's name,
+    single-valued per ``(over, *per)``.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
 
     over: str
     into: str
+    per: list[str] = []
     description: str | None = None
 
 
@@ -675,9 +679,9 @@ class Spec(_StrictBlock):
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
 
-    def lookups_of(self, dimension: str) -> dict[str, str]:
-        """The lookups over *dimension*: name -> the dim they map into."""
-        return {n: lk.into for n, lk in self.lookups.items() if lk.over == dimension}
+    def lookups_of(self, dimension: str) -> dict[str, LookupBlock]:
+        """The lookups over *dimension*, by name."""
+        return {n: lk for n, lk in self.lookups.items() if lk.over == dimension}
 
     @classmethod
     @override
@@ -807,19 +811,32 @@ class Spec(_StrictBlock):
             )
 
     def _lookup_targets(self) -> Iterator[str]:
-        """A lookup is over a declared dimension and maps into a different declared one."""
+        """A lookup is over a declared dimension, maps into a different declared one, and is conditioned on others still."""
         for lname, lk in self.lookups.items():
             if lk.over not in self.dimensions:
                 yield (undeclared_dimension('Lookup', lname, lk.over))
-            if lk.into is not None:
-                if lk.into not in self.dimensions:
+            if lk.into not in self.dimensions:
+                yield (
+                    f"Lookup '{lname}' targets undeclared dimension '{lk.into}'. "
+                    f"Declare it under 'dimensions:' — the target is what the "
+                    f'lookup values are checked against.'
+                )
+            elif lk.into == lk.over:
+                yield (f"Lookup '{lname}' maps '{lk.over}' into itself. A lookup maps into a different dimension.")
+            for d in lk.per:
+                if d not in self.dimensions:
+                    yield undeclared_dimension('Lookup', lname, d)
+                elif d in (lk.over, lk.into):
                     yield (
-                        f"Lookup '{lname}' targets undeclared dimension '{lk.into}'. "
-                        f"Declare it under 'dimensions:' — the target is what the "
-                        f'lookup values are checked against.'
+                        f"Lookup '{lname}' is conditioned per '{d}', which is the dimension it "
+                        f"{'maps out of' if d == lk.over else 'maps into'}. 'per:' names the dimensions the map "
+                        f'varies along besides those two.'
                     )
-                elif lk.into == lk.over:
-                    yield (f"Lookup '{lname}' maps '{lk.over}' into itself. A lookup maps into a different dimension.")
+            yield from (
+                f"Lookup '{lname}' names '{d}' twice under 'per:'. A map is conditioned on each dimension once."
+                for d, count in Counter(lk.per).items()
+                if count > 1
+            )
 
     def _bound_names(self) -> Iterator[str]:
         """A named bound is a numeric parameter."""
