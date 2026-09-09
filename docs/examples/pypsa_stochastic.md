@@ -61,7 +61,7 @@ def build():
 ## The file
 
 <!-- gallery:begin -->
-The two-stage class of a plain \`n.optimize()\`: a network with scenarios, stated on rung 1's transport and rung 3's expansion in a file of its own. Everything over a snapshot spans a scenario as well; capacity does not — it is chosen once, before the future is known — and the cost is the expectation over the scenarios' weights. With a risk preference PyPSA adds the CVaR rows: an excess per scenario and the tail's average, blended into the objective. A dimension a run may not have cannot ride on \`examples/pypsa.yaml\`, so this class lives here.
+The two-stage class of a plain `n.optimize()`: a network with scenarios, stated on rung 1's transport and rung 3's expansion in a file of its own. Everything over a snapshot spans a scenario as well; capacity does not — it is chosen once, before the future is known — and the cost is the expectation over the scenarios' weights. With a risk preference PyPSA adds the CVaR rows: an excess per scenario and the tail's average, blended into the objective. A dimension a run may not have cannot ride on `examples/pypsa.yaml`, so this class lives here.
 
 #### Sets
 
@@ -72,29 +72,29 @@ The two-stage class of a plain \`n.optimize()\`: a network with scenarios, state
 | $\mathcal{N}$ | index $n$ — `bus` — network nodes |
 | $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}$ — generating units, each on one bus |
 | $\mathcal{L}$ | index $l$ — `link` with $\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}$ — controllable connections, each from one bus to the buses it delivers to |
-| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's \`bus1\`, \`bus2\`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
+| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $\mathcal{D}$ | index $d$ — `load` with $\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}$ — demands, each on one bus |
 
 #### Parameters
 
 | Symbol | Meaning |
 |---|---|
-| $\pi$ | `scenario_weight` over $\mathcal{S}$ — PyPSA's \`scenario\_weightings.weight\` — the probability of a future |
-| $\omega$ | `CVaR_omega` (scalar) — PyPSA's \`risk\_preference\['omega'\]\` — the share of the operating cost priced at the tail rather than in expectation |
-| $\mathrm{v}$ | `CVaR_inv_tail` (scalar) — PyPSA's \`1 / (1 - alpha)\` — the tail's own probability, inverted in data prep because a divisor is one factor |
-| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's \`snapshot\_weightings.objective\` — hours a snapshot stands for in the cost |
+| $\pi$ | `scenario_weight` over $\mathcal{S}$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
+| $\omega$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of the operating cost priced at the tail rather than in expectation |
+| $\mathrm{v}$ | `CVaR_inv_tail` (scalar) — PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor |
+| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
 | $\mathrm{p}^{\mathrm{nom}}$ | `Generator_p_nom` over $\mathcal{G}$ — nominal power |
 | $\mathrm{ext}$ | `Generator_p_nom_extendable` over $\mathcal{G}$ — whether the nominal power is a decision |
 | $\underline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_min` over $\mathcal{G}$ — least nominal power an extendable generator may be built at |
 | $\overline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_max` over $\mathcal{G}$ — most nominal power an extendable generator may be built at |
-| $\mathrm{c}^{\mathrm{cap}}$ | `Generator_capital_cost` over $\mathcal{G}$ — cost of one unit of nominal power — PyPSA's \`capital\_cost\`, periodized as an annuity in data prep |
+| $\mathrm{c}^{\mathrm{cap}}$ | `Generator_capital_cost` over $\mathcal{G}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
 | $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
 | $\overline{\mathrm{p}}$ | `Generator_p_max_pu` over $\mathcal{S} \times \mathcal{T} \times \mathcal{G}$ — most output, per unit of nominal power — an availability profile |
 | $\mathrm{c}$ | `Generator_marginal_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one unit of output |
 | $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
 | $\underline{\mathrm{f}}$ | `Link_p_min_pu` over $\mathcal{T} \times \mathcal{L}$ — least flow, per unit of nominal power — negative for a link that carries both ways |
 | $\overline{\mathrm{f}}$ | `Link_p_max_pu` over $\mathcal{T} \times \mathcal{L}$ — most flow, per unit of nominal power |
-| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's \`efficiency\`, \`efficiency2\`, … read long — negative where that port consumes rather than delivers |
+| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
 | $\mathrm{c}^{f}$ | `Link_marginal_cost` over $\mathcal{T} \times \mathcal{L}$ — cost of one unit of flow |
 | $\mathrm{load}$ | `Load_p_set` over $\mathcal{S} \times \mathcal{T} \times \mathcal{D}$ — demand |
 
@@ -102,12 +102,12 @@ The two-stage class of a plain \`n.optimize()\`: a network with scenarios, state
 
 | Symbol | Meaning |
 |---|---|
-| $p$ | `Generator_p` over $\mathcal{S} \times \mathcal{T} \times \mathcal{G}$ — \`Generator-p\` — output of a generator in a snapshot |
-| $f$ | `Link_p` over $\mathcal{S} \times \mathcal{T} \times \mathcal{L}$ — \`Link-p\` — PyPSA's \`p0\`, the flow measured at the \`Link\_bus0\` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
-| $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — \`Generator-p\_nom\` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
-| $a$ | `CVaR_a` over $\mathcal{S}$ — \`CVaR-a\` — how far a scenario's operating cost exceeds the tail's start; nothing where it does not |
-| $\theta$ | `CVaR_theta` (scalar) — \`CVaR-theta\` — where the tail starts, the value at risk |
-| $CVaR$ | `CVaR` (scalar) — \`CVaR\` — the tail's average cost, what the objective prices at \`omega\` |
+| $p$ | `Generator_p` over $\mathcal{S} \times \mathcal{T} \times \mathcal{G}$ — `Generator-p` — output of a generator in a snapshot |
+| $f$ | `Link_p` over $\mathcal{S} \times \mathcal{T} \times \mathcal{L}$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
+| $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $a$ | `CVaR_a` over $\mathcal{S}$ — `CVaR-a` — how far a scenario's operating cost exceeds the tail's start; nothing where it does not |
+| $\theta$ | `CVaR_theta` (scalar) — `CVaR-theta` — where the tail starts, the value at risk |
+| $CVaR$ | `CVaR` (scalar) — `CVaR` — the tail's average cost, what the objective prices at `omega` |
 
 #### Definitions
 

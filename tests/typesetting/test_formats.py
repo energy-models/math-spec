@@ -92,21 +92,21 @@ ESCAPED = {
         r'100\% \& \#1',
         r'\$5 \{net\}',
         r'\textasciitilde{} \textasciicircum{} \textbackslash{}',
-        r'*star* @ref <label> a/b [x] `raw`',
+        r'*star* @ref <label> a/b [x] \texttt{raw}',
     ),
     'typst': (
         r'link\_to',
         r'100% & \#1',
         r'\$5 {net}',
         r'\~ ^ \\',
-        r'\*star\* \@ref \<label\> a\/b \[x\] \`raw\`',
+        r'\*star\* \@ref \<label\> a\/b \[x\] `raw`',
     ),
     'markdown': (
         r'link\_to',
         r'100% & \#1',
         r'\$5 {net}',
         r'\~ ^ \\',
-        r'\*star\* @ref \<label\> a/b \[x\] \`raw\`',
+        r'\*star\* @ref \<label\> a/b \[x\] `raw`',
     ),
 }
 
@@ -128,6 +128,32 @@ def test_a_description_sets_as_text_rather_than_as_markup(notation: str, positio
     for expected in ESCAPED[notation]:
         assert expected in out, 'each special is escaped, and a character the notation reads as text is left alone'
     assert SPECIALS not in out, 'the raw prose reached the document unescaped'
+
+
+#: A name in backticks, with the special every format escapes inside it, and a
+#: lone backtick after it — a character, since nothing closes it.
+SPANNED = "PyPSA's `p_nom` column, ` unpaired"
+
+SPANNED_AS = {
+    'latex': r"PyPSA's \texttt{p\_nom} column, ` unpaired",
+    'typst': r"PyPSA's `p_nom` column, \` unpaired",
+    'markdown': r"PyPSA's `p_nom` column, \` unpaired",
+}
+
+
+@pytest.mark.parametrize('notation', sorted(SPANNED_AS), ids=sorted(SPANNED_AS))
+def test_a_backticked_name_in_a_description_sets_in_monospace(notation: str):
+    """A backtick span is the one notation a description carries, and every format sets it the same way.
+
+    The corpus opens a declaration's description with the name the other
+    side gives it, in backticks, and the gallery reads that opening — so the
+    span is part of the language's reading of prose rather than a Markdown
+    habit that two formats printed as characters (#401).
+    """
+    out = typeset(override(DISPATCH_MODEL, **{'parameters.load.description': SPANNED}), notation)
+    assert SPANNED_AS[notation] in out, (
+        'the span is monospace, its underscore escaped where the format needs it, and the lone backtick a character'
+    )
 
 
 @pytest.mark.parametrize(

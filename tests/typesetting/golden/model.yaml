@@ -10,7 +10,7 @@
 # LaTeX escapes are *right*, where the .out files only prove they are there.
 description: >-
   every character a notation escapes, set as text: link_to, 100% & #1 costs
-  $5 {net} ~ ^ \ *star* @ref <label>
+  $5 {net} ~ ^ \ *star* @ref <label>, and `a_name` in backticks set in code
 
 dimensions:
   snapshot: { dtype: int }
