@@ -26,7 +26,7 @@ ABOUT = {
     'per': {
         'pr': 428,
         'name': 'per: conditioning',
-        'line': 'The declaration keeps its arrow and names the dimensions the map varies along.',
+        'line': 'The declaration keeps its arrow and names the dimensions the lookup varies along.',
         'state': 'draft',
     },
     'keys': {
@@ -49,13 +49,12 @@ FOCUS = re.compile(r'\bby=|\bover:|\bkey:|\binto:|\bper:|\bwhere:')
 PROBLEMS = [
     {
         'id': 'p1',
-        'demands': 'a map that varies along a second dimension',
-        'title': 'A generator bids in a zone, and the zone changes by period',
+        'demands': 'a lookup that varies along a second dimension',
+        'title': 'A zone that changes by period',
         'prose': (
-            'Zonal demand must be met by the generators bidding in that zone. Which zone a '
-            'generator bids in is not fixed: it is agreed per investment period. So the map from '
-            'generator to zone is read at a period as well as at a generator. This is the case '
-            '#161 opened, and the one all three proposals were written for.'
+            'The generators bidding in a zone must meet its demand. Which zone a generator bids '
+            'in changes by investment period, so the lookup is read at a period as well as at a '
+            'generator. #161 opened this case, and all three proposals were written for it.'
         ),
         'show': ['zone_balance'],
         'verdict': {
@@ -67,19 +66,20 @@ PROBLEMS = [
     {
         'id': 'p2',
         'demands': 'the same table, walked from its other key',
-        'title': 'A cap on what one generator produced across its stay in a zone',
+        'title': 'A cap across a stay in a zone',
         'prose': (
-            'The same map, read the other way: hold a generator and a zone, and sum its output '
-            'over the periods it bid there. The table is the one the constraint above already '
-            'uses. What differs between the proposals is whether the file can say so.'
+            'This constraint reads the lookup of problem 1 the other way. Hold a generator and a '
+            'zone, then sum its output over the periods it bid there. The table is the one the '
+            'constraint above already uses. What differs is whether the file can say so with one '
+            'declaration.'
         ),
         'show': ['zone_balance', 'history'],
         'verdict': {
             'per': (
                 'two declarations',
-                'per: fixes which dimension is consumed, so the other direction is a second '
-                'lookup. Nothing ties the two declarations together: to the loader they are two '
-                'maps, and a consumer binds two tables.',
+                'per: fixes which dimension is consumed, so the other direction needs a second '
+                'lookup. Nothing ties the two declarations together. To the loader they are two '
+                'lookups, and a consumer binds two tables.',
             ),
             'keys': ('one table', 'The dot picks the other key. One declaration, two walks.'),
             'relations': ('one table', 'from= picks the other key column. One declaration, two walks.'),
@@ -88,23 +88,23 @@ PROBLEMS = [
     {
         'id': 'p3',
         'demands': 'two columns over one dimension',
-        'title': 'Nodal balance, where a line has two ends',
+        'title': 'Nodal balance over lines',
         'prose': (
             'Flow leaves one bus and arrives at another, so a line carries two bus labels. The '
             'balance at a bus sums generation there, plus flow arriving, minus flow leaving. The '
-            'guard below drops any line whose two ends are the same bus.'
+            'second constraint drops any line whose two ends are the same bus.'
         ),
         'show': ['nodal', 'no_loop'],
         'verdict': {
             'per': (
                 'two tables',
-                'A lookup has one target, so the two ends are two lookups. This is what the '
-                'language does today, and per: adds nothing to it.',
+                'A lookup has one target, so the two ends are two lookups. per: adds nothing '
+                'here, and the file is the one the language accepts today.',
             ),
             'keys': (
                 'two tables',
-                'Same as per:. A column named after its dimension cannot appear twice, so the two '
-                'ends stay two lookups.',
+                'The same file as per:. A column is named after its dimension and cannot appear '
+                'twice, so the two ends stay two lookups.',
             ),
             'relations': (
                 'one table',
@@ -116,16 +116,16 @@ PROBLEMS = [
     {
         'id': 'p4',
         'demands': 'landing on two value columns at once',
-        'title': 'A capacity cap per bus and technology',
+        'title': 'A cap per bus and technology',
         'prose': (
             'Each generator sits on a bus and has a technology. The cap applies to the pair, so '
-            'the sum must land on both dimensions in one grouping — a generator is counted once, '
+            'the sum lands on both dimensions in one grouping. Each generator is counted once, '
             'at its own bus and its own technology.'
         ),
         'show': ['by_bus_and_tech'],
         'verdict': {
             'per': ('two tables', 'One lookup per value, and a by= list joins them at the call.'),
-            'keys': ('two tables', 'Same as per:.'),
+            'keys': ('two tables', 'The same file as per:.'),
             'relations': (
                 'one table',
                 'One table carries both value columns, and into= lands on both in one join.',
@@ -135,16 +135,16 @@ PROBLEMS = [
     {
         'id': 'p5',
         'demands': 'a relation between two members of one dimension',
-        'title': 'Which regions are neighbours',
+        'title': 'Neighbouring regions',
         'prose': (
-            'A region is capped on what its neighbours produce. Neighbourhood is symmetric and '
-            'carries no number: two regions touch, or they do not. Both columns of the relation '
-            'are regions, and that is what makes this case different from every one above.'
+            'A region is capped on what its neighbours produce. Neighbourhood carries no number. '
+            'Two regions touch, or they do not, and each region touches several. Both columns of '
+            'the lookup are regions, and that is what separates this case from every one above.'
         ),
         'show': ['neighbourhood'],
         'caption': (
             'Only #437 prints this. The other two columns have no file that loads, so there is '
-            'nothing to compare the math against.'
+            'nothing to compare it against.'
         ),
         'verdict': {
             'per': (
@@ -154,12 +154,12 @@ PROBLEMS = [
             ),
             'keys': (
                 'no rewrite',
-                'The same refusal. #436 adds the self-map to this proposal, but a self-map is one '
-                'neighbour per region; neighbourhood is many.',
+                'The same refusal. #436 adds the self-map to this proposal, and a self-map gives '
+                'each region one neighbour. Neighbourhood gives it several.',
             ),
             'relations': (
                 'one table',
-                'Two roles over one dimension, and no key: each region has many neighbours and '
+                'Two roles over one dimension, and no key. Each region has many neighbours, so '
                 'nothing is single-valued.',
             ),
         },
@@ -182,7 +182,7 @@ PRICE = [
 ]
 
 MATRIX = [
-    ('A map that varies along a second dimension', 'p1', {'per': 1, 'keys': 1, 'relations': 1}),
+    ('A lookup that varies along a second dimension', 'p1', {'per': 1, 'keys': 1, 'relations': 1}),
     ('The same table walked from its other key', 'p2', {'per': 0, 'keys': 1, 'relations': 1}),
     ("A line's two ends in one table", 'p3', {'per': 0, 'keys': 0, 'relations': 1}),
     ('Landing on two value columns at once', 'p4', {'per': 0, 'keys': 0, 'relations': 1}),
@@ -226,7 +226,7 @@ KINDS = [
     },
     {
         'shape': 'two named slots',
-        'everyday': 'A seesaw has a left seat and a right seat, and a pupil sits on each.',
+        'everyday': 'A seesaw has a left seat and a right seat.',
         'model': 'A line has one bus at each end, and the two ends are not interchangeable.',
         'code': [('relations', 'ends: { over: { line: line, bus0: bus, bus1: bus }, key: line }')],
         'says': {
@@ -238,7 +238,7 @@ KINDS = [
     {
         'shape': 'one of its own kind',
         'everyday': 'Every pupil has one buddy, who is also a pupil.',
-        'model': 'Every snapshot has one representative snapshot that stands in for it.',
+        'model': 'Every snapshot has one representative snapshot standing in for it.',
         'code': [
             ('relations', 'represents: { over: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }'),
             ('keys, with #436', 'rep_of: { over: snapshot, into: snapshot }'),
@@ -252,7 +252,7 @@ KINDS = [
     {
         'shape': 'many each, nothing to count',
         'everyday': 'A pupil can be in several clubs, and a club has several pupils.',
-        'model': 'A generator can bid into several reserve products, and each product has many.',
+        'model': 'A generator bids into several reserve products, and each product takes many.',
         'code': [
             ('relations', 'eligible: { over: [generator, product] }'),
             ('per: and keys', 'eligible: { dims: [generator, product], dtype: int }  # a table of ones'),
@@ -265,8 +265,8 @@ KINDS = [
     },
     {
         'shape': 'many each, of its own kind',
-        'everyday': 'Which pupils sit next to each other.',
-        'model': 'Which regions are neighbours.',
+        'everyday': 'A pupil sits next to several others.',
+        'model': 'A region touches several other regions.',
         'code': [('relations', 'adjacent: { over: { region: region, neighbour: region } }')],
         'says': {
             'per': ('no', 'no rewrite exists'),
@@ -276,8 +276,8 @@ KINDS = [
     },
     {
         'shape': 'many each, with a number on the pair',
-        'everyday': 'How many biscuits each pupil gets at each club.',
-        'model': 'The efficiency with which a generator feeds a bus.',
+        'everyday': 'Each pupil gets a number of biscuits at each club.',
+        'model': 'Each generator feeds its bus at some efficiency.',
         'code': [('every proposal', 'efficiency: { dims: [generator, bus] }')],
         'says': {
             'per': ('yes', 'a parameter'),
@@ -289,8 +289,8 @@ KINDS = [
 
 #: The caption under a problem's math, where every proposal reaches the same rows.
 SAME_MATH = (
-    'The math is the same under all three proposals. Only the name of the map changes, so the '
-    'file is what the choice is about, not the printed model.'
+    'All three proposals print this. Only the name of the lookup changes, so the choice is about '
+    'the file and not about the model it stands for.'
 )
 
 CELL = {
