@@ -46,6 +46,7 @@ nav:
           - Dimensions and lookups: reference/language/dimensions.md
           - Expressions: reference/language/expressions.md
           - Reported expressions: reference/language/reported.md
+          - Given declarations: reference/language/given.md
           - Operators: reference/language/operators.md
           - Piecewise curves and SOS: reference/language/piecewise.md
           - Absence and where: reference/language/absence.md

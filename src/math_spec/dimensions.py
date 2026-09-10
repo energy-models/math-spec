@@ -90,14 +90,14 @@ def _dims(
         return frozenset(schema.parameters[node.name].dims)
 
     if isinstance(node, VariableNode):
-        return frozenset(schema.variables[node.name].foreach)
+        return frozenset(schema.every_variable[node.name].foreach)
 
     if isinstance(node, UnresolvedNode | KwargNode):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
     if isinstance(node, DualNode):
-        return frozenset(schema.constraints[node.constraint].foreach)
+        return frozenset(schema.every_constraint[node.constraint].foreach)
 
     if isinstance(node, FunctionCallNode):
         return _dims_call(node, schema, context)
@@ -429,10 +429,12 @@ def check_schema(schema: Spec, resolved: Resolved) -> None:
     Raises:
         DimensionError: On the first declaration that breaks one.
     """
+    for vname, vdef in schema.every_variable.items():
+        _check_where_dims(resolved.variables[vname], frozenset(vdef.foreach), f"Variable '{vname}'")
+
     for vname, vdef in schema.variables.items():
         frame = frozenset(vdef.foreach)
         context = f"Variable '{vname}'"
-        _check_where_dims(resolved.variables[vname], frame, context)
         for side in ('lower', 'upper'):
             bound = getattr(vdef.bounds, side)
             if isinstance(bound, str):

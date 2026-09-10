@@ -144,7 +144,7 @@ def validate_expressions(schema: Spec) -> Resolved:
 
     variables = {
         vname: mask_of(resolve_where_text(vdef.where, ns, f"Variable '{vname}'", errors, self_variable=vname))
-        for vname, vdef in schema.variables.items()
+        for vname, vdef in schema.every_variable.items()
     }
 
     constraints: dict[str, ResolvedConstraint] = {}

@@ -258,6 +258,67 @@ class VariableBlock(_StrictBlock):
         return self
 
 
+class GivenVariableBlock(_StrictBlock):
+    """A variable this file reads and does not introduce.
+
+    Everything a load-time pass asks of a variable is here — the frame, the
+    domain, the mask and what absence means on it — and nothing else is. There
+    is no ``bounds:`` key, because whoever owns the column owns its bounds, and
+    a second spelling of them here would be a second home for one fact.
+    """
+
+    _label: ClassVar[str] = 'a given variable declaration'
+
+    foreach: list[str]
+    where: str | None = None
+    domain: VariableDomain = 'continuous'
+    absence: VariableAbsence = 'undefined'
+    description: str | None = None
+
+    @model_validator(mode='after')
+    def _absence_needs_a_mask(self) -> GivenVariableBlock:
+        """``absence:`` says what a *missing* coordinate means, so one must be missable."""
+        if self.absence != 'undefined' and self.where is None:
+            msg = (
+                f'absence: {self.absence} needs a `where:` — a variable with no mask exists at every '
+                f'coordinate of its foreach, so there is no absence for it to describe. Add the mask, '
+                f'or drop the key.'
+            )
+            raise ValueError(msg)
+        return self
+
+
+class GivenConstraintBlock(_StrictBlock):
+    """A row family this file reads the dual of and does not introduce.
+
+    The frame says how many duals there are and what indexes them; the sense
+    says what sign one carries. The body is the owner's, so there is no
+    ``expression:`` key: nothing here builds a row, and ``dual()`` is the only
+    thing that may name one of these.
+    """
+
+    _label: ClassVar[str] = 'a given constraint declaration'
+
+    foreach: list[str]
+    sense: ComparisonOperator
+    description: str | None = None
+
+
+class GivenBlock(_StrictBlock):
+    """What the file reads from elsewhere — the interface it is written against.
+
+    A file with a ``given:`` block says all of its own math and none of the
+    math it is layered onto. What it does not say is where those declarations
+    come from: that is the same category of fact as a parameter's values, and
+    it is bound by whoever builds the model.
+    """
+
+    _label: ClassVar[str] = 'the given block'
+
+    variables: dict[str, GivenVariableBlock] = {}
+    constraints: dict[str, GivenConstraintBlock] = {}
+
+
 class ConstraintBlock(_StrictBlock):
     """A declared constraint: one rule, over one frame."""
 
@@ -643,7 +704,7 @@ class Spec(_StrictBlock):
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
-    The API is the ten declaration sections plus ``version`` and
+    The API is the eleven declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads. Everything else on
     this class is pydantic's, not a contract this package keeps.
@@ -674,6 +735,30 @@ class Spec(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
+    #: The declarations this file reads and does not introduce
+    #: (:class:`GivenBlock`). Empty in a file that stands alone.
+    given: GivenBlock = GivenBlock()
+
+    @property
+    def every_variable(self) -> dict[str, VariableBlock | GivenVariableBlock]:
+        """Every variable an expression here may name, introduced or given.
+
+        The two block types agree on everything but ``bounds:``, so a reader
+        that asks a variable for its frame, its mask, its domain or its absence
+        takes this and needs no branch. One that asks for bounds — lowering,
+        and the typeset domain line — has to tell them apart, because a given
+        variable has none to give.
+        """
+        return {**self.variables, **self.given.variables}
+
+    @property
+    def every_constraint(self) -> dict[str, ConstraintBlock | GivenConstraintBlock]:
+        """Every row family ``dual()`` may name, introduced or given.
+
+        Not the families a build produces: a given one is already built
+        elsewhere, so anything counting rows reads ``constraints`` instead.
+        """
+        return {**self.constraints, **self.given.constraints}
 
     def lookups_of(self, dimension: str) -> dict[str, str]:
         """The lookups over *dimension*: name -> the dim they map into."""
@@ -735,13 +820,17 @@ class Spec(_StrictBlock):
         section added later cannot be forgotten here — every mapping a Spec
         carries is keyed by a declaration name.
         """
+        sections: list[tuple[str, Iterable[str]]] = [
+            *((section, value) for section, value in self if isinstance(value, dict)),
+            ('given.variables', self.given.variables),
+            ('given.constraints', self.given.constraints),
+        ]
         errors = [
             f'{section}: {name!r} is not a name. A declaration is named the way an expression '
             f'writes it — a letter or an underscore, then letters, digits or underscores — so '
             f'nothing can refer to this one. Rename it.'
-            for section, value in self
-            if isinstance(value, dict)
-            for name in value
+            for section, names in sections
+            for name in names
             if not re.fullmatch(NAME, name)
         ]
         if errors:
@@ -758,10 +847,25 @@ class Spec(_StrictBlock):
             *self._lookup_targets(),
             *self._bound_names(),
             *self._sos_shapes(),
+            *self._given_constraint_collisions(),
         ]
         if errors:
             raise ValueError('\n'.join(errors))
         return self
+
+    def _given_constraint_collisions(self) -> Iterator[str]:
+        """A row family is either built here or given, never both.
+
+        Constraint names sit outside the flat namespace :meth:`_name_collisions`
+        walks — ``dual()``'s argument is the only position that reads them — so
+        this is the one place the two constraint sections meet.
+        """
+        for name in self.given.constraints:
+            if name in self.constraints:
+                yield (
+                    f"Given constraint '{name}' is also declared under 'constraints:'. A row family is "
+                    f'either built by this file or given to it — drop one of the two.'
+                )
 
     def _name_collisions(self) -> Iterator[str]:
         """A name is declared once, and never as a built-in operator."""
@@ -770,6 +874,7 @@ class Spec(_StrictBlock):
             ('lookup', self.lookups),
             ('parameter', self.parameters),
             ('variable', self.variables),
+            ('given variable', self.given.variables),
             ('named expression', self.expressions),
             ('macro', self.macros),
         ]
@@ -795,7 +900,9 @@ class Spec(_StrictBlock):
         frames = [
             *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
             *(('Variable', name, v.foreach) for name, v in self.variables.items()),
+            *(('Given variable', name, v.foreach) for name, v in self.given.variables.items()),
             *(('Constraint', name, c.foreach) for name, c in self.constraints.items()),
+            *(('Given constraint', name, c.foreach) for name, c in self.given.constraints.items()),
             *(('Named expression', name, e.foreach or []) for name, e in self.expressions.items()),
         ]
         for kind, name, dims in frames:
@@ -851,16 +958,16 @@ class Spec(_StrictBlock):
             context = f"Sos '{sname}'"
             if block.over not in self.dimensions:
                 yield (undeclared_dimension('Sos', sname, block.over))
-            elif block.variable not in self.variables:
+            elif block.variable not in self.every_variable:
                 yield (
                     f"{context}: '{block.variable}' is not a declared variable.\n"
-                    f'  Variables: {sorted(self.variables)}\n'
+                    f'  Variables: {sorted(self.every_variable)}\n'
                     f'A set is over one variable, so a parameter or an expression cannot carry one.'
                 )
-            elif block.over not in self.variables[block.variable].foreach:
+            elif block.over not in self.every_variable[block.variable].foreach:
                 yield (
                     f"{context}: over '{block.over}' is not a dim of variable "
-                    f"'{block.variable}' (foreach {self.variables[block.variable].foreach}). The set runs "
+                    f"'{block.variable}' (foreach {self.every_variable[block.variable].foreach}). The set runs "
                     f"along one of the variable's own dims — one set per coordinate of the rest."
                 )
             elif block.variable in claimed:

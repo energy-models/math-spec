@@ -108,8 +108,8 @@ class Symbols:
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        chosen = frozenset(schema.variables) | chosen_expressions(schema)
-        names = (*schema.parameters, *schema.variables, *schema.expressions)
+        chosen = frozenset(schema.every_variable) | chosen_expressions(schema)
+        names = (*schema.parameters, *schema.every_variable, *schema.expressions)
         declared = frozenset(names)
 
         #: Names the table spelled; the convention note quotes only derived symbols.
@@ -129,7 +129,7 @@ class Symbols:
         #: overrides it.
         self.constraint: dict[str, str] = {
             name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt, given=True)
-            for name in schema.constraints
+            for name in schema.every_constraint
         }
 
         self.index: dict[str, str] = {}
@@ -239,7 +239,11 @@ class SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
         everything = (
-            dims | set(schema.parameters) | set(schema.variables) | set(schema.expressions) | set(schema.constraints)
+            dims
+            | set(schema.parameters)
+            | set(schema.every_variable)
+            | set(schema.expressions)
+            | set(schema.every_constraint)
         )
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),

@@ -242,8 +242,8 @@ renderer or a checker gets when it loads a model.
 
     ***
 
-    What a YAML file may contain, and what it means: ten rules, ten declaration
-    keys, one closed set of operators.
+    What a YAML file may contain, and what it means: ten rules, eleven
+    declaration keys, one closed set of operators.
 
     [:octicons-arrow-right-24: The language](reference/language/index.md)
 

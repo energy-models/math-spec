@@ -29,9 +29,23 @@ costs to add.
   as much as a primitive to build, but composes as freely as a macro, because
   the rest of the model only sees the variables and constraints it emitted.
 
-A request that is none of the three is refused, and the
+- **A declaration block** is a top-level key that states a fact about the model
+  and builds no expression. `sos:` names columns a variable already declared and
+  says what may be nonzero among them. `given:` names the variables and
+  constraints a file reads and does not introduce. A block costs each engine a
+  binding rule rather than an operator, and the typesetter a section.
+
+A request that is none of the four is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
 instead.
+
+`given:` sits next to a row in that table, and the difference is worth stating.
+A **Python API for building models** is refused because the model would stop
+being the file you review and diff. A file with a `given:` block still says all
+of its own math, in YAML, and still prints. What it does not say is which model
+supplies the declarations it reads, and that is the same category of fact as the
+numbers behind a parameter. See
+[given declarations](../reference/language/given.md).
 
 ### What a new primitive has to satisfy
 

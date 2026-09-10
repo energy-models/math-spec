@@ -187,7 +187,11 @@ def typeset_declaration(
     """
     walk = _walk(model, fmt, symbols, inline_expressions=inline_expressions)
     schema = walk.schema
-    kinds = {'named expression': schema.expressions, 'constraint': schema.constraints, 'variable': schema.variables}
+    kinds = {
+        'named expression': schema.expressions,
+        'constraint': schema.every_constraint,
+        'variable': schema.every_variable,
+    }
     found = [kind for kind, group in kinds.items() if name in group]
     if not found:
         everything = {n for group in kinds.values() for n in group}

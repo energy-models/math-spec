@@ -312,7 +312,7 @@ class Walk:
             return ctx.indexed(self.symbols.name[node.name], list(self.schema.parameters[node.name].dims)), _ATOM
 
         if isinstance(node, VariableNode):
-            return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].foreach)), _ATOM
+            return ctx.indexed(self.symbols.name[node.name], list(self.schema.every_variable[node.name].foreach)), _ATOM
 
         if isinstance(node, UnaryOperatorNode):
             if node.op == '+':
@@ -614,12 +614,43 @@ class Walk:
     def equations(self) -> tuple[list[tuple[str, list[Line]]], Noticed]:
         """Every titled section of equations, and what printing them noticed for the legend."""
         sections = [
+            ('Given', self._given()),
             ('Objective', self._objective()),
             ('Subject to', self._constraints()),
             ('Definitions', self._definitions()),
             ('Variable domains', self._variables()),
         ]
         return sections, self.noticed
+
+    def _given(self) -> list[Line]:
+        """One line per declaration the file reads and does not introduce.
+
+        A preamble, so it prints ahead of the objective: a reader meets what is
+        assumed before the math that assumes it. A given variable prints its
+        domain like any other, having no bounds of its own to state; a given
+        row family prints as the one thing the file may do with it, which is
+        read its dual.
+        """
+        return [
+            *(self._variable(name) for name in self.schema.given.variables),
+            *(self._given_constraint(name) for name in self.schema.given.constraints),
+        ]
+
+    def _given_constraint(self, name: str) -> Line:
+        """The dual a given row family offers, and the sense that fixes its sign."""
+        block = self.schema.given.constraints[name]
+        ctx = self._context(frame=block.foreach)
+        frame = self._sorted(frozenset(block.foreach))
+        symbol = self.format.subscript(
+            self._op('dual'), [self.symbols.constraint[name], *(ctx.subscript(d) for d in frame)]
+        )
+        sense = self._op(_PREDICATES[block.sense])
+        return Line(
+            label=name,
+            left=symbol,
+            right=f'{self.format.prose("the dual of a given")} {sense} {self.format.prose("row")}',
+            condition=self._quantifier(list(block.foreach), ''),
+        )
 
     def _objective(self) -> list[Line]:
         """The objective's line.
@@ -701,6 +732,8 @@ class Walk:
             return self.definition(name)
         if name in self.schema.constraints:
             return self._constraint(name)
+        if name in self.schema.given.constraints:
+            return self._given_constraint(name)
         return self._variable(name)
 
     def _arms(self, node: CasesNode, ctx: _Context) -> list[tuple[str, str]]:
@@ -736,12 +769,16 @@ class Walk:
         return lines
 
     def _variable(self, name: str) -> Line:
-        block = self.schema.variables[name]
+        block = self.schema.every_variable[name]
         ctx = self._context(frame=block.foreach)
         symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
         where = self.schema.resolved.variables[name]
         condition = self._quantifier(list(block.foreach), self._condition(ctx, where))
-        lower, upper = block.bounds.lower, block.bounds.upper
+        lower, upper = (
+            (float('-inf'), float('inf'))
+            if name in self.schema.given.variables
+            else (self.schema.variables[name].bounds.lower, self.schema.variables[name].bounds.upper)
+        )
 
         if block.domain == 'binary':
             left, right = symbol, f'{self._op("in")} {self._op("binary_set")}'
@@ -763,7 +800,7 @@ class Walk:
 
     def _sos(self, name: str, block: SosBlock, ctx: _Context) -> Line:
         """The variable's family along the set's dim, as one member of the SOS set, quantified over the other dims."""
-        foreach = self.schema.variables[name].foreach
+        foreach = self.schema.every_variable[name].foreach
         family = self.format.parenthesise(ctx.indexed(self.symbols.name[name], list(foreach)))
         return Line(
             label=f'{name} sos',
@@ -799,7 +836,7 @@ class Walk:
         ]
         variables = [
             self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.foreach))}', block.description)
-            for v, block in self.schema.variables.items()
+            for v, block in self.schema.every_variable.items()
         ]
         definitions = [
             self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self.frames[e])}', block.description)
@@ -855,7 +892,7 @@ class Walk:
         """
         derived = [
             next((n for n in names if n not in self.symbols.overridden), None)
-            for names in (self.schema.parameters, self.schema.variables)
+            for names in (self.schema.parameters, self.schema.every_variable)
         ]
         if not all(derived):
             return []

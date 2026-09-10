@@ -119,6 +119,17 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             domain=domain,
             absence=vdef.absence,
         )
+    for vname, gdef in expanded.given.variables.items():
+        binary = gdef.domain == 'binary'
+        variables[vname] = program.VariableDeclaration(
+            tuple(gdef.foreach),
+            where=resolved.variables[vname],
+            lower=program.Constant(0.0 if binary else float('-inf')),
+            upper=program.Constant(1.0 if binary else float('inf')),
+            domain=gdef.domain,
+            absence=gdef.absence,
+            given=True,
+        )
 
     constraints = {}
     for cname, cdef in expanded.constraints.items():
@@ -158,6 +169,10 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         )
         for sname, sdef in expanded.sos.items()
     }
+    given_constraints = {
+        cname: program.GivenConstraintDeclaration(tuple(cdef.foreach), cdef.sense)
+        for cname, cdef in expanded.given.constraints.items()
+    }
     expressions: dict[str, program.ExpressionDeclaration] = {}
     for name, ast in resolved.expressions.items():
         expressions[name] = program.ExpressionDeclaration(
@@ -172,6 +187,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
         named_expressions=expressions,
+        given_constraints=given_constraints,
     )
 
 

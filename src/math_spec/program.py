@@ -63,6 +63,7 @@ __all__ = [
     'FanIn',
     'FirstOf',
     'Footprint',
+    'GivenConstraintDeclaration',
     'GroupSum',
     'Increasing',
     'LastOf',
@@ -633,12 +634,35 @@ class ParameterDeclaration:
 
 @dataclass(frozen=True)
 class VariableDeclaration:
+    """One column family — its frame, its mask, and what a consumer may put in it.
+
+    ``given`` says who builds the column rather than what it is: a given one is
+    bound to a column that already exists, so its bounds are the owner's and
+    both sides read unbounded here. Every other pass treats the two alike,
+    because a term reading a given column is a term like any other.
+    """
+
     dims: tuple[str, ...]
     where: Mask | None = None
     lower: ExpressionNode = field(default_factory=lambda: Constant(float('-inf')))
     upper: ExpressionNode = field(default_factory=lambda: Constant(float('inf')))
     domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
+    given: bool = False
+
+
+@dataclass(frozen=True)
+class GivenConstraintDeclaration:
+    """A row family a consumer binds rather than builds — all ``dual()`` needs of one.
+
+    The frame says how many duals there are and what indexes them. The sense
+    says what sign one carries, which is the whole reason it is declared: a
+    dual read against the wrong sense is a wrong number rather than an error.
+    There is no body, because nothing here builds the row.
+    """
+
+    dims: tuple[str, ...]
+    sense: ConstraintSense
 
 
 @dataclass(frozen=True)
@@ -857,6 +881,10 @@ class Program:
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     named_expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
+    #: The row families this program reads the dual of and does not build. A
+    #: consumer binds each to a row family it already holds; nothing here
+    #: emits one, so a build reads :attr:`constraints` and never this.
+    given_constraints: Mapping[str, GivenConstraintDeclaration] = Sealed({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""

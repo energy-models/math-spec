@@ -132,7 +132,7 @@ class Namespace:
         A lookup's values are labels of its target, so its dtype is the target's.
         """
         return cls(
-            schema.variables,
+            schema.every_variable,
             schema.parameters,
             schema.dimensions,
             {n: (lk.over, lk.into) for n, lk in schema.lookups.items()},
@@ -143,9 +143,9 @@ class Namespace:
             },
             {
                 **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
-                **{v: tuple(vd.foreach) for v, vd in schema.variables.items()},
+                **{v: tuple(vd.foreach) for v, vd in schema.every_variable.items()},
             },
-            schema.constraints,
+            schema.every_constraint,
         )
 
     def kind(self, name: str) -> DeclarationKind | None:
@@ -192,7 +192,8 @@ class Namespace:
         return (
             f"{context}: dual({name}): '{name}' is not a declared constraint{also}.\n"
             f'  Constraints: {sorted(self.constraints)}\n'
-            f"Check for typos, or declare '{name}' under 'constraints:'."
+            f"Check for typos, or declare '{name}' — under 'constraints:' if this file builds the row, "
+            f"or under 'given.constraints:' if it reads a row family somebody else built."
         )
 
 

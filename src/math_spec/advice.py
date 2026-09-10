@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice
 from math_spec.lowering import to_program
-from math_spec.program import At, GroupSum, walk
+from math_spec.program import At, Dual, GroupSum, variables_of, walk
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -33,11 +33,12 @@ def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice,
             answer alike.
 
     Returns:
-        The never-an-axis advice in declaration order, then the unboundedness
-        advice; ``str()`` of each is its sentence.
+        The never-an-axis advice in declaration order, then the unread-given
+        advice, then the unboundedness advice; ``str()`` of each is its
+        sentence.
     """
     program = to_program(model)
-    return tuple(_never_an_axis(program) + unbounded_notes(program))
+    return tuple(_never_an_axis(program) + _given_never_read(program) + unbounded_notes(program))
 
 
 def _never_an_axis(program: Program) -> list[Advice]:
@@ -48,7 +49,12 @@ def _never_an_axis(program: Program) -> list[Advice]:
     is in use even where nothing is indexed by it.
     """
     reached: set[str] = set()
-    for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
+    for declaration in (
+        *program.parameters.values(),
+        *program.variables.values(),
+        *program.constraints.values(),
+        *program.given_constraints.values(),
+    ):
         reached.update(declaration.dims)
     reached |= _produced_axes(program)
     reached |= {lk.target for _, lk in program.lookups}
@@ -78,3 +84,34 @@ def _produced_axes(program: Program) -> set[str]:
         elif isinstance(node, At):
             axes.add(node.over)
     return axes
+
+
+def _given_never_read(program: Program) -> list[Advice]:
+    """One piece of advice per given declaration nothing in the file reads.
+
+    A given block is the interface a layer is written against, so an entry
+    nothing names asks whoever binds it to find a column or a row family for
+    nothing. That is how a layer drifts from the model it was written for, and
+    it is the one thing about a given block that is decidable here — whether
+    the entry matches what it binds to is a question only the model can answer.
+    """
+    bodies = (*program.expressions, *(e.expression for e in program.named_expressions.values()))
+    masked = (d.where for d in (*program.variables.values(), *program.constraints.values()) if d.where is not None)
+    read = variables_of(*bodies).union(*(mask.names_read for mask in masked))
+    dualled = {node.constraint for node in walk(*bodies) if isinstance(node, Dual)}
+
+    return [
+        Advice(
+            'given-never-read',
+            name,
+            f"given {kind} '{name}' is never read: this file declares it and then {how}. Remove it, or "
+            f'name it in the math — a given block states what a consumer must bind, so an unread entry '
+            f'asks for one it has no use for.',
+        )
+        for kind, names, reached, how in (
+            ('variable', [n for n, v in program.variables.items() if v.given], read, 'no expression names it'),
+            ('constraint', list(program.given_constraints), dualled, 'no dual() names it'),
+        )
+        for name in names
+        if name not in reached
+    ]

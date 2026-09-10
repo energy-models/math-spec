@@ -216,6 +216,131 @@
       "title": "ExpressionCase",
       "type": "object"
     },
+    "GivenBlock": {
+      "additionalProperties": false,
+      "description": "What the file reads from elsewhere \u2014 the interface it is written against.\n\nA file with a ``given:`` block says all of its own math and none of the\nmath it is layered onto. What it does not say is where those declarations\ncome from: that is the same category of fact as a parameter's values, and\nit is bound by whoever builds the model.",
+      "properties": {
+        "constraints": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenConstraintBlock"
+          },
+          "default": {},
+          "title": "Constraints",
+          "type": "object"
+        },
+        "variables": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenVariableBlock"
+          },
+          "default": {},
+          "title": "Variables",
+          "type": "object"
+        }
+      },
+      "title": "GivenBlock",
+      "type": "object"
+    },
+    "GivenConstraintBlock": {
+      "additionalProperties": false,
+      "description": "A row family this file reads the dual of and does not introduce.\n\nThe frame says how many duals there are and what indexes them; the sense\nsays what sign one carries. The body is the owner's, so there is no\n``expression:`` key: nothing here builds a row, and ``dual()`` is the only\nthing that may name one of these.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "foreach": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Foreach",
+          "type": "array"
+        },
+        "sense": {
+          "enum": [
+            "<=",
+            ">=",
+            "=="
+          ],
+          "title": "Sense",
+          "type": "string"
+        }
+      },
+      "required": [
+        "foreach",
+        "sense"
+      ],
+      "title": "GivenConstraintBlock",
+      "type": "object"
+    },
+    "GivenVariableBlock": {
+      "additionalProperties": false,
+      "description": "A variable this file reads and does not introduce.\n\nEverything a load-time pass asks of a variable is here \u2014 the frame, the\ndomain, the mask and what absence means on it \u2014 and nothing else is. There\nis no ``bounds:`` key, because whoever owns the column owns its bounds, and\na second spelling of them here would be a second home for one fact.",
+      "properties": {
+        "absence": {
+          "default": "undefined",
+          "enum": [
+            "undefined",
+            "zero"
+          ],
+          "title": "Absence",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "domain": {
+          "default": "continuous",
+          "enum": [
+            "continuous",
+            "integer",
+            "binary"
+          ],
+          "title": "Domain",
+          "type": "string"
+        },
+        "foreach": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Foreach",
+          "type": "array"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
+        }
+      },
+      "required": [
+        "foreach"
+      ],
+      "title": "GivenVariableBlock",
+      "type": "object"
+    },
     "LookupBlock": {
       "additionalProperties": false,
       "description": "A named single-valued map out of one dimension ``into:`` another.\n\nIts values are labels of ``into``, which is what ``sum(by=)`` and\n``at(by=)`` land terms on::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n\nThe map itself is data, and arrives at bind time under the lookup's name.",
@@ -601,7 +726,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, :meth:`model_validate`, the constructor \u2014 runs\nevery load-time check, expansion and expression pass included, and raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the ten declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. Everything else on\nthis class is pydantic's, not a contract this package keeps.",
+  "description": "The declared math \u2014 one YAML file, or one dict, validated. Nothing here has seen data.\n\nA ``Spec`` that exists has passed the whole language: constructing one by\nany route \u2014 ``to_spec``, :meth:`model_validate`, the constructor \u2014 runs\nevery load-time check, expansion and expression pass included, and raises\n:class:`~math_spec.errors.LanguageError` on a model the language refuses.\nHolding one is the proof, so nothing downstream checks it again.\n\nThe API is the eleven declaration sections plus ``version`` and\n``description``, and two ways back out: :meth:`to_dict` for the model as\ndata, :meth:`to_yaml` for the file a reviewer reads. Everything else on\nthis class is pydantic's, not a contract this package keeps.",
   "properties": {
     "constraints": {
       "additionalProperties": {
@@ -638,6 +763,13 @@
       "default": {},
       "title": "Expressions",
       "type": "object"
+    },
+    "given": {
+      "$ref": "#/$defs/GivenBlock",
+      "default": {
+        "constraints": {},
+        "variables": {}
+      }
     },
     "lookups": {
       "additionalProperties": {
