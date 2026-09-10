@@ -10,10 +10,10 @@ hide:
 
 # math-spec
 
-**The language an optimisation model is written in — and the math it means.**
+**The language an optimisation model is written in, and the math it means.**
 
-Write the math in YAML. Everything decidable without data is decided without
-data — and the file prints as the math it stands for.
+Write the math in YAML. Everything decidable without data is decided at load,
+and the file prints as the math it stands for.
 
 --8<-- "README.md:badges"
 
@@ -37,50 +37,49 @@ data — and the file prints as the math it stands for.
 
     ***
 
-    One file declares the axes, the data, the decisions and the rules.
-    Readable without knowing any implementation, and self-contained: no Python
-    state changes what it means. It diffs cleanly in review and travels as a
-    research artefact.
+    One file declares the axes, the data, the decisions and the rules. You can
+    read it without knowing what builds it, and no Python state changes what it
+    means. It diffs in review, and it travels as a research artefact.
 
 - :material-shield-check-outline: **Decided before the data**
 
     ***
 
-    Every expression, every `where` string and even an _uncalled_ macro
-    template is parsed and name-checked at load. A repository of models
-    compiles in CI with nothing bound to any of them.
+    Every expression, every `where` string and every macro template, called or
+    not, is parsed and name-checked at load. A repository of models compiles in
+    CI with no data bound to any of them.
 
 - :material-alert-octagon-outline: **Fail early, fail loud**
 
     ***
 
     Nothing is guessed and nothing falls back silently. Where a file does not
-    determine the answer, loading fails and the message names the construct
-    _and_ its rewrite.
+    decide the answer, loading fails, and the message names the construct and
+    its rewrite.
 
-- :material-fence: **A finite language, with a priced way out**
+- :material-fence: **A closed language**
 
     ***
 
-    The ceiling is a closure — relational ∩ local — not a feature race.
-    Genuinely unsayable math goes in an `escape:` island: visible in the file,
-    billed before it runs.
+    The operators are a fixed set, and nothing can register another one. A
+    composition of them is a macro. Math the language cannot express is refused,
+    with the rewrite named.
 
 - :material-function-variant: **The file is the document**
 
     ***
 
     LaTeX, Typst or Markdown, printed from the file alone. No data, no solver,
-    no second source of truth — the cheapest review tool there is for _does
-    this YAML say what I meant_.
+    and no second source of truth. It answers _does this YAML say what I meant_
+    before anything is bound or solved.
 
-- :material-source-branch: **One rule per question**
+- :material-source-branch: **One answer per question**
 
     ***
 
-    A rule is language iff two consumers answering it separately would be a
-    bug. That test is what decides who owns a question — the language, or the
-    engine reading it.
+    An engine, a renderer and a checker read the same file. Wherever they could
+    disagree about what it means, the language decides once, and all three read
+    the answer. What each solver can take, each engine decides for itself.
 
 </div>
 
@@ -90,10 +89,10 @@ data — and the file prints as the math it stands for.
 
 --8<-- "README.md:model"
 
-### And that file says, exactly this
+### What that file says
 
-Generated from the YAML above — no data, no solver, no second source of truth.
-Only the notation is a choice, and **How** shows the one that was made here.
+Generated from the YAML above, with no data and no solver. Only the notation is a
+choice, and **How** shows the one made here.
 
 <!-- home-math:begin -->
 
@@ -227,13 +226,12 @@ Only the notation is a choice, and **How** shows the one that was made here.
 
 <!-- home-math:end -->
 
-### And a consumer reads it like this
+### How a tool reads it
 
 --8<-- "README.md:load"
 
-That seam is [one page](reference/language/reading.md), and it is the whole of
-it: what a program gets when it loads a model, and nothing a program does
-changes what the file means.
+[Reading a loaded model](reference/language/reading.md) says what an engine, a
+renderer or a checker gets when it loads a model.
 
 ## Where to next
 
@@ -244,8 +242,8 @@ changes what the file means.
 
     ***
 
-    What a YAML file may contain, and what it means — ten rules, ten
-    declaration keys, one closed set of operators.
+    What a YAML file may contain, and what it means: ten rules, ten declaration
+    keys, one closed set of operators.
 
     [:octicons-arrow-right-24: The language](reference/language/index.md)
 
@@ -253,8 +251,8 @@ changes what the file means.
 
     ***
 
-    All of it at once, beside the notation the typesetter gives it — so the
-    notation can be read as the one system it has to be.
+    All of it at once, beside the notation the typesetter gives it, so the
+    notation can be read as one system.
 
     [:octicons-arrow-right-24: The notation](reference/notation.md)
 
@@ -271,27 +269,27 @@ changes what the file means.
 
     ***
 
-    The contract between the language and anything that reads the AST — a
-    solver backend, a renderer, a second front end.
+    What an engine, a renderer or a checker gets when it loads a model, and
+    which of the two objects each should read.
 
-    [:octicons-arrow-right-24: The seam](reference/language/reading.md) ·
+    [:octicons-arrow-right-24: Reading a loaded model](reference/language/reading.md) ·
     [Python API](reference/math_spec/validation.md)
 
 - :material-fence: **What may enter the language**
 
     ***
 
-    The test a candidate primitive has to pass, why capability is a second
-    axis, and what has been refused and why.
+    The test a new operator has to pass, why a solver's own limits stay out of
+    the language, and what has been refused and why.
 
-    [:octicons-arrow-right-24: The ceiling](about/ceiling.md)
+    [:octicons-arrow-right-24: The limits](about/limits.md)
 
-- :material-scale-balance: **Who owns a rule**
+- :material-scale-balance: **Who decides what**
 
     ***
 
-    A rule is language iff two consumers answering it separately would be a
-    bug — and the sharp edge that keeps that from swallowing everything.
+    Which decisions the language makes for every tool that reads a file,
+    and which each engine makes for itself.
 
     [:octicons-arrow-right-24: What counts as language](about/what-counts-as-language.md)
 
@@ -301,8 +299,8 @@ changes what the file means.
 
 --8<-- "README.md:docs-install-dev"
 
-Or as a dependency, once the project leaves the alpha stream — see
-[installation](installation.md) for every package manager.
+Or as a dependency, once the project leaves the alpha stream. See
+[installation](howto/installation.md) for every package manager.
 
 !!! warning "Alpha, pre-1.0"
 

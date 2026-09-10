@@ -5,19 +5,22 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the two-stage class
 
-Rung 14 of [PyPSA in one file](pypsa.md): `n.set_scenarios(...)` with `n.set_risk_preference(alpha, omega)`, stated on rungs 1 and 3 in a
-file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
+This is rung 14 of [PyPSA in one file](pypsa.md). It states
+`n.set_scenarios(...)` together with `n.set_risk_preference(alpha, omega)`, on
+rungs 1 and 3, in a file of its own. The model's description below says why it
+has its own file. Its network is the shared spine plus the script's own
+additions.
 
 ## Rung 14 — two-stage stochastic, with CVaR
 
 | PyPSA | status | note |
 | --- | --- | --- |
-| [`Generator-p`, `Link-p`](#variable-domains) | done | over `scenario`; `Generator-p_nom` is not — chosen once |
+| [`Generator-p`, `Link-p`](#variable-domains) | done | over `scenario`. `Generator-p_nom` is not, because it is chosen once |
 | [`Generator-fix-p-*`, `-ext-p-*`, `Link-fix-p-*`, `Bus-nodal_balance`](#generator-fix-p-lower) | done | rungs 1 and 3, over `scenario` |
 | [`CVaR-a`, `CVaR-theta`, `CVaR`](#variable-domains) | done | |
-| [`CVaR-excess-{s}`](#cvar-excess-s) | split | PyPSA names a row per scenario; one block over the dimension |
-| [`CVaR-def`](#cvar-def) | done | `1 / (1 - alpha)` is data prep |
-| [objective](#objective) | done | capacity once; operation `(1 - omega)` in expectation, `omega` at the tail |
+| [`CVaR-excess-{s}`](#cvar-excess-s) | split | PyPSA names one row per scenario. Here it is one block over the dimension |
+| [`CVaR-def`](#cvar-def) | done | `1 / (1 - alpha)` comes from data preparation |
+| [objective](#objective) | done | capacity once. Operation is weighted `(1 - omega)` in expectation, and `omega` at the tail |
 
 <!-- reference:rung_14_stochastic:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `9267.386666666665`, 87 rows.

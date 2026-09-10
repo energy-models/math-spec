@@ -5,38 +5,46 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # AGENTS.md
 
-What an agent needs on top of [CONTRIBUTING.md](CONTRIBUTING.md) — the
-environment, the gates, and what this project will and will not accept in a
-change. What the project _is_: [docs/](docs/index.md), and
-[what counts as language](docs/about/what-counts-as-language.md) before
-anything else. `.claude/CLAUDE.md` is a symlink to this file; there is one copy
-of these rules.
+This file holds what an agent needs on top of
+[CONTRIBUTING.md](CONTRIBUTING.md). That is the environment, the gates, and
+what this project will and will not accept in a change.
 
-**Part 1 is philosophy**: a change that breaks one of these is wrong here even
-where it would be right elsewhere. **Part 2 is defaults**: depart from one
-where the work is better served, and **say so in the PR in a sentence**, so the
-exception is a decision rather than a slip.
+To learn what the project _is_, read [docs/](docs/index.md), and read
+[what counts as language](docs/about/what-counts-as-language.md) before
+anything else.
+
+`.claude/CLAUDE.md` is a symlink to this file. There is one copy of these
+rules.
+
+**Part 1 is philosophy.** A change that breaks one of these rules is wrong
+here, even where it would be right elsewhere.
+
+**Part 2 is defaults.** Depart from a default where the work is better served
+by it, and **say so in the PR in one sentence**. That way the exception is a
+decision, and not a slip.
 
 # Part 1 — Philosophy
 
-## Who is speaking
+## Marking what a session wrote
 
-Code is checked; a discussion is trusted. Mark which is which —
-[linopy's rules](https://github.com/PyPSA/linopy/blob/master/AGENTS.md), binding
-every PR body, issue and comment posted from a session:
+Code is checked. A discussion is trusted. So mark which is which. These are
+[linopy's rules](https://github.com/PyPSA/linopy/blob/master/AGENTS.md), and
+they bind every PR body, issue and comment posted from a session:
 
 1. **Mark generated content** at the top of the section it starts, never in a
    footer. Verbose evidence goes in `<details>`.
-2. **The intent line is the human's** — usually a few sentences at the top.
-   Never paraphrase their ask into a first-person "I want this because…"; write
-   the whole thing only when they ask you to.
-3. **Where they wrote no intent, quote the ask that defines the PR** — verbatim,
-   labelled as the prompt, above the note, usually one sentence. Not a
-   transcript: a follow-up that changed the work is a line in the body, one that
-   did not ("rebase", "fix CI", "now the other one") belongs nowhere. Quote a
-   second prompt only where it genuinely set scope, trimmed to the part that did.
-4. **Do not hold the conversation.** Post marked information — a log, an error,
-   a diff. Do not reply, concede, agree or decide as someone else.
+2. **The intent line belongs to the human.** It is usually a few sentences at
+   the top. Never paraphrase their ask into a first-person "I want this
+   because…". Write the whole thing only when they ask you to.
+3. **Where they wrote no intent, quote the ask that defines the PR.** Quote it
+   word for word, label it as the prompt, and put it above the note. It is
+   usually one sentence. Do not write a transcript. A follow-up that changed the
+   work is a line in the body. A follow-up that did not change the work, such as
+   "rebase", "fix CI" or "now the other one", belongs nowhere. Quote a second
+   prompt only where it genuinely set the scope, and trim it to the part that
+   did.
+4. **Do not hold the conversation.** Post marked information, such as a log, an
+   error, or a diff. Do not reply, concede, agree or decide as someone else.
 
 ```markdown
 Why this matters to me — the human's own line.
@@ -54,157 +62,172 @@ What was implemented, and how it was verified.
 </details>
 ```
 
-In the tree nothing is marked: `Co-Authored-By: Claude …` is the record.
+In the tree, nothing is marked. `Co-Authored-By: Claude …` is the record.
 
-## One question, one answer
+## What belongs in this repository
 
-This repository owns a language, and its whole promise is that two consumers
-reading the same file cannot disagree about what it says. So the test for
-whether something belongs here at all is
-[what counts as language](docs/about/what-counts-as-language.md): _would two
-consumers answering this question separately be a bug?_ If yes, the answer
-lives here, once. If no, it is an engine's business and putting it here is the
-mistake.
+This repository owns a language. Its whole promise is that two consumers
+reading the same file cannot disagree about what that file says.
 
-- **Nothing is guessed, and nothing is deferred that data does not decide.**
-  Everything decidable without data is decided at load — every expression,
-  every `where` string, every uncalled macro template. Where a file does not
-  determine the answer, loading fails and the message names the rewrite.
-- **A new construct is triaged first: primitive, macro, or `escape:`.** The
-  ceiling is relational ∩ local, and the deliberate non-primitives in
-  [ceiling.md](docs/about/ceiling.md) come first — the argument for admitting
-  one is the argument that page is making, not a new one.
-- **A construct that cannot be printed is not in the language.** Anything the
+So the test for whether something belongs here at all is in
+[what counts as language](docs/about/what-counts-as-language.md): _would it be a
+bug for two consumers to answer this question separately?_ If yes, the answer
+lives here, once. If no, the question is an engine's business, and putting the
+answer here is the mistake.
+
+- **Nothing is guessed. Nothing is deferred that the data does not decide.**
+  Everything that can be decided without data is decided at load. That covers
+  every expression, every `where` string, and every macro template, including
+  the ones nothing calls. Where a file does not determine the answer, loading
+  fails, and the message names the rewrite.
+- **Triage a new construct first: is it a primitive, a macro, or refused?**
+  A primitive is admissible when it is relational and local. Read the
+  deliberate non-primitives in
+  [limits.md](docs/about/limits.md) first. The argument for admitting one of
+  those is the argument that page is already making, not a new argument.
+- **A construct that cannot be printed is not in the language.** Whatever the
   loader admits, the typesetter renders in all three formats.
 
-## Simplicity is the design
+## Keeping the design simple
 
-- **The simplest thing that works.** No new layer, protocol, registry, config
-  object or plugin seam unless something concrete needs it _now_ — a second
-  implementation, an extension point a third party builds against, a constraint
-  nothing else meets. "It will make the next change easier" is not evidence; the
-  next change can add it, and by then it will know what shape it wants.
-- **YAGNI.** An option nobody sets, a branch nothing reaches, an abstraction
-  with one caller: delete it, and add it back the day something asks for it.
-- **DRY, about knowledge rather than characters.** One fact — a rule, a default,
-  a table, a model — has one home, because a second copy drifts silently. Code
-  that merely _looks_ alike is not a duplication: folding it together buys a
-  parameter, a branch and a detour for every future reader.
-- **A cleanup pass whose output is a defensive rename** rather than fewer lines
-  and fewer concepts gets sent back.
+- **Build the simplest thing that works.** Add no new layer, protocol,
+  registry, config object or plugin system unless something concrete needs it
+  _now_. Concrete means a second implementation, an extension point that a third
+  party builds against, or a constraint that nothing else meets. "It will make
+  the next change easier" is not evidence. The next change can add it, and by
+  then it will know what shape it wants.
+- **YAGNI.** Delete an option nobody sets, a branch nothing reaches, and an
+  abstraction with one caller. Add each back on the day something asks for it.
+- **DRY, about knowledge rather than characters.** One fact has one home,
+  because a second copy drifts without anyone noticing. A fact can be a rule, a
+  default, a table, or a model. Code that merely _looks_ alike is not a
+  duplication. Folding such code together buys a parameter, a branch, and a
+  detour for every future reader.
+- **A cleanup pass has to end in fewer lines and fewer concepts.** One whose
+  output is a defensive rename gets sent back.
 
-## Breaking changes are free
+## Renaming and deleting
 
-The project is on the `0.0.0-alphaN` stream and holds no compatibility promise.
-Asked to change something, change it: rename, move, delete. No alias, no
-deprecation cycle, no `legacy_` path — and **no hand-written message for the
-retired spelling**: the closed schema's own error names the valid keys, which is
-the whole migration story. **A test asserting the old behaviour is not a
-blocker**; say in the PR what coverage moved where.
+The project is on the `0.0.0-alphaN` stream, and it holds no compatibility
+promise.
 
-The one place this costs something: a breaking marker (`!`, or a
-`BREAKING CHANGE:` footer) in the PR title is **refused** by the
-`Conventional commit subject` check, because it would move the base version
-rather than the alpha counter. Describe the break in the PR body instead.
+So when you are asked to change something, change it. Rename it, move it, or
+delete it. Add no alias, no deprecation cycle, and no `legacy_` path. Write **no
+message by hand for the retired spelling**. The closed schema's own error names
+the valid keys, and that is the whole migration story.
 
-## A claim carries its evidence
+**A test that asserts the old behaviour is not a blocker.** Say in the PR what
+coverage moved where.
 
-- **A number lives in the PR that took it**, beside its method and base commit.
-  What stays behind in the tree is the conclusion **and a `#nnn`, which is not
-  optional** — the ref is the whole reason the number was allowed to leave.
-  `git log -S'<the number>' -- src/` finds the PR when it is not to hand; if
-  nothing does, **keep the number** rather than lose it.
-- **A vague qualifier is not a conclusion.** "measurably slower", "much
-  stricter", "a large multiple" can be neither checked nor refuted, and are
-  worse than the number they replaced.
-- **"It passes" is a claim like any other.** Say which gate was run —
-  `pixi run test`, `pixi run ci`, one file — and name what you did not run.
+There is one place where this costs something. A breaking marker in the PR title
+is **refused** by the `Conventional commit subject` check. A breaking marker is
+a `!`, or a `BREAKING CHANGE:` footer. It is refused because it would move the
+base version rather than the alpha counter. Describe the break in the PR body
+instead.
+
+## Numbers and claims
+
+- **A number lives in the PR that took it**, beside its method and its base
+  commit. What stays behind in the tree is the conclusion, **and a `#nnn`, which
+  is not optional**. That reference is the whole reason the number was allowed to
+  leave the PR. To find the PR when you do not have it to hand, run
+  `git log -S'<the number>' -- src/`. If nothing finds it, **keep the number**
+  rather than lose it.
+- **A vague qualifier is not a conclusion.** Nobody can check or refute
+  "measurably slower", "much stricter" or "a large multiple". Each one is worse
+  than the number it replaced.
+- **"It passes" is a claim like any other.** Say which gate you ran, such as
+  `pixi run test`, `pixi run ci`, or one file. Then name what you did not run.
 - **Check the user's numbers too.**
 
-## The tree holds facts, the PR holds the story
+## Where rationale goes
 
-- Rationale and alternatives belong in the PR description; "previously this used
-  to…", "renamed from…", "as of the parser rewrite…" belong in git. Neither
-  belongs in the code.
-- **Docs move with the change.** A construct added, renamed or retired updates
-  the [language reference](docs/reference/language/index.md) — and
-  [ceiling.md](docs/about/ceiling.md) if the change moves the ceiling itself,
-  which is a decision to raise in the PR rather than a paragraph to edit
-  quietly.
-- **After a decision in conversation, sweep for what now contradicts it**, stale
-  rationale included: a stale sentence outranks correct code in every reader's
-  head.
+- Rationale and alternatives belong in the PR description. History belongs in
+  git, and that covers "previously this used to…", "renamed from…" and "as of
+  the parser rewrite…". Neither of the two belongs in the code.
+- **Docs move with the change.** A construct that is added, renamed or retired
+  updates the [language reference](docs/reference/language/index.md). If the
+  change moves the limit itself, it also updates
+  [limits.md](docs/about/limits.md). Moving the limit is a decision to raise
+  in the PR, not a paragraph to edit quietly.
+- **After a decision in conversation, sweep for what now contradicts it.** That
+  includes stale rationale. In every reader's head, a stale sentence outranks
+  correct code.
 
-## Generated files are generated
+## Files that a tool writes
 
-The schema, the golden typesetter output and six committed pages — the README
-and `docs/index.md` among them — are written by a tool and committed, and a
-test asks each one whether it has drifted. **Never hand-edit them.** Regenerate, then **read the diff — that is
-the review**, and it is the reason the output is generated rather than
-hand-written.
+Some files in this tree are written by a tool and then committed. They are the
+schema, the golden typesetter output, and six documentation pages, which include
+the README and `docs/index.md`. A test asks each one of them whether it has
+drifted.
+
+**Never edit these files by hand.** Regenerate them, and then **read the diff.
+The diff is the review**, and being able to review a diff is the reason the
+output is generated rather than written by hand.
 
 ```bash
 pixi run python -m tools.schema              # schema/math-spec.schema.json
 pixi run python -m tests.typesetting.golden  # tests/typesetting/golden/*.out
 ```
 
-The documentation pages name their own generator in the failure message; a new
-generator lands with a row in `tests/test_docs.py`'s `GENERATED` table, or
-`test_every_generator_is_asked` says so.
+The documentation pages name their own generator in the failure message. A new
+generator lands together with a row in the `GENERATED` table in
+`tests/test_docs.py`. If it does not, `test_every_generator_is_asked` says
+so.
 
-## The maintainer decides
+## What the user decides
 
-- **The user merges** — an agent does not decide that work is finished. Told
-  directly to merge, merge. Never force-push or delete a branch you did not
-  create.
-- The invariants are enforced by the suite rather than repeated here: the export
-  surface by `tests/test_public_surface.py`, the committed schema by
-  `tests/test_schema.py`, the generated pages by `tests/test_docs.py`, and the
-  version by the git tag — it is written down nowhere in the tree, so never
-  "fix" it into a file.
+- **The user merges.** An agent does not decide that work is finished. If you
+  are told directly to merge, then merge. Never force-push, and never delete a
+  branch that you did not create.
+- The suite enforces the invariants, so this file does not repeat them. The
+  public API is enforced by `tests/test_public_surface.py`. The committed
+  schema is enforced by `tests/test_schema.py`. The generated pages are enforced
+  by `tests/test_docs.py`. The version comes from the git tag. The version is
+  written down nowhere in the tree, so never "fix" it into a file.
 
 # Part 2 — Good defaults
 
 ## Environment and gates
 
-- **Everything runs in a pixi environment.** Any command (like `pytest`) must be
-  prefixed with `pixi run` (e.g. `pixi run pytest`).
-- **Lockfiles must be consistent with package metadata.** After any change to
+- **Everything runs in a pixi environment.** Prefix any command with
+  `pixi run`. For example, run `pixi run pytest`, not `pytest`.
+- **The lockfiles must agree with the package metadata.** After any change to
   `pixi.toml`, run `pixi lock`. The runtime dependencies are mirrored between
-  `pyproject.toml` and `pixi.toml`; keep the two lists in step.
-- **`pixi run lint` before every commit** — it is
-  `lefthook run pre-commit --all-files`, the same jobs a commit runs, and CI
-  fails on a tree it would have changed.
-- **`pixi run ci` is the whole gate**: `lint`, `test`, `docs-build`,
-  `compile-tex`, in the order a failure is cheapest to read. CI runs those four
-  as one job.
-- **Every file carries an SPDX header**, or an entry in `REUSE.toml`;
-  `reuse lint` is part of `lint` and a new file without one fails it.
-- **The docs build is `--strict`**, so a page added without a nav entry in
-  `mkdocs.yml`, a dead cross-link and a stale anchor are all build failures. A
-  generated page also belongs in `.prettierignore`, or the formatter and its
-  generator will fight over it.
+  `pyproject.toml` and `pixi.toml`, so keep the two lists in step.
+- **Run `pixi run lint` before every commit.** It is
+  `lefthook run pre-commit --all-files`, which is the same set of jobs a commit
+  runs. CI fails on a tree that lint would have changed.
+- **`pixi run ci` is the whole gate.** It runs `lint`, `test`, `docs-build` and
+  `compile-tex`, in the order that makes a failure cheapest to read. CI runs
+  those four as one job.
+- **Every file carries an SPDX header**, or an entry in `REUSE.toml`.
+  `reuse lint` is part of `lint`, and a new file without either one fails it.
+- **The docs build is `--strict`.** So three things are build failures: a page
+  added with no nav entry in `mkdocs.yml`, a dead cross-link, and a stale
+  anchor. A generated page also belongs in `.prettierignore`. Without that entry,
+  the formatter and the generator fight over the page.
 
 ## Code
 
-- **No explanatory inline comments** — complex logic becomes a helper with a
-  docstring:
+- **Write no explanatory inline comments.** Turn complex logic into a helper
+  with a docstring:
 
   ```python
   # no
-  program = to_program(spec)  # hold it — this one is not memoised, unlike the expansion
+  program = to_program(spec)  # hold it — this one is not cached, unlike the expansion
 
   # yes — the sentence lives in to_program()'s docstring
   program = to_program(spec)
   ```
 
-  Kept inline: pragmas (`# pyrefly: ignore[…]` with its reason, `# noqa` with
-  its rule, `# fmt: skip`), `#:` attribute docs, section banners, and the two
-  below.
+  These stay inline: pragmas, which are `# pyrefly: ignore[…]` with its reason,
+  `# noqa` with its rule, and `# fmt: skip`; `#:` attribute docs; section
+  banners; and the two kinds of comment listed below.
 
-- **Put the claim in the message that prints** — the assertion message in a
-  test, the error text in the code. A comment is read by whoever already found
-  the line, a message by whoever hit it:
+- **Put the claim in the message that prints.** That is the assertion message in
+  a test, and the error text in the code. A comment is read by whoever has
+  already found the line. A message is read by whoever hit it:
 
   ```python
   # no
@@ -214,68 +237,76 @@ generator lands with a row in `tests/test_docs.py`'s `GENERATED` table, or
   assert names == ['bus', 'snapshot', 'tech'], 'dimensions come back sorted, not in declaration order'
   ```
 
-  **Required where the claim is not on the line**: a literal collection (which
-  asserts an order and a completeness), a count, a tolerance, an absence.
-  Elsewhere it is a judgement — `assert model.name == 'dispatch'` says
-  everything already, and a sentence after it is the restatement the docstring
-  rules tell you to cut.
+  A message is **required wherever the claim is not on the line itself**. That
+  covers a literal collection, which asserts both an order and a completeness;
+  a count; a tolerance; and an absence. Everywhere else it is a judgement.
+  `assert model.name == 'dispatch'` says everything already, and a sentence
+  after it is the restatement that the docstring rules tell you to cut.
 
 - **An error message names the rewrite.** This language fails at load on
-  purpose, and a message that only says what is wrong wastes the one moment the
-  file's author is reading. `tests/test_validation.py` is where that is held to.
-- **A sequence of cases is parametrized, and the `id` is the label.** Five
-  `pytest.raises` blocks in one test hide four failures behind the first and
-  keep their labels in the source; five `pytest.param(..., id='…')` print the
-  case that failed and select with `-k`.
-- **A correctness guard lands with the test that fails without it.** Delete the
-  guard, run the suite, and put the result in the PR — a guard the suite
-  survives gets a purpose-built test before merge, because a green suite proves
-  nothing about a line no test can reach.
-- **A bug is reproduced as a failing test before it is fixed.** Watch it fail on
-  the broken tree first: one that passes there is testing something else, and
-  the fix it certifies is not the fix. What was wrong moves into the test's
-  docstring.
-- **Two comments are not explanation, and stay where the eye lands**: a **case
-  label** where parametrizing would distort the test, and a **one-line
-  justification of a line that reads as a mistake** — a bare
-  `except BaseException`, a magic literal, a deliberate no-op.
-- **A number the code acts on stays inline** — a cap, a precedence level, a
-  tolerance. There the number _is_ the decision, not evidence for one.
-- **Coverage is a local instrument**, `pixi run test-coverage` when you want it.
-  It is not a gate, because a guard whose false arm no test takes is a fully
+  purpose. A message that only says what is wrong wastes the one moment when the
+  file's author is reading. `tests/test_validation.py` is where this is held
+  to.
+- **Parametrize a sequence of cases, and make the `id` the label.** Five
+  `pytest.raises` blocks in one test hide four failures behind the first, and
+  keep their labels in the source. Five `pytest.param(..., id='…')` entries
+  print the case that failed, and let you select it with `-k`.
+- **A correctness guard lands together with the test that fails without it.**
+  Delete the guard, run the suite, and put the result in the PR. A guard that
+  the suite survives gets a purpose-built test before merge. A green suite
+  proves nothing about a line that no test can reach.
+- **Reproduce a bug as a failing test before you fix it.** Watch the test fail
+  on the broken tree first. A test that passes on the broken tree is testing
+  something else, and the fix it certifies is not the fix. Move what was wrong
+  into the test's docstring.
+- **Two kinds of comment are not explanation, and they stay where the eye
+  lands.** The first is a **case label**, where parametrizing would distort the
+  test. The second is a **one-line justification of a line that reads as a
+  mistake**, such as a bare `except BaseException`, a magic literal, or a
+  deliberate no-op.
+- **A number that the code acts on stays inline.** That covers a cap, a
+  precedence level, and a tolerance. There the number _is_ the decision, and not
+  evidence for one.
+- **Coverage is a local instrument.** Run `pixi run test-coverage` when you want
+  it. It is not a gate, because a guard whose false arm no test takes is a fully
   covered line.
 
 ## Docstrings
 
-**As short as it can be without losing the reader** — and the reader of a public
-name is the _caller_, not the implementer. `D1` is off in `ruff`'s config
-precisely so that this file, not the linter, decides where one earns its place.
+**Make a docstring as short as it can be without losing the reader.** For a
+public name, the reader is the _caller_, not the implementer. `D1` is off in
+`ruff`'s config exactly so that this file decides where a docstring earns its
+place, rather than the linter.
 
-- **Carry, on anything a caller touches**: what it does, what it takes and
-  returns, how it fails, what it guarantees, in the caller's terms. How it works
-  inside belongs in the code, where anyone who needs it is already looking.
-- **A private helper is the exception** — there the reader _is_ a maintainer:
-  write the constraint that made it exist, and the invariant a change could
-  break unknowingly.
-- **Cut** restatement, argument for a settled decision, narration of how the
-  answer was found, and any tour of internals a caller cannot see.
-- **The form is
-  [Google's](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)**,
-  checked by `ruff`'s `D` rules (`pydocstyle.convention = "google"`): a summary
-  line, a blank line, then the body; `Args:`, `Returns:`, `Yields:`, `Raises:`,
-  `Attributes:`, `Example:`, in that order, `name: description` under each and
-  no types — the annotation carries them.
-- **A block is all or nothing.** `Args:` names _every_ parameter (`D417` checks
-  that), so a function whose signature already says it takes the one-line
-  docstring and no block at all — the guide's own escape, and what most private
-  helpers here want. Half a signature restated is what neither rule accepts.
+- **On anything a caller touches, carry five things**: what it does, what it
+  takes, what it returns, how it fails, and what it guarantees. Write all five
+  in the caller's terms. How it works inside belongs in the code, where anyone
+  who needs that is already looking.
+- **A private helper is the exception.** There the reader _is_ a maintainer. So
+  write the constraint that made the helper exist, and the invariant that a
+  change could break without anyone noticing.
+- **Cut four things**: restatement, argument for a decision that is already
+  settled, narration of how you found the answer, and any tour of internals that
+  a caller cannot see.
+- **Use
+  [Google's form](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)**,
+  which `ruff`'s `D` rules check with `pydocstyle.convention = "google"`. That
+  is a summary line, a blank line, and then the body. The blocks are `Args:`,
+  `Returns:`, `Yields:`, `Raises:`, `Attributes:` and `Example:`, in that order.
+  Under each block write `name: description`. Write no types, because the
+  annotation already carries them.
+- **A block is all or nothing.** `Args:` names _every_ parameter, and `D417`
+  checks that. So where the signature already says what a function takes, write
+  the one-line docstring and no block at all. That is the guide's own escape, and
+  it is what most private helpers here want. Restating half a signature is what
+  neither rule accepts.
 - **The gate is `src/`**, where a docstring is a contract with a caller. Under
-  `tests/`, `tools/` and `docs/static/` the `D` rules are off and so are the
-  bullets above: there a docstring argues for one assertion or narrates a
-  script, and a summary line it has to fit in is the worse sentence.
+  `tests/`, `tools/` and `docs/static/` the `D` rules are off, and so are the
+  bullets above. There a docstring argues for one assertion, or narrates a
+  script, and forcing it into a summary line gives you the worse sentence.
 
-`to_spec` is the model — the front door, in the caller's terms, and not a
-word about how it validates:
+`to_spec` is the model to follow. It is the front door, written in the caller's
+terms, and it says not a word about how it validates:
 
 ```python
 def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
@@ -298,48 +329,54 @@ def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
 
 ## Commit messages and PR titles
 
-**The title is the changelog line.** release-please prints it in `CHANGELOG.md`,
-where the reader has no diff, no issue and none of our vocabulary. It names the
-problem solved — an outcome, not an activity, not a mechanism.
+**The title is the changelog line.** release-please prints it in
+`CHANGELOG.md`, where the reader has no diff, no issue, and none of our
+vocabulary. So the title names the problem solved. It names an outcome, not an
+activity, and not a mechanism.
 
-**The type is decided by the diff's file list, before a word of the subject is
-written.** `feat fix perf refactor docs` publish, `chore test ci build style`
-hide.
+**The file list of the diff decides the type, before you write a word of the
+subject.** `feat`, `fix`, `perf`, `refactor` and `docs` publish to the
+changelog. `chore`, `test`, `ci`, `build` and `style` hide.
 
-| The diff touches                                               | Type                           |
-| -------------------------------------------------------------- | ------------------------------ |
-| `src/` — what the language accepts, refuses, prints or exposes | `feat` `fix` `perf` `refactor` |
-| `docs/`, `examples/`, `mkdocs.yml`                             | `docs`                         |
-| `tests/`                                                       | `test`                         |
-| `.github/`, `pixi.toml`, `pixi.lock`, `pyproject.toml`         | `ci` / `build`                 |
-| `AGENTS.md`, `CONTRIBUTING.md`, `tools/`, `scripts/`           | `chore`                        |
+| The diff touches                                                       | Type                           |
+| ---------------------------------------------------------------------- | ------------------------------ |
+| `src/`, which is what the language accepts, refuses, prints or exposes | `feat` `fix` `perf` `refactor` |
+| `docs/`, `examples/`, `mkdocs.yml`                                     | `docs`                         |
+| `tests/`                                                               | `test`                         |
+| `.github/`, `pixi.toml`, `pixi.lock`, `pyproject.toml`                 | `ci` / `build`                 |
+| `AGENTS.md`, `CONTRIBUTING.md`, `tools/`, `scripts/`                   | `chore`                        |
 
-A diff across several rows takes the topmost it touches: a construct lands with
-its docs and its tests and is still a `feat`. A reshuffle inside `src/` that no
-consumer can tell apart — a module moved, a private name changed — is `chore`;
-`refactor` publishes, so it is for the ones a changelog reader would want. Two
-cases the table decides and a writer still gets wrong:
+A diff that crosses several rows takes the topmost row it touches. So a
+construct that lands with its docs and its tests is still a `feat`.
 
-- **A new example, or a whole rung of the ladder, is `docs`** however much work
-  it was. `docs` publishes to the changelog too, so nothing is lost by not
+A reshuffle inside `src/` that no consumer can tell apart is a `chore`. Moving a
+module and changing a private name are both that. `refactor` publishes, so
+`refactor` is for the reshuffles a changelog reader would want to know about.
+
+Two cases the table decides, and a writer still gets wrong:
+
+- **A new example, or a whole rung of the ladder, is `docs`**, however much work
+  it was. `docs` publishes to the changelog too, so you lose nothing by not
   calling it `feat`.
-- **A dependency bump that changes what this package accepts is `feat`/`fix` on
-  that outcome**, not `build` on the bump — the type names the problem solved,
-  for the same reason the subject does.
+- **A dependency bump that changes what this package accepts is a `feat` or a
+  `fix` on that outcome.** It is not a `build` on the bump. The type names the
+  problem solved, for the same reason the subject does.
 
-Then the subject:
+Then write the subject:
 
-- **A complete sentence, as long as it needs.** `a curve varying along a dim` is
-  a telegram; `a curve that varies along a dimension` is longer and it reads.
-- **A tail that parses on its own.** `…, not an em dash` is a fragment, and it
-  argues against a shape only that diff's reviewer saw. Give it a verb —
-  `rather than` — or drop it.
-- **A subject the changelog reader can name.** Not `a pass` or `a walk`; not
-  `dim`, `coord`, `AST`.
+- **Write a complete sentence, as long as it needs to be.**
+  `a curve varying along a dim` is a telegram.
+  `a curve that varies along a dimension` is longer, and it reads.
+- **Write a tail that parses on its own.** `…, not an em dash` is a fragment,
+  and it argues against a shape that only that diff's reviewer saw. Give the tail
+  a verb, such as `rather than`, or drop it.
+- **Write a subject the changelog reader can name.** Not `a pass` or `a walk`,
+  and not `dim`, `coord` or `AST`.
 
-Lower case, no full stop, conventional-commit form and the refused breaking
-marker: [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages). The 72-char warning
-in `pr-title.yml` is about `git log --oneline`; the changelog does not truncate.
+Use lower case, no full stop, and conventional-commit form. The breaking marker
+is refused. See [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages). The 72
+character warning in `pr-title.yml` is about `git log --oneline`. The changelog
+does not truncate.
 
 ```
 yes  fix(parser): a where clause with a trailing comma loads
@@ -359,57 +396,78 @@ no   feat: rung 15 — investment periods with a growth limit, a file of its own
 
 ## PR descriptions
 
-**Forty words to the claim**, everything under it in `<details>` — the method,
-the gate output, the walk through what was considered. A body longer than its
-diff is one nobody finishes.
+**Reach the claim within forty words.** Put everything under the claim inside
+`<details>`. That covers the method, the gate output, and the walk through what
+you considered. Nobody finishes a body that is longer than its diff.
 
-- **Lead with the claim**, then the evidence.
-- **Say what was verified**, which gate you ran, and what you could not check.
-- **Name what you deliberately did not do**, and any default in Part 2 you
-  departed from.
-- **One issue, one PR.** Separable work is stacked, not bundled.
-- **A body the work has overtaken is rewritten**, not appended to in a comment.
-- **The stack is the base branch**, not pin hashes and retarget notes in prose.
-- **Mark it**, evidence in `<details>`.
+- **Lead with the claim**, and then give the evidence.
+- **Say what you verified**, which gate you ran, and what you could not check.
+- **Name what you deliberately did not do**, and name any default in Part 2 that
+  you departed from.
+- **One issue, one PR.** Stack separable work; do not bundle it.
+- **Rewrite a body that the work has overtaken.** Do not append to it in a
+  comment.
+- **The stack is the base branch.** It is not pinned hashes and retarget notes
+  written out in prose.
+- **Mark the body**, and put the evidence in `<details>`.
 
 ## Branch and worktree
 
-One topic, one worktree, one branch, one PR. Parallel agents are fine because
-each takes its own.
+One topic, one worktree, one branch, one PR. Parallel agents are fine, because
+each agent takes its own.
 
 ```bash
 git fetch origin
 git worktree add ../wt/<topic> -b <type>/<topic> origin/main
 ```
 
-- **`git fetch origin` first, every time.** Branch from the fetched
-  `origin/main`, never from HEAD or a local `main`.
-- Never switch the branch of the shared primary checkout, or park a large diff
-  there.
-- Keep the worktree out of gitignored paths: `pyrefly` skips them and **exits
-  0**, which reads as a pass.
-- A worktree solves and installs its own `.pixi/`, which is minutes and
-  gigabytes per topic. Share nothing between them by hand; the package cache is
-  already shared, so the second one is much cheaper than the first.
-- `git worktree remove` when the PR merges.
-- Verify claims about shipped behaviour against `origin/main`. `gh pr view`
-  before rebasing or reviving anything.
-- **`pixi run ci` before pushing** — the required check's own gates, locally.
-- Finishing is: committed, pushed, PR open, URL reported, CI's state as it
-  stands — not CI green. Waiting on it is a choice the work has to earn.
+- **Run `git fetch origin` first, every time.** Branch from the fetched
+  `origin/main`. Never branch from HEAD or from a local `main`.
+- Never switch the branch of the shared primary checkout, and never park a large
+  diff there.
+- Keep the worktree out of gitignored paths. `pyrefly` skips a gitignored path
+  and **exits 0**, which reads as a pass.
+- A worktree solves and installs its own `.pixi/`, which costs minutes and
+  gigabytes per topic. Share nothing between worktrees by hand. The package
+  cache is already shared, so the second worktree is much cheaper than the
+  first.
+- Run `git worktree remove` when the PR merges.
+- Verify claims about shipped behaviour against `origin/main`. Run `gh pr view`
+  before you rebase or revive anything.
+- **Run `pixi run ci` before pushing.** That runs the required check's own gates,
+  locally.
+- Finishing means five things: committed, pushed, PR open, URL reported, and CI's
+  state as it stands. It does not mean CI green. Waiting for CI green is a choice
+  that the work has to earn.
 
 ## Issues
 
-Templates and where each kind goes:
-[CONTRIBUTING.md](CONTRIBUTING.md#reporting-bugs-and-requesting-features). On
-top of them: findings, issue bodies and your own earlier analysis are **claims
-to check** — re-read the code, fix what is still valid, name what you skipped. A
-body invalidated by a rewrite is closed and re-filed, not annotated.
+[CONTRIBUTING.md](CONTRIBUTING.md#reporting-bugs-and-requesting-features) has
+the templates, and says where each kind of issue goes.
+
+On top of that: findings, issue bodies and your own earlier analysis are all
+**claims to check.** Re-read the code, fix what is still valid, and name what
+you skipped. A body that a rewrite has invalidated gets closed and re-filed. It
+does not get annotated.
 
 ## Working with the user
 
-- **"Discuss", "should we", "is it worth" are questions.** Answer, then stop.
-- **Do not widen scope.** Name the adjacent thing in a sentence instead.
-- **Recommend, do not survey.**
-- **A language feature is triaged before it is designed** — primitive, macro or
-  `escape:`, against [ceiling.md](docs/about/ceiling.md).
+- **"Discuss", "should we" and "is it worth" are questions.** Answer them, then
+  stop.
+- **Do not widen the scope.** Name the adjacent thing in one sentence instead.
+- **Recommend. Do not survey.**
+- **Triage a language feature before you design it.** Decide whether it is a
+  primitive, a macro or refused, against [limits.md](docs/about/limits.md).
+
+## Prose
+
+Write plain declarative sentences that answer a question. Use Simplified
+Technical English (ASD-STE100). This holds for the Markdown pages in this
+repository, for issues, PRs and commit messages, and in conversation, where the
+emphasis is on explaining technical subjects and mathematics so that the user
+understands them.
+
+The rules a documentation page meets — what a page is for, how it is shaped,
+the vocabulary and the sentence-level bar — are in
+[the docs-writing skill](.claude/skills/docs-writing/SKILL.md), which is their
+one home. Read it before writing a page, not this file.

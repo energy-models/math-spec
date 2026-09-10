@@ -5,18 +5,23 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the multi-period class
 
-Rung 15 of [PyPSA in one file](pypsa.md): `n.optimize(multi_investment_periods=True)`, stated on rungs 1 and 3 in a
-file of its own — the model's description below says why. Its network is a whole one: eight snapshots over two investment periods, build years and lifetimes on the script.
+This is rung 15 of [PyPSA in one file](pypsa.md). It states
+`n.optimize(multi_investment_periods=True)` on rungs 1 and 3, in a file of its
+own. The model's description below says why it has its own file.
+
+Its network is a whole network rather than the shared spine. It has eight
+snapshots over two investment periods, and the script carries the build years
+and the lifetimes.
 
 ## Rung 15 — investment periods, with a growth limit
 
 | PyPSA | status | note |
 | --- | --- | --- |
-| [`Generator-p`](#variable-domains) | done | where the generator stands in the snapshot's period — `active`, data prep |
+| [`Generator-p`](#variable-domains) | done | built where the generator stands in the snapshot's period. That is `active`, which comes from data preparation |
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
-| [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period a build stands in; `edge=0` at the first period |
-| [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
-| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period)` has them; a later rung |
+| [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period that a build stands in, with `edge=0` at the first period |
+| [objective](#objective) | done | the period weight applies to operation. Capacity is counted once per period it stands in |
+| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period)` can state these. They are a later rung |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.
