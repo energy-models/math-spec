@@ -232,7 +232,7 @@ def test_a_given_entry_nothing_reads_is_advised_rather_than_refused(patch, said)
 def test_a_layer_prints_in_all_three_formats(render):
     """Whatever the loader admits, the typesetter renders — so a given block is a preamble, not a gap."""
     out = render(LAYER)
-    assert 'Given' in out, 'the block prints under its own heading, ahead of the math that assumes it'
+    assert 'Given' in out, 'the block prints under its own heading, beside the domains'
 
 
 def test_the_dual_a_given_row_family_offers_prints_as_the_symbol_the_math_uses():

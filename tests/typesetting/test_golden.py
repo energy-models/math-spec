@@ -221,7 +221,9 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
         'to_latex(model)\n'
         'to_latex(model, inline_expressions=True)\n'
         'spec = to_spec(model)\n'
-        'for name in (*spec.expressions, *spec.constraints, *spec.variables):\n'
+        'names = (*spec.expressions, *spec.constraints, *spec.variables)\n'
+        'given = (*spec.given.constraints, *spec.given.variables)\n'
+        'for name in (*names, *given):\n'
         "    typeset_declaration(model, name, 'latex')\n"
     )
     subprocess.run(

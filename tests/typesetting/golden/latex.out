@@ -45,6 +45,7 @@
 \item[{$\mathit{reserve}$}] \texttt{reserve} (scalar)
 \item[{$\mathit{headroom}$}] \texttt{headroom} (scalar)
 \item[{$\mathit{weight}$}] \texttt{weight} over $\mathcal{T} \times \mathcal{G}$
+\item[{$\mathit{imported}$}] \texttt{imported} over $\mathcal{T} \times \mathcal{Z}$ --- energy brought into a zone, built by the model this file is laid over
 \end{description}
 
 \paragraph{Definitions}
@@ -52,6 +53,8 @@
 \item[{$\mathit{spend}$}] \texttt{spend} over $\mathcal{T}$ --- what a snapshot's dispatch costs
 \item[{$\mathit{lcoe}$}] \texttt{lcoe} (scalar)
 \item[{$\mathit{marginal\_price}$}] \texttt{marginal\_price} over $\mathcal{T} \times \mathcal{B}$
+\item[{$\mathit{congestion\_rent}$}] \texttt{congestion\_rent} over $\mathcal{T} \times \mathcal{Z}$
+\item[{$\mathit{net\_import}$}] \texttt{net\_import} over $\mathcal{T}$
 \item[{$\mathrm{startup\_cost}$}] \texttt{startup\_cost} over $\mathcal{T} \times \mathcal{G}$ --- what starting a unit in this snapshot costs, which the horizon's edge changes
 \end{description}
 
@@ -113,6 +116,8 @@
 \text{spend} && \mathit{spend}_{t} & = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} && \forall\, t \in \mathcal{T} \\
 \text{lcoe} && \mathit{lcoe} & = \frac{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g}} \\
 \text{marginal\_price} && \mathit{marginal\_price}_{t,b} & = \lambda_{\mathrm{balance},t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
+\text{congestion\_rent} && \mathit{congestion\_rent}_{t,z} & = \lambda_{\mathrm{import\_limit},t,z} && \forall\, t \in \mathcal{T},\ z \in \mathcal{Z} \\
+\text{net\_import} && \mathit{net\_import}_{t} & = \sum_{z \in \mathcal{Z}} \mathit{imported}_{t,z} && \forall\, t \in \mathcal{T} \\
 \text{startup\_cost} && \mathrm{startup\_cost}_{t,g} & = \begin{cases} \mathrm{cost}_{g} & \text{if } \mathrm{pos}(t) = 0 \\ \mathrm{cost}_{g} \cdot 2 & \text{if } \mathrm{pos}(t) > 0 \wedge \mathrm{season\_of}(t) = \text{'}\mathrm{winter}\text{'} \\ 0 & \text{otherwise} \end{cases} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 \end{align}
 
@@ -129,6 +134,12 @@
 \text{headroom} && \mathit{headroom} & \ge 0 && \text{where } \mathrm{budget} \text{ is defined} \\
 \text{weight} && 0 \le \mathit{weight}_{t,g} & \le 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
 \text{weight sos} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T}
+\end{align}
+
+\paragraph{Given}
+\begin{align}
+\text{imported} && \mathit{imported}_{t,z} & \in \mathbb{R} && \forall\, t \in \mathcal{T},\ z \in \mathcal{Z} \\
+\text{import\_limit} && \lambda_{\mathrm{import\_limit},t,z} & \text{the dual of a given }\le\text{ row} && \forall\, t \in \mathcal{T},\ z \in \mathcal{Z}
 \end{align}
 
 \end{document}

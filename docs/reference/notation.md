@@ -107,6 +107,7 @@ parameters:
 | $`\mathit{reserve}`$ | `reserve` (scalar) |
 | $`\mathit{headroom}`$ | `headroom` (scalar) |
 | $`\mathit{weight}`$ | `weight` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{imported}`$ | `imported` over $`\mathcal{T} \times \mathcal{Z}`$ — energy brought into a zone, built by the model this file is laid over |
 
 #### Definitions
 
@@ -115,6 +116,8 @@ parameters:
 | $`\mathit{spend}`$ | `spend` over $`\mathcal{T}`$ — what a snapshot's dispatch costs |
 | $`\mathit{lcoe}`$ | `lcoe` (scalar) |
 | $`\mathit{marginal\_price}`$ | `marginal_price` over $`\mathcal{T} \times \mathcal{B}`$ |
+| $`\mathit{congestion\_rent}`$ | `congestion_rent` over $`\mathcal{T} \times \mathcal{Z}`$ |
+| $`\mathit{net\_import}`$ | `net_import` over $`\mathcal{T}`$ |
 | $`\mathrm{startup\_cost}`$ | `startup_cost` over $`\mathcal{T} \times \mathcal{G}`$ — what starting a unit in this snapshot costs, which the horizon's edge changes |
 
 Upright is what the model is given — a parameter such as $`\mathrm{p}^{\mathrm{max}}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`p`$. An index is italic too, being what a quantifier chooses, and a set is script.
@@ -617,6 +620,30 @@ marginal_price: dual(balance)
 
 ```math
 \mathit{marginal\_price}_{t,b} = \lambda_{\mathrm{balance},t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+```
+
+#### `congestion_rent`
+
+the dual of a row family this file is given rather than builds
+
+```yaml
+congestion_rent: dual(import_limit)
+```
+
+```math
+\mathit{congestion\_rent}_{t,z} = \lambda_{\mathrm{import\_limit},t,z} \qquad \forall\, t \in \mathcal{T},\ z \in \mathcal{Z}
+```
+
+#### `net_import`
+
+a given column read like any other
+
+```yaml
+net_import: sum(imported, over=zone)
+```
+
+```math
+\mathit{net\_import}_{t} = \sum_{z \in \mathcal{Z}} \mathit{imported}_{t,z} \qquad \forall\, t \in \mathcal{T}
 ```
 
 #### `startup_cost`

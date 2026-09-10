@@ -75,6 +75,17 @@ variables:
     foreach: [snapshot, generator]
     bounds: { lower: 0, upper: 1 }
 
+given: # what the file reads and does not introduce, so a layer prints its interface
+  variables:
+    imported: # a column somebody else builds: no bounds of its own, so the line is the domain alone
+      description: energy brought into a zone, built by the model this file is laid over
+      foreach: [snapshot, zone]
+  constraints:
+    import_limit: # a row family somebody else builds, whose dual a reported expression reads
+      description: the cap on imports the base model already states
+      foreach: [snapshot, zone]
+      sense: "<="
+
 sos:
   adjacent: # at most two adjacent members nonzero, one set per snapshot
     variable: weight
@@ -87,6 +98,8 @@ expressions:
     expression: sum(p * cost, over=generator)
   lcoe: sum(p * cost) / sum(p) # nothing in the math reads it, so its divisor may carry a variable
   marginal_price: dual(balance) # the row dual of a constraint, the one builtin only an entry the math never reads may call
+  congestion_rent: dual(import_limit) # the dual of a row family this file is given rather than builds
+  net_import: sum(imported, over=zone) # a given column read like any other
   startup_cost: # a quantity defined by region: no two cases overlap, and `otherwise` is the rest
     description: what starting a unit in this snapshot costs, which the horizon's edge changes
     foreach: [snapshot, generator]

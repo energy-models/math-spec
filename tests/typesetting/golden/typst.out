@@ -36,11 +36,14 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $italic("reserve")$: `reserve` (scalar)
 / $italic("headroom")$: `headroom` (scalar)
 / $italic("weight")$: `weight` over $cal(T) times cal(G)$
+/ $italic("imported")$: `imported` over $cal(T) times cal(Z)$ --- energy brought into a zone, built by the model this file is laid over
 
 == Definitions
 / $italic("spend")$: `spend` over $cal(T)$ --- what a snapshot's dispatch costs
 / $italic("lcoe")$: `lcoe` (scalar)
 / $italic("marginal_price")$: `marginal_price` over $cal(T) times cal(B)$
+/ $italic("congestion_rent")$: `congestion_rent` over $cal(T) times cal(Z)$
+/ $italic("net_import")$: `net_import` over $cal(T)$
 / $upright("startup_cost")$: `startup_cost` over $cal(T) times cal(G)$ --- what starting a unit in this snapshot costs, which the horizon's edge changes
 
 Upright is what the model is given --- a parameter such as $upright("p")^(upright("max"))$, a coordinate map, a label --- and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
@@ -99,6 +102,8 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
 $ upright("spend") & italic("spend")_(t) & = sum_(g in cal(G)) p_(t,g) dot upright("cost")_(g) & forall t in cal(T) \
   upright("lcoe") & italic("lcoe") & = frac(sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g), sum_(t in cal(T), g in cal(G)) p_(t,g)) \
   upright("marginal_price") & italic("marginal_price")_(t,b) & = lambda_(upright("balance"),t,b) & forall t in cal(T), b in cal(B) \
+  upright("congestion_rent") & italic("congestion_rent")_(t,z) & = lambda_(upright("import_limit"),t,z) & forall t in cal(T), z in cal(Z) \
+  upright("net_import") & italic("net_import")_(t) & = sum_(z in cal(Z)) italic("imported")_(t,z) & forall t in cal(T) \
   upright("startup_cost") & upright("startup_cost")_(t,g) & = cases(upright("cost")_(g) & upright("if ") upright("pos")(t) = 0, upright("cost")_(g) dot 2 & upright("if ") upright("pos")(t) > 0 and upright("season_of")(t) = upright("'winter'"), 0 & upright("otherwise")) & forall t in cal(T), g in cal(G) $
 
 == Variable domains
@@ -114,3 +119,8 @@ $ upright("p") & upright("p")^(upright("min"))_(g) <= p_(t,g) & <= upright("p")^
   upright("headroom") & italic("headroom") & >= 0 & upright("where ") upright("budget") upright(" is defined") \
   upright("weight") & 0 <= italic("weight")_(t,g) & <= 1 & forall t in cal(T), g in cal(G) \
   upright("weight sos") & (italic("weight")_(t,g))_(g in cal(G)) & in upright("SOS")2 & forall t in cal(T) $
+
+== Given
+#set math.equation(numbering: "(1)")
+$ upright("imported") & italic("imported")_(t,z) & in RR & forall t in cal(T), z in cal(Z) \
+  upright("import_limit") & lambda_(upright("import_limit"),t,z) & upright("the dual of a given ")<=upright(" row") & forall t in cal(T), z in cal(Z) $

@@ -614,22 +614,22 @@ class Walk:
     def equations(self) -> tuple[list[tuple[str, list[Line]]], Noticed]:
         """Every titled section of equations, and what printing them noticed for the legend."""
         sections = [
-            ('Given', self._given()),
             ('Objective', self._objective()),
             ('Subject to', self._constraints()),
             ('Definitions', self._definitions()),
             ('Variable domains', self._variables()),
+            ('Given', self._given()),
         ]
         return sections, self.noticed
 
     def _given(self) -> list[Line]:
         """One line per declaration the file reads and does not introduce.
 
-        A preamble, so it prints ahead of the objective: a reader meets what is
-        assumed before the math that assumes it. A given variable prints its
-        domain like any other, having no bounds of its own to state; a given
-        row family prints as the one thing the file may do with it, which is
-        read its dual.
+        Last, beside the domains, because both say what a symbol is rather
+        than what the model asks of it. A given variable prints its domain
+        like any other, having no bounds of its own to state; a given row
+        family prints as the one thing the file may do with it, which is read
+        its dual.
         """
         return [
             *(self._variable(name) for name in self.schema.given.variables),
@@ -648,7 +648,7 @@ class Walk:
         return Line(
             label=name,
             left=symbol,
-            right=f'{self.format.prose("the dual of a given")} {sense} {self.format.prose("row")}',
+            right=f'{self.format.prose("the dual of a given ")}{sense}{self.format.prose(" row")}',
             condition=self._quantifier(list(block.foreach), ''),
         )
 
