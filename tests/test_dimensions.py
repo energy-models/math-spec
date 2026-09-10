@@ -36,6 +36,7 @@ BASE = {
         'gen_bus': {'over': 'generator', 'into': 'bus'},
         'snap_bus': {'over': 'snapshot', 'into': 'bus'},
         'gen_zone': {'over': ['generator', 'snapshot'], 'into': 'zone'},
+        'rep_of': {'over': 'snapshot', 'into': 'snapshot'},
     },
     'parameters': {
         'p_max': {'dims': ['generator']},
@@ -125,6 +126,13 @@ def namespace() -> Namespace:
             id='a-partition-along-one-key-joined-on-the-other',
         ),
         pytest.param('sum(p, by=gen_bus.generator)', {'snapshot', 'bus'}, id='the-dot-is-legal-on-a-one-key-lookup'),
+        pytest.param('sum(p, by=rep_of)', {'snapshot', 'generator'}, id='a-map-into-its-own-dimension-keeps-the-frame'),
+        pytest.param('at(p, by=rep_of)', {'snapshot', 'generator'}, id='and-so-does-its-pullback'),
+        pytest.param(
+            "shift(p, over=snapshot, offset=1, edge='wrap', by=rep_of)",
+            {'snapshot', 'generator'},
+            id='a-partition-into-its-own-dimension',
+        ),
     ],
 )
 def test_dim_inference(expr, expected):
@@ -375,6 +383,8 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         pytest.param('snap_bus == "b1"', {'snapshot'}, id='a-lookup-through-the-dim-it-maps-out-of'),
         pytest.param('gen_zone == "z1"', {'generator', 'snapshot'}, id='a-two-key-lookup-through-both-keys'),
         pytest.param('gen_zone', {'generator', 'snapshot'}, id='a-bare-two-key-lookup-the-same'),
+        pytest.param('rep_of == 3', {'snapshot'}, id='a-map-into-its-own-dimension-through-its-key'),
+        pytest.param('position(snapshot, by=rep_of) == 0', {'snapshot'}, id='a-position-within-a-representative'),
         pytest.param(
             'position(generator, by=gen_zone.generator) == 0',
             {'generator', 'snapshot'},

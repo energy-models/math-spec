@@ -50,6 +50,7 @@ lookups:
   area_of: { over: bus, into: zone } # a second map into the same set, to compare against
   season_of: { over: snapshot, into: season }
   gen_zone: { over: [generator, snapshot], into: zone } # a map keyed by two dimensions: a call walks one and joins on the other
+  rep_of: { over: snapshot, into: snapshot } # a map into its own dimension: the representative snapshot
 
 parameters:
   p_max: { dims: [generator] }
@@ -70,7 +71,7 @@ parameters:
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathcal{T}`$ | index $`t`$ — `snapshot` (`int` coordinates) with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$ |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` (`int` coordinates) with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\ \mathrm{rep\_of}: \mathcal{T} \to \mathcal{T}`$ |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$ |
 | $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}`$ |
 | $`\mathcal{Z}`$ | index $`z`$ — `zone` |
@@ -373,6 +374,20 @@ pullback:
 
 ```math
 \mathit{spill}_{t} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+```
+
+#### `representative`
+
+a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
+
+```yaml
+representative:
+  foreach: [snapshot]
+  expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
+```
+
+```math
+\sum_{t' \in \mathcal{T} \,:\, \mathrm{rep\_of}(t') = t} \mathit{spill}_{t'} \le \mathit{spill}_{\mathrm{rep\_of}(t)} \qquad \forall\, t \in \mathcal{T}
 ```
 
 #### `grouped_twice`

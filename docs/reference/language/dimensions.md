@@ -85,14 +85,15 @@ lookups:
   period_of: { over: snapshot, into: period }
 ```
 
-| Field         |                                                                                                                                 |                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| `over`        | required — the map's key dimensions: one, or a list in the order the table carries them ([below](#keyed-by-several-dimensions)) |                |
-| `into`        | required — the dimension its values are labels of, which is not a key                                                           |                |
-| `description` | free text, never parsed                                                                                                         | default `null` |
+| Field         |                                                                                                                                        |                |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `over`        | required — the map's key dimensions: one, or a list in the order the table carries them ([below](#keyed-by-several-dimensions))        |                |
+| `into`        | required — the dimension its values are labels of; one of the keys, where the map is [into its own dimension](#into-its-own-dimension) |                |
+| `description` | free text, never parsed                                                                                                                | default `null` |
 
-The target must be a declared dimension, and it must be none of the keys. The
-values are checked against it when the data binds, which is the check that makes
+The target must be a declared dimension. It may be one of the keys, where the
+map goes [into its own dimension](#into-its-own-dimension). The values are
+checked against the target when the data binds, which is the check that makes
 `sum(by=)` safe.
 
 That check is also why a label set the model only ever _selects_ on is declared
@@ -167,16 +168,63 @@ Six rules follow, and the loader decides each of them before any data binds:
 - **Each key is a declared dimension, named once.** The target is not one of
   them.
 
+### Into its own dimension
+
+A map may land in the dimension it is keyed by. The representative snapshot is
+the case: every snapshot names the one that stands for it, which is how a
+clustered year runs on a few typical days.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+lookups:
+  rep_of: { over: snapshot, into: snapshot }
+variables:
+  p: { foreach: [snapshot] }
+constraints:
+  representative:
+    foreach: [snapshot]
+    expression: p == at(p, by=rep_of) # every snapshot takes its representative's value
+  weighted:
+    foreach: [snapshot]
+    expression: sum(p, by=rep_of) <= 100 # the snapshots a representative stands for, summed onto it
+```
+
+No rule changes. The walked key is consumed and the target is produced, and
+here they are the same dimension, so `sum(by=)` and `at(by=)` both leave the
+frame as it was. A snapshot that no other snapshot names is an empty group, and
+contributes nothing. `shift(by=rep_of)` walks inside each representative's
+group, and `position(snapshot, by=rep_of)` counts within it. The table carries
+`snapshot` and `rep_of`, under the naming rule every lookup follows.
+
+A self-map is directional, because a lookup is a function: one value per key,
+and the declaration says which way the arrow points. `rep_of` sends every
+snapshot to its representative and never the other way. The two verbs are the
+two walks of that one arrow, as they are for every lookup. `at` reads along it,
+so each snapshot takes its representative's value. `sum` reads against it, so
+each representative collects the snapshots that point at it. The inverse of a
+many-to-one map is one-to-many, which is reachable as a grouping and never as a
+function. For a bijection, a successor map `next_of`, the two walks are the two
+directions outright. Two steps along the arrow are two nested calls,
+`at(at(x, by=rep_of), by=rep_of)`, because the frame is unchanged at each. What
+has no direction is not a lookup: an undirected neighbour relation between buses
+is a parameter over `[bus, bus]`, as every
+[many-to-many relation](#dimension-lookup-or-parameter) is.
+
+Selecting the representatives themselves, the rows where the map is the
+identity, is not a comparison the language has: a lookup is never compared to a
+dimension. Declare a `bool` parameter for them.
+
 ### How the map is supplied
 
 The map is a source key like any other, under the lookup's own name. It carries
-two columns, each named after the dimension it holds: the `over` dimension, and
-the target:
+one column per key, each named after its dimension, and the value column, named
+after the lookup:
 
 ```python
 sources = {
     'generator': ['g1', 'g2', 'g3'],
-    'gen_bus': pl.DataFrame({'generator': ['g1', 'g2'], 'bus': ['north', 'south']}),
+    'gen_bus': pl.DataFrame({'generator': ['g1', 'g2'], 'gen_bus': ['north', 'south']}),
 }
 ```
 
@@ -185,8 +233,7 @@ on no bus. A null in the value column is refused, because a missing row already
 says the same thing. A key that matches no label of `over` is an error rather
 than a new member.
 
-A map with several keys carries one column per key, named after its dimension,
-and is single-valued per key tuple. A generator in two zones in one period is
+A map with several keys is single-valued per key tuple. A generator in two zones in one period is
 refused, where a `0`/`1` membership parameter says it legally and silently.
 
 Values are never inferred from the parameters that use the target. If they were,
