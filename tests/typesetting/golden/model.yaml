@@ -26,6 +26,7 @@ lookups:
   zone_of: { over: bus, into: zone }
   area_of: { over: bus, into: zone } # a second map into the same set, to compare against
   season_of: { over: snapshot, into: season }
+  gen_zone: { over: [generator, snapshot], into: zone } # a map keyed by two dimensions: a call walks one and joins on the other
 
 parameters:
   p_max: { dims: [generator] }
@@ -152,6 +153,16 @@ constraints:
   pulled_back_twice: # its adjoint, reading one slot through a pair of labels
     foreach: [generator]
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
+  zonal: # a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
+    foreach: [snapshot, zone]
+    expression: sum(p, by=gen_zone.generator) <= zone_cap
+  zonal_history: # the same table walked along its other key
+    foreach: [generator, zone]
+    expression: sum(p, by=gen_zone.snapshot) <= zone_cap
+  zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
+    foreach: [snapshot, generator]
+    where: "gen_zone == 'north' AND position(generator, by=gen_zone.generator) == 0"
+    expression: p <= at(spill * zone_cap, by=gen_zone.generator)
   arithmetic: # division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
     foreach: [snapshot]
     expression: >-

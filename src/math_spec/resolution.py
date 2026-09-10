@@ -103,7 +103,7 @@ class Namespace:
         variables: Iterable[str],
         parameters: Iterable[str],
         dimensions: Iterable[str],
-        lookups: Mapping[str, tuple[str, str]],
+        lookups: Mapping[str, tuple[tuple[str, ...], str]],
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
         constraints: Iterable[str],
@@ -118,8 +118,8 @@ class Namespace:
         #: name -> declared dtype, for dimensions, parameters and lookups alike;
         #: what a where comparison checks its literal against.
         self.dtypes: dict[str, DeclaredDtype] = dict(dtypes)
-        #: lookup name -> ``(over, into)``.
-        self.lookups: dict[str, tuple[str, str]] = dict(lookups)
+        #: lookup name -> ``(keys, into)``.
+        self.lookups: dict[str, tuple[tuple[str, ...], str]] = dict(lookups)
         #: parameter or variable name -> the dims it is read through —
         #: parameters by their ``dims``, variables by their frame. Stamped onto
         #: each leaf a where names, the way a lookup leaf carries ``over``.
@@ -135,7 +135,7 @@ class Namespace:
             schema.variables,
             schema.parameters,
             schema.dimensions,
-            {n: (lk.over, lk.into) for n, lk in schema.lookups.items()},
+            {n: (lk.keys, lk.into) for n, lk in schema.lookups.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
@@ -160,8 +160,8 @@ class Namespace:
             return 'lookup'
         return None
 
-    def over_of(self, lookup: str) -> str:
-        """The dimension *lookup* maps out of."""
+    def keys_of(self, lookup: str) -> tuple[str, ...]:
+        """The key dimensions of *lookup*, in declared order."""
         return self.lookups[lookup][0]
 
     def into_of(self, lookup: str) -> str:
@@ -559,32 +559,36 @@ class _Resolver:
         return DualNode(value.name)
 
     def _lookup_ref(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
-        """An operator kwarg whose *value* must name lookups.
+        """An operator kwarg whose *value* must name lookups, each with the key column it walks.
 
         A lookup carries its own dimensions, so nothing else in the call is
         consulted: the names alone decide both the dim the operator consumes and
-        the ones it produces. A bracketed list is one grouping through several
-        maps at once rather than a composition of groupings, so its members must
-        share the dim they are over and must not target the same dim twice.
+        the ones it produces. ``name.column`` says which key column is walked,
+        and is required exactly where the lookup has more than one. A
+        bracketed list is one grouping through several maps at once rather
+        than a composition of groupings, so its members must walk the same
+        dimension and must not target the same dim twice.
         """
-        names = names_in(value)
-        if not names:
+        written = names_in(value)
+        if not written:
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a lookup.')
             return value
 
         ns = self.ns
-        named = [self._not_a_lookup(name, operator, key) for name in names]
-        if any(problem is not None for problem in named):
-            self.errors.extend(problem for problem in named if problem is not None)
+        refs = [self._walked(spelling, operator, key) for spelling in written]
+        if any(isinstance(ref, str) for ref in refs):
+            self.errors.extend(ref for ref in refs if isinstance(ref, str))
             return value
+        walked = [ref for ref in refs if not isinstance(ref, str)]
+        names = tuple(name for name, _ in walked)
 
-        over = {ns.over_of(name) for name in names}
+        over = {dim for _, dim in walked}
         if len(over) > 1:
             self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}) groups through lookups over '
-                f'different dimensions ({", ".join(f"{n} over {ns.over_of(n)}" for n in names)}). '
-                f'One grouping consumes one dimension, so every lookup in the list must be '
-                f'over the same one — group through them in turn instead, one call each.'
+                f'{self.context}: {operator}({key}={shown(written)}) groups through lookups along '
+                f'different dimensions ({", ".join(f"{n} along {d}" for n, d in walked)}). '
+                f'One grouping consumes one dimension, so every lookup in the list must walk '
+                f'the same one — group through them in turn instead, one call each.'
             )
             return value
 
@@ -592,13 +596,42 @@ class _Resolver:
         repeated = sorted({t for t in targets if targets.count(t) > 1})
         if repeated:
             self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}) targets {repeated} more than once. '
+                f'{self.context}: {operator}({key}={shown(written)}) targets {repeated} more than once. '
                 f'Each lookup in the list produces its own dimension, so two that land on the '
                 f'same one would need it twice — drop one, or group into a dimension of its own.'
             )
             return value
 
-        return LookupNode(names, dimension=next(iter(over)), into=targets)
+        return LookupNode(
+            names, dimension=next(iter(over)), into=targets, keys=tuple(ns.keys_of(name) for name in names)
+        )
+
+    def _walked(self, spelling: str, operator: str, key: str) -> tuple[str, str] | str:
+        """``lookup`` or ``lookup.column`` as the lookup and the key dimension it walks, or the refusal.
+
+        The dot is required exactly where the lookup has several key columns:
+        with one there is nothing to choose, with several the file has to say,
+        because the operator consumes one and joins on the rest.
+        """
+        ns, context = self.ns, self.context
+        name, _, column = spelling.partition('.')
+        if (problem := self._not_a_lookup(name, operator, key)) is not None:
+            return problem
+        keys = ns.keys_of(name)
+        if not column:
+            if len(keys) == 1:
+                return name, keys[0]
+            return (
+                f"{context}: {operator}({key}={name}): '{name}' is keyed by {list(keys)}, and the call has to "
+                f'say which key {operator} walks — the others are joined on and kept. Write '
+                f'{" or ".join(f"{key}={name}.{k}" for k in keys)}.'
+            )
+        if column not in keys:
+            return (
+                f"{context}: {operator}({key}={spelling}): '{column}' is not a key of '{name}', which is keyed by "
+                f'{list(keys)}. The dot names the key column the operator walks.'
+            )
+        return name, column
 
     def _not_a_lookup(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a lookup; ``None`` where it is one."""
@@ -660,7 +693,7 @@ class _Resolver:
                     f'Remove it, or compare it: where: "{node.name} > 0".'
                 )
             case 'lookup':
-                return LookupDefinedNode(node.name, ns.over_of(node.name))
+                return LookupDefinedNode(node.name, ns.keys_of(node.name))
             case 'variable':
                 if node.name == self.self_variable:
                     self.errors.append(
@@ -673,7 +706,7 @@ class _Resolver:
         return node
 
     def _position(self, node: UnresolvedPositionNode) -> DimensionPositionNode | UnresolvedPositionNode:
-        """``position(dim[, by=lookup]) <op> i``: the name a dimension, ``by=`` a lookup over it."""
+        """``position(dim[, by=lookup]) <op> i``: the name a dimension, ``by=`` a lookup keyed by it."""
         ns, context = self.ns, self.context
         if node.dimension not in ns.dimensions:
             self.errors.append(
@@ -685,14 +718,27 @@ class _Resolver:
         if node.by is None:
             return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
         call = f'position({node.dimension}, by={node.by})'
-        if ns.kind(node.by) != 'lookup':
+        name, _, column = node.by.partition('.')
+        if ns.kind(name) != 'lookup':
             self.errors.append(
-                f"{context}: '{call}' groups by '{node.by}', which is {_declared_as(ns, node.by)}. "
-                f'``by=`` takes a lookup over that dimension. '
-                f'{did_you_mean(node.by, ns.lookups, label="Lookups")}'
+                f"{context}: '{call}' groups by '{name}', which is {_declared_as(ns, name)}. "
+                f'``by=`` takes a lookup keyed by that dimension. '
+                f'{did_you_mean(name, ns.lookups, label="Lookups")}'
             )
             return node
-        over = ns.over_of(node.by)
+        keys = ns.keys_of(name)
+        if column and column not in keys:
+            self.errors.append(
+                f"{context}: '{call}': '{column}' is not a key of '{name}', which is keyed by {list(keys)}."
+            )
+            return node
+        if not column and len(keys) > 1:
+            self.errors.append(
+                f"{context}: '{call}': '{name}' is keyed by {list(keys)}, and the call has to say which key "
+                f'position counts along — by={name}.{node.dimension}.'
+            )
+            return node
+        over = column or keys[0]
         if over != node.dimension:
             self.errors.append(
                 f"{context}: '{call}' counts positions along '{node.dimension}' but groups by a "
@@ -700,7 +746,7 @@ class _Resolver:
                 f"position within a group to name — group by a lookup over '{node.dimension}'."
             )
             return node
-        return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
+        return DimensionPositionNode(node.dimension, node.op, node.position, name, keys)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``lookup <op> lookup``."""
@@ -711,7 +757,7 @@ class _Resolver:
                 if (refusal := _lookup_pair_error(context, node, value, ns)) is not None:
                     self.errors.append(refusal)
                     return node
-                return LookupPairComparisonNode(node.name, value, ns.over_of(node.name), node.op)
+                return LookupPairComparisonNode(node.name, value, ns.keys_of(node.name), node.op)
             self.errors.append(_declared_rhs_error(context, node, value, rhs_kind))
             return node
 
@@ -732,7 +778,7 @@ class _Resolver:
             case 'dimension':
                 return DimensionComparisonNode(node.name, node.op, value)
             case 'lookup':
-                return LookupComparisonNode(node.name, ns.over_of(node.name), node.op, value)
+                return LookupComparisonNode(node.name, ns.keys_of(node.name), node.op, value)
             case 'variable':
                 self.errors.append(
                     f"{context}: where references variable '{node.name}'. A where "
@@ -883,18 +929,18 @@ def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str
 def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str, ns: Namespace) -> str | None:
     """Why two lookups may not be compared, or ``None`` where they may.
 
-    They must map out of the same dimension, or no row carries both; and into
-    the same one, or no value of one is ever a value of the other. Both wrong
-    answers are silent, and a build's data library decides which one.
+    They must have the same keys, or no row carries both; and map into the
+    same dimension, or no value of one is ever a value of the other. Both
+    wrong answers are silent, and a build's data library decides which one.
     """
     comparison = f"'{node.name} {node.op} {other}'"
-    left_over, right_over = ns.over_of(node.name), ns.over_of(other)
-    if left_over != right_over:
+    left_keys, right_keys = ns.keys_of(node.name), ns.keys_of(other)
+    if set(left_keys) != set(right_keys):
         return (
-            f'{context}: {comparison} compares lookups over different dimensions '
-            f"('{left_over}' and '{right_over}') — there is no row carrying both, so the "
-            f'comparison has nothing to test. Two lookups may be compared only where they '
-            f'map out of the same dimension.'
+            f'{context}: {comparison} compares lookups keyed by different dimensions '
+            f"('{node.name}' by {list(left_keys)}, '{other}' by {list(right_keys)}) — there is no row "
+            f'carrying both, so the comparison has nothing to test. Two lookups may be compared only '
+            f'where they have the same keys.'
         )
     left, right = ns.into_of(node.name), ns.into_of(other)
     if left != right:

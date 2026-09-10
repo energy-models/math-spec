@@ -572,6 +572,48 @@ class TestRulesDecidedWithoutData:
             pytest.param({'lookups.lk.into': 'z'}, ("targets undeclared dimension 'z'",), id='lookup-into-undeclared'),
             pytest.param({'lookups.lk.into': 'g'}, ("maps 'g' into itself",), id='lookup-into-itself'),
             pytest.param(
+                {'lookups.lk.over': ['g', 'z']}, ("references undeclared dimension 'z'",), id='lookup-key-undeclared'
+            ),
+            pytest.param(
+                {'dimensions.z': {}, 'lookups.lk.over': ['g', 'h']},
+                ("maps 'h' into itself",),
+                id='lookup-into-one-of-its-keys',
+            ),
+            pytest.param(
+                {'lookups.lk.over': ['g', 'g']}, ("names 'g' twice under 'over:'",), id='lookup-keyed-by-a-dim-twice'
+            ),
+            pytest.param({'lookups.lk.over': []}, ('has no key dimension',), id='lookup-with-no-key'),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lk.over': ['g', 'z'],
+                    'variables.q.foreach': ['g', 'h', 'z'],
+                    'objective': {'expression': 'sum(sum(q, by=lk))'},
+                },
+                ("'lk' is keyed by ['g', 'z'], and the call has to say which key sum walks", 'by=lk.g or by=lk.z'),
+                id='by-a-two-key-lookup-without-the-dot',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=lk.h))'}},
+                ("'h' is not a key of 'lk', which is keyed by ['g']",),
+                id='by-a-column-that-is-not-a-key',
+            ),
+            pytest.param(
+                {'variables.q.where': 'position(g, by=lk.h) == 0'},
+                ("'h' is not a key of 'lk'",),
+                id='position-by-a-column-that-is-not-a-key',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lk.over': ['g', 'z'],
+                    'variables.q.foreach': ['g', 'h', 'z'],
+                    'variables.q.where': 'position(g, by=lk) == 0',
+                },
+                ('the call has to say which key position counts along', 'by=lk.g'),
+                id='position-by-a-two-key-lookup-without-the-dot',
+            ),
+            pytest.param(
                 {'lookups.g': {'over': 'h', 'into': 'g'}},
                 ("Lookup 'g' collides with the dimension",),
                 id='lookup-named-after-a-dimension',
@@ -701,13 +743,31 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'lookups.hk': {'over': 'h', 'into': 'g'}, 'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'}},
-                ('groups through lookups over different dimensions',),
+                ('groups through lookups along different dimensions',),
                 id='by-lookups-over-different-dimensions',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=[lk, lk]))'}},
                 ("targets ['h'] more than once",),
                 id='by-the-same-target-twice',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': ['g', 'h'], 'into': 'z'},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, lz.h]))'},
+                },
+                ('groups through lookups along different dimensions',),
+                id='by-lookups-walking-different-keys',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'over': ['g', 'z'], 'into': 'h'},
+                    'variables.q.where': 'lk != lz',
+                },
+                ('compares lookups keyed by different dimensions',),
+                id='where-two-lookups-with-different-keys',
             ),
             pytest.param(
                 {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'

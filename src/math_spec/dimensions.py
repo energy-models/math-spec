@@ -161,6 +161,7 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
                 'drop the sum, or fix the dim',
             )
         )
+    _check_joined(f'sum(by={by.shown})', by, inner, context)
     collides = sorted(set(by.into) & (inner - {by.dimension}))
     if collides:
         raise DimensionError(
@@ -185,6 +186,7 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
             f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
             f'sum is the direction that produces them.'
         )
+    _check_joined(f'at(by={by.shown})', by, inner, context)
     if by.dimension in inner - set(by.into):
         raise DimensionError(
             f'{context}: at(by={by.shown}) places terms onto '
@@ -224,11 +226,23 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
         if partition.dimension != over.name:
             raise DimensionError(
                 f'{context}: {node.name}(over={over.name}, by={partition.shown}) walks '
-                f"'{over.name}' but groups by a lookup over '{partition.dimension}'. No row of "
+                f"'{over.name}' but groups along '{partition.dimension}'. No row of "
                 f"'{over.name}' carries it, so no coordinate has a neighbour inside a group — "
-                f"partition by a lookup over '{over.name}'."
+                f"partition by a lookup keyed by '{over.name}', walked along it."
             )
+        _check_joined(f'{node.name}(over={over.name}, by={partition.shown})', partition, inner, context)
     return inner
+
+
+def _check_joined(call: str, by: LookupNode, inner: frozenset[str], context: str) -> None:
+    """A lookup's keys other than the one walked are joined on, so the operand carries every one."""
+    joined = {k for keys in by.keys for k in keys if k != by.dimension}
+    if missing := sorted(joined - inner):
+        raise DimensionError(
+            f'{context}: {call} joins on {missing}, which the expression does not carry '
+            f'(dims {sorted(inner)}). A lookup keyed by several dimensions is walked along one and '
+            f'read at the others — index the operand by them, or walk a different key.'
+        )
 
 
 #: The dim rule of each built-in, by name.
