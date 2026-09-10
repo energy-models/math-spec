@@ -10,11 +10,11 @@ SPDX-License-Identifier: CC-BY-4.0
 open pull requests answering it, and exactly one of them is merged. This
 directory holds the evidence for choosing, and the page that shows it:
 
-| Proposal              | PR                                                        | Branch                            |
-| --------------------- | --------------------------------------------------------- | --------------------------------- |
-| `per:` conditioning   | [#428](https://github.com/energy-models/math-spec/pull/428) | `claude/lookup-per-keyword-vhvfjd` |
-| keys and a dot        | [#433](https://github.com/energy-models/math-spec/pull/433) | `claude/lookup-keys-vhvfjd`        |
-| relations             | [#437](https://github.com/energy-models/math-spec/pull/437) | `claude/lookup-relations-vhvfjd`   |
+| Proposal            | PR                                                          | Branch                             |
+| ------------------- | ----------------------------------------------------------- | ---------------------------------- |
+| `per:` conditioning | [#428](https://github.com/energy-models/math-spec/pull/428) | `claude/lookup-per-keyword-vhvfjd` |
+| keys and a dot      | [#433](https://github.com/energy-models/math-spec/pull/433) | `claude/lookup-keys-vhvfjd`        |
+| relations           | [#437](https://github.com/energy-models/math-spec/pull/437) | `claude/lookup-relations-vhvfjd`   |
 
 Five modelling problems are written three times, once per proposal, and each
 file is loaded on the branch that proposes it. Two of the fifteen are refused,
@@ -46,6 +46,7 @@ dependencies installed, and it removes the worktrees again unless you pass
 
 ## Not for `main`
 
-This directory is a decision aid for one issue. Two of the three proposals close
-as not planned once the choice is made, and this comparison closes with them.
-Nothing here is proposed for `main`.
+This directory is a decision aid for one issue. Its pull request is a review
+surface, so the models and the prose can take line comments. It is not a
+proposal to merge. Two of the three proposals close as not planned once the
+choice is made, and this comparison closes with them.

@@ -22,6 +22,14 @@ SPDX-License-Identifier = "CC0-1.0"
 
 # A skill file opens with YAML front matter, which has to be line 1, so the
 # header cannot go above it. The skill is prose, under the prose licence.
+# `verify.py` writes this file, and JSON has no comments. It is the evidence
+# behind `comparison/index.html`, under the same licence as the models it
+# reports on.
+[[annotations]]
+path = ["comparison/evidence.json"]
+SPDX-FileCopyrightText = "math-spec contributors"
+SPDX-License-Identifier = "MIT"
+
 [[annotations]]
 path = [".claude/skills/**/SKILL.md"]
 SPDX-FileCopyrightText = "math-spec contributors"

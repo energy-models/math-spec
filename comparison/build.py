@@ -590,5 +590,9 @@ def build() -> str:
 
 
 if __name__ == '__main__':
-    (HERE / 'index.html').write_text(build())
+    # The pre-commit hooks strip trailing whitespace and demand a final
+    # newline from every text file, generated or not, so emit the page that way
+    # rather than let the hook rewrite what the generator wrote.
+    page = '\n'.join(line.rstrip() for line in build().split('\n')).rstrip() + '\n'
+    (HERE / 'index.html').write_text(page)
     print('comparison/index.html written')
