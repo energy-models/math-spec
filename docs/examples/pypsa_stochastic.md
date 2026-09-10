@@ -70,53 +70,53 @@ The two-stage class of a plain `n.optimize()`: a network with scenarios, stated 
 
 | Symbol | Meaning |
 |---|---|
-| $\mathcal{S}$ | index $s$ — `scenario` — the futures dispatch is chosen in, each with a weight |
-| $\mathcal{T}$ | index $t$ — `snapshot` — dispatch periods |
-| $\mathcal{N}$ | index $n$ — `bus` — network nodes |
-| $\mathcal{G}$ | index $g$ — `generator` with $\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}$ — generating units, each on one bus |
-| $\mathcal{L}$ | index $l$ — `link` with $\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}$ — controllable connections, each from one bus to the buses it delivers to |
-| $\mathcal{O}$ | index $o$ — `link_output` with $\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\enspace \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
-| $\mathcal{D}$ | index $d$ — `load` with $\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}$ — demands, each on one bus |
+| $`\mathcal{S}`$ | index $`s`$ — `scenario` — the futures dispatch is chosen in, each with a weight |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` — network nodes |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
+| $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
 
 #### Parameters
 
 | Symbol | Meaning |
 |---|---|
-| $\pi$ | `scenario_weight` over $\mathcal{S}$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
-| $\omega$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of the operating cost priced at the tail rather than in expectation |
-| $\mathrm{v}$ | `CVaR_inv_tail` (scalar) — PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor |
-| $\mathrm{w}$ | `snapshot_weightings_objective` over $\mathcal{T}$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
-| $\mathrm{p}^{\mathrm{nom}}$ | `Generator_p_nom` over $\mathcal{G}$ — nominal power |
-| $\mathrm{ext}$ | `Generator_p_nom_extendable` over $\mathcal{G}$ — whether the nominal power is a decision |
-| $\underline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_min` over $\mathcal{G}$ — least nominal power an extendable generator may be built at |
-| $\overline{\mathrm{p}}^{\mathrm{nom}}$ | `Generator_p_nom_max` over $\mathcal{G}$ — most nominal power an extendable generator may be built at |
-| $\mathrm{c}^{\mathrm{cap}}$ | `Generator_capital_cost` over $\mathcal{G}$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
-| $\underline{\mathrm{p}}$ | `Generator_p_min_pu` over $\mathcal{T} \times \mathcal{G}$ — least output, per unit of nominal power |
-| $\overline{\mathrm{p}}$ | `Generator_p_max_pu` over $\mathcal{S} \times \mathcal{T} \times \mathcal{G}$ — most output, per unit of nominal power — an availability profile |
-| $\mathrm{c}$ | `Generator_marginal_cost` over $\mathcal{T} \times \mathcal{G}$ — cost of one unit of output |
-| $\mathrm{f}^{\mathrm{nom}}$ | `Link_p_nom` over $\mathcal{L}$ — nominal power |
-| $\underline{\mathrm{f}}$ | `Link_p_min_pu` over $\mathcal{T} \times \mathcal{L}$ — least flow, per unit of nominal power — negative for a link that carries both ways |
-| $\overline{\mathrm{f}}$ | `Link_p_max_pu` over $\mathcal{T} \times \mathcal{L}$ — most flow, per unit of nominal power |
-| $\eta$ | `Link_efficiency` over $\mathcal{O}$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
-| $\mathrm{c}^{f}$ | `Link_marginal_cost` over $\mathcal{T} \times \mathcal{L}$ — cost of one unit of flow |
-| $\mathrm{load}$ | `Load_p_set` over $\mathcal{S} \times \mathcal{T} \times \mathcal{D}$ — demand |
+| $`\pi`$ | `scenario_weight` over $`\mathcal{S}`$ — PyPSA's `scenario_weightings.weight` — the probability of a future |
+| $`\omega`$ | `CVaR_omega` (scalar) — PyPSA's `risk_preference['omega']` — the share of the operating cost priced at the tail rather than in expectation |
+| $`\mathrm{v}`$ | `CVaR_inv_tail` (scalar) — PyPSA's `1 / (1 - alpha)` — the tail's own probability, inverted in data prep because a divisor is one factor |
+| $`\mathrm{w}`$ | `snapshot_weightings_objective` over $`\mathcal{T}`$ — PyPSA's `snapshot_weightings.objective` — hours a snapshot stands for in the cost |
+| $`\mathrm{p}^{\mathrm{nom}}`$ | `Generator_p_nom` over $`\mathcal{G}`$ — nominal power |
+| $`\mathrm{ext}`$ | `Generator_p_nom_extendable` over $`\mathcal{G}`$ — whether the nominal power is a decision |
+| $`\underline{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_min` over $`\mathcal{G}`$ — least nominal power an extendable generator may be built at |
+| $`\overline{\mathrm{p}}^{\mathrm{nom}}`$ | `Generator_p_nom_max` over $`\mathcal{G}`$ — most nominal power an extendable generator may be built at |
+| $`\mathrm{c}^{\mathrm{cap}}`$ | `Generator_capital_cost` over $`\mathcal{G}`$ — cost of one unit of nominal power — PyPSA's `capital_cost`, periodized as an annuity in data prep |
+| $`\underline{\mathrm{p}}`$ | `Generator_p_min_pu` over $`\mathcal{T} \times \mathcal{G}`$ — least output, per unit of nominal power |
+| $`\overline{\mathrm{p}}`$ | `Generator_p_max_pu` over $`\mathcal{S} \times \mathcal{T} \times \mathcal{G}`$ — most output, per unit of nominal power — an availability profile |
+| $`\mathrm{c}`$ | `Generator_marginal_cost` over $`\mathcal{T} \times \mathcal{G}`$ — cost of one unit of output |
+| $`\mathrm{f}^{\mathrm{nom}}`$ | `Link_p_nom` over $`\mathcal{L}`$ — nominal power |
+| $`\underline{\mathrm{f}}`$ | `Link_p_min_pu` over $`\mathcal{T} \times \mathcal{L}`$ — least flow, per unit of nominal power — negative for a link that carries both ways |
+| $`\overline{\mathrm{f}}`$ | `Link_p_max_pu` over $`\mathcal{T} \times \mathcal{L}`$ — most flow, per unit of nominal power |
+| $`\eta`$ | `Link_efficiency` over $`\mathcal{O}`$ — share of the flow that arrives at an output port, PyPSA's `efficiency`, `efficiency2`, … read long — negative where that port consumes rather than delivers |
+| $`\mathrm{c}^{f}`$ | `Link_marginal_cost` over $`\mathcal{T} \times \mathcal{L}`$ — cost of one unit of flow |
+| $`\mathrm{load}`$ | `Load_p_set` over $`\mathcal{S} \times \mathcal{T} \times \mathcal{D}`$ — demand |
 
 #### Variables
 
 | Symbol | Meaning |
 |---|---|
-| $p$ | `Generator_p` over $\mathcal{S} \times \mathcal{T} \times \mathcal{G}$ — `Generator-p` — output of a generator in a snapshot |
-| $f$ | `Link_p` over $\mathcal{S} \times \mathcal{T} \times \mathcal{L}$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
-| $P$ | `Generator_p_nom_ext` over $\mathcal{G}$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
-| $a$ | `CVaR_a` over $\mathcal{S}$ — `CVaR-a` — how far a scenario's operating cost exceeds the tail's start; nothing where it does not |
-| $\theta$ | `CVaR_theta` (scalar) — `CVaR-theta` — where the tail starts, the value at risk |
-| $CVaR$ | `CVaR` (scalar) — `CVaR` — the tail's average cost, what the objective prices at `omega` |
+| $`p`$ | `Generator_p` over $`\mathcal{S} \times \mathcal{T} \times \mathcal{G}`$ — `Generator-p` — output of a generator in a snapshot |
+| $`f`$ | `Link_p` over $`\mathcal{S} \times \mathcal{T} \times \mathcal{L}`$ — `Link-p` — PyPSA's `p0`, the flow measured at the `Link_bus0` end: a positive value withdraws there and injects at every bus the link's output ports deliver to |
+| $`P`$ | `Generator_p_nom_ext` over $`\mathcal{G}`$ — `Generator-p_nom` — nominal power where it is a decision; the parameter of the same PyPSA name carries the fixed regime |
+| $`a`$ | `CVaR_a` over $`\mathcal{S}`$ — `CVaR-a` — how far a scenario's operating cost exceeds the tail's start; nothing where it does not |
+| $`\theta`$ | `CVaR_theta` (scalar) — `CVaR-theta` — where the tail starts, the value at risk |
+| $`CVaR`$ | `CVaR` (scalar) — `CVaR` — the tail's average cost, what the objective prices at `omega` |
 
 #### Definitions
 
 | Symbol | Meaning |
 |---|---|
-| $\mathit{scenario\_opex}$ | `scenario_opex` over $\mathcal{S}$ — what a future costs to run — the operating terms, before their weight |
+| $`\mathit{scenario\_opex}`$ | `scenario_opex` over $`\mathcal{S}`$ — what a future costs to run — the operating terms, before their weight |
 
 ### Objective
 
@@ -130,7 +130,9 @@ objective:
     + CVaR_omega * CVaR
 ```
 
-$$\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \left( 1 - \omega \right) \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot \mathit{scenario\_opex}_{s} \right) + \omega \cdot CVaR$$
+```math
+\min \sum_{g \in \mathcal{G}} P_{g} \cdot \mathrm{c}^{\mathrm{cap}}_{g} + \left( 1 - \omega \right) \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot \mathit{scenario\_opex}_{s} \right) + \omega \cdot CVaR
+```
 
 ### `Generator-fix-p-lower`
 
@@ -144,7 +146,9 @@ Generator_fix_p_lower:
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
 ```
 
-$$p_{s,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g}$$
+```math
+p_{s,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g}
+```
 
 ### `Generator-fix-p-upper`
 
@@ -158,7 +162,9 @@ Generator_fix_p_upper:
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
 ```
 
-$$p_{s,t,g} \le \overline{\mathrm{p}}_{s,t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \neg \mathrm{ext}_{g}$$
+```math
+p_{s,t,g} \le \overline{\mathrm{p}}_{s,t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \neg \mathrm{ext}_{g}
+```
 
 ### `Generator-ext-p-lower`
 
@@ -172,7 +178,9 @@ Generator_ext_p_lower:
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
 ```
 
-$$p_{s,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+```math
+p_{s,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g}
+```
 
 ### `Generator-ext-p-upper`
 
@@ -186,7 +194,9 @@ Generator_ext_p_upper:
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
 ```
 
-$$p_{s,t,g} \le \overline{\mathrm{p}}_{s,t,g} \cdot P_{g} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+```math
+p_{s,t,g} \le \overline{\mathrm{p}}_{s,t,g} \cdot P_{g} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{ext}_{g}
+```
 
 ### `Generator-ext-p_nom-lower`
 
@@ -200,7 +210,9 @@ Generator_ext_p_nom_lower:
   expression: Generator_p_nom_ext >= Generator_p_nom_min
 ```
 
-$$P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+```math
+P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{ext}_{g}
+```
 
 ### `Generator-ext-p_nom-upper`
 
@@ -214,7 +226,9 @@ Generator_ext_p_nom_upper:
   expression: Generator_p_nom_ext <= Generator_p_nom_max
 ```
 
-$$P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g} \wedge \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \text{ is defined}$$
+```math
+P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{ext}_{g} \wedge \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \text{ is defined}
+```
 
 ### `Link-fix-p-lower`
 
@@ -227,7 +241,9 @@ Link_fix_p_lower:
   expression: Link_p >= Link_p_min_pu * Link_p_nom
 ```
 
-$$f_{s,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace l \in \mathcal{L}$$
+```math
+f_{s,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ l \in \mathcal{L}
+```
 
 ### `Link-fix-p-upper`
 
@@ -240,7 +256,9 @@ Link_fix_p_upper:
   expression: Link_p <= Link_p_max_pu * Link_p_nom
 ```
 
-$$f_{s,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace l \in \mathcal{L}$$
+```math
+f_{s,t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ l \in \mathcal{L}
+```
 
 ### `Bus-nodal_balance`
 
@@ -260,7 +278,9 @@ Bus_nodal_balance:
     == sum(Load_p_set, by=Load_bus)
 ```
 
-$$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{Generator\_bus}(g) = n} p_{s,t,g} - \left( \sum_{l \in \mathcal{L} \thinspace:\thinspace \mathrm{Link\_bus0}(l) = n} f_{s,t,l} \right) + \sum_{o \in \mathcal{O} \thinspace:\thinspace \mathrm{Link\_output\_bus}(o) = n} f_{s,t,\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} = \sum_{d \in \mathcal{D} \thinspace:\thinspace \mathrm{Load\_bus}(d) = n} \mathrm{load}_{s,t,d} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace n \in \mathcal{N}$$
+```math
+\sum_{g \in \mathcal{G} \,:\, \mathrm{Generator\_bus}(g) = n} p_{s,t,g} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{Link\_bus0}(l) = n} f_{s,t,l} \right) + \sum_{o \in \mathcal{O} \,:\, \mathrm{Link\_output\_bus}(o) = n} f_{s,t,\mathrm{Link\_output\_link}(o)} \cdot \eta_{o} = \sum_{d \in \mathcal{D} \,:\, \mathrm{Load\_bus}(d) = n} \mathrm{load}_{s,t,d} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ n \in \mathcal{N}
+```
 
 ### `CVaR-excess-{s}`
 
@@ -273,7 +293,9 @@ CVaR_excess:
   expression: CVaR_a - scenario_opex + CVaR_theta >= 0
 ```
 
-$$a_{s} - \mathit{scenario\_opex}_{s} + \theta \ge 0 \qquad \forall\thinspace s \in \mathcal{S}$$
+```math
+a_{s} - \mathit{scenario\_opex}_{s} + \theta \ge 0 \qquad \forall\, s \in \mathcal{S}
+```
 
 ### `CVaR-def`
 
@@ -286,7 +308,9 @@ CVaR_def:
   expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
 ```
 
-$$\theta + \mathrm{v} \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot a_{s} \right) \le CVaR$$
+```math
+\theta + \mathrm{v} \cdot \left( \sum_{s \in \mathcal{S}} \pi_{s} \cdot a_{s} \right) \le CVaR
+```
 
 ### `scenario_opex`
 
@@ -298,33 +322,47 @@ scenario_opex:
     + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective, over=link), over=snapshot)
 ```
 
-$$\mathit{scenario\_opex}_{s} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{s,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{s,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \qquad \forall\thinspace s \in \mathcal{S}$$
+```math
+\mathit{scenario\_opex}_{s} = \sum_{t \in \mathcal{T}} \sum_{g \in \mathcal{G}} p_{s,t,g} \cdot \mathrm{c}_{t,g} \cdot \mathrm{w}_{t} + \sum_{t \in \mathcal{T}} \sum_{l \in \mathcal{L}} f_{s,t,l} \cdot \mathrm{c}^{f}_{t,l} \cdot \mathrm{w}_{t} \qquad \forall\, s \in \mathcal{S}
+```
 
 #### Variable domains
 
 **`Generator_p`**
 
-$$p_{s,t,g} \in \mathbb{R} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
+```math
+p_{s,t,g} \in \mathbb{R} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ g \in \mathcal{G}
+```
 
 **`Link_p`**
 
-$$f_{s,t,l} \in \mathbb{R} \qquad \forall\thinspace s \in \mathcal{S},\enspace t \in \mathcal{T},\enspace l \in \mathcal{L}$$
+```math
+f_{s,t,l} \in \mathbb{R} \qquad \forall\, s \in \mathcal{S},\ t \in \mathcal{T},\ l \in \mathcal{L}
+```
 
 **`Generator_p_nom_ext`**
 
-$$P_{g} \in \mathbb{R} \qquad \forall\thinspace g \in \mathcal{G} \thinspace:\thinspace \mathrm{ext}_{g}$$
+```math
+P_{g} \in \mathbb{R} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{ext}_{g}
+```
 
 **`CVaR_a`**
 
-$$a_{s} \ge 0 \qquad \forall\thinspace s \in \mathcal{S}$$
+```math
+a_{s} \ge 0 \qquad \forall\, s \in \mathcal{S}
+```
 
 **`CVaR_theta`**
 
-$$\theta \in \mathbb{R}$$
+```math
+\theta \in \mathbb{R}
+```
 
 **`CVaR`**
 
-$$CVaR \in \mathbb{R}$$
+```math
+CVaR \in \mathbb{R}
+```
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.

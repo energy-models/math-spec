@@ -39,6 +39,22 @@ python -m math_spec markdown model.yaml
 beside the math it prints. Look there when the question is whether the notation
 is right.
 
+## Markdown's delimiters
+
+`to_markdown` prints math between the two pairs GitHub reads verbatim: ``$`…`$``
+inline, and a ` ```math ` fence for a block. It never prints `$…$` or `$$…$$`.
+
+GitHub runs Markdown's own escape pass inside a `$…$` span, before MathJax sees
+the span. That pass strips the backslash from every escape TeX needs.
+`\mathrm{gen\_bus}` arrives as `\mathrm{gen_bus}`, which sets a subscript, and
+`\{0, 1\}` arrives as a set with no braces. The two verbatim pairs sit outside
+the pass, so `to_markdown` prints the math `to_latex` prints, character for
+character.
+
+The pairs are GitHub's and GitLab's. A renderer that reads `$…$` alone shows
+the delimiters to the reader as characters. Print for that renderer with
+`to_latex`, and write its own delimiters around the result.
+
 ## Options
 
 The three functions take the same keywords, and the command line spells each as
@@ -84,7 +100,15 @@ ms.typeset_declaration('model.yaml', 'balance', 'latex')
 ```
 
 It takes what the other functions take, plus the name, the format and an
-optional `symbols` table.
+optional `symbols` table. A Markdown line arrives without delimiters too, so put
+it inside the inline pair:
+
+<!-- doctest: skip -->
+
+```python
+line = ms.typeset_declaration('model.yaml', 'balance', 'markdown')
+print(f'The balance holds: $`{line}`$')
+```
 
 A line on its own has no _Definitions_ section beside it, so the plain named
 expressions it uses are substituted unless you say otherwise. A cased expression

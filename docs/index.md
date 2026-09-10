@@ -104,38 +104,44 @@ choice, and **How** shows the one made here.
 
     | Symbol | Meaning |
     |---|---|
-    | $\mathcal{S}$ | index $s$ — `snapshot` — dispatch periods |
-    | $\mathcal{G}$ | index $g$ — `generator` — generating units |
+    | $`\mathcal{S}`$ | index $`s`$ — `snapshot` — dispatch periods |
+    | $`\mathcal{G}`$ | index $`g`$ — `generator` — generating units |
 
     #### Parameters
 
     | Symbol | Meaning |
     |---|---|
-    | $\bar p$ | `p_max` over $\mathcal{G}$ — installed capacity |
-    | $\ell$ | `load` over $\mathcal{S}$ — demand to be met |
-    | $c$ | `cost` over $\mathcal{G}$ — marginal cost |
+    | $`\bar p`$ | `p_max` over $`\mathcal{G}`$ — installed capacity |
+    | $`\ell`$ | `load` over $`\mathcal{S}`$ — demand to be met |
+    | $`c`$ | `cost` over $`\mathcal{G}`$ — marginal cost |
 
     #### Variables
 
     | Symbol | Meaning |
     |---|---|
-    | $p$ | `p` over $\mathcal{S} \times \mathcal{G}$ — output of a generator in a snapshot |
+    | $`p`$ | `p` over $`\mathcal{S} \times \mathcal{G}`$ — output of a generator in a snapshot |
 
     #### Objective
 
-    $$\min \sum_{s \in \mathcal{S},\enspace g \in \mathcal{G}} p_{s,g} \cdot c_{g}$$
+    ```math
+    \min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} p_{s,g} \cdot c_{g}
+    ```
 
     #### Subject to
 
     **`power_balance`**
 
-    $$\sum_{g \in \mathcal{G}} p_{s,g} = \ell_{s} \qquad \forall\thinspace s \in \mathcal{S}$$
+    ```math
+    \sum_{g \in \mathcal{G}} p_{s,g} = \ell_{s} \qquad \forall\, s \in \mathcal{S}
+    ```
 
     #### Variable domains
 
     **`p`**
 
-    $$0 \le p_{s,g} \le \bar p_{g} \qquad \forall\thinspace s \in \mathcal{S},\enspace g \in \mathcal{G} \thinspace:\thinspace \bar p_{g} > 0$$
+    ```math
+    0 \le p_{s,g} \le \bar p_{g} \qquad \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
+    ```
 
 === "LaTeX"
 
