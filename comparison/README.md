@@ -16,13 +16,16 @@ directory holds the evidence for choosing, and the page that shows it:
 | keys and a dot        | [#433](https://github.com/energy-models/math-spec/pull/433) | `claude/lookup-keys-vhvfjd`        |
 | relations             | [#437](https://github.com/energy-models/math-spec/pull/437) | `claude/lookup-relations-vhvfjd`   |
 
-Four modelling problems are written three times, once per proposal, and each
-file is loaded on the branch that proposes it.
+Five modelling problems are written three times, once per proposal, and each
+file is loaded on the branch that proposes it. Two of the fifteen are refused,
+and the refusal is the evidence.
 
 - `models/p1` — a generator's zone changes by period.
 - `models/p2` — the same map, walked from its other key.
 - `models/p3` — nodal balance, where a line has two ends.
 - `models/p4` — a capacity cap per bus and technology.
+- `models/p5` — which regions are neighbours: a relation between two members of
+  one dimension, which only #437 can declare.
 - `probes/` — files that are refused, so the page can print the message.
 
 ## Rebuilding

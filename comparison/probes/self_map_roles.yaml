@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  snapshot: { dtype: int }
+  generator: {}
+lookups:
+  represents: { over: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }
+parameters:
+  cost: { dims: [generator] }
+variables:
+  p: { foreach: [generator, snapshot], bounds: { lower: 0 } }
+constraints:
+  follow_the_stand_in:
+    foreach: [generator, snapshot]
+    expression: p == at(p, by=represents, from=stand_in)
+objective: { sense: minimize, expression: sum(p * cost) }

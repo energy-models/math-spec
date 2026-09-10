@@ -11,6 +11,10 @@
   "relations": {
    "branch": "claude/lookup-relations-vhvfjd",
    "sha": "75840fd"
+  },
+  "keys_436": {
+   "branch": "claude/lookup-self-map-vhvfjd",
+   "sha": "cb8ab96"
   }
  },
  "models": {
@@ -258,9 +262,185 @@
     "\\mathrm{gen\\_bt}: \\mathcal{G} \\to \\mathcal{B} \\times \\mathcal{T}"
    ],
    "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  technology: {}\n  generator: {}\n  period: { dtype: int }\n\nlookups:\n  gen_bt: { over: [generator, bus, technology], key: generator }\n\nparameters:\n  tech_cap: { dims: [bus, technology] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  by_bus_and_tech:\n    foreach: [bus, technology, period]\n    expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p5/keys": {
+   "ok": false,
+   "error_type": "SchemaError",
+   "error": "Parameter 'adjacent' names dimension 'region' twice. A frame is a product of distinct dimensions.",
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  region: {}\n  period: { dtype: int }\n\nparameters:\n  adjacent: { dims: [region, region], dtype: int }\n  cap: { dims: [region, period] }\n  cost: { dims: [region] }\n\nvariables:\n  x: { foreach: [region, period], bounds: { lower: 0 } }\n\nconstraints:\n  neighbourhood:\n    foreach: [region, period]\n    expression: sum(x * adjacent, over=region) <= cap\n\nobjective: { sense: minimize, expression: sum(x * cost) }\n"
+  },
+  "p5/per": {
+   "ok": false,
+   "error_type": "SchemaError",
+   "error": "Parameter 'adjacent' names dimension 'region' twice. A frame is a product of distinct dimensions.",
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  region: {}\n  period: { dtype: int }\n\nparameters:\n  adjacent: { dims: [region, region], dtype: int }\n  cap: { dims: [region, period] }\n  cost: { dims: [region] }\n\nvariables:\n  x: { foreach: [region, period], bounds: { lower: 0 } }\n\nconstraints:\n  neighbourhood:\n    foreach: [region, period]\n    expression: sum(x * adjacent, over=region) <= cap\n\nobjective: { sense: minimize, expression: sum(x * cost) }\n"
+  },
+  "p5/relations": {
+   "ok": true,
+   "constraints": {
+    "neighbourhood": [
+     "region",
+     "period"
+    ]
+   },
+   "latex": {
+    "neighbourhood": "\\sum_{r' \\in \\mathcal{R} \\,:\\, \\left( r,\\ r' \\right) \\in \\mathrm{adjacent}} x_{r',p} \\le \\mathrm{cap}_{r,p} \\qquad \\forall\\, r \\in \\mathcal{R},\\ p \\in \\mathcal{P}",
+    "x": "x_{r,p} \\ge 0 \\qquad \\forall\\, r \\in \\mathcal{R},\\ p \\in \\mathcal{P}"
+   },
+   "maps": [
+    "\\mathrm{adjacent} \\subseteq \\mathcal{R} \\times \\mathcal{R}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  region: {}\n  period: { dtype: int }\n\nlookups:\n  adjacent: { over: { region: region, neighbour: region } }\n\nparameters:\n  cap: { dims: [region, period] }\n  cost: { dims: [region] }\n\nvariables:\n  x: { foreach: [region, period], bounds: { lower: 0 } }\n\nconstraints:\n  neighbourhood:\n    foreach: [region, period]\n    expression: sum(x, by=adjacent, from=neighbour, into=region) <= cap\n\nobjective: { sense: minimize, expression: sum(x * cost) }\n"
   }
  },
  "probes": {
+  "adjacency_param": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  region: {}\n  period: { dtype: int }\n\nparameters:\n  adjacent: { dims: [region, region], dtype: int }\n  cap: { dims: [region, period] }\n  cost: { dims: [region] }\n\nvariables:\n  x: { foreach: [region, period], bounds: { lower: 0 } }\n\nconstraints:\n  neighbourhood:\n    foreach: [region, period]\n    expression: sum(x * adjacent, over=region) <= cap\n\nobjective: { sense: minimize, expression: sum(x * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Parameter 'adjacent' names dimension 'region' twice. A frame is a product of distinct dimensions."
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Parameter 'adjacent' names dimension 'region' twice. A frame is a product of distinct dimensions."
+    },
+    "relations": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Parameter 'adjacent' names dimension 'region' twice. A frame is a product of distinct dimensions."
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Parameter 'adjacent' names dimension 'region' twice. A frame is a product of distinct dimensions."
+    }
+   }
+  },
+  "eligible_ones_bool": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  product: {}\n  period: { dtype: int }\nparameters:\n  eligible: { dims: [generator, product], dtype: bool }\n  requirement: { dims: [product, period] }\n  cost: { dims: [generator] }\nvariables:\n  r: { foreach: [generator, period], bounds: { lower: 0 } }\nconstraints:\n  reserve:\n    foreach: [product, period]\n    expression: sum(r * eligible, over=generator) >= requirement\nobjective: { sense: minimize, expression: sum(r * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Constraint 'reserve': 'eligible' is declared dtype: bool, and an expression is arithmetic \u2014 only dtype: float and dtype: int bind a column it can be done to. A flag masks rather than scales: name it in a where (\"eligible\", \"NOT eligible\"), which is what a mask is \u2014 or declare it dtype: int where the 0/1 is meant to arrive as data and be multiplied by."
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Constraint 'reserve': 'eligible' is declared dtype: bool, and an expression is arithmetic \u2014 only dtype: float and dtype: int bind a column it can be done to. A flag masks rather than scales: name it in a where (\"eligible\", \"NOT eligible\"), which is what a mask is \u2014 or declare it dtype: int where the 0/1 is meant to arrive as data and be multiplied by."
+    },
+    "relations": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Constraint 'reserve': 'eligible' is declared dtype: bool, and an expression is arithmetic \u2014 only dtype: float and dtype: int bind a column it can be done to. A flag masks rather than scales: name it in a where (\"eligible\", \"NOT eligible\"), which is what a mask is \u2014 or declare it dtype: int where the 0/1 is meant to arrive as data and be multiplied by."
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Constraint 'reserve': 'eligible' is declared dtype: bool, and an expression is arithmetic \u2014 only dtype: float and dtype: int bind a column it can be done to. A flag masks rather than scales: name it in a where (\"eligible\", \"NOT eligible\"), which is what a mask is \u2014 or declare it dtype: int where the 0/1 is meant to arrive as data and be multiplied by."
+    }
+   }
+  },
+  "eligible_ones_int": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  product: {}\n  period: { dtype: int }\nparameters:\n  eligible: { dims: [generator, product], dtype: int }\n  requirement: { dims: [product, period] }\n  cost: { dims: [generator] }\nvariables:\n  r: { foreach: [generator, period], bounds: { lower: 0 } }\nconstraints:\n  reserve:\n    foreach: [product, period]\n    expression: sum(r * eligible, over=generator) >= requirement\nobjective: { sense: minimize, expression: sum(r * cost) }\n",
+   "by": {
+    "per": {
+     "ok": true,
+     "constraints": {
+      "reserve": [
+       "product",
+       "period"
+      ]
+     },
+     "latex": {
+      "reserve": "\\sum_{g \\in \\mathcal{G}} r_{g,e} \\cdot \\mathrm{eligible}_{g,p} \\ge \\mathrm{requirement}_{p,e} \\qquad \\forall\\, p \\in \\mathcal{P},\\ e \\in \\mathcal{E}",
+      "r": "r_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+     },
+     "maps": []
+    },
+    "keys": {
+     "ok": true,
+     "constraints": {
+      "reserve": [
+       "product",
+       "period"
+      ]
+     },
+     "latex": {
+      "reserve": "\\sum_{g \\in \\mathcal{G}} r_{g,e} \\cdot \\mathrm{eligible}_{g,p} \\ge \\mathrm{requirement}_{p,e} \\qquad \\forall\\, p \\in \\mathcal{P},\\ e \\in \\mathcal{E}",
+      "r": "r_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+     },
+     "maps": []
+    },
+    "relations": {
+     "ok": true,
+     "constraints": {
+      "reserve": [
+       "product",
+       "period"
+      ]
+     },
+     "latex": {
+      "reserve": "\\sum_{g \\in \\mathcal{G}} r_{g,e} \\cdot \\mathrm{eligible}_{g,p} \\ge \\mathrm{requirement}_{p,e} \\qquad \\forall\\, p \\in \\mathcal{P},\\ e \\in \\mathcal{E}",
+      "r": "r_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+     },
+     "maps": []
+    },
+    "keys_436": {
+     "ok": true,
+     "constraints": {
+      "reserve": [
+       "product",
+       "period"
+      ]
+     },
+     "latex": {
+      "reserve": "\\sum_{g \\in \\mathcal{G}} r_{g,e} \\cdot \\mathrm{eligible}_{g,p} \\ge \\mathrm{requirement}_{p,e} \\qquad \\forall\\, p \\in \\mathcal{P},\\ e \\in \\mathcal{E}",
+      "r": "r_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+     },
+     "maps": []
+    }
+   }
+  },
+  "eligible_relation": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  product: {}\n  period: { dtype: int }\nlookups:\n  eligible: { over: [generator, product] }\nparameters:\n  requirement: { dims: [product, period] }\n  cost: { dims: [generator] }\nvariables:\n  r: { foreach: [generator, period], bounds: { lower: 0 } }\nconstraints:\n  reserve:\n    foreach: [product, period]\n    expression: sum(r, by=eligible, from=generator, into=product) >= requirement\nobjective: { sense: minimize, expression: sum(r * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.eligible.over: Input should be a valid string\nlookups.eligible.into: Field required"
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.eligible.into: Field required"
+    },
+    "relations": {
+     "ok": true,
+     "constraints": {
+      "reserve": [
+       "product",
+       "period"
+      ]
+     },
+     "latex": {
+      "reserve": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\left( g,\\ p \\right) \\in \\mathrm{eligible}} r_{g,e} \\ge \\mathrm{requirement}_{p,e} \\qquad \\forall\\, p \\in \\mathcal{P},\\ e \\in \\mathcal{E}",
+      "r": "r_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+     },
+     "maps": [
+      "\\mathrm{eligible} \\subseteq \\mathcal{G} \\times \\mathcal{P}"
+     ]
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.eligible.into: Field required"
+    }
+   }
+  },
   "keys_no_dot": {
    "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: [generator, period], into: zone }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of) >= demand\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
    "by": {
@@ -278,6 +458,11 @@
      "ok": false,
      "error_type": "SchemaError",
      "error": "lookups.zone_of: unknown key 'into' in a lookup declaration. Valid keys: description, key, over."
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Constraint 'zone_balance': sum(by=zone_of): 'zone_of' is keyed by ['generator', 'period'], and the call has to say which key sum walks \u2014 the others are joined on and kept. Write by=zone_of.generator or by=zone_of.period."
     }
    }
   },
@@ -298,6 +483,11 @@
      "ok": false,
      "error_type": "SchemaError",
      "error": "lookups.gen_bus: unknown key 'into' in a lookup declaration. Valid keys: description, key, over."
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "DimensionError",
+     "error": "Constraint 'masked': sum(by=gen_bus) targets ['bus'], which the expression already carries (['bus', 'generator', 'period']). The result would need ['bus'] twice \u2014 once as the operand's own dim and once as the group it is placed into. Sum over one of the two first, or group into a dimension the operand does not have."
     }
    }
   },
@@ -329,6 +519,11 @@
      "maps": [
       "\\mathrm{gen\\_bus}: \\mathcal{G} \\to \\mathcal{B}"
      ]
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.gen_bus: unknown key 'key' in a lookup declaration. Valid keys: description, into, over."
     }
    }
   },
@@ -349,6 +544,11 @@
      "ok": false,
      "error_type": "SchemaError",
      "error": "lookups.zone_of: unknown key 'into' in a lookup declaration. Valid keys: description, key, over.\nunknown key 'per' in a lookup declaration. Valid keys: description, key, over."
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.zone_of: unknown key 'per' in a lookup declaration. Valid keys: description, into, over."
     }
    }
   },
@@ -369,6 +569,83 @@
      "ok": false,
      "error_type": "SchemaError",
      "error": "Constraint 'zone_balance': sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which from= names."
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.zone_of: unknown key 'key' in a lookup declaration. Valid keys: description, into, over."
+    }
+   }
+  },
+  "self_map_into_itself": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  snapshot: { dtype: int }\n  generator: {}\nlookups:\n  rep_of: { over: snapshot, into: snapshot }\nparameters:\n  cost: { dims: [generator] }\nvariables:\n  p: { foreach: [generator, snapshot], bounds: { lower: 0 } }\nconstraints:\n  representative:\n    foreach: [generator, snapshot]\n    expression: p == at(p, by=rep_of)\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Lookup 'rep_of' maps 'snapshot' into itself. A lookup maps into a different dimension."
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Lookup 'rep_of' maps 'snapshot' into itself. A lookup maps into a different dimension."
+    },
+    "relations": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.rep_of: unknown key 'into' in a lookup declaration. Valid keys: description, key, over."
+    },
+    "keys_436": {
+     "ok": true,
+     "constraints": {
+      "representative": [
+       "generator",
+       "snapshot"
+      ]
+     },
+     "latex": {
+      "representative": "p_{g,t} = p_{g,\\mathrm{rep\\_of}(t)} \\qquad \\forall\\, g \\in \\mathcal{G},\\ t \\in \\mathcal{T}",
+      "p": "p_{g,t} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ t \\in \\mathcal{T}"
+     },
+     "maps": [
+      "\\mathrm{rep\\_of}: \\mathcal{T} \\to \\mathcal{T}"
+     ]
+    }
+   }
+  },
+  "self_map_roles": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  snapshot: { dtype: int }\n  generator: {}\nlookups:\n  represents: { over: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }\nparameters:\n  cost: { dims: [generator] }\nvariables:\n  p: { foreach: [generator, snapshot], bounds: { lower: 0 } }\nconstraints:\n  follow_the_stand_in:\n    foreach: [generator, snapshot]\n    expression: p == at(p, by=represents, from=stand_in)\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.represents: unknown key 'key' in a lookup declaration. Valid keys: description, into, over, per."
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.represents: unknown key 'key' in a lookup declaration. Valid keys: description, into, over."
+    },
+    "relations": {
+     "ok": true,
+     "constraints": {
+      "follow_the_stand_in": [
+       "generator",
+       "snapshot"
+      ]
+     },
+     "latex": {
+      "follow_the_stand_in": "p_{g,t} = p_{g,\\mathrm{represents}(t)} \\qquad \\forall\\, g \\in \\mathcal{G},\\ t \\in \\mathcal{T}",
+      "p": "p_{g,t} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ t \\in \\mathcal{T}"
+     },
+     "maps": [
+      "\\mathrm{represents}: \\mathcal{T} \\to \\mathcal{T}"
+     ]
+    },
+    "keys_436": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.represents: unknown key 'key' in a lookup declaration. Valid keys: description, into, over."
     }
    }
   }

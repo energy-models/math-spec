@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  region: {}
+  period: { dtype: int }
+
+parameters:
+  adjacent: { dims: [region, region], dtype: int }
+  cap: { dims: [region, period] }
+  cost: { dims: [region] }
+
+variables:
+  x: { foreach: [region, period], bounds: { lower: 0 } }
+
+constraints:
+  neighbourhood:
+    foreach: [region, period]
+    expression: sum(x * adjacent, over=region) <= cap
+
+objective: { sense: minimize, expression: sum(x * cost) }

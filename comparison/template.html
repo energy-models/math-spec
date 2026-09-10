@@ -283,7 +283,12 @@
   .mark.yes::before { background: var(--accent); }
   .mark.workaround::before { background: transparent; }
   .mark.no { color: var(--refuse); }
-  .mark.no::before { border-color: var(--refuse); background: transparent; }
+  .mark.no::before {
+    border-color: var(--refuse);
+    background: linear-gradient(
+      45deg, transparent 44%, var(--refuse) 44%, var(--refuse) 56%, transparent 56%
+    );
+  }
   .section-row th {
     font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
     color: var(--ink-3); padding-top: 26px; max-width: none;
@@ -291,6 +296,73 @@
   .price { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
   .price-row th { color: var(--ink-2); }
   .table-scroll { overflow-x: auto; }
+
+  /* ---------- the plain-words primer ---------- */
+  .primer { border-top: 0; padding-top: clamp(32px, 5vw, 56px); }
+  .kinds {
+    display: grid; gap: 1px; background: var(--rule);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--rule); margin-top: 26px;
+  }
+  .kind { background: var(--surface); padding: 20px 22px 18px; display: flex; flex-direction: column; }
+  /* an odd last card would leave the grid's own background showing as a dead cell */
+  .kind:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .kind-shape {
+    margin: 0 0 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3);
+  }
+  .kind-everyday {
+    margin: 0; font-family: var(--serif); font-size: 17px; line-height: 1.45; color: var(--ink);
+    max-width: 34ch;
+  }
+  .kind-model { margin: 8px 0 14px; font-size: 13.5px; color: var(--ink-2); max-width: 46ch; }
+  .kind-code + .kind-code { margin-top: 8px; }
+  .kind-code-label {
+    display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); margin-bottom: 3px;
+  }
+  .kind-code pre.yaml {
+    padding-block: 8px; border-radius: var(--radius); border: 1px solid var(--rule);
+    overflow-x: visible;
+  }
+  .kind-code pre.yaml code { min-width: 0; }
+  .kind-code .line {
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    padding-left: calc(12px + 1.6em); padding-right: 12px; text-indent: -1.6em;
+  }
+  /* the whole line is the point here, so nothing inside it is marked as differing */
+  .kind-code .line.focus { background: transparent; border-left-color: transparent; }
+  .kind-says {
+    margin-top: auto; padding-top: 16px; display: grid; gap: 6px;
+  }
+  .says { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--ink-3); }
+  .says[data-proposal="per"] { --accent: var(--per); }
+  .says[data-proposal="keys"] { --accent: var(--keys); }
+  .says[data-proposal="relations"] { --accent: var(--relations); }
+  .says b { color: var(--accent); font-weight: 600; min-width: 6.5em; }
+  .says .mark { display: inline-flex; }
+  .says .mark::before { margin: 0; }
+
+  .thumb {
+    margin-top: 26px; padding: 20px 24px; background: var(--surface);
+    border: 1px solid var(--rule); border-left: 2px solid var(--ink); border-radius: var(--radius);
+  }
+  .thumb-title {
+    margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3);
+  }
+  .thumb ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 80ch; }
+  .thumb li { font-size: 14px; color: var(--ink-2); }
+  .thumb li b { color: var(--ink); font-weight: 600; }
+  .thumb li::marker { color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
+
+  .panel.refused pre.yaml { opacity: 0.72; }
+  .verdict-word.out { border-bottom-color: var(--refuse); color: var(--refuse); }
+  .refusal-frame { display: block; border-top: 1px dashed var(--rule); }
+  .refusal-frame pre {
+    margin: 6px 0 0; font-size: 12px; line-height: 1.55; color: var(--refuse);
+    white-space: pre-wrap; word-break: break-word;
+  }
 
   .refusals { display: grid; gap: 14px; margin-top: 26px; }
   .refusal {
@@ -336,6 +408,7 @@
     .controls-inner .control-label:last-child { display: none; }
   }
   @media (max-width: 1000px) {
+    .kinds { grid-template-columns: 1fr; }
     .grid-view { grid-template-columns: 1fr; }
     .cards, .reading { grid-template-columns: 1fr; }
     .extra { grid-template-columns: 1fr; }
@@ -356,8 +429,9 @@
     <p class="standfirst">
       #422 settled that a lookup maps into a declared dimension. What it left open is every map
       that needs more than one column on each side: a zone that changes by period, a line with two
-      ends, a table read from either key. Three pull requests answer that, and each says all four
-      models below. The difference is what the file declares, and what a call has to name.
+      ends, a table read from either key. Three pull requests answer that. Four of the five models
+      below are sayable under all three, so the difference is mostly what the file declares and
+      what a call has to name — until the fifth, which only one of them can say at all.
     </p>
     <p class="provenance">
       <span>base <code><!--{base}--></code></span>
@@ -374,6 +448,61 @@
     the page, so no snippet here is hand-typed. The prose, and the reading at the end, are not
     evidence — they are one reader's summary, and generated by AI.
   </p>
+</div>
+
+<div class="wrap">
+  <section class="band primer" id="kinds">
+    <div class="prose">
+      <p class="eyebrow"><span class="num">0</span><span class="what">before the models</span>
+        which kind is it?</p>
+      <h2>Every pairing a model needs, in plain words</h2>
+      <p>
+        A lookup answers one question: given this thing, which other thing? How many the answer
+        holds, and whether a number rides along with it, decides how the file spells it — and that
+        is the whole of what these three proposals disagree about. Each card below is one kind, in
+        everyday terms first and then in a model.
+      </p>
+    </div>
+    <!--{kinds}-->
+    <div class="thumb">
+      <p class="thumb-title">Which one you have, in three questions</p>
+      <ol>
+        <li><b>Does each thing have exactly one?</b> Then it is a map. Give the lookup a
+          <code>key</code>, and the language will hold the data to it.</li>
+        <li><b>Is there a number on the pair?</b> Then it is a parameter. The number's own rows are
+          the pairing, and a lookup would repeat it.</li>
+        <li><b>Are both sides the same kind of thing?</b> Then only #437 can say it. A parameter
+          cannot name one dimension twice, so there is no fallback.</li>
+      </ol>
+    </div>
+    <div class="refusals">
+      <article class="refusal" data-proposal="keys">
+        <h3><span class="who">A flag cannot be multiplied</span> — so a table of ones must be
+          <code>dtype: int</code></h3>
+        <pre><!--{eligible-bool}--></pre>
+        <p class="said">
+          The workaround for an unweighted pairing is to multiply by ones. The honest dtype for a
+          flag is refused in arithmetic, so the ones have to be declared as numbers.
+        </p>
+      </article>
+      <article class="refusal" data-proposal="keys">
+        <h3><span class="who">A buddy is refused on #433 alone</span> — #436 is the stacked draft
+          that lifts it</h3>
+        <pre><!--{self-map-436}--></pre>
+        <p class="said">Measured on #433's head. On #436's head the same file loads.</p>
+      </article>
+      <article class="refusal" data-proposal="keys">
+        <h3><span class="who">And the rewrite #436 prescribes for neighbours</span> — measured on
+          #436's own branch</h3>
+        <pre><!--{adjacency-436}--></pre>
+        <p class="said">
+          #436's description sends an undirected neighbour relation to “a parameter over
+          <code>[bus, bus]</code>”. That file does not load, on that branch or any other. It is the
+          fifth model below.
+        </p>
+      </article>
+    </div>
+  </section>
 </div>
 
 <div class="controls">
@@ -395,14 +524,14 @@
 
   <section class="band" id="masked">
     <div class="prose">
-      <p class="eyebrow"><span class="num">+</span><span class="what">one case outside the four</span></p>
+      <p class="eyebrow"><span class="num">+</span><span class="what">one case outside the five</span></p>
       <h2>A sum that lands where the expression already is</h2>
       <p>
         A load-weighted sum of generation at each bus reads <code>load</code> at the bus the
         generator sits on, and lands on that same bus. Today the language refuses it, because
         <code>bus</code> would be needed twice. Under relations the produced column is joined on
-        instead, and the sum is masked. This is not one of the four problems, and it is the one
-        capability difference the four do not show.
+        instead, and the sum is masked. This is not one of the five problems, and it is the one
+        capability difference they do not show.
       </p>
     </div>
     <div class="extra">
@@ -472,9 +601,10 @@
       <p class="eyebrow"><span class="num">?</span><span class="what">what the choice turns on</span></p>
       <h2>Three questions, one per column</h2>
       <p>
-        All four models are sayable under all three proposals. Capability alone does not decide
-        this, because the two narrower proposals reach the same math with more declarations. What
-        differs is where the file puts a fact, and what a reader of a call has to already know.
+        Four of the five models are sayable under all three proposals, so capability alone does
+        not decide this: the two narrower proposals reach the same math with more declarations.
+        What differs is where the file puts a fact, and what a reader of a call has to already
+        know. The fifth model is the exception, and the only place a column is simply empty.
       </p>
     </div>
     <div class="reading">

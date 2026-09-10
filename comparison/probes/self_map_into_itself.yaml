@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  snapshot: { dtype: int }
+  generator: {}
+lookups:
+  rep_of: { over: snapshot, into: snapshot }
+parameters:
+  cost: { dims: [generator] }
+variables:
+  p: { foreach: [generator, snapshot], bounds: { lower: 0 } }
+constraints:
+  representative:
+    foreach: [generator, snapshot]
+    expression: p == at(p, by=rep_of)
+objective: { sense: minimize, expression: sum(p * cost) }

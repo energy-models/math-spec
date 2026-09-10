@@ -8,7 +8,8 @@ Each proposal is a branch with its own `lookups:` schema, so each model is loade
 in a child interpreter whose `PYTHONPATH` points at that branch's `src/`. The
 output is `evidence.json`: what loaded, the frame the loader reported for every
 constraint, the math the typesetter printed, and the message behind every
-refusal. `build.py` reads it, and nothing in the page is written by hand.
+refusal. A model that is refused is not a failure here — two of them are the
+point, and the page prints what the loader said. `build.py` reads it, and nothing in the page is written by hand.
 
     python comparison/verify.py [--keep]
 
@@ -29,6 +30,10 @@ BRANCHES = {
     'per': 'claude/lookup-per-keyword-vhvfjd',
     'keys': 'claude/lookup-keys-vhvfjd',
     'relations': 'claude/lookup-relations-vhvfjd',
+    # Not a fourth proposal: a draft stacked on #433 that adds the self-map to
+    # it. The probes need it, because a claim about the self-map is a claim
+    # about #433 *with* #436.
+    'keys_436': 'claude/lookup-self-map-vhvfjd',
 }
 
 HERE = Path(__file__).parent

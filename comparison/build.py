@@ -132,6 +132,38 @@ PROBLEMS = [
             ),
         },
     },
+    {
+        'id': 'p5',
+        'demands': 'a relation between two members of one dimension',
+        'title': 'Which regions are neighbours',
+        'prose': (
+            'A region is capped on what its neighbours produce. Neighbourhood is symmetric and '
+            'carries no number: two regions touch, or they do not. Both columns of the relation '
+            'are regions, and that is what makes this case different from every one above.'
+        ),
+        'show': ['neighbourhood'],
+        'caption': (
+            'Only #437 prints this. The other two columns have no file that loads, so there is '
+            'nothing to compare the math against.'
+        ),
+        'verdict': {
+            'per': (
+                'no rewrite',
+                'The fallback for a relation is a parameter over the pair, and a parameter cannot '
+                'name one dimension twice. There is nothing to fall back to.',
+            ),
+            'keys': (
+                'no rewrite',
+                'The same refusal. #436 adds the self-map to this proposal, but a self-map is one '
+                'neighbour per region; neighbourhood is many.',
+            ),
+            'relations': (
+                'one table',
+                'Two roles over one dimension, and no key: each region has many neighbours and '
+                'nothing is single-valued.',
+            ),
+        },
+    },
 ]
 
 #: What each proposal costs, beyond what it can say. Every row is quoted from the
@@ -155,7 +187,111 @@ MATRIX = [
     ("A line's two ends in one table", 'p3', {'per': 0, 'keys': 0, 'relations': 1}),
     ('Landing on two value columns at once', 'p4', {'per': 0, 'keys': 0, 'relations': 1}),
     ('A masked sum: the produced dimension already carried', 'masked', {'per': -1, 'keys': -1, 'relations': 1}),
+    ('Unweighted many-to-many, as structure not data', 'kinds', {'per': 0, 'keys': 0, 'relations': 1}),
+    ('A relation between two members of one dimension', 'p5', {'per': -1, 'keys': -1, 'relations': 1}),
 ]
+
+#: Every kind of pairing a model needs, in the order a reader meets them: what it
+#: is in everyday terms, what it is in a model, how it is spelled, and what each
+#: proposal does with it. Each `says` entry is measured — the file is under
+#: `models/` or `probes/` and the branch's own answer is in `evidence.json`.
+KINDS = [
+    {
+        'shape': 'one each',
+        'everyday': 'Every pupil is in one class.',
+        'model': 'Every generator sits on one bus.',
+        'code': [
+            ('relations', 'gen_bus: { over: [generator, bus], key: generator }'),
+            ('per: and keys', 'gen_bus: { over: generator, into: bus }'),
+        ],
+        'says': {
+            'per': ('yes', 'a lookup'),
+            'keys': ('yes', 'a lookup'),
+            'relations': ('yes', 'a lookup with a key'),
+        },
+    },
+    {
+        'shape': 'one each, and it changes',
+        'everyday': 'Every pupil is in one class, and the class changes each school year.',
+        'model': 'Every generator bids in one zone, and the zone changes by period.',
+        'code': [
+            ('relations', 'zone_of: { over: [generator, period, zone], key: [generator, period] }'),
+            ('keys', 'zone_of: { over: [generator, period], into: zone }'),
+        ],
+        'says': {
+            'per': ('yes', 'per: [period]'),
+            'keys': ('yes', 'a second key'),
+            'relations': ('yes', 'a second key column'),
+        },
+    },
+    {
+        'shape': 'two named slots',
+        'everyday': 'A seesaw has a left seat and a right seat, and a pupil sits on each.',
+        'model': 'A line has one bus at each end, and the two ends are not interchangeable.',
+        'code': [('relations', 'ends: { over: { line: line, bus0: bus, bus1: bus }, key: line }')],
+        'says': {
+            'per': ('workaround', 'two lookups'),
+            'keys': ('workaround', 'two lookups'),
+            'relations': ('yes', 'one table, two roles'),
+        },
+    },
+    {
+        'shape': 'one of its own kind',
+        'everyday': 'Every pupil has one buddy, who is also a pupil.',
+        'model': 'Every snapshot has one representative snapshot that stands in for it.',
+        'code': [
+            ('relations', 'represents: { over: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }'),
+            ('keys, with #436', 'rep_of: { over: snapshot, into: snapshot }'),
+        ],
+        'says': {
+            'per': ('no', 'refused: maps into itself'),
+            'keys': ('workaround', 'only with #436'),
+            'relations': ('yes', 'a keyed self-map'),
+        },
+    },
+    {
+        'shape': 'many each, nothing to count',
+        'everyday': 'A pupil can be in several clubs, and a club has several pupils.',
+        'model': 'A generator can bid into several reserve products, and each product has many.',
+        'code': [
+            ('relations', 'eligible: { over: [generator, product] }'),
+            ('per: and keys', 'eligible: { dims: [generator, product], dtype: int }  # a table of ones'),
+        ],
+        'says': {
+            'per': ('workaround', 'ones, and int not bool'),
+            'keys': ('workaround', 'ones, and int not bool'),
+            'relations': ('yes', 'a lookup with no key'),
+        },
+    },
+    {
+        'shape': 'many each, of its own kind',
+        'everyday': 'Which pupils sit next to each other.',
+        'model': 'Which regions are neighbours.',
+        'code': [('relations', 'adjacent: { over: { region: region, neighbour: region } }')],
+        'says': {
+            'per': ('no', 'no rewrite exists'),
+            'keys': ('no', 'no rewrite exists'),
+            'relations': ('yes', 'a bare self-relation'),
+        },
+    },
+    {
+        'shape': 'many each, with a number on the pair',
+        'everyday': 'How many biscuits each pupil gets at each club.',
+        'model': 'The efficiency with which a generator feeds a bus.',
+        'code': [('every proposal', 'efficiency: { dims: [generator, bus] }')],
+        'says': {
+            'per': ('yes', 'a parameter'),
+            'keys': ('yes', 'a parameter'),
+            'relations': ('yes', 'a parameter'),
+        },
+    },
+]
+
+#: The caption under a problem's math, where every proposal reaches the same rows.
+SAME_MATH = (
+    'The math is the same under all three proposals. Only the name of the map changes, so the '
+    'file is what the choice is about, not the printed model.'
+)
 
 CELL = {
     1: ('one table', 'yes'),
@@ -174,14 +310,15 @@ def excerpt(yaml: str) -> str:
     out: list[str] = []
     block = ''
     pending = ''
+    declares = 'lookups' if 'lookups:' in yaml else 'parameters'
     for line in yaml.splitlines():
         if line and not line[0].isspace():
             block = line.split(':')[0]
             pending = ''
-            if block == 'lookups':
+            if block == declares:
                 out.extend(['', line] if out else [line])
             continue
-        if block == 'lookups' and line.strip():
+        if block == declares and line.strip():
             out.append(line)
         elif block == 'constraints' and line.strip():
             key = line.strip().split(':')[0]
@@ -281,6 +418,23 @@ def frame(dims: dict[str, list[str]], names: list[str]) -> str:
     return f'<div class="frame"><span class="frame-label">loader reports</span>{cells}</div>'
 
 
+def refused_panel(proposal: str, verdict: str, note: str, source: str, error: str) -> str:
+    """A panel for a model the branch refuses: the attempt, and what it said."""
+    return (
+        f'<article class="panel refused" data-proposal="{proposal}">'
+        f'<header class="panel-head">'
+        f'<span class="chip">{html.escape(ABOUT[proposal]["name"])}</span>'
+        f'<a class="pr" href="https://github.com/energy-models/math-spec/pull/{ABOUT[proposal]["pr"]}">#{ABOUT[proposal]["pr"]}</a>'
+        f'</header>'
+        f'<p class="verdict"><span class="verdict-word out">{html.escape(verdict)}</span>'
+        f'{html.escape(note)}</p>'
+        f'{yaml_html(source)}'
+        f'<div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span>'
+        f'<pre>{html.escape(error)}</pre></div>'
+        f'</article>'
+    )
+
+
 def panels(problem: dict, ev: dict, mode: str) -> str:
     out = []
     for proposal in PROPOSALS:
@@ -288,6 +442,9 @@ def panels(problem: dict, ev: dict, mode: str) -> str:
         body = strip_header(record['yaml'])
         verdict, note = problem['verdict'][proposal]
         source = excerpt(body) if mode == 'grid' else body
+        if not record['ok']:
+            out.append(refused_panel(proposal, verdict, note, source, record['error']))
+            continue
         maps = legend_html(list(dict.fromkeys(record['maps'])))
         out.append(
             f'<article class="panel" data-proposal="{proposal}">'
@@ -318,8 +475,7 @@ def problem_section(problem: dict, ev: dict, index: int) -> str:
   </div>
   <div class="math-block">
     {equations}
-    <p class="caption">The math is the same under all three proposals. Only the name of the map
-    changes, so the file is what the choice is about, not the printed model.</p>
+    <p class="caption">{html.escape(problem.get('caption', SAME_MATH))}</p>
   </div>
   <div class="compare grid-view">{panels(problem, ev, 'grid')}</div>
   <div class="compare tab-view">{panels(problem, ev, 'full')}</div>
@@ -330,6 +486,33 @@ def refusal(ev: dict, probe: str, proposal: str) -> str:
     record = ev['probes'][probe]['by'][proposal]
     assert not record['ok'], f'{probe} loads under {proposal}, so it is not a refusal'
     return html.escape(record['error'])
+
+
+def kinds_html() -> str:
+    """One card per kind of pairing, with the everyday reading above the model one."""
+    cards = []
+    for kind in KINDS:
+        code = ''.join(
+            f'<div class="kind-code"><span class="kind-code-label">{html.escape(label)}</span>{yaml_html(line)}</div>'
+            for label, line in kind['code']
+        )
+        says = ''.join(
+            f'<span class="says" data-proposal="{p}">'
+            f'<span class="mark {kind["says"][p][0]}"></span>'
+            f'<b>{html.escape(ABOUT[p]["name"].replace(": conditioning", ":").replace(" and a dot", ""))}</b>'
+            f'{html.escape(kind["says"][p][1])}</span>'
+            for p in PROPOSALS
+        )
+        cards.append(
+            f'<article class="kind">'
+            f'<p class="kind-shape">{html.escape(kind["shape"])}</p>'
+            f'<p class="kind-everyday">{html.escape(kind["everyday"])}</p>'
+            f'<p class="kind-model">{html.escape(kind["model"])}</p>'
+            f'{code}'
+            f'<div class="kind-says">{says}</div>'
+            f'</article>'
+        )
+    return f'<div class="kinds">{"".join(cards)}</div>'
 
 
 def matrix_html() -> str:
@@ -370,6 +553,10 @@ def build() -> str:
     slots = {
         'sections': '\n'.join(problem_section(p, ev, i + 1) for i, p in enumerate(PROBLEMS)),
         'matrix': matrix_html(),
+        'kinds': kinds_html(),
+        'eligible-bool': refusal(ev, 'eligible_ones_bool', 'keys'),
+        'self-map-436': refusal(ev, 'self_map_into_itself', 'keys'),
+        'adjacency-436': refusal(ev, 'adjacency_param', 'keys_436'),
         'base': ev['base'],
         'shas': ' · '.join(f'{ABOUT[p]["name"]} <code>{ev["branches"][p]["sha"]}</code>' for p in PROPOSALS),
         'keys-no-dot': refusal(ev, 'keys_no_dot', 'keys'),
