@@ -119,6 +119,11 @@ extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
   "N806",
 ] # grammar tokens (NOT/AND/OR) are named after keywords
 "docs/static/hooks.py" = ["PERF401", "RUF015", "D"]
+# The same exemption as `tools/`: these two are generators that say what they
+# wrote. `RUF001`/`RUF002` go with them because the page prints a set as the
+# script capital the typesetter prints, and `𝒢` is the character, not a typo
+# for `G`.
+"comparison/*.py" = ["T20", "RUF001", "RUF002"]
 
 [tool.ruff.format]
 quote-style = "single"

@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  bus: {}
+  line: {}
+  generator: {}
+  period: { dtype: int }
+
+lookups:
+  gen_bus: { over: [generator, bus], key: generator }
+  ends: { over: { line: line, bus0: bus, bus1: bus }, key: line }
+
+parameters:
+  load: { dims: [bus, period] }
+  cost: { dims: [generator] }
+
+variables:
+  p: { foreach: [generator, period], bounds: { lower: 0 } }
+  f: { foreach: [line, period] }
+
+constraints:
+  nodal:
+    foreach: [bus, period]
+    expression: sum(p, by=gen_bus) + sum(f, by=ends, into=bus1) - sum(f, by=ends, into=bus0) == load
+  no_loop:
+    foreach: [line, period]
+    where: "ends.bus0 != ends.bus1"
+    expression: f <= 10
+
+objective: { sense: minimize, expression: sum(p * cost) }

@@ -1,0 +1,377 @@
+{
+ "branches": {
+  "per": {
+   "branch": "claude/lookup-per-keyword-vhvfjd",
+   "sha": "4081e3e"
+  },
+  "keys": {
+   "branch": "claude/lookup-keys-vhvfjd",
+   "sha": "2d8735a"
+  },
+  "relations": {
+   "branch": "claude/lookup-relations-vhvfjd",
+   "sha": "75840fd"
+  }
+ },
+ "models": {
+  "p1/keys": {
+   "ok": true,
+   "constraints": {
+    "zone_balance": [
+     "zone",
+     "period"
+    ]
+   },
+   "latex": {
+    "zone_balance": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{zone\\_of}(g,\\ e) = z} p_{g,e} \\ge \\mathrm{demand}_{z,e} \\qquad \\forall\\, z \\in \\mathcal{Z},\\ e \\in \\mathcal{E}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{zone\\_of}: \\mathcal{G} \\times \\mathcal{E} \\to \\mathcal{Z}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: [generator, period], into: zone }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of.generator) >= demand\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p1/per": {
+   "ok": true,
+   "constraints": {
+    "zone_balance": [
+     "zone",
+     "period"
+    ]
+   },
+   "latex": {
+    "zone_balance": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{zone\\_of}(g,\\ e) = z} p_{g,e} \\ge \\mathrm{demand}_{z,e} \\qquad \\forall\\, z \\in \\mathcal{Z},\\ e \\in \\mathcal{E}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{zone\\_of}: \\mathcal{G} \\times \\mathcal{E} \\to \\mathcal{Z}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: generator, into: zone, per: [period] }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of) >= demand\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p1/relations": {
+   "ok": true,
+   "constraints": {
+    "zone_balance": [
+     "zone",
+     "period"
+    ]
+   },
+   "latex": {
+    "zone_balance": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{zone\\_of}(g,\\ e) = z} p_{g,e} \\ge \\mathrm{demand}_{z,e} \\qquad \\forall\\, z \\in \\mathcal{Z},\\ e \\in \\mathcal{E}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{zone\\_of}: \\mathcal{G} \\times \\mathcal{E} \\to \\mathcal{Z}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: [generator, period, zone], key: [generator, period] }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of, from=generator) >= demand\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p2/keys": {
+   "ok": true,
+   "constraints": {
+    "zone_balance": [
+     "zone",
+     "period"
+    ],
+    "history": [
+     "generator",
+     "zone"
+    ]
+   },
+   "latex": {
+    "zone_balance": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{zone\\_of}(g,\\ e) = z} p_{g,e} \\ge \\mathrm{demand}_{z,e} \\qquad \\forall\\, z \\in \\mathcal{Z},\\ e \\in \\mathcal{E}",
+    "history": "\\sum_{e \\in \\mathcal{E} \\,:\\, \\mathrm{zone\\_of}(g,\\ e) = z} p_{g,e} \\le 100 \\qquad \\forall\\, g \\in \\mathcal{G},\\ z \\in \\mathcal{Z}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{zone\\_of}: \\mathcal{G} \\times \\mathcal{E} \\to \\mathcal{Z}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: [generator, period], into: zone }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of.generator) >= demand\n  history:\n    foreach: [generator, zone]\n    expression: sum(p, by=zone_of.period) <= 100\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p2/per": {
+   "ok": true,
+   "constraints": {
+    "zone_balance": [
+     "zone",
+     "period"
+    ],
+    "history": [
+     "generator",
+     "zone"
+    ]
+   },
+   "latex": {
+    "zone_balance": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{zone\\_of}(g,\\ e) = z} p_{g,e} \\ge \\mathrm{demand}_{z,e} \\qquad \\forall\\, z \\in \\mathcal{Z},\\ e \\in \\mathcal{E}",
+    "history": "\\sum_{e \\in \\mathcal{E} \\,:\\, \\mathrm{zone\\_of\\_by\\_period}(e,\\ g) = z} p_{g,e} \\le 100 \\qquad \\forall\\, g \\in \\mathcal{G},\\ z \\in \\mathcal{Z}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{zone\\_of}: \\mathcal{G} \\times \\mathcal{E} \\to \\mathcal{Z}",
+    "\\mathrm{zone\\_of\\_by\\_period}: \\mathcal{E} \\times \\mathcal{G} \\to \\mathcal{Z}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: generator, into: zone, per: [period] }\n  zone_of_by_period: { over: period, into: zone, per: [generator] }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of) >= demand\n  history:\n    foreach: [generator, zone]\n    expression: sum(p, by=zone_of_by_period) <= 100\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p2/relations": {
+   "ok": true,
+   "constraints": {
+    "zone_balance": [
+     "zone",
+     "period"
+    ],
+    "history": [
+     "generator",
+     "zone"
+    ]
+   },
+   "latex": {
+    "zone_balance": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{zone\\_of}(g,\\ e) = z} p_{g,e} \\ge \\mathrm{demand}_{z,e} \\qquad \\forall\\, z \\in \\mathcal{Z},\\ e \\in \\mathcal{E}",
+    "history": "\\sum_{e \\in \\mathcal{E} \\,:\\, \\mathrm{zone\\_of}(g,\\ e) = z} p_{g,e} \\le 100 \\qquad \\forall\\, g \\in \\mathcal{G},\\ z \\in \\mathcal{Z}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{zone\\_of}: \\mathcal{G} \\times \\mathcal{E} \\to \\mathcal{Z}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: [generator, period, zone], key: [generator, period] }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of, from=generator) >= demand\n  history:\n    foreach: [generator, zone]\n    expression: sum(p, by=zone_of, from=period) <= 100\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p3/keys": {
+   "ok": true,
+   "constraints": {
+    "nodal": [
+     "bus",
+     "period"
+    ],
+    "no_loop": [
+     "line",
+     "period"
+    ]
+   },
+   "latex": {
+    "nodal": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{gen\\_bus}(g) = b} p_{g,e} + \\sum_{l \\in \\mathcal{L} \\,:\\, \\mathrm{line\\_bus1}(l) = b} f_{l,e} - \\left( \\sum_{l \\in \\mathcal{L} \\,:\\, \\mathrm{line\\_bus0}(l) = b} f_{l,e} \\right) = \\mathrm{load}_{b,e} \\qquad \\forall\\, b \\in \\mathcal{B},\\ e \\in \\mathcal{E}",
+    "no_loop": "f_{l,e} \\le 10 \\qquad \\forall\\, l \\in \\mathcal{L},\\ e \\in \\mathcal{E} \\,:\\, \\mathrm{line\\_bus0}(l) \\neq \\mathrm{line\\_bus1}(l)",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}",
+    "f": "f_{l,e} \\in \\mathbb{R} \\qquad \\forall\\, l \\in \\mathcal{L},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{line\\_bus0}: \\mathcal{L} \\to \\mathcal{B},\\ \\mathrm{line\\_bus1}: \\mathcal{L} \\to \\mathcal{B}",
+    "\\mathrm{gen\\_bus}: \\mathcal{G} \\to \\mathcal{B}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  line: {}\n  generator: {}\n  period: { dtype: int }\n\nlookups:\n  gen_bus: { over: generator, into: bus }\n  line_bus0: { over: line, into: bus }\n  line_bus1: { over: line, into: bus }\n\nparameters:\n  load: { dims: [bus, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n  f: { foreach: [line, period] }\n\nconstraints:\n  nodal:\n    foreach: [bus, period]\n    expression: sum(p, by=gen_bus) + sum(f, by=line_bus1) - sum(f, by=line_bus0) == load\n  no_loop:\n    foreach: [line, period]\n    where: \"line_bus0 != line_bus1\"\n    expression: f <= 10\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p3/per": {
+   "ok": true,
+   "constraints": {
+    "nodal": [
+     "bus",
+     "period"
+    ],
+    "no_loop": [
+     "line",
+     "period"
+    ]
+   },
+   "latex": {
+    "nodal": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{gen\\_bus}(g) = b} p_{g,e} + \\sum_{l \\in \\mathcal{L} \\,:\\, \\mathrm{line\\_bus1}(l) = b} f_{l,e} - \\left( \\sum_{l \\in \\mathcal{L} \\,:\\, \\mathrm{line\\_bus0}(l) = b} f_{l,e} \\right) = \\mathrm{load}_{b,e} \\qquad \\forall\\, b \\in \\mathcal{B},\\ e \\in \\mathcal{E}",
+    "no_loop": "f_{l,e} \\le 10 \\qquad \\forall\\, l \\in \\mathcal{L},\\ e \\in \\mathcal{E} \\,:\\, \\mathrm{line\\_bus0}(l) \\neq \\mathrm{line\\_bus1}(l)",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}",
+    "f": "f_{l,e} \\in \\mathbb{R} \\qquad \\forall\\, l \\in \\mathcal{L},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{line\\_bus0}: \\mathcal{L} \\to \\mathcal{B},\\ \\mathrm{line\\_bus1}: \\mathcal{L} \\to \\mathcal{B}",
+    "\\mathrm{gen\\_bus}: \\mathcal{G} \\to \\mathcal{B}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  line: {}\n  generator: {}\n  period: { dtype: int }\n\nlookups:\n  gen_bus: { over: generator, into: bus }\n  line_bus0: { over: line, into: bus }\n  line_bus1: { over: line, into: bus }\n\nparameters:\n  load: { dims: [bus, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n  f: { foreach: [line, period] }\n\nconstraints:\n  nodal:\n    foreach: [bus, period]\n    expression: sum(p, by=gen_bus) + sum(f, by=line_bus1) - sum(f, by=line_bus0) == load\n  no_loop:\n    foreach: [line, period]\n    where: \"line_bus0 != line_bus1\"\n    expression: f <= 10\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p3/relations": {
+   "ok": true,
+   "constraints": {
+    "nodal": [
+     "bus",
+     "period"
+    ],
+    "no_loop": [
+     "line",
+     "period"
+    ]
+   },
+   "latex": {
+    "nodal": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{gen\\_bus}(g) = b} p_{g,e} + \\sum_{l \\in \\mathcal{L} \\,:\\, \\mathrm{ends.bus1}(l) = b} f_{l,e} - \\left( \\sum_{l \\in \\mathcal{L} \\,:\\, \\mathrm{ends.bus0}(l) = b} f_{l,e} \\right) = \\mathrm{load}_{b,e} \\qquad \\forall\\, b \\in \\mathcal{B},\\ e \\in \\mathcal{E}",
+    "no_loop": "f_{l,e} \\le 10 \\qquad \\forall\\, l \\in \\mathcal{L},\\ e \\in \\mathcal{E} \\,:\\, \\mathrm{ends.bus0}(l) \\neq \\mathrm{ends.bus1}(l)",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}",
+    "f": "f_{l,e} \\in \\mathbb{R} \\qquad \\forall\\, l \\in \\mathcal{L},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{gen\\_bus}: \\mathcal{G} \\to \\mathcal{B},\\ \\mathrm{ends}: \\mathcal{L} \\to \\mathcal{B} \\times \\mathcal{B}",
+    "\\mathrm{ends}: \\mathcal{L} \\to \\mathcal{B} \\times \\mathcal{B}",
+    "\\mathrm{gen\\_bus}: \\mathcal{G} \\to \\mathcal{B}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  line: {}\n  generator: {}\n  period: { dtype: int }\n\nlookups:\n  gen_bus: { over: [generator, bus], key: generator }\n  ends: { over: { line: line, bus0: bus, bus1: bus }, key: line }\n\nparameters:\n  load: { dims: [bus, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n  f: { foreach: [line, period] }\n\nconstraints:\n  nodal:\n    foreach: [bus, period]\n    expression: sum(p, by=gen_bus) + sum(f, by=ends, into=bus1) - sum(f, by=ends, into=bus0) == load\n  no_loop:\n    foreach: [line, period]\n    where: \"ends.bus0 != ends.bus1\"\n    expression: f <= 10\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p4/keys": {
+   "ok": true,
+   "constraints": {
+    "by_bus_and_tech": [
+     "bus",
+     "technology",
+     "period"
+    ]
+   },
+   "latex": {
+    "by_bus_and_tech": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{gen\\_bus}(g) = b \\wedge \\mathrm{gen\\_tech}(g) = t} p_{g,e} \\le \\mathrm{tech\\_cap}_{b,t} \\qquad \\forall\\, b \\in \\mathcal{B},\\ t \\in \\mathcal{T},\\ e \\in \\mathcal{E}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{gen\\_bus}: \\mathcal{G} \\to \\mathcal{B},\\ \\mathrm{gen\\_tech}: \\mathcal{G} \\to \\mathcal{T}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  technology: {}\n  generator: {}\n  period: { dtype: int }\n\nlookups:\n  gen_bus: { over: generator, into: bus }\n  gen_tech: { over: generator, into: technology }\n\nparameters:\n  tech_cap: { dims: [bus, technology] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  by_bus_and_tech:\n    foreach: [bus, technology, period]\n    expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p4/per": {
+   "ok": true,
+   "constraints": {
+    "by_bus_and_tech": [
+     "bus",
+     "technology",
+     "period"
+    ]
+   },
+   "latex": {
+    "by_bus_and_tech": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{gen\\_bus}(g) = b \\wedge \\mathrm{gen\\_tech}(g) = t} p_{g,e} \\le \\mathrm{tech\\_cap}_{b,t} \\qquad \\forall\\, b \\in \\mathcal{B},\\ t \\in \\mathcal{T},\\ e \\in \\mathcal{E}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{gen\\_bus}: \\mathcal{G} \\to \\mathcal{B},\\ \\mathrm{gen\\_tech}: \\mathcal{G} \\to \\mathcal{T}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  technology: {}\n  generator: {}\n  period: { dtype: int }\n\nlookups:\n  gen_bus: { over: generator, into: bus }\n  gen_tech: { over: generator, into: technology }\n\nparameters:\n  tech_cap: { dims: [bus, technology] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  by_bus_and_tech:\n    foreach: [bus, technology, period]\n    expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  },
+  "p4/relations": {
+   "ok": true,
+   "constraints": {
+    "by_bus_and_tech": [
+     "bus",
+     "technology",
+     "period"
+    ]
+   },
+   "latex": {
+    "by_bus_and_tech": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{gen\\_bt.bus}(g) = b \\wedge \\mathrm{gen\\_bt.technology}(g) = t} p_{g,e} \\le \\mathrm{tech\\_cap}_{b,t} \\qquad \\forall\\, b \\in \\mathcal{B},\\ t \\in \\mathcal{T},\\ e \\in \\mathcal{E}",
+    "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+   },
+   "maps": [
+    "\\mathrm{gen\\_bt}: \\mathcal{G} \\to \\mathcal{B} \\times \\mathcal{T}"
+   ],
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  technology: {}\n  generator: {}\n  period: { dtype: int }\n\nlookups:\n  gen_bt: { over: [generator, bus, technology], key: generator }\n\nparameters:\n  tech_cap: { dims: [bus, technology] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  by_bus_and_tech:\n    foreach: [bus, technology, period]\n    expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n"
+  }
+ },
+ "probes": {
+  "keys_no_dot": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: [generator, period], into: zone }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of) >= demand\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.zone_of.over: Input should be a valid string"
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Constraint 'zone_balance': sum(by=zone_of): 'zone_of' is keyed by ['generator', 'period'], and the call has to say which key sum walks \u2014 the others are joined on and kept. Write by=zone_of.generator or by=zone_of.period."
+    },
+    "relations": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.zone_of: unknown key 'into' in a lookup declaration. Valid keys: description, key, over."
+    }
+   }
+  },
+  "masked_flat": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  generator: {}\n  period: { dtype: int }\nlookups:\n  gen_bus: { over: generator, into: bus }\nparameters:\n  load: { dims: [bus, period] }\n  cost: { dims: [generator] }\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\nconstraints:\n  masked:\n    foreach: [bus, period]\n    expression: sum(load * p, by=gen_bus) <= 1000\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "DimensionError",
+     "error": "Constraint 'masked': sum(by=gen_bus) targets ['bus'], which the expression already carries (['bus', 'generator', 'period']). The result would need ['bus'] twice \u2014 once as the operand's own dim and once as the group it is placed into. Sum over one of the two first, or group into a dimension the operand does not have."
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "DimensionError",
+     "error": "Constraint 'masked': sum(by=gen_bus) targets ['bus'], which the expression already carries (['bus', 'generator', 'period']). The result would need ['bus'] twice \u2014 once as the operand's own dim and once as the group it is placed into. Sum over one of the two first, or group into a dimension the operand does not have."
+    },
+    "relations": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.gen_bus: unknown key 'into' in a lookup declaration. Valid keys: description, key, over."
+    }
+   }
+  },
+  "masked_rel": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  bus: {}\n  generator: {}\n  period: { dtype: int }\nlookups:\n  gen_bus: { over: [generator, bus], key: generator }\nparameters:\n  load: { dims: [bus, period] }\n  cost: { dims: [generator] }\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\nconstraints:\n  masked:\n    foreach: [bus, period]\n    expression: sum(load * p, by=gen_bus) <= 1000\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.gen_bus: unknown key 'key' in a lookup declaration. Valid keys: description, into, over, per."
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.gen_bus: unknown key 'key' in a lookup declaration. Valid keys: description, into, over."
+    },
+    "relations": {
+     "ok": true,
+     "constraints": {
+      "masked": [
+       "bus",
+       "period"
+      ]
+     },
+     "latex": {
+      "masked": "\\sum_{g \\in \\mathcal{G} \\,:\\, \\mathrm{gen\\_bus}(g) = b} \\mathrm{load}_{b,e} \\cdot p_{g,e} \\le 1000 \\qquad \\forall\\, b \\in \\mathcal{B},\\ e \\in \\mathcal{E}",
+      "p": "p_{g,e} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ e \\in \\mathcal{E}"
+     },
+     "maps": [
+      "\\mathrm{gen\\_bus}: \\mathcal{G} \\to \\mathcal{B}"
+     ]
+    }
+   }
+  },
+  "per_history": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: generator, into: zone, per: [period] }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  history:\n    foreach: [generator, zone]\n    expression: sum(p, by=zone_of) <= 100\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "DimensionError",
+     "error": "Constraint 'history': the expression carries dims ['period'] that are not in foreach ['generator', 'zone'] \u2014 every stray dim multiplies the rows this constraint builds; add it to foreach if that is intended, or sum it out."
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.zone_of: unknown key 'per' in a lookup declaration. Valid keys: description, into, over."
+    },
+    "relations": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.zone_of: unknown key 'into' in a lookup declaration. Valid keys: description, key, over.\nunknown key 'per' in a lookup declaration. Valid keys: description, key, over."
+    }
+   }
+  },
+  "rel_no_from": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: [generator, period, zone], key: [generator, period] }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of) >= demand\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
+   "by": {
+    "per": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.zone_of: unknown key 'key' in a lookup declaration. Valid keys: description, into, over, per."
+    },
+    "keys": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "lookups.zone_of: unknown key 'key' in a lookup declaration. Valid keys: description, into, over."
+    },
+    "relations": {
+     "ok": false,
+     "error_type": "SchemaError",
+     "error": "Constraint 'zone_balance': sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which from= names."
+    }
+   }
+  }
+ },
+ "base": "d64e5da"
+}
