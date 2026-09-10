@@ -25,7 +25,7 @@ prints the same math with one row per call. For models written to be read, start
 with the [examples](../examples/index.md).
 
 The symbols below are **derived** from the names in the file, which is what a
-model prints with no setup, so you see $\mathit{load}_{t}$ rather than $\ell_t$.
+model prints with no setup, so you see $\mathrm{load}_{t}$ rather than $\ell_t$.
 A [symbol table](typeset.md#symbol-tables) replaces every symbol, and changes
 nothing else on this page.
 

@@ -123,7 +123,7 @@ name for both.
 ## Symbol tables
 
 With no table, the symbols are **derived** from the names in the file, such as
-$\mathit{load}_t$ and $p^{\mathrm{max}}_g$. A derived symbol names one
+$\mathrm{load}_t$ and $\mathrm{p}^{\mathrm{max}}_g$. A derived symbol names one
 declaration and no other, so a model prints with no setup. A symbol table makes
 the output conventional:
 

@@ -207,22 +207,24 @@ choice, and **How** shows the one made here.
     ms.to_markdown(spec)  # renders as-is on GitHub
     ```
 
-    `symbols` is optional — drop it and the same model prints as
-    $\mathit{load}_t$, $p^{\mathrm{max}}_g$. A dict, a YAML path or a
-    `SymbolTable`; a key naming nothing in the model is an error, not a symbol that
-    silently never applies. Every spelling is printed verbatim — `notation` says
-    which language they are, and a render in the other one refuses.
+    `symbols` is optional. Drop it and the same model prints as
+    $\mathrm{load}_t$ and $\mathrm{p}^{\mathrm{max}}_g$, with no setup. Pass a dict,
+    a YAML path or a `SymbolTable`. A key that names nothing in the model is an
+    error, rather than a symbol that silently never applies. Every spelling is
+    printed as written, and `notation` says which language it is written in. A
+    render in the other notation is refused.
 
-    Or from a shell, where the table is that same YAML on disk and `--standalone`
-    emits a document that compiles rather than a fragment to `\input`:
+    Or from a shell, where the table is that same YAML on disk. `--standalone` emits
+    a document that compiles, rather than a fragment to `\input`:
 
     ```bash
     python -m math_spec latex dispatch.yaml --symbols dispatch.symbols.yaml
     python -m math_spec typst dispatch.yaml --standalone -o dispatch.typ
     ```
 
-    The renderer is [the typesetter](reference/typeset.md), and it reads the same
-    file every other page here loads.
+    [Typeset the math](reference/typeset.md) documents the three functions, their
+    options and symbol tables. Each reads the same file every other page here
+    loads.
 
 <!-- home-math:end -->
 

@@ -47,9 +47,10 @@ docs/reference/notation.md
 # hand-written tables above the markers give up formatting with it, which is
 # the price of the file being the unit `.prettierignore` works in.
 #
-# `tools/home_math.py` is the other way out of this and needs no entry: it
-# emits the blank lines around its markers that prettier wants, so `--check`
-# and the formatter agree on `docs/index.md` and `README.md`. Padding a table
-# is a harder shape to match than a blank line, which is why these three take
-# the generator-wins route instead.
+# `tools/home_math.py` needs no entry, and takes both of the other ways out:
+# it emits the blank lines around its markers that prettier wants, and the
+# block of tables it writes into `README.md` sits inside a
+# `<!-- prettier-ignore-start -->` range there. A range is what a file whose
+# generated part is a block among hand-written prose wants — the pages above
+# are generated nearly end to end, so listing them is the shorter answer.
 docs/reference/language/operators.md

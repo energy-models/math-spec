@@ -20,8 +20,8 @@ with no data and no solver.**
 
 A math-spec file declares four things: the axes the model runs over, such as
 `snapshot` and `generator`; the data it expects, such as `load` and `cost`; the
-decisions the solver makes, such as `dispatch`; and the rules those decisions obey, such
-as `sum(dispatch, over=generator) == load`. The file [below](#example) is a complete
+decisions the solver makes, such as `p`; and the rules those decisions obey, such
+as `sum(p, over=generator) == load`. The file [below](#example) is a complete
 model.
 
 math-spec reads that file, checks everything that can be checked without data,
@@ -102,16 +102,210 @@ objective:
 
 <!--- --8<-- [end:model] -->
 
-That file is a complete model. Nothing outside it changes what it means, and
-everything about it that can be wrong is wrong at load:
+That file is a complete model. Nothing outside it changes what it means.
 
-<!--- --8<-- [start:load] -->
+### What that file says
+
+Here is that model as math, printed from the file above and nothing else. No
+data, no solver, and no second copy of the equations to keep in step. Markdown
+is one of three formats, so GitHub renders it here.
+
+<!-- Prettier pads the legend tables that the generator emits unpadded, so the
+     two would rewrite each other forever. The range keeps this file formatted
+     and the block below byte-for-byte what the typesetter printed. -->
+<!-- prettier-ignore-start -->
+<!-- readme-math:begin -->
+
+Least-cost dispatch of a generator fleet against an hourly load.
+
+#### Objective
+
+```math
+\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}
+```
+
+#### Subject to
+
+**`power_balance`**
+
+```math
+\sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
+```
+
+#### Variable domains
+
+**`p`**
+
+```math
+0 \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} > 0
+```
+
+<details>
+<summary>The whole document: a symbol table, and the legend it prints</summary>
+
+Least-cost dispatch of a generator fleet against an hourly load.
+
+#### Sets
+
+| Symbol | Meaning |
+|---|---|
+| $`\mathcal{S}`$ | index $`s`$ — `snapshot` — dispatch periods |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` — generating units |
+
+#### Parameters
+
+| Symbol | Meaning |
+|---|---|
+| $`\bar p`$ | `p_max` over $`\mathcal{G}`$ — installed capacity |
+| $`\ell`$ | `load` over $`\mathcal{S}`$ — demand to be met |
+| $`c`$ | `cost` over $`\mathcal{G}`$ — marginal cost |
+
+#### Variables
+
+| Symbol | Meaning |
+|---|---|
+| $`p`$ | `p` over $`\mathcal{S} \times \mathcal{G}`$ — output of a generator in a snapshot |
+
+#### Objective
+
+```math
+\min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} p_{s,g} \cdot c_{g}
+```
+
+#### Subject to
+
+**`power_balance`**
+
+```math
+\sum_{g \in \mathcal{G}} p_{s,g} = \ell_{s} \qquad \forall\, s \in \mathcal{S}
+```
+
+#### Variable domains
+
+**`p`**
+
+```math
+0 \le p_{s,g} \le \bar p_{g} \qquad \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
+```
+
+</details>
+
+<details>
+<summary>The same document as LaTeX</summary>
+
+```latex
+\noindent Least-cost dispatch of a generator fleet against an hourly load.
+
+\paragraph{Sets}
+\begin{description}
+\item[{$\mathcal{S}$}] index $s$ --- \texttt{snapshot} --- dispatch periods
+\item[{$\mathcal{G}$}] index $g$ --- \texttt{generator} --- generating units
+\end{description}
+
+\paragraph{Parameters}
+\begin{description}
+\item[{$\bar p$}] \texttt{p\_max} over $\mathcal{G}$ --- installed capacity
+\item[{$\ell$}] \texttt{load} over $\mathcal{S}$ --- demand to be met
+\item[{$c$}] \texttt{cost} over $\mathcal{G}$ --- marginal cost
+\end{description}
+
+\paragraph{Variables}
+\begin{description}
+\item[{$p$}] \texttt{p} over $\mathcal{S} \times \mathcal{G}$ --- output of a generator in a snapshot
+\end{description}
+
+\paragraph{Objective}
+\begin{align*}
+ && \min & \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} p_{s,g} \cdot c_{g}
+\end{align*}
+
+\paragraph{Subject to}
+\begin{align*}
+\text{power\_balance} && \sum_{g \in \mathcal{G}} p_{s,g} & = \ell_{s} && \forall\, s \in \mathcal{S}
+\end{align*}
+
+\paragraph{Variable domains}
+\begin{align*}
+\text{p} && 0 \le p_{s,g} & \le \bar p_{g} && \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
+\end{align*}
+```
+
+</details>
+
+<details>
+<summary>The same document as Typst, printed with no symbol table</summary>
+
+```typst
+Least-cost dispatch of a generator fleet against an hourly load.
+
+== Sets
+/ $cal(T)$: index $t$ --- `snapshot` --- dispatch periods
+/ $cal(G)$: index $g$ --- `generator` --- generating units
+
+== Parameters
+/ $upright("p")^(upright("max"))$: `p_max` over $cal(G)$ --- installed capacity
+/ $upright("load")$: `load` over $cal(T)$ --- demand to be met
+/ $upright("cost")$: `cost` over $cal(G)$ --- marginal cost
+
+== Variables
+/ $p$: `p` over $cal(T) times cal(G)$ --- output of a generator in a snapshot
+
+Upright is what the model is given --- a parameter such as $upright("p")^(upright("max"))$, a coordinate map, a label --- and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
+
+== Objective
+$  & min & sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) $
+
+== Subject to
+$ upright("power_balance") & sum_(g in cal(G)) p_(t,g) & = upright("load")_(t) & forall t in cal(T) $
+
+== Variable domains
+$ upright("p") & 0 <= p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("p")^(upright("max"))_(g) > 0 $
+```
+
+</details>
+
+<!-- readme-math:end -->
+<!-- prettier-ignore-end -->
+
+Each format is one call, and the file is read and checked once:
 
 ```python
 import math_spec as ms
 
-spec = ms.to_spec('dispatch.yaml')  # schema, names, dims, degree — all checked here
-sorted(spec.variables)  # ['dispatch']
+spec = ms.to_spec('dispatch.yaml')
+
+ms.to_markdown(spec)  # renders as-is on GitHub, as above
+ms.to_latex(spec)  # amsmath align
+ms.to_typst(spec)  # compiles without a TeX toolchain
+```
+
+Those symbols are the file's own names: `load` prints as $`\mathrm{load}_t`$,
+and `p_max` as $`\mathrm{p}^{\mathrm{max}}_g`$. Nothing had to be set up for
+that. Pass `symbols='dispatch.symbols.yaml'` and the typesetter prints
+$`\ell_t`$ and $`\bar p_g`$ instead, above a legend that defines them. The
+first folded block shows it. The table can be a dict, a `SymbolTable`, or a
+path to YAML. A key that names nothing in the model is an error, and nothing
+in a table changes what the file means.
+
+Or from a shell, beside `pdflatex` in a Makefile:
+
+```bash
+python -m math_spec latex dispatch.yaml --symbols dispatch.symbols.yaml --standalone -o dispatch.tex
+python -m math_spec typst dispatch.yaml --standalone -o dispatch.typ
+python -m math_spec markdown dispatch.yaml
+```
+
+### How a tool reads it
+
+<!--- --8<-- [start:load] -->
+
+Whatever is wrong with a model is wrong when it loads, not when it solves:
+
+```python
+import math_spec as ms
+
+spec = ms.to_spec('dispatch.yaml')  # schema, names, dimensions, degree: all checked here
+sorted(spec.variables)  # ['p']
 
 program = ms.to_program(spec)  # curves expanded, names typed, operators resolved to nodes
 sorted(program.constraints)  # ['power_balance']
@@ -126,30 +320,6 @@ turned into its variables and constraints. An engine reads the second.
 
 [Reading a loaded model](docs/reference/language/reading.md) says what a tool
 gets from each.
-
-The same `spec` prints as math. It is read and checked once, then printed three
-ways:
-
-```python
-symbols = 'dispatch.symbols.yaml'  # optional: a dict, a path, or a SymbolTable
-
-ms.to_latex(spec, symbols=symbols)  # amsmath align
-ms.to_typst(spec)  # compiles without a TeX toolchain
-ms.to_markdown(spec)  # renders as-is on GitHub
-```
-
-Drop the symbol table, and the same model prints as $\mathit{load}_t$ and
-$dispatch^{\mathrm{max}}_g$, with no setup. Every spelling in a table is printed as
-written, a key naming nothing in the model is an error, and nothing in a table
-changes what the file means.
-
-Or from a shell, beside `pdflatex` in a Makefile:
-
-```bash
-python -m math_spec latex dispatch.yaml --symbols dispatch.symbols.yaml --standalone -o dispatch.tex
-python -m math_spec typst dispatch.yaml --standalone -o dispatch.typ
-python -m math_spec markdown dispatch.yaml
-```
 
 ## Why
 
