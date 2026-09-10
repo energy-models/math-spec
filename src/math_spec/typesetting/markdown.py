@@ -2,7 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""GitHub-flavoured Markdown. GitHub renders math with MathJax, so the math is :class:`LatexFormat`'s and only the document layer differs."""
+r"""GitHub-flavoured Markdown. GitHub renders math with MathJax, so the math is :class:`LatexFormat`'s and only the document layer differs.
+
+Both delimiters are the verbatim pair — ``$`…`$`` inline and a ``math`` fence
+for a block — because GitHub runs Markdown's escape pass *inside* a ``$…$``
+span, stripping the backslash from every escape TeX needs: ``\mathrm{gen\_bus}``
+reached MathJax as ``\mathrm{gen_bus}``, a subscript, and ``\{0, 1\}`` as a
+group with no braces. The verbatim pair hands the span over untouched, so the
+math this prints is the math :mod:`~math_spec.typesetting.latex` prints, and
+stays what every other MathJax and KaTeX reads too.
+"""
 
 from __future__ import annotations
 
@@ -13,9 +22,7 @@ from math_spec.typesetting.format import escaped, paragraphs
 from math_spec.typesetting.latex import LatexFormat
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
-    from math_spec.typesetting.format import Entry, Line, OperatorName
+    from math_spec.typesetting.format import Entry, Line
 
 
 #: What Markdown reads as markup inside a paragraph, each escaped by a leading
@@ -45,18 +52,6 @@ class MarkdownFormat(LatexFormat):
     #: hyphens in the middle of a legend row.
     dash: ClassVar[str] = '\N{EM DASH}'
 
-    #: TeX's own row primitive, not ``\\``: Markdown's escape pass eats one of
-    #: those two backslashes, so MathJax would never break the row.
-    cases_row: ClassVar[str] = r' \cr '
-
-    #: LaTeX's, with letter-named spacing macros: GitHub's escape pass runs inside
-    #: ``$$`` and turns ``\,`` into a bare comma, while ``\thinspace`` passes through.
-    operators: ClassVar[Mapping[OperatorName, str]] = {
-        **LatexFormat.operators,
-        'forall': r'\forall\thinspace',
-        'such_that': r'\thinspace:\thinspace',
-    }
-
     @override
     def mono(self, text: str) -> str:
         """A backtick span — this one lands in prose, not in math."""
@@ -68,22 +63,23 @@ class MarkdownFormat(LatexFormat):
         return escaped(prose, _escape, self.mono)
 
     @override
-    def joined(self, parts: list[str], operator: str) -> str:
-        r"""``,\enspace`` as the bare separator: a letter-named macro, so visibly not a Markdown escape."""
-        return f' {operator} '.join(parts) if operator else r',\enspace '.join(parts)
+    def math(self, expression: str) -> str:
+        r"""Bare math in prose, in the verbatim inline pair rather than ``$…$``."""
+        return f'$`{expression}`$'
 
     @override
     def equations(self, lines: list[Line], *, numbered: bool) -> str:
-        r"""One display block per equation, with the name *outside* the math.
+        """One fenced block per equation, with the name *outside* the math.
 
-        ``\text{total\_cost}`` renders its escape literally under MathJax, and
-        ``aligned`` has nothing to line up across one-equation blocks.
-        ``numbered`` is ignored: ``aligned`` cannot carry numbers.
+        A label is the name the file gives the line rather than a symbol, so it
+        sets as the code span prose has and math does not, and ``aligned`` has
+        nothing to line up across one-equation blocks. ``numbered`` is ignored:
+        ``aligned`` cannot carry numbers.
         """
         del numbered
         blocks = []
         for line in lines:
-            block = f'$${self.equation(line)}$$'
+            block = f'```math\n{self.equation(line)}\n```'
             if line.label:
                 block = f'**{self.mono(line.label)}**\n\n{block}'
             blocks.append(block)
