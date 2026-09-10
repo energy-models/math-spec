@@ -20,9 +20,9 @@ with no data and no solver.**
 
 A math-spec file declares four things: the axes the model runs over, such as
 `snapshot` and `generator`; the data it expects, such as `load` and `cost`; the
-decisions the solver makes, such as `p`; and the rules those decisions obey, such
-as `sum(p, over=generator) == load`. The file [below](#example) is a complete
-model.
+decisions the solver makes, such as `dispatch`; and the rules those decisions
+obey, such as `sum(dispatch, over=generator) == load`. The file
+[below](#example) is a complete model.
 
 math-spec reads that file, checks everything that can be checked without data,
 and hands the result on: to an engine that builds and solves the model, or to the
@@ -79,32 +79,32 @@ dimensions:
   generator: { description: generating units }
 
 parameters:
-  p_max: { dims: [generator], description: installed capacity }
+  capacity: { dims: [generator], description: installed capacity }
   load: { dims: [snapshot], description: demand to be met }
   cost: { dims: [generator], description: marginal cost }
 
 variables:
-  p:
+  dispatch:
     description: output of a generator in a snapshot
     foreach: [snapshot, generator]
-    where: "p_max > 0"
-    bounds: { lower: 0, upper: p_max }
+    where: "capacity > 0"
+    bounds: { lower: 0, upper: capacity }
 
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(dispatch, over=generator) == load
 
 objective:
   sense: minimize
-  expression: sum(p * cost)
+  expression: sum(dispatch * cost)
 ```
 
 <!--- --8<-- [end:model] -->
 
 That file is a complete model. Nothing outside it changes what it means.
 
-### What that file says
+### The math it prints
 
 Here is that model as math, printed from the file above and nothing else. No
 data, no solver, and no second copy of the equations to keep in step. Markdown
@@ -121,7 +121,7 @@ Least-cost dispatch of a generator fleet against an hourly load.
 #### Objective
 
 ```math
-\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}
+\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{dispatch}_{t,g} \cdot \mathrm{cost}_{g}
 ```
 
 #### Subject to
@@ -129,15 +129,15 @@ Least-cost dispatch of a generator fleet against an hourly load.
 **`power_balance`**
 
 ```math
-\sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
+\sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
 #### Variable domains
 
-**`p`**
+**`dispatch`**
 
 ```math
-0 \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} > 0
+0 \le \mathit{dispatch}_{t,g} \le \mathrm{capacity}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{capacity}_{g} > 0
 ```
 
 <details>
@@ -156,7 +156,7 @@ Least-cost dispatch of a generator fleet against an hourly load.
 
 | Symbol | Meaning |
 |---|---|
-| $`\bar p`$ | `p_max` over $`\mathcal{G}`$ — installed capacity |
+| $`\bar p`$ | `capacity` over $`\mathcal{G}`$ — installed capacity |
 | $`\ell`$ | `load` over $`\mathcal{S}`$ — demand to be met |
 | $`c`$ | `cost` over $`\mathcal{G}`$ — marginal cost |
 
@@ -164,12 +164,12 @@ Least-cost dispatch of a generator fleet against an hourly load.
 
 | Symbol | Meaning |
 |---|---|
-| $`p`$ | `p` over $`\mathcal{S} \times \mathcal{G}`$ — output of a generator in a snapshot |
+| $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{S} \times \mathcal{G}`$ — output of a generator in a snapshot |
 
 #### Objective
 
 ```math
-\min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} p_{s,g} \cdot c_{g}
+\min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}
 ```
 
 #### Subject to
@@ -177,15 +177,15 @@ Least-cost dispatch of a generator fleet against an hourly load.
 **`power_balance`**
 
 ```math
-\sum_{g \in \mathcal{G}} p_{s,g} = \ell_{s} \qquad \forall\, s \in \mathcal{S}
+\sum_{g \in \mathcal{G}} \mathit{dispatch}_{s,g} = \ell_{s} \qquad \forall\, s \in \mathcal{S}
 ```
 
 #### Variable domains
 
-**`p`**
+**`dispatch`**
 
 ```math
-0 \le p_{s,g} \le \bar p_{g} \qquad \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
+0 \le \mathit{dispatch}_{s,g} \le \bar p_{g} \qquad \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
 ```
 
 </details>
@@ -204,29 +204,29 @@ Least-cost dispatch of a generator fleet against an hourly load.
 
 \paragraph{Parameters}
 \begin{description}
-\item[{$\bar p$}] \texttt{p\_max} over $\mathcal{G}$ --- installed capacity
+\item[{$\bar p$}] \texttt{capacity} over $\mathcal{G}$ --- installed capacity
 \item[{$\ell$}] \texttt{load} over $\mathcal{S}$ --- demand to be met
 \item[{$c$}] \texttt{cost} over $\mathcal{G}$ --- marginal cost
 \end{description}
 
 \paragraph{Variables}
 \begin{description}
-\item[{$p$}] \texttt{p} over $\mathcal{S} \times \mathcal{G}$ --- output of a generator in a snapshot
+\item[{$\mathit{dispatch}$}] \texttt{dispatch} over $\mathcal{S} \times \mathcal{G}$ --- output of a generator in a snapshot
 \end{description}
 
 \paragraph{Objective}
 \begin{align*}
- && \min & \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} p_{s,g} \cdot c_{g}
+ && \min & \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}
 \end{align*}
 
 \paragraph{Subject to}
 \begin{align*}
-\text{power\_balance} && \sum_{g \in \mathcal{G}} p_{s,g} & = \ell_{s} && \forall\, s \in \mathcal{S}
+\text{power\_balance} && \sum_{g \in \mathcal{G}} \mathit{dispatch}_{s,g} & = \ell_{s} && \forall\, s \in \mathcal{S}
 \end{align*}
 
 \paragraph{Variable domains}
 \begin{align*}
-\text{p} && 0 \le p_{s,g} & \le \bar p_{g} && \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
+\text{dispatch} && 0 \le \mathit{dispatch}_{s,g} & \le \bar p_{g} && \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
 \end{align*}
 ```
 
@@ -243,23 +243,23 @@ Least-cost dispatch of a generator fleet against an hourly load.
 / $cal(G)$: index $g$ --- `generator` --- generating units
 
 == Parameters
-/ $upright("p")^(upright("max"))$: `p_max` over $cal(G)$ --- installed capacity
+/ $upright("capacity")$: `capacity` over $cal(G)$ --- installed capacity
 / $upright("load")$: `load` over $cal(T)$ --- demand to be met
 / $upright("cost")$: `cost` over $cal(G)$ --- marginal cost
 
 == Variables
-/ $p$: `p` over $cal(T) times cal(G)$ --- output of a generator in a snapshot
+/ $italic("dispatch")$: `dispatch` over $cal(T) times cal(G)$ --- output of a generator in a snapshot
 
-Upright is what the model is given --- a parameter such as $upright("p")^(upright("max"))$, a coordinate map, a label --- and italic is what the solver chooses, such as $p$. An index is italic too, being what a quantifier chooses, and a set is script.
+Upright is what the model is given --- a parameter such as $upright("capacity")$, a coordinate map, a label --- and italic is what the solver chooses, such as $italic("dispatch")$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 == Objective
-$  & min & sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g) $
+$  & min & sum_(t in cal(T), g in cal(G)) italic("dispatch")_(t,g) dot upright("cost")_(g) $
 
 == Subject to
-$ upright("power_balance") & sum_(g in cal(G)) p_(t,g) & = upright("load")_(t) & forall t in cal(T) $
+$ upright("power_balance") & sum_(g in cal(G)) italic("dispatch")_(t,g) & = upright("load")_(t) & forall t in cal(T) $
 
 == Variable domains
-$ upright("p") & 0 <= p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("p")^(upright("max"))_(g) > 0 $
+$ upright("dispatch") & 0 <= italic("dispatch")_(t,g) & <= upright("capacity")_(g) & forall t in cal(T), g in cal(G) colon upright("capacity")_(g) > 0 $
 ```
 
 </details>
@@ -280,7 +280,7 @@ ms.to_typst(spec)  # compiles without a TeX toolchain
 ```
 
 Those symbols are the file's own names: `load` prints as $`\mathrm{load}_t`$,
-and `p_max` as $`\mathrm{p}^{\mathrm{max}}_g`$. Nothing had to be set up for
+and `capacity` as $`\mathrm{capacity}_g`$. Nothing had to be set up for
 that. Pass `symbols='dispatch.symbols.yaml'` and the typesetter prints
 $`\ell_t`$ and $`\bar p_g`$ instead, above a legend that defines them. The
 first folded block shows it. The table can be a dict, a `SymbolTable`, or a
@@ -295,7 +295,7 @@ python -m math_spec typst dispatch.yaml --standalone -o dispatch.typ
 python -m math_spec markdown dispatch.yaml
 ```
 
-### How a tool reads it
+### `Spec` and `Program`
 
 <!--- --8<-- [start:load] -->
 
@@ -305,7 +305,7 @@ Whatever is wrong with a model is wrong when it loads, not when it solves:
 import math_spec as ms
 
 spec = ms.to_spec('dispatch.yaml')  # schema, names, dimensions, degree: all checked here
-sorted(spec.variables)  # ['p']
+sorted(spec.variables)  # ['dispatch']
 
 program = ms.to_program(spec)  # curves expanded, names typed, operators resolved to nodes
 sorted(program.constraints)  # ['power_balance']
@@ -314,7 +314,7 @@ sorted(program.constraints)  # ['power_balance']
 Neither needs data or a solver, so a repository of models compiles in CI with
 nothing bound to any of them. **A `Spec` holds the file as written, and a
 `Program` holds the model it builds**, with every macro expanded and every curve
-turned into its variables and constraints. An engine reads the second.
+turned into its variables and constraints. An engine reads the `Program`.
 
 <!--- --8<-- [end:load] -->
 

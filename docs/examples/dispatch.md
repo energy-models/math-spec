@@ -10,10 +10,10 @@ load to meet, and a cost to minimise. It is the model on the
 [home page](../index.md) and in the README, and the one the language reference
 varies when it needs a base to change one thing in.
 
-The `where:` on `p` deletes the rows where a generator has no capacity, so
-[absence](../reference/language/absence.md) is declared in the file rather than
-checked at run time. `sum(p, over=generator)` names the dimension it reduces, so
-the constraint's `foreach` is what remains.
+The `where:` on `dispatch` deletes the rows where a generator has no capacity,
+so [absence](../reference/language/absence.md) is declared in the file rather
+than checked at run time. `sum(dispatch, over=generator)` names the dimension it
+reduces, so the constraint's `foreach` is what remains.
 
 <!-- gallery:begin -->
 ```yaml
@@ -24,25 +24,25 @@ dimensions:
   generator: { description: generating units }
 
 parameters:
-  p_max: { dims: [generator], description: installed capacity }
+  capacity: { dims: [generator], description: installed capacity }
   load: { dims: [snapshot], description: demand to be met }
   cost: { dims: [generator], description: marginal cost }
 
 variables:
-  p:
+  dispatch:
     description: output of a generator in a snapshot
     foreach: [snapshot, generator]
-    where: "p_max > 0"
-    bounds: { lower: 0, upper: p_max }
+    where: "capacity > 0"
+    bounds: { lower: 0, upper: capacity }
 
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(dispatch, over=generator) == load
 
 objective:
   sense: minimize
-  expression: sum(p * cost)
+  expression: sum(dispatch * cost)
 ```
 
 Least-cost dispatch of a generator fleet against an hourly load.
@@ -58,7 +58,7 @@ Least-cost dispatch of a generator fleet against an hourly load.
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathrm{p}^{\mathrm{max}}`$ | `p_max` over $`\mathcal{G}`$ — installed capacity |
+| $`\mathrm{capacity}`$ | `capacity` over $`\mathcal{G}`$ — installed capacity |
 | $`\mathrm{load}`$ | `load` over $`\mathcal{T}`$ — demand to be met |
 | $`\mathrm{cost}`$ | `cost` over $`\mathcal{G}`$ — marginal cost |
 
@@ -66,14 +66,14 @@ Least-cost dispatch of a generator fleet against an hourly load.
 
 | Symbol | Meaning |
 |---|---|
-| $`p`$ | `p` over $`\mathcal{T} \times \mathcal{G}`$ — output of a generator in a snapshot |
+| $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{T} \times \mathcal{G}`$ — output of a generator in a snapshot |
 
-Upright is what the model is given — a parameter such as $`\mathrm{p}^{\mathrm{max}}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`p`$. An index is italic too, being what a quantifier chooses, and a set is script.
+Upright is what the model is given — a parameter such as $`\mathrm{capacity}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 #### Objective
 
 ```math
-\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}
+\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{dispatch}_{t,g} \cdot \mathrm{cost}_{g}
 ```
 
 #### Subject to
@@ -81,15 +81,15 @@ Upright is what the model is given — a parameter such as $`\mathrm{p}^{\mathrm
 **`power_balance`**
 
 ```math
-\sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
+\sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
 #### Variable domains
 
-**`p`**
+**`dispatch`**
 
 ```math
-0 \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} > 0
+0 \le \mathit{dispatch}_{t,g} \le \mathrm{capacity}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{capacity}_{g} > 0
 ```
 <!-- gallery:end -->
 

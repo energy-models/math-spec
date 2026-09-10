@@ -7,11 +7,11 @@
     pixi run python -m tools.home_math           # rewrite every block
     pixi run python -m tools.home_math --check   # fail if one has drifted
 
-Two files carry it. ``README.md`` holds the YAML, which the site pulls in as a
-snippet, and the document printed from it — Markdown, which GitHub renders as
-math, with the other two formats folded under it. ``docs/index.md`` holds the
-same document as a tabbed block, which would be raw markup on GitHub, and a
-third tab that is the call which produced the other two.
+``examples/dispatch.yaml`` is printed once and spliced into two pages that need
+different shapes for it. GitHub renders the Markdown math but not a tabbed
+block, so ``README.md`` takes the equations with the other two formats folded
+under them, and ``docs/index.md`` takes tabs, plus a third tab holding the call
+that produced the other two.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ symbols = {
     'names': {
         'cost': 'c',
         'load': '\\\\ell',
-        'p_max': '\\\\bar p',
+        'capacity': '\\\\bar p',
     },
 }
 
@@ -59,12 +59,9 @@ ms.to_typst(spec)  # compiles without a TeX toolchain
 ms.to_markdown(spec)  # renders as-is on GitHub
 ```
 
-`symbols` is optional. Drop it and the same model prints as
-$\\mathrm{load}_t$ and $\\mathrm{p}^{\\mathrm{max}}_g$, with no setup. Pass a dict,
-a YAML path or a `SymbolTable`. A key that names nothing in the model is an
-error, rather than a symbol that silently never applies. Every spelling is
-printed as written, and `notation` says which language it is written in. A
-render in the other notation is refused.
+`symbols` gives every name its conventional spelling. Pass a dict, a YAML path
+or a `SymbolTable`. It is optional: drop it and the same model prints from the
+names in the file, as $\\mathrm{load}_t$ and $\\mathrm{capacity}_g$.
 
 Or from a shell, where the table is that same YAML on disk. `--standalone` emits
 a document that compiles, rather than a fragment to `\\input`:

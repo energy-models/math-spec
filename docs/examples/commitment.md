@@ -32,18 +32,18 @@ dimensions:
 parameters:
   committable: { dims: [generator], dtype: bool, description: whether the unit may be switched off }
   status_initial: { dims: [generator], description: whether the unit was running before the horizon }
-  p_max: { dims: [generator], description: installed capacity }
-  p_min: { dims: [generator], description: output floor while running }
+  capacity: { dims: [generator], description: installed capacity }
+  min_output: { dims: [generator], description: output floor while running }
   ramp_limit: { dims: [generator], description: how far output may move between snapshots while running }
   start_up_limit: { dims: [generator], description: how far it may move in the snapshot it starts in }
   load: { dims: [snapshot], description: demand to be met }
   cost: { dims: [generator], description: marginal cost }
 
 variables:
-  p:
+  dispatch:
     description: output of a generator in a snapshot
     foreach: [snapshot, generator]
-    bounds: { lower: 0, upper: p_max }
+    bounds: { lower: 0, upper: capacity }
   status:
     description: whether the unit is running in a snapshot
     foreach: [snapshot, generator]
@@ -65,27 +65,27 @@ expressions:
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(dispatch, over=generator) == load
   upper:
     description: a unit that is not running produces nothing
     foreach: [snapshot, generator]
-    expression: p <= status * p_max
+    expression: dispatch <= status * capacity
   lower:
     description: and one that is running produces at least its floor
     foreach: [snapshot, generator]
-    expression: p >= status * p_min
+    expression: dispatch >= status * min_output
   ramp_up:
     description: >-
       one inequality for both regimes — a unit already running is held to
       `ramp_limit`, a unit starting up to `start_up_limit`.
     foreach: [snapshot, generator]
     expression: >-
-      p - shift(p, over=snapshot, offset=1, edge=0)
+      dispatch - shift(dispatch, over=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 
 objective:
   sense: minimize
-  expression: sum(p * cost)
+  expression: sum(dispatch * cost)
 ```
 
 Unit commitment with a start-up ramp, the formulation `cases:` exists for. The state a unit carries into a snapshot has three regimes — a unit that is never off, the first snapshot, and every later one — and writing them at the constraint would fork `ramp_up` three ways. With the regimes named once, the inequality is written once.
@@ -103,8 +103,8 @@ Unit commitment with a start-up ramp, the formulation `cases:` exists for. The s
 |---|---|
 | $`\mathrm{committable}`$ | `committable` over $`\mathcal{G}`$ — whether the unit may be switched off |
 | $`\mathrm{status}^{\mathrm{initial}}`$ | `status_initial` over $`\mathcal{G}`$ — whether the unit was running before the horizon |
-| $`\mathrm{p}^{\mathrm{max}}`$ | `p_max` over $`\mathcal{G}`$ — installed capacity |
-| $`\mathrm{p}^{\mathrm{min}}`$ | `p_min` over $`\mathcal{G}`$ — output floor while running |
+| $`\mathrm{capacity}`$ | `capacity` over $`\mathcal{G}`$ — installed capacity |
+| $`\mathrm{min\_output}`$ | `min_output` over $`\mathcal{G}`$ — output floor while running |
 | $`\mathrm{ramp\_limit}`$ | `ramp_limit` over $`\mathcal{G}`$ — how far output may move between snapshots while running |
 | $`\mathrm{start\_up\_limit}`$ | `start_up_limit` over $`\mathcal{G}`$ — how far it may move in the snapshot it starts in |
 | $`\mathrm{load}`$ | `load` over $`\mathcal{T}`$ — demand to be met |
@@ -114,7 +114,7 @@ Unit commitment with a start-up ramp, the formulation `cases:` exists for. The s
 
 | Symbol | Meaning |
 |---|---|
-| $`p`$ | `p` over $`\mathcal{T} \times \mathcal{G}`$ — output of a generator in a snapshot |
+| $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{T} \times \mathcal{G}`$ — output of a generator in a snapshot |
 | $`\mathit{status}`$ | `status` over $`\mathcal{T} \times \mathcal{G}`$ — whether the unit is running in a snapshot |
 
 #### Definitions
@@ -123,7 +123,7 @@ Unit commitment with a start-up ramp, the formulation `cases:` exists for. The s
 |---|---|
 | $`\mathit{previous\_status}`$ | `previous_status` over $`\mathcal{T} \times \mathcal{G}`$ — the commitment state a unit carries into a snapshot |
 
-Upright is what the model is given — a parameter such as $`\mathrm{committable}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`p`$. An index is italic too, being what a quantifier chooses, and a set is script.
+Upright is what the model is given — a parameter such as $`\mathrm{committable}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{dispatch}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
 $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $`v`$ rather than being dropped.
 
@@ -132,7 +132,7 @@ $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own ord
 #### Objective
 
 ```math
-\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}
+\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{dispatch}_{t,g} \cdot \mathrm{cost}_{g}
 ```
 
 #### Subject to
@@ -140,25 +140,25 @@ $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own ord
 **`power_balance`**
 
 ```math
-\sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
+\sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
 **`upper`**
 
 ```math
-p_{t,g} \le \mathit{status}_{t,g} \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\mathit{dispatch}_{t,g} \le \mathit{status}_{t,g} \cdot \mathrm{capacity}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 **`lower`**
 
 ```math
-p_{t,g} \ge \mathit{status}_{t,g} \cdot \mathrm{p}^{\mathrm{min}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\mathit{dispatch}_{t,g} \ge \mathit{status}_{t,g} \cdot \mathrm{min\_output}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 **`ramp_up`**
 
 ```math
-p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathrm{ramp\_limit}_{g} \cdot \mathit{previous\_status}_{t,g} + \mathrm{start\_up\_limit}_{g} \cdot \left( 1 - \mathit{previous\_status}_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\mathit{dispatch}_{t,g} - \mathit{dispatch}_{t \boxminus_{0} 1,g} \le \mathrm{ramp\_limit}_{g} \cdot \mathit{previous\_status}_{t,g} + \mathrm{start\_up\_limit}_{g} \cdot \left( 1 - \mathit{previous\_status}_{t,g} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 #### Definitions
@@ -171,10 +171,10 @@ p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathrm{ramp\_limit}_{g} \cdot \mathit{pre
 
 #### Variable domains
 
-**`p`**
+**`dispatch`**
 
 ```math
-0 \le p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+0 \le \mathit{dispatch}_{t,g} \le \mathrm{capacity}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 **`status`**

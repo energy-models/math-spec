@@ -89,7 +89,7 @@ and the file prints as the math it stands for.
 
 --8<-- "README.md:model"
 
-### What that file says
+### The math it prints
 
 Generated from the YAML above, with no data and no solver. Only the notation is a
 choice, and **How** shows the one made here.
@@ -111,7 +111,7 @@ choice, and **How** shows the one made here.
 
     | Symbol | Meaning |
     |---|---|
-    | $`\bar p`$ | `p_max` over $`\mathcal{G}`$ — installed capacity |
+    | $`\bar p`$ | `capacity` over $`\mathcal{G}`$ — installed capacity |
     | $`\ell`$ | `load` over $`\mathcal{S}`$ — demand to be met |
     | $`c`$ | `cost` over $`\mathcal{G}`$ — marginal cost |
 
@@ -119,12 +119,12 @@ choice, and **How** shows the one made here.
 
     | Symbol | Meaning |
     |---|---|
-    | $`p`$ | `p` over $`\mathcal{S} \times \mathcal{G}`$ — output of a generator in a snapshot |
+    | $`\mathit{dispatch}`$ | `dispatch` over $`\mathcal{S} \times \mathcal{G}`$ — output of a generator in a snapshot |
 
     #### Objective
 
     ```math
-    \min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} p_{s,g} \cdot c_{g}
+    \min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}
     ```
 
     #### Subject to
@@ -132,15 +132,15 @@ choice, and **How** shows the one made here.
     **`power_balance`**
 
     ```math
-    \sum_{g \in \mathcal{G}} p_{s,g} = \ell_{s} \qquad \forall\, s \in \mathcal{S}
+    \sum_{g \in \mathcal{G}} \mathit{dispatch}_{s,g} = \ell_{s} \qquad \forall\, s \in \mathcal{S}
     ```
 
     #### Variable domains
 
-    **`p`**
+    **`dispatch`**
 
     ```math
-    0 \le p_{s,g} \le \bar p_{g} \qquad \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
+    0 \le \mathit{dispatch}_{s,g} \le \bar p_{g} \qquad \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
     ```
 
 === "LaTeX"
@@ -156,29 +156,29 @@ choice, and **How** shows the one made here.
 
     \paragraph{Parameters}
     \begin{description}
-    \item[{$\bar p$}] \texttt{p\_max} over $\mathcal{G}$ --- installed capacity
+    \item[{$\bar p$}] \texttt{capacity} over $\mathcal{G}$ --- installed capacity
     \item[{$\ell$}] \texttt{load} over $\mathcal{S}$ --- demand to be met
     \item[{$c$}] \texttt{cost} over $\mathcal{G}$ --- marginal cost
     \end{description}
 
     \paragraph{Variables}
     \begin{description}
-    \item[{$p$}] \texttt{p} over $\mathcal{S} \times \mathcal{G}$ --- output of a generator in a snapshot
+    \item[{$\mathit{dispatch}$}] \texttt{dispatch} over $\mathcal{S} \times \mathcal{G}$ --- output of a generator in a snapshot
     \end{description}
 
     \paragraph{Objective}
     \begin{align*}
-     && \min & \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} p_{s,g} \cdot c_{g}
+     && \min & \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}
     \end{align*}
 
     \paragraph{Subject to}
     \begin{align*}
-    \text{power\_balance} && \sum_{g \in \mathcal{G}} p_{s,g} & = \ell_{s} && \forall\, s \in \mathcal{S}
+    \text{power\_balance} && \sum_{g \in \mathcal{G}} \mathit{dispatch}_{s,g} & = \ell_{s} && \forall\, s \in \mathcal{S}
     \end{align*}
 
     \paragraph{Variable domains}
     \begin{align*}
-    \text{p} && 0 \le p_{s,g} & \le \bar p_{g} && \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
+    \text{dispatch} && 0 \le \mathit{dispatch}_{s,g} & \le \bar p_{g} && \forall\, s \in \mathcal{S},\ g \in \mathcal{G} \,:\, \bar p_{g} > 0
     \end{align*}
     ```
 
@@ -196,7 +196,7 @@ choice, and **How** shows the one made here.
         'names': {
             'cost': 'c',
             'load': '\\ell',
-            'p_max': '\\bar p',
+            'capacity': '\\bar p',
         },
     }
 
@@ -207,12 +207,9 @@ choice, and **How** shows the one made here.
     ms.to_markdown(spec)  # renders as-is on GitHub
     ```
 
-    `symbols` is optional. Drop it and the same model prints as
-    $\mathrm{load}_t$ and $\mathrm{p}^{\mathrm{max}}_g$, with no setup. Pass a dict,
-    a YAML path or a `SymbolTable`. A key that names nothing in the model is an
-    error, rather than a symbol that silently never applies. Every spelling is
-    printed as written, and `notation` says which language it is written in. A
-    render in the other notation is refused.
+    `symbols` gives every name its conventional spelling. Pass a dict, a YAML path
+    or a `SymbolTable`. It is optional: drop it and the same model prints from the
+    names in the file, as $\mathrm{load}_t$ and $\mathrm{capacity}_g$.
 
     Or from a shell, where the table is that same YAML on disk. `--standalone` emits
     a document that compiles, rather than a fragment to `\input`:
@@ -228,7 +225,7 @@ choice, and **How** shows the one made here.
 
 <!-- home-math:end -->
 
-### How a tool reads it
+### `Spec` and `Program`
 
 --8<-- "README.md:load"
 

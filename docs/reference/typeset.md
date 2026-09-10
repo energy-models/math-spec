@@ -94,9 +94,9 @@ comment beside the value it computes:
 
 ```python
 ms.typeset_declaration('model.yaml', 'spend', 'latex')
-# \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\, t \in \mathcal{T}
+# \mathit{spend}_{t} = \sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} \cdot \mathrm{cost}_{g} \qquad \forall\, t \in \mathcal{T}
 ms.typeset_declaration('model.yaml', 'balance', 'latex')
-# \sum_{g \in \mathcal{G}} p_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
+# \sum_{g \in \mathcal{G}} \mathit{dispatch}_{t,g} = \mathrm{load}_{t} \qquad \forall\, t \in \mathcal{T}
 ```
 
 It takes what the other functions take, plus the name, the format and an
@@ -123,7 +123,7 @@ name for both.
 ## Symbol tables
 
 With no table, the symbols are **derived** from the names in the file, such as
-$\mathrm{load}_t$ and $\mathrm{p}^{\mathrm{max}}_g$. A derived symbol names one
+$\mathrm{load}_t$ and $\mathrm{capacity}_g$. A derived symbol names one
 declaration and no other, so a model prints with no setup. A symbol table makes
 the output conventional:
 
@@ -137,7 +137,7 @@ symbols = {
     'names': {
         'cost': 'c',
         'load': '\\ell',
-        'p_max': '\\bar p',
+        'capacity': '\\bar p',
     },
 }
 
@@ -157,7 +157,7 @@ dimensions:
 names:
   cost: c
   load: "\\ell"
-  p_max: "\\bar p"
+  capacity: "\\bar p"
 ```
 
 | Section      |                                                                                 |

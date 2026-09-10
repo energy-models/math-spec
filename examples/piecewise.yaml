@@ -18,7 +18,7 @@ dimensions:
     dtype: int
 
 parameters:
-  p_max:
+  capacity:
     description: maximum dispatch
     dims: [generator]
   load:
@@ -32,12 +32,12 @@ parameters:
     dims: [generator, bp]
 
 variables:
-  p:
+  dispatch:
     description: dispatched power
     foreach: [snapshot, generator]
     bounds:
       lower: 0
-      upper: p_max
+      upper: capacity
   op_cost:
     description: operating cost, piecewise-linear in dispatch
     foreach: [snapshot, generator]
@@ -51,14 +51,14 @@ piecewise:
       binaries to keep them on one segment
     over: bp
     links:
-      - [p, bp_x]
+      - [dispatch, bp_x]
       - [op_cost, bp_y]
     method: convex
 
 constraints:
   balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(dispatch, over=generator) == load
 
 objective:
   sense: minimize
