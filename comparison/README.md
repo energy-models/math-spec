@@ -28,6 +28,25 @@ and the refusal is the evidence.
   one dimension, which only #437 can declare.
 - `probes/` — files that are refused, so the page can print the message.
 
+## Reading it
+
+`comparison/index.html` is a standalone page. It needs no build step and no
+server: download it and open it in a browser, or open your checkout's copy
+directly.
+
+```bash
+git switch claude/mathspec-proposals-comparison-ebn7dv
+open comparison/index.html      # xdg-open on Linux, start on Windows
+```
+
+GitHub shows the file as source rather than rendering it. A raw-HTML viewer
+renders it from the branch without a checkout, for example
+[raw.githack.com](https://raw.githack.com/energy-models/math-spec/claude/mathspec-proposals-comparison-ebn7dv/comparison/index.html).
+
+The page fetches MathJax and two typefaces from public CDNs. Without a network
+the equations stay as TeX source and the type falls back, and everything else
+reads as it should.
+
 ## Rebuilding
 
 ```bash
