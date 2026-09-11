@@ -8,7 +8,7 @@ dimensions:
   g: { dtype: str }
   zone: { dtype: str }
 lookups:
-  zone_of: { over: [g, zone], key: g }
+  zone_of: { columns: [g, zone], key: g }
 parameters:
   cost: { dims: [g] }
   load: { dims: [zone] }

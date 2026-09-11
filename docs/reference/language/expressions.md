@@ -253,7 +253,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 lookups:
-  period_of: { over: [snapshot, period], key: snapshot }
+  period_of: { columns: [snapshot, period], key: snapshot }
 parameters:
   soc_initial: { dims: [period] }
 variables:

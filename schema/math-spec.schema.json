@@ -218,8 +218,28 @@
     },
     "LookupBlock": {
       "additionalProperties": false,
-      "description": "A named relation between dimensions, and the key it is single-valued per.\n\n``over:`` is the table's columns \u2014 a list of dimensions, or a mapping of\ncolumn name to dimension where two columns share one. ``key:`` names the\ncolumns each row is identified by, and is the claim the language checks\nat bind: one row per key tuple, so the other columns are a function of\nit. Without a key the table is a bare relation::\n\n    lookups:\n      gen_bus: {over: [generator, bus], key: generator}\n      zone_of: {over: [generator, period, zone], key: [generator, period]}\n      rep_of: {over: {snapshot: snapshot, rep: snapshot}, key: snapshot}\n      connection: {over: [entity, bus]}\n\nAn operator walks the table in the direction the call names\n(``consume=``, ``produce=``), joining on the other key columns; the declaration\nfixes no direction. The map itself\nis data, and arrives at bind time under the lookup's name, one column per\nrole.",
+      "description": "A named relation between dimensions, and the key it is single-valued per.\n\n``columns:`` is the table's columns \u2014 a list of dimensions, or a mapping\nof column name to dimension where two columns share one. ``key:`` names the\ncolumns each row is identified by, and is the claim the language checks\nat bind: one row per key tuple, so the other columns are a function of\nit. Without a key the table is a bare relation::\n\n    lookups:\n      gen_bus: {columns: [generator, bus], key: generator}\n      zone_of: {columns: [generator, period, zone], key: [generator, period]}\n      rep_of: {columns: {snapshot: snapshot, rep: snapshot}, key: snapshot}\n      connection: {columns: [entity, bus]}\n\nAn operator walks the table in the direction the call names\n(``consume=``, ``produce=``), joining on the other key columns; the\ndeclaration fixes no direction. The map itself is data, and arrives at bind\ntime under the lookup's name, one column per role.",
       "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          ],
+          "title": "Columns"
+        },
         "description": {
           "anyOf": [
             {
@@ -249,30 +269,10 @@
           ],
           "default": null,
           "title": "Key"
-        },
-        "over": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            }
-          ],
-          "title": "Over"
         }
       },
       "required": [
-        "over"
+        "columns"
       ],
       "title": "LookupBlock",
       "type": "object"

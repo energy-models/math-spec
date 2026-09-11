@@ -33,12 +33,12 @@ BASE = {
         'zone': {'dtype': 'str'},
     },
     'lookups': {
-        'gen_bus': {'over': ['generator', 'bus'], 'key': 'generator'},
-        'snap_bus': {'over': ['snapshot', 'bus'], 'key': 'snapshot'},
-        'gen_zone': {'over': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']},
-        'rep_of': {'over': {'snapshot': 'snapshot', 'rep': 'snapshot'}, 'key': 'snapshot'},
-        'gen_bz': {'over': ['generator', 'bus', 'zone'], 'key': 'generator'},
-        'pair': {'over': {'g': 'generator', 'b0': 'bus', 'b1': 'bus'}, 'key': 'g'},
+        'gen_bus': {'columns': ['generator', 'bus'], 'key': 'generator'},
+        'snap_bus': {'columns': ['snapshot', 'bus'], 'key': 'snapshot'},
+        'gen_zone': {'columns': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']},
+        'rep_of': {'columns': {'snapshot': 'snapshot', 'rep': 'snapshot'}, 'key': 'snapshot'},
+        'gen_bz': {'columns': ['generator', 'bus', 'zone'], 'key': 'generator'},
+        'pair': {'columns': {'g': 'generator', 'b0': 'bus', 'b1': 'bus'}, 'key': 'g'},
     },
     'parameters': {
         'p_max': {'dims': ['generator']},

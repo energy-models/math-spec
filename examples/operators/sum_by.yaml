@@ -13,7 +13,7 @@ dimensions:
   bus: { dtype: str }
 
 lookups:
-  gen_bus: { over: [generator, bus], key: generator }
+  gen_bus: { columns: [generator, bus], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus] }

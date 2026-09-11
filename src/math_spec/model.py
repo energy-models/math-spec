@@ -156,45 +156,48 @@ def _also_written_as(
 class LookupBlock(_StrictBlock):
     """A named relation between dimensions, and the key it is single-valued per.
 
-    ``over:`` is the table's columns — a list of dimensions, or a mapping of
-    column name to dimension where two columns share one. ``key:`` names the
+    ``columns:`` is the table's columns — a list of dimensions, or a mapping
+    of column name to dimension where two columns share one. ``key:`` names the
     columns each row is identified by, and is the claim the language checks
     at bind: one row per key tuple, so the other columns are a function of
     it. Without a key the table is a bare relation::
 
         lookups:
-          gen_bus: {over: [generator, bus], key: generator}
-          zone_of: {over: [generator, period, zone], key: [generator, period]}
-          rep_of: {over: {snapshot: snapshot, rep: snapshot}, key: snapshot}
-          connection: {over: [entity, bus]}
+          gen_bus: {columns: [generator, bus], key: generator}
+          zone_of: {columns: [generator, period, zone], key: [generator, period]}
+          rep_of: {columns: {snapshot: snapshot, rep: snapshot}, key: snapshot}
+          connection: {columns: [entity, bus]}
 
     An operator walks the table in the direction the call names
-    (``consume=``, ``produce=``), joining on the other key columns; the declaration
-    fixes no direction. The map itself
-    is data, and arrives at bind time under the lookup's name, one column per
-    role.
+    (``consume=``, ``produce=``), joining on the other key columns; the
+    declaration fixes no direction. The map itself is data, and arrives at bind
+    time under the lookup's name, one column per role.
     """
 
     _label: ClassVar[str] = 'a lookup declaration'
 
-    over: str | list[str] | dict[str, str]
+    columns: str | list[str] | dict[str, str]
     key: str | list[str] | None = None
     description: str | None = None
 
     @property
-    def columns(self) -> tuple[tuple[str, str], ...]:
-        """``(role, dimension)`` per column in declared order — a list names each role after its dimension."""
-        if isinstance(self.over, dict):
-            return tuple(self.over.items())
-        return tuple((d, d) for d in ((self.over,) if isinstance(self.over, str) else self.over))
+    def pairs(self) -> tuple[tuple[str, str], ...]:
+        """``(role, dimension)`` per column in declared order — a list names each role after its dimension.
+
+        The program calls the same thing :attr:`~math_spec.program.LookupDeclaration.columns`;
+        here that name belongs to the field, which is what the file wrote.
+        """
+        if isinstance(self.columns, dict):
+            return tuple(self.columns.items())
+        return tuple((d, d) for d in ((self.columns,) if isinstance(self.columns, str) else self.columns))
 
     @property
     def roles(self) -> tuple[str, ...]:
-        return tuple(role for role, _ in self.columns)
+        return tuple(role for role, _ in self.pairs)
 
     @property
     def dims(self) -> tuple[str, ...]:
-        return tuple(dim for _, dim in self.columns)
+        return tuple(dim for _, dim in self.pairs)
 
     @property
     def keys(self) -> tuple[str, ...]:
@@ -846,16 +849,16 @@ class Spec(_StrictBlock):
     def _lookup_targets(self) -> Iterator[str]:
         """A lookup has at least two columns over declared dimensions, each role once, and a key that is a proper subset of them."""
         for lname, lk in self.lookups.items():
-            if len(lk.columns) < 2:
+            if len(lk.pairs) < 2:
                 yield (
-                    f"Lookup '{lname}' has {len(lk.columns)} column(s). A lookup relates dimensions, so 'over:' "
+                    f"Lookup '{lname}' has {len(lk.pairs)} column(s). A lookup relates dimensions, so 'columns:' "
                     f'names at least two — a label on one dimension is a parameter over it.'
                 )
             yield from (
-                f"Lookup '{lname}' names dimension '{d}' twice under 'over:'. Give the two columns roles: "
-                f'over: {{{d}0: {d}, {d}1: {d}}}.'
+                f"Lookup '{lname}' names dimension '{d}' twice under 'columns:'. Give the two columns roles: "
+                f'columns: {{{d}0: {d}, {d}1: {d}}}.'
                 for d, count in Counter(lk.dims).items()
-                if count > 1 and not isinstance(lk.over, dict)
+                if count > 1 and not isinstance(lk.columns, dict)
             )
             yield from (
                 undeclared_dimension('Lookup', lname, d) for d in dict.fromkeys(lk.dims) if d not in self.dimensions
@@ -863,7 +866,7 @@ class Spec(_StrictBlock):
             yield from (
                 f"Lookup '{lname}' names column '{role}' after dimension '{role}', but the column is over "
                 f"'{dim}'. A column named like a dimension is read as over it — name it after what it holds."
-                for role, dim in lk.columns
+                for role, dim in lk.pairs
                 if role in self.dimensions and role != dim
             )
             yield from (
@@ -877,10 +880,10 @@ class Spec(_StrictBlock):
                 if count > 1
             )
             yield from (
-                f"Lookup '{lname}' has two key columns over '{d}' ({[k for k in lk.keys if dict(lk.columns)[k] == d]}). "
+                f"Lookup '{lname}' has two key columns over '{d}' ({[k for k in lk.keys if dict(lk.pairs)[k] == d]}). "
                 f'A key is read at its dimensions, and no frame carries a dimension twice — key the table by '
                 f'one column over each, or leave one of them a value column.'
-                for d, count in Counter(dict(lk.columns)[k] for k in lk.keys if k in lk.roles).items()
+                for d, count in Counter(dict(lk.pairs)[k] for k in lk.keys if k in lk.roles).items()
                 if count > 1
             )
             if lk.key is not None and set(lk.keys) >= set(lk.roles):

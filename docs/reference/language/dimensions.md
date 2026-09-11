@@ -78,11 +78,11 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 lookups:
-  gen_bus: { over: [generator, bus], key: generator } # each generator on one bus
-  line_from: { over: [line, bus], key: line } # two lookups onto one dimension
-  line_to: { over: [line, bus], key: line }
-  period_of: { over: [snapshot, period], key: snapshot }
-  connection: { over: [generator, bus] } # no key: a generator may connect to several buses
+  gen_bus: { columns: [generator, bus], key: generator } # each generator on one bus
+  line_from: { columns: [line, bus], key: line } # two lookups onto one dimension
+  line_to: { columns: [line, bus], key: line }
+  period_of: { columns: [snapshot, period], key: snapshot }
+  connection: { columns: [generator, bus] } # no key: a generator may connect to several buses
 ```
 
 | Field         |                                                                                                                                      |                |
@@ -99,7 +99,7 @@ as a dimension all the same: nothing is indexed by `period` above, and
 `where: "period_of == 1"` ([where strings](expressions.md#where-strings)) is
 how a declaration selects on it. A lookup has at least two columns; a label on
 one dimension is a parameter over it. A column named like a dimension is over
-that dimension, so `over: {bus: line}` is refused.
+that dimension, so `columns: {bus: line}` is refused.
 
 ### The key is the claim
 
@@ -119,9 +119,9 @@ Each cardinality is one declaration, and the key is the side that is one:
 
 | to say                                     | write                                                                                                             | checked at bind                       |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| many-to-one, each generator on one bus     | `{over: [generator, bus], key: generator}`                                                                        | one row per generator                 |
+| many-to-one, each generator on one bus     | `{columns: [generator, bus], key: generator}`                                                                     | one row per generator                 |
 | one-to-many, a bus and its generators      | the same table: `sum(p, by=gen_bus)` collects a bus's generators, `at(price, by=gen_bus)` reads a generator's bus | the same                              |
-| many-to-many, a generator on several buses | `{over: [generator, bus]}`, no key                                                                                | nothing: a row exists, or it does not |
+| many-to-many, a generator on several buses | `{columns: [generator, bus]}`, no key                                                                             | nothing: a row exists, or it does not |
 | one-to-one                                 | not a claim the language has: a key is one set of columns, so the other side stays many                           |                                       |
 
 The key is also what decides which walks the table admits:
@@ -153,7 +153,7 @@ dimensions:
   zone: { dtype: str }
   period: { dtype: int }
 lookups:
-  zone_of: { over: [generator, period, zone], key: [generator, period] } # a generator's zone, per period
+  zone_of: { columns: [generator, period, zone], key: [generator, period] } # a generator's zone, per period
 parameters:
   demand: { dims: [zone, period] }
   price: { dims: [zone, period] }
@@ -232,13 +232,13 @@ dimension. `generator`'s map onto `bus` is `gen_bus`, never a second `bus`.
 
 ### Roles
 
-A list under `over:` names each column after its dimension. Two columns over
+A list under `columns:` names each column after its dimension. Two columns over
 one dimension need names of their own, and the mapping form gives them:
 
 ```yaml
 lookups:
-  ends: { over: { line: line, bus0: bus, bus1: bus }, key: line } # a line's two ends, one table
-  rep_of: { over: { snapshot: snapshot, rep: snapshot }, key: snapshot } # the representative snapshot
+  ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line } # a line's two ends, one table
+  rep_of: { columns: { snapshot: snapshot, rep: snapshot }, key: snapshot } # the representative snapshot
 ```
 
 `sum(f, by=ends, consume=line, produce=bus1) - sum(f, by=ends, consume=line, produce=bus0)`

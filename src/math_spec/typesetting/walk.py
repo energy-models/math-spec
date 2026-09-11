@@ -292,7 +292,7 @@ class Walk:
     def _value_read(self, name: str, column: str, ctx: _Context) -> str:
         """A keyed lookup's value *column* read at the frame's own indices of its key: ``period_of(t)``."""
         lk = self.schema.lookups[name]
-        keyed = self.format.joined([ctx.subscript(dict(lk.columns)[k]) for k in lk.keys], '')
+        keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
         return self.format.apply(self._column(name, column, len(lk.values) == 1), keyed)
 
     def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
@@ -605,7 +605,7 @@ class Walk:
         if isinstance(node, LookupDefinedNode):
             lk = self.schema.lookups[node.name]
             if lk.keys:
-                keyed = self.format.joined([ctx.subscript(dict(lk.columns)[k]) for k in lk.keys], '')
+                keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
                 applied = self.format.apply(self.format.upright(node.name), keyed)
                 return f'{applied} {self.format.prose(" is defined")}', comparison
             row = self.format.parenthesise(self.format.joined([ctx.subscript(d) for d in lk.dims], ''))
@@ -886,7 +886,7 @@ class Walk:
 
     def _signature(self, name: str, lk: LookupBlock) -> str:
         """A lookup in the legend: a function from its key sets to its value sets, or a relation inside the product."""
-        columns = dict(lk.columns)
+        columns = dict(lk.pairs)
 
         def product(roles: Iterable[str]) -> str:
             return self.format.joined([self.symbols.set[columns[r]] for r in roles], self._op('times'))

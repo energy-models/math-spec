@@ -134,7 +134,7 @@ class Namespace:
             schema.variables,
             schema.parameters,
             schema.dimensions,
-            {n: LookupDeclaration(n, lk.columns, lk.keys) for n, lk in schema.lookups.items()},
+            {n: LookupDeclaration(n, lk.pairs, lk.keys) for n, lk in schema.lookups.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},

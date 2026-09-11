@@ -11,7 +11,7 @@ dimensions:
   period: { dtype: int }
 
 lookups:
-  period_of: { over: [snapshot, period], key: snapshot }
+  period_of: { columns: [snapshot, period], key: snapshot }
 
 parameters:
   cap: { dims: [period] }

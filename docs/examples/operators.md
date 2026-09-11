@@ -89,7 +89,7 @@ dimensions:
   bus: { dtype: str }
 
 lookups:
-  gen_bus: { over: [generator, bus], key: generator }
+  gen_bus: { columns: [generator, bus], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus] }
@@ -126,8 +126,8 @@ dimensions:
   technology: { dtype: str }
 
 lookups:
-  gen_bus: { over: [generator, bus], key: generator }
-  gen_tech: { over: [generator, technology], key: generator }
+  gen_bus: { columns: [generator, bus], key: generator }
+  gen_tech: { columns: [generator, technology], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus, technology] }
@@ -161,7 +161,7 @@ dimensions:
   period: { dtype: int }
 
 lookups:
-  period_of: { over: [snapshot, period], key: snapshot }
+  period_of: { columns: [snapshot, period], key: snapshot }
 
 parameters:
   cap: { dims: [period] }
@@ -309,7 +309,7 @@ dimensions:
   season: { dtype: str }
 
 lookups:
-  season_of: { over: [snapshot, season], key: snapshot }
+  season_of: { columns: [snapshot, season], key: snapshot }
 
 variables:
   p:
@@ -444,7 +444,7 @@ dimensions:
   day: { dtype: str }
 
 lookups:
-  day_of: { over: [hour, day], key: hour }
+  day_of: { columns: [hour, day], key: hour }
 
 variables:
   started:

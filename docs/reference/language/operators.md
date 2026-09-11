@@ -57,9 +57,9 @@ dimensions:
   generator: { dtype: str }
   line: { dtype: str }
 lookups:
-  gen_bus: { over: [generator, bus], key: generator }
-  line_from: { over: [line, bus], key: line }
-  line_to: { over: [line, bus], key: line }
+  gen_bus: { columns: [generator, bus], key: generator }
+  line_from: { columns: [line, bus], key: line }
+  line_to: { columns: [line, bus], key: line }
 parameters:
   load: { dims: [bus] }
 variables:
@@ -227,7 +227,7 @@ dimensions:
   snapshot: { dtype: int }
   season: { dtype: str }
 lookups:
-  season_of: { over: [snapshot, season], key: snapshot }
+  season_of: { columns: [snapshot, season], key: snapshot }
 parameters:
   inflow: { dims: [snapshot] }
 variables:
@@ -310,7 +310,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 lookups:
-  period_of: { over: [snapshot, period], key: snapshot }
+  period_of: { columns: [snapshot, period], key: snapshot }
 parameters:
   lead: { dims: [period], dtype: int }
   demand: { dims: [snapshot] }

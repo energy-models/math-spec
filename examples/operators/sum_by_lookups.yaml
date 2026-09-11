@@ -14,8 +14,8 @@ dimensions:
   technology: { dtype: str }
 
 lookups:
-  gen_bus: { over: [generator, bus], key: generator }
-  gen_tech: { over: [generator, technology], key: generator }
+  gen_bus: { columns: [generator, bus], key: generator }
+  gen_tech: { columns: [generator, technology], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus, technology] }
