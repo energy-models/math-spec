@@ -20,7 +20,7 @@ from tests.fixtures import SMALL_MODEL, override, schema_of
 BASE = override(
     SMALL_MODEL,
     variables={'v': {'foreach': ['g']}, 'w': {'foreach': ['g']}},
-    objective={'sense': 'minimize', 'expression': 'sum(v, over=g)'},
+    objective={'sense': 'minimize', 'expression': 'sum(v, consume=g)'},
 )
 
 
@@ -36,21 +36,23 @@ def _notes(**patch) -> list[str]:
     ('patch', 'side'),
     [
         pytest.param({}, 'lower', id='minimize-a-positive-term-runs-down'),
-        pytest.param({'objective.expression': '-sum(v, over=g)'}, 'upper', id='minimize-a-negated-term-runs-up'),
+        pytest.param({'objective.expression': '-sum(v, consume=g)'}, 'upper', id='minimize-a-negated-term-runs-up'),
         pytest.param({'objective.sense': 'maximize'}, 'upper', id='maximize-a-positive-term-runs-up'),
-        pytest.param({'objective.expression': 'sum(c * w - v, over=g)'}, 'upper', id='the-right-of-a-minus-is-negated'),
         pytest.param(
-            {'objective.expression': 'sum(2 * v, over=g)'}, 'lower', id='a-literal-coefficient-keeps-the-sign'
+            {'objective.expression': 'sum(c * w - v, consume=g)'}, 'upper', id='the-right-of-a-minus-is-negated'
         ),
-        pytest.param({'objective.expression': 'sum(-3 * v, over=g)'}, 'upper', id='a-negative-literal-flips-it'),
-        pytest.param({'objective.expression': 'sum(v / 2, over=g)'}, 'lower', id='a-literal-divisor-keeps-it'),
         pytest.param(
-            {'objective.expression': 'sum(shift(v, over=g, offset=1), over=g)'},
+            {'objective.expression': 'sum(2 * v, consume=g)'}, 'lower', id='a-literal-coefficient-keeps-the-sign'
+        ),
+        pytest.param({'objective.expression': 'sum(-3 * v, consume=g)'}, 'upper', id='a-negative-literal-flips-it'),
+        pytest.param({'objective.expression': 'sum(v / 2, consume=g)'}, 'lower', id='a-literal-divisor-keeps-it'),
+        pytest.param(
+            {'objective.expression': 'sum(shift(v, over=g, offset=1), consume=g)'},
             'lower',
             id='an-operator-argument-keeps-it',
         ),
         pytest.param(
-            {'objective.expression': '-sum(v, over=g)', 'variables.v.bounds': {'lower': 0}},
+            {'objective.expression': '-sum(v, consume=g)', 'variables.v.bounds': {'lower': 0}},
             'upper',
             id='a-bound-on-the-side-it-runs-away-from-is-beside-the-point',
         ),
@@ -72,13 +74,13 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
         pytest.param({'variables.v.domain': 'binary'}, id='a-binary-is-bounded-by-its-domain'),
         pytest.param({'constraints': {'k': {'foreach': ['g'], 'expression': 'v >= c'}}}, id='named-by-a-constraint'),
         pytest.param({'sos': {'s': {'variable': 'v', 'over': 'g', 'type': 1}}}, id='carried-by-a-set'),
-        pytest.param({'objective.expression': 'sum(c * v, over=g)'}, id='a-parameter-coefficient-may-be-zero'),
-        pytest.param({'objective.expression': 'sum(v - v, over=g)'}, id='both-signs-may-cancel'),
-        pytest.param({'objective.expression': 'sum(v * v, over=g)'}, id='a-degree-two-term-carries-no-sign'),
-        pytest.param({'objective.expression': 'sum(0 * v, over=g)'}, id='a-zero-coefficient-is-not-a-term'),
+        pytest.param({'objective.expression': 'sum(c * v, consume=g)'}, id='a-parameter-coefficient-may-be-zero'),
+        pytest.param({'objective.expression': 'sum(v - v, consume=g)'}, id='both-signs-may-cancel'),
+        pytest.param({'objective.expression': 'sum(v * v, consume=g)'}, id='a-degree-two-term-carries-no-sign'),
+        pytest.param({'objective.expression': 'sum(0 * v, consume=g)'}, id='a-zero-coefficient-is-not-a-term'),
         pytest.param({'objective': None}, id='no-objective'),
         pytest.param(
-            {'objective.expression': '-sum(v, over=g)', 'variables.v.bounds': {'upper': 10}},
+            {'objective.expression': '-sum(v, consume=g)', 'variables.v.bounds': {'upper': 10}},
             id='bounded-on-the-improving-side-running-up',
         ),
     ],
@@ -91,11 +93,11 @@ def test_nothing_is_claimed_where_the_file_does_not_decide_it(patch):
 #: operator and nothing else. Keyed by name rather than listed, so a fifth
 #: built-in arrives with a case of its own.
 THROUGH_EACH_OPERATOR = {
-    'sum': {'objective.expression': 'sum(v, over=g)'},
-    'shift': {'objective.expression': 'sum(shift(v, over=g, offset=1), over=g)'},
-    'sum_back': {'objective.expression': 'sum(sum_back(v, over=g, within=2), over=g)'},
+    'sum': {'objective.expression': 'sum(v, consume=g)'},
+    'shift': {'objective.expression': 'sum(shift(v, over=g, offset=1), consume=g)'},
+    'sum_back': {'objective.expression': 'sum(sum_back(v, over=g, window=2), consume=g)'},
     # `at` reads onto the lookup's source, so the variable it drives is on `h`
-    'at': {'variables.u': {'foreach': ['h']}, 'objective.expression': 'sum(at(u, by=lk), over=g)'},
+    'at': {'variables.u': {'foreach': ['h']}, 'objective.expression': 'sum(at(u, by=lk), consume=g)'},
 }
 
 #: `dual` is refused in any objective, and boundedness walks the objective —
@@ -124,7 +126,7 @@ def test_every_operator_hands_its_sign_to_its_operand(builtin):
 
 
 def test_every_unopposed_variable_is_named():
-    advice = _advice(**{'objective.expression': 'sum(v + w, over=g)'})
+    advice = _advice(**{'objective.expression': 'sum(v + w, consume=g)'})
     assert [(a.kind, a.subject) for a in advice] == [('unbounded', 'v'), ('unbounded', 'w')], (
         'one piece of advice per variable, in objective order'
     )

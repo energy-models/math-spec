@@ -49,7 +49,7 @@ expressions:
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(p, consume=generator) == load
   upper:
     description: a unit that is not running produces nothing
     foreach: [snapshot, generator]

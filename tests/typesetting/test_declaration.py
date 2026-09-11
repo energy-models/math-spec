@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 PLAIN = override(
     DISPATCH,
     **{
-        'expressions.spend': 'sum(p * cost, over=generator)',
+        'expressions.spend': 'sum(p * cost, consume=generator)',
         'expressions.total': 'sum(p)',
         'expressions.priced': 'cost * 2',
         'constraints.budgeted': {'foreach': ['snapshot'], 'where': 'load > 0', 'expression': 'spend <= 10'},

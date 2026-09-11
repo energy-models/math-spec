@@ -143,7 +143,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     dimensions = {
         dname: program.DimensionDeclaration(
             tuple(
-                program.LookupDeclaration(lname, lk.into) for lname, lk in expanded.lookups.items() if lk.over == dname
+                program.LookupDeclaration(lname, lk.pairs, lk.keys)
+                for lname, lk in expanded.lookups.items()
+                if dname in lk.dims
             ),
             ddef.dtype,
         )
@@ -257,7 +259,7 @@ class _Lowering:
         return program.Cases(tuple(regions))
 
     def sum(self, node: FunctionCallNode) -> program.ExpressionNode:
-        """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=lookup)``.
+        """``sum(x)``, ``sum(x, consume=d)`` or ``sum(x, by=lookup)``.
 
         Two program nodes under one surface verb: reducing a dim away and reducing it
         *into* another are different relational shapes, so ``by=`` decides which
@@ -265,30 +267,25 @@ class _Lowering:
         """
         by_node = node.kwargs.get('by')
         operand = self.expr(node.args[0])
-        if by_node is None and 'over' not in node.kwargs:
+        if by_node is None and 'consume' not in node.kwargs:
             return program.Sum(operand, tuple(sorted(dims_of(node.args[0], self.schema, self.context))))
         if by_node is None:
-            over_node = node.kwargs['over']
-            assert isinstance(over_node, DimensionNode), 'resolution refuses an over= that is not a dimension'
-            return program.Sum(operand, (over_node.name,))
+            consumed = node.kwargs['consume']
+            assert isinstance(consumed, DimensionNode), 'resolution refuses a consume= that is not a dimension'
+            return program.Sum(operand, (consumed.name,))
         assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
-        return program.GroupSum(operand, over=by_node.dimension, coordinate=by_node.names, into=by_node.into)
+        return program.GroupSum(operand, walks=by_node.walks)
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``at(x, by=lookup)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
         assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
-        return program.At(
-            self.expr(node.args[0]),
-            over=by_node.dimension,
-            coordinate=by_node.names,
-            into=by_node.into,
-        )
+        return program.At(self.expr(node.args[0]), walks=by_node.walks)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
-        """``sum_back(x, over=d, within=w)`` — a trailing window along one dimension.
+        """``sum_back(x, over=d, window=w)`` — a trailing window along one dimension.
 
-        *within* is an integer literal of at least one, or a parameter naming a
+        *window* is an integer literal of at least one, or a parameter naming a
         per-entity width, which the language holds to the two rules that make it
         mean one thing before this is reached.
 
@@ -298,15 +295,15 @@ class _Lowering:
         """
         over_node = node.kwargs['over']
         assert isinstance(over_node, DimensionNode), 'resolution refuses an over= that is not a dimension'
-        within_node = node.kwargs['within']
+        window_node = node.kwargs['window']
         operand = self.expr(node.args[0])
         wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
         width: int | str
-        if isinstance(within_node, ParameterNode):
-            width = within_node.name
+        if isinstance(window_node, ParameterNode):
+            width = window_node.name
         else:
-            assert isinstance(within_node, NumberNode), 'a within= that is neither is refused at load'
-            width = int(within_node.value)
+            assert isinstance(window_node, NumberNode), 'a window= that is neither is refused at load'
+            width = int(window_node.value)
         return program.Window(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
 
     def shift(self, node: FunctionCallNode) -> program.ExpressionNode:
@@ -345,10 +342,10 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 }
 
 
-def _partition_of(node: FunctionCallNode) -> str | None:
-    """The lookup a translation walks inside, if the call names one.
+def _partition_of(node: FunctionCallNode) -> program.Walk | None:
+    """The walk a translation partitions by, if the call names a lookup.
 
-    That it is a *single* lookup, and one *over the translated dimension*, is
+    That it is a *single* lookup, walked *along the translated dimension*, is
     checked with the other dim rules (``math_spec.dimensions``), where a model
     is refused before any data is read.
     """
@@ -356,7 +353,7 @@ def _partition_of(node: FunctionCallNode) -> str | None:
     if by_node is None:
         return None
     assert isinstance(by_node, LookupNode)
-    return by_node.names[0]
+    return by_node.walks[0]
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:

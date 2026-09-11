@@ -54,7 +54,7 @@ class TestValidateExpressions:
                 id='a-constraint-without-a-comparison',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p, over=g) <= 5'}},
+                {'objective': {'expression': 'sum(p, consume=g) <= 5'}},
                 ('must not contain a comparison',),
                 id='an-objective-with-a-comparison',
             ),
@@ -69,7 +69,7 @@ class TestValidateExpressions:
                 id='a-cubic-constraint',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p ** 2, over=g)'}},
+                {'objective': {'expression': 'sum(p ** 2, consume=g)'}},
                 ('The objective', '`**` is not in the language over variables'),
                 id='a-variable-under-a-power',
             ),
@@ -94,7 +94,7 @@ class TestValidateExpressions:
     def test_the_objective_and_a_constraint_take_degree_two(self):
         _schema(
             constraints={'floor': {'foreach': ['g'], 'expression': 'p * p >= 1'}},
-            objective={'expression': 'sum(p * p * c, over=g)'},
+            objective={'expression': 'sum(p * p * c, consume=g)'},
         )
 
     def test_multiple_errors_collected(self):
@@ -191,7 +191,7 @@ def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str,
             'bus': {'dtype': 'str'},
             'generator': {'dtype': 'str'},
         },
-        'lookups': {'zone': {'over': 'generator', 'into': 'bus'}},
+        'lookups': {'zone': {'columns': ['generator', 'bus'], 'key': 'generator'}},
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'foreach': ['snapshot', 'generator']}},
         'constraints': {'c': {'foreach': ['snapshot'] if foreach is None else foreach, 'expression': expression}},
@@ -271,12 +271,14 @@ class TestDual:
 
 
 class TestDimensionKwargs:
-    """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, over=snapshto)` used to load."""
+    """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, consume=snapshto)` used to load."""
 
     @pytest.mark.parametrize(
         ('expression', 'fragments'),
         [
-            pytest.param('sum(p, over=snapshto) == load', ('silent no-op', 'sum(over=snapshto)'), id='sum-over-typo'),
+            pytest.param(
+                'sum(p, consume=snapshto) == load', ('silent no-op', 'sum(consume=snapshto)'), id='sum-over-typo'
+            ),
             pytest.param(
                 'sum(p, by=bus) == load',
                 ("'bus' is a dimension, and by= takes a lookup",),
@@ -302,7 +304,7 @@ class TestDimensionKwargs:
     @pytest.mark.parametrize(
         ('expression', 'foreach'),
         [
-            pytest.param('sum(p, over=generator) == load', ['snapshot'], id='a-sum'),
+            pytest.param('sum(p, consume=generator) == load', ['snapshot'], id='a-sum'),
             pytest.param('sum(p, by=zone) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
             pytest.param(
                 "shift(p, over=snapshot, offset=1, edge='wrap') == load",
@@ -319,7 +321,11 @@ class TestDimensionKwargs:
         """A formal in a dim position is legal inside the template body."""
         _schema(
             macros={
-                'ws': {'args': ['array', 'weights'], 'kwargs': ['over'], 'template': 'sum(array * weights, over=over)'}
+                'ws': {
+                    'args': ['array', 'weights'],
+                    'kwargs': ['over'],
+                    'template': 'sum(array * weights, consume=over)',
+                }
             },
             objective={'sense': 'minimize', 'expression': 'ws(p, c, over=g)'},
         )
@@ -366,7 +372,7 @@ class TestArithmeticDtype:
             pytest.param('p / a <= c', id='a-divisor'),
             pytest.param('p + a <= c', id='a-term'),
             pytest.param('-a * p <= c', id='a-negated-factor'),
-            pytest.param('sum(a * p, over=g) <= 1', id='under-an-operator'),
+            pytest.param('sum(a * p, consume=g) <= 1', id='under-an-operator'),
         ],
     )
     def test_a_label_or_a_flag_is_not_a_value(self, dtype, expression):
@@ -423,8 +429,8 @@ POSITION_SCHEMA = to_spec(
     {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int'}},
         'lookups': {
-            'period_of': {'over': 'snapshot', 'into': 'period'},
-            'starts_at': {'over': 'period', 'into': 'snapshot'},
+            'period_of': {'columns': ['snapshot', 'period'], 'key': 'snapshot'},
+            'starts_at': {'columns': ['period', 'snapshot'], 'key': 'period'},
         },
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'foreach': ['snapshot']}},
@@ -455,7 +461,7 @@ class TestPositionResolves:
         assert isinstance(node, DimensionPositionNode)
         assert node.name == 'snapshot'
         assert node.position == position
-        assert node.by == by
+        assert (node.partition.name if node.partition is not None else None) == by
 
     @pytest.mark.parametrize(
         ('mask', 'fragments'),
@@ -463,7 +469,7 @@ class TestPositionResolves:
             ('position(load) == 0', ["counts along a dimension's coordinates", "'load' is a parameter"]),
             ('position(nope) == 0', ["'nope' is not declared"]),
             ('position(snapshot, by=load) == 0', ['groups by', '``by=`` takes a lookup']),
-            ('position(snapshot, by=starts_at) == 0', ["along 'snapshot'", "lookup over 'period'"]),
+            ('position(snapshot, by=starts_at) == 0', ["no key column over 'snapshot'", "its key is ['period']"]),
         ],
         ids=['a parameter', 'undeclared', 'by= is not a lookup', 'by= is over another dim'],
     )
@@ -491,7 +497,7 @@ class TestRulesDecidedWithoutData:
                 id='a-constraint-without-a-comparison',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p, over=g) <= 5'}},
+                {'objective': {'expression': 'sum(p, consume=g) <= 5'}},
                 ('must not contain a comparison',),
                 id='an-objective-with-a-comparison',
             ),
@@ -506,7 +512,7 @@ class TestRulesDecidedWithoutData:
                 id='a-cubic-constraint',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p ** 2, over=g)'}},
+                {'objective': {'expression': 'sum(p ** 2, consume=g)'}},
                 ('The objective', '`**` is not in the language over variables'),
                 id='a-variable-under-a-power',
             ),
@@ -561,18 +567,158 @@ class TestRulesDecidedWithoutData:
                 id='sos-big-m-infinite',
             ),
             pytest.param(
-                {'lookups.tag': {'over': 'g', 'dtype': 'str'}},
-                ("unknown key 'dtype' in a lookup declaration. Valid keys: description, into, over.",),
+                {'lookups.tag': {'columns': 'g', 'dtype': 'str'}},
+                ("unknown key 'dtype' in a lookup declaration. Valid keys: columns, description, key.",),
                 id='lookup-with-a-dtype-of-its-own',
             ),
-            pytest.param({'lookups.tag': {'over': 'g'}}, ('lookups.tag.into: Field required',), id='lookup-no-into'),
+            pytest.param({'lookups.tag': {'columns': 'g'}}, ('has 1 column(s)',), id='lookup-with-one-column'),
             pytest.param(
-                {'lookups.lk.over': 'z'}, ("references undeclared dimension 'z'",), id='lookup-over-undeclared'
+                {'lookups.lk.columns': 'z'}, ("references undeclared dimension 'z'",), id='lookup-over-undeclared'
             ),
-            pytest.param({'lookups.lk.into': 'z'}, ("targets undeclared dimension 'z'",), id='lookup-into-undeclared'),
-            pytest.param({'lookups.lk.into': 'g'}, ("maps 'g' into itself",), id='lookup-into-itself'),
             pytest.param(
-                {'lookups.g': {'over': 'h', 'into': 'g'}},
+                {'lookups.lk.key': 'z'},
+                ("has key column 'z', which is not one of its columns",),
+                id='lookup-key-not-a-column',
+            ),
+            pytest.param(
+                {'lookups.lk.key': ['g', 'h']}, ('has every column in its key',), id='lookup-keyed-by-every-column'
+            ),
+            pytest.param(
+                {'lookups.pair': {'columns': {'g0': 'g', 'g1': 'g', 'h': 'h'}, 'key': ['g0', 'g1']}},
+                ("has two key columns over 'g' (['g0', 'g1'])", 'no frame carries a dimension twice'),
+                id='lookup-keyed-twice-over-one-dimension',
+            ),
+            pytest.param(
+                {'lookups.odd': {'columns': {'h': 'g', 'x': 'h'}, 'key': 'h'}},
+                ("names column 'h' after dimension 'h', but the column is over 'g'",),
+                id='lookup-column-named-after-a-dimension-it-is-not-over',
+            ),
+            pytest.param(
+                {'lookups.lk.columns': ['g', 'z']}, ("references undeclared dimension 'z'",), id='lookup-key-undeclared'
+            ),
+            pytest.param(
+                {'lookups.lk.columns': ['g', 'g']},
+                ("names dimension 'g' twice under 'columns:'", 'columns: {g0: g, g1: g}'),
+                id='lookup-naming-a-dim-twice-without-roles',
+            ),
+            pytest.param({'lookups.lk.columns': []}, ('has 0 column(s)',), id='lookup-with-no-columns'),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lk': {'columns': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'variables.q.foreach': ['g', 'h', 'z'],
+                    'objective': {'expression': 'sum(sum(q, by=lk))'},
+                },
+                ("'lk' has 2 key columns (['g', 'z']), and the call has to say which consume= names",),
+                id='by-a-two-key-lookup-without-from',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=lk, consume=z))'}},
+                ("consume=z names no column of 'lk', whose columns are ['g', 'h']",),
+                id='from-a-column-the-lookup-lacks',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=lk, consume=h, produce=h))'}},
+                ("consume= and produce= both name ['h']",),
+                id='from-and-to-the-same-column',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, produce=[h, h]))'},
+                },
+                ("produce=['h', 'h'] names a column twice",),
+                id='a-to-list-naming-a-column-twice',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, consume=[g, h], produce=h))'},
+                },
+                ("consume= and produce= both name ['h']",),
+                id='a-from-list-overlapping-to',
+            ),
+            pytest.param(
+                {
+                    'lookups.lz': {'columns': {'g': 'g', 'h0': 'h', 'h1': 'h'}, 'key': 'g'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, consume=[h0, h1], produce=g))'},
+                },
+                ("consume=['h0', 'h1'] names two columns over ['h'], and the operand carries each dimension once",),
+                id='a-from-list-naming-two-columns-over-one-dimension',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lk, consume=g))'}},
+                (
+                    "shift() expects shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>]"
+                    '[, by=<lookup>[, within=<column>]])',
+                ),
+                id='a-partition-takes-no-from',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
+                    'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lz, within=g))'},
+                },
+                ("within=['g'] names a key column of 'lz', and a partition groups by value columns",),
+                id='a-partition-grouped-within-a-key-column',
+            ),
+            pytest.param(
+                {'variables.q.where': 'position(g, by=lk, within=z) == 0'},
+                ("within=z names no column of 'lk', whose columns are ['g', 'h']",),
+                id='position-within-a-column-the-lookup-lacks',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, produce=g))'}},
+                ('names a column of a lookup, and no by= names the lookup',),
+                id='produce-without-by',
+            ),
+            pytest.param(
+                {'lookups.rel': {'columns': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
+                ("'rel' declares no key, so nothing says which column sum walks",),
+                id='a-bare-relation-needs-both-ends-named',
+            ),
+            pytest.param(
+                {
+                    'lookups.rel': {'columns': ['g', 'h']},
+                    'objective': {'expression': 'sum(at(r, by=rel, consume=h, produce=g))'},
+                },
+                ("at reads one value per coordinate, and 'rel' is not single-valued",),
+                id='at-through-a-bare-relation',
+            ),
+            pytest.param(
+                {
+                    'lookups.rel': {'columns': ['g', 'h']},
+                    'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=rel))'},
+                },
+                ("'rel' declares no key, so no coordinate is in exactly one group",),
+                id='a-partition-through-a-bare-relation',
+            ),
+            pytest.param(
+                {'lookups.rel': {'columns': ['g', 'h']}, 'variables.q.where': "rel == 'x'"},
+                ("compares a column of 'rel', which declares no key",),
+                id='where-compares-a-bare-relation',
+            ),
+            pytest.param(
+                {'variables.q.where': "lk.g == 'x'"},
+                (
+                    "'g' is a key column of 'lk', which the frame supplies rather than reads",
+                    'g == ...',
+                ),
+                id='where-compares-a-key-column',
+            ),
+            pytest.param(
+                {
+                    'lookups.pair': {'columns': {'g0': 'g', 'g1': 'g'}},
+                    'variables.q.where': 'pair',
+                },
+                ('has two columns over one dimension', 'Compare a column'),
+                id='where-bare-name-of-a-lookup-with-two-columns-over-one-dim',
+            ),
+            pytest.param(
+                {'lookups.g': {'columns': ['h', 'g'], 'key': 'h'}},
                 ("Lookup 'g' collides with the dimension",),
                 id='lookup-named-after-a-dimension',
             ),
@@ -659,55 +805,82 @@ class TestRulesDecidedWithoutData:
                 id='one-name-two-kinds',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(g + p, over=g)'}},
+                {'objective': {'expression': 'sum(g + p, consume=g)'}},
                 ("'g' is a dimension, and a dimension is not a value",),
                 id='a-dimension-as-a-value',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(lk + p, over=g)'}},
+                {'objective': {'expression': 'sum(lk + p, consume=g)'}},
                 ("'lk' is a lookup, and a lookup is structure",),
                 id='a-lookup-as-a-value',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=wrap), over=g)'}},
+                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=wrap), consume=g)'}},
                 ('is a bare name where a keyword belongs',),
                 id='a-bare-edge-keyword',
             ),
             pytest.param(
-                {'objective': {'expression': "sum(shift(p, over=g, offset=1, edge='foo'), over=g)"}},
+                {'objective': {'expression': "sum(shift(p, over=g, offset=1, edge='foo'), consume=g)"}},
                 ("edge='foo') is not an edge policy",),
                 id='an-edge-policy-that-is-not-one',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p, over=g, by=lk)'}}, ('at most one of',), id='over-and-by-together'
-            ),
-            pytest.param(
                 {
                     'parameters.off': {'dims': [], 'dtype': 'int'},
-                    'objective': {'expression': 'sum(shift(p, over=g, offset=off + 0), over=g)'},
+                    'objective': {'expression': 'sum(shift(p, over=g, offset=off + 0), consume=g)'},
                 },
                 ('shift(offset=) takes a number or the name of an integer parameter', 'Precompute it as a parameter'),
                 id='an-amount-that-is-an-expression',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum_back(p, over=g, within=2 * 1), over=g)'}},
-                ('sum_back(within=) takes a number or the name of an integer parameter',),
+                {'objective': {'expression': 'sum(sum_back(p, over=g, window=2 * 1), consume=g)'}},
+                ('sum_back(window=) takes a number or the name of an integer parameter',),
                 id='a-width-that-is-an-expression',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=1 + 1), over=g)'}},
+                {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=1 + 1), consume=g)'}},
                 ('shift(edge=) is an expression, and an edge is the keyword',),
                 id='an-edge-that-is-an-expression',
             ),
             pytest.param(
-                {'lookups.hk': {'over': 'h', 'into': 'g'}, 'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'}},
-                ('groups through lookups over different dimensions',),
+                {
+                    'lookups.hk': {'columns': ['h', 'g'], 'key': 'h'},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'},
+                },
+                ('groups through lookups along different dimensions',),
                 id='by-lookups-over-different-dimensions',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=[lk, lk]))'}},
-                ("targets ['h'] more than once",),
+                ("produces ['h'] more than once",),
                 id='by-the-same-target-twice',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'columns': ['h', 'z'], 'key': 'h'},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, lz]))'},
+                },
+                ('groups through lookups along different dimensions',),
+                id='by-lookups-walking-different-dimensions',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'columns': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, lz], consume=g))'},
+                },
+                ('a list walks each lookup by its declared key and value, so a column keyword has nothing to name',),
+                id='by-a-list-with-from',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'lookups.lz': {'columns': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'variables.q.where': 'lk != lz',
+                },
+                ('compares lookups keyed over different dimensions',),
+                id='where-two-lookups-with-different-keys',
             ),
             pytest.param(
                 {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'
@@ -1079,7 +1252,7 @@ class TestADeclarationIsNamed:
     def test_a_name_no_expression_could_write_is_refused(self, section: str, name: str):
         declarations: dict[str, Any] = {
             'dimensions': {'dtype': 'str'},
-            'lookups': {'over': 'g', 'into': 'h'},
+            'lookups': {'columns': ['g', 'h'], 'key': 'g'},
             'parameters': {'dims': ['g']},
             'variables': {'foreach': ['g']},
             'expressions': {'expression': 'c'},

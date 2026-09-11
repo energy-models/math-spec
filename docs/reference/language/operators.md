@@ -14,38 +14,42 @@ model can never depend on what a caller registered. A composition of them goes i
 | Operator                                           | Result                                                                                                                                            |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sum(array)`                                       | Every dimension that `array` carries collapses. The result is a scalar                                                                            |
-| `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
-| `sum(array, by=lookup)`                            | The dimension that the lookup is over collapses onto the dimension it maps into                                                                   |
-| `sum(array, by=[lookup, …])`                       | The same, onto every dimension that the lookups map into. All the lookups must be over the same dimension                                         |
-| `at(array, by=lookup)`                             | The dimension that the lookup maps into is replaced by the dimension it is over                                                                   |
+| `sum(array, consume=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
+| `sum(array, by=lookup)`                            | The lookup's key column collapses onto its value column                                                                                          |
+| `sum(array, by=[lookup, …])`                       | The same, onto every lookup's value column. All the lookups must consume the same dimension                                                       |
+| `sum(array, by=lookup, consume=a, produce=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them                    |
+| `sum(array, by=lookup, consume=[a, …], produce=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                             |
+| `at(array, by=lookup)`                             | The lookup's value column is replaced by its key column                                                                                          |
+| `at(array, by=lookup, consume=a, produce=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns. Either may be a list               |
 | `shift(array, over=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
 | `shift(array, over=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, over=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
 | `shift(array, over=dim, offset=p, edge=…)`         | `p` is an integer parameter, so each entity is reached by its own offset. Declared over what a `by=` groups into, it gives one lag per group      |
-| `shift(array, over=dim, offset=n, by=lookup)`      | The translation walks inside each group that the lookup makes. Neighbours, edges and a wrap all belong to that group                              |
-| `sum_back(array, over=dim, within=n)`              | The sum of the last `n` positions along `dim`, ending at the position being written                                                               |
-| `sum_back(array, over=dim, within=p)`              | `p` is an integer parameter, so each entity gets its own window length                                                                            |
-| `sum_back(array, over=dim, within=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                        |
-| `sum_back(array, over=dim, within=n, by=lookup)`   | The window stays inside each group that the lookup makes                                                                                          |
+| `shift(array, over=dim, offset=n, by=lookup[, within=c])` | The translation walks inside each group that the lookup makes. Neighbours, edges and a wrap all belong to that group                              |
+| `sum_back(array, over=dim, window=n)`              | The sum of the last `n` positions along `dim`, ending at the position being written                                                               |
+| `sum_back(array, over=dim, window=p)`              | `p` is an integer parameter, so each entity gets its own window length                                                                            |
+| `sum_back(array, over=dim, window=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                        |
+| `sum_back(array, over=dim, window=n, by=lookup)`   | The window stays inside each group that the lookup makes                                                                                          |
 
 `array` is any expression with the right dimension set, so each operator reads a
 parameter as readily as a variable. Dimension arguments are name-checked at load,
-so `sum(p, over=snapshto)` is an error rather than a silent no-op.
+so `sum(p, consume=snapshto)` is an error rather than a silent no-op.
 [Every operator as math](#every-operator-as-math) shows how each row prints.
 
 ## `sum`
 
-`sum(x, over=d)` adds up `x` along `d`, and `d` is gone from the result.
+`sum(x, consume=d)` adds up `x` along `d`, and `d` is gone from the result.
 
 `sum(x)` names no dimension and reduces every dimension `x` carries, so its
-result is a scalar. It is `sum(sum(x, over=a), over=b)` written once.
+result is a scalar. It is `sum(sum(x, consume=a), consume=b)` written once.
 
-An operand that is already scalar, and an `over=` naming a dimension the operand
-does not carry, are both errors rather than no-ops.
+An operand that is already scalar, and a `consume=` naming a dimension the
+operand does not carry, are both errors rather than no-ops.
 
 `sum(x, by=l)` sums along a [lookup](dimensions.md#lookups) and lands the result
-on the dimension the lookup maps into. A nodal balance is one `sum(by=)` per
-kind of component, and the network's wiring stays in the lookup tables:
+on the column it walks to: the value column, where the key draws the arrow, or
+the one `produce=` names. A nodal balance is one `sum(by=)` per kind of component,
+and the network's wiring stays in the lookup tables:
 
 ```yaml
 dimensions:
@@ -53,9 +57,9 @@ dimensions:
   generator: { dtype: str }
   line: { dtype: str }
 lookups:
-  gen_bus: { over: generator, into: bus }
-  line_from: { over: line, into: bus }
-  line_to: { over: line, into: bus }
+  gen_bus: { columns: [generator, bus], key: generator }
+  line_from: { columns: [line, bus], key: line }
+  line_to: { columns: [line, bus], key: line }
 parameters:
   load: { dims: [bus] }
 variables:
@@ -74,10 +78,16 @@ constraints:
 The same `f` is summed twice through two lookups, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
-Give **at most one** of `over=` and `by=`. A lookup carries its own dimensions,
-so `by=` leaves `over=` nothing to add.
+`by=` and `consume=` compose: `by=` names the table and `consume=` names what
+leaves the frame, so a call may give both, either, or neither.
 
-The lookup's values are the group labels, checked against the target dimension
+`consume=` and `produce=` say [which columns the walk runs between](dimensions.md#a-walk-names-its-ends)
+where the declaration leaves a choice. Every other key column is joined on, so
+the operand carries it, the sum keeps it, and each group is one coordinate of
+it. A value column that is not walked is not read. A bare relation, one with no
+`key:`, is summed with both ends named, and a row it holds twice counts twice.
+
+The lookup's values are the group labels, checked against their own dimension
 when the data binds. A group with no members contributes nothing, and a member
 whose lookup value is null belongs to no group. An empty group is a value rather
 than a gap: on the constant side of a comparison it reads as zero, where a
@@ -86,19 +96,24 @@ coordinate the data never covered is refused. See [absence](absence.md).
 ## `at`
 
 `at(x, by=l)` walks the same lookup table the other way. `sum(by=)` consumes the
-dimension the lookup is over and produces the target. `at` consumes the target
-and produces the dimension the lookup is over: it reads one coarse value once for
-each fine label that points at it.
+key column and produces the value column. `at` consumes the value column and
+produces the key column: it reads one coarse value once for each fine label that
+points at it. `consume=` and `produce=` name the two columns where the key leaves a
+choice. A read is one value per coordinate, so the lookup's key must lie inside
+`produce=` and the columns joined on, and a bare relation is never read by `at`.
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus)`.
 
 A fine label whose lookup value is null reads nothing, and its row is absent.
-That matches the null group in `sum(by=)`.
+That matches the null group in `sum(by=)`. Through a lookup with a
+[column joined on](dimensions.md#a-walk-names-its-ends) `at` reads the coarse
+value at the row's own coordinate of that column, which is the price of the zone
+this generator sat in that period.
 
 ## `sum_back`
 
-`sum_back(x, over=d, within=n)` is the sum of the last `n` positions along `d`,
+`sum_back(x, over=d, window=n)` is the sum of the last `n` positions along `d`,
 ending at the position being written. It states a minimum up time, a rolling
 budget or a delivery horizon. A width of `1` is `x` itself.
 
@@ -120,12 +135,12 @@ variables:
 constraints:
   stays_up_its_own_time:
     foreach: [unit, hour]
-    expression: sum_back(started, over=hour, within=min_up) <= on
+    expression: sum_back(started, over=hour, window=min_up) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-`within=` takes a number or the name of an integer parameter, and never an
+`window=` takes a number or the name of an integer parameter, and never an
 expression. With a parameter, each entity gets a window of its own length. A
 fixed width can be written as a run of `shift`s; a width that is a column
 cannot. Two rules hold for a named width, and breaking either is a load error:
@@ -212,7 +227,7 @@ dimensions:
   snapshot: { dtype: int }
   season: { dtype: str }
 lookups:
-  season_of: { over: snapshot, into: season }
+  season_of: { columns: [snapshot, season], key: snapshot }
 parameters:
   inflow: { dims: [snapshot] }
 variables:
@@ -229,9 +244,10 @@ coordinate of each group is vacated and its row drops. `edge='wrap'` closes each
 group onto its own last coordinate, which a store that returns to its starting
 level every period asks for. `edge=v` puts `v` at the edge of each group.
 
-`by=` takes a lookup over the dimension being walked, and groups a row by the
-group of that dimension it is in. The lookup's target is what a named `offset=`
-may vary over, so each group is reached by its own offset.
+`by=` takes a lookup with a key column over the dimension being walked, and the
+group is the value columns: all of them, or the ones `within=` names, so one
+calendar table serves `within=day` and `within=week` alike. The group columns are
+what a named `offset=` may vary over, so each group is reached by its own offset.
 
 A coordinate the lookup sends nowhere is in no group, so it reaches nothing, and
 no `edge=` speaks for it. Its row drops under `edge=0` exactly as it does bare.
@@ -294,7 +310,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 lookups:
-  period_of: { over: snapshot, into: period }
+  period_of: { columns: [snapshot, period], key: snapshot }
 parameters:
   lead: { dims: [period], dtype: int }
   demand: { dims: [snapshot] }
@@ -327,7 +343,7 @@ language prints on [Every construct, as math](../notation.md).
 | Operator | Renders as |
 |---|---|
 | `sum(array)` | $`\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}`$ |
-| `sum(array, over=dim)` | $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$ |
+| `sum(array, consume=dim)` | $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$ |
 | `sum(array, by=lookup)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$ |
 | `sum(array, by=[lookup, …])` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$ |
 | `at(array, by=lookup)` | $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$ |
@@ -336,10 +352,10 @@ language prints on [Every construct, as math](../notation.md).
 | `shift(array, over=dim, offset=n, edge=v)` | $`p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, over=dim, offset=p, edge=…)` | $`\mathit{order}_{t,m \boxminus_{0} \mathrm{lead}} \ge \mathrm{demand}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}`$ |
 | `shift(array, over=dim, offset=n, by=lookup)` | $`p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\, t \in \mathcal{T}`$ |
-| `sum_back(array, over=dim, within=n)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
-| `sum_back(array, over=dim, within=p)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
-| `sum_back(array, over=dim, within=p, edge='wrap')` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
-| `sum_back(array, over=dim, within=n, by=lookup)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
+| `sum_back(array, over=dim, window=n)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
+| `sum_back(array, over=dim, window=p)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
+| `sum_back(array, over=dim, window=p, edge='wrap')` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
+| `sum_back(array, over=dim, window=n, by=lookup)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
 | `dual(constraint)` | $`\mathit{price}_{t} = \lambda_{\mathrm{balance},t} \qquad \forall\, t \in \mathcal{T}`$ |
 
 $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size of the dimension (`roll`). Plain $`t-k`$ (`shift`) has no wraparound — terms translated past the edge are simply absent.

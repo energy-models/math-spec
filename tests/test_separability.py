@@ -25,7 +25,7 @@ FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yam
 
 BASE: dict[str, Any] = {
     'dimensions': {'h': {'dtype': 'int'}, 'u': {'dtype': 'str'}, 'zone': {'dtype': 'str'}, 'day': {'dtype': 'int'}},
-    'lookups': {'zone_of': {'over': 'u', 'into': 'zone'}, 'day_of': {'over': 'h', 'into': 'day'}},
+    'lookups': {'zone_of': {'columns': ['u', 'zone'], 'key': 'u'}, 'day_of': {'columns': ['h', 'day'], 'key': 'h'}},
     'parameters': {
         'cost': {'dims': ['u']},
         'budget': {'dims': []},
@@ -53,8 +53,8 @@ def _rows(expression: str, *, foreach: list[str] | None = None, **block: Any) ->
             _rows('p >= shift(p, over=h, offset=1, edge=0)'), 0, id='a-shift-behind-is-the-edge-and-asks-nothing'
         ),
         pytest.param(_rows('p >= shift(p, over=h, offset=-2, edge=0)'), 2, id='a-negative-shift-reads-ahead'),
-        pytest.param(_rows('sum_back(p, over=h, within=4) >= 0'), 0, id='a-trailing-window-reads-behind-only'),
-        pytest.param(_rows('sum_back(p, over=h, within=width) >= 0'), 0, id='and-so-does-one-of-a-width-from-data'),
+        pytest.param(_rows('sum_back(p, over=h, window=4) >= 0'), 0, id='a-trailing-window-reads-behind-only'),
+        pytest.param(_rows('sum_back(p, over=h, window=width) >= 0'), 0, id='and-so-does-one-of-a-width-from-data'),
         pytest.param(_rows('p >= shift(p, over=u, offset=-1, edge=0)'), 0, id='a-shift-along-another-axis-is-nothing'),
     ],
 )
@@ -67,7 +67,9 @@ def test_a_separable_model_reports_the_lookahead_a_window_needs(patch, ahead):
 @pytest.mark.parametrize(
     ('patch', 'fragment'),
     [
-        pytest.param(_rows('sum(p, over=h) <= budget', foreach=['u']), 'sums over h', id='a-budget-over-the-horizon'),
+        pytest.param(
+            _rows('sum(p, consume=h) <= budget', foreach=['u']), 'sums over h', id='a-budget-over-the-horizon'
+        ),
         pytest.param(_rows("p >= shift(p, over=h, offset=1, edge='wrap')"), 'wraps around h', id='a-cyclic-shift'),
     ],
 )
@@ -155,8 +157,8 @@ def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
 
 
 def test_a_coupling_names_the_change_that_would_lift_it():
-    coupled = _verdict(**_rows('sum(p, over=h) <= budget', foreach=['u'])).coupled["constraint 'k'"]
-    assert 'sum_back(within=n)' in coupled, 'a horizon total becomes a rolling one'
+    coupled = _verdict(**_rows('sum(p, consume=h) <= budget', foreach=['u'])).coupled["constraint 'k'"]
+    assert 'sum_back(window=n)' in coupled, 'a horizon total becomes a rolling one'
     wrapped = _verdict(**_rows("p >= shift(p, over=h, offset=1, edge='wrap')")).coupled["constraint 'k'"]
     assert 'position(h) == 0' in wrapped, 'a wrap becomes an opening-state seed'
 
@@ -176,7 +178,7 @@ def test_a_sum_over_the_axis_couples_a_constraint_and_leaves_the_objective_alone
     every other. A verdict treating the two alike would refuse every windowable
     model there is — and `BASE`'s objective sums over `h` in every case above."""
     assert _verdict(**_rows('p >= 0')).windowable, 'the objective sums over h and that is not a coupling'
-    coupled = _verdict(**_rows('sum(p, over=h) <= budget', foreach=['u']))
+    coupled = _verdict(**_rows('sum(p, consume=h) <= budget', foreach=['u']))
     assert not coupled.windowable, 'the same sum in a constraint is one'
 
 

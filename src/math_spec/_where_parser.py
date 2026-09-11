@@ -51,12 +51,13 @@ class UnresolvedComparisonNode:
 
 @dataclass(frozen=True)
 class UnresolvedPositionNode:
-    """``position(dim[, by=lookup]) <op> i`` before the names are checked; ``resolution.py`` types it."""
+    """``position(dim[, by=lookup[, within=columns]]) <op> i`` before the names are checked; ``resolution.py`` types it."""
 
     dimension: str
     op: PredicateOperator
     position: int
     by: str | None = None
+    into: tuple[str, ...] | None = None
 
 
 #: What resolution rewrites away on the where side — the three nodes whose
@@ -76,10 +77,11 @@ class _Quoted(str):
 
 
 def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
-    """``position(dim[, by=lookup]) <op> i`` off the tokens the grammar captured."""
-    *call, op, at = tokens
-    dimension, by = call[0], call[1] if len(call) > 1 else None
-    return UnresolvedPositionNode(str(dimension), op, at, None if by is None else str(by))
+    """``position(dim[, by=lookup[, within=columns]]) <op> i`` off the tokens the grammar captured."""
+    dimension, *call, op, at = tokens
+    by = str(call[0]) if call else None
+    into = tuple(str(token) for token in call[1]) if len(call) > 1 else None
+    return UnresolvedPositionNode(str(dimension), op, at, by, into)
 
 
 def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
@@ -112,7 +114,12 @@ def _build_where_grammar() -> pp.ParserElement:
         lambda t: _Quoted(t[0])
     )
 
-    grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name
+    column = pp.Regex(rf'{NAME}(\.{NAME})?')
+    columns = name | (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']'))
+    grouped_within = pp.Group(pp.Suppress(',') + pp.Suppress(pp.Keyword('within')) + pp.Suppress('=') + columns)
+    grouped_by = (
+        pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name + pp.Optional(grouped_within)
+    )
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
     position_call = (
@@ -120,7 +127,7 @@ def _build_where_grammar() -> pp.ParserElement:
     )
     position_comparison = (position_call + comparator + position).set_parse_action(_position_comparison)
 
-    comparison = (name + comparator + (number | quoted | name)).set_parse_action(_comparison)
+    comparison = (column + comparator + (number | quoted | column)).set_parse_action(_comparison)
     # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
 

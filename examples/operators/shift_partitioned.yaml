@@ -11,7 +11,7 @@ dimensions:
   season: { dtype: str }
 
 lookups:
-  season_of: { over: snapshot, into: season }
+  season_of: { columns: [snapshot, season], key: snapshot }
 
 variables:
   p:

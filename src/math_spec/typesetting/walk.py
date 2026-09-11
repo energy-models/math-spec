@@ -55,9 +55,10 @@ from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
 
 if TYPE_CHECKING:
     import datetime
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
-    from math_spec.model import SosBlock, _ExpandedSpec
+    from math_spec.model import LookupBlock, SosBlock, _ExpandedSpec
+    from math_spec.program import Walk as LookupWalk
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -273,9 +274,43 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _lookup(self, name: str, index: str) -> str:
-        """A coordinate map applied to an index: ``bus(g)``."""
-        return self.format.apply(self.format.upright(name), index)
+    def _lookup_read(self, walk: LookupWalk, at: Mapping[str, str], read: str) -> str:
+        """A lookup's column *read* as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
+
+        *at* maps each key role to the index it is read at. The function is
+        named after the lookup alone where the key determines one column, and
+        after the column read otherwise.
+        """
+        name = walk.name if len(walk.values) == 1 else f'{walk.name}.{read}'
+        return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in walk.key], ''))
+
+    def _lookup_member(self, walk: LookupWalk, at: Mapping[str, str]) -> str:
+        """A lookup read as a relation: ``(g, b) ∈ gen_bus``, every column in declared order at the index *at* gives it."""
+        row = self.format.parenthesise(self.format.joined([at[r] for r in walk.roles], ''))
+        return f'{row} {self._op("in")} {self.format.upright(walk.name)}'
+
+    def _value_read(self, name: str, column: str, ctx: _Context) -> str:
+        """A keyed lookup's value *column* read at the frame's own indices of its key: ``period_of(t)``."""
+        lk = self.schema.lookups[name]
+        keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
+        return self.format.apply(self._column(name, column, len(lk.values) == 1), keyed)
+
+    def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
+        """The group a grouped position counts within: the lookup's group columns read at the row's key."""
+        assert node.partition is not None
+        walk = node.partition
+        keyed = self.format.joined([ctx.subscript(walk.dim(k)) for k in walk.key], '')
+        single = len(walk.values) == 1
+        reads = [self.format.apply(self._column(walk.name, column, single), keyed) for column in walk.produced]
+        return self._tuple(reads)
+
+    def _tuple(self, reads: list[str]) -> str:
+        """Several reads as one group label: the read alone where there is one, a bracketed tuple otherwise."""
+        return reads[0] if len(reads) == 1 else self.format.parenthesise(self.format.joined(reads, ''))
+
+    def _column(self, name: str, column: str, single: bool) -> str:
+        """The function a keyed lookup's value *column* is: the lookup's own name where it has one value column."""
+        return self.format.upright(name if single else f'{name}.{column}')
 
     def _context(self, frame: Iterable[str] = ()) -> _Context:
         return _Context(self, bound=tuple(frame))
@@ -404,7 +439,7 @@ class Walk:
             lag = f'{ctx.subscript(over.name)} {self._translation(step)} {source}'
             domain = (
                 f'{source} {self._op("in")} {self.symbols.set[over.name]} {self._op("such_that")} '
-                f'0 {self._op("le")} {lag} {self._op("lt")} {self._width(node.kwargs["within"])}'
+                f'0 {self._op("le")} {lag} {self._op("lt")} {self._width(node.kwargs["window"])}'
             )
             body = self._reduction_body(node.args[0], inner)
             return self.format.summation(domain, body), _PRECEDENCE['+']
@@ -412,25 +447,28 @@ class Walk:
         if node.name == 'at':
             by = node.kwargs['by']
             assert isinstance(by, LookupNode)
-            for name, into in zip(by.names, by.into, strict=True):
-                ctx = ctx.pulled_back(into, self._lookup(name, ctx.subscript(by.dimension)))
+            outer = ctx
+            for walk in by.walks:
+                at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
+                for read in walk.consumed:
+                    ctx = ctx.pulled_back(walk.dim(read), self._lookup_read(walk, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, LookupNode)
-            dummy, inner = ctx.reducing(by.dimension)
-            conditions = [
-                f'{self._lookup(name, dummy)} {self._op("equal")} {ctx.subscript(into)}'
-                for name, into in zip(by.names, by.into, strict=True)
-            ]
+            dummies: dict[str, str] = {}
+            inner = ctx
+            for d in by.dimensions:
+                dummies[d], inner = inner.reducing(d)
+            conditions = [c for walk in by.walks for c in self._grouping(walk, dummies, ctx)]
             domain = (
-                f'{self._membership(by.dimension, dummy)} {self._op("such_that")} '
-                f'{self.format.joined(conditions, self._op("and"))}'
+                f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
+                f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
             )
-        elif (over := node.kwargs.get('over')) is not None:
-            assert isinstance(over, DimensionNode)
-            dummy, inner = ctx.reducing(over.name)
-            domain = self._membership(over.name, dummy)
+        elif (consumed := node.kwargs.get('consume')) is not None:
+            assert isinstance(consumed, DimensionNode)
+            dummy, inner = ctx.reducing(consumed.name)
+            domain = self._membership(consumed.name, dummy)
         else:
             memberships = []
             inner = ctx
@@ -439,6 +477,22 @@ class Walk:
                 memberships.append(self._membership(d, dummy))
             domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
+
+    def _grouping(self, walk: LookupWalk, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
+        """The conditions a grouped sum's domain carries for one walk: each produced column as a function equal to its target, or one row in the relation.
+
+        The function form holds where the key lies inside the consumed and
+        joined columns — one value per summand — and the relation form is the
+        reading that is always right.
+        """
+        at = {
+            **{r: dummies[walk.dim(r)] for r in walk.consumed},
+            **{r: ctx.subscript(walk.dim(r)) for r in walk.joined},
+        }
+        targets = {r: ctx.subscript(walk.dim(r)) for r in walk.produced}
+        if walk.key and set(walk.key) <= set(at) and not set(walk.produced) & set(walk.key):
+            return [f'{self._lookup_read(walk, at, r)} {self._op("equal")} {targets[r]}' for r in walk.produced]
+        return [self._lookup_member(walk, {**at, **targets})]
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A ``by=`` as the superscript its translation operator carries.
@@ -450,10 +504,12 @@ class Walk:
         if by is None:
             return ''
         assert isinstance(by, LookupNode)
-        return self._lookup(by.names[0], self.symbols.index[dim])
+        walk = by.walks[0]
+        at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
+        return self._tuple([self._lookup_read(walk, at, r) for r in walk.produced])
 
     def _width(self, node: ArithmeticNode) -> str:
-        """``sum_back``'s ``within=``: a number, or a parameter's own symbol.
+        """``sum_back``'s ``window=``: a number, or a parameter's own symbol.
 
         Unsubscripted where it is named, as a translation's named offset is:
         the symbol identifies the parameter and the legend carries its dims,
@@ -532,24 +588,28 @@ class Walk:
             )
 
         if isinstance(node, DimensionPositionNode):
-            grouping = None if node.by is None else self._lookup(node.by, ctx.subscript(node.name))
+            grouping = None if node.partition is None else self._position_group(node, ctx)
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
             return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
 
         if isinstance(node, LookupComparisonNode):
-            applied = self._lookup(node.name, ctx.subscript(node.over))
+            applied = self._value_read(node.name, node.column, ctx)
             return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
         if isinstance(node, LookupPairComparisonNode):
-            index = ctx.subscript(node.over)
-            left = self._lookup(node.name, index)
-            right = self._lookup(node.other, index)
+            left = self._value_read(node.name, node.column, ctx)
+            right = self._value_read(node.other, node.other_column, ctx)
             return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
 
         if isinstance(node, LookupDefinedNode):
-            applied = self._lookup(node.name, ctx.subscript(node.over))
-            return f'{applied} {self.format.prose(" is defined")}', comparison
+            lk = self.schema.lookups[node.name]
+            if lk.keys:
+                keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
+                applied = self.format.apply(self.format.upright(node.name), keyed)
+                return f'{applied} {self.format.prose(" is defined")}', comparison
+            row = self.format.parenthesise(self.format.joined([ctx.subscript(d) for d in lk.dims], ''))
+            return f'{row} {self._op("in")} {self.format.upright(node.name)}', comparison
 
         if isinstance(node, NotNode):
             return (
@@ -824,25 +884,30 @@ class Walk:
         product = self.format.joined([self.symbols.set[d] for d in dims], self._op('times'))
         return f' over {self.format.math(product)}'
 
+    def _signature(self, name: str, lk: LookupBlock) -> str:
+        """A lookup in the legend: a function from its key sets to its value sets, or a relation inside the product."""
+        columns = dict(lk.pairs)
+
+        def product(roles: Iterable[str]) -> str:
+            return self.format.joined([self.symbols.set[columns[r]] for r in roles], self._op('times'))
+
+        if lk.keys:
+            return f'{self.format.upright(name)}: {product(lk.keys)} {self._op("maps_to")} {product(lk.values)}'
+        return f'{self.format.upright(name)} {self._op("subset_of")} {product(lk.roles)}'
+
     def _coords(self, dim: str, noticed: Noticed) -> str:
-        """The dimension's carried structure: each lookup as the map it is (``bus_of: G ↦ B``).
+        """The dimension's carried structure: each lookup with a column over it, as the map or relation it is.
 
         The dtype is named only where an equation compared the index against a
         number, the one place "position 3" and "the coordinate 3" are both
         readings of a line.
         """
-        targeted = self.schema.lookups_of(dim)
+        carried = self.schema.lookups_of(dim)
         clauses = []
         if dim in noticed.numeric_coordinates:
             clauses.append(f' ({self.format.mono(self.schema.dimensions[dim].dtype)} coordinates)')
-        if targeted:
-            maps = self.format.joined(
-                [
-                    f'{self.format.upright(c)}: {self.symbols.set[dim]} {self._op("maps_to")} {self.symbols.set[target]}'
-                    for c, target in targeted.items()
-                ],
-                '',
-            )
+        if carried:
+            maps = self.format.joined([self._signature(c, lk) for c, lk in carried.items()], '')
             clauses.append(f' with {self.format.math(maps)}')
         return ''.join(clauses)
 
@@ -885,7 +950,7 @@ class Walk:
                 f'at that boundary is built and carries {self.format.math("v")} rather than being dropped.'
             )
         if noticed.grouped:
-            applied = self._lookup('lookup', 't')
+            applied = self.format.apply(self.format.upright('lookup'), 't')
             counted = self.format.math(f't {self.format.superscript(self._op("cyclic_minus"), applied)} k')
             note = (
                 f'{counted} denotes a translation counted inside the group a lookup puts {self.format.math("t")} '
@@ -914,7 +979,7 @@ class Walk:
                 f'labels and {place} against positions.'
             )
         if 'grouped' in noticed.positions:
-            applied = self._lookup('lookup', 't')
+            applied = self.format.apply(self.format.upright('lookup'), 't')
             grouped = self.format.math(self.format.apply(self.format.subscript(self._op('position'), [applied]), 't'))
             group = self.format.math(self.format.subscript(self.format.script('T'), [applied]))
             notes.append(

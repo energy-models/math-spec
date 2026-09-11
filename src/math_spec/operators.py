@@ -23,7 +23,7 @@ class Builtin:
 
     Keyword arguments come in four kinds, and the kind decides what resolution
     turns the value into: ``dimension_kwargs`` name a dimension
-    (``sum(x, over=generator)``); ``lookup_kwargs`` name a lookup, which
+    (``sum(x, consume=generator)``); ``lookup_kwargs`` name a lookup, which
     carries its own dimensions, so it needs no sibling kwarg;
     ``edge_kwargs`` take a closed keyword or a number;
     ``required_value_kwargs`` are ordinary values that must be present — a
@@ -38,11 +38,17 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     lookup_kwargs: tuple[str, ...] = ()
-    #: Kwargs of which the call carries at most one — ``sum`` takes ``over=``
-    #: (reduce the dim away) or ``by=`` (reduce it into the lookup's target),
-    #: never both, and neither means every dim the operand carries. Members are
-    #: excluded from the required set; their kind still comes from the tuples
-    #: above.
+    #: Kwargs naming a column of the lookup ``by=`` names — ``consume=`` and
+    #: ``produce=`` — which resolution folds into the lookup's walk.
+    role_kwargs: tuple[str, ...] = ()
+    #: Kwargs naming a dimension on their own and a column of the lookup where
+    #: ``by=`` names one. ``sum(x, consume=generator)`` reduces the dimension
+    #: away; ``sum(x, by=l, consume=c)`` names the column the walk consumes.
+    #: One meaning — what leaves the frame — read in the namespace ``by=``
+    #: decides.
+    dimension_or_role_kwargs: tuple[str, ...] = ()
+    #: Kwargs of which the call carries at most one. Members are excluded from
+    #: the required set; their kind still comes from the tuples above.
     at_most_one_of: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
@@ -59,12 +65,23 @@ class Builtin:
             - frozenset(self.optional_kwargs)
         )
 
-    def kind_of(self, kwarg: str) -> Literal['dimension', 'lookup', 'edge', 'value']:
-        """What resolution turns the value of *kwarg* into: a dimension, a lookup, an edge policy, or a plain value."""
+    def kind_of(
+        self, kwarg: str, *, with_lookup: bool = False
+    ) -> Literal['dimension', 'lookup', 'role', 'edge', 'value']:
+        """What resolution turns the value of *kwarg* into.
+
+        A dimension, a lookup, a column of it, an edge policy, or a plain value.
+        *with_lookup* says whether the call carries a ``by=``, which is what
+        decides the kind of a :attr:`dimension_or_role_kwargs` member.
+        """
+        if kwarg in self.dimension_or_role_kwargs:
+            return 'role' if with_lookup else 'dimension'
         if kwarg in self.dimension_kwargs:
             return 'dimension'
         if kwarg in self.lookup_kwargs:
             return 'lookup'
+        if kwarg in self.role_kwargs:
+            return 'role'
         if kwarg in self.edge_kwargs:
             return 'edge'
         return 'value'
@@ -73,33 +90,39 @@ class Builtin:
 #: The closed operator set. ``by=`` is the one keyword that addresses a lookup,
 #: and a lookup carries its own dimensions, so no sibling kwarg restates them.
 #: On ``shift`` and ``sum_back`` it partitions the axis the operator walks: it
-#: says which rows are neighbours, not which group a term lands in.
+#: says which rows are neighbours, not which group a term lands in, and
+#: ``within=`` names the columns whose values that group is read from.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>)',
-        dimension_kwargs=('over',),
+        'sum(<expr>), sum(<expr>, consume=<dim>) or sum(<expr>, by=<lookup>[, consume=<column>, produce=<column>])',
         lookup_kwargs=('by',),
-        at_most_one_of=('over', 'by'),
+        role_kwargs=('produce',),
+        dimension_or_role_kwargs=('consume',),
+        optional_kwargs=('by', 'consume', 'produce'),
     ),
     'at': Builtin(
-        'at(<expr>, by=<lookup>)',
+        'at(<expr>, by=<lookup>[, consume=<column>, produce=<column>])',
         lookup_kwargs=('by',),
+        role_kwargs=('consume', 'produce'),
+        optional_kwargs=('consume', 'produce'),
     ),
     'sum_back': Builtin(
-        "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>])",
+        "sum_back(<expr>, over=<dim>, window=<n|parameter>[, edge='wrap'][, by=<lookup>[, within=<column>]])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
-        required_value_kwargs=('within',),
+        role_kwargs=('within',),
+        required_value_kwargs=('window',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by',),
+        optional_kwargs=('by', 'within'),
     ),
     'shift': Builtin(
-        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])",
+        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>[, within=<column>]])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
+        role_kwargs=('within',),
         required_value_kwargs=('offset',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by',),
+        optional_kwargs=('by', 'within'),
     ),
     'dual': Builtin('dual(<constraint>)'),
 }

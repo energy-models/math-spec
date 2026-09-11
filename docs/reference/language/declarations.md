@@ -130,7 +130,7 @@ variables:
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(p, consume=generator) == load
 ```
 
 | Field         |                                                     |                |

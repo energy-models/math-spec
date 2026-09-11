@@ -33,10 +33,10 @@ NUMBER      ::= integer | float | "inf" | ".inf"
 ## Where a product of two variables is allowed
 
 The objective and the constraints take `variable * variable`. A quadratic cost is
-`sum(p * p * wear, over=g)`, and a quadratic row is `p * q >= floor`. Three rules
+`sum(p * p * wear, consume=g)`, and a quadratic row is `p * q >= floor`. Three rules
 bound it:
 
-- **At most one factor may be a sum of terms.** `sum(p, over=g) * sum(q, over=g)`
+- **At most one factor may be a sum of terms.** `sum(p, consume=g) * sum(q, consume=g)`
   is refused: it pairs every term of one sum against every term of the other,
   and nothing in the file says how many terms that is. Multiply before you
   reduce, or constrain a variable to equal the reduction, because a variable is
@@ -87,15 +87,15 @@ named `snapshot` would silently change what `where: "snapshot > 0"` means.
 Position decides which kinds of name are legal, and the kind of every name is
 fixed at load:
 
-| Position                                | Legal kinds                                                                                                  |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| expression (`p * cost`)                 | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
-| dimension argument (`over=`)            | a dimension                                                                                                  |
-| lookup argument (`by=` on `sum` / `at`) | a lookup, and never a dimension                                                                              |
-| `where` string                          | a parameter, variable, dimension or lookup ([where strings](#where-strings))                                 |
-| `bounds.lower` / `bounds.upper`         | a parameter name, or a number                                                                                |
-| the `edge` key of `shift`               | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |
-| `dual` argument (`dual(c)`)             | a constraint. It resolves against the constraints alone ([reported](reported.md#reading-a-constraints-dual)) |
+| Position                                 | Legal kinds                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| expression (`p * cost`)                  | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
+| dimension argument (`consume=`, `over=`) | a dimension                                                                                                  |
+| lookup argument (`by=` on `sum` / `at`)  | a lookup, and never a dimension. `consume=` and `produce=` name its columns                                  |
+| `where` string                           | a parameter, variable, dimension or lookup ([where strings](#where-strings))                                 |
+| `bounds.lower` / `bounds.upper`          | a parameter name, or a number                                                                                |
+| the `edge` key of `shift`                | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |
+| `dual` argument (`dual(c)`)              | a constraint. It resolves against the constraints alone ([reported](reported.md#reading-a-constraints-dual)) |
 
 A bare word in the value of a keyword argument is a name to resolve. That is why
 `wrap` is quoted: `shift(x, over=wrap, edge='wrap')` reads one way, even in a
@@ -120,19 +120,19 @@ A parameter declares `dims`, a variable declares `foreach`, and every dimension
 argument is name-checked. So **the dimension set of every expression is known
 before any data binds**:
 
-| Node                            | Dim set                                      | Error                                                                                                             |
-| ------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| number                          | `{}`                                         |                                                                                                                   |
-| parameter / variable            | its `dims` / its `foreach`                   |                                                                                                                   |
-| `-x`, `+x`                      | `dims(x)`                                    |                                                                                                                   |
-| `a + b`, `a * b`, `a / b`       | `dims(a) ∪ dims(b)`                          |                                                                                                                   |
-| `sum(x)`                        | `{}`                                         | error if `dims(x)` is already empty                                                                               |
-| `sum(x, over=d)`                | `dims(x) − {d}`                              | error if `d ∉ dims(x)`                                                                                            |
-| `sum(x, by=l)`                  | `(dims(x) − {over(l)}) ∪ {into(l)}`          | error if `over(l) ∉ dims(x)`, or if `into(l)` is already in `dims(x)`                                             |
-| `sum(x, by=[l, m])`             | `(dims(x) − {over(l)}) ∪ {into(l), into(m)}` | the same errors, plus an error if `l` and `m` are over different dimensions, or if they target the same dimension |
-| `at(x, by=l)`                   | `(dims(x) − {into(l)}) ∪ {over(l)}`          | error if `into(l) ∉ dims(x)`, or if `over(l)` is already in `dims(x)`                                             |
-| `shift(x, over=d, offset=n)`    | `dims(x)`                                    | error if `d ∉ dims(x)`                                                                                            |
-| `sum_back(x, over=d, within=n)` | `dims(x)`                                    | error if `d ∉ dims(x)`                                                                                            |
+| Node                            | Dim set                                   | Error                                                                                                                         |
+| ------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| number                          | `{}`                                      |                                                                                                                               |
+| parameter / variable            | its `dims` / its `foreach`                |                                                                                                                               |
+| `-x`, `+x`                      | `dims(x)`                                 |                                                                                                                               |
+| `a + b`, `a * b`, `a / b`       | `dims(a) ∪ dims(b)`                       |                                                                                                                               |
+| `sum(x)`                        | `{}`                                      | error if `dims(x)` is already empty                                                                                           |
+| `sum(x, consume=d)`             | `dims(x) − {d}`                           | error if `d ∉ dims(x)`                                                                                                        |
+| `sum(x, by=l)`                  | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, or if a joined column's dimension is not in `dims(x)`                                           |
+| `sum(x, by=[l, m])`             | `(dims(x) − from(l)) ∪ into(l) ∪ into(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one                   |
+| `at(x, by=l)`                   | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not, or if `l` has no key inside the columns `produce=` names |
+| `shift(x, over=d, offset=n)`    | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                        |
+| `sum_back(x, over=d, window=n)` | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                        |
 
 A binary operator takes the **union** of the two dimension sets, so an outer
 product is allowed wherever the declaration's own dimensions cover the result.
@@ -164,20 +164,20 @@ POSITION   ::= "position" "(" NAME [ "," "by" "=" NAME ] ")"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
 
-| Written as                       | Names a…                         | Meaning                                                                                                                                                                                                                                                                                             |
-| -------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name` (bare)                    | parameter                        | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not                                                                                                                |
-| `name` (bare)                    | variable                         | The variable exists at this coordinate                                                                                                                                                                                                                                                              |
-| `name` (bare)                    | lookup                           | The label maps somewhere. A lookup may be [partial](dimensions.md#lookups), and this selects the labels that do map                                                                                                                                                                                 |
-| `name` (bare)                    | dimension                        | A load error. It would be true everywhere. Compare it against something instead                                                                                                                                                                                                                     |
-| `name OP value`                  | parameter                        | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                    |
-| `name OP value`                  | dimension                        | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                       |
-| `name OP value`                  | lookup                           | A filter on the lookup's value, so the `over` dimension has to be in the frame. A null compares false                                                                                                                                                                                               |
-| `name OP name`                   | two lookups                      | Legal only where both lookups are over the same dimension and into the same dimension. `from != to` excludes a self-loop                                                                                                                                                                            |
-| `position(name) OP i`            | dimension                        | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
-| `position(name, by=lookup) OP i` | a dimension and a lookup over it | The same, counted within each group the lookup makes                                                                                                                                                                                                                                                |
-| `AND` `OR` `NOT`                 | —                                | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                                                                                                                                       |
-| `True` / `False`                 | —                                | Literals, folded at load wherever they stand. `True` is the same as no `where`; `False` gives a declaration with no rows. `x AND False` folds to `False`, and `NOT NOT x` to `x`. A [case `when:`](#the-rules-that-keep-the-cases-apart) is the one place a mask that folds to a literal is refused |
+| Written as                              | Names a…                               | Meaning                                                                                                                                                                                                                                                                                             |
+| --------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name` (bare)                           | parameter                              | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not                                                                                                                |
+| `name` (bare)                           | variable                               | The variable exists at this coordinate                                                                                                                                                                                                                                                              |
+| `name` (bare)                           | lookup                                 | A row exists: at the key for a keyed lookup, at every column for a bare relation. A lookup may be [partial](dimensions.md#lookups), and this selects the labels that do map                                                                                                                         |
+| `name` (bare)                           | dimension                              | A load error. It would be true everywhere. Compare it against something instead                                                                                                                                                                                                                     |
+| `name OP value`                         | parameter                              | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                    |
+| `name OP value`                         | dimension                              | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                       |
+| `name OP value`, `name.col OP value`    | lookup                                 | A filter on a value column of a keyed lookup, read at its key, so the key's dimensions have to be in the frame. Name the column where the key determines several. A null compares false                                                                                                             |
+| `name OP name`, `name.a OP name.b`      | two lookup columns                     | Legal only where both lookups are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                                                                                                                             |
+| `position(name) OP i`                   | dimension                              | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
+| `position(name, by=lookup[, within=c])` | a dimension and a lookup keyed over it | The same, counted within each group the lookup's value columns make                                                                                                                                                                                                                                 |
+| `AND` `OR` `NOT`                        | —                                      | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                                                                                                                                       |
+| `True` / `False`                        | —                                      | Literals, folded at load wherever they stand. `True` is the same as no `where`; `False` gives a declaration with no rows. `x AND False` folds to `False`, and `NOT NOT x` to `x`. A [case `when:`](#the-rules-that-keep-the-cases-apart) is the one place a mask that folds to a literal is refused |
 
 The dimensions of the mask must not exceed the frame it sits in. A bare name
 that is not declared is a load error.
@@ -211,9 +211,11 @@ dimension does not carry compares equal to nothing, so the mask is false there
 rather than an error.
 
 Comparing two parameters, or two dimensions, is not in the language. Precompute a
-boolean parameter instead. Two lookups are the exception, where both lookups
-share both ends: over one dimension they are two columns of one table, and into
-one dimension they draw from one label set.
+boolean parameter instead. Two lookup columns are the exception, where the two
+lookups are keyed over the same dimensions and the two columns are over one
+dimension. Keyed alike, they are two columns of one key table, so the comparison
+filters that table rather than joining two. Over one dimension they draw from one
+label set, so a match is possible at all.
 
 ### `position()`
 
@@ -251,7 +253,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 lookups:
-  period_of: { over: snapshot, into: period }
+  period_of: { columns: [snapshot, period], key: snapshot }
 parameters:
   soc_initial: { dims: [period] }
 variables:
@@ -263,8 +265,9 @@ constraints:
     expression: soc == at(soc_initial, by=period_of)
 ```
 
-The lookup must be over the dimension being counted. A coordinate the lookup
-sends nowhere is in no group. A group shorter than the position is an error when
+The lookup must have a key column over the dimension being counted, and its
+value columns are the groups. A coordinate the lookup sends nowhere is in no
+group. A group shorter than the position is an error when
 the data binds, for the same reason as above.
 
 ## Named expressions
@@ -280,9 +283,9 @@ parameters:
 variables:
   p: { foreach: [generator] }
 expressions:
-  total_generation: sum(p, over=generator)
+  total_generation: sum(p, consume=generator)
   emissions:
-    expression: sum(p * rate, over=generator)
+    expression: sum(p * rate, consume=generator)
     description: CO2 released, the quantity a cap would bound
 ```
 
@@ -416,7 +419,7 @@ value that a solve could report:
 weighted_sum:
   args: [array, weights] # positional formals, default []
   kwargs: [over] # keyword formals, default []
-  template: sum(array * weights, over=over)
+  template: sum(array * weights, consume=over)
 ```
 
 - A template holds arithmetic, and no comparison.

@@ -93,7 +93,7 @@ running:
 Where the gate does not exist, the curve is ungated. The block emits the
 convexity row twice, under complementary masks: `== running` where the gate
 exists, and `== 1` where it does not. The row cannot be allowed to drop, because
-it is `sum(lam, over=bp) == (activity)`, and
+it is `sum(lam, consume=bp) == (activity)`, and
 [absence](absence.md#how-absence-travels) does not spread out of a reduction: an
 absent right-hand side would take the whole row, and leave the weights with
 nothing to make them a curve.
@@ -204,10 +204,10 @@ sos:
 constraints:
   one_operating_point:
     foreach: [converter, time]
-    expression: sum(weight, over=bp) == 1
+    expression: sum(weight, consume=bp) == 1
   on_the_curve: # one row per flow — this is where the count goes
     foreach: [flow, time]
-    expression: rate == sum(at(weight, by=converter_of) * bp_rate, over=bp)
+    expression: rate == sum(at(weight, by=converter_of) * bp_rate, consume=bp)
 ```
 
 Making the tie a row turns the count into data: a converter with a fourth flow is

@@ -109,35 +109,35 @@ parameters:
 lookups:
   Generator_bus:
     description: the bus a generator sits on
-    over: generator
-    into: bus
+    columns: [generator, bus]
+    key: generator
   Line_bus0:
     description: the bus a line's flow is measured at
-    over: line
-    into: bus
+    columns: [line, bus]
+    key: line
   Line_bus1:
     description: the bus at a line's other end
-    over: line
-    into: bus
+    columns: [line, bus]
+    key: line
   Link_bus0:
     description: the bus a link leaves
-    over: link
-    into: bus
+    columns: [link, bus]
+    key: link
   Link_output_link:
     description: the link an output port belongs to
-    over: link_output
-    into: link
+    columns: [link_output, link]
+    key: link_output
   Link_output_bus:
     description: >-
       the bus an output port delivers to — PyPSA's `bus1`, `bus2`, … columns.
       A link of three output ports is three labels here rather than a third
       lookup, so the file states any number of them
-    over: link_output
-    into: bus
+    columns: [link_output, bus]
+    key: link_output
   Load_bus:
     description: the bus a load sits on
-    over: load
-    into: bus
+    columns: [load, bus]
+    key: load
 
 variables:
   Generator_p:
@@ -219,7 +219,7 @@ constraints:
       impedance-weighted flows sum to nothing, which is what makes the linear
       power flow physical rather than transport
     foreach: [snapshot, cycle]
-    expression: sum(Line_s * Line_cycle_weight, over=line) == 0
+    expression: sum(Line_s * Line_cycle_weight, consume=line) == 0
   Bus_nodal_balance:
     description: >-
       `Bus-nodal_balance` — what is generated at a bus, plus what the links and

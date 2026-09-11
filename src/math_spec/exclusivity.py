@@ -139,6 +139,8 @@ class Subject:
     kind: Literal['param', 'dim', 'rank', 'lookup', 'lookup_pair', 'variable']
     name: str
     qualifier: str | None = None
+    #: A rank's group columns: two positions by one lookup into different columns are two subjects.
+    group: tuple[str, ...] = ()
 
     def __str__(self) -> str:
         if self.kind == 'rank':
@@ -218,8 +220,10 @@ def _subject_of(node: TypedPredicateNode) -> Subject:
             return Subject('variable', name)
         case DimensionComparisonNode(name=name):
             return Subject('dim', name)
-        case DimensionPositionNode(name=name, by=by):
-            return Subject('rank', name, by)
+        case DimensionPositionNode(name=name, partition=partition):
+            if partition is None:
+                return Subject('rank', name)
+            return Subject('rank', name, partition.name, partition.produced)
         case LookupDefinedNode(name=name) | LookupComparisonNode(name=name):
             return Subject('lookup', name)
         case LookupPairComparisonNode(name=name, other=other):

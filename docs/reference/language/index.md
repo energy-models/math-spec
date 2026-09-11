@@ -30,7 +30,7 @@ variables:
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(p, consume=generator) == load
 
 objective:
   sense: minimize
@@ -49,7 +49,7 @@ message that names the fix. These ten rules are what it checks.
 | 1   | A file has ten declaration keys, plus `version` and `description`. A key the schema does not know is refused, with the nearest valid key named: `boundz` → `bounds`.                                                                        | [File shape](file.md)                                           |
 | 2   | Everything that can be checked without data is checked when the file loads.                                                                                                                                                                 | [Errors](errors.md)                                             |
 | 3   | Every name is declared once. A parameter and a dimension both called `snapshot` is refused, and the message names both lines.                                                                                                               | [Names](expressions.md#name-resolution)                         |
-| 4   | Where a name may stand depends on what it is. A dimension may follow `over=`, and may not be multiplied: `p * snapshot` is refused, because `snapshot` is an axis and not a column of numbers.                                              | [Names](expressions.md#name-resolution)                         |
+| 4   | Where a name may stand depends on what it is. A dimension may follow `consume=` or `over=`, and may not be multiplied: `p * snapshot` is refused, because `snapshot` is an axis and not a column of numbers.                                | [Names](expressions.md#name-resolution)                         |
 | 5   | `a + b` carries the dimensions of `a` and of `b` together. A constraint's expression must carry **exactly** its `foreach`. The objective must carry none. A `where` or a bound may carry fewer dimensions than its declaration, never more. | [How dimensions combine](expressions.md#how-dimensions-combine) |
 | 6   | A variable's `where:` deletes the variable at the masked coordinates. There is no column there, not a column fixed at zero. A constraint's `where:` deletes the row.                                                                        | [Absence](absence.md)                                           |
 | 7   | A deleted variable takes its row with it: `x + y >= 1` has no row where `y` is deleted. Inside a `sum` it is one term fewer, and the row stays. So `sum(x + y)` and `sum(x) + sum(y)` are different constraints.                            | [Absence](absence.md#how-absence-travels)                       |

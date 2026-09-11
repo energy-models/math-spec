@@ -112,7 +112,7 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "A named quantity: one arithmetic expression, referenced by the math or read back after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by region is written as ``cases:`` over a\ndeclared ``foreach:``, with an ``otherwise:`` for the rest \u2014 see the\nlanguage reference.",
+          "description": "A named quantity: one arithmetic expression, referenced by the math or read back after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, consume=generator)\n      emissions:\n        expression: sum(p * rate, consume=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by region is written as ``cases:`` over a\ndeclared ``foreach:``, with an ``otherwise:`` for the rest \u2014 see the\nlanguage reference.",
           "properties": {
             "cases": {
               "additionalProperties": {
@@ -218,8 +218,28 @@
     },
     "LookupBlock": {
       "additionalProperties": false,
-      "description": "A named single-valued map out of one dimension ``into:`` another.\n\nIts values are labels of ``into``, which is what ``sum(by=)`` and\n``at(by=)`` land terms on::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n\nThe map itself is data, and arrives at bind time under the lookup's name.",
+      "description": "A named relation between dimensions, and the key it is single-valued per.\n\n``columns:`` is the table's columns \u2014 a list of dimensions, or a mapping\nof column name to dimension where two columns share one. ``key:`` names the\ncolumns each row is identified by, and is the claim the language checks\nat bind: one row per key tuple, so the other columns are a function of\nit. Without a key the table is a bare relation::\n\n    lookups:\n      gen_bus: {columns: [generator, bus], key: generator}\n      zone_of: {columns: [generator, period, zone], key: [generator, period]}\n      rep_of: {columns: {snapshot: snapshot, rep: snapshot}, key: snapshot}\n      connection: {columns: [entity, bus]}\n\nAn operator walks the table in the direction the call names\n(``consume=``, ``produce=``), joining on the other key columns; the\ndeclaration fixes no direction. The map itself is data, and arrives at bind\ntime under the lookup's name, one column per role.",
       "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          ],
+          "title": "Columns"
+        },
         "description": {
           "anyOf": [
             {
@@ -232,18 +252,27 @@
           "default": null,
           "title": "Description"
         },
-        "into": {
-          "title": "Into",
-          "type": "string"
-        },
-        "over": {
-          "title": "Over",
-          "type": "string"
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
         }
       },
       "required": [
-        "over",
-        "into"
+        "columns"
       ],
       "title": "LookupBlock",
       "type": "object"

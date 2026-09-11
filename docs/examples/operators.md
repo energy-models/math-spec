@@ -44,12 +44,12 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}`$
 
-### `sum(array, over=dim)`
+### `sum(array, consume=dim)`
 
 `examples/operators/sum.yaml`
 
 ```yaml
-description: The plain reduction — `sum(array, over=dim)` collapses one dimension.
+description: The plain reduction — `sum(array, consume=dim)` collapses one dimension.
 
 dimensions:
   snapshot: { dtype: int }
@@ -66,7 +66,7 @@ variables:
 constraints:
   fleet_total:
     foreach: [snapshot]
-    expression: sum(p, over=generator) <= limit
+    expression: sum(p, consume=generator) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -80,7 +80,7 @@ $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in
 ```yaml
 description: >-
   The membership reduction — `sum(array, by=lookup)` lands the result on the
-  dimension the lookup maps into, which is what makes topology data rather than
+  column the lookup is walked to, which is what makes topology data rather than
   structure.
 
 dimensions:
@@ -89,7 +89,7 @@ dimensions:
   bus: { dtype: str }
 
 lookups:
-  gen_bus: { over: generator, into: bus }
+  gen_bus: { columns: [generator, bus], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus] }
@@ -126,8 +126,8 @@ dimensions:
   technology: { dtype: str }
 
 lookups:
-  gen_bus: { over: generator, into: bus }
-  gen_tech: { over: generator, into: technology }
+  gen_bus: { columns: [generator, bus], key: generator }
+  gen_tech: { columns: [generator, technology], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus, technology] }
@@ -161,7 +161,7 @@ dimensions:
   period: { dtype: int }
 
 lookups:
-  period_of: { over: snapshot, into: period }
+  period_of: { columns: [snapshot, period], key: snapshot }
 
 parameters:
   cap: { dims: [period] }
@@ -309,7 +309,7 @@ dimensions:
   season: { dtype: str }
 
 lookups:
-  season_of: { over: snapshot, into: season }
+  season_of: { columns: [snapshot, season], key: snapshot }
 
 variables:
   p:
@@ -326,7 +326,7 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\, t \in \mathcal{T}`$
 
-### `sum_back(array, over=dim, within=n)`
+### `sum_back(array, over=dim, window=n)`
 
 `examples/operators/sum_back.yaml`
 
@@ -353,14 +353,14 @@ variables:
 constraints:
   stays_up_its_own_time:
     foreach: [unit, hour]
-    expression: sum_back(started, over=hour, within=3) <= on
+    expression: sum_back(started, over=hour, window=3) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```
 
 $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
-### `sum_back(array, over=dim, within=p)`
+### `sum_back(array, over=dim, window=p)`
 
 `examples/operators/sum_back_by_parameter.yaml`
 
@@ -387,14 +387,14 @@ variables:
 constraints:
   stays_up_its_own_time:
     foreach: [unit, hour]
-    expression: sum_back(started, over=hour, within=min_up) <= on
+    expression: sum_back(started, over=hour, window=min_up) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```
 
 $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
-### `sum_back(array, over=dim, within=p, edge='wrap')`
+### `sum_back(array, over=dim, window=p, edge='wrap')`
 
 `examples/operators/sum_back_wrap.yaml`
 
@@ -421,14 +421,14 @@ variables:
 constraints:
   stays_up_its_own_time:
     foreach: [unit, hour]
-    expression: sum_back(started, over=hour, within=min_up, edge='wrap') <= on
+    expression: sum_back(started, over=hour, window=min_up, edge='wrap') <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```
 
 $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
-### `sum_back(array, over=dim, within=n, by=lookup)`
+### `sum_back(array, over=dim, window=n, by=lookup)`
 
 `examples/operators/sum_back_partitioned.yaml`
 
@@ -444,7 +444,7 @@ dimensions:
   day: { dtype: str }
 
 lookups:
-  day_of: { over: hour, into: day }
+  day_of: { columns: [hour, day], key: hour }
 
 variables:
   started:
@@ -457,7 +457,7 @@ variables:
 constraints:
   stays_up_inside_its_day:
     foreach: [unit, hour]
-    expression: sum_back(started, over=hour, within=3, by=day_of) <= on
+    expression: sum_back(started, over=hour, window=3, by=day_of) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```

@@ -24,6 +24,6 @@ variables:
 constraints:
   stays_up_its_own_time:
     foreach: [unit, hour]
-    expression: sum_back(started, over=hour, within=3) <= on
+    expression: sum_back(started, over=hour, window=3) <= on
 
 objective: { sense: minimize, expression: sum(on) }

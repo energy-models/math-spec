@@ -43,22 +43,22 @@ def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice,
 def _never_an_axis(program: Program) -> list[Advice]:
     """One piece of advice per dimension nothing reaches.
 
-    A dimension a lookup targets is reached: its members are the labels the
-    map's values are checked against, and a ``where`` selects on them, so it
-    is in use even where nothing is indexed by it.
+    A dimension a lookup has a column over is reached: its members are the
+    labels that column is checked against, and a ``where`` selects on them,
+    so it is in use even where nothing is indexed by it.
     """
     reached: set[str] = set()
     for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
         reached.update(declaration.dims)
     reached |= _produced_axes(program)
-    reached |= {lk.target for _, lk in program.lookups}
+    reached |= {dim for lk in program.lookups.values() for dim in lk.dims}
 
     return [
         Advice(
             'never-an-axis',
             name,
             f"dimension '{name}' is never used: nothing is indexed by it, nothing "
-            f'aggregates into it, and no lookup targets it. Remove it — or keep it '
+            f'aggregates into it, and no lookup has a column over it. Remove it — or keep it '
             f'knowingly, if the declarations that use it are still to be written.',
         )
         for name in program.dimensions
@@ -76,5 +76,5 @@ def _produced_axes(program: Program) -> set[str]:
         if isinstance(node, GroupSum):
             axes.update(node.into)
         elif isinstance(node, At):
-            axes.add(node.over)
+            axes.update(node.over)
     return axes

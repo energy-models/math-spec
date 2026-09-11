@@ -22,7 +22,7 @@ from math_spec.errors import SchemaError
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import WhereNode
+    from math_spec.program import Walk, WhereNode
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -91,7 +91,7 @@ class DualNode:
 class DimensionNode:
     """A resolved reference to a declared dimension.
 
-    Only legal in operator kwarg *values* (``sum(x, over=generator)``), never as
+    Only legal in operator kwarg *values* (``sum(x, consume=generator)``), never as
     a value in arithmetic — a dimension is a coordinate space, not data.
     """
 
@@ -115,16 +115,20 @@ class NameListNode:
 
 @dataclass(frozen=True)
 class LookupNode:
-    """A resolved reference to one or more declared lookups, legal only in a kwarg value.
+    """A resolved ``by=`` — one or more lookups, each with the walk the call takes through it.
 
-    ``dimension`` is the one every lookup is over — what ``sum`` consumes and
-    ``at`` produces — and ``into`` the targets, one per name in the order
-    written; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
+    ``dimensions`` is the fine side every walk shares — what ``sum`` consumes
+    and ``at`` produces — and ``into`` the coarse dims, in the order the
+    names and their columns are written, which ``sum`` produces and ``at``
+    consumes; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
+    The roles joined on are the operand's to carry, and the operator passes
+    them through.
     """
 
     names: tuple[str, ...]
-    dimension: str
+    dimensions: tuple[str, ...]
     into: tuple[str, ...]
+    walks: tuple[Walk, ...] = ()
 
     @property
     def shown(self) -> str:
@@ -505,7 +509,7 @@ def _named_rewrite(text: str, loc: int) -> str | None:
         return f"'{rest[0]}' is not a constraint sense — the senses are <=, >= and ==. Write the bound inclusive."
     if rest.startswith('='):
         return (
-            "'=' on its own is how a kwarg is written inside a call, like sum(x, over=d). "
+            "'=' on its own is how a kwarg is written inside a call, like sum(x, consume=d). "
             'Equality between two sides is written ==.'
         )
     if rest.startswith('^'):

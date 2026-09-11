@@ -32,7 +32,7 @@ DISPATCH_MODEL: dict[str, Any] = {
         'load': {'dims': ['snapshot']},
     },
     'variables': {'p': {'foreach': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
-    'constraints': {'balance': {'foreach': ['snapshot'], 'expression': 'sum(p, over=generator) == load'}},
+    'constraints': {'balance': {'foreach': ['snapshot'], 'expression': 'sum(p, consume=generator) == load'}},
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
 }
 
@@ -42,7 +42,7 @@ DISPATCH_MODEL: dict[str, Any] = {
 #: share no dimension, which is what a rule about *different* dims needs.
 SMALL_MODEL: dict[str, Any] = {
     'dimensions': {'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}},
-    'lookups': {'lk': {'over': 'g', 'into': 'h'}},
+    'lookups': {'lk': {'columns': ['g', 'h'], 'key': 'g'}},
     'parameters': {
         'c': {'dims': ['g']},
         'k': {'dims': []},

@@ -30,15 +30,23 @@ BASE = {
         'snapshot': {'dtype': 'int'},
         'generator': {'dtype': 'str'},
         'bus': {'dtype': 'str'},
+        'zone': {'dtype': 'str'},
     },
     'lookups': {
-        'gen_bus': {'over': 'generator', 'into': 'bus'},
-        'snap_bus': {'over': 'snapshot', 'into': 'bus'},
+        'gen_bus': {'columns': ['generator', 'bus'], 'key': 'generator'},
+        'snap_bus': {'columns': ['snapshot', 'bus'], 'key': 'snapshot'},
+        'gen_zone': {'columns': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']},
+        'rep_of': {'columns': {'snapshot': 'snapshot', 'rep': 'snapshot'}, 'key': 'snapshot'},
+        'gen_bz': {'columns': ['generator', 'bus', 'zone'], 'key': 'generator'},
+        'pair': {'columns': {'g': 'generator', 'b0': 'bus', 'b1': 'bus'}, 'key': 'g'},
     },
     'parameters': {
         'p_max': {'dims': ['generator']},
         'cost': {'dims': ['generator']},
         'load': {'dims': ['snapshot', 'bus']},
+        'zone_cap': {'dims': ['zone']},
+        'zone_load': {'dims': ['snapshot', 'zone']},
+        'bz': {'dims': ['bus', 'zone']},
         'spinup': {'dims': ['generator'], 'dtype': 'int'},
         'horizon': {'dims': ['snapshot'], 'dtype': 'int'},
         'bus_lead': {'dims': ['bus'], 'dtype': 'int'},
@@ -83,23 +91,103 @@ def namespace() -> Namespace:
         ('p * cost', {'snapshot', 'generator'}),
         ('sum(p)', set()),
         ('sum(p * cost)', set()),
-        ('sum(p, over=generator)', {'snapshot'}),
-        ('sum(p * cost, over=generator)', {'snapshot'}),
+        ('sum(p, consume=generator)', {'snapshot'}),
+        ('sum(p * cost, consume=generator)', {'snapshot'}),
         ('sum(p, by=gen_bus)', {'snapshot', 'bus'}),
         ("shift(p, over=snapshot, offset=1, edge='wrap')", {'snapshot', 'generator'}),
         ("shift(p, over=snapshot, offset=spinup, edge='wrap')", {'snapshot', 'generator'}),
-        ('sum_back(p, over=snapshot, within=spinup)', {'snapshot', 'generator'}),
+        ('sum_back(p, over=snapshot, window=spinup)', {'snapshot', 'generator'}),
         pytest.param(
             "shift(p, over=snapshot, offset=bus_lead, edge='wrap', by=snap_bus)",
             {'snapshot', 'generator'},
             id='a-by-makes-an-offset-over-another-dim-readable-one-lag-per-group',
         ),
         pytest.param(
-            'sum_back(p, over=snapshot, within=bus_lead, by=snap_bus)',
+            'sum_back(p, over=snapshot, window=bus_lead, by=snap_bus)',
             {'snapshot', 'generator'},
             id='a-by-makes-a-width-over-another-dim-readable-one-window-per-group',
         ),
         pytest.param('p + 1', {'snapshot', 'generator'}, id='a-scalar-broadcasts'),
+        pytest.param(
+            'sum(load * p, by=gen_bus)',
+            {'snapshot', 'bus'},
+            id='a-produced-dim-the-operand-already-carries-is-joined-on-so-the-walk-is-a-masked-sum',
+        ),
+        pytest.param(
+            'sum(p, by=gen_zone, consume=generator)',
+            {'snapshot', 'zone'},
+            id='a-two-key-lookup-consumes-the-key-it-walks-and-keeps-the-other',
+        ),
+        pytest.param(
+            'sum(p, by=gen_zone, consume=snapshot)',
+            {'generator', 'zone'},
+            id='the-same-table-walked-along-its-other-key',
+        ),
+        pytest.param(
+            'at(zone_load, by=gen_zone, produce=generator)',
+            {'snapshot', 'generator'},
+            id='its-pullback-keeps-the-joined-key-too',
+        ),
+        pytest.param(
+            "shift(p, over=generator, offset=1, edge='wrap', by=gen_zone)",
+            {'snapshot', 'generator'},
+            id='a-partition-along-one-key-joined-on-the-other',
+        ),
+        pytest.param(
+            "shift(p, over=generator, offset=1, edge='wrap', by=gen_bz, within=bus)",
+            {'snapshot', 'generator'},
+            id='a-partition-grouped-by-one-value-column-of-a-two-value-table',
+        ),
+        pytest.param(
+            'sum_back(p, over=generator, window=2, by=gen_bz, within=[bus, zone])',
+            {'snapshot', 'generator'},
+            id='a-window-grouped-by-both-value-columns-named',
+        ),
+        pytest.param(
+            "shift(p, over=generator, offset=1, edge='wrap', by=pair)",
+            {'snapshot', 'generator'},
+            id='a-partition-grouped-by-two-columns-over-one-dimension-lands-nothing',
+        ),
+        pytest.param(
+            'sum(p, by=gen_bus, consume=generator)', {'snapshot', 'bus'}, id='the-dot-is-legal-on-a-one-key-lookup'
+        ),
+        pytest.param(
+            'sum(p, by=gen_bz, produce=[bus, zone])',
+            {'snapshot', 'bus', 'zone'},
+            id='a-to-list-lands-on-a-product-from-one-table',
+        ),
+        pytest.param(
+            'at(bz, by=gen_bz, consume=[bus, zone])',
+            {'generator'},
+            id='a-from-list-reads-two-value-columns-at-once',
+        ),
+        pytest.param(
+            'sum(p, by=gen_zone, consume=[generator, snapshot])',
+            {'zone'},
+            id='a-from-list-consumes-two-key-columns-at-once',
+        ),
+        pytest.param(
+            'sum(zone_load, by=gen_zone, consume=zone, produce=generator)',
+            {'snapshot', 'generator'},
+            id='a-value-column-consumed-fans-out-onto-the-key',
+        ),
+        pytest.param(
+            'sum(p, by=gen_bz, produce=bus)',
+            {'snapshot', 'bus'},
+            id='a-value-column-not-walked-is-not-read',
+        ),
+        pytest.param(
+            'sum(p, by=gen_bz, consume=generator, produce=bus)',
+            {'snapshot', 'bus'},
+            id='by-and-consume-compose-where-over-and-by-could-not',
+        ),
+        pytest.param('sum(p, by=rep_of)', {'snapshot', 'generator'}, id='a-map-into-its-own-dimension-keeps-the-frame'),
+        pytest.param('at(p, by=rep_of)', {'snapshot', 'generator'}, id='and-so-does-its-pullback'),
+        pytest.param(
+            "shift(p, over=snapshot, offset=1, edge='wrap', by=rep_of)",
+            {'snapshot', 'generator'},
+            id='a-partition-into-its-own-dimension',
+        ),
     ],
 )
 def test_dim_inference(expr, expected):
@@ -128,9 +216,9 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
     ('expr', 'match'),
     [
         pytest.param(
-            'sum(p, over=bus)',
-            r'sum\(over=bus\) but the expression has dims',
-            id='sum-over-an-absent-dim-is-an-error-not-a-noop',
+            'sum(p, consume=bus)',
+            r'sum\(consume=bus\) but the expression has dims',
+            id='sum-consuming-an-absent-dim-is-an-error-not-a-noop',
         ),
         pytest.param(
             'sum(sum(p))',
@@ -139,13 +227,8 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
         ),
         pytest.param(
             'sum(load, by=gen_bus)',
-            r"sum\(by=gen_bus\) consumes 'generator', the dim it maps out of",
+            r"sum\(by=gen_bus\) consumes \['generator'\], the dims it walks from",
             id='sum-requires-the-grouped-dim',
-        ),
-        pytest.param(
-            'sum(load * p, by=gen_bus)',
-            'already carries',
-            id='sum-into-a-dim-the-operand-already-carries',
         ),
         pytest.param(
             "shift(cost, over=snapshot, offset=1, edge='wrap')",
@@ -163,12 +246,12 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             id='a-named-offset-does-not-span-the-axis-it-walks',
         ),
         pytest.param(
-            'sum_back(p, over=snapshot, within=cost)',
+            'sum_back(p, over=snapshot, window=cost)',
             r'declared dtype: float',
             id='a-named-width-is-integral',
         ),
         pytest.param(
-            'sum_back(p, over=snapshot, within=horizon)',
+            'sum_back(p, over=snapshot, window=horizon)',
             r'no longer "the last n"',
             id='a-named-width-does-not-span-the-summed-axis',
         ),
@@ -178,7 +261,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             id='a-named-offset-is-not-negated-at-the-call-62',
         ),
         pytest.param(
-            'sum_back(p, over=snapshot, within=-spinup)',
+            'sum_back(p, over=snapshot, window=-spinup)',
             r'which way a window reaches is the operator',
             id='a-named-width-has-no-direction-to-negate',
         ),
@@ -186,6 +269,21 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             "shift(p, over=snapshot, offset=bus_lead, edge='wrap')",
             r"varies over \['bus'\], which that coordinate does not carry",
             id='a-named-offset-is-read-where-the-expression-has-a-coordinate',
+        ),
+        pytest.param(
+            'sum(cost, by=gen_zone, consume=generator)',
+            r"sum\(by=gen_zone\) joins on \['snapshot'\]",
+            id='a-grouped-sum-needs-the-keys-it-joins-on',
+        ),
+        pytest.param(
+            'at(zone_cap, by=gen_zone, produce=generator)',
+            r"at\(by=gen_zone\) joins on \['snapshot'\]",
+            id='a-pullback-needs-the-keys-it-joins-on',
+        ),
+        pytest.param(
+            "shift(cost, over=generator, offset=1, edge='wrap', by=gen_zone)",
+            r"by=gen_zone\) joins on \['snapshot'\]",
+            id='a-partition-needs-the-keys-it-joins-on',
         ),
     ],
 )
@@ -283,7 +381,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
                 id='a-nonzero-edge-over-a-variable',
             ),
             pytest.param(
-                'p <= sum_back(p, over=t, within=2, edge=0)',
+                'p <= sum_back(p, over=t, window=2, edge=0)',
                 "takes 'wrap' or nothing",
                 id='a-numeric-edge-on-a-window',
             ),
@@ -304,7 +402,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         The sign was stripped before the `at least 1` comparison, so `-2` was
         tested as `2` and reached lowering, which asserted (#222).
         """
-        assert 'at least 1' in self._refused(f'p <= sum_back(p, over=t, within={width})')
+        assert 'at least 1' in self._refused(f'p <= sum_back(p, over=t, window={width})')
 
     def test_a_zero_step_vacates_nothing_and_needs_no_edge(self):
         """`shift(x, offset=0)` reaches every coordinate from itself.
@@ -328,6 +426,20 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         pytest.param('snapshot == 0', {'snapshot'}, id='a-dimension-through-itself'),
         pytest.param('position(snapshot) == 0', {'snapshot'}, id='a-position-through-the-axis-it-counts'),
         pytest.param('snap_bus == "b1"', {'snapshot'}, id='a-lookup-through-the-dim-it-maps-out-of'),
+        pytest.param('gen_zone == "z1"', {'generator', 'snapshot'}, id='a-two-key-lookup-through-both-keys'),
+        pytest.param('gen_zone', {'generator', 'snapshot'}, id='a-bare-two-key-lookup-the-same'),
+        pytest.param('rep_of == 3', {'snapshot'}, id='a-map-into-its-own-dimension-through-its-key'),
+        pytest.param('position(snapshot, by=rep_of) == 0', {'snapshot'}, id='a-position-within-a-representative'),
+        pytest.param(
+            'position(generator, by=gen_zone) == 0',
+            {'generator', 'snapshot'},
+            id='a-position-within-a-group-of-a-two-key-lookup-reads-both-keys',
+        ),
+        pytest.param(
+            'position(generator, by=gen_bz, within=zone) == 0',
+            {'generator'},
+            id='a-position-within-one-named-value-column-reads-the-key',
+        ),
         pytest.param('p_max > 0 AND snapshot == 0', {'generator', 'snapshot'}, id='a-conjunction-reads-both-sides'),
         pytest.param('NOT p_max > 0', {'generator'}, id='a-negation-reads-what-it-negates'),
         pytest.param('False', set(), id='a-literal-reads-nothing'),
@@ -392,6 +504,6 @@ def test_names_read_takes_both_sides_of_a_lookup_pair():
     BASE has one lookup per dimension, so the pair is built directly rather than
     resolved from a predicate string.
     """
-    where = LookupPairComparisonNode('from_bus', 'to_bus', 'line', '!=')
+    where = LookupPairComparisonNode('from_bus', 'bus', 'to_bus', 'bus', '!=', ('line',))
 
     assert Mask(where).names_read == {'from_bus', 'to_bus'}, 'a lookup pair names both maps it compares'

@@ -67,7 +67,7 @@ constraints:
 
 objective:
   sense: minimize
-  expression: sum(op_cost, over=snapshot)
+  expression: sum(op_cost, consume=snapshot)
 """
 GATED = override(
     raw_of(NONCONVEX_YAML),
@@ -93,7 +93,7 @@ TWO_DIM = override(
         'parameters.bp_y.dims': ['generator', 'bp'],
         'variables.p.foreach': ['snapshot', 'generator'],
         'variables.op_cost.foreach': ['snapshot', 'generator'],
-        'constraints.balance.expression': 'sum(p, over=generator) == load',
+        'constraints.balance.expression': 'sum(p, consume=generator) == load',
         'objective.expression': 'sum(op_cost)',
     },
 )
@@ -289,7 +289,7 @@ def test_a_link_reading_a_nonlinear_entry_is_refused():
         schema_of(
             NONCONVEX_YAML,
             **{
-                'expressions': {'ratio': 'op_cost / sum(p, over=snapshot)'},
+                'expressions': {'ratio': 'op_cost / sum(p, consume=snapshot)'},
                 'piecewise.cost_curve.links': [['ratio', 'bp_x'], ['op_cost', 'bp_y']],
             },
         )

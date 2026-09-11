@@ -73,7 +73,7 @@ def _masked(dtype: str) -> dict[str, object]:
             'keep': {'foreach': ['g'], 'where': 'flag', 'bounds': {'lower': 0, 'upper': 1}},
             'drop': {'foreach': ['g'], 'where': 'NOT flag', 'bounds': {'lower': 0, 'upper': 1}},
         },
-        'objective': {'sense': 'minimize', 'expression': 'sum(keep, over=g)'},
+        'objective': {'sense': 'minimize', 'expression': 'sum(keep, consume=g)'},
     }
 
 
@@ -158,7 +158,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
     """
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
+        'lookups': {'season_of': {'columns': ['snapshot', 'season'], 'key': 'snapshot'}},
         'variables': {'p': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'held': {
@@ -191,7 +191,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
             'snapshot': {'dtype': 'int'},
             'period': {'dtype': 'int'},
         },
-        'lookups': {'period_of': {'over': 'snapshot', 'into': 'period'}},
+        'lookups': {'period_of': {'columns': ['snapshot', 'period'], 'key': 'snapshot'}},
         'parameters': {'cap': {'dims': ['period']}},
         'variables': {'p': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
@@ -276,7 +276,7 @@ def _selected(mask: str) -> dict[str, Any]:
     """One constraint carrying *mask*, over a dimension a lookup groups."""
     return {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
+        'lookups': {'season_of': {'columns': ['snapshot', 'season'], 'key': 'snapshot'}},
         'variables': {'soc': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {'seed': {'foreach': ['snapshot'], 'where': mask, 'expression': 'soc == 0'}},
     }
@@ -379,7 +379,7 @@ def test_a_named_expression_prints_once_as_a_definition_and_by_symbol_where_used
     identity of its own, so it is expanded away either way."""
     model = override(
         DISPATCH_MODEL,
-        **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
+        **{'expressions.supply': 'sum(p, consume=generator)', 'constraints.balance.expression': 'supply == load'},
     )
     symbol = fmt.subscript(fmt.italic('supply'), ['t'])
     text = typeset(model, name, legend=False)
@@ -391,7 +391,7 @@ def test_inlining_substitutes_a_named_expression_where_it_is_used(name: FormatNa
     """What prints then is the math a backend builds, not the name it was spelled with."""
     model = override(
         DISPATCH_MODEL,
-        **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
+        **{'expressions.supply': 'sum(p, consume=generator)', 'constraints.balance.expression': 'supply == load'},
     )
     assert 'supply' not in typeset(model, name, legend=False, inline_expressions=True), (
         'inlined, so its name never prints'
@@ -413,7 +413,7 @@ def test_inlining_keeps_the_definition_of_an_entry_the_math_never_reads(name: Fo
     model = override(
         DISPATCH_MODEL,
         **{
-            'expressions.supply': 'sum(p, over=generator)',
+            'expressions.supply': 'sum(p, consume=generator)',
             'expressions.lcoe': 'sum(p * cost) / sum(p)',
             'constraints.balance.expression': 'supply == load',
         },
@@ -642,7 +642,7 @@ def test_every_operator_probe_renders(path, name: FormatName, fmt: Format):
 #: scope and bracketing cases are written against.
 BUSES = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
-    'lookups': {'bus_of': {'over': 'generator', 'into': 'bus'}},
+    'lookups': {'bus_of': {'columns': ['generator', 'bus'], 'key': 'generator'}},
     'parameters': {'load': {'dims': ['snapshot']}, 'k': {'dims': []}, 'flag': {'dims': ['snapshot'], 'dtype': 'bool'}},
     'variables': {'p': {'foreach': ['snapshot', 'generator']}, 'q': {'foreach': ['snapshot', 'generator']}},
 }
@@ -665,7 +665,9 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
             r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}",
             id='grouped-by-a-lookup',
         ),
-        pytest.param('p == q - sum(q, over=generator)', r"\sum_{g' \in \mathcal{G}} q_{t,g'}", id='over-the-whole-dim'),
+        pytest.param(
+            'p == q - sum(q, consume=generator)', r"\sum_{g' \in \mathcal{G}} q_{t,g'}", id='over-the-whole-dim'
+        ),
     ],
 )
 def test_a_reduction_under_its_own_dimension_takes_a_fresh_dummy(expression: str, expected: str):

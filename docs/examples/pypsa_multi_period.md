@@ -5,23 +5,18 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the multi-period class
 
-This is rung 15 of [PyPSA in one file](pypsa.md). It states
-`n.optimize(multi_investment_periods=True)` on rungs 1 and 3, in a file of its
-own. The model's description below says why it has its own file.
-
-Its network is a whole network rather than the shared spine. It has eight
-snapshots over two investment periods, and the script carries the build years
-and the lifetimes.
+Rung 15 of [PyPSA in one file](pypsa.md): `n.optimize(multi_investment_periods=True)`, stated on rungs 1 and 3 in a
+file of its own — the model's description below says why. Its network is a whole one: eight snapshots over two investment periods, build years and lifetimes on the script.
 
 ## Rung 15 — investment periods, with a growth limit
 
 | PyPSA | status | note |
 | --- | --- | --- |
-| [`Generator-p`](#variable-domains) | done | built where the generator stands in the snapshot's period. That is `active`, which comes from data preparation |
+| [`Generator-p`](#variable-domains) | done | where the generator stands in the snapshot's period — `active`, data prep |
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
-| [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period that a build stands in, with `edge=0` at the first period |
-| [objective](#objective) | done | the period weight applies to operation. Capacity is counted once per period it stands in |
-| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period)` can state these. They are a later rung |
+| [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period a build stands in; `edge=0` at the first period |
+| [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
+| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period)` has them; a later rung |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.
@@ -121,13 +116,13 @@ The multi-period class of a plain `n.optimize()`: `multi_investment_periods`, st
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — dispatch periods, positions across every investment period |
-| $`\mathcal{Y}`$ | index $`y`$ — `period` — investment periods — PyPSA's `investment_periods` |
-| $`\mathcal{N}`$ | index $`n`$ — `bus` — network nodes |
+| $`\mathcal{Y}`$ | index $`y`$ — `period` with $`\mathrm{snapshot\_period}: \mathcal{T} \to \mathcal{Y}`$ — investment periods — PyPSA's `investment_periods` |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — network nodes |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{C},\ \mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
-| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
-| $`\mathcal{C}`$ | index $`c`$ — `carrier` — energy carriers, what a growth limit is set per |
+| $`\mathcal{C}`$ | index $`c`$ — `carrier` with $`\mathrm{Generator\_carrier}: \mathcal{G} \to \mathcal{C}`$ — energy carriers, what a growth limit is set per |
 
 #### Parameters
 

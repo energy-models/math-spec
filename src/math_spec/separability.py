@@ -81,15 +81,16 @@ def separabilities(program: Program) -> dict[str, Separability]:
                             'coupled',
                             dimension,
                             label,
-                            f'sums over {dimension} — a rolling sum_back(within=n) windows, a total over the horizon does not',
+                            f'sums over {dimension} — a rolling sum_back(window=n) windows, a total over the horizon does not',
                         )
             elif isinstance(node, GroupSum):
-                report(
-                    'coupled',
-                    node.over,
-                    label,
-                    f'groups {node.over} into {", ".join(node.into)} — window that dimension instead, or cut only at the group edges',
-                )
+                for dimension in node.over:
+                    report(
+                        'coupled',
+                        dimension,
+                        label,
+                        f'groups {dimension} into {", ".join(node.into)} — window that dimension instead, or cut only at the group edges',
+                    )
             elif isinstance(node, At):
                 for dimension in node.into:
                     for lookup in node.coordinate:
@@ -106,7 +107,7 @@ def separabilities(program: Program) -> dict[str, Separability]:
                     )
                     continue
                 if node.partition is not None:
-                    waits_on(dimension, label, node.partition, 'partition')
+                    waits_on(dimension, label, node.partition.name, 'partition')
                 if isinstance(node, Window):
                     continue
                 if isinstance(node.offset, str):
