@@ -10,7 +10,7 @@
   },
   "relations": {
    "branch": "claude/lookup-relations-vhvfjd",
-   "sha": "1baa338"
+   "sha": "e7a95bc"
   },
   "keys_436": {
    "branch": "claude/lookup-self-map-vhvfjd",
@@ -316,6 +316,71 @@
      "ok": false,
      "error_type": "SchemaError",
      "error": "Parameter 'adjacent' names dimension 'region' twice. A frame is a product of distinct dimensions."
+    }
+   }
+  },
+  "efficiency_pair": {
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\n# A number that rides on a pairing needs no lookup: the parameter's own rows are\n# the pairing. Every proposal takes this file unchanged, which is the point.\n\ndimensions:\n  generator: {}\n  bus: {}\n  period: { dtype: int }\n\nparameters:\n  efficiency: { dims: [generator, bus] }\n  cost: { dims: [generator] }\n\nvariables:\n  flow: { foreach: [generator, bus, period], bounds: { lower: 0 } }\n\nconstraints:\n  delivered:\n    foreach: [generator, bus, period]\n    expression: flow <= efficiency * 100\n\nobjective: { sense: minimize, expression: sum(flow * cost) }\n",
+   "by": {
+    "per": {
+     "ok": true,
+     "constraints": {
+      "delivered": [
+       "generator",
+       "bus",
+       "period"
+      ]
+     },
+     "latex": {
+      "delivered": "\\mathit{flow}_{g,b,p} \\le \\mathrm{efficiency}_{g,b} \\cdot 100 \\qquad \\forall\\, g \\in \\mathcal{G},\\ b \\in \\mathcal{B},\\ p \\in \\mathcal{P}",
+      "flow": "\\mathit{flow}_{g,b,p} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ b \\in \\mathcal{B},\\ p \\in \\mathcal{P}"
+     },
+     "maps": []
+    },
+    "keys": {
+     "ok": true,
+     "constraints": {
+      "delivered": [
+       "generator",
+       "bus",
+       "period"
+      ]
+     },
+     "latex": {
+      "delivered": "\\mathit{flow}_{g,b,p} \\le \\mathrm{efficiency}_{g,b} \\cdot 100 \\qquad \\forall\\, g \\in \\mathcal{G},\\ b \\in \\mathcal{B},\\ p \\in \\mathcal{P}",
+      "flow": "\\mathit{flow}_{g,b,p} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ b \\in \\mathcal{B},\\ p \\in \\mathcal{P}"
+     },
+     "maps": []
+    },
+    "relations": {
+     "ok": true,
+     "constraints": {
+      "delivered": [
+       "generator",
+       "bus",
+       "period"
+      ]
+     },
+     "latex": {
+      "delivered": "\\mathit{flow}_{g,b,p} \\le \\mathrm{efficiency}_{g,b} \\cdot 100 \\qquad \\forall\\, g \\in \\mathcal{G},\\ b \\in \\mathcal{B},\\ p \\in \\mathcal{P}",
+      "flow": "\\mathit{flow}_{g,b,p} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ b \\in \\mathcal{B},\\ p \\in \\mathcal{P}"
+     },
+     "maps": []
+    },
+    "keys_436": {
+     "ok": true,
+     "constraints": {
+      "delivered": [
+       "generator",
+       "bus",
+       "period"
+      ]
+     },
+     "latex": {
+      "delivered": "\\mathit{flow}_{g,b,p} \\le \\mathrm{efficiency}_{g,b} \\cdot 100 \\qquad \\forall\\, g \\in \\mathcal{G},\\ b \\in \\mathcal{B},\\ p \\in \\mathcal{P}",
+      "flow": "\\mathit{flow}_{g,b,p} \\ge 0 \\qquad \\forall\\, g \\in \\mathcal{G},\\ b \\in \\mathcal{B},\\ p \\in \\mathcal{P}"
+     },
+     "maps": []
     }
    }
   },

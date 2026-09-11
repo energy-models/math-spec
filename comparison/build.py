@@ -284,19 +284,19 @@ KINDS = [
     },
     {
         'shape': 'two named slots',
-        'everyday': 'A seesaw has a left seat and a right seat.',
-        'model': 'A line has one bus at each end, and the two ends are not interchangeable.',
+        'everyday': 'A journey has the station it leaves and the station it reaches.',
+        'model': 'A line has a bus at each end, and the flow leaves one and arrives at the other.',
         'by': {
             'per': (
-                'two lookups, one per end, and nothing ties them together',
+                'two lookups, so a line may sit in one table and not the other, which leaves an end open',
                 'lookups:\n  line_bus0: { over: line, into: bus }\n  line_bus1: { over: line, into: bus }',
             ),
             'keys': (
-                'two lookups, one per end, and nothing ties them together',
+                'two lookups, so a line may sit in one table and not the other, which leaves an end open',
                 'lookups:\n  line_bus0: { over: line, into: bus }\n  line_bus1: { over: line, into: bus }',
             ),
             'relations': (
-                'one table, and each end is a named role in it',
+                'one table, each end a named role, and a row carries every column — so both ends exist',
                 'lookups:\n  ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }',
             ),
         },
@@ -361,19 +361,19 @@ KINDS = [
     {
         'shape': 'many each, with a number on the pair',
         'everyday': 'Each pupil gets a number of biscuits at each club.',
-        'model': 'Each bus holds a capacity cap for each technology.',
+        'model': 'Each generator delivers to each bus at some efficiency.',
         'by': {
             'per': (
                 'a parameter, whose own rows are the pairing',
-                'parameters:\n  tech_cap: { dims: [bus, technology] }',
+                'parameters:\n  efficiency: { dims: [generator, bus] }',
             ),
             'keys': (
                 'a parameter, whose own rows are the pairing',
-                'parameters:\n  tech_cap: { dims: [bus, technology] }',
+                'parameters:\n  efficiency: { dims: [generator, bus] }',
             ),
             'relations': (
                 'a parameter, whose own rows are the pairing',
-                'parameters:\n  tech_cap: { dims: [bus, technology] }',
+                'parameters:\n  efficiency: { dims: [generator, bus] }',
             ),
         },
     },

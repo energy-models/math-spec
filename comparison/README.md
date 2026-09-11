@@ -26,7 +26,8 @@ and the refusal is the evidence.
 - `models/p4` — a capacity cap per bus and technology.
 - `models/p5` — which regions are neighbours: a relation between two members of
   one dimension, which only #437 can declare.
-- `probes/` — files that are refused, so the page can print the message.
+- `probes/` — single files loaded on every branch: the refusals the page prints,
+  and the one file every proposal takes unchanged.
 
 ## Reading it
 

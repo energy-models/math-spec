@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+# A number that rides on a pairing needs no lookup: the parameter's own rows are
+# the pairing. Every proposal takes this file unchanged, which is the point.
+
+dimensions:
+  generator: {}
+  bus: {}
+  period: { dtype: int }
+
+parameters:
+  efficiency: { dims: [generator, bus] }
+  cost: { dims: [generator] }
+
+variables:
+  flow: { foreach: [generator, bus, period], bounds: { lower: 0 } }
+
+constraints:
+  delivered:
+    foreach: [generator, bus, period]
+    expression: flow <= efficiency * 100
+
+objective: { sense: minimize, expression: sum(flow * cost) }
