@@ -200,6 +200,11 @@ extend-exclude = ["CHANGELOG.md"]
 # "miscible". `unparseable` is the accepted variant and is the name of a test.
 wher = "wher"
 generatr = "generatr"
+# `egde` and `witin` are misspellings *on purpose* too: they are the keyword a
+# test mistypes to show that an undeclared keyword is refused by the signature
+# line alone, so correcting them deletes the case.
+egde = "egde"
+witin = "witin"
 missable = "missable"
 unparseable = "unparseable"
 # `NAMEs` in scripts/setup-release-app.sh is a placeholder plus a plural, in a

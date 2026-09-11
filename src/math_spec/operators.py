@@ -51,13 +51,14 @@ class Builtin:
     optional_kwargs: tuple[str, ...] = ()
 
     @property
+    def keywords(self) -> frozenset[str]:
+        """Every keyword the signature carries, required or not — the set a call may draw from."""
+        return frozenset(self.dimension_kwargs + self.lookup_kwargs + self.edge_kwargs + self.required_value_kwargs)
+
+    @property
     def required(self) -> frozenset[str]:
         """Every keyword the call must carry."""
-        return (
-            (frozenset(self.dimension_kwargs) | frozenset(self.lookup_kwargs) | frozenset(self.required_value_kwargs))
-            - frozenset(self.at_most_one_of)
-            - frozenset(self.optional_kwargs)
-        )
+        return self.keywords - frozenset(self.edge_kwargs + self.at_most_one_of + self.optional_kwargs)
 
     def kind_of(self, kwarg: str) -> Literal['dimension', 'lookup', 'edge', 'value']:
         """What resolution turns the value of *kwarg* into: a dimension, a lookup, an edge policy, or a plain value."""

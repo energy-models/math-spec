@@ -455,7 +455,13 @@ class _Resolver:
                 return node
 
     def _call(self, node: FunctionCallNode) -> ArithmeticNode:
-        """An operator call: its shape checked, and each kwarg typed by the kind the operator declares for it."""
+        """An operator call: its shape checked, and each kwarg typed by the kind the operator declares for it.
+
+        A keyword the operator does not declare is left untyped. The shape check
+        has already refused the call by its signature, and that is the whole
+        answer; typing the value as well decides a second refusal by the value's
+        shape, naming a rewrite for a keyword that does not exist.
+        """
         if node.name not in BUILTINS:
             self.errors.append(f'{self.context}: {unknown_operator_message(node.name)}')
             return node
@@ -468,6 +474,8 @@ class _Resolver:
         args = tuple(self._arith(a) for a in node.args)
         kwargs: dict[str, ArithmeticNode] = {}
         for key, value in node.kwargs.items():
+            if key not in builtin.keywords:
+                continue
             match builtin.kind_of(key):
                 case 'edge':
                     kwargs[key] = self._edge(value, node.name)

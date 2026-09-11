@@ -270,6 +270,54 @@ class TestDual:
         assert to_spec(override(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
 
 
+class TestAnUndeclaredKeyword:
+    """A keyword the operator does not declare is refused once, by the signature line, whatever its value.
+
+    The signature line is the whole answer: the author misspelled or invented a
+    keyword. Typing the value of a keyword that does not exist added a second
+    refusal decided by the value's shape — a dimension name drew "a dimension is
+    not a value in an expression", a list drew "precompute it as a parameter" for
+    a keyword nothing declares, and a number drew nothing at all, which accepted
+    the stray keyword as an amount (#441).
+    """
+
+    BASE = override(SMALL_MODEL, **{'parameters.n': {'dims': [], 'dtype': 'int'}})
+
+    @pytest.mark.parametrize(
+        ('expression', 'usage'),
+        [
+            pytest.param(
+                'sum(shift(p, over=g, offset=1, edge=0, foo=g))',
+                'shift() expects',
+                id='a-dimension-name',
+            ),
+            pytest.param(
+                'sum(shift(p, over=g, offset=1, edge=0, foo=[g, h]))',
+                'shift() expects',
+                id='a-list',
+            ),
+            pytest.param(
+                'sum(shift(p, over=g, offset=1, edge=0, foo=3))',
+                'shift() expects',
+                id='a-number',
+            ),
+            pytest.param(
+                "sum(shift(p, over=g, offset=1, egde='wrap'))",
+                'shift() expects',
+                id='a-typo-of-edge',
+            ),
+            pytest.param('sum(sum(p, ovr=g))', 'sum() expects', id='a-typo-of-over'),
+            pytest.param('sum(sum(p, by=lk, weight=c))', 'sum() expects', id='a-parameter-name'),
+            pytest.param('sum(at(p, by=lk, scale=2 * c))', 'at() expects', id='an-expression'),
+            pytest.param('sum(sum_back(p, over=g, witin=n))', 'sum_back() expects', id='a-typo-of-within'),
+        ],
+    )
+    def test_the_signature_line_is_the_whole_refusal(self, expression, usage):
+        message = _refusal(self.BASE, objective={'sense': 'minimize', 'expression': expression})
+        assert message.count('\n') == 0, f'one refusal, the signature line, and nothing after it:\n{message}'
+        assert usage in message
+
+
 class TestDimensionKwargs:
     """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, over=snapshto)` used to load."""
 
