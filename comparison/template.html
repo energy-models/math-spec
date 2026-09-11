@@ -390,8 +390,9 @@
         A lookup pairs the members of one dimension with the members of another: one generator
         with the bus it sits on. A lookup with no key is a relation, which claims nothing about
         how many and only says that a pair exists. Two questions decide how the file spells a
-        pairing. How many does each thing have, and is there a number on the pair? Each card
-        below answers both for one kind, in everyday terms first and then in a model.
+        pairing. How many does each thing have, and is there a number on the pair? Each row
+        below answers both for one kind, in everyday terms first and then in a model, and
+        under it every proposal writes the file it would write.
       </p>
     </div>
     <!--{kinds}-->
@@ -484,7 +485,7 @@
         <p class="said">Names both keys and both rewrites.</p>
       </article>
       <article class="refusal" data-proposal="relations">
-        <h3><span class="who">relations</span> · <code>by=zone_of</code> with no <code>from=</code></h3>
+        <h3><span class="who">relations</span> · <code>by=zone_of</code> with no <code>consume=</code></h3>
         <pre><!--{rel-no-from}--></pre>
         <p class="said">Names the key columns, and the keyword that has to pick one.</p>
       </article>
@@ -535,8 +536,9 @@
         <p>
           A lookup is a table of named columns, and <code>key:</code> is the one claim the data
           can be held to. Every direction belongs to the call, which names it with
-          <code>from=</code> and <code>into=</code>. This says everything the other two say and
-          more. It costs ten rules, two keywords, and a rewrite of every declaration in the tree.
+          <code>consume=</code> and <code>produce=</code>. This says everything the other two say
+          and more. It costs ten rules, three keywords, and a rewrite of every declaration in the
+          tree.
         </p>
         <p class="q">Does the language want a relation, or a map?</p>
       </div>
@@ -555,7 +557,7 @@
     </p>
     <p>
       The models are in <code>comparison/models/</code>, one file per problem per proposal. The
-      refused files are in <code>comparison/probes/</code>. Everything here sits on the branch
+      single files loaded on every branch are in <code>comparison/probes/</code>. Everything here sits on the branch
       <code>claude/mathspec-proposals-comparison-ebn7dv</code>, whose pull request is a review
       surface rather than a proposal to merge.
     </p>

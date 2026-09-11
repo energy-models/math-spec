@@ -45,7 +45,7 @@ ABOUT = {
 }
 
 #: A line carries the proposal where it declares a lookup or walks one.
-FOCUS = re.compile(r'\bby=|\bover:|\bkey:|\binto:|\bper:|\bwhere:')
+FOCUS = re.compile(r'\bby=|\bover:|\bcolumns:|\bkey:|\binto:|\bper:|\bwhere:')
 
 PROBLEMS = [
     {

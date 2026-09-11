@@ -609,27 +609,27 @@
    }
   },
   "rel_no_from": {
-   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { over: [generator, period, zone], key: [generator, period] }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of) >= demand\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
+   "yaml": "# SPDX-FileCopyrightText: math-spec Contributors\n#\n# SPDX-License-Identifier: MIT\n\ndimensions:\n  generator: {}\n  zone: {}\n  period: { dtype: int }\n\nlookups:\n  zone_of: { columns: [generator, period, zone], key: [generator, period] }\n\nparameters:\n  demand: { dims: [zone, period] }\n  cost: { dims: [generator] }\n\nvariables:\n  p: { foreach: [generator, period], bounds: { lower: 0 } }\n\nconstraints:\n  zone_balance:\n    foreach: [zone, period]\n    expression: sum(p, by=zone_of) >= demand\n\nobjective: { sense: minimize, expression: sum(p * cost) }\n",
    "by": {
     "per": {
      "ok": false,
      "error_type": "SchemaError",
-     "error": "lookups.zone_of: unknown key 'key' in a lookup declaration. Valid keys: description, into, over, per."
+     "error": "lookups.zone_of: unknown key 'columns' in a lookup declaration. Valid keys: description, into, over, per.\nunknown key 'key' in a lookup declaration. Valid keys: description, into, over, per."
     },
     "keys": {
      "ok": false,
      "error_type": "SchemaError",
-     "error": "lookups.zone_of: unknown key 'key' in a lookup declaration. Valid keys: description, into, over."
+     "error": "lookups.zone_of: unknown key 'columns' in a lookup declaration. Valid keys: description, into, over.\nunknown key 'key' in a lookup declaration. Valid keys: description, into, over."
     },
     "relations": {
      "ok": false,
      "error_type": "SchemaError",
-     "error": "lookups.zone_of: unknown key 'over' in a lookup declaration. Valid keys: columns, description, key."
+     "error": "Constraint 'zone_balance': sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which consume= names."
     },
     "keys_436": {
      "ok": false,
      "error_type": "SchemaError",
-     "error": "lookups.zone_of: unknown key 'key' in a lookup declaration. Valid keys: description, into, over."
+     "error": "lookups.zone_of: unknown key 'columns' in a lookup declaration. Valid keys: description, into, over.\nunknown key 'key' in a lookup declaration. Valid keys: description, into, over."
     }
    }
   },

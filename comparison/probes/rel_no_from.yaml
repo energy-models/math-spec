@@ -8,7 +8,7 @@ dimensions:
   period: { dtype: int }
 
 lookups:
-  zone_of: { over: [generator, period, zone], key: [generator, period] }
+  zone_of: { columns: [generator, period, zone], key: [generator, period] }
 
 parameters:
   demand: { dims: [zone, period] }

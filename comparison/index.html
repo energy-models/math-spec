@@ -362,7 +362,7 @@
       what a call has to name. The fifth loads under one.
     </p>
     <p class="provenance">
-      <span>built <code>2026-09-11 09:26 UTC</code></span>
+      <span>built <code>2026-09-11 09:32 UTC</code></span>
       <span>base <code>d64e5da</code></span>
       <span>per: conditioning <code>4081e3e</code> · keys and a dot <code>2d8735a</code> · relations <code>e7a95bc</code></span>
     </p>
@@ -390,8 +390,9 @@
         A lookup pairs the members of one dimension with the members of another: one generator
         with the bus it sits on. A lookup with no key is a relation, which claims nothing about
         how many and only says that a pair exists. Two questions decide how the file spells a
-        pairing. How many does each thing have, and is there a number on the pair? Each card
-        below answers both for one kind, in everyday terms first and then in a model.
+        pairing. How many does each thing have, and is there a number on the pair? Each row
+        below answers both for one kind, in everyday terms first and then in a model, and
+        under it every proposal writes the file it would write.
       </p>
     </div>
     <div class="kinds"><article class="kind"><p class="kind-shape">one each</p><p class="kind-everyday">Every pupil is in one class.</p><p class="kind-model">Every generator sits on one bus.</p><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body"><p class="kind-says">a lookup</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
@@ -411,10 +412,10 @@
 <span class="line focus">  <b class="k">represents</b>: { columns: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }</span></code></pre></div></div></div></div></article><article class="kind"><p class="kind-shape">many each, nothing to count</p><p class="kind-everyday">A pupil can be in several clubs, and a club has several pupils.</p><p class="kind-model">A generator bids into several reserve products, and each product takes many.</p><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body"><p class="kind-says">a table of ones, declared int because a flag cannot be multiplied</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">eligible</b>: { dims: [generator, product], dtype: int }</span></code></pre></div></div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body"><p class="kind-says">a table of ones, declared int because a flag cannot be multiplied</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">eligible</b>: { dims: [generator, product], dtype: int }</span></code></pre></div></div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body"><p class="kind-says">a lookup with no key, which is the structure itself</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
-<span class="line">  <b class="k">eligible</b>: { columns: [generator, product] }</span></code></pre></div></div></div></div></article><article class="kind"><p class="kind-shape">many each, of its own kind</p><p class="kind-everyday">A pupil sits next to several others.</p><p class="kind-model">A region touches several other regions.</p><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body"><p class="kind-says">refused — a parameter cannot name one dimension twice, and no other rewrite is left</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
+<span class="line focus">  <b class="k">eligible</b>: { columns: [generator, product] }</span></code></pre></div></div></div></div></article><article class="kind"><p class="kind-shape">many each, of its own kind</p><p class="kind-everyday">A pupil sits next to several others.</p><p class="kind-model">A region touches several other regions.</p><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body"><p class="kind-says">refused — a parameter cannot name one dimension twice, and no other rewrite is left</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">adjacent</b>: { dims: [region, region], dtype: int }</span></code></pre></div></div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body"><p class="kind-says">refused — a parameter cannot name one dimension twice, and no other rewrite is left</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">adjacent</b>: { dims: [region, region], dtype: int }</span></code></pre></div></div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body"><p class="kind-says">a bare self-relation, with a role for each side</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
-<span class="line">  <b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span></code></pre></div></div></div></div></article><article class="kind"><p class="kind-shape">many each, with a number on the pair</p><p class="kind-everyday">Each pupil gets a number of biscuits at each club.</p><p class="kind-model">Each generator delivers to each bus at some efficiency.</p><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body"><p class="kind-says">a parameter, whose own rows are the pairing</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
+<span class="line focus">  <b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span></code></pre></div></div></div></div></article><article class="kind"><p class="kind-shape">many each, with a number on the pair</p><p class="kind-everyday">Each pupil gets a number of biscuits at each club.</p><p class="kind-model">Each generator delivers to each bus at some efficiency.</p><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body"><p class="kind-says">a parameter, whose own rows are the pairing</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">efficiency</b>: { dims: [generator, bus] }</span></code></pre></div></div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body"><p class="kind-says">a parameter, whose own rows are the pairing</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">efficiency</b>: { dims: [generator, bus] }</span></code></pre></div></div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body"><p class="kind-says">a parameter, whose own rows are the pairing</p><div class="kind-code"><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">efficiency</b>: { dims: [generator, bus] }</span></code></pre></div></div></div></div></article></div>
@@ -941,7 +942,7 @@
 <span class="line"></span>
 <span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(x * cost) }</span></code></pre></details><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Parameter &#x27;adjacent&#x27; names dimension &#x27;region&#x27; twice. A frame is a product of distinct dimensions.</pre></div></div></div>
 <div class="option" data-proposal="relations"><div class="option-name">relations<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>Two roles over one dimension, and no key. Each region has many neighbours, so nothing is single-valued.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
-<span class="line">  <b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span>
+<span class="line focus">  <b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">neighbourhood</b>:</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(x, <b class="kw">by</b>=adjacent, consume=neighbour, produce=region) &lt;= cap</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
@@ -949,7 +950,7 @@
 <span class="line">  <b class="k">period</b>: { dtype: int }</span>
 <span class="line"></span>
 <span class="line"><b class="k">lookups</b>:</span>
-<span class="line">  <b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span>
+<span class="line focus">  <b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span>
 <span class="line"></span>
 <span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">cap</b>: { dims: [region, period] }</span>
@@ -1014,8 +1015,8 @@
         <p class="said">Names both keys and both rewrites.</p>
       </article>
       <article class="refusal" data-proposal="relations">
-        <h3><span class="who">relations</span> · <code>by=zone_of</code> with no <code>from=</code></h3>
-        <pre>lookups.zone_of: unknown key &#x27;over&#x27; in a lookup declaration. Valid keys: columns, description, key.</pre>
+        <h3><span class="who">relations</span> · <code>by=zone_of</code> with no <code>consume=</code></h3>
+        <pre>Constraint &#x27;zone_balance&#x27;: sum(by=zone_of): &#x27;zone_of&#x27; has 2 key columns ([&#x27;generator&#x27;, &#x27;period&#x27;]), and the call has to say which consume= names.</pre>
         <p class="said">Names the key columns, and the keyword that has to pick one.</p>
       </article>
       <article class="refusal" data-proposal="per">
@@ -1065,8 +1066,9 @@
         <p>
           A lookup is a table of named columns, and <code>key:</code> is the one claim the data
           can be held to. Every direction belongs to the call, which names it with
-          <code>from=</code> and <code>into=</code>. This says everything the other two say and
-          more. It costs ten rules, two keywords, and a rewrite of every declaration in the tree.
+          <code>consume=</code> and <code>produce=</code>. This says everything the other two say
+          and more. It costs ten rules, three keywords, and a rewrite of every declaration in the
+          tree.
         </p>
         <p class="q">Does the language want a relation, or a map?</p>
       </div>
@@ -1075,7 +1077,7 @@
 
   <footer>
     <p>
-      <code>build.py</code> wrote this page on <code>2026-09-11 09:26 UTC</code>, from evidence
+      <code>build.py</code> wrote this page on <code>2026-09-11 09:32 UTC</code>, from evidence
       <code>verify.py</code> collected against <code>origin/main</code> at
       <code>d64e5da</code> and each proposal at the branch head named above. A copy served
       from a CDN can be older than that stamp. To reproduce it, run
@@ -1085,7 +1087,7 @@
     </p>
     <p>
       The models are in <code>comparison/models/</code>, one file per problem per proposal. The
-      refused files are in <code>comparison/probes/</code>. Everything here sits on the branch
+      single files loaded on every branch are in <code>comparison/probes/</code>. Everything here sits on the branch
       <code>claude/mathspec-proposals-comparison-ebn7dv</code>, whose pull request is a review
       surface rather than a proposal to merge.
     </p>
