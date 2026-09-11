@@ -9,22 +9,22 @@ dimensions:
   generator: { description: generating units }
 
 parameters:
-  p_max: { dims: [generator], description: installed capacity }
+  capacity: { dims: [generator], description: installed capacity }
   load: { dims: [snapshot], description: demand to be met }
   cost: { dims: [generator], description: marginal cost }
 
 variables:
-  p:
+  dispatch:
     description: output of a generator in a snapshot
     foreach: [snapshot, generator]
-    where: "p_max > 0"
-    bounds: { lower: 0, upper: p_max }
+    where: "capacity > 0"
+    bounds: { lower: 0, upper: capacity }
 
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(dispatch, over=generator) == load
 
 objective:
   sense: minimize
-  expression: sum(p * cost)
+  expression: sum(dispatch * cost)

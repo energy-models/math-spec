@@ -23,8 +23,8 @@ message lists the valid options:
 
 ```text
 Constraint 'balance', equation 0: 'p_charge' not found.
-  Variables: ['p', 'soc']
-  Parameters: ['p_max', 'load', 'efficiency']
+  Variables: ['dispatch', 'soc']
+  Parameters: ['capacity', 'load', 'efficiency']
 Check for typos, or ensure 'p_charge' is declared.
 ```
 

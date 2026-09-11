@@ -38,7 +38,7 @@ same model.
 
 1. **The members come from the key named after the dimension.** An engine reads
    `generator` from the `generator` table, and from nowhere else. It reads
-   `p_max` for its values, never for its list of generators, and it does not
+   `capacity` for its values, never for its list of generators, and it does not
    treat `gen_bus` as the list either. If a declaration uses `generator` and
    no `generator` table arrives, the engine raises an error that names
    `generator`. It does not build an empty axis, because an empty axis would
@@ -48,7 +48,7 @@ same model.
    sort them, whether they are strings, integers or dates.
    [`shift`](operators.md#shift), `sum_back` and `position()` all count along
    this order, so an engine that sorted `snapshot` would give
-   `shift(p, over=snapshot, offset=1)` a different meaning. To get a
+   `shift(dispatch, over=snapshot, offset=1)` a different meaning. To get a
    particular order, write the table in that order.
 3. **A table has each coordinate at most once.** Two rows for `snapshot == 3`
    is an error that names `3`. The engine does not keep the last, keep the

@@ -13,15 +13,15 @@ follows from that.
 dimensions:
   g: { dtype: str }
 parameters:
-  p_max: { dims: [g] }
+  capacity: { dims: [g] }
 variables:
-  p:
+  dispatch:
     foreach: [g]
-    where: "p_max > 0"
+    where: "capacity > 0"
 ```
 
-With `p_max = {wind: 10, gas: 5, old: 0}`, the model has `p[wind]` and
-`p[gas]`. There is no `p[old]`.
+With `capacity = {wind: 10, gas: 5, old: 0}`, the model has `dispatch[wind]` and
+`dispatch[gas]`. There is no `dispatch[old]`.
 
 The [grammar](expressions.md#where-strings) says what a `where:` may contain.
 This page says what the mask means for the rows that are built.
@@ -51,7 +51,7 @@ operator, it does not.
 ```yaml
 variables:
   x: { foreach: [g] }
-  y: { foreach: [g], where: "p_max > 0" } # no y[old]
+  y: { foreach: [g], where: "capacity > 0" } # no y[old]
 constraints:
   each:
     foreach: [g]
@@ -148,8 +148,9 @@ them, and that is the start of the recurrence rather than a bug.
 A [reported expression](reported.md) is arithmetic over solved numbers, so it
 inherits their absence by the same rule as above. Through pointwise arithmetic,
 a null spreads: `cost / delivered` has no value wherever either operand is
-masked. Out of a summing operator, it does not: `sum(p, over=g)` is one summand
-shorter where a `p[g]` is masked, and stands as long as one slot does.
+masked. Out of a summing operator, it does not: `sum(dispatch, over=g)` is one
+summand shorter where a `dispatch[g]` is masked, and stands as long as one slot
+does.
 
 A quotient whose divisor solved to zero is absent in the same way. The language
 has one "no value", and an undefined quotient joins it rather than raising a
@@ -163,7 +164,7 @@ separate not-a-number.
 | You want                                       | You write                                                                                                                    |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | the row kept, the masked variable read as zero | `absence: zero` on the variable                                                                                              |
-| the row dropped where a parameter has no data  | `where: p` on the constraint                                                                                                 |
+| the row dropped where a parameter has no data  | `where: capacity` on the constraint                                                                                          |
 | a vacated shift position to contribute         | `shift(x, over=d, offset=n, edge=0)`                                                                                         |
 | to test whether a variable exists here         | its bare name in a `where`                                                                                                   |
 | a bound only where the data has one            | supply the bound, because `inf` is a value, or mask the variable. These are different models, so the language infers neither |

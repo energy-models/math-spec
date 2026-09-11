@@ -25,7 +25,7 @@ prints the same math with one row per call. For models written to be read, start
 with the [examples](../examples/index.md).
 
 The symbols below are **derived** from the names in the file, which is what a
-model prints with no setup, so you see $\mathit{load}_{t}$ rather than $\ell_t$.
+model prints with no setup, so you see $\mathrm{load}_{t}$ rather than $\ell_t$.
 A [symbol table](typeset.md#symbol-tables) replaces every symbol, and changes
 nothing else on this page.
 
@@ -855,7 +855,7 @@ names:
 cost_curve:
   over: bp
   links:
-    - [p, bp_x]
+    - [dispatch, bp_x]
     - [op_cost, bp_y]
   method: sos2
 ```
@@ -865,7 +865,7 @@ cost_curve:
 ```
 
 ```math
-p_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\mathit{dispatch}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ```math
@@ -899,7 +899,7 @@ names:
 cost_curve:
   over: bp
   links:
-    - [p, bp_x]
+    - [dispatch, bp_x]
     - [op_cost, bp_y]
   method: convex
 ```
@@ -909,7 +909,7 @@ cost_curve:
 ```
 
 ```math
-p_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\mathit{dispatch}_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
 ```math
@@ -938,21 +938,21 @@ names:
 cost_curve:
   over: bp
   links:
-    - [p, bp_x]
+    - [dispatch, bp_x]
     - [op_cost, bp_y, ">="]
   method: lp
 ```
 
 ```math
-\mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) \neq 0
+\mathit{op\_cost}_{t,g} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \ge \left( \mathrm{y}_{g,b} - \mathrm{y}_{g,b \boxminus_{0} 1} \right) \cdot \left( \mathit{dispatch}_{t,g} - \mathrm{x}_{g,b} \right) + \mathrm{y}_{g,b} \cdot \left( \mathrm{x}_{g,b} - \mathrm{x}_{g,b \boxminus_{0} 1} \right) \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) \neq 0
 ```
 
 ```math
-p_{t,g} \ge \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = 0
+\mathit{dispatch}_{t,g} \ge \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = 0
 ```
 
 ```math
-p_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = \lvert \mathcal{B} \rvert - 1
+\mathit{dispatch}_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = \lvert \mathcal{B} \rvert - 1
 ```
 
 ### Sets carried to the solver

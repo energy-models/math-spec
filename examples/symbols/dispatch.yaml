@@ -23,4 +23,4 @@ dimensions:
 names:
   cost: c
   load: "\\ell"
-  p_max: "\\bar p"
+  capacity: "\\bar p"
