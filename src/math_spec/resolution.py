@@ -74,6 +74,7 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    PredicateOperator,
     TypedPredicateNode,
     VariableDefinedNode,
     Walk,
@@ -903,8 +904,8 @@ class _Resolver:
             right_name, _, right_column = value.partition('.')
             if (rhs_kind := ns.kind(right_name)) is not None:
                 if rhs_kind == 'lookup' and ns.kind(left_name) == 'lookup':
-                    left = self._lookup_column(left_name, left_column or None, node.name)
-                    right = self._lookup_column(right_name, right_column or None, value)
+                    left = self._lookup_column(left_name, left_column or None, node.name, node.op)
+                    right = self._lookup_column(right_name, right_column or None, value, node.op)
                     if left is None or right is None:
                         return node
                     if (refusal := _lookup_pair_error(context, node, value, ns, left, right)) is not None:
@@ -928,7 +929,7 @@ class _Resolver:
         column = None
         dtype: DeclaredDtype | None = None
         if kind == 'lookup':
-            column = self._lookup_column(left_name, left_column or None, node.name)
+            column = self._lookup_column(left_name, left_column or None, node.name, node.op)
             if column is None:
                 return node
             dtype = ns.dtypes[ns.shape_of(left_name).dim(column)]
@@ -958,7 +959,7 @@ class _Resolver:
                 )
         return node
 
-    def _lookup_column(self, name: str, column: str | None, spelling: str) -> str | None:
+    def _lookup_column(self, name: str, column: str | None, spelling: str, op: PredicateOperator) -> str | None:
         """The value column a where-comparison on lookup *name* reads, or the refusal.
 
         A comparison reads one value per coordinate, so the lookup is keyed
@@ -990,7 +991,7 @@ class _Resolver:
         if column in shape.key:
             self.errors.append(
                 f"{context}: '{spelling}': '{column}' is a key column of '{name}', which the frame supplies rather "
-                f"than reads. Compare the frame's own coordinate — {shape.dim(column)} {{op}} ... — or a value column."
+                f"than reads. Compare the frame's own coordinate — {shape.dim(column)} {op} ... — or a value column."
             )
             return None
         return column

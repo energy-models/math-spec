@@ -703,7 +703,10 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'variables.q.where': "lk.g == 'x'"},
-                ("'g' is a key column of 'lk', which the frame supplies rather than reads",),
+                (
+                    "'g' is a key column of 'lk', which the frame supplies rather than reads",
+                    'g == ...',
+                ),
                 id='where-compares-a-key-column',
             ),
             pytest.param(

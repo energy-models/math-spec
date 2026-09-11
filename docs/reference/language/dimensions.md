@@ -191,7 +191,9 @@ and a value column not named is not read.
 The rules, each decided at load with a refusal naming the rewrite:
 
 - **`consume=` and `produce=` name columns of the lookup `by=` names**, one each or a
-  list each, no column on both sides, and are refused without a `by=`.
+  list each, and no column on both sides. `produce=` is refused without a `by=`,
+  since a column needs the table that holds it. `consume=` without one names a
+  dimension of the operand instead, which is `sum(p, consume=period)`.
   `sum(p, by=gen_bt, produce=[bus, technology])` lands one table with two value
   columns on the product `bus × technology` in one join;
   `sum(p, by=zone_of, consume=[generator, period])` consumes both key columns
