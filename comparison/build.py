@@ -166,29 +166,80 @@ PROBLEMS = [
     },
 ]
 
-#: What each proposal costs, beyond what it can say. Every row is quoted from the
-#: pull request that proposes it, and none of it is measured here.
-PRICE = [
-    ('Rules the reference states', {'per': '7', 'keys': '7', 'relations': '10'}),
-    ('Call syntax beyond by=', {'per': 'none', 'keys': 'a dot', 'relations': 'consume=, produce=, within='}),
-    (
-        'Existing declarations rewritten',
-        {'per': 'none', 'keys': 'none', 'relations': 'all, once'},
-    ),
-    (
-        'Diff against main',
-        {'per': '+394 −67', 'keys': '+601 −161', 'relations': '+2325 −1000'},
-    ),
-]
+#: What each proposal costs, quoted from its pull request and not measured here.
+PRICE = {
+    'per': '7 rules · no new call syntax · no declaration rewritten · +394 −67',
+    'keys': '7 rules · a dot at the call · no declaration rewritten · +601 −161',
+    'relations': '10 rules · consume=, produce=, within= · every declaration rewritten once · +2325 −1000',
+}
 
+#: What each proposal does with each capability, written out for every proposal
+#: even where two of them do the same thing. The anchor links to the model that
+#: measured it.
 MATRIX = [
-    ('A lookup that varies along a second dimension', 'p1', {'per': 1, 'keys': 1, 'relations': 1}),
-    ('The same table walked from its other key', 'p2', {'per': 0, 'keys': 1, 'relations': 1}),
-    ("A line's two ends in one table", 'p3', {'per': 0, 'keys': 0, 'relations': 1}),
-    ('Landing on two value columns at once', 'p4', {'per': 0, 'keys': 0, 'relations': 1}),
-    ('A masked sum: the produced dimension already carried', 'masked', {'per': -1, 'keys': -1, 'relations': 1}),
-    ('Unweighted many-to-many, as structure not data', 'kinds', {'per': 0, 'keys': 0, 'relations': 1}),
-    ('A relation between two members of one dimension', 'p5', {'per': -1, 'keys': -1, 'relations': 1}),
+    (
+        'A lookup that varies along a second dimension',
+        'p1',
+        {
+            'per': 'one table, with per: [period] on the declaration',
+            'keys': 'one table, with a second key and a dot at the call',
+            'relations': 'one table, with a second key column',
+        },
+    ),
+    (
+        'The same table walked from its other key',
+        'p2',
+        {
+            'per': 'a second declaration of the same table, which nothing ties to the first',
+            'keys': 'one table, walked by=zone_of.period',
+            'relations': 'one table, walked consume=period',
+        },
+    ),
+    (
+        "A line's two ends in one table",
+        'p3',
+        {
+            'per': 'two lookups, one per end',
+            'keys': 'two lookups, one per end',
+            'relations': 'one table, with the roles bus0 and bus1',
+        },
+    ),
+    (
+        'Landing on two value columns at once',
+        'p4',
+        {
+            'per': 'two lookups, joined by a by=[…] list at the call',
+            'keys': 'two lookups, joined by a by=[…] list at the call',
+            'relations': 'one table, landed by produce=[bus, technology]',
+        },
+    ),
+    (
+        'A masked sum: the produced dimension already carried',
+        'masked',
+        {
+            'per': 'refused — the result would need bus twice',
+            'keys': 'refused — the result would need bus twice',
+            'relations': 'accepted — the produced column is joined on instead',
+        },
+    ),
+    (
+        'Unweighted many-to-many, as structure rather than data',
+        'kinds',
+        {
+            'per': 'a table of ones, declared dtype: int because a flag cannot be multiplied',
+            'keys': 'a table of ones, declared dtype: int because a flag cannot be multiplied',
+            'relations': 'a lookup with no key',
+        },
+    ),
+    (
+        'A relation between two members of one dimension',
+        'p5',
+        {
+            'per': 'no rewrite — a parameter cannot name one dimension twice',
+            'keys': 'no rewrite — a parameter cannot name one dimension twice',
+            'relations': 'one table, two roles over one dimension, no key',
+        },
+    ),
 ]
 
 #: Every kind of pairing a model needs, in the order a reader meets them: what it
@@ -293,11 +344,25 @@ SAME_MATH = (
     'the file and not about the model it stands for.'
 )
 
-CELL = {
-    1: ('one table', 'yes'),
-    0: ('two of them', 'workaround'),
-    -1: ('refused', 'no'),
-}
+
+def option_row(proposal: str, body: str, *, pr: bool = False) -> str:
+    """One proposal's own row: its colour, its name, and what it says here.
+
+    The page shows every proposal in every place, even where two of them say
+    the same thing, so a reader compares rows rather than decoding a mark.
+    """
+    link = (
+        f'<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/{ABOUT[proposal]["pr"]}">'
+        f'#{ABOUT[proposal]["pr"]}</a>'
+        if pr
+        else ''
+    )
+    return (
+        f'<div class="option" data-proposal="{proposal}">'
+        f'<div class="option-name">{html.escape(ABOUT[proposal]["name"])}{link}</div>'
+        f'<div class="option-body">{body}</div>'
+        f'</div>'
+    )
 
 
 def excerpt(yaml: str) -> str:
@@ -418,53 +483,36 @@ def frame(dims: dict[str, list[str]], names: list[str]) -> str:
     return f'<div class="frame"><span class="frame-label">loader reports</span>{cells}</div>'
 
 
-def refused_panel(proposal: str, verdict: str, note: str, source: str, error: str) -> str:
-    """A panel for a model the branch refuses: the attempt, and what it said."""
-    return (
-        f'<article class="panel refused" data-proposal="{proposal}">'
-        f'<header class="panel-head">'
-        f'<span class="chip">{html.escape(ABOUT[proposal]["name"])}</span>'
-        f'<a class="pr" href="https://github.com/energy-models/math-spec/pull/{ABOUT[proposal]["pr"]}">#{ABOUT[proposal]["pr"]}</a>'
-        f'</header>'
-        f'<p class="verdict"><span class="verdict-word out">{html.escape(verdict)}</span>'
-        f'{html.escape(note)}</p>'
-        f'{yaml_html(source)}'
-        f'<div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span>'
-        f'<pre>{html.escape(error)}</pre></div>'
-        f'</article>'
-    )
-
-
-def panels(problem: dict, ev: dict, mode: str) -> str:
-    out = []
-    for proposal in PROPOSALS:
-        record = ev['models'][f'{problem["id"]}/{proposal}']
-        body = strip_header(record['yaml'])
-        verdict, note = problem['verdict'][proposal]
-        source = excerpt(body) if mode == 'grid' else body
-        if not record['ok']:
-            out.append(refused_panel(proposal, verdict, note, source, record['error']))
-            continue
-        maps = legend_html(list(dict.fromkeys(record['maps'])))
-        out.append(
-            f'<article class="panel" data-proposal="{proposal}">'
-            f'<header class="panel-head">'
-            f'<span class="chip">{html.escape(ABOUT[proposal]["name"])}</span>'
-            f'<a class="pr" href="https://github.com/energy-models/math-spec/pull/{ABOUT[proposal]["pr"]}">#{ABOUT[proposal]["pr"]}</a>'
-            f'</header>'
-            f'<p class="verdict"><span class="verdict-word">{html.escape(verdict)}</span>'
-            f'{html.escape(note)}</p>'
-            f'{yaml_html(source)}'
-            f'{maps}'
-            f'{frame(record["constraints"], problem["show"])}'
-            f'</article>'
+def model_row(problem: dict, ev: dict, proposal: str) -> str:
+    """One proposal's own row for one problem: its verdict, its file, and what the loader said."""
+    record = ev['models'][f'{problem["id"]}/{proposal}']
+    body = strip_header(record['yaml'])
+    verdict, note = problem['verdict'][proposal]
+    word = 'verdict-word out' if not record['ok'] else 'verdict-word'
+    if record['ok']:
+        evidence = legend_html(list(dict.fromkeys(record['maps']))) + frame(record['constraints'], problem['show'])
+    else:
+        evidence = (
+            f'<div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span>'
+            f'<pre>{html.escape(record["error"])}</pre></div>'
         )
-    return '\n'.join(out)
+    whole = (
+        ''
+        if excerpt(body) == body
+        else f'<details class="whole"><summary>the whole file</summary>{yaml_html(body)}</details>'
+    )
+    return option_row(
+        proposal,
+        f'<p class="verdict"><span class="{word}">{html.escape(verdict)}</span>{html.escape(note)}</p>'
+        f'{yaml_html(excerpt(body))}{whole}{evidence}',
+        pr=True,
+    )
 
 
 def problem_section(problem: dict, ev: dict, index: int) -> str:
     latex = ev['models'][f'{problem["id"]}/relations']['latex']
     equations = ''.join(math(latex[name]) for name in problem['show'])
+    rows = '\n'.join(model_row(problem, ev, proposal) for proposal in PROPOSALS)
     return f"""
 <section class="problem" id="{problem['id']}">
   <div class="prose">
@@ -477,8 +525,7 @@ def problem_section(problem: dict, ev: dict, index: int) -> str:
     {equations}
     <p class="caption">{html.escape(problem.get('caption', SAME_MATH))}</p>
   </div>
-  <div class="compare grid-view">{panels(problem, ev, 'grid')}</div>
-  <div class="compare tab-view">{panels(problem, ev, 'full')}</div>
+  <div class="options">{rows}</div>
 </section>"""
 
 
@@ -496,63 +543,69 @@ def kinds_html() -> str:
             f'<div class="kind-code"><span class="kind-code-label">{html.escape(label)}</span>{yaml_html(line)}</div>'
             for label, line in kind['code']
         )
-        says = ''.join(
-            f'<span class="says" data-proposal="{p}">'
-            f'<span class="mark {kind["says"][p][0]}"></span>'
-            f'<b>{html.escape(ABOUT[p]["name"].replace(": conditioning", ":").replace(" and a dot", ""))}</b>'
-            f'{html.escape(kind["says"][p][1])}</span>'
-            for p in PROPOSALS
-        )
+        says = ''.join(option_row(p, html.escape(kind['says'][p][1])) for p in PROPOSALS)
         cards.append(
             f'<article class="kind">'
             f'<p class="kind-shape">{html.escape(kind["shape"])}</p>'
             f'<p class="kind-everyday">{html.escape(kind["everyday"])}</p>'
             f'<p class="kind-model">{html.escape(kind["model"])}</p>'
             f'{code}'
-            f'<div class="kind-says">{says}</div>'
+            f'<div class="options tight">{says}</div>'
             f'</article>'
         )
     return f'<div class="kinds">{"".join(cards)}</div>'
 
 
-def matrix_html() -> str:
-    head = ''.join(
-        f'<th data-proposal="{p}">{html.escape(ABOUT[p]["name"])}<span class="th-pr">#{ABOUT[p]["pr"]}</span></th>'
-        for p in PROPOSALS
-    )
+def masked_rows(ev: dict) -> str:
+    """The masked sum, as a row per proposal: the same file, accepted once and refused twice."""
+    source = yaml_html(excerpt(strip_header(ev['probes']['masked_rel']['yaml'])))
     rows = []
-    for label, anchor, cells in MATRIX:
-        tds = ''
-        for p in PROPOSALS:
-            word, kind = CELL[cells[p]]
-            tds += f'<td data-proposal="{p}"><span class="mark {kind}">{word}</span></td>'
-        link = f'<a href="#{anchor}">{html.escape(label)}</a>' if anchor != 'masked' else html.escape(label)
-        rows.append(f'<tr><th scope="row">{link}</th>{tds}</tr>')
-    price = []
-    for label, cells in PRICE:
-        tds = ''.join(
-            f'<td data-proposal="{p}"><span class="price">{html.escape(cells[p])}</span></td>' for p in PROPOSALS
+    for proposal in PROPOSALS:
+        probe = 'masked_rel' if proposal == 'relations' else 'masked_flat'
+        record = ev['probes'][probe]['by'][proposal]
+        if record['ok']:
+            body = (
+                f'<p class="verdict"><span class="verdict-word">accepted</span>'
+                f'The join on the produced column restricts each term to its own bus.</p>'
+                f'{source}<div class="legend-line">{math(record["latex"]["masked"])}</div>'
+            )
+        else:
+            body = (
+                f'<p class="verdict"><span class="verdict-word out">refused</span>'
+                f"The result would need bus twice, once as the operand's own dimension and once as "
+                f'the group it is placed into.</p>'
+                f'<div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span>'
+                f'<pre>{html.escape(record["error"])}</pre></div>'
+            )
+        rows.append(option_row(proposal, body, pr=True))
+    return ''.join(rows)
+
+
+def capabilities_html() -> str:
+    """Every capability, with all three proposals written out under it."""
+    blocks = []
+    for label, anchor, says in MATRIX:
+        heading = (
+            f'<a href="#{anchor}">{html.escape(label)}</a>' if anchor not in ('masked', 'kinds') else html.escape(label)
         )
-        price.append(f'<tr class="price-row"><th scope="row">{html.escape(label)}</th>{tds}</tr>')
-    return f"""
-<table class="matrix">
-  <thead><tr><th scope="col">What the file can say</th>{head}</tr></thead>
-  <tbody>{''.join(rows)}</tbody>
-  <tbody class="price-body">
-    <tr class="section-row"><th scope="row" colspan="4">What it costs — quoted from the pull requests, not measured here</th></tr>
-    {''.join(price)}
-  </tbody>
-</table>"""
+        rows = ''.join(option_row(p, html.escape(says[p])) for p in PROPOSALS)
+        blocks.append(
+            f'<section class="capability"><h3>{heading}</h3><div class="options tight">{rows}</div></section>'
+        )
+    price = ''.join(option_row(p, html.escape(PRICE[p]), pr=True) for p in PROPOSALS)
+    blocks.append(
+        f'<section class="capability price"><h3>What it costs, quoted from each pull request</h3>'
+        f'<div class="options tight">{price}</div></section>'
+    )
+    return ''.join(blocks)
 
 
 def build() -> str:
     """The page, with every slot in `template.html` filled from the evidence."""
     ev = json.loads((HERE / 'evidence.json').read_text())
-    masked = ev['probes']['masked_rel']
-    masked_load = masked['by']['relations']
     slots = {
         'sections': '\n'.join(problem_section(p, ev, i + 1) for i, p in enumerate(PROBLEMS)),
-        'matrix': matrix_html(),
+        'matrix': capabilities_html(),
         'kinds': kinds_html(),
         'eligible-bool': refusal(ev, 'eligible_ones_bool', 'keys'),
         'self-map-436': refusal(ev, 'self_map_into_itself', 'keys'),
@@ -563,14 +616,7 @@ def build() -> str:
         'rel-no-from': refusal(ev, 'rel_no_from', 'relations'),
         'per-history': refusal(ev, 'per_history', 'per'),
         'masked-refusal': refusal(ev, 'masked_flat', 'per'),
-        'masked-yaml': yaml_html(excerpt(strip_header(masked['yaml']))),
-        'masked-math': math(masked_load['latex']['masked']),
-        'tabs': ''.join(
-            f'<button class="tab" type="button" id="tab-{p}" data-proposal="{p}" '
-            f'aria-pressed="false">{html.escape(ABOUT[p]["name"])}'
-            f'<span class="tab-pr">#{ABOUT[p]["pr"]}</span></button>'
-            for p in PROPOSALS
-        ),
+        'masked-rows': masked_rows(ev),
         'cards': ''.join(
             f'<div class="card" data-proposal="{p}">'
             f'<a class="card-pr" href="https://github.com/energy-models/math-spec/pull/{ABOUT[p]["pr"]}">#{ABOUT[p]["pr"]}</a>'

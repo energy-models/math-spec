@@ -123,37 +123,6 @@
   .card .state { margin-top: 10px; color: var(--ink-3); font-size: 12px; }
   .card-pr { position: absolute; top: 18px; right: 18px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 
-  /* ---------- controls ---------- */
-  .controls {
-    position: sticky; top: 0; z-index: 20;
-    background: color-mix(in srgb, var(--paper) 88%, transparent);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--rule);
-    margin-top: 34px;
-  }
-  .controls-inner {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px;
-    padding-block: 10px;
-  }
-  .control-label {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3);
-  }
-  .switch { display: flex; border: 1px solid var(--rule-2); border-radius: var(--radius); overflow: hidden; }
-  .switch button, .tab {
-    font-family: var(--sans); font-size: 13px; color: var(--ink-2);
-    background: transparent; border: 0; padding: 6px 13px; cursor: pointer;
-  }
-  .switch button + button { border-left: 1px solid var(--rule-2); }
-  .switch button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-  .tabs { display: flex; gap: 4px; }
-  .tab { border: 1px solid transparent; border-radius: var(--radius); }
-  .tab .tab-pr { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-left: 6px; }
-  .tab[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); font-weight: 500; }
-  .tab[data-proposal="per"] { --accent: var(--per); }
-  .tab[data-proposal="keys"] { --accent: var(--keys); }
-  .tab[data-proposal="relations"] { --accent: var(--relations); }
-  :root[data-view="grid"] .tabs, :root:not([data-view]) .tabs { display: none; }
-
   /* ---------- a problem ---------- */
   .problem { padding-block: clamp(40px, 6vw, 72px) 0; }
   .problem + .problem { border-top: 1px solid var(--rule); }
@@ -190,72 +159,62 @@
     border-top: 1px solid var(--rule); padding-top: 12px;
   }
 
-  /* ---------- the panels ---------- */
-  .compare { display: grid; gap: 18px; }
-  .grid-view { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  :root[data-view="tabs"] .grid-view { display: none; }
-  :root[data-view="grid"] .tab-view, :root:not([data-view]) .tab-view { display: none; }
-  :root[data-view="tabs"] .tab-view .panel { display: none; }
-  :root[data-view="tabs"][data-proposal="per"] .tab-view .panel[data-proposal="per"],
-  :root[data-view="tabs"][data-proposal="keys"] .tab-view .panel[data-proposal="keys"],
-  :root[data-view="tabs"][data-proposal="relations"] .tab-view .panel[data-proposal="relations"] {
-    display: block;
-  }
-  .panel[data-proposal="per"] { --accent: var(--per); }
-  .panel[data-proposal="keys"] { --accent: var(--keys); }
-  .panel[data-proposal="relations"] { --accent: var(--relations); }
-  .panel {
+  /* ---------- one row per proposal, everywhere ---------- */
+  .options { display: grid; gap: 14px; }
+  .options.tight { gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .option[data-proposal="per"] { --accent: var(--per); }
+  .option[data-proposal="keys"] { --accent: var(--keys); }
+  .option[data-proposal="relations"] { --accent: var(--relations); }
+  .option {
     background: var(--surface); border: 1px solid var(--rule);
-    border-top: 2px solid var(--accent); border-radius: var(--radius);
-    display: flex; flex-direction: column; min-width: 0;
+    border-left: 3px solid var(--accent); border-radius: var(--radius);
+    display: grid; grid-template-columns: 13rem minmax(0, 1fr); align-items: start;
   }
-  .panel-head {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-    padding: 12px 16px 0;
+  .options.tight .option { border: 0; border-left: 3px solid var(--accent); border-radius: 0; }
+  .option-name {
+    font-size: 13px; font-weight: 600; color: var(--accent);
+    padding: 14px 16px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
   }
-  .chip { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--accent); }
-  .pr { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
-  .verdict { margin: 8px 16px 14px; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+  .options.tight .option-name { padding-block: 10px; }
+  .option-pr { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); font-weight: 400; }
+  .option-body { padding: 14px 16px 14px 0; min-width: 0; font-size: 13.5px; color: var(--ink-2); }
+  .options.tight .option-body { padding-block: 10px; }
+  .option-body > :first-child { margin-top: 0; }
+  .option-body > :last-child { margin-bottom: 0; }
+
+  .verdict { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
   .verdict-word {
-    display: inline-block; font-family: var(--sans); font-size: 11px; font-weight: 600;
+    display: inline-block; font-size: 11px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink);
     border-bottom: 2px solid var(--accent); margin-right: 8px;
   }
+  .verdict-word.out { border-bottom-color: var(--refuse); color: var(--refuse); }
 
   pre.yaml {
-    margin: 0; padding: 14px 0; background: var(--sunk);
-    border-block: 1px solid var(--rule);
+    margin: 0; padding: 12px 0; background: var(--sunk);
+    border: 1px solid var(--rule); border-radius: var(--radius);
     font-size: 12.5px; line-height: 1.62; overflow-x: auto;
   }
-  pre.yaml code { display: block; min-width: max-content; }
-  .line { display: block; padding-inline: 16px; border-left: 2px solid transparent; }
-  .grid-view pre.yaml { overflow-x: visible; }
-  .grid-view pre.yaml code { min-width: 0; }
-  .grid-view .line {
-    white-space: pre-wrap; overflow-wrap: anywhere;
-    padding-left: calc(16px + 1.6em); text-indent: -1.6em;
-  }
+  pre.yaml code { display: block; min-width: max-content; color: var(--ink-2); }
+  .line { display: block; padding-inline: 14px; border-left: 2px solid transparent; }
   .line.focus {
     background: color-mix(in srgb, var(--accent) 9%, transparent);
     border-left-color: var(--accent);
   }
   .yaml .k { color: var(--ink); font-weight: 500; }
-  .yaml .fn { color: var(--accent); font-weight: 500; }
-  .yaml .kw { color: var(--accent); font-weight: 500; }
+  .yaml .fn, .yaml .kw { color: var(--accent); font-weight: 500; }
   .yaml .c { color: var(--ink-3); font-style: normal; }
-  pre.yaml code { color: var(--ink-2); }
 
-  .legend-line {
-    padding: 12px 16px; display: grid; gap: 5px; justify-items: start;
+  .whole { margin-top: 10px; }
+  .whole summary {
+    cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); padding-block: 4px;
   }
-  .legend-line .map {
-    font-size: 12.5px; color: var(--ink-2); max-width: 100%; overflow-x: auto;
-  }
-  .panel-math { padding: 6px 16px 14px; }
-  .frame {
-    margin-top: auto; padding: 12px 16px 14px; border-top: 1px dashed var(--rule);
-    display: grid; gap: 4px;
-  }
+  .whole pre.yaml { margin-top: 8px; }
+
+  .legend-line { padding: 12px 0 0; display: grid; gap: 5px; justify-items: start; }
+  .legend-line .map { font-size: 12.5px; color: var(--ink-2); max-width: 100%; overflow-x: auto; }
+  .frame { padding: 12px 0 0; display: grid; gap: 4px; }
   .frame-label {
     font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3);
   }
@@ -263,46 +222,20 @@
   .frame-row code { color: var(--ink); }
   .frame-row .arrow { color: var(--ink-3); }
   .frame-row .dims { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .refusal-frame pre {
+    margin: 6px 0 0; font-size: 12px; line-height: 1.55; color: var(--refuse);
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  .capability { margin-top: 26px; }
+  .capability h3 { font-family: var(--sans); font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .capability.price h3 { color: var(--ink-3); font-weight: 500; }
 
   /* ---------- the sections after the problems ---------- */
   .band { padding-block: clamp(40px, 6vw, 72px) 0; border-top: 1px solid var(--rule); }
   .band h2 { font-size: clamp(21px, 2.4vw, 27px); }
   .band .prose p:first-of-type { margin-top: 12px; }
 
-  .matrix {
-    width: 100%; border-collapse: collapse; margin-top: 26px; font-size: 13.5px;
-  }
-  .matrix th, .matrix td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
-  .matrix thead th {
-    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--accent);
-    border-bottom: 1px solid var(--rule-2); vertical-align: bottom;
-  }
-  .matrix thead th:first-child { color: var(--ink-3); font-weight: 500; }
-  .matrix th[data-proposal="per"], .matrix td[data-proposal="per"] { --accent: var(--per); }
-  .matrix th[data-proposal="keys"], .matrix td[data-proposal="keys"] { --accent: var(--keys); }
-  .matrix th[data-proposal="relations"], .matrix td[data-proposal="relations"] { --accent: var(--relations); }
-  .matrix tbody th { font-weight: 400; color: var(--ink); max-width: 34ch; }
-  .th-pr { display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-3); font-weight: 400; }
-  .mark { font-size: 12.5px; display: inline-flex; align-items: center; gap: 7px; }
-  .mark::before {
-    content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none;
-    border: 1.5px solid var(--accent);
-  }
-  .mark.yes::before { background: var(--accent); }
-  .mark.workaround::before { background: transparent; }
-  .mark.no { color: var(--refuse); }
-  .mark.no::before {
-    border-color: var(--refuse);
-    background: linear-gradient(
-      45deg, transparent 44%, var(--refuse) 44%, var(--refuse) 56%, transparent 56%
-    );
-  }
-  .section-row th {
-    font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
-    color: var(--ink-3); padding-top: 26px; max-width: none;
-  }
-  .price { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
-  .price-row th { color: var(--ink-2); }
   .table-scroll { overflow-x: auto; }
 
   /* ---------- the plain-words primer ---------- */
@@ -340,16 +273,9 @@
   }
   /* the whole line is the point here, so nothing inside it is marked as differing */
   .kind-code .line.focus { background: transparent; border-left-color: transparent; }
-  .kind-says {
-    margin-top: auto; padding-top: 16px; display: grid; gap: 6px;
-  }
-  .says { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--ink-3); }
-  .says[data-proposal="per"] { --accent: var(--per); }
-  .says[data-proposal="keys"] { --accent: var(--keys); }
-  .says[data-proposal="relations"] { --accent: var(--relations); }
-  .says b { color: var(--accent); font-weight: 600; min-width: 6.5em; }
-  .says .mark { display: inline-flex; }
-  .says .mark::before { margin: 0; }
+  .kind .options { margin-top: auto; padding-top: 16px; }
+  .kind .option-name { font-size: 12px; }
+  .kind .option { grid-template-columns: 10rem minmax(0, 1fr); }
 
   .thumb {
     margin-top: 26px; padding: 20px 24px; background: var(--surface);
@@ -364,7 +290,6 @@
   .thumb li b { color: var(--ink); font-weight: 600; }
   .thumb li::marker { color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
 
-  .panel.refused pre.yaml { opacity: 0.72; }
   .verdict-word.out { border-bottom-color: var(--refuse); color: var(--refuse); }
   .refusal-frame { display: block; border-top: 1px dashed var(--rule); }
   .refusal-frame pre {
@@ -389,7 +314,6 @@
   .refusal .said { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-3); }
 
   .extra { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 26px; align-items: start; }
-  .extra .panel { border-top-width: 2px; }
 
   .reading { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 26px; }
   .reading > div { background: var(--surface); padding: 18px 20px; border-top: 2px solid var(--accent); }
@@ -413,11 +337,9 @@
   }
 
   @media (max-width: 760px) {
-    .controls-inner .control-label:last-child { display: none; }
   }
   @media (max-width: 1000px) {
     .kinds { grid-template-columns: 1fr; }
-    .grid-view { grid-template-columns: 1fr; }
     .cards, .reading { grid-template-columns: 1fr; }
     .extra { grid-template-columns: 1fr; }
   }
@@ -474,7 +396,7 @@
         below answers both for one kind, in everyday terms first and then in a model.
       </p>
     </div>
-    <div class="kinds"><article class="kind"><p class="kind-shape">one each</p><p class="kind-everyday">Every pupil is in one class.</p><p class="kind-model">Every generator sits on one bus.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line focus"><b class="k">gen_bus</b>: { columns: [generator, bus], key: generator }</span></code></pre></div><div class="kind-code"><span class="kind-code-label">per: and keys</span><pre class="yaml"><code><span class="line focus"><b class="k">gen_bus</b>: { over: generator, into: bus }</span></code></pre></div><div class="kind-says"><span class="says" data-proposal="per"><span class="mark yes"></span><b>per:</b>a lookup</span><span class="says" data-proposal="keys"><span class="mark yes"></span><b>keys</b>a lookup</span><span class="says" data-proposal="relations"><span class="mark yes"></span><b>relations</b>a lookup with a key</span></div></article><article class="kind"><p class="kind-shape">one each, and it changes</p><p class="kind-everyday">Every pupil is in one class, and the class changes each school year.</p><p class="kind-model">Every generator bids in one zone, and the zone changes by period.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line focus"><b class="k">zone_of</b>: { columns: [generator, period, zone], key: [generator, period] }</span></code></pre></div><div class="kind-code"><span class="kind-code-label">keys</span><pre class="yaml"><code><span class="line focus"><b class="k">zone_of</b>: { over: [generator, period], into: zone }</span></code></pre></div><div class="kind-says"><span class="says" data-proposal="per"><span class="mark yes"></span><b>per:</b>per: [period]</span><span class="says" data-proposal="keys"><span class="mark yes"></span><b>keys</b>a second key</span><span class="says" data-proposal="relations"><span class="mark yes"></span><b>relations</b>a second key column</span></div></article><article class="kind"><p class="kind-shape">two named slots</p><p class="kind-everyday">A seesaw has a left seat and a right seat.</p><p class="kind-model">A line has one bus at each end, and the two ends are not interchangeable.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line focus"><b class="k">ends</b>: { columns: { line: line, bus0: bus, bus1: bus }, key: line }</span></code></pre></div><div class="kind-says"><span class="says" data-proposal="per"><span class="mark workaround"></span><b>per:</b>two lookups</span><span class="says" data-proposal="keys"><span class="mark workaround"></span><b>keys</b>two lookups</span><span class="says" data-proposal="relations"><span class="mark yes"></span><b>relations</b>one table, two roles</span></div></article><article class="kind"><p class="kind-shape">one of its own kind</p><p class="kind-everyday">Every pupil has one buddy, who is also a pupil.</p><p class="kind-model">Every snapshot has one representative snapshot standing in for it.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line focus"><b class="k">represents</b>: { columns: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }</span></code></pre></div><div class="kind-code"><span class="kind-code-label">keys, with #436</span><pre class="yaml"><code><span class="line focus"><b class="k">rep_of</b>: { over: snapshot, into: snapshot }</span></code></pre></div><div class="kind-says"><span class="says" data-proposal="per"><span class="mark no"></span><b>per:</b>refused: maps into itself</span><span class="says" data-proposal="keys"><span class="mark workaround"></span><b>keys</b>only with #436</span><span class="says" data-proposal="relations"><span class="mark yes"></span><b>relations</b>a keyed self-map</span></div></article><article class="kind"><p class="kind-shape">many each, nothing to count</p><p class="kind-everyday">A pupil can be in several clubs, and a club has several pupils.</p><p class="kind-model">A generator bids into several reserve products, and each product takes many.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line"><b class="k">eligible</b>: { columns: [generator, product] }</span></code></pre></div><div class="kind-code"><span class="kind-code-label">per: and keys</span><pre class="yaml"><code><span class="line"><b class="k">eligible</b>: { dims: [generator, product], dtype: int }  <i class="c"># a table of ones</i></span></code></pre></div><div class="kind-says"><span class="says" data-proposal="per"><span class="mark workaround"></span><b>per:</b>ones, and int not bool</span><span class="says" data-proposal="keys"><span class="mark workaround"></span><b>keys</b>ones, and int not bool</span><span class="says" data-proposal="relations"><span class="mark yes"></span><b>relations</b>a lookup with no key</span></div></article><article class="kind"><p class="kind-shape">many each, of its own kind</p><p class="kind-everyday">A pupil sits next to several others.</p><p class="kind-model">A region touches several other regions.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line"><b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span></code></pre></div><div class="kind-says"><span class="says" data-proposal="per"><span class="mark no"></span><b>per:</b>no rewrite exists</span><span class="says" data-proposal="keys"><span class="mark no"></span><b>keys</b>no rewrite exists</span><span class="says" data-proposal="relations"><span class="mark yes"></span><b>relations</b>a bare self-relation</span></div></article><article class="kind"><p class="kind-shape">many each, with a number on the pair</p><p class="kind-everyday">Each pupil gets a number of biscuits at each club.</p><p class="kind-model">Each generator feeds its bus at some efficiency.</p><div class="kind-code"><span class="kind-code-label">every proposal</span><pre class="yaml"><code><span class="line"><b class="k">efficiency</b>: { dims: [generator, bus] }</span></code></pre></div><div class="kind-says"><span class="says" data-proposal="per"><span class="mark yes"></span><b>per:</b>a parameter</span><span class="says" data-proposal="keys"><span class="mark yes"></span><b>keys</b>a parameter</span><span class="says" data-proposal="relations"><span class="mark yes"></span><b>relations</b>a parameter</span></div></article></div>
+    <div class="kinds"><article class="kind"><p class="kind-shape">one each</p><p class="kind-everyday">Every pupil is in one class.</p><p class="kind-model">Every generator sits on one bus.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line focus"><b class="k">gen_bus</b>: { columns: [generator, bus], key: generator }</span></code></pre></div><div class="kind-code"><span class="kind-code-label">per: and keys</span><pre class="yaml"><code><span class="line focus"><b class="k">gen_bus</b>: { over: generator, into: bus }</span></code></pre></div><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">a lookup</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">a lookup</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">a lookup with a key</div></div></div></article><article class="kind"><p class="kind-shape">one each, and it changes</p><p class="kind-everyday">Every pupil is in one class, and the class changes each school year.</p><p class="kind-model">Every generator bids in one zone, and the zone changes by period.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line focus"><b class="k">zone_of</b>: { columns: [generator, period, zone], key: [generator, period] }</span></code></pre></div><div class="kind-code"><span class="kind-code-label">keys</span><pre class="yaml"><code><span class="line focus"><b class="k">zone_of</b>: { over: [generator, period], into: zone }</span></code></pre></div><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">per: [period]</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">a second key</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">a second key column</div></div></div></article><article class="kind"><p class="kind-shape">two named slots</p><p class="kind-everyday">A seesaw has a left seat and a right seat.</p><p class="kind-model">A line has one bus at each end, and the two ends are not interchangeable.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line focus"><b class="k">ends</b>: { columns: { line: line, bus0: bus, bus1: bus }, key: line }</span></code></pre></div><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">two lookups</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">two lookups</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">one table, two roles</div></div></div></article><article class="kind"><p class="kind-shape">one of its own kind</p><p class="kind-everyday">Every pupil has one buddy, who is also a pupil.</p><p class="kind-model">Every snapshot has one representative snapshot standing in for it.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line focus"><b class="k">represents</b>: { columns: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }</span></code></pre></div><div class="kind-code"><span class="kind-code-label">keys, with #436</span><pre class="yaml"><code><span class="line focus"><b class="k">rep_of</b>: { over: snapshot, into: snapshot }</span></code></pre></div><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">refused: maps into itself</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">only with #436</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">a keyed self-map</div></div></div></article><article class="kind"><p class="kind-shape">many each, nothing to count</p><p class="kind-everyday">A pupil can be in several clubs, and a club has several pupils.</p><p class="kind-model">A generator bids into several reserve products, and each product takes many.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line"><b class="k">eligible</b>: { columns: [generator, product] }</span></code></pre></div><div class="kind-code"><span class="kind-code-label">per: and keys</span><pre class="yaml"><code><span class="line"><b class="k">eligible</b>: { dims: [generator, product], dtype: int }  <i class="c"># a table of ones</i></span></code></pre></div><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">ones, and int not bool</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">ones, and int not bool</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">a lookup with no key</div></div></div></article><article class="kind"><p class="kind-shape">many each, of its own kind</p><p class="kind-everyday">A pupil sits next to several others.</p><p class="kind-model">A region touches several other regions.</p><div class="kind-code"><span class="kind-code-label">relations</span><pre class="yaml"><code><span class="line"><b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span></code></pre></div><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">no rewrite exists</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">no rewrite exists</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">a bare self-relation</div></div></div></article><article class="kind"><p class="kind-shape">many each, with a number on the pair</p><p class="kind-everyday">Each pupil gets a number of biscuits at each club.</p><p class="kind-model">Each generator feeds its bus at some efficiency.</p><div class="kind-code"><span class="kind-code-label">every proposal</span><pre class="yaml"><code><span class="line"><b class="k">efficiency</b>: { dims: [generator, bus] }</span></code></pre></div><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">a parameter</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">a parameter</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">a parameter</div></div></div></article></div>
     <div class="thumb">
       <p class="thumb-title">Which kind you have</p>
       <ol>
@@ -517,20 +439,6 @@
   </section>
 </div>
 
-<div class="controls">
-  <div class="wrap controls-inner">
-    <span class="control-label">View</span>
-    <div class="switch" role="group" aria-label="How to show the three proposals">
-      <button type="button" id="view-grid" data-view="grid" aria-pressed="true">Side by side</button>
-      <button type="button" id="view-tabs" data-view="tabs" aria-pressed="false">One model at a time</button>
-    </div>
-    <div class="tabs" role="group" aria-label="Which proposal to show"><button class="tab" type="button" id="tab-per" data-proposal="per" aria-pressed="false">per: conditioning<span class="tab-pr">#428</span></button><button class="tab" type="button" id="tab-keys" data-proposal="keys" aria-pressed="false">keys and a dot<span class="tab-pr">#433</span></button><button class="tab" type="button" id="tab-relations" data-proposal="relations" aria-pressed="false">relations<span class="tab-pr">#437</span></button></div>
-    <span class="control-label" style="margin-left:auto">
-      side by side · the lines that differ &nbsp;·&nbsp; one at a time · the whole file
-    </span>
-  </div>
-</div>
-
 <main class="wrap">
 
 <section class="problem" id="p1">
@@ -544,22 +452,11 @@
     <div class="math">$$ \sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E} $$</div>
     <p class="caption">All three proposals print this. Only the name of the lookup changes, so the choice is about the file and not about the model it stands for.</p>
   </div>
-  <div class="compare grid-view"><article class="panel" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word">one table</span>The call is unchanged from a one-key lookup.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+  <div class="options"><div class="option" data-proposal="per"><div class="option-name">per: conditioning<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>The call is unchanged from a one-key lookup.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">zone_of</b>: { over: generator, into: zone, per: [period] }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">zone_balance</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of) &gt;= demand</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></article>
-<article class="panel" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word">one table</span>The call names the key it walks.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
-<span class="line focus">  <b class="k">zone_of</b>: { over: [generator, period], into: zone }</span>
-<span class="line"></span>
-<span class="line">  <b class="k">zone_balance</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of.generator) &gt;= demand</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>The call names the column it consumes.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
-<span class="line focus">  <b class="k">zone_of</b>: { columns: [generator, period, zone], key: [generator, period] }</span>
-<span class="line"></span>
-<span class="line">  <b class="k">zone_balance</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of, consume=generator) &gt;= demand</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></article></div>
-  <div class="compare tab-view"><article class="panel" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word">one table</span>The call is unchanged from a one-key lookup.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of) &gt;= demand</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">generator</b>: {}</span>
 <span class="line">  <b class="k">zone</b>: {}</span>
 <span class="line">  <b class="k">period</b>: { dtype: int }</span>
@@ -579,8 +476,12 @@
 <span class="line">    <b class="k">foreach</b>: [zone, period]</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of) &gt;= demand</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></article>
-<article class="panel" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word">one table</span>The call names the key it walks.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></div></div>
+<div class="option" data-proposal="keys"><div class="option-name">keys and a dot<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>The call names the key it walks.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">  <b class="k">zone_of</b>: { over: [generator, period], into: zone }</span>
+<span class="line"></span>
+<span class="line">  <b class="k">zone_balance</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of.generator) &gt;= demand</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">generator</b>: {}</span>
 <span class="line">  <b class="k">zone</b>: {}</span>
 <span class="line">  <b class="k">period</b>: { dtype: int }</span>
@@ -600,8 +501,12 @@
 <span class="line">    <b class="k">foreach</b>: [zone, period]</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of.generator) &gt;= demand</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>The call names the column it consumes.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></div></div>
+<div class="option" data-proposal="relations"><div class="option-name">relations<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>The call names the column it consumes.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">  <b class="k">zone_of</b>: { columns: [generator, period, zone], key: [generator, period] }</span>
+<span class="line"></span>
+<span class="line">  <b class="k">zone_balance</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of, consume=generator) &gt;= demand</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">generator</b>: {}</span>
 <span class="line">  <b class="k">zone</b>: {}</span>
 <span class="line">  <b class="k">period</b>: { dtype: int }</span>
@@ -621,7 +526,7 @@
 <span class="line">    <b class="k">foreach</b>: [zone, period]</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of, consume=generator) &gt;= demand</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></article></div>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div></div></div></div></div>
 </section>
 
 <section class="problem" id="p2">
@@ -635,7 +540,7 @@
     <div class="math">$$ \sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E} $$</div><div class="math">$$ \sum_{e \in \mathcal{E} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \le 100 \qquad \forall\, g \in \mathcal{G},\ z \in \mathcal{Z} $$</div>
     <p class="caption">All three proposals print this. Only the name of the lookup changes, so the choice is about the file and not about the model it stands for.</p>
   </div>
-  <div class="compare grid-view"><article class="panel" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word">two declarations</span>per: fixes which dimension is consumed, so the other direction needs a second lookup. Nothing ties the two declarations together. To the loader they are two lookups, and a consumer binds two tables.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+  <div class="options"><div class="option" data-proposal="per"><div class="option-name">per: conditioning<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">two declarations</span>per: fixes which dimension is consumed, so the other direction needs a second lookup. Nothing ties the two declarations together. To the loader they are two lookups, and a consumer binds two tables.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">zone_of</b>: { over: generator, into: zone, per: [period] }</span>
 <span class="line focus">  <b class="k">zone_of_by_period</b>: { over: period, into: zone, per: [generator] }</span>
 <span class="line"></span>
@@ -643,24 +548,7 @@
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of) &gt;= demand</span>
 <span class="line"></span>
 <span class="line">  <b class="k">history</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of_by_period) &lt;= 100</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code><code class="map">zone_of_by_period: ℰ × 𝒢 → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></article>
-<article class="panel" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word">one table</span>The dot picks the other key. One declaration, two walks.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
-<span class="line focus">  <b class="k">zone_of</b>: { over: [generator, period], into: zone }</span>
-<span class="line"></span>
-<span class="line">  <b class="k">zone_balance</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of.generator) &gt;= demand</span>
-<span class="line"></span>
-<span class="line">  <b class="k">history</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of.period) &lt;= 100</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>consume= picks the other key column. One declaration, two walks.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
-<span class="line focus">  <b class="k">zone_of</b>: { columns: [generator, period, zone], key: [generator, period] }</span>
-<span class="line"></span>
-<span class="line">  <b class="k">zone_balance</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of, consume=generator) &gt;= demand</span>
-<span class="line"></span>
-<span class="line">  <b class="k">history</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of, consume=period) &lt;= 100</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></article></div>
-  <div class="compare tab-view"><article class="panel" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word">two declarations</span>per: fixes which dimension is consumed, so the other direction needs a second lookup. Nothing ties the two declarations together. To the loader they are two lookups, and a consumer binds two tables.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of_by_period) &lt;= 100</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">generator</b>: {}</span>
 <span class="line">  <b class="k">zone</b>: {}</span>
 <span class="line">  <b class="k">period</b>: { dtype: int }</span>
@@ -684,8 +572,15 @@
 <span class="line">    <b class="k">foreach</b>: [generator, zone]</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of_by_period) &lt;= 100</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code><code class="map">zone_of_by_period: ℰ × 𝒢 → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></article>
-<article class="panel" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word">one table</span>The dot picks the other key. One declaration, two walks.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code><code class="map">zone_of_by_period: ℰ × 𝒢 → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></div></div>
+<div class="option" data-proposal="keys"><div class="option-name">keys and a dot<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>The dot picks the other key. One declaration, two walks.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">  <b class="k">zone_of</b>: { over: [generator, period], into: zone }</span>
+<span class="line"></span>
+<span class="line">  <b class="k">zone_balance</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of.generator) &gt;= demand</span>
+<span class="line"></span>
+<span class="line">  <b class="k">history</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of.period) &lt;= 100</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">generator</b>: {}</span>
 <span class="line">  <b class="k">zone</b>: {}</span>
 <span class="line">  <b class="k">period</b>: { dtype: int }</span>
@@ -708,8 +603,15 @@
 <span class="line">    <b class="k">foreach</b>: [generator, zone]</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of.period) &lt;= 100</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>consume= picks the other key column. One declaration, two walks.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></div></div>
+<div class="option" data-proposal="relations"><div class="option-name">relations<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>consume= picks the other key column. One declaration, two walks.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">  <b class="k">zone_of</b>: { columns: [generator, period, zone], key: [generator, period] }</span>
+<span class="line"></span>
+<span class="line">  <b class="k">zone_balance</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of, consume=generator) &gt;= demand</span>
+<span class="line"></span>
+<span class="line">  <b class="k">history</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of, consume=period) &lt;= 100</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">generator</b>: {}</span>
 <span class="line">  <b class="k">zone</b>: {}</span>
 <span class="line">  <b class="k">period</b>: { dtype: int }</span>
@@ -732,7 +634,7 @@
 <span class="line">    <b class="k">foreach</b>: [generator, zone]</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=zone_of, consume=period) &lt;= 100</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></article></div>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">zone_of: 𝒢 × ℰ → 𝒵</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>zone_balance</code><span class="arrow">→</span><code class="dims">[zone, period]</code></div><div class="frame-row"><code>history</code><span class="arrow">→</span><code class="dims">[generator, zone]</code></div></div></div></div></div>
 </section>
 
 <section class="problem" id="p3">
@@ -746,7 +648,7 @@
     <div class="math">$$ \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{g,e} + \sum_{l \in \mathcal{L} \,:\, \mathrm{ends.bus1}(l) = b} f_{l,e} - \left( \sum_{l \in \mathcal{L} \,:\, \mathrm{ends.bus0}(l) = b} f_{l,e} \right) = \mathrm{load}_{b,e} \qquad \forall\, b \in \mathcal{B},\ e \in \mathcal{E} $$</div><div class="math">$$ f_{l,e} \le 10 \qquad \forall\, l \in \mathcal{L},\ e \in \mathcal{E} \,:\, \mathrm{ends.bus0}(l) \neq \mathrm{ends.bus1}(l) $$</div>
     <p class="caption">All three proposals print this. Only the name of the lookup changes, so the choice is about the file and not about the model it stands for.</p>
   </div>
-  <div class="compare grid-view"><article class="panel" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word">two tables</span>A lookup has one target, so the two ends are two lookups. per: adds nothing here, and the file is the one the language accepts today.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+  <div class="options"><div class="option" data-proposal="per"><div class="option-name">per: conditioning<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">two tables</span>A lookup has one target, so the two ends are two lookups. per: adds nothing here, and the file is the one the language accepts today.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
 <span class="line focus">  <b class="k">line_bus0</b>: { over: line, into: bus }</span>
 <span class="line focus">  <b class="k">line_bus1</b>: { over: line, into: bus }</span>
@@ -756,8 +658,36 @@
 <span class="line"></span>
 <span class="line">  <b class="k">no_loop</b>:</span>
 <span class="line focus">    <b class="k">where</b>: &quot;line_bus0 != line_bus1&quot;</span>
-<span class="line">    <b class="k">expression</b>: f &lt;= 10</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">line_bus0: ℒ → ℬ</code><code class="map">line_bus1: ℒ → ℬ</code><code class="map">gen_bus: 𝒢 → ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></article>
-<article class="panel" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word">two tables</span>The same file as per:. A column is named after its dimension and cannot appear twice, so the two ends stay two lookups.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line">    <b class="k">expression</b>: f &lt;= 10</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line">  <b class="k">bus</b>: {}</span>
+<span class="line">  <b class="k">line</b>: {}</span>
+<span class="line">  <b class="k">generator</b>: {}</span>
+<span class="line">  <b class="k">period</b>: { dtype: int }</span>
+<span class="line"></span>
+<span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
+<span class="line focus">  <b class="k">line_bus0</b>: { over: line, into: bus }</span>
+<span class="line focus">  <b class="k">line_bus1</b>: { over: line, into: bus }</span>
+<span class="line"></span>
+<span class="line"><b class="k">parameters</b>:</span>
+<span class="line">  <b class="k">load</b>: { dims: [bus, period] }</span>
+<span class="line">  <b class="k">cost</b>: { dims: [generator] }</span>
+<span class="line"></span>
+<span class="line"><b class="k">variables</b>:</span>
+<span class="line">  <b class="k">p</b>: { foreach: [generator, period], bounds: { lower: 0 } }</span>
+<span class="line">  <b class="k">f</b>: { foreach: [line, period] }</span>
+<span class="line"></span>
+<span class="line"><b class="k">constraints</b>:</span>
+<span class="line">  <b class="k">nodal</b>:</span>
+<span class="line">    <b class="k">foreach</b>: [bus, period]</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=gen_bus) + <b class="fn">sum</b>(f, <b class="kw">by</b>=line_bus1) - <b class="fn">sum</b>(f, <b class="kw">by</b>=line_bus0) == load</span>
+<span class="line">  <b class="k">no_loop</b>:</span>
+<span class="line">    <b class="k">foreach</b>: [line, period]</span>
+<span class="line focus">    <b class="k">where</b>: &quot;line_bus0 != line_bus1&quot;</span>
+<span class="line">    <b class="k">expression</b>: f &lt;= 10</span>
+<span class="line"></span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">line_bus0: ℒ → ℬ</code><code class="map">line_bus1: ℒ → ℬ</code><code class="map">gen_bus: 𝒢 → ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></div></div>
+<div class="option" data-proposal="keys"><div class="option-name">keys and a dot<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">two tables</span>The same file as per:. A column is named after its dimension and cannot appear twice, so the two ends stay two lookups.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
 <span class="line focus">  <b class="k">line_bus0</b>: { over: line, into: bus }</span>
 <span class="line focus">  <b class="k">line_bus1</b>: { over: line, into: bus }</span>
@@ -767,8 +697,36 @@
 <span class="line"></span>
 <span class="line">  <b class="k">no_loop</b>:</span>
 <span class="line focus">    <b class="k">where</b>: &quot;line_bus0 != line_bus1&quot;</span>
-<span class="line">    <b class="k">expression</b>: f &lt;= 10</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">line_bus0: ℒ → ℬ</code><code class="map">line_bus1: ℒ → ℬ</code><code class="map">gen_bus: 𝒢 → ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>Roles name the two columns, so both ends are one table with one key. The legend prints one map into a product.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line">    <b class="k">expression</b>: f &lt;= 10</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line">  <b class="k">bus</b>: {}</span>
+<span class="line">  <b class="k">line</b>: {}</span>
+<span class="line">  <b class="k">generator</b>: {}</span>
+<span class="line">  <b class="k">period</b>: { dtype: int }</span>
+<span class="line"></span>
+<span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
+<span class="line focus">  <b class="k">line_bus0</b>: { over: line, into: bus }</span>
+<span class="line focus">  <b class="k">line_bus1</b>: { over: line, into: bus }</span>
+<span class="line"></span>
+<span class="line"><b class="k">parameters</b>:</span>
+<span class="line">  <b class="k">load</b>: { dims: [bus, period] }</span>
+<span class="line">  <b class="k">cost</b>: { dims: [generator] }</span>
+<span class="line"></span>
+<span class="line"><b class="k">variables</b>:</span>
+<span class="line">  <b class="k">p</b>: { foreach: [generator, period], bounds: { lower: 0 } }</span>
+<span class="line">  <b class="k">f</b>: { foreach: [line, period] }</span>
+<span class="line"></span>
+<span class="line"><b class="k">constraints</b>:</span>
+<span class="line">  <b class="k">nodal</b>:</span>
+<span class="line">    <b class="k">foreach</b>: [bus, period]</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=gen_bus) + <b class="fn">sum</b>(f, <b class="kw">by</b>=line_bus1) - <b class="fn">sum</b>(f, <b class="kw">by</b>=line_bus0) == load</span>
+<span class="line">  <b class="k">no_loop</b>:</span>
+<span class="line">    <b class="k">foreach</b>: [line, period]</span>
+<span class="line focus">    <b class="k">where</b>: &quot;line_bus0 != line_bus1&quot;</span>
+<span class="line">    <b class="k">expression</b>: f &lt;= 10</span>
+<span class="line"></span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">line_bus0: ℒ → ℬ</code><code class="map">line_bus1: ℒ → ℬ</code><code class="map">gen_bus: 𝒢 → ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></div></div>
+<div class="option" data-proposal="relations"><div class="option-name">relations<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>Roles name the two columns, so both ends are one table with one key. The legend prints one map into a product.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">gen_bus</b>: { columns: [generator, bus], key: generator }</span>
 <span class="line focus">  <b class="k">ends</b>: { columns: { line: line, bus0: bus, bus1: bus }, key: line }</span>
 <span class="line"></span>
@@ -777,66 +735,7 @@
 <span class="line"></span>
 <span class="line">  <b class="k">no_loop</b>:</span>
 <span class="line focus">    <b class="k">where</b>: &quot;ends.bus0 != ends.bus1&quot;</span>
-<span class="line">    <b class="k">expression</b>: f &lt;= 10</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">ends: ℒ → ℬ × ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></article></div>
-  <div class="compare tab-view"><article class="panel" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word">two tables</span>A lookup has one target, so the two ends are two lookups. per: adds nothing here, and the file is the one the language accepts today.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
-<span class="line">  <b class="k">bus</b>: {}</span>
-<span class="line">  <b class="k">line</b>: {}</span>
-<span class="line">  <b class="k">generator</b>: {}</span>
-<span class="line">  <b class="k">period</b>: { dtype: int }</span>
-<span class="line"></span>
-<span class="line"><b class="k">lookups</b>:</span>
-<span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
-<span class="line focus">  <b class="k">line_bus0</b>: { over: line, into: bus }</span>
-<span class="line focus">  <b class="k">line_bus1</b>: { over: line, into: bus }</span>
-<span class="line"></span>
-<span class="line"><b class="k">parameters</b>:</span>
-<span class="line">  <b class="k">load</b>: { dims: [bus, period] }</span>
-<span class="line">  <b class="k">cost</b>: { dims: [generator] }</span>
-<span class="line"></span>
-<span class="line"><b class="k">variables</b>:</span>
-<span class="line">  <b class="k">p</b>: { foreach: [generator, period], bounds: { lower: 0 } }</span>
-<span class="line">  <b class="k">f</b>: { foreach: [line, period] }</span>
-<span class="line"></span>
-<span class="line"><b class="k">constraints</b>:</span>
-<span class="line">  <b class="k">nodal</b>:</span>
-<span class="line">    <b class="k">foreach</b>: [bus, period]</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=gen_bus) + <b class="fn">sum</b>(f, <b class="kw">by</b>=line_bus1) - <b class="fn">sum</b>(f, <b class="kw">by</b>=line_bus0) == load</span>
-<span class="line">  <b class="k">no_loop</b>:</span>
-<span class="line">    <b class="k">foreach</b>: [line, period]</span>
-<span class="line focus">    <b class="k">where</b>: &quot;line_bus0 != line_bus1&quot;</span>
-<span class="line">    <b class="k">expression</b>: f &lt;= 10</span>
-<span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">line_bus0: ℒ → ℬ</code><code class="map">line_bus1: ℒ → ℬ</code><code class="map">gen_bus: 𝒢 → ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></article>
-<article class="panel" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word">two tables</span>The same file as per:. A column is named after its dimension and cannot appear twice, so the two ends stay two lookups.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
-<span class="line">  <b class="k">bus</b>: {}</span>
-<span class="line">  <b class="k">line</b>: {}</span>
-<span class="line">  <b class="k">generator</b>: {}</span>
-<span class="line">  <b class="k">period</b>: { dtype: int }</span>
-<span class="line"></span>
-<span class="line"><b class="k">lookups</b>:</span>
-<span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
-<span class="line focus">  <b class="k">line_bus0</b>: { over: line, into: bus }</span>
-<span class="line focus">  <b class="k">line_bus1</b>: { over: line, into: bus }</span>
-<span class="line"></span>
-<span class="line"><b class="k">parameters</b>:</span>
-<span class="line">  <b class="k">load</b>: { dims: [bus, period] }</span>
-<span class="line">  <b class="k">cost</b>: { dims: [generator] }</span>
-<span class="line"></span>
-<span class="line"><b class="k">variables</b>:</span>
-<span class="line">  <b class="k">p</b>: { foreach: [generator, period], bounds: { lower: 0 } }</span>
-<span class="line">  <b class="k">f</b>: { foreach: [line, period] }</span>
-<span class="line"></span>
-<span class="line"><b class="k">constraints</b>:</span>
-<span class="line">  <b class="k">nodal</b>:</span>
-<span class="line">    <b class="k">foreach</b>: [bus, period]</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=gen_bus) + <b class="fn">sum</b>(f, <b class="kw">by</b>=line_bus1) - <b class="fn">sum</b>(f, <b class="kw">by</b>=line_bus0) == load</span>
-<span class="line">  <b class="k">no_loop</b>:</span>
-<span class="line">    <b class="k">foreach</b>: [line, period]</span>
-<span class="line focus">    <b class="k">where</b>: &quot;line_bus0 != line_bus1&quot;</span>
-<span class="line">    <b class="k">expression</b>: f &lt;= 10</span>
-<span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">line_bus0: ℒ → ℬ</code><code class="map">line_bus1: ℒ → ℬ</code><code class="map">gen_bus: 𝒢 → ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>Roles name the two columns, so both ends are one table with one key. The legend prints one map into a product.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line">    <b class="k">expression</b>: f &lt;= 10</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">bus</b>: {}</span>
 <span class="line">  <b class="k">line</b>: {}</span>
 <span class="line">  <b class="k">generator</b>: {}</span>
@@ -863,7 +762,7 @@
 <span class="line focus">    <b class="k">where</b>: &quot;ends.bus0 != ends.bus1&quot;</span>
 <span class="line">    <b class="k">expression</b>: f &lt;= 10</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">ends: ℒ → ℬ × ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></article></div>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">ends: ℒ → ℬ × ℬ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>nodal</code><span class="arrow">→</span><code class="dims">[bus, period]</code></div><div class="frame-row"><code>no_loop</code><span class="arrow">→</span><code class="dims">[line, period]</code></div></div></div></div></div>
 </section>
 
 <section class="problem" id="p4">
@@ -877,70 +776,67 @@
     <div class="math">$$ \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bt.bus}(g) = b \wedge \mathrm{gen\_bt.technology}(g) = t} p_{g,e} \le \mathrm{tech\_cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T},\ e \in \mathcal{E} $$</div>
     <p class="caption">All three proposals print this. Only the name of the lookup changes, so the choice is about the file and not about the model it stands for.</p>
   </div>
-  <div class="compare grid-view"><article class="panel" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word">two tables</span>One lookup per value, and a by= list joins them at the call.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+  <div class="options"><div class="option" data-proposal="per"><div class="option-name">per: conditioning<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">two tables</span>One lookup per value, and a by= list joins them at the call.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
 <span class="line focus">  <b class="k">gen_tech</b>: { over: generator, into: technology }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">by_bus_and_tech</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=[gen_bus, gen_tech]) &lt;= tech_cap</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">gen_tech: 𝒢 → 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></article>
-<article class="panel" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word">two tables</span>The same file as per:.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=[gen_bus, gen_tech]) &lt;= tech_cap</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line">  <b class="k">bus</b>: {}</span>
+<span class="line">  <b class="k">technology</b>: {}</span>
+<span class="line">  <b class="k">generator</b>: {}</span>
+<span class="line">  <b class="k">period</b>: { dtype: int }</span>
+<span class="line"></span>
+<span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
+<span class="line focus">  <b class="k">gen_tech</b>: { over: generator, into: technology }</span>
+<span class="line"></span>
+<span class="line"><b class="k">parameters</b>:</span>
+<span class="line">  <b class="k">tech_cap</b>: { dims: [bus, technology] }</span>
+<span class="line">  <b class="k">cost</b>: { dims: [generator] }</span>
+<span class="line"></span>
+<span class="line"><b class="k">variables</b>:</span>
+<span class="line">  <b class="k">p</b>: { foreach: [generator, period], bounds: { lower: 0 } }</span>
+<span class="line"></span>
+<span class="line"><b class="k">constraints</b>:</span>
+<span class="line">  <b class="k">by_bus_and_tech</b>:</span>
+<span class="line">    <b class="k">foreach</b>: [bus, technology, period]</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=[gen_bus, gen_tech]) &lt;= tech_cap</span>
+<span class="line"></span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">gen_tech: 𝒢 → 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></div></div>
+<div class="option" data-proposal="keys"><div class="option-name">keys and a dot<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">two tables</span>The same file as per:.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
 <span class="line focus">  <b class="k">gen_tech</b>: { over: generator, into: technology }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">by_bus_and_tech</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=[gen_bus, gen_tech]) &lt;= tech_cap</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">gen_tech: 𝒢 → 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>One table carries both value columns, and produce= lands on both in one join.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=[gen_bus, gen_tech]) &lt;= tech_cap</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line">  <b class="k">bus</b>: {}</span>
+<span class="line">  <b class="k">technology</b>: {}</span>
+<span class="line">  <b class="k">generator</b>: {}</span>
+<span class="line">  <b class="k">period</b>: { dtype: int }</span>
+<span class="line"></span>
+<span class="line"><b class="k">lookups</b>:</span>
+<span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
+<span class="line focus">  <b class="k">gen_tech</b>: { over: generator, into: technology }</span>
+<span class="line"></span>
+<span class="line"><b class="k">parameters</b>:</span>
+<span class="line">  <b class="k">tech_cap</b>: { dims: [bus, technology] }</span>
+<span class="line">  <b class="k">cost</b>: { dims: [generator] }</span>
+<span class="line"></span>
+<span class="line"><b class="k">variables</b>:</span>
+<span class="line">  <b class="k">p</b>: { foreach: [generator, period], bounds: { lower: 0 } }</span>
+<span class="line"></span>
+<span class="line"><b class="k">constraints</b>:</span>
+<span class="line">  <b class="k">by_bus_and_tech</b>:</span>
+<span class="line">    <b class="k">foreach</b>: [bus, technology, period]</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=[gen_bus, gen_tech]) &lt;= tech_cap</span>
+<span class="line"></span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">gen_tech: 𝒢 → 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></div></div>
+<div class="option" data-proposal="relations"><div class="option-name">relations<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>One table carries both value columns, and produce= lands on both in one join.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">gen_bt</b>: { columns: [generator, bus, technology], key: generator }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">by_bus_and_tech</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=gen_bt, produce=[bus, technology]) &lt;= tech_cap</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bt: 𝒢 → ℬ × 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></article></div>
-  <div class="compare tab-view"><article class="panel" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word">two tables</span>One lookup per value, and a by= list joins them at the call.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
-<span class="line">  <b class="k">bus</b>: {}</span>
-<span class="line">  <b class="k">technology</b>: {}</span>
-<span class="line">  <b class="k">generator</b>: {}</span>
-<span class="line">  <b class="k">period</b>: { dtype: int }</span>
-<span class="line"></span>
-<span class="line"><b class="k">lookups</b>:</span>
-<span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
-<span class="line focus">  <b class="k">gen_tech</b>: { over: generator, into: technology }</span>
-<span class="line"></span>
-<span class="line"><b class="k">parameters</b>:</span>
-<span class="line">  <b class="k">tech_cap</b>: { dims: [bus, technology] }</span>
-<span class="line">  <b class="k">cost</b>: { dims: [generator] }</span>
-<span class="line"></span>
-<span class="line"><b class="k">variables</b>:</span>
-<span class="line">  <b class="k">p</b>: { foreach: [generator, period], bounds: { lower: 0 } }</span>
-<span class="line"></span>
-<span class="line"><b class="k">constraints</b>:</span>
-<span class="line">  <b class="k">by_bus_and_tech</b>:</span>
-<span class="line">    <b class="k">foreach</b>: [bus, technology, period]</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=[gen_bus, gen_tech]) &lt;= tech_cap</span>
-<span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">gen_tech: 𝒢 → 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></article>
-<article class="panel" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word">two tables</span>The same file as per:.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
-<span class="line">  <b class="k">bus</b>: {}</span>
-<span class="line">  <b class="k">technology</b>: {}</span>
-<span class="line">  <b class="k">generator</b>: {}</span>
-<span class="line">  <b class="k">period</b>: { dtype: int }</span>
-<span class="line"></span>
-<span class="line"><b class="k">lookups</b>:</span>
-<span class="line focus">  <b class="k">gen_bus</b>: { over: generator, into: bus }</span>
-<span class="line focus">  <b class="k">gen_tech</b>: { over: generator, into: technology }</span>
-<span class="line"></span>
-<span class="line"><b class="k">parameters</b>:</span>
-<span class="line">  <b class="k">tech_cap</b>: { dims: [bus, technology] }</span>
-<span class="line">  <b class="k">cost</b>: { dims: [generator] }</span>
-<span class="line"></span>
-<span class="line"><b class="k">variables</b>:</span>
-<span class="line">  <b class="k">p</b>: { foreach: [generator, period], bounds: { lower: 0 } }</span>
-<span class="line"></span>
-<span class="line"><b class="k">constraints</b>:</span>
-<span class="line">  <b class="k">by_bus_and_tech</b>:</span>
-<span class="line">    <b class="k">foreach</b>: [bus, technology, period]</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=[gen_bus, gen_tech]) &lt;= tech_cap</span>
-<span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bus: 𝒢 → ℬ</code><code class="map">gen_tech: 𝒢 → 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>One table carries both value columns, and produce= lands on both in one join.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=gen_bt, produce=[bus, technology]) &lt;= tech_cap</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">bus</b>: {}</span>
 <span class="line">  <b class="k">technology</b>: {}</span>
 <span class="line">  <b class="k">generator</b>: {}</span>
@@ -961,7 +857,7 @@
 <span class="line">    <b class="k">foreach</b>: [bus, technology, period]</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(p, <b class="kw">by</b>=gen_bt, produce=[bus, technology]) &lt;= tech_cap</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bt: 𝒢 → ℬ × 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></article></div>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(p * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">gen_bt: 𝒢 → ℬ × 𝒯</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>by_bus_and_tech</code><span class="arrow">→</span><code class="dims">[bus, technology, period]</code></div></div></div></div></div>
 </section>
 
 <section class="problem" id="p5">
@@ -975,62 +871,59 @@
     <div class="math">$$ \sum_{r&#x27; \in \mathcal{R} \,:\, \left( r,\ r&#x27; \right) \in \mathrm{adjacent}} x_{r&#x27;,p} \le \mathrm{cap}_{r,p} \qquad \forall\, r \in \mathcal{R},\ p \in \mathcal{P} $$</div>
     <p class="caption">Only #437 prints this. The other two columns have no file that loads, so there is nothing to compare it against.</p>
   </div>
-  <div class="compare grid-view"><article class="panel refused" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word out">no rewrite</span>The fallback for a relation is a parameter over the pair, and a parameter cannot name one dimension twice. There is nothing to fall back to.</p><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
+  <div class="options"><div class="option" data-proposal="per"><div class="option-name">per: conditioning<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></div><div class="option-body"><p class="verdict"><span class="verdict-word out">no rewrite</span>The fallback for a relation is a parameter over the pair, and a parameter cannot name one dimension twice. There is nothing to fall back to.</p><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">adjacent</b>: { dims: [region, region], dtype: int }</span>
 <span class="line">  <b class="k">cap</b>: { dims: [region, period] }</span>
 <span class="line">  <b class="k">cost</b>: { dims: [region] }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">neighbourhood</b>:</span>
-<span class="line">    <b class="k">expression</b>: <b class="fn">sum</b>(x * adjacent, <b class="kw">over</b>=region) &lt;= cap</span></code></pre><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Parameter &#x27;adjacent&#x27; names dimension &#x27;region&#x27; twice. A frame is a product of distinct dimensions.</pre></div></article>
-<article class="panel refused" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word out">no rewrite</span>The same refusal. #436 adds the self-map to this proposal, and a self-map gives each region one neighbour. Neighbourhood gives it several.</p><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
+<span class="line">    <b class="k">expression</b>: <b class="fn">sum</b>(x * adjacent, <b class="kw">over</b>=region) &lt;= cap</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line">  <b class="k">region</b>: {}</span>
+<span class="line">  <b class="k">period</b>: { dtype: int }</span>
+<span class="line"></span>
+<span class="line"><b class="k">parameters</b>:</span>
+<span class="line">  <b class="k">adjacent</b>: { dims: [region, region], dtype: int }</span>
+<span class="line">  <b class="k">cap</b>: { dims: [region, period] }</span>
+<span class="line">  <b class="k">cost</b>: { dims: [region] }</span>
+<span class="line"></span>
+<span class="line"><b class="k">variables</b>:</span>
+<span class="line">  <b class="k">x</b>: { foreach: [region, period], bounds: { lower: 0 } }</span>
+<span class="line"></span>
+<span class="line"><b class="k">constraints</b>:</span>
+<span class="line">  <b class="k">neighbourhood</b>:</span>
+<span class="line">    <b class="k">foreach</b>: [region, period]</span>
+<span class="line">    <b class="k">expression</b>: <b class="fn">sum</b>(x * adjacent, <b class="kw">over</b>=region) &lt;= cap</span>
+<span class="line"></span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(x * cost) }</span></code></pre></details><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Parameter &#x27;adjacent&#x27; names dimension &#x27;region&#x27; twice. A frame is a product of distinct dimensions.</pre></div></div></div>
+<div class="option" data-proposal="keys"><div class="option-name">keys and a dot<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></div><div class="option-body"><p class="verdict"><span class="verdict-word out">no rewrite</span>The same refusal. #436 adds the self-map to this proposal, and a self-map gives each region one neighbour. Neighbourhood gives it several.</p><pre class="yaml"><code><span class="line"><b class="k">parameters</b>:</span>
 <span class="line">  <b class="k">adjacent</b>: { dims: [region, region], dtype: int }</span>
 <span class="line">  <b class="k">cap</b>: { dims: [region, period] }</span>
 <span class="line">  <b class="k">cost</b>: { dims: [region] }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">neighbourhood</b>:</span>
-<span class="line">    <b class="k">expression</b>: <b class="fn">sum</b>(x * adjacent, <b class="kw">over</b>=region) &lt;= cap</span></code></pre><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Parameter &#x27;adjacent&#x27; names dimension &#x27;region&#x27; twice. A frame is a product of distinct dimensions.</pre></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>Two roles over one dimension, and no key. Each region has many neighbours, so nothing is single-valued.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+<span class="line">    <b class="k">expression</b>: <b class="fn">sum</b>(x * adjacent, <b class="kw">over</b>=region) &lt;= cap</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line">  <b class="k">region</b>: {}</span>
+<span class="line">  <b class="k">period</b>: { dtype: int }</span>
+<span class="line"></span>
+<span class="line"><b class="k">parameters</b>:</span>
+<span class="line">  <b class="k">adjacent</b>: { dims: [region, region], dtype: int }</span>
+<span class="line">  <b class="k">cap</b>: { dims: [region, period] }</span>
+<span class="line">  <b class="k">cost</b>: { dims: [region] }</span>
+<span class="line"></span>
+<span class="line"><b class="k">variables</b>:</span>
+<span class="line">  <b class="k">x</b>: { foreach: [region, period], bounds: { lower: 0 } }</span>
+<span class="line"></span>
+<span class="line"><b class="k">constraints</b>:</span>
+<span class="line">  <b class="k">neighbourhood</b>:</span>
+<span class="line">    <b class="k">foreach</b>: [region, period]</span>
+<span class="line">    <b class="k">expression</b>: <b class="fn">sum</b>(x * adjacent, <b class="kw">over</b>=region) &lt;= cap</span>
+<span class="line"></span>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(x * cost) }</span></code></pre></details><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Parameter &#x27;adjacent&#x27; names dimension &#x27;region&#x27; twice. A frame is a product of distinct dimensions.</pre></div></div></div>
+<div class="option" data-proposal="relations"><div class="option-name">relations<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">one table</span>Two roles over one dimension, and no key. Each region has many neighbours, so nothing is single-valued.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line">  <b class="k">adjacent</b>: { columns: { region: region, neighbour: region } }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">neighbourhood</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(x, <b class="kw">by</b>=adjacent, consume=neighbour, produce=region) &lt;= cap</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">adjacent ⊆ ℛ × ℛ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>neighbourhood</code><span class="arrow">→</span><code class="dims">[region, period]</code></div></div></article></div>
-  <div class="compare tab-view"><article class="panel refused" data-proposal="per"><header class="panel-head"><span class="chip">per: conditioning</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></header><p class="verdict"><span class="verdict-word out">no rewrite</span>The fallback for a relation is a parameter over the pair, and a parameter cannot name one dimension twice. There is nothing to fall back to.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
-<span class="line">  <b class="k">region</b>: {}</span>
-<span class="line">  <b class="k">period</b>: { dtype: int }</span>
-<span class="line"></span>
-<span class="line"><b class="k">parameters</b>:</span>
-<span class="line">  <b class="k">adjacent</b>: { dims: [region, region], dtype: int }</span>
-<span class="line">  <b class="k">cap</b>: { dims: [region, period] }</span>
-<span class="line">  <b class="k">cost</b>: { dims: [region] }</span>
-<span class="line"></span>
-<span class="line"><b class="k">variables</b>:</span>
-<span class="line">  <b class="k">x</b>: { foreach: [region, period], bounds: { lower: 0 } }</span>
-<span class="line"></span>
-<span class="line"><b class="k">constraints</b>:</span>
-<span class="line">  <b class="k">neighbourhood</b>:</span>
-<span class="line">    <b class="k">foreach</b>: [region, period]</span>
-<span class="line">    <b class="k">expression</b>: <b class="fn">sum</b>(x * adjacent, <b class="kw">over</b>=region) &lt;= cap</span>
-<span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(x * cost) }</span></code></pre><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Parameter &#x27;adjacent&#x27; names dimension &#x27;region&#x27; twice. A frame is a product of distinct dimensions.</pre></div></article>
-<article class="panel refused" data-proposal="keys"><header class="panel-head"><span class="chip">keys and a dot</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></header><p class="verdict"><span class="verdict-word out">no rewrite</span>The same refusal. #436 adds the self-map to this proposal, and a self-map gives each region one neighbour. Neighbourhood gives it several.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
-<span class="line">  <b class="k">region</b>: {}</span>
-<span class="line">  <b class="k">period</b>: { dtype: int }</span>
-<span class="line"></span>
-<span class="line"><b class="k">parameters</b>:</span>
-<span class="line">  <b class="k">adjacent</b>: { dims: [region, region], dtype: int }</span>
-<span class="line">  <b class="k">cap</b>: { dims: [region, period] }</span>
-<span class="line">  <b class="k">cost</b>: { dims: [region] }</span>
-<span class="line"></span>
-<span class="line"><b class="k">variables</b>:</span>
-<span class="line">  <b class="k">x</b>: { foreach: [region, period], bounds: { lower: 0 } }</span>
-<span class="line"></span>
-<span class="line"><b class="k">constraints</b>:</span>
-<span class="line">  <b class="k">neighbourhood</b>:</span>
-<span class="line">    <b class="k">foreach</b>: [region, period]</span>
-<span class="line">    <b class="k">expression</b>: <b class="fn">sum</b>(x * adjacent, <b class="kw">over</b>=region) &lt;= cap</span>
-<span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(x * cost) }</span></code></pre><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Parameter &#x27;adjacent&#x27; names dimension &#x27;region&#x27; twice. A frame is a product of distinct dimensions.</pre></div></article>
-<article class="panel" data-proposal="relations"><header class="panel-head"><span class="chip">relations</span><a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></header><p class="verdict"><span class="verdict-word">one table</span>Two roles over one dimension, and no key. Each region has many neighbours, so nothing is single-valued.</p><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(x, <b class="kw">by</b>=adjacent, consume=neighbour, produce=region) &lt;= cap</span></code></pre><details class="whole"><summary>the whole file</summary><pre class="yaml"><code><span class="line"><b class="k">dimensions</b>:</span>
 <span class="line">  <b class="k">region</b>: {}</span>
 <span class="line">  <b class="k">period</b>: { dtype: int }</span>
 <span class="line"></span>
@@ -1049,7 +942,7 @@
 <span class="line">    <b class="k">foreach</b>: [region, period]</span>
 <span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(x, <b class="kw">by</b>=adjacent, consume=neighbour, produce=region) &lt;= cap</span>
 <span class="line"></span>
-<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(x * cost) }</span></code></pre><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">adjacent ⊆ ℛ × ℛ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>neighbourhood</code><span class="arrow">→</span><code class="dims">[region, period]</code></div></div></article></div>
+<span class="line"><b class="k">objective</b>: { sense: minimize, expression: <b class="fn">sum</b>(x * cost) }</span></code></pre></details><div class="legend-line"><span class="frame-label">legend prints</span><code class="map">adjacent ⊆ ℛ × ℛ</code></div><div class="frame"><span class="frame-label">loader reports</span><div class="frame-row"><code>neighbourhood</code><span class="arrow">→</span><code class="dims">[region, period]</code></div></div></div></div></div>
 </section>
 
   <section class="band" id="masked">
@@ -1064,27 +957,11 @@
         the one capability difference they do not show.
       </p>
     </div>
-    <div class="extra">
-      <article class="panel" data-proposal="relations">
-        <header class="panel-head">
-          <span class="chip">relations</span>
-          <a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a>
-        </header>
-        <p class="verdict"><span class="verdict-word">accepted</span>The join on the produced column
-          restricts each term to its own bus.</p>
-        <pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
+    <div class="options"><div class="option" data-proposal="per"><div class="option-name">per: conditioning<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></div><div class="option-body"><p class="verdict"><span class="verdict-word out">refused</span>The result would need bus twice, once as the operand's own dimension and once as the group it is placed into.</p><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Constraint &#x27;masked&#x27;: sum(by=gen_bus) targets [&#x27;bus&#x27;], which the expression already carries ([&#x27;bus&#x27;, &#x27;generator&#x27;, &#x27;period&#x27;]). The result would need [&#x27;bus&#x27;] twice — once as the operand&#x27;s own dim and once as the group it is placed into. Sum over one of the two first, or group into a dimension the operand does not have.</pre></div></div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></div><div class="option-body"><p class="verdict"><span class="verdict-word out">refused</span>The result would need bus twice, once as the operand's own dimension and once as the group it is placed into.</p><div class="frame refusal-frame"><span class="frame-label">the loader refuses it</span><pre>Constraint &#x27;masked&#x27;: sum(by=gen_bus) targets [&#x27;bus&#x27;], which the expression already carries ([&#x27;bus&#x27;, &#x27;generator&#x27;, &#x27;period&#x27;]). The result would need [&#x27;bus&#x27;] twice — once as the operand&#x27;s own dim and once as the group it is placed into. Sum over one of the two first, or group into a dimension the operand does not have.</pre></div></div></div><div class="option" data-proposal="relations"><div class="option-name">relations<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></div><div class="option-body"><p class="verdict"><span class="verdict-word">accepted</span>The join on the produced column restricts each term to its own bus.</p><pre class="yaml"><code><span class="line"><b class="k">lookups</b>:</span>
 <span class="line focus">  <b class="k">gen_bus</b>: { columns: [generator, bus], key: generator }</span>
 <span class="line"></span>
 <span class="line">  <b class="k">masked</b>:</span>
-<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(load * p, <b class="kw">by</b>=gen_bus) &lt;= 1000</span></code></pre>
-        <div class="panel-math"><div class="math">$$ \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \mathrm{load}_{b,e} \cdot p_{g,e} \le 1000 \qquad \forall\, b \in \mathcal{B},\ e \in \mathcal{E} $$</div></div>
-      </article>
-      <article class="refusal" data-proposal="per">
-        <h3><span class="who">per: and keys</span> · the same file, refused</h3>
-        <pre>Constraint &#x27;masked&#x27;: sum(by=gen_bus) targets [&#x27;bus&#x27;], which the expression already carries ([&#x27;bus&#x27;, &#x27;generator&#x27;, &#x27;period&#x27;]). The result would need [&#x27;bus&#x27;] twice — once as the operand&#x27;s own dim and once as the group it is placed into. Sum over one of the two first, or group into a dimension the operand does not have.</pre>
-        <p class="said">Both branches print this message, word for word.</p>
-      </article>
-    </div>
+<span class="line focus">    <b class="k">expression</b>: <b class="fn">sum</b>(load * p, <b class="kw">by</b>=gen_bus) &lt;= 1000</span></code></pre><div class="legend-line"><div class="math">$$ \sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} \mathrm{load}_{b,e} \cdot p_{g,e} \le 1000 \qquad \forall\, b \in \mathcal{B},\ e \in \mathcal{E} $$</div></div></div></div></div>
   </section>
 
   <section class="band" id="matrix">
@@ -1092,19 +969,12 @@
       <p class="eyebrow"><span class="num">=</span><span class="what">the whole comparison</span></p>
       <h2>Capability and cost</h2>
       <p>
-        The top half is measured. Each row is a model on this page, loaded on all three branches.
-        The bottom half is quoted from the pull requests, and nothing here checks it.
+        Every proposal has its own row under every capability, even where two of them say the
+        same thing. Each capability links to the model that measured it. The last block is the
+        price, quoted from the pull requests, and nothing here checks it.
       </p>
     </div>
-    <div class="table-scroll">
-<table class="matrix">
-  <thead><tr><th scope="col">What the file can say</th><th data-proposal="per">per: conditioning<span class="th-pr">#428</span></th><th data-proposal="keys">keys and a dot<span class="th-pr">#433</span></th><th data-proposal="relations">relations<span class="th-pr">#437</span></th></tr></thead>
-  <tbody><tr><th scope="row"><a href="#p1">A lookup that varies along a second dimension</a></th><td data-proposal="per"><span class="mark yes">one table</span></td><td data-proposal="keys"><span class="mark yes">one table</span></td><td data-proposal="relations"><span class="mark yes">one table</span></td></tr><tr><th scope="row"><a href="#p2">The same table walked from its other key</a></th><td data-proposal="per"><span class="mark workaround">two of them</span></td><td data-proposal="keys"><span class="mark yes">one table</span></td><td data-proposal="relations"><span class="mark yes">one table</span></td></tr><tr><th scope="row"><a href="#p3">A line&#x27;s two ends in one table</a></th><td data-proposal="per"><span class="mark workaround">two of them</span></td><td data-proposal="keys"><span class="mark workaround">two of them</span></td><td data-proposal="relations"><span class="mark yes">one table</span></td></tr><tr><th scope="row"><a href="#p4">Landing on two value columns at once</a></th><td data-proposal="per"><span class="mark workaround">two of them</span></td><td data-proposal="keys"><span class="mark workaround">two of them</span></td><td data-proposal="relations"><span class="mark yes">one table</span></td></tr><tr><th scope="row">A masked sum: the produced dimension already carried</th><td data-proposal="per"><span class="mark no">refused</span></td><td data-proposal="keys"><span class="mark no">refused</span></td><td data-proposal="relations"><span class="mark yes">one table</span></td></tr><tr><th scope="row"><a href="#kinds">Unweighted many-to-many, as structure not data</a></th><td data-proposal="per"><span class="mark workaround">two of them</span></td><td data-proposal="keys"><span class="mark workaround">two of them</span></td><td data-proposal="relations"><span class="mark yes">one table</span></td></tr><tr><th scope="row"><a href="#p5">A relation between two members of one dimension</a></th><td data-proposal="per"><span class="mark no">refused</span></td><td data-proposal="keys"><span class="mark no">refused</span></td><td data-proposal="relations"><span class="mark yes">one table</span></td></tr></tbody>
-  <tbody class="price-body">
-    <tr class="section-row"><th scope="row" colspan="4">What it costs — quoted from the pull requests, not measured here</th></tr>
-    <tr class="price-row"><th scope="row">Rules the reference states</th><td data-proposal="per"><span class="price">7</span></td><td data-proposal="keys"><span class="price">7</span></td><td data-proposal="relations"><span class="price">10</span></td></tr><tr class="price-row"><th scope="row">Call syntax beyond by=</th><td data-proposal="per"><span class="price">none</span></td><td data-proposal="keys"><span class="price">a dot</span></td><td data-proposal="relations"><span class="price">consume=, produce=, within=</span></td></tr><tr class="price-row"><th scope="row">Existing declarations rewritten</th><td data-proposal="per"><span class="price">none</span></td><td data-proposal="keys"><span class="price">none</span></td><td data-proposal="relations"><span class="price">all, once</span></td></tr><tr class="price-row"><th scope="row">Diff against main</th><td data-proposal="per"><span class="price">+394 −67</span></td><td data-proposal="keys"><span class="price">+601 −161</span></td><td data-proposal="relations"><span class="price">+2325 −1000</span></td></tr>
-  </tbody>
-</table></div>
+    <div class="table-scroll"><section class="capability"><h3><a href="#p1">A lookup that varies along a second dimension</a></h3><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">one table, with per: [period] on the declaration</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">one table, with a second key and a dot at the call</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">one table, with a second key column</div></div></div></section><section class="capability"><h3><a href="#p2">The same table walked from its other key</a></h3><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">a second declaration of the same table, which nothing ties to the first</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">one table, walked by=zone_of.period</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">one table, walked consume=period</div></div></div></section><section class="capability"><h3><a href="#p3">A line&#x27;s two ends in one table</a></h3><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">two lookups, one per end</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">two lookups, one per end</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">one table, with the roles bus0 and bus1</div></div></div></section><section class="capability"><h3><a href="#p4">Landing on two value columns at once</a></h3><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">two lookups, joined by a by=[…] list at the call</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">two lookups, joined by a by=[…] list at the call</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">one table, landed by produce=[bus, technology]</div></div></div></section><section class="capability"><h3>A masked sum: the produced dimension already carried</h3><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">refused — the result would need bus twice</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">refused — the result would need bus twice</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">accepted — the produced column is joined on instead</div></div></div></section><section class="capability"><h3>Unweighted many-to-many, as structure rather than data</h3><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">a table of ones, declared dtype: int because a flag cannot be multiplied</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">a table of ones, declared dtype: int because a flag cannot be multiplied</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">a lookup with no key</div></div></div></section><section class="capability"><h3><a href="#p5">A relation between two members of one dimension</a></h3><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning</div><div class="option-body">no rewrite — a parameter cannot name one dimension twice</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot</div><div class="option-body">no rewrite — a parameter cannot name one dimension twice</div></div><div class="option" data-proposal="relations"><div class="option-name">relations</div><div class="option-body">one table, two roles over one dimension, no key</div></div></div></section><section class="capability price"><h3>What it costs, quoted from each pull request</h3><div class="options tight"><div class="option" data-proposal="per"><div class="option-name">per: conditioning<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/428">#428</a></div><div class="option-body">7 rules · no new call syntax · no declaration rewritten · +394 −67</div></div><div class="option" data-proposal="keys"><div class="option-name">keys and a dot<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/433">#433</a></div><div class="option-body">7 rules · a dot at the call · no declaration rewritten · +601 −161</div></div><div class="option" data-proposal="relations"><div class="option-name">relations<a class="option-pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a></div><div class="option-body">10 rules · consume=, produce=, within= · every declaration rewritten once · +2325 −1000</div></div></div></section></div>
   </section>
 
   <section class="band" id="refusals">
@@ -1209,56 +1079,5 @@
   };
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
-<script>
-  (function () {
-    var root = document.documentElement;
-    var stored = {};
-    try {
-      stored = JSON.parse(localStorage.getItem('math-spec-275') || '{}');
-    } catch (e) {
-      stored = {};
-    }
-    var viewButtons = Array.prototype.slice.call(document.querySelectorAll('.switch button'));
-    var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
-
-    function remember() {
-      try {
-        localStorage.setItem(
-          'math-spec-275',
-          JSON.stringify({ view: root.dataset.view, proposal: root.dataset.proposal })
-        );
-      } catch (e) {
-        /* a private window refuses to store, and the page does not need it */
-      }
-    }
-    function setView(view) {
-      root.dataset.view = view;
-      viewButtons.forEach(function (b) {
-        b.setAttribute('aria-pressed', String(b.dataset.view === view));
-      });
-      remember();
-    }
-    function setProposal(proposal) {
-      root.dataset.proposal = proposal;
-      tabs.forEach(function (t) {
-        t.setAttribute('aria-pressed', String(t.dataset.proposal === proposal));
-      });
-      remember();
-    }
-    viewButtons.forEach(function (b) {
-      b.addEventListener('click', function () {
-        setView(b.dataset.view);
-      });
-    });
-    tabs.forEach(function (t) {
-      t.addEventListener('click', function () {
-        setProposal(t.dataset.proposal);
-        if (root.dataset.view !== 'tabs') setView('tabs');
-      });
-    });
-    setView(stored.view === 'tabs' ? 'tabs' : 'grid');
-    setProposal(stored.proposal || 'relations');
-  })();
-</script>
 </body>
 </html>

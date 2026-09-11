@@ -123,37 +123,6 @@
   .card .state { margin-top: 10px; color: var(--ink-3); font-size: 12px; }
   .card-pr { position: absolute; top: 18px; right: 18px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 
-  /* ---------- controls ---------- */
-  .controls {
-    position: sticky; top: 0; z-index: 20;
-    background: color-mix(in srgb, var(--paper) 88%, transparent);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--rule);
-    margin-top: 34px;
-  }
-  .controls-inner {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px;
-    padding-block: 10px;
-  }
-  .control-label {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3);
-  }
-  .switch { display: flex; border: 1px solid var(--rule-2); border-radius: var(--radius); overflow: hidden; }
-  .switch button, .tab {
-    font-family: var(--sans); font-size: 13px; color: var(--ink-2);
-    background: transparent; border: 0; padding: 6px 13px; cursor: pointer;
-  }
-  .switch button + button { border-left: 1px solid var(--rule-2); }
-  .switch button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-  .tabs { display: flex; gap: 4px; }
-  .tab { border: 1px solid transparent; border-radius: var(--radius); }
-  .tab .tab-pr { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-left: 6px; }
-  .tab[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); font-weight: 500; }
-  .tab[data-proposal="per"] { --accent: var(--per); }
-  .tab[data-proposal="keys"] { --accent: var(--keys); }
-  .tab[data-proposal="relations"] { --accent: var(--relations); }
-  :root[data-view="grid"] .tabs, :root:not([data-view]) .tabs { display: none; }
-
   /* ---------- a problem ---------- */
   .problem { padding-block: clamp(40px, 6vw, 72px) 0; }
   .problem + .problem { border-top: 1px solid var(--rule); }
@@ -190,72 +159,62 @@
     border-top: 1px solid var(--rule); padding-top: 12px;
   }
 
-  /* ---------- the panels ---------- */
-  .compare { display: grid; gap: 18px; }
-  .grid-view { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  :root[data-view="tabs"] .grid-view { display: none; }
-  :root[data-view="grid"] .tab-view, :root:not([data-view]) .tab-view { display: none; }
-  :root[data-view="tabs"] .tab-view .panel { display: none; }
-  :root[data-view="tabs"][data-proposal="per"] .tab-view .panel[data-proposal="per"],
-  :root[data-view="tabs"][data-proposal="keys"] .tab-view .panel[data-proposal="keys"],
-  :root[data-view="tabs"][data-proposal="relations"] .tab-view .panel[data-proposal="relations"] {
-    display: block;
-  }
-  .panel[data-proposal="per"] { --accent: var(--per); }
-  .panel[data-proposal="keys"] { --accent: var(--keys); }
-  .panel[data-proposal="relations"] { --accent: var(--relations); }
-  .panel {
+  /* ---------- one row per proposal, everywhere ---------- */
+  .options { display: grid; gap: 14px; }
+  .options.tight { gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .option[data-proposal="per"] { --accent: var(--per); }
+  .option[data-proposal="keys"] { --accent: var(--keys); }
+  .option[data-proposal="relations"] { --accent: var(--relations); }
+  .option {
     background: var(--surface); border: 1px solid var(--rule);
-    border-top: 2px solid var(--accent); border-radius: var(--radius);
-    display: flex; flex-direction: column; min-width: 0;
+    border-left: 3px solid var(--accent); border-radius: var(--radius);
+    display: grid; grid-template-columns: 13rem minmax(0, 1fr); align-items: start;
   }
-  .panel-head {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-    padding: 12px 16px 0;
+  .options.tight .option { border: 0; border-left: 3px solid var(--accent); border-radius: 0; }
+  .option-name {
+    font-size: 13px; font-weight: 600; color: var(--accent);
+    padding: 14px 16px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
   }
-  .chip { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--accent); }
-  .pr { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
-  .verdict { margin: 8px 16px 14px; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+  .options.tight .option-name { padding-block: 10px; }
+  .option-pr { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); font-weight: 400; }
+  .option-body { padding: 14px 16px 14px 0; min-width: 0; font-size: 13.5px; color: var(--ink-2); }
+  .options.tight .option-body { padding-block: 10px; }
+  .option-body > :first-child { margin-top: 0; }
+  .option-body > :last-child { margin-bottom: 0; }
+
+  .verdict { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
   .verdict-word {
-    display: inline-block; font-family: var(--sans); font-size: 11px; font-weight: 600;
+    display: inline-block; font-size: 11px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink);
     border-bottom: 2px solid var(--accent); margin-right: 8px;
   }
+  .verdict-word.out { border-bottom-color: var(--refuse); color: var(--refuse); }
 
   pre.yaml {
-    margin: 0; padding: 14px 0; background: var(--sunk);
-    border-block: 1px solid var(--rule);
+    margin: 0; padding: 12px 0; background: var(--sunk);
+    border: 1px solid var(--rule); border-radius: var(--radius);
     font-size: 12.5px; line-height: 1.62; overflow-x: auto;
   }
-  pre.yaml code { display: block; min-width: max-content; }
-  .line { display: block; padding-inline: 16px; border-left: 2px solid transparent; }
-  .grid-view pre.yaml { overflow-x: visible; }
-  .grid-view pre.yaml code { min-width: 0; }
-  .grid-view .line {
-    white-space: pre-wrap; overflow-wrap: anywhere;
-    padding-left: calc(16px + 1.6em); text-indent: -1.6em;
-  }
+  pre.yaml code { display: block; min-width: max-content; color: var(--ink-2); }
+  .line { display: block; padding-inline: 14px; border-left: 2px solid transparent; }
   .line.focus {
     background: color-mix(in srgb, var(--accent) 9%, transparent);
     border-left-color: var(--accent);
   }
   .yaml .k { color: var(--ink); font-weight: 500; }
-  .yaml .fn { color: var(--accent); font-weight: 500; }
-  .yaml .kw { color: var(--accent); font-weight: 500; }
+  .yaml .fn, .yaml .kw { color: var(--accent); font-weight: 500; }
   .yaml .c { color: var(--ink-3); font-style: normal; }
-  pre.yaml code { color: var(--ink-2); }
 
-  .legend-line {
-    padding: 12px 16px; display: grid; gap: 5px; justify-items: start;
+  .whole { margin-top: 10px; }
+  .whole summary {
+    cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); padding-block: 4px;
   }
-  .legend-line .map {
-    font-size: 12.5px; color: var(--ink-2); max-width: 100%; overflow-x: auto;
-  }
-  .panel-math { padding: 6px 16px 14px; }
-  .frame {
-    margin-top: auto; padding: 12px 16px 14px; border-top: 1px dashed var(--rule);
-    display: grid; gap: 4px;
-  }
+  .whole pre.yaml { margin-top: 8px; }
+
+  .legend-line { padding: 12px 0 0; display: grid; gap: 5px; justify-items: start; }
+  .legend-line .map { font-size: 12.5px; color: var(--ink-2); max-width: 100%; overflow-x: auto; }
+  .frame { padding: 12px 0 0; display: grid; gap: 4px; }
   .frame-label {
     font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3);
   }
@@ -263,46 +222,20 @@
   .frame-row code { color: var(--ink); }
   .frame-row .arrow { color: var(--ink-3); }
   .frame-row .dims { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .refusal-frame pre {
+    margin: 6px 0 0; font-size: 12px; line-height: 1.55; color: var(--refuse);
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  .capability { margin-top: 26px; }
+  .capability h3 { font-family: var(--sans); font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .capability.price h3 { color: var(--ink-3); font-weight: 500; }
 
   /* ---------- the sections after the problems ---------- */
   .band { padding-block: clamp(40px, 6vw, 72px) 0; border-top: 1px solid var(--rule); }
   .band h2 { font-size: clamp(21px, 2.4vw, 27px); }
   .band .prose p:first-of-type { margin-top: 12px; }
 
-  .matrix {
-    width: 100%; border-collapse: collapse; margin-top: 26px; font-size: 13.5px;
-  }
-  .matrix th, .matrix td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
-  .matrix thead th {
-    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--accent);
-    border-bottom: 1px solid var(--rule-2); vertical-align: bottom;
-  }
-  .matrix thead th:first-child { color: var(--ink-3); font-weight: 500; }
-  .matrix th[data-proposal="per"], .matrix td[data-proposal="per"] { --accent: var(--per); }
-  .matrix th[data-proposal="keys"], .matrix td[data-proposal="keys"] { --accent: var(--keys); }
-  .matrix th[data-proposal="relations"], .matrix td[data-proposal="relations"] { --accent: var(--relations); }
-  .matrix tbody th { font-weight: 400; color: var(--ink); max-width: 34ch; }
-  .th-pr { display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-3); font-weight: 400; }
-  .mark { font-size: 12.5px; display: inline-flex; align-items: center; gap: 7px; }
-  .mark::before {
-    content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none;
-    border: 1.5px solid var(--accent);
-  }
-  .mark.yes::before { background: var(--accent); }
-  .mark.workaround::before { background: transparent; }
-  .mark.no { color: var(--refuse); }
-  .mark.no::before {
-    border-color: var(--refuse);
-    background: linear-gradient(
-      45deg, transparent 44%, var(--refuse) 44%, var(--refuse) 56%, transparent 56%
-    );
-  }
-  .section-row th {
-    font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
-    color: var(--ink-3); padding-top: 26px; max-width: none;
-  }
-  .price { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
-  .price-row th { color: var(--ink-2); }
   .table-scroll { overflow-x: auto; }
 
   /* ---------- the plain-words primer ---------- */
@@ -340,16 +273,9 @@
   }
   /* the whole line is the point here, so nothing inside it is marked as differing */
   .kind-code .line.focus { background: transparent; border-left-color: transparent; }
-  .kind-says {
-    margin-top: auto; padding-top: 16px; display: grid; gap: 6px;
-  }
-  .says { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--ink-3); }
-  .says[data-proposal="per"] { --accent: var(--per); }
-  .says[data-proposal="keys"] { --accent: var(--keys); }
-  .says[data-proposal="relations"] { --accent: var(--relations); }
-  .says b { color: var(--accent); font-weight: 600; min-width: 6.5em; }
-  .says .mark { display: inline-flex; }
-  .says .mark::before { margin: 0; }
+  .kind .options { margin-top: auto; padding-top: 16px; }
+  .kind .option-name { font-size: 12px; }
+  .kind .option { grid-template-columns: 10rem minmax(0, 1fr); }
 
   .thumb {
     margin-top: 26px; padding: 20px 24px; background: var(--surface);
@@ -364,7 +290,6 @@
   .thumb li b { color: var(--ink); font-weight: 600; }
   .thumb li::marker { color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
 
-  .panel.refused pre.yaml { opacity: 0.72; }
   .verdict-word.out { border-bottom-color: var(--refuse); color: var(--refuse); }
   .refusal-frame { display: block; border-top: 1px dashed var(--rule); }
   .refusal-frame pre {
@@ -389,7 +314,6 @@
   .refusal .said { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-3); }
 
   .extra { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 26px; align-items: start; }
-  .extra .panel { border-top-width: 2px; }
 
   .reading { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 26px; }
   .reading > div { background: var(--surface); padding: 18px 20px; border-top: 2px solid var(--accent); }
@@ -413,11 +337,9 @@
   }
 
   @media (max-width: 760px) {
-    .controls-inner .control-label:last-child { display: none; }
   }
   @media (max-width: 1000px) {
     .kinds { grid-template-columns: 1fr; }
-    .grid-view { grid-template-columns: 1fr; }
     .cards, .reading { grid-template-columns: 1fr; }
     .extra { grid-template-columns: 1fr; }
   }
@@ -517,20 +439,6 @@
   </section>
 </div>
 
-<div class="controls">
-  <div class="wrap controls-inner">
-    <span class="control-label">View</span>
-    <div class="switch" role="group" aria-label="How to show the three proposals">
-      <button type="button" id="view-grid" data-view="grid" aria-pressed="true">Side by side</button>
-      <button type="button" id="view-tabs" data-view="tabs" aria-pressed="false">One model at a time</button>
-    </div>
-    <div class="tabs" role="group" aria-label="Which proposal to show"><!--{tabs}--></div>
-    <span class="control-label" style="margin-left:auto">
-      side by side · the lines that differ &nbsp;·&nbsp; one at a time · the whole file
-    </span>
-  </div>
-</div>
-
 <main class="wrap">
   <!--{sections}-->
 
@@ -546,23 +454,7 @@
         the one capability difference they do not show.
       </p>
     </div>
-    <div class="extra">
-      <article class="panel" data-proposal="relations">
-        <header class="panel-head">
-          <span class="chip">relations</span>
-          <a class="pr" href="https://github.com/energy-models/math-spec/pull/437">#437</a>
-        </header>
-        <p class="verdict"><span class="verdict-word">accepted</span>The join on the produced column
-          restricts each term to its own bus.</p>
-        <!--{masked-yaml}-->
-        <div class="panel-math"><!--{masked-math}--></div>
-      </article>
-      <article class="refusal" data-proposal="per">
-        <h3><span class="who">per: and keys</span> · the same file, refused</h3>
-        <pre><!--{masked-refusal}--></pre>
-        <p class="said">Both branches print this message, word for word.</p>
-      </article>
-    </div>
+    <div class="options"><!--{masked-rows}--></div>
   </section>
 
   <section class="band" id="matrix">
@@ -570,8 +462,9 @@
       <p class="eyebrow"><span class="num">=</span><span class="what">the whole comparison</span></p>
       <h2>Capability and cost</h2>
       <p>
-        The top half is measured. Each row is a model on this page, loaded on all three branches.
-        The bottom half is quoted from the pull requests, and nothing here checks it.
+        Every proposal has its own row under every capability, even where two of them say the
+        same thing. Each capability links to the model that measured it. The last block is the
+        price, quoted from the pull requests, and nothing here checks it.
       </p>
     </div>
     <div class="table-scroll"><!--{matrix}--></div>
@@ -679,56 +572,5 @@
   };
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
-<script>
-  (function () {
-    var root = document.documentElement;
-    var stored = {};
-    try {
-      stored = JSON.parse(localStorage.getItem('math-spec-275') || '{}');
-    } catch (e) {
-      stored = {};
-    }
-    var viewButtons = Array.prototype.slice.call(document.querySelectorAll('.switch button'));
-    var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
-
-    function remember() {
-      try {
-        localStorage.setItem(
-          'math-spec-275',
-          JSON.stringify({ view: root.dataset.view, proposal: root.dataset.proposal })
-        );
-      } catch (e) {
-        /* a private window refuses to store, and the page does not need it */
-      }
-    }
-    function setView(view) {
-      root.dataset.view = view;
-      viewButtons.forEach(function (b) {
-        b.setAttribute('aria-pressed', String(b.dataset.view === view));
-      });
-      remember();
-    }
-    function setProposal(proposal) {
-      root.dataset.proposal = proposal;
-      tabs.forEach(function (t) {
-        t.setAttribute('aria-pressed', String(t.dataset.proposal === proposal));
-      });
-      remember();
-    }
-    viewButtons.forEach(function (b) {
-      b.addEventListener('click', function () {
-        setView(b.dataset.view);
-      });
-    });
-    tabs.forEach(function (t) {
-      t.addEventListener('click', function () {
-        setProposal(t.dataset.proposal);
-        if (root.dataset.view !== 'tabs') setView('tabs');
-      });
-    });
-    setView(stored.view === 'tabs' ? 'tabs' : 'grid');
-    setProposal(stored.proposal || 'relations');
-  })();
-</script>
 </body>
 </html>
