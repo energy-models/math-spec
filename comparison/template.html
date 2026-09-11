@@ -1,0 +1,577 @@
+<!doctype html>
+<!-- SPDX-FileCopyrightText: math-spec Contributors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three lookup proposals · math-spec #275</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap">
+<style>
+  :root {
+    --paper: #f3f5f6;
+    --surface: #ffffff;
+    --sunk: #e9edef;
+    --ink: #14181c;
+    --ink-2: #4e5962;
+    --ink-3: #78838b;
+    --rule: #dbe0e4;
+    --rule-2: #c4ccd2;
+    --per: #8a5a10;
+    --keys: #0c635d;
+    --relations: #4a46a8;
+    --refuse: #94302a;
+    --accent: var(--relations);
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --serif: "Literata", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --gutter: clamp(16px, 4vw, 40px);
+    --radius: 3px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0f1317;
+      --surface: #161b20;
+      --sunk: #11161a;
+      --ink: #e3e8ec;
+      --ink-2: #a3aeb6;
+      --ink-3: #7c878f;
+      --rule: #252d34;
+      --rule-2: #364048;
+      --per: #d9a24f;
+      --keys: #4fb5ab;
+      --relations: #9b98ee;
+      --refuse: #e2928a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0f1317;
+    --surface: #161b20;
+    --sunk: #11161a;
+    --ink: #e3e8ec;
+    --ink-2: #a3aeb6;
+    --ink-3: #7c878f;
+    --rule: #252d34;
+    --rule-2: #364048;
+    --per: #d9a24f;
+    --keys: #4fb5ab;
+    --relations: #9b98ee;
+    --refuse: #e2928a;
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+  }
+  a { color: inherit; text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: currentColor; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+  code, pre { font-family: var(--mono); font-variant-ligatures: none; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 600; text-wrap: balance; margin: 0; }
+
+  /* ---------- masthead ---------- */
+  .masthead { padding-block: clamp(32px, 6vw, 64px) 28px; border-bottom: 1px solid var(--rule); }
+  .kicker {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-3); margin: 0 0 14px;
+  }
+  .kicker a { color: var(--ink-2); }
+  h1 { font-size: clamp(30px, 4.4vw, 44px); line-height: 1.14; letter-spacing: -0.015em; max-width: 27ch; }
+  .standfirst {
+    font-family: var(--serif); font-size: clamp(16px, 1.6vw, 18px); line-height: 1.6;
+    color: var(--ink-2); max-width: 62ch; margin: 18px 0 0;
+  }
+  .provenance {
+    margin: 22px 0 0; font-size: 12.5px; color: var(--ink-3);
+    display: flex; flex-wrap: wrap; gap: 6px 18px;
+  }
+  .provenance code { color: var(--ink-2); font-size: 12px; }
+
+  /* ---------- the three proposals ---------- */
+  .cards {
+    display: grid; gap: 1px; background: var(--rule);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid var(--rule); margin-block: 28px 0;
+  }
+  .card {
+    background: var(--surface); padding: 20px 20px 18px; position: relative;
+    border-top: 2px solid var(--accent);
+  }
+  .card[data-proposal="per"] { --accent: var(--per); }
+  .card[data-proposal="keys"] { --accent: var(--keys); }
+  .card[data-proposal="relations"] { --accent: var(--relations); }
+  .card h3 { font-size: 17px; margin-bottom: 6px; color: var(--accent); }
+  .card p { margin: 0; color: var(--ink-2); font-size: 13.5px; max-width: 40ch; }
+  .card .state { margin-top: 10px; color: var(--ink-3); font-size: 12px; }
+  .card-pr { position: absolute; top: 18px; right: 18px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+  /* ---------- a problem ---------- */
+  .problem { padding-block: clamp(40px, 6vw, 72px) 0; }
+  .problem + .problem { border-top: 1px solid var(--rule); }
+  .prose { max-width: 66ch; }
+  .prose p { font-family: var(--serif); font-size: 16.5px; line-height: 1.68; color: var(--ink-2); }
+  .eyebrow {
+    font-family: var(--sans) !important; font-size: 12.5px; color: var(--ink-3);
+    margin: 0 0 12px; display: flex; align-items: baseline; gap: 10px;
+  }
+  .eyebrow .what {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3);
+  }
+  .eyebrow .num {
+    font-family: var(--mono); font-size: 12px; color: var(--accent);
+    border: 1px solid var(--rule-2); border-radius: 50%;
+    width: 22px; height: 22px; display: grid; place-items: center; letter-spacing: 0;
+  }
+  .problem h2 { font-size: clamp(21px, 2.4vw, 27px); line-height: 1.25; }
+  .prose h2 + p { margin-top: 12px; }
+
+  .math-block {
+    margin-block: 26px; padding: 22px 24px; background: var(--surface);
+    border: 1px solid var(--rule); border-radius: var(--radius);
+  }
+  .math {
+    overflow-x: auto; overflow-y: hidden; padding-block: 4px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.6; color: var(--ink);
+  }
+  mjx-container[jax="SVG"] { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+  .legend-line .math { padding-block: 0; }
+  .math + .math { margin-top: 6px; }
+  .caption {
+    margin: 14px 0 0; font-size: 12.5px; color: var(--ink-3); max-width: 70ch;
+    border-top: 1px solid var(--rule); padding-top: 12px;
+  }
+
+  /* ---------- one row per proposal, everywhere ---------- */
+  .options { display: grid; gap: 14px; }
+  /* the hairlines are drawn between the rows, not by a gap over a coloured ground,
+     so padding above the block does not show as a bar */
+  .options.tight { gap: 0; border: 1px solid var(--rule); border-radius: var(--radius); }
+  .option[data-proposal="per"] { --accent: var(--per); }
+  .option[data-proposal="keys"] { --accent: var(--keys); }
+  .option[data-proposal="relations"] { --accent: var(--relations); }
+  .option {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent); border-radius: var(--radius);
+    display: grid; grid-template-columns: 13rem minmax(0, 1fr); align-items: start;
+  }
+  .options.tight .option { border: 0; border-left: 3px solid var(--accent); border-radius: 0; }
+  .options.tight .option + .option { border-top: 1px solid var(--rule); }
+  .option-name {
+    font-size: 13px; font-weight: 600; color: var(--accent);
+    padding: 14px 16px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .options.tight .option-name { padding-block: 10px; }
+  .option-pr { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); font-weight: 400; }
+  .option-body { padding: 14px 16px 14px 0; min-width: 0; font-size: 13.5px; color: var(--ink-2); }
+  .options.tight .option-body { padding-block: 10px; }
+  .option-body > :first-child { margin-top: 0; }
+  .option-body > :last-child { margin-bottom: 0; }
+
+  .verdict { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+  .verdict-word {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink);
+    border-bottom: 2px solid var(--accent); margin-right: 8px;
+  }
+  .verdict-word.out { border-bottom-color: var(--refuse); color: var(--refuse); }
+
+  pre.yaml {
+    margin: 0; padding: 12px 0; background: var(--sunk);
+    border: 1px solid var(--rule); border-radius: var(--radius);
+    font-size: 12.5px; line-height: 1.62; overflow-x: auto;
+  }
+  pre.yaml code { display: block; min-width: max-content; color: var(--ink-2); }
+  .line { display: block; padding-inline: 14px; border-left: 2px solid transparent; }
+  .line.focus {
+    background: color-mix(in srgb, var(--accent) 9%, transparent);
+    border-left-color: var(--accent);
+  }
+  .yaml .k { color: var(--ink); font-weight: 500; }
+  .yaml .fn, .yaml .kw { color: var(--accent); font-weight: 500; }
+  .yaml .c { color: var(--ink-3); font-style: normal; }
+
+  .whole { margin-top: 10px; }
+  .whole summary {
+    cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); padding-block: 4px;
+  }
+  .whole pre.yaml { margin-top: 8px; }
+
+  .legend-line { padding: 12px 0 0; display: grid; gap: 5px; justify-items: start; }
+  .legend-line .map { font-size: 12.5px; color: var(--ink-2); max-width: 100%; overflow-x: auto; }
+  .frame { padding: 12px 0 0; display: grid; gap: 4px; }
+  .frame-label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3);
+  }
+  .frame-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; flex-wrap: wrap; }
+  .frame-row code { color: var(--ink); }
+  .frame-row .arrow { color: var(--ink-3); }
+  .frame-row .dims { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .refusal-frame pre {
+    margin: 6px 0 0; font-size: 12px; line-height: 1.55; color: var(--refuse);
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  .capability { margin-top: 26px; }
+  .capability h3 { font-family: var(--sans); font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .capability.price h3 { color: var(--ink-3); font-weight: 500; }
+
+  /* ---------- the sections after the problems ---------- */
+  .band { padding-block: clamp(40px, 6vw, 72px) 0; border-top: 1px solid var(--rule); }
+  .band h2 { font-size: clamp(21px, 2.4vw, 27px); }
+  .band .prose p:first-of-type { margin-top: 12px; }
+
+  .table-scroll { overflow-x: auto; }
+
+  /* ---------- the plain-words primer ---------- */
+  .primer { border-top: 0; padding-top: clamp(32px, 5vw, 56px); }
+  .kinds {
+    display: grid; gap: 1px; background: var(--rule);
+    border: 1px solid var(--rule); margin-top: 26px;
+  }
+  .kind { background: var(--surface); padding: 22px 24px 20px; }
+  .kind-shape {
+    margin: 0 0 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3);
+  }
+  .kind-everyday {
+    margin: 0; font-family: var(--serif); font-size: 17px; line-height: 1.45; color: var(--ink);
+  }
+  .kind-model { margin: 8px 0 18px; font-size: 13.5px; color: var(--ink-2); max-width: 74ch; }
+  .kind-says { margin: 0 0 8px; }
+  .kind-code pre.yaml {
+    padding-block: 8px; border-radius: var(--radius); border: 1px solid var(--rule);
+    overflow-x: visible;
+  }
+  .kind-code pre.yaml code { min-width: 0; }
+  .kind-code .line {
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    padding-left: calc(12px + 1.6em); padding-right: 12px; text-indent: -1.6em;
+  }
+  /* the whole line is the point here, so nothing inside it is marked as differing */
+  .kind-code .line.focus { background: transparent; border-left-color: transparent; }
+  .kind .option-name { font-size: 12px; }
+
+  .thumb {
+    margin-top: 26px; padding: 20px 24px; background: var(--surface);
+    border: 1px solid var(--rule); border-left: 2px solid var(--ink); border-radius: var(--radius);
+  }
+  .thumb-title {
+    margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3);
+  }
+  .thumb ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 80ch; }
+  .thumb li { font-size: 14px; color: var(--ink-2); }
+  .thumb li b { color: var(--ink); font-weight: 600; }
+  .thumb li::marker { color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
+
+  .verdict-word.out { border-bottom-color: var(--refuse); color: var(--refuse); }
+  .refusal-frame { display: block; border-top: 1px dashed var(--rule); }
+  .refusal-frame pre {
+    margin: 6px 0 0; font-size: 12px; line-height: 1.55; color: var(--refuse);
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  .refusals { display: grid; gap: 14px; margin-top: 26px; }
+  .refusal {
+    background: var(--surface); border: 1px solid var(--rule); border-left: 2px solid var(--refuse);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .refusal h3 { font-family: var(--sans); font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .refusal h3 .who { color: var(--accent); }
+  .refusal[data-proposal="per"] { --accent: var(--per); }
+  .refusal[data-proposal="keys"] { --accent: var(--keys); }
+  .refusal[data-proposal="relations"] { --accent: var(--relations); }
+  .refusal pre {
+    margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-2);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .refusal .said { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-3); }
+
+  .extra { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 26px; align-items: start; }
+
+  .reading { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 26px; }
+  .reading > div { background: var(--surface); padding: 18px 20px; border-top: 2px solid var(--accent); }
+  .reading > div[data-proposal="per"] { --accent: var(--per); }
+  .reading > div[data-proposal="keys"] { --accent: var(--keys); }
+  .reading > div[data-proposal="relations"] { --accent: var(--relations); }
+  .reading h3 { font-size: 15px; color: var(--accent); margin-bottom: 8px; }
+  .reading p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+  .reading .q { margin-top: 12px; font-family: var(--serif); font-size: 14px; color: var(--ink); }
+
+  footer {
+    margin-top: clamp(48px, 7vw, 84px); border-top: 1px solid var(--rule);
+    padding-block: 26px 48px; font-size: 12.5px; color: var(--ink-3);
+  }
+  footer p { max-width: 78ch; }
+  footer code { color: var(--ink-2); font-size: 12px; }
+  .note {
+    background: var(--surface); border: 1px solid var(--rule); border-left: 2px solid var(--ink-3);
+    border-radius: var(--radius); padding: 12px 16px; margin-block: 22px;
+    font-size: 12.5px; color: var(--ink-2); max-width: 78ch;
+  }
+
+  @media (max-width: 760px) {
+    .option { grid-template-columns: 1fr; }
+    .option-name { padding-bottom: 0; }
+    .options.tight .option-name { padding: 10px 16px 0; }
+    .option-body { padding-left: 16px; }
+    .options.tight .option-body { padding-left: 16px; }
+  }
+  @media (max-width: 1000px) {
+    .cards, .reading { grid-template-columns: 1fr; }
+    .extra { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="kicker">
+      math-spec ·
+      <a href="https://github.com/energy-models/math-spec/issues/275">issue #275</a> ·
+      one of these three is merged, the other two close
+    </p>
+    <h1>Three lookup proposals</h1>
+    <p class="standfirst">
+      This page is for whoever picks one of #428, #433 and #437. Five models are written three
+      times, once per proposal. Every file is loaded on the branch that proposes it. Four of the
+      five load under all three proposals, so there the choice is about what the file declares and
+      what a call has to name. The fifth loads under one.
+    </p>
+    <p class="provenance">
+      <span>built <code><!--{built}--></code></span>
+      <span>base <code><!--{base}--></code></span>
+      <span><!--{shas}--></span>
+    </p>
+  </header>
+
+  <div class="cards"><!--{cards}--></div>
+
+  <p class="note">
+    <b>What is measured, and what is not.</b> Every YAML block was loaded on the branch it sits
+    under. Every list of dimensions under it is what that loader reported, and every equation is
+    what that branch's typesetter printed. <code>comparison/verify.py</code> makes the evidence
+    and <code>comparison/build.py</code> writes the page, so no snippet here is typed by hand. The
+    prose is not evidence. AI wrote it, and the trade-off at the end is one reading of the same
+    files.
+  </p>
+</div>
+
+<div class="wrap">
+  <section class="band primer" id="kinds">
+    <div class="prose">
+      <p class="eyebrow"><span class="num">0</span><span class="what">before the models</span>
+        the kinds of pairing</p>
+      <h2>The kinds of pairing a model needs</h2>
+      <p>
+        A lookup pairs the members of one dimension with the members of another: one generator
+        with the bus it sits on. A lookup with no key is a relation, which claims nothing about
+        how many and only says that a pair exists. Two questions decide how the file spells a
+        pairing. How many does each thing have, and is there a number on the pair? Each row
+        below answers both for one kind, in everyday terms first and then in a model, and
+        under it every proposal writes the file it would write.
+      </p>
+    </div>
+    <!--{kinds}-->
+    <div class="thumb">
+      <p class="thumb-title">Which kind you have</p>
+      <ol>
+        <li><b>Each thing has exactly one.</b> Give the lookup a <code>key</code>. The loader then
+          holds the data to one row per key, and a second row is a refusal.</li>
+        <li><b>A number rides on the pair.</b> Write a parameter. Its own rows are the pairing
+          already, and a lookup beside it would say the same thing twice.</li>
+        <li><b>Both sides are the same dimension.</b> Only #437 says it. A parameter cannot name
+          one dimension twice, so nothing else is left to write.</li>
+      </ol>
+    </div>
+    <div class="refusals">
+      <article class="refusal" data-proposal="keys">
+        <h3><span class="who">keys and a dot</span> · a flag in arithmetic</h3>
+        <pre><!--{eligible-bool}--></pre>
+        <p class="said">
+          The stand-in for an unweighted pairing is a table of ones, multiplied into the sum. The
+          dtype that says “a flag” is refused in arithmetic, so the ones are declared as numbers
+          instead.
+        </p>
+      </article>
+      <article class="refusal" data-proposal="keys">
+        <h3><span class="who">keys and a dot</span> · a lookup into its own dimension</h3>
+        <pre><!--{self-map-436}--></pre>
+        <p class="said">
+          Measured on #433's head. #436 is a draft stacked on it, and on that head the same file
+          loads.
+        </p>
+      </article>
+      <article class="refusal" data-proposal="keys">
+        <h3><span class="who">#436</span> · the rewrite its description prescribes</h3>
+        <pre><!--{adjacency-436}--></pre>
+        <p class="said">
+          #436's description sends an undirected neighbour relation to “a parameter over
+          <code>[bus, bus]</code>”. That file does not load, on that branch or on any other. It is
+          the fifth model below.
+        </p>
+      </article>
+    </div>
+  </section>
+</div>
+
+<main class="wrap">
+  <!--{sections}-->
+
+  <section class="band" id="masked">
+    <div class="prose">
+      <p class="eyebrow"><span class="num">+</span><span class="what">outside the five</span></p>
+      <h2>A masked sum</h2>
+      <p>
+        The language refuses this sum today, because <code>bus</code> would be needed twice. It
+        weights generation by the load at its own bus. Each term reads <code>load</code> at the
+        bus the generator sits on, and the sum lands on that same bus. Under relations the
+        produced column is joined on instead, so the sum is masked. This case is not one of the five above, and it is
+        the one capability difference they do not show.
+      </p>
+    </div>
+    <div class="options"><!--{masked-rows}--></div>
+  </section>
+
+  <section class="band" id="matrix">
+    <div class="prose">
+      <p class="eyebrow"><span class="num">=</span><span class="what">the whole comparison</span></p>
+      <h2>Capability and cost</h2>
+      <p>
+        Every proposal has its own row under every capability, even where two of them say the
+        same thing. Each capability links to the model that measured it. The last block is the
+        price, quoted from the pull requests, and nothing here checks it.
+      </p>
+    </div>
+    <div class="table-scroll"><!--{matrix}--></div>
+  </section>
+
+  <section class="band" id="refusals">
+    <div class="prose">
+      <p class="eyebrow"><span class="num">!</span><span class="what">what the loader says</span></p>
+      <h2>Refusal messages</h2>
+      <p>
+        This language fails at load, and its messages name the rewrite. A proposal that refuses a
+        mistake well is worth as much as one that says more. These are the messages, unedited.
+      </p>
+    </div>
+    <div class="refusals">
+      <article class="refusal" data-proposal="keys">
+        <h3><span class="who">keys and a dot</span> · <code>by=zone_of</code> with no dot</h3>
+        <pre><!--{keys-no-dot}--></pre>
+        <p class="said">Names both keys and both rewrites.</p>
+      </article>
+      <article class="refusal" data-proposal="relations">
+        <h3><span class="who">relations</span> · <code>by=zone_of</code> with no <code>consume=</code></h3>
+        <pre><!--{rel-no-from}--></pre>
+        <p class="said">Names the key columns, and the keyword that has to pick one.</p>
+      </article>
+      <article class="refusal" data-proposal="per">
+        <h3><span class="who">per: conditioning</span> · the second direction from one declaration</h3>
+        <pre><!--{per-history}--></pre>
+        <p class="said">
+          The refusal is real, and it is an error about the frame, which is the set of dimensions
+          a row carries. It is not an error about the lookup. So it cannot name the rewrite, which
+          is a second declaration in another block.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="band" id="reading">
+    <div class="prose">
+      <p class="eyebrow"><span class="num">?</span><span class="what">what is left to decide</span></p>
+      <h2>The trade-off</h2>
+      <p>
+        Capability alone does not decide this. Four of the five models are sayable under all three
+        proposals, because the two narrower ones reach the same rows with more declarations. What
+        differs is where the file puts a fact, and what a reader of a call has to know already.
+        The fifth model is the exception, and the one place a column is empty.
+      </p>
+    </div>
+    <div class="reading">
+      <div data-proposal="per">
+        <h3>per: conditioning</h3>
+        <p>
+          The call site is untouched. <code>by=zone_of</code> keeps the meaning it has today, and
+          the lookup keeps its arrow. The direction belongs to the declaration, so a table read
+          both ways is declared twice. The loader does not know the two are one table.
+        </p>
+        <p class="q">Is a call that names nothing worth a declaration per direction?</p>
+      </div>
+      <div data-proposal="keys">
+        <h3>keys and a dot</h3>
+        <p>
+          One declaration per table. The key list is the cardinality claim, and the dot names the
+          key a call walks. A column is named after its dimension, so a table cannot hold two
+          columns over one dimension. A line's two ends stay two lookups.
+        </p>
+        <p class="q">Is one new token at the call site the whole price worth paying?</p>
+      </div>
+      <div data-proposal="relations">
+        <h3>relations</h3>
+        <p>
+          A lookup is a table of named columns, and <code>key:</code> is the one claim the data
+          can be held to. Every direction belongs to the call, which names it with
+          <code>consume=</code> and <code>produce=</code>. This says everything the other two say
+          and more. It costs ten rules, three keywords, and a rewrite of every declaration in the
+          tree.
+        </p>
+        <p class="q">Does the language want a relation, or a map?</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      <code>build.py</code> wrote this page on <code><!--{built}--></code>, from evidence
+      <code>verify.py</code> collected against <code>origin/main</code> at
+      <code><!--{base}--></code> and each proposal at the branch head named above. A copy served
+      from a CDN can be older than that stamp. To reproduce it, run
+      <code>python comparison/verify.py &amp;&amp; python comparison/build.py</code> from the
+      repository root. The first script fetches every branch and loads each model under the branch
+      that proposes it. The second rewrites this page from what it found.
+    </p>
+    <p>
+      The models are in <code>comparison/models/</code>, one file per problem per proposal. The
+      single files loaded on every branch are in <code>comparison/probes/</code>. Everything here sits on the branch
+      <code>claude/mathspec-proposals-comparison-ebn7dv</code>, whose pull request is a review
+      surface rather than a proposal to merge.
+    </p>
+    <p>AI wrote this page, from the three pull requests and the discussion in issue #275.</p>
+  </footer>
+</main>
+
+<script>
+  window.MathJax = {
+    tex: { displayMath: [['$$', '$$']], inlineMath: [['\\(', '\\)']] },
+    svg: { fontCache: 'global' },
+    startup: { typeset: true },
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+</body>
+</html>

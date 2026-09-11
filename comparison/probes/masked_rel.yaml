@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  bus: {}
+  generator: {}
+  period: { dtype: int }
+lookups:
+  gen_bus: { columns: [generator, bus], key: generator }
+parameters:
+  load: { dims: [bus, period] }
+  cost: { dims: [generator] }
+variables:
+  p: { foreach: [generator, period], bounds: { lower: 0 } }
+constraints:
+  masked:
+    foreach: [bus, period]
+    expression: sum(load * p, by=gen_bus) <= 1000
+objective: { sense: minimize, expression: sum(p * cost) }

@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  generator: {}
+  zone: {}
+  period: { dtype: int }
+
+lookups:
+  zone_of: { columns: [generator, period, zone], key: [generator, period] }
+
+parameters:
+  demand: { dims: [zone, period] }
+  cost: { dims: [generator] }
+
+variables:
+  p: { foreach: [generator, period], bounds: { lower: 0 } }
+
+constraints:
+  zone_balance:
+    foreach: [zone, period]
+    expression: sum(p, by=zone_of) >= demand
+
+objective: { sense: minimize, expression: sum(p * cost) }

@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+dimensions:
+  generator: {}
+  product: {}
+  period: { dtype: int }
+lookups:
+  eligible: { columns: [generator, product] }
+parameters:
+  requirement: { dims: [product, period] }
+  cost: { dims: [generator] }
+variables:
+  r: { foreach: [generator, period], bounds: { lower: 0 } }
+constraints:
+  reserve:
+    foreach: [product, period]
+    expression: sum(r, by=eligible, consume=generator, produce=product) >= requirement
+objective: { sense: minimize, expression: sum(r * cost) }
