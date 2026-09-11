@@ -170,14 +170,14 @@ PROBLEMS = [
 #: pull request that proposes it, and none of it is measured here.
 PRICE = [
     ('Rules the reference states', {'per': '7', 'keys': '7', 'relations': '10'}),
-    ('Call syntax beyond by=', {'per': 'none', 'keys': 'a dot', 'relations': 'from=, into='}),
+    ('Call syntax beyond by=', {'per': 'none', 'keys': 'a dot', 'relations': 'from=, into=, within='}),
     (
         'Existing declarations rewritten',
         {'per': 'none', 'keys': 'none', 'relations': 'all, once'},
     ),
     (
         'Diff against main',
-        {'per': '+394 −67', 'keys': '+601 −161', 'relations': '+2026 −723'},
+        {'per': '+394 −67', 'keys': '+601 −161', 'relations': '+2108 −802'},
     ),
 ]
 
