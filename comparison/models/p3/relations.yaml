@@ -9,8 +9,8 @@ dimensions:
   period: { dtype: int }
 
 lookups:
-  gen_bus: { over: [generator, bus], key: generator }
-  ends: { over: { line: line, bus0: bus, bus1: bus }, key: line }
+  gen_bus: { columns: [generator, bus], key: generator }
+  ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }
 
 parameters:
   load: { dims: [bus, period] }
@@ -23,7 +23,7 @@ variables:
 constraints:
   nodal:
     foreach: [bus, period]
-    expression: sum(p, by=gen_bus) + sum(f, by=ends, into=bus1) - sum(f, by=ends, into=bus0) == load
+    expression: sum(p, by=gen_bus) + sum(f, by=ends, produce=bus1) - sum(f, by=ends, produce=bus0) == load
   no_loop:
     foreach: [line, period]
     where: "ends.bus0 != ends.bus1"

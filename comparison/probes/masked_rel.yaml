@@ -7,7 +7,7 @@ dimensions:
   generator: {}
   period: { dtype: int }
 lookups:
-  gen_bus: { over: [generator, bus], key: generator }
+  gen_bus: { columns: [generator, bus], key: generator }
 parameters:
   load: { dims: [bus, period] }
   cost: { dims: [generator] }

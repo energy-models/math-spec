@@ -9,7 +9,7 @@ dimensions:
   period: { dtype: int }
 
 lookups:
-  gen_bt: { over: [generator, bus, technology], key: generator }
+  gen_bt: { columns: [generator, bus, technology], key: generator }
 
 parameters:
   tech_cap: { dims: [bus, technology] }
@@ -21,6 +21,6 @@ variables:
 constraints:
   by_bus_and_tech:
     foreach: [bus, technology, period]
-    expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
+    expression: sum(p, by=gen_bt, produce=[bus, technology]) <= tech_cap
 
 objective: { sense: minimize, expression: sum(p * cost) }

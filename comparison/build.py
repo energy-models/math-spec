@@ -82,7 +82,7 @@ PROBLEMS = [
                 'lookups, and a consumer binds two tables.',
             ),
             'keys': ('one table', 'The dot picks the other key. One declaration, two walks.'),
-            'relations': ('one table', 'from= picks the other key column. One declaration, two walks.'),
+            'relations': ('one table', 'consume= picks the other key column. One declaration, two walks.'),
         },
     },
     {
@@ -128,7 +128,7 @@ PROBLEMS = [
             'keys': ('two tables', 'The same file as per:.'),
             'relations': (
                 'one table',
-                'One table carries both value columns, and into= lands on both in one join.',
+                'One table carries both value columns, and produce= lands on both in one join.',
             ),
         },
     },
@@ -170,14 +170,14 @@ PROBLEMS = [
 #: pull request that proposes it, and none of it is measured here.
 PRICE = [
     ('Rules the reference states', {'per': '7', 'keys': '7', 'relations': '10'}),
-    ('Call syntax beyond by=', {'per': 'none', 'keys': 'a dot', 'relations': 'from=, into=, within='}),
+    ('Call syntax beyond by=', {'per': 'none', 'keys': 'a dot', 'relations': 'consume=, produce=, within='}),
     (
         'Existing declarations rewritten',
         {'per': 'none', 'keys': 'none', 'relations': 'all, once'},
     ),
     (
         'Diff against main',
-        {'per': '+394 −67', 'keys': '+601 −161', 'relations': '+2108 −802'},
+        {'per': '+394 −67', 'keys': '+601 −161', 'relations': '+2325 −1000'},
     ),
 ]
 
@@ -201,7 +201,7 @@ KINDS = [
         'everyday': 'Every pupil is in one class.',
         'model': 'Every generator sits on one bus.',
         'code': [
-            ('relations', 'gen_bus: { over: [generator, bus], key: generator }'),
+            ('relations', 'gen_bus: { columns: [generator, bus], key: generator }'),
             ('per: and keys', 'gen_bus: { over: generator, into: bus }'),
         ],
         'says': {
@@ -215,7 +215,7 @@ KINDS = [
         'everyday': 'Every pupil is in one class, and the class changes each school year.',
         'model': 'Every generator bids in one zone, and the zone changes by period.',
         'code': [
-            ('relations', 'zone_of: { over: [generator, period, zone], key: [generator, period] }'),
+            ('relations', 'zone_of: { columns: [generator, period, zone], key: [generator, period] }'),
             ('keys', 'zone_of: { over: [generator, period], into: zone }'),
         ],
         'says': {
@@ -228,7 +228,7 @@ KINDS = [
         'shape': 'two named slots',
         'everyday': 'A seesaw has a left seat and a right seat.',
         'model': 'A line has one bus at each end, and the two ends are not interchangeable.',
-        'code': [('relations', 'ends: { over: { line: line, bus0: bus, bus1: bus }, key: line }')],
+        'code': [('relations', 'ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }')],
         'says': {
             'per': ('workaround', 'two lookups'),
             'keys': ('workaround', 'two lookups'),
@@ -240,7 +240,7 @@ KINDS = [
         'everyday': 'Every pupil has one buddy, who is also a pupil.',
         'model': 'Every snapshot has one representative snapshot standing in for it.',
         'code': [
-            ('relations', 'represents: { over: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }'),
+            ('relations', 'represents: { columns: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }'),
             ('keys, with #436', 'rep_of: { over: snapshot, into: snapshot }'),
         ],
         'says': {
@@ -254,7 +254,7 @@ KINDS = [
         'everyday': 'A pupil can be in several clubs, and a club has several pupils.',
         'model': 'A generator bids into several reserve products, and each product takes many.',
         'code': [
-            ('relations', 'eligible: { over: [generator, product] }'),
+            ('relations', 'eligible: { columns: [generator, product] }'),
             ('per: and keys', 'eligible: { dims: [generator, product], dtype: int }  # a table of ones'),
         ],
         'says': {
@@ -267,7 +267,7 @@ KINDS = [
         'shape': 'many each, of its own kind',
         'everyday': 'A pupil sits next to several others.',
         'model': 'A region touches several other regions.',
-        'code': [('relations', 'adjacent: { over: { region: region, neighbour: region } }')],
+        'code': [('relations', 'adjacent: { columns: { region: region, neighbour: region } }')],
         'says': {
             'per': ('no', 'no rewrite exists'),
             'keys': ('no', 'no rewrite exists'),

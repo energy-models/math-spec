@@ -7,7 +7,7 @@ dimensions:
   period: { dtype: int }
 
 lookups:
-  adjacent: { over: { region: region, neighbour: region } }
+  adjacent: { columns: { region: region, neighbour: region } }
 
 parameters:
   cap: { dims: [region, period] }
@@ -19,6 +19,6 @@ variables:
 constraints:
   neighbourhood:
     foreach: [region, period]
-    expression: sum(x, by=adjacent, from=neighbour, into=region) <= cap
+    expression: sum(x, by=adjacent, consume=neighbour, produce=region) <= cap
 
 objective: { sense: minimize, expression: sum(x * cost) }

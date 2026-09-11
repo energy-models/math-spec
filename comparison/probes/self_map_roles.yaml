@@ -6,7 +6,7 @@ dimensions:
   snapshot: { dtype: int }
   generator: {}
 lookups:
-  represents: { over: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }
+  represents: { columns: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }
 parameters:
   cost: { dims: [generator] }
 variables:
@@ -14,5 +14,5 @@ variables:
 constraints:
   follow_the_stand_in:
     foreach: [generator, snapshot]
-    expression: p == at(p, by=represents, from=stand_in)
+    expression: p == at(p, by=represents, consume=stand_in)
 objective: { sense: minimize, expression: sum(p * cost) }

@@ -7,7 +7,7 @@ dimensions:
   product: {}
   period: { dtype: int }
 lookups:
-  eligible: { over: [generator, product] }
+  eligible: { columns: [generator, product] }
 parameters:
   requirement: { dims: [product, period] }
   cost: { dims: [generator] }
@@ -16,5 +16,5 @@ variables:
 constraints:
   reserve:
     foreach: [product, period]
-    expression: sum(r, by=eligible, from=generator, into=product) >= requirement
+    expression: sum(r, by=eligible, consume=generator, produce=product) >= requirement
 objective: { sense: minimize, expression: sum(r * cost) }
