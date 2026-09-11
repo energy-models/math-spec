@@ -174,12 +174,15 @@ class Namespace:
         Args:
             name: The name the file wrote.
             context: The declaration it was found in.
-            allow_dims: Whether a dimension would have been accepted there.
+            allow_dims: Whether a dimension would have been accepted there. It marks a
+                where string, which reads a lookup as readily as a parameter, so the
+                listing carries the lookups too; an expression, where a lookup is not a
+                value, lists the variables instead.
             formals: A macro's formals, listed first when there are any.
         """
         shown: list[tuple[str, Iterable[str]]] = [('Formals', formals)] if formals else []
         shown += (
-            [('Parameters', self.parameters), ('Dimensions', self.dimensions)]
+            [('Parameters', self.parameters), ('Dimensions', self.dimensions), ('Lookups', self.lookups)]
             if allow_dims
             else [('Variables', self.variables), ('Parameters', self.parameters)]
         )
