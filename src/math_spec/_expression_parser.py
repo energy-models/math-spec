@@ -91,7 +91,7 @@ class DualNode:
 class DimensionNode:
     """A resolved reference to a declared dimension.
 
-    Only legal in operator kwarg *values* (``sum(x, over=generator)``), never as
+    Only legal in operator kwarg *values* (``sum(x, consume=generator)``), never as
     a value in arithmetic — a dimension is a coordinate space, not data.
     """
 
@@ -509,7 +509,7 @@ def _named_rewrite(text: str, loc: int) -> str | None:
         return f"'{rest[0]}' is not a constraint sense — the senses are <=, >= and ==. Write the bound inclusive."
     if rest.startswith('='):
         return (
-            "'=' on its own is how a kwarg is written inside a call, like sum(x, over=d). "
+            "'=' on its own is how a kwarg is written inside a call, like sum(x, consume=d). "
             'Equality between two sides is written ==.'
         )
     if rest.startswith('^'):

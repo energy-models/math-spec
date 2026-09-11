@@ -18,8 +18,8 @@ parameters:
 variables:
   p: { foreach: [snapshot, generator] }
 expressions:
-  system_cost: sum(sum(p * marginal_cost, over=generator), over=snapshot)
-  delivered: sum(sum(p, over=generator), over=snapshot)
+  system_cost: sum(sum(p * marginal_cost, consume=generator), consume=snapshot)
+  delivered: sum(sum(p, consume=generator), consume=snapshot)
   lcoe: system_cost / delivered
 objective: { sense: minimize, expression: system_cost }
 ```

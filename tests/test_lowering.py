@@ -79,7 +79,7 @@ TINY = {
     'dimensions': {'g': {}},
     'parameters': {'cost': {'dims': ['g']}},
     'variables': {'p': {'foreach': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
-    'constraints': {'c': {'foreach': [], 'expression': 'sum(p, over=g) >= 1'}},
+    'constraints': {'c': {'foreach': [], 'expression': 'sum(p, consume=g) >= 1'}},
 }
 
 #: `lk` and `lk2` as `sum` walks them: key consumed, value produced, nothing joined.
@@ -157,7 +157,7 @@ def test_lower_program_structure(dispatch_program):
 @pytest.mark.parametrize('sense', [pytest.param('minimize', id='minimize'), pytest.param('maximize', id='maximize')])
 def test_the_objective_sense_crosses_untranslated(sense: str):
     """One spelling from the file to the program, in both directions — each sink translates at its own edge."""
-    program = to_program(override(TINY, objective={'sense': sense, 'expression': 'sum(p * cost, over=g)'}))
+    program = to_program(override(TINY, objective={'sense': sense, 'expression': 'sum(p * cost, consume=g)'}))
     assert program.objective is not None
     assert program.objective.sense == sense, "the file's own word for the direction, unchanged"
 
@@ -409,7 +409,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
     ('expression', 'expected'),
     [
         pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
-        pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
+        pytest.param('sum(q, consume=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk)',
             GroupSum(Variable('p'), walks=(LK_WALK,)),
@@ -498,12 +498,15 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
                 'first': {'foreach': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
             },
             'constraints': {
-                'zonal': {'foreach': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, from=generator) <= 1'},
+                'zonal': {'foreach': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, consume=generator) <= 1'},
                 'priced': {
                     'foreach': ['snapshot', 'generator'],
-                    'expression': 'p <= at(price, by=zone_of, into=generator)',
+                    'expression': 'p <= at(price, by=zone_of, produce=generator)',
                 },
-                'history': {'foreach': ['generator', 'zone'], 'expression': 'sum(p, by=zone_of, from=snapshot) <= 1'},
+                'history': {
+                    'foreach': ['generator', 'zone'],
+                    'expression': 'sum(p, by=zone_of, consume=snapshot) <= 1',
+                },
             },
         }
     )
@@ -666,8 +669,8 @@ def test_expressions_are_the_ones_a_row_is_built_from():
     program = to_program(
         override(
             TINY,
-            expressions={'spend': 'sum(cost, over=g)'},
-            objective={'sense': 'minimize', 'expression': 'sum(p * cost, over=g)'},
+            expressions={'spend': 'sum(cost, consume=g)'},
+            objective={'sense': 'minimize', 'expression': 'sum(p * cost, consume=g)'},
         )
     )
 
@@ -700,12 +703,12 @@ def test_the_footprint_says_which_position_a_quadratic_stands_in():
     actually make — quadratic is bounded "by convexity and again by what it
     stands beside" — and leave the sink walking the program to recover it.
     """
-    assert _footprint_of('p <= 1', 'sum(p * p, over=g)').quadratic == {'objective'}, 'a quadratic objective alone'
-    assert _footprint_of('p * p <= 1', 'sum(p, over=g)').quadratic == {'constraint'}, 'a quadratic constraint alone'
-    assert _footprint_of('p * p <= 1', 'sum(p * p, over=g)').quadratic == {'objective', 'constraint'}, (
+    assert _footprint_of('p <= 1', 'sum(p * p, consume=g)').quadratic == {'objective'}, 'a quadratic objective alone'
+    assert _footprint_of('p * p <= 1', 'sum(p, consume=g)').quadratic == {'constraint'}, 'a quadratic constraint alone'
+    assert _footprint_of('p * p <= 1', 'sum(p * p, consume=g)').quadratic == {'objective', 'constraint'}, (
         'both positions, each named'
     )
-    assert _footprint_of('p <= 1', 'sum(p, over=g)').quadratic == frozenset(), 'affine throughout is the empty set'
+    assert _footprint_of('p <= 1', 'sum(p, consume=g)').quadratic == frozenset(), 'affine throughout is the empty set'
 
 
 def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
@@ -714,7 +717,7 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
     None would make three states out of two and put a null check in front of
     every read.
     """
-    footprint = _footprint_of('p <= 1', 'sum(p, over=g)')
+    footprint = _footprint_of('p <= 1', 'sum(p, consume=g)')
 
     assert footprint.sos_types == frozenset(), 'a file declaring no sos'
     assert footprint.quadratic == frozenset(), 'a file with no quadratic anywhere'
@@ -735,7 +738,7 @@ def test_the_footprint_is_walked_once_and_held(dispatch_program):
 
 def test_a_named_expression_is_not_in_the_footprint():
     """It builds no row, so counting it would answer wrongly about what is solved."""
-    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}))
+    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, consume=g)'}))
 
     assert Parameter not in program.footprint.shapes, "the named expression's parameter reaches no row"
     assert Parameter in {type(n) for n in walk(program.named_expressions['spend'].expression)}, (
@@ -867,13 +870,15 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
         ),
         pytest.param({}, False, id='nothing-reads-it'),
         pytest.param(
-            {'expressions.ratio': 'spend / sum(p, over=g)'}, False, id='only-an-entry-the-math-never-reads-inlines-it'
+            {'expressions.ratio': 'spend / sum(p, consume=g)'},
+            False,
+            id='only-an-entry-the-math-never-reads-inlines-it',
         ),
     ],
 )
 def test_an_entry_is_in_the_math_where_the_objective_or_a_constraint_inlines_it(patch, in_math):
     """`in_math` is usage, not shape: one affine body is in the math when a row inlines it, however indirectly, and a reported quantity when none does."""
-    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch))
+    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, consume=g)'}, **patch))
     assert program.named_expressions['spend'].in_math is in_math
 
 
@@ -882,7 +887,7 @@ def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
     program = to_program(
         override(
             TINY,
-            expressions={'spend': 'sum(p * cost, over=g)', 'twice': 'spend * 2'},
+            expressions={'spend': 'sum(p * cost, consume=g)', 'twice': 'spend * 2'},
             **{'constraints.c.expression': 'twice >= 1'},
         )
     )
@@ -897,9 +902,9 @@ def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
     program = to_program(
         override(
             TINY,
-            expressions={'spend': 'sum(p * cost, over=g)'},
+            expressions={'spend': 'sum(p * cost, consume=g)'},
             macros={'scaled': {'args': ['spend'], 'template': 'spend * 2'}},
-            **{'constraints.c.expression': 'scaled(sum(p, over=g)) >= 1'},
+            **{'constraints.c.expression': 'scaled(sum(p, consume=g)) >= 1'},
         )
     )
     assert program.named_expressions['spend'].in_math is False, (
@@ -931,8 +936,8 @@ def test_a_lowered_spec_still_pickles_and_lowers_to_the_same_program():
             'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
             'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
             'variables': {'p': {'foreach': ['t', 'g'], 'bounds': {'lower': 0}}},
-            'constraints': {'balance': {'foreach': ['t'], 'expression': 'sum(p, over=g) >= load'}},
-            'expressions': {'spend': 'sum(p * cost, over=g)'},
+            'constraints': {'balance': {'foreach': ['t'], 'expression': 'sum(p, consume=g) >= load'}},
+            'expressions': {'spend': 'sum(p * cost, consume=g)'},
             'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
         }
     )
@@ -959,8 +964,8 @@ def test_a_lowered_program_pickles_and_is_the_same_program():
             'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
             'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
             'variables': {'p': {'foreach': ['t', 'g'], 'bounds': {'lower': 0}}},
-            'constraints': {'balance': {'foreach': ['t'], 'expression': 'sum(p, over=g) >= load'}},
-            'expressions': {'spend': 'sum(p * cost, over=g)'},
+            'constraints': {'balance': {'foreach': ['t'], 'expression': 'sum(p, consume=g) >= load'}},
+            'expressions': {'spend': 'sum(p * cost, consume=g)'},
             'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
         }
     )

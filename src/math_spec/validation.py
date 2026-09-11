@@ -106,7 +106,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     - where strings parse *and* resolve — an unknown name there is an error,
       not a silently-empty mask;
     - macro formals may shadow model names but not a declared dimension, since
-      ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
+      ``consume=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
     Returns:
@@ -343,7 +343,8 @@ def _check_template_names(
         for arg in node.args:
             _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():
-            match builtin.kind_of(kwarg) if builtin else 'value':
+            with_lookup = builtin is not None and any(k in node.kwargs for k in builtin.lookup_kwargs)
+            match builtin.kind_of(kwarg, with_lookup=with_lookup) if builtin else 'value':
                 case 'dimension':
                     if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
                         errors.append(

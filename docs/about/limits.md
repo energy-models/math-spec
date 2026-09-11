@@ -40,7 +40,7 @@ the value of a keyword argument, such as `over=snapshot`, never in the key. A
 macro can write `over=d` and let the caller supply `d`. It could not do that if
 the dimension were the keyword itself.
 
-**Each output row reads a bounded number of input rows.** `sum(p, over=g)` reads
+**Each output row reads a bounded number of input rows.** `sum(p, consume=g)` reads
 one row per generator. `shift(p, over=t, offset=1)` reads one row, the one
 before it. `x * y * a` reads the rows of `a` that pair an `x` with a `y`. An
 operator that reads the whole table to produce one row, or that calls itself, is
@@ -63,7 +63,7 @@ quadratic case:
 - **Where it stands.** More solvers and file formats take a quadratic objective
   than a quadratic constraint. Which ones is the
   [separate question below](#solver-capability).
-- **A product of two sums.** `sum(x, over=i) * sum(y, over=j)` multiplies every
+- **A product of two sums.** `sum(x, consume=i) * sum(y, consume=j)` multiplies every
   term of the first sum by every term of the second, and the file does not say
   how many terms either sum has. It is refused. `x[i] * y[j] * a[i, j]` is
   allowed, because the table `a` says which pairs exist.

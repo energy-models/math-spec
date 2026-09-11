@@ -169,7 +169,7 @@ class LookupBlock(_StrictBlock):
           connection: {over: [entity, bus]}
 
     An operator walks the table in the direction the call names
-    (``from=``, ``into=``), joining on the other key columns; the declaration
+    (``consume=``, ``produce=``), joining on the other key columns; the declaration
     fixes no direction. The map itself
     is data, and arrives at bind time under the lookup's name, one column per
     role.
@@ -379,9 +379,9 @@ class ExpressionBlock(_StrictBlock):
     so a round trip through :meth:`Spec.to_yaml` reproduces the file::
 
         expressions:
-          total_generation: sum(p, over=generator)
+          total_generation: sum(p, consume=generator)
           emissions:
-            expression: sum(p * rate, over=generator)
+            expression: sum(p * rate, consume=generator)
             description: CO2 released, the quantity the cap bounds
 
     A quantity whose value varies by region is written as ``cases:`` over a

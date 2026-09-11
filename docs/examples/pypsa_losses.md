@@ -309,7 +309,7 @@ Kirchhoff_Voltage_Law:
     impedance-weighted flows sum to nothing, which is what makes the linear
     power flow physical rather than transport
   foreach: [snapshot, cycle]
-  expression: sum(Line_s * Line_cycle_weight, over=line) == 0
+  expression: sum(Line_s * Line_cycle_weight, consume=line) == 0
 ```
 
 ```math

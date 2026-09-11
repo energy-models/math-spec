@@ -33,10 +33,10 @@ NUMBER      ::= integer | float | "inf" | ".inf"
 ## Where a product of two variables is allowed
 
 The objective and the constraints take `variable * variable`. A quadratic cost is
-`sum(p * p * wear, over=g)`, and a quadratic row is `p * q >= floor`. Three rules
+`sum(p * p * wear, consume=g)`, and a quadratic row is `p * q >= floor`. Three rules
 bound it:
 
-- **At most one factor may be a sum of terms.** `sum(p, over=g) * sum(q, over=g)`
+- **At most one factor may be a sum of terms.** `sum(p, consume=g) * sum(q, consume=g)`
   is refused: it pairs every term of one sum against every term of the other,
   and nothing in the file says how many terms that is. Multiply before you
   reduce, or constrain a variable to equal the reduction, because a variable is
@@ -87,15 +87,15 @@ named `snapshot` would silently change what `where: "snapshot > 0"` means.
 Position decides which kinds of name are legal, and the kind of every name is
 fixed at load:
 
-| Position                                | Legal kinds                                                                                                  |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| expression (`p * cost`)                 | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
-| dimension argument (`over=`)            | a dimension                                                                                                  |
-| lookup argument (`by=` on `sum` / `at`) | a lookup, and never a dimension. `from=` and `into=` name its columns                                        |
-| `where` string                          | a parameter, variable, dimension or lookup ([where strings](#where-strings))                                 |
-| `bounds.lower` / `bounds.upper`         | a parameter name, or a number                                                                                |
-| the `edge` key of `shift`               | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |
-| `dual` argument (`dual(c)`)             | a constraint. It resolves against the constraints alone ([reported](reported.md#reading-a-constraints-dual)) |
+| Position                                 | Legal kinds                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| expression (`p * cost`)                  | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
+| dimension argument (`consume=`, `over=`) | a dimension                                                                                                  |
+| lookup argument (`by=` on `sum` / `at`)  | a lookup, and never a dimension. `consume=` and `produce=` name its columns                                  |
+| `where` string                           | a parameter, variable, dimension or lookup ([where strings](#where-strings))                                 |
+| `bounds.lower` / `bounds.upper`          | a parameter name, or a number                                                                                |
+| the `edge` key of `shift`                | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |
+| `dual` argument (`dual(c)`)              | a constraint. It resolves against the constraints alone ([reported](reported.md#reading-a-constraints-dual)) |
 
 A bare word in the value of a keyword argument is a name to resolve. That is why
 `wrap` is quoted: `shift(x, over=wrap, edge='wrap')` reads one way, even in a
@@ -120,19 +120,19 @@ A parameter declares `dims`, a variable declares `foreach`, and every dimension
 argument is name-checked. So **the dimension set of every expression is known
 before any data binds**:
 
-| Node                            | Dim set                                   | Error                                                                                                                      |
-| ------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| number                          | `{}`                                      |                                                                                                                            |
-| parameter / variable            | its `dims` / its `foreach`                |                                                                                                                            |
-| `-x`, `+x`                      | `dims(x)`                                 |                                                                                                                            |
-| `a + b`, `a * b`, `a / b`       | `dims(a) ∪ dims(b)`                       |                                                                                                                            |
-| `sum(x)`                        | `{}`                                      | error if `dims(x)` is already empty                                                                                        |
-| `sum(x, over=d)`                | `dims(x) − {d}`                           | error if `d ∉ dims(x)`                                                                                                     |
-| `sum(x, by=l)`                  | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, or if a joined column's dimension is not in `dims(x)`                                        |
-| `sum(x, by=[l, m])`             | `(dims(x) − from(l)) ∪ into(l) ∪ into(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one                |
-| `at(x, by=l)`                   | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not, or if `l` has no key inside the columns `into=` names |
-| `shift(x, over=d, offset=n)`    | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                     |
-| `sum_back(x, over=d, window=n)` | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                     |
+| Node                            | Dim set                                   | Error                                                                                                                         |
+| ------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| number                          | `{}`                                      |                                                                                                                               |
+| parameter / variable            | its `dims` / its `foreach`                |                                                                                                                               |
+| `-x`, `+x`                      | `dims(x)`                                 |                                                                                                                               |
+| `a + b`, `a * b`, `a / b`       | `dims(a) ∪ dims(b)`                       |                                                                                                                               |
+| `sum(x)`                        | `{}`                                      | error if `dims(x)` is already empty                                                                                           |
+| `sum(x, consume=d)`             | `dims(x) − {d}`                           | error if `d ∉ dims(x)`                                                                                                        |
+| `sum(x, by=l)`                  | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, or if a joined column's dimension is not in `dims(x)`                                           |
+| `sum(x, by=[l, m])`             | `(dims(x) − from(l)) ∪ into(l) ∪ into(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one                   |
+| `at(x, by=l)`                   | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not, or if `l` has no key inside the columns `produce=` names |
+| `shift(x, over=d, offset=n)`    | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                        |
+| `sum_back(x, over=d, window=n)` | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                        |
 
 A binary operator takes the **union** of the two dimension sets, so an outer
 product is allowed wherever the declaration's own dimensions cover the result.
@@ -283,9 +283,9 @@ parameters:
 variables:
   p: { foreach: [generator] }
 expressions:
-  total_generation: sum(p, over=generator)
+  total_generation: sum(p, consume=generator)
   emissions:
-    expression: sum(p * rate, over=generator)
+    expression: sum(p * rate, consume=generator)
     description: CO2 released, the quantity a cap would bound
 ```
 
@@ -419,7 +419,7 @@ value that a solve could report:
 weighted_sum:
   args: [array, weights] # positional formals, default []
   kwargs: [over] # keyword formals, default []
-  template: sum(array * weights, over=over)
+  template: sum(array * weights, consume=over)
 ```
 
 - A template holds arithmetic, and no comparison.

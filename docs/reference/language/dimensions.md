@@ -126,13 +126,13 @@ Each cardinality is one declaration, and the key is the side that is one:
 
 The key is also what decides which walks the table admits:
 
-| the walk                        | needs                                                                                     | because                                                       |
-| ------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `sum(x, by=l, from=a, into=b)`  | nothing                                                                                   | a sum lands every row it finds; several per coordinate add up |
-| `at(x, by=l, from=a, into=b)`   | a key inside the columns the operand fixes — the `into` columns and the columns joined on | a read is one value per coordinate, or it is not a read       |
-| `shift`, `sum_back`, `position` | a key column over the dimension walked                                                    | a coordinate is in one group, or it has no neighbour          |
-| `where: "l == 'north'"`         | a key, and the column compared a value column                                             | a comparison is one value per coordinate                      |
-| `where: l` (bare)               | nothing                                                                                   | a row exists, or it does not                                  |
+| the walk                             | needs                                                                                     | because                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `sum(x, by=l, consume=a, produce=b)` | nothing                                                                                   | a sum lands every row it finds; several per coordinate add up |
+| `at(x, by=l, consume=a, produce=b)`  | a key inside the columns the operand fixes — the `into` columns and the columns joined on | a read is one value per coordinate, or it is not a read       |
+| `shift`, `sum_back`, `position`      | a key column over the dimension walked                                                    | a coordinate is in one group, or it has no neighbour          |
+| `where: "l == 'north'"`              | a key, and the column compared a value column                                             | a comparison is one value per coordinate                      |
+| `where: l` (bare)                    | nothing                                                                                   | a row exists, or it does not                                  |
 
 A bare relation — no `key:` — is walked by `sum` alone, with both ends named,
 and tested by a bare `where`. That is what a many-to-many relation can say,
@@ -141,7 +141,7 @@ and all it can say.
 ### A walk names its ends
 
 Every operator that takes `by=` walks the table between two of its columns:
-`from=` the column **consumed**, `into=` the column **produced**, and every other
+`consume=` the column **consumed**, `produce=` the column **produced**, and every other
 **key** column **joined on** — the operand carries its dimension and the
 result keeps it. A value column not walked is not read: `ends` below, walked
 from `line` to `bus1`, joins on nothing. A bare relation's columns are all
@@ -162,13 +162,13 @@ variables:
 constraints:
   zone_balance: # p[generator, period] → [zone, period]
     foreach: [zone, period]
-    expression: sum(p, by=zone_of, from=generator, into=zone) >= demand
+    expression: sum(p, by=zone_of, consume=generator, produce=zone) >= demand
   history: # p[generator, period] → [generator, zone]: the same table, walked from its other key column
     foreach: [generator, zone]
-    expression: sum(p, by=zone_of, from=period, into=zone) <= 100
+    expression: sum(p, by=zone_of, consume=period, produce=zone) <= 100
   capped_revenue: # price[zone, period] → [generator, period]: the price of the zone this generator sat in that period
     foreach: [generator, period]
-    expression: at(price, by=zone_of, from=zone, into=generator) * p <= 1000
+    expression: at(price, by=zone_of, consume=zone, produce=generator) * p <= 1000
 ```
 
 **What the declaration decides, the call may leave unsaid.** Where the key has
@@ -177,7 +177,7 @@ draws, and `sum(p, by=gen_bus)` and `at(price, by=gen_bus)` are complete:
 `sum` consumes the key and produces the value, `at` consumes the value and
 produces the key. Where a side has several candidates — two key columns, two
 value columns — the call names it, and the refusal lists the candidates.
-`zone_of` above has two key columns, so `sum` names `from=`, while `into=zone`
+`zone_of` above has two key columns, so `sum` names `consume=`, while `produce=zone`
 could have been left out.
 
 **A partition walks a key column and groups by the value columns.**
@@ -190,13 +190,13 @@ and a value column not named is not read.
 
 The rules, each decided at load with a refusal naming the rewrite:
 
-- **`from=` and `into=` name columns of the lookup `by=` names**, one each or a
+- **`consume=` and `produce=` name columns of the lookup `by=` names**, one each or a
   list each, no column on both sides, and are refused without a `by=`.
-  `sum(p, by=gen_bt, into=[bus, technology])` lands one table with two value
+  `sum(p, by=gen_bt, produce=[bus, technology])` lands one table with two value
   columns on the product `bus × technology` in one join;
-  `sum(p, by=zone_of, from=[generator, period])` consumes both key columns
-  at once, which is `sum(sum(p, by=zone_of, from=generator), over=period)`
-  said once; `at(tech_cap, by=gen_bt, from=[bus, technology])` reads a
+  `sum(p, by=zone_of, consume=[generator, period])` consumes both key columns
+  at once, which is `sum(sum(p, by=zone_of, consume=generator), consume=period)`
+  said once; `at(tech_cap, by=gen_bt, consume=[bus, technology])` reads a
   two-column slot at each generator.
 - **The operand carries every joined column's dimension, each once.** The map
   is read at the key columns not walked, so there is no reading it at a
@@ -206,7 +206,7 @@ The rules, each decided at load with a refusal naming the rewrite:
   `sum(load * p, by=gen_bus)` with `load[snapshot, bus]` restricts each term to
   the row where the generator's bus is the row's bus — a masked sum, which is
   what the join says.
-- **`at` reads one value.** Its key lies inside `into=` and the joined columns,
+- **`at` reads one value.** Its key lies inside `produce=` and the joined columns,
   or the call is refused; a bare relation is never read by `at`.
 - **A partition walks the one key column over the dimension it walks, and
   groups by the value columns `within=` names** — all of them where it names
@@ -241,7 +241,7 @@ lookups:
   rep_of: { over: { snapshot: snapshot, rep: snapshot }, key: snapshot } # the representative snapshot
 ```
 
-`sum(f, by=ends, from=line, into=bus1) - sum(f, by=ends, from=line, into=bus0)`
+`sum(f, by=ends, consume=line, produce=bus1) - sum(f, by=ends, consume=line, produce=bus0)`
 is the nodal balance through one table where two lookups did it before, and
 `where: "ends.bus0 != ends.bus1"` excludes a self-loop by comparing two of its
 columns.
@@ -309,7 +309,7 @@ does with the column, not what the column holds:
 | is an axis: something is indexed by it, or an aggregation lands terms on it                                                           | a `dimension`                               | its members are the coordinate set every table over it is reindexed onto                                                  |
 | has one value per member of a dimension, or per tuple of several — a generator's bus, a line's two ends, a generator's zone by period | a `lookup` with that `key`                  | it is a map every operator walks, and its values are checked against the dimensions they name                             |
 | relates members of two dimensions many-to-many, with nothing to weigh — which buses a generator may connect to                        | a `lookup` with no key                      | `sum` walks it with both ends named, and a bare `where` tests it. Nothing reads it, because there is no one value to read |
-| relates members of two dimensions many-to-many, with a weight per pair — a link's efficiency to each bus, a cycle's lines             | a `parameter` over both                     | the weight is the data, its row set is the relation, and the aggregation is `sum(w * x, over=a)`                          |
+| relates members of two dimensions many-to-many, with a weight per pair — a link's efficiency to each bus, a cycle's lines             | a `parameter` over both                     | the weight is the data, its row set is the relation, and the aggregation is `sum(w * x, consume=a)`                       |
 | is a label set the model only selects on or counts within — a period, a season, a zone                                                | a `dimension`, and a keyed `lookup` onto it | the membership check is worth one line and one member list                                                                |
 | scales terms — a coefficient, a bound, an offset                                                                                      | a `parameter` (`float` or `int`)            | arithmetic is over numbers ([dtype](declarations.md#parameters))                                                          |
 | is a per-row attribute the math only selects on — a fuel, a constraint's sense                                                        | a `str` parameter                           | it names rows rather than scaling them, and no set is declared to check its values against                                |

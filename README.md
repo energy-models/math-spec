@@ -21,7 +21,7 @@ with no data and no solver.**
 A math-spec file declares four things: the axes the model runs over, such as
 `snapshot` and `generator`; the data it expects, such as `load` and `cost`; the
 decisions the solver makes, such as `dispatch`; and the rules those decisions obey, such
-as `sum(dispatch, over=generator) == load`. The file [below](#example) is a complete
+as `sum(dispatch, consume=generator) == load`. The file [below](#example) is a complete
 model.
 
 math-spec reads that file, checks everything that can be checked without data,
@@ -93,7 +93,7 @@ variables:
 constraints:
   power_balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(p, consume=generator) == load
 
 objective:
   sense: minimize
@@ -211,7 +211,7 @@ through are a dependency rather than one engine's internals. The keys themselves
 which are YAML math, a block per component, `foreach:` and a `where:` string,
 come from [Calliope](https://github.com/calliope-project/calliope).
 [linopy](https://github.com/PyPSA/linopy) supplies the vocabulary that
-`sum(over=)` and the dimension rules are named against. Issue numbers in these
+`sum(consume=)` and the dimension rules are named against. Issue numbers in these
 pages point at lpspec, where the arguments happened.
 
 ## Status

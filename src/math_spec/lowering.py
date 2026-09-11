@@ -259,7 +259,7 @@ class _Lowering:
         return program.Cases(tuple(regions))
 
     def sum(self, node: FunctionCallNode) -> program.ExpressionNode:
-        """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=lookup)``.
+        """``sum(x)``, ``sum(x, consume=d)`` or ``sum(x, by=lookup)``.
 
         Two program nodes under one surface verb: reducing a dim away and reducing it
         *into* another are different relational shapes, so ``by=`` decides which
@@ -267,12 +267,12 @@ class _Lowering:
         """
         by_node = node.kwargs.get('by')
         operand = self.expr(node.args[0])
-        if by_node is None and 'over' not in node.kwargs:
+        if by_node is None and 'consume' not in node.kwargs:
             return program.Sum(operand, tuple(sorted(dims_of(node.args[0], self.schema, self.context))))
         if by_node is None:
-            over_node = node.kwargs['over']
-            assert isinstance(over_node, DimensionNode), 'resolution refuses an over= that is not a dimension'
-            return program.Sum(operand, (over_node.name,))
+            consumed = node.kwargs['consume']
+            assert isinstance(consumed, DimensionNode), 'resolution refuses a consume= that is not a dimension'
+            return program.Sum(operand, (consumed.name,))
         assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
         return program.GroupSum(operand, walks=by_node.walks)
 

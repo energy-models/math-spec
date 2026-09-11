@@ -58,8 +58,8 @@ def test_the_grammar_builds_the_program_s_own_node_classes():
         pytest.param('a + b', BinaryOperatorNode, {'op': '+'}, id='a-binary-operator'),
         pytest.param('-x', UnaryOperatorNode, {'op': '-'}, id='a-unary-operator'),
         pytest.param('p <= p_max', ComparisonNode, {'op': '<='}, id='a-comparison'),
-        pytest.param('sum(p, over=g) == load', ComparisonNode, {'op': '=='}, id='a-comparison-over-a-call'),
-        pytest.param('sum(p, over=generator)', FunctionCallNode, {'name': 'sum'}, id='a-call'),
+        pytest.param('sum(p, consume=g) == load', ComparisonNode, {'op': '=='}, id='a-comparison-over-a-call'),
+        pytest.param('sum(p, consume=generator)', FunctionCallNode, {'name': 'sum'}, id='a-call'),
     ],
 )
 def test_an_expression_parses_to_its_node(text, node_type, attrs):
@@ -99,17 +99,17 @@ def test_precedence(text, tree):
 
 
 def test_a_call_carries_its_positional_and_keyword_arguments():
-    node = parse_expression('sum(p * cost, over=generator)')
+    node = parse_expression('sum(p * cost, consume=generator)')
     assert len(node.args) == 1, 'one positional argument; the keyword is not among them'
     assert isinstance(node.args[0], BinaryOperatorNode), 'the argument is an expression, not just a name'
-    assert 'over' in node.kwargs
+    assert 'consume' in node.kwargs
 
 
 def test_a_parsed_node_pickles_and_stays_sealed():
     """A node crosses a process, and its keyword arguments still refuse a write on the far side."""
     import pickle
 
-    node = parse_expression('sum(p, over=snapshot)')
+    node = parse_expression('sum(p, consume=snapshot)')
     copy = pickle.loads(pickle.dumps(node))
     assert copy == node
     with pytest.raises(TypeError, match='does not support item assignment'):
@@ -137,7 +137,7 @@ def test_a_parsed_expression_cannot_be_rewritten_under_another_pass(rewrite, err
     node was frozen (#197): `node.op = '<='` flipped a shared comparison and
     `node.kwargs['over'] = ...` re-aimed a reduction, with no error anywhere.
     """
-    node = parse_expression('sum(p * cost, over=generator) == load')
+    node = parse_expression('sum(p * cost, consume=generator) == load')
     with pytest.raises(error, match=match):
         rewrite(node)
 
@@ -183,8 +183,8 @@ def test_an_exponent_may_be_negated_and_a_negation_stacked():
 
 
 def test_a_keyword_given_twice_is_refused_not_overwritten():
-    with pytest.raises(SchemaError, match='sum\\(over=\\) is given twice'):
-        parse_expression('sum(p, over=snapshot, over=generator)')
+    with pytest.raises(SchemaError, match='sum\\(consume=\\) is given twice'):
+        parse_expression('sum(p, consume=snapshot, consume=generator)')
 
 
 def test_a_list_of_names_is_a_kwarg_value():
@@ -200,7 +200,7 @@ def test_a_list_of_names_is_a_kwarg_value():
         pytest.param('sum(p, by=[])', id='no-names-at-all'),
         pytest.param('sum(p, by=[a b])', id='a-missing-comma'),
         pytest.param('sum(p, by=[a)', id='an-unclosed-bracket'),
-        pytest.param('sum([p], over=g)', id='a-positional-argument'),
+        pytest.param('sum([p], consume=g)', id='a-positional-argument'),
         pytest.param('p + [c]', id='a-term'),
         pytest.param('[a, b]', id='the-whole-expression'),
     ],
@@ -371,7 +371,7 @@ def test_an_unrelated_parse_failure_says_nothing_about_positions():
 
 def test_a_string_parses_to_one_shared_tree():
     """Drop the memo and this passes on `==` alone — `is` is the claim."""
-    text = 'sum(p * cost, over=generator) == load'
+    text = 'sum(p * cost, consume=generator) == load'
     assert parse_expression(text) is parse_expression(text), 'the same expression string parses to one tree'
     assert parse_where('p_max > 0') is parse_where('p_max > 0'), 'and so does the same where string'
 

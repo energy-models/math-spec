@@ -14,13 +14,13 @@ model can never depend on what a caller registered. A composition of them goes i
 | Operator                                           | Result                                                                                                                                            |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sum(array)`                                       | Every dimension that `array` carries collapses. The result is a scalar                                                                            |
-| `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
+| `sum(array, consume=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
 | `sum(array, by=lookup)`                            | The lookup's key column collapses onto its value column                                                                                          |
 | `sum(array, by=[lookup, …])`                       | The same, onto every lookup's value column. All the lookups must consume the same dimension                                                       |
-| `sum(array, by=lookup, from=a, into=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them                    |
-| `sum(array, by=lookup, from=[a, …], into=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                             |
+| `sum(array, by=lookup, consume=a, produce=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them                    |
+| `sum(array, by=lookup, consume=[a, …], produce=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                             |
 | `at(array, by=lookup)`                             | The lookup's value column is replaced by its key column                                                                                          |
-| `at(array, by=lookup, from=a, into=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns. Either may be a list               |
+| `at(array, by=lookup, consume=a, produce=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns. Either may be a list               |
 | `shift(array, over=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
 | `shift(array, over=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, over=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
@@ -33,22 +33,22 @@ model can never depend on what a caller registered. A composition of them goes i
 
 `array` is any expression with the right dimension set, so each operator reads a
 parameter as readily as a variable. Dimension arguments are name-checked at load,
-so `sum(p, over=snapshto)` is an error rather than a silent no-op.
+so `sum(p, consume=snapshto)` is an error rather than a silent no-op.
 [Every operator as math](#every-operator-as-math) shows how each row prints.
 
 ## `sum`
 
-`sum(x, over=d)` adds up `x` along `d`, and `d` is gone from the result.
+`sum(x, consume=d)` adds up `x` along `d`, and `d` is gone from the result.
 
 `sum(x)` names no dimension and reduces every dimension `x` carries, so its
-result is a scalar. It is `sum(sum(x, over=a), over=b)` written once.
+result is a scalar. It is `sum(sum(x, consume=a), consume=b)` written once.
 
-An operand that is already scalar, and an `over=` naming a dimension the operand
-does not carry, are both errors rather than no-ops.
+An operand that is already scalar, and a `consume=` naming a dimension the
+operand does not carry, are both errors rather than no-ops.
 
 `sum(x, by=l)` sums along a [lookup](dimensions.md#lookups) and lands the result
 on the column it walks to: the value column, where the key draws the arrow, or
-the one `into=` names. A nodal balance is one `sum(by=)` per kind of component,
+the one `produce=` names. A nodal balance is one `sum(by=)` per kind of component,
 and the network's wiring stays in the lookup tables:
 
 ```yaml
@@ -78,10 +78,10 @@ constraints:
 The same `f` is summed twice through two lookups, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
-Give **at most one** of `over=` and `by=`. A lookup carries its own dimensions,
-so `by=` leaves `over=` nothing to add.
+`by=` and `consume=` compose: `by=` names the table and `consume=` names what
+leaves the frame, so a call may give both, either, or neither.
 
-`from=` and `into=` say [which columns the walk runs between](dimensions.md#a-walk-names-its-ends)
+`consume=` and `produce=` say [which columns the walk runs between](dimensions.md#a-walk-names-its-ends)
 where the declaration leaves a choice. Every other key column is joined on, so
 the operand carries it, the sum keeps it, and each group is one coordinate of
 it. A value column that is not walked is not read. A bare relation, one with no
@@ -98,9 +98,9 @@ coordinate the data never covered is refused. See [absence](absence.md).
 `at(x, by=l)` walks the same lookup table the other way. `sum(by=)` consumes the
 key column and produces the value column. `at` consumes the value column and
 produces the key column: it reads one coarse value once for each fine label that
-points at it. `from=` and `into=` name the two columns where the key leaves a
+points at it. `consume=` and `produce=` name the two columns where the key leaves a
 choice. A read is one value per coordinate, so the lookup's key must lie inside
-`into=` and the columns joined on, and a bare relation is never read by `at`.
+`produce=` and the columns joined on, and a bare relation is never read by `at`.
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus)`.
@@ -343,7 +343,7 @@ language prints on [Every construct, as math](../notation.md).
 | Operator | Renders as |
 |---|---|
 | `sum(array)` | $`\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}`$ |
-| `sum(array, over=dim)` | $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$ |
+| `sum(array, consume=dim)` | $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$ |
 | `sum(array, by=lookup)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$ |
 | `sum(array, by=[lookup, …])` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$ |
 | `at(array, by=lookup)` | $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$ |

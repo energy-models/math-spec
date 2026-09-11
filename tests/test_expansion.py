@@ -18,7 +18,7 @@ from tests.fixtures import DISPATCH_MODEL, schema_of
 WEIGHTED_SUM = {
     'args': ['array', 'weights'],
     'kwargs': ['over'],
-    'template': 'sum(array * weights, over=over)',
+    'template': 'sum(array * weights, consume=over)',
 }
 
 schema = partial(schema_of, DISPATCH_MODEL)
@@ -38,29 +38,29 @@ def _bodies(node):
         pytest.param(
             {'gen_cost': 'p * cost'},
             {},
-            'sum(gen_cost, over=generator)',
-            'sum(p * cost, over=generator)',
+            'sum(gen_cost, consume=generator)',
+            'sum(p * cost, consume=generator)',
             id='a-named-expression-splices',
         ),
         pytest.param(
-            {'gen_cost': 'p * cost', 'total_cost': 'sum(gen_cost, over=generator)'},
+            {'gen_cost': 'p * cost', 'total_cost': 'sum(gen_cost, consume=generator)'},
             {},
             'total_cost + 1',
-            'sum(p * cost, over=generator) + 1',
+            'sum(p * cost, consume=generator) + 1',
             id='named-expressions-nest',
         ),
         pytest.param(
-            {'total_gen': 'sum(p, over=generator)'},
+            {'total_gen': 'sum(p, consume=generator)'},
             {},
             'total_gen == load',
-            'sum(p, over=generator) == load',
+            'sum(p, consume=generator) == load',
             id='a-comparison-at-the-top',
         ),
         pytest.param(
             {},
             {'weighted_sum': WEIGHTED_SUM},
             'weighted_sum(p, cost, over=generator)',
-            'sum(p * cost, over=generator)',
+            'sum(p * cost, consume=generator)',
             id='a-macro-expands',
         ),
         pytest.param(
@@ -80,11 +80,11 @@ def _bodies(node):
         pytest.param(
             {},
             {
-                'total': {'args': ['x'], 'template': 'sum(x, over=generator)'},
+                'total': {'args': ['x'], 'template': 'sum(x, consume=generator)'},
                 'total_cost': {'template': 'total(p * cost)'},
             },
             'total_cost()',
-            'sum(p * cost, over=generator)',
+            'sum(p * cost, consume=generator)',
             id='a-macro-body-may-call-a-macro',
         ),
         pytest.param(
@@ -112,7 +112,7 @@ def test_a_call_expands_to_core_ast(expressions, macros, call, want):
 
 
 def test_a_named_expression_arrives_under_the_node_carrying_its_name():
-    expanded = parse_and_expand('sum(gen_cost, over=generator)', schema(expressions={'gen_cost': 'p * cost'}), 'e')
+    expanded = parse_and_expand('sum(gen_cost, consume=generator)', schema(expressions={'gen_cost': 'p * cost'}), 'e')
     assert expanded.args[0] == DefinitionNode('gen_cost', parse_expression('p * cost')), (
         'the body is inlined and the name kept, for the typesetter to define it once'
     )
@@ -125,7 +125,7 @@ def test_a_named_expression_arrives_under_the_node_carrying_its_name():
         pytest.param({'bad': 'p == load'}, 'must not contain a comparison', id='a-comparison'),
         pytest.param({'load': 'p * cost'}, 'collides with the parameter of the same name', id='a-parameter-collision'),
         pytest.param(
-            {'broken': 'sum(nope, over=generator)'},
+            {'broken': 'sum(nope, consume=generator)'},
             "Named expression 'broken'",
             id='a-typo-in-a-named-expression',
         ),

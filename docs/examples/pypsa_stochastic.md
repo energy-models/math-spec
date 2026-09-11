@@ -123,7 +123,7 @@ objective:
   description: capacity once, operation in expectation, and a share of it at the tail
   expression: >-
     sum(Generator_p_nom_ext * Generator_capital_cost)
-    + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, over=scenario)
+    + (1 - CVaR_omega) * sum(scenario_weight * scenario_opex, consume=scenario)
     + CVaR_omega * CVaR
 ```
 
@@ -302,7 +302,7 @@ a_{s} - \mathit{scenario\_opex}_{s} + \theta \ge 0 \qquad \forall\, s \in \mathc
 CVaR_def:
   description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
   foreach: []
-  expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, over=scenario) <= CVaR
+  expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, consume=scenario) <= CVaR
 ```
 
 ```math
@@ -315,8 +315,8 @@ CVaR_def:
 scenario_opex:
   description: what a future costs to run — the operating terms, before their weight
   expression: >-
-    sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective, over=generator), over=snapshot)
-    + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective, over=link), over=snapshot)
+    sum(sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective, consume=generator), consume=snapshot)
+    + sum(sum(Link_p * Link_marginal_cost * snapshot_weightings_objective, consume=link), consume=snapshot)
 ```
 
 ```math

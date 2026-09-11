@@ -136,20 +136,22 @@ def _dims_call(node: FunctionCallNode, schema: Spec, context: str) -> frozenset[
 def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
     """``sum`` reduces a dim away, or walks lookups: the consumed dim goes, the produced dims arrive, the joined stay."""
     by = node.kwargs.get('by')
-    if by is None and 'over' not in node.kwargs:
+    if by is None and 'consume' not in node.kwargs:
         if not inner:
             raise DimensionError(
-                f'{context}: sum() with no over= or by= sums every dim the operand '
+                f'{context}: sum() with no consume= or by= sums every dim the operand '
                 f'carries, and this one carries none — the expression is already a '
                 f'scalar. Drop the sum.'
             )
         return frozenset()
     if by is None:
-        over = node.kwargs['over']
-        assert isinstance(over, DimensionNode)
-        if over.name not in inner:
-            raise DimensionError(_not_carried(context, f'sum(over={over.name})', inner, 'drop the sum, or fix the dim'))
-        return inner - {over.name}
+        consumed = node.kwargs['consume']
+        assert isinstance(consumed, DimensionNode)
+        if consumed.name not in inner:
+            raise DimensionError(
+                _not_carried(context, f'sum(consume={consumed.name})', inner, 'drop the sum, or fix the dim')
+            )
+        return inner - {consumed.name}
 
     assert isinstance(by, LookupNode)
     if missing := sorted(set(by.dimensions) - inner):

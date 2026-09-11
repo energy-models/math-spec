@@ -671,36 +671,36 @@ expressions:
       the charge left in weighted storage at the horizon's end; the initial
       charge it is compared against is folded into the row's constant
     expression: >-
-      sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, over=snapshot), over=generator)
-      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
-      - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, over=snapshot), over=store)
+      sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, consume=snapshot), consume=generator)
+      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, consume=snapshot), consume=storage_unit)
+      - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, consume=snapshot), consume=store)
   operational_limit:
     description: >-
       what an `operational_limit` row totals — the weighted energy its
       generators deliver, plus what its non-cyclic storage draws down; the
       initial charge it draws from is folded into the row's constant
     expression: >-
-      sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, over=snapshot), over=generator)
-      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
-      - sum(sum(Store_e * snapshot_is_last * Store_operational_limit_weight, over=snapshot), over=store)
+      sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, consume=snapshot), consume=generator)
+      - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_operational_limit_weight, consume=snapshot), consume=storage_unit)
+      - sum(sum(Store_e * snapshot_is_last * Store_operational_limit_weight, consume=snapshot), consume=store)
   transmission_volume_expansion:
     description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
     expression: >-
-      sum(Line_s_nom_ext * Line_volume_weight, over=line)
-      + sum(Link_p_nom_ext * Link_volume_weight, over=link)
+      sum(Line_s_nom_ext * Line_volume_weight, consume=line)
+      + sum(Link_p_nom_ext * Link_volume_weight, consume=link)
   transmission_expansion_cost:
     description: what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches
     expression: >-
-      sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
-      + sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
+      sum(Line_s_nom_ext * Line_expansion_cost_weight, consume=line)
+      + sum(Link_p_nom_ext * Link_expansion_cost_weight, consume=link)
   tech_capacity_expansion:
     description: what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set
     expression: >-
-      sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
-      + sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
-      + sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
-      + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
-      + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
+      sum(Generator_p_nom_ext * Generator_tech_capacity_weight, consume=generator)
+      + sum(Link_p_nom_ext * Link_tech_capacity_weight, consume=link)
+      + sum(Line_s_nom_ext * Line_tech_capacity_weight, consume=line)
+      + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, consume=storage_unit)
+      + sum(Store_e_nom_ext * Store_tech_capacity_weight, consume=store)
 
 constraints:
   Generator_fix_p_lower:
@@ -752,12 +752,12 @@ constraints:
     description: "`Generator-e_sum_min` — energy over the horizon is at least its floor; a floor of minus infinity is no row"
     foreach: [generator]
     where: Generator_e_sum_min
-    expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) >= Generator_e_sum_min
+    expression: sum(Generator_p * snapshot_weightings_generators, consume=snapshot) >= Generator_e_sum_min
   Generator_e_sum_max:
     description: "`Generator-e_sum_max` — energy over the horizon is at most its budget; a budget of infinity is no row"
     foreach: [generator]
     where: Generator_e_sum_max
-    expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) <= Generator_e_sum_max
+    expression: sum(Generator_p * snapshot_weightings_generators, consume=snapshot) <= Generator_e_sum_max
   Link_ext_p_lower:
     description: "`Link-ext-p-lower` — an extendable link carries at least its minimum of the chosen build, negative for the other way"
     foreach: [snapshot, link]
@@ -1041,7 +1041,7 @@ constraints:
       impedance-weighted flows sum to nothing, which is what makes the linear
       power flow physical rather than transport
     foreach: [snapshot, cycle]
-    expression: sum(Line_s * Line_cycle_weight, over=line) == 0
+    expression: sum(Line_s * Line_cycle_weight, consume=line) == 0
   Generator_p_ramp_limit_up:
     description: >-
       `Generator-p-ramp_limit_up` — a generator raises output no faster than

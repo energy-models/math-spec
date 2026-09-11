@@ -44,12 +44,12 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}`$
 
-### `sum(array, over=dim)`
+### `sum(array, consume=dim)`
 
 `examples/operators/sum.yaml`
 
 ```yaml
-description: The plain reduction — `sum(array, over=dim)` collapses one dimension.
+description: The plain reduction — `sum(array, consume=dim)` collapses one dimension.
 
 dimensions:
   snapshot: { dtype: int }
@@ -66,7 +66,7 @@ variables:
 constraints:
   fleet_total:
     foreach: [snapshot]
-    expression: sum(p, over=generator) <= limit
+    expression: sum(p, consume=generator) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```

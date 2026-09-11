@@ -388,7 +388,7 @@ one table walked to two value columns: the domain carries a condition per column
 ```yaml
 grouped_once:
   foreach: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
+  expression: sum(p, by=gen_bt, produce=[bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -402,7 +402,7 @@ its adjoint, reading one slot through two columns of one table
 ```yaml
 pulled_back_once:
   foreach: [generator]
-  expression: units <= at(tech_cap, by=gen_bt, from=[bus, technology])
+  expression: units <= at(tech_cap, by=gen_bt, consume=[bus, technology])
 ```
 
 ```math
@@ -431,7 +431,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 ```yaml
 relational:
   foreach: [snapshot, bus]
-  expression: sum(p, by=connection, from=generator, into=bus) <= load
+  expression: sum(p, by=connection, consume=generator, produce=bus) <= load
 ```
 
 ```math
@@ -502,7 +502,7 @@ a grouping through a two-key map, walked along one key: the condition reads the 
 ```yaml
 zonal:
   foreach: [snapshot, zone]
-  expression: sum(p, by=gen_zone, from=generator) <= zone_cap
+  expression: sum(p, by=gen_zone, consume=generator) <= zone_cap
 ```
 
 ```math
@@ -516,7 +516,7 @@ the same table walked along its other key
 ```yaml
 zonal_history:
   foreach: [generator, zone]
-  expression: sum(p, by=gen_zone, from=snapshot) <= zone_cap
+  expression: sum(p, by=gen_zone, consume=snapshot) <= zone_cap
 ```
 
 ```math
@@ -531,7 +531,7 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 zonal_pullback:
   foreach: [snapshot, generator]
   where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
-  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
+  expression: p <= at(spill * zone_cap, by=gen_zone, produce=generator)
 ```
 
 ```math
@@ -546,8 +546,8 @@ division, both unary signs, a sign beside a sign, floats with and without an exp
 arithmetic:
   foreach: [snapshot]
   expression: >-
-    sum(p / 2 + -cost - -1e-5 * p + 2.5e-7 * cost + 0.5 * p, over=generator)
-    >= -sum(+p, over=generator) * -3
+    sum(p / 2 + -cost - -1e-5 * p + 2.5e-7 * cost + 0.5 * p, consume=generator)
+    >= -sum(+p, consume=generator) * -3
 ```
 
 ```math
@@ -724,7 +724,7 @@ a plain named expression: its symbol prints where it is used, its body once as a
 
 ```yaml
 spend:
-  expression: sum(p * cost, over=generator)
+  expression: sum(p * cost, consume=generator)
 ```
 
 ```math

@@ -73,7 +73,7 @@ def _masked(dtype: str) -> dict[str, object]:
             'keep': {'foreach': ['g'], 'where': 'flag', 'bounds': {'lower': 0, 'upper': 1}},
             'drop': {'foreach': ['g'], 'where': 'NOT flag', 'bounds': {'lower': 0, 'upper': 1}},
         },
-        'objective': {'sense': 'minimize', 'expression': 'sum(keep, over=g)'},
+        'objective': {'sense': 'minimize', 'expression': 'sum(keep, consume=g)'},
     }
 
 
@@ -379,7 +379,7 @@ def test_a_named_expression_prints_once_as_a_definition_and_by_symbol_where_used
     identity of its own, so it is expanded away either way."""
     model = override(
         DISPATCH_MODEL,
-        **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
+        **{'expressions.supply': 'sum(p, consume=generator)', 'constraints.balance.expression': 'supply == load'},
     )
     symbol = fmt.subscript(fmt.italic('supply'), ['t'])
     text = typeset(model, name, legend=False)
@@ -391,7 +391,7 @@ def test_inlining_substitutes_a_named_expression_where_it_is_used(name: FormatNa
     """What prints then is the math a backend builds, not the name it was spelled with."""
     model = override(
         DISPATCH_MODEL,
-        **{'expressions.supply': 'sum(p, over=generator)', 'constraints.balance.expression': 'supply == load'},
+        **{'expressions.supply': 'sum(p, consume=generator)', 'constraints.balance.expression': 'supply == load'},
     )
     assert 'supply' not in typeset(model, name, legend=False, inline_expressions=True), (
         'inlined, so its name never prints'
@@ -413,7 +413,7 @@ def test_inlining_keeps_the_definition_of_an_entry_the_math_never_reads(name: Fo
     model = override(
         DISPATCH_MODEL,
         **{
-            'expressions.supply': 'sum(p, over=generator)',
+            'expressions.supply': 'sum(p, consume=generator)',
             'expressions.lcoe': 'sum(p * cost) / sum(p)',
             'constraints.balance.expression': 'supply == load',
         },
@@ -665,7 +665,9 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
             r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}",
             id='grouped-by-a-lookup',
         ),
-        pytest.param('p == q - sum(q, over=generator)', r"\sum_{g' \in \mathcal{G}} q_{t,g'}", id='over-the-whole-dim'),
+        pytest.param(
+            'p == q - sum(q, consume=generator)', r"\sum_{g' \in \mathcal{G}} q_{t,g'}", id='over-the-whole-dim'
+        ),
     ],
 )
 def test_a_reduction_under_its_own_dimension_takes_a_fresh_dummy(expression: str, expected: str):

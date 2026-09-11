@@ -16,7 +16,7 @@ The test is one question:
 
 Suppose the engine sums `p` over `generator` and the renderer prints a sum over
 `snapshot`. The file now means two things, and that is a bug. So the language
-decides what `sum(p, over=generator)` means, and both tools read the answer
+decides what `sum(p, consume=generator)` means, and both tools read the answer
 instead of working it out.
 
 Suppose instead that the engine writes the model in one solver's file format and

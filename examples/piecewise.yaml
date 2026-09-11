@@ -58,7 +58,7 @@ piecewise:
 constraints:
   balance:
     foreach: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(p, consume=generator) == load
 
 objective:
   sense: minimize

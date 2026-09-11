@@ -33,7 +33,7 @@ def _ast(text: str):
         pytest.param('p / c', id='a-parameter-divisor'),
         pytest.param('c ** 2', id='a-power-over-parameters'),
         pytest.param('k ** c', id='a-parameter-exponent'),
-        pytest.param('sum(p * c, over=g)', id='a-reduction-of-affine-terms'),
+        pytest.param('sum(p * c, consume=g)', id='a-reduction-of-affine-terms'),
         pytest.param('p + q', id='a-sum-of-variables'),
     ],
 )
@@ -53,7 +53,7 @@ def test_an_affine_expression_passes_everywhere(text):
         pytest.param('p / q', 'the divisor contains variables', id='a-variable-divisor'),
         pytest.param('p / (c + 1)', 'a divisor must be a single Constant/Parameter factor', id='a-divisor-that-adds'),
         pytest.param(
-            'p / sum(c + k, over=g)', 'a divisor must be a single', id='an-addition-under-a-reduction-divisor'
+            'p / sum(c + k, consume=g)', 'a divisor must be a single', id='an-addition-under-a-reduction-divisor'
         ),
     ],
 )
@@ -67,8 +67,8 @@ def test_the_affine_ceiling_refuses_and_names_the_rewrite(text, fragment):
     'text',
     [
         pytest.param('p * q', id='one-product'),
-        pytest.param('sum(p * q, over=g)', id='multiplied-before-reducing'),
-        pytest.param('sum(p, over=g) * q', id='one-multi-term-factor'),
+        pytest.param('sum(p * q, consume=g)', id='multiplied-before-reducing'),
+        pytest.param('sum(p, consume=g) * q', id='one-multi-term-factor'),
         pytest.param('(p + q) * c * p', id='a-sum-against-one-term'),
         pytest.param('p * q / c', id='a-quadratic-over-a-parameter'),
         pytest.param('p * r * c', id='a-broadcast-product-of-disjoint-dims'),
@@ -83,7 +83,7 @@ def test_the_objective_takes_degree_two(text):
     [
         pytest.param('p * q * p', 'this product is degree 3', id='a-cubic'),
         pytest.param('(p * q) * (p * q)', 'this product is degree 4', id='a-quartic'),
-        pytest.param('sum(p, over=g) * sum(q, over=g)', 'outer product', id='two-reductions'),
+        pytest.param('sum(p, consume=g) * sum(q, consume=g)', 'outer product', id='two-reductions'),
         pytest.param('(p + q) * (p + q)', 'outer product', id='two-sums-of-variables'),
         pytest.param('sum_back(p, over=g, window=1) * (p - q)', 'outer product', id='a-window-against-a-difference'),
     ],
@@ -126,7 +126,7 @@ def test_a_dual_carries_no_variable():
     [
         pytest.param('dual(lim)', True, id='bare'),
         pytest.param('dual(lim) * c', True, id='beside-affine-arithmetic'),
-        pytest.param('sum(dual(lim), over=g)', True, id='under-a-reduction'),
+        pytest.param('sum(dual(lim), consume=g)', True, id='under-a-reduction'),
         pytest.param('p * c', False, id='none'),
     ],
 )

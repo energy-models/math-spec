@@ -28,7 +28,7 @@ BEGIN, END = '<!-- operator-math:begin -->', '<!-- operator-math:end -->'
 #: table's first cell verbatim.
 OPERATORS = {
     'sum(array)': 'sum_all',
-    'sum(array, over=dim)': 'sum',
+    'sum(array, consume=dim)': 'sum',
     'sum(array, by=lookup)': 'sum_by',
     'sum(array, by=[lookup, …])': 'sum_by_lookups',
     'at(array, by=lookup)': 'at',

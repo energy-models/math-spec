@@ -67,7 +67,9 @@ def test_a_separable_model_reports_the_lookahead_a_window_needs(patch, ahead):
 @pytest.mark.parametrize(
     ('patch', 'fragment'),
     [
-        pytest.param(_rows('sum(p, over=h) <= budget', foreach=['u']), 'sums over h', id='a-budget-over-the-horizon'),
+        pytest.param(
+            _rows('sum(p, consume=h) <= budget', foreach=['u']), 'sums over h', id='a-budget-over-the-horizon'
+        ),
         pytest.param(_rows("p >= shift(p, over=h, offset=1, edge='wrap')"), 'wraps around h', id='a-cyclic-shift'),
     ],
 )
@@ -155,7 +157,7 @@ def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
 
 
 def test_a_coupling_names_the_change_that_would_lift_it():
-    coupled = _verdict(**_rows('sum(p, over=h) <= budget', foreach=['u'])).coupled["constraint 'k'"]
+    coupled = _verdict(**_rows('sum(p, consume=h) <= budget', foreach=['u'])).coupled["constraint 'k'"]
     assert 'sum_back(window=n)' in coupled, 'a horizon total becomes a rolling one'
     wrapped = _verdict(**_rows("p >= shift(p, over=h, offset=1, edge='wrap')")).coupled["constraint 'k'"]
     assert 'position(h) == 0' in wrapped, 'a wrap becomes an opening-state seed'
@@ -176,7 +178,7 @@ def test_a_sum_over_the_axis_couples_a_constraint_and_leaves_the_objective_alone
     every other. A verdict treating the two alike would refuse every windowable
     model there is — and `BASE`'s objective sums over `h` in every case above."""
     assert _verdict(**_rows('p >= 0')).windowable, 'the objective sums over h and that is not a coupling'
-    coupled = _verdict(**_rows('sum(p, over=h) <= budget', foreach=['u']))
+    coupled = _verdict(**_rows('sum(p, consume=h) <= budget', foreach=['u']))
     assert not coupled.windowable, 'the same sum in a constraint is one'
 
 
