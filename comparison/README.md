@@ -43,6 +43,13 @@ GitHub shows the file as source rather than rendering it. A raw-HTML viewer
 renders it from the branch without a checkout, for example
 [raw.githack.com](https://raw.githack.com/energy-models/math-spec/claude/mathspec-proposals-comparison-ebn7dv/comparison/index.html).
 
+Such a viewer caches a branch URL, so it can serve a page older than the branch
+head. The page stamps the time it was built in its header and its footer, so
+compare that with the last commit before you read it. To force a fresh copy,
+add any query string to the URL, such as `?v=2`, which the cache reads as a
+different page. A commit hash in place of the branch name never goes stale, and
+never updates either.
+
 The page fetches MathJax and two typefaces from public CDNs. Without a network
 the equations stay as TeX source and the type falls back, and everything else
 reads as it should.

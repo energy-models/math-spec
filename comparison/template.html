@@ -362,6 +362,7 @@
       what a call has to name. The fifth loads under one.
     </p>
     <p class="provenance">
+      <span>built <code><!--{built}--></code></span>
       <span>base <code><!--{base}--></code></span>
       <span><!--{shas}--></span>
     </p>
@@ -544,9 +545,10 @@
 
   <footer>
     <p>
-      <code>verify.py</code> made this evidence on <code>2026-09-10</code>, against
-      <code>origin/main</code> at <code><!--{base}--></code> and each proposal at the branch head
-      named above. To reproduce it, run
+      <code>build.py</code> wrote this page on <code><!--{built}--></code>, from evidence
+      <code>verify.py</code> collected against <code>origin/main</code> at
+      <code><!--{base}--></code> and each proposal at the branch head named above. A copy served
+      from a CDN can be older than that stamp. To reproduce it, run
       <code>python comparison/verify.py &amp;&amp; python comparison/build.py</code> from the
       repository root. The first script fetches every branch and loads each model under the branch
       that proposes it. The second rewrites this page from what it found.

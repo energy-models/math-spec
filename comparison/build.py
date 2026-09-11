@@ -15,6 +15,7 @@ typed by hand except the prose.
 import html
 import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -655,6 +656,7 @@ def build() -> str:
         'eligible-bool': refusal(ev, 'eligible_ones_bool', 'keys'),
         'self-map-436': refusal(ev, 'self_map_into_itself', 'keys'),
         'adjacency-436': refusal(ev, 'adjacency_param', 'keys_436'),
+        'built': datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC'),
         'base': ev['base'],
         'shas': ' · '.join(f'{ABOUT[p]["name"]} <code>{ev["branches"][p]["sha"]}</code>' for p in PROPOSALS),
         'keys-no-dot': refusal(ev, 'keys_no_dot', 'keys'),
