@@ -243,97 +243,137 @@ MATRIX = [
 ]
 
 #: Every kind of pairing a model needs, in the order a reader meets them: what it
-#: is in everyday terms, what it is in a model, how it is spelled, and what each
-#: proposal does with it. Each `says` entry is measured — the file is under
-#: `models/` or `probes/` and the branch's own answer is in `evidence.json`.
+#: is in everyday terms, what it is in a model, and what each proposal writes for
+#: it. Every line quoted here is a line of a file that was loaded: it is under
+#: `models/` or `probes/`, and that branch's answer to it is in `evidence.json`.
+#: Two proposals that spell a pairing the same way each carry their own copy,
+#: because the page shows every proposal in every place.
 KINDS = [
     {
         'shape': 'one each',
         'everyday': 'Every pupil is in one class.',
         'model': 'Every generator sits on one bus.',
-        'code': [
-            ('relations', 'gen_bus: { columns: [generator, bus], key: generator }'),
-            ('per: and keys', 'gen_bus: { over: generator, into: bus }'),
-        ],
-        'says': {
-            'per': ('yes', 'a lookup'),
-            'keys': ('yes', 'a lookup'),
-            'relations': ('yes', 'a lookup with a key'),
+        'by': {
+            'per': ('a lookup', 'lookups:\n  gen_bus: { over: generator, into: bus }'),
+            'keys': ('a lookup', 'lookups:\n  gen_bus: { over: generator, into: bus }'),
+            'relations': (
+                'a lookup with a key',
+                'lookups:\n  gen_bus: { columns: [generator, bus], key: generator }',
+            ),
         },
     },
     {
         'shape': 'one each, and it changes',
         'everyday': 'Every pupil is in one class, and the class changes each school year.',
         'model': 'Every generator bids in one zone, and the zone changes by period.',
-        'code': [
-            ('relations', 'zone_of: { columns: [generator, period, zone], key: [generator, period] }'),
-            ('keys', 'zone_of: { over: [generator, period], into: zone }'),
-        ],
-        'says': {
-            'per': ('yes', 'per: [period]'),
-            'keys': ('yes', 'a second key'),
-            'relations': ('yes', 'a second key column'),
+        'by': {
+            'per': (
+                'the second dimension is a per:',
+                'lookups:\n  zone_of: { over: generator, into: zone, per: [period] }',
+            ),
+            'keys': (
+                'the second dimension is a second key',
+                'lookups:\n  zone_of: { over: [generator, period], into: zone }',
+            ),
+            'relations': (
+                'the second dimension is a second key column',
+                'lookups:\n  zone_of: { columns: [generator, period, zone], key: [generator, period] }',
+            ),
         },
     },
     {
         'shape': 'two named slots',
         'everyday': 'A seesaw has a left seat and a right seat.',
         'model': 'A line has one bus at each end, and the two ends are not interchangeable.',
-        'code': [('relations', 'ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }')],
-        'says': {
-            'per': ('workaround', 'two lookups'),
-            'keys': ('workaround', 'two lookups'),
-            'relations': ('yes', 'one table, two roles'),
+        'by': {
+            'per': (
+                'two lookups, one per end, and nothing ties them together',
+                'lookups:\n  line_bus0: { over: line, into: bus }\n  line_bus1: { over: line, into: bus }',
+            ),
+            'keys': (
+                'two lookups, one per end, and nothing ties them together',
+                'lookups:\n  line_bus0: { over: line, into: bus }\n  line_bus1: { over: line, into: bus }',
+            ),
+            'relations': (
+                'one table, and each end is a named role in it',
+                'lookups:\n  ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }',
+            ),
         },
     },
     {
         'shape': 'one of its own kind',
         'everyday': 'Every pupil has one buddy, who is also a pupil.',
         'model': 'Every snapshot has one representative snapshot standing in for it.',
-        'code': [
-            ('relations', 'represents: { columns: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }'),
-            ('keys, with #436', 'rep_of: { over: snapshot, into: snapshot }'),
-        ],
-        'says': {
-            'per': ('no', 'refused: maps into itself'),
-            'keys': ('workaround', 'only with #436'),
-            'relations': ('yes', 'a keyed self-map'),
+        'by': {
+            'per': (
+                'refused — a lookup maps into a different dimension',
+                'lookups:\n  rep_of: { over: snapshot, into: snapshot }',
+            ),
+            'keys': (
+                'the same file, refused on #433 and accepted on the #436 draft stacked on it',
+                'lookups:\n  rep_of: { over: snapshot, into: snapshot }',
+            ),
+            'relations': (
+                'a keyed self-map, where each end is a named role',
+                'lookups:\n  represents: { columns: { snapshot: snapshot, stand_in: snapshot }, key: snapshot }',
+            ),
         },
     },
     {
         'shape': 'many each, nothing to count',
         'everyday': 'A pupil can be in several clubs, and a club has several pupils.',
         'model': 'A generator bids into several reserve products, and each product takes many.',
-        'code': [
-            ('relations', 'eligible: { columns: [generator, product] }'),
-            ('per: and keys', 'eligible: { dims: [generator, product], dtype: int }  # a table of ones'),
-        ],
-        'says': {
-            'per': ('workaround', 'ones, and int not bool'),
-            'keys': ('workaround', 'ones, and int not bool'),
-            'relations': ('yes', 'a lookup with no key'),
+        'by': {
+            'per': (
+                'a table of ones, declared int because a flag cannot be multiplied',
+                'parameters:\n  eligible: { dims: [generator, product], dtype: int }',
+            ),
+            'keys': (
+                'a table of ones, declared int because a flag cannot be multiplied',
+                'parameters:\n  eligible: { dims: [generator, product], dtype: int }',
+            ),
+            'relations': (
+                'a lookup with no key, which is the structure itself',
+                'lookups:\n  eligible: { columns: [generator, product] }',
+            ),
         },
     },
     {
         'shape': 'many each, of its own kind',
         'everyday': 'A pupil sits next to several others.',
         'model': 'A region touches several other regions.',
-        'code': [('relations', 'adjacent: { columns: { region: region, neighbour: region } }')],
-        'says': {
-            'per': ('no', 'no rewrite exists'),
-            'keys': ('no', 'no rewrite exists'),
-            'relations': ('yes', 'a bare self-relation'),
+        'by': {
+            'per': (
+                'refused — a parameter cannot name one dimension twice, and no other rewrite is left',
+                'parameters:\n  adjacent: { dims: [region, region], dtype: int }',
+            ),
+            'keys': (
+                'refused — a parameter cannot name one dimension twice, and no other rewrite is left',
+                'parameters:\n  adjacent: { dims: [region, region], dtype: int }',
+            ),
+            'relations': (
+                'a bare self-relation, with a role for each side',
+                'lookups:\n  adjacent: { columns: { region: region, neighbour: region } }',
+            ),
         },
     },
     {
         'shape': 'many each, with a number on the pair',
         'everyday': 'Each pupil gets a number of biscuits at each club.',
-        'model': 'Each generator feeds its bus at some efficiency.',
-        'code': [('every proposal', 'efficiency: { dims: [generator, bus] }')],
-        'says': {
-            'per': ('yes', 'a parameter'),
-            'keys': ('yes', 'a parameter'),
-            'relations': ('yes', 'a parameter'),
+        'model': 'Each bus holds a capacity cap for each technology.',
+        'by': {
+            'per': (
+                'a parameter, whose own rows are the pairing',
+                'parameters:\n  tech_cap: { dims: [bus, technology] }',
+            ),
+            'keys': (
+                'a parameter, whose own rows are the pairing',
+                'parameters:\n  tech_cap: { dims: [bus, technology] }',
+            ),
+            'relations': (
+                'a parameter, whose own rows are the pairing',
+                'parameters:\n  tech_cap: { dims: [bus, technology] }',
+            ),
         },
     },
 ]
@@ -536,25 +576,26 @@ def refusal(ev: dict, probe: str, proposal: str) -> str:
 
 
 def kinds_html() -> str:
-    """One full-width row per kind: the words beside the file, and the three answers under both."""
+    """One full-width row per kind, and inside every row the file that proposal writes.
+
+    Two proposals that spell a pairing the same way each print it in full, because
+    a reader comparing three files should not have to infer the third from a note.
+    """
     cards = []
     for kind in KINDS:
-        code = ''.join(
-            f'<div class="kind-code"><span class="kind-code-label">{html.escape(label)}</span>{yaml_html(line)}</div>'
-            for label, line in kind['code']
-        )
-        says = ''.join(option_row(p, html.escape(kind['says'][p][1])) for p in PROPOSALS)
+        rows = ''
+        for proposal in PROPOSALS:
+            says, code = kind['by'][proposal]
+            rows += option_row(
+                proposal,
+                f'<p class="kind-says">{html.escape(says)}</p><div class="kind-code">{yaml_html(code)}</div>',
+            )
         cards.append(
             f'<article class="kind">'
             f'<p class="kind-shape">{html.escape(kind["shape"])}</p>'
-            f'<div class="kind-head">'
-            f'<div class="kind-words">'
             f'<p class="kind-everyday">{html.escape(kind["everyday"])}</p>'
             f'<p class="kind-model">{html.escape(kind["model"])}</p>'
-            f'</div>'
-            f'<div class="kind-codes">{code}</div>'
-            f'</div>'
-            f'<div class="options tight">{says}</div>'
+            f'<div class="options tight">{rows}</div>'
             f'</article>'
         )
     return f'<div class="kinds">{"".join(cards)}</div>'
