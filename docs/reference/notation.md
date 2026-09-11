@@ -332,7 +332,7 @@ a trailing window of fixed width
 ```yaml
 window:
   foreach: [snapshot, generator]
-  expression: sum_back(on, over=snapshot, within=3) <= units
+  expression: sum_back(on, over=snapshot, window=3) <= units
 ```
 
 ```math
@@ -346,7 +346,7 @@ the same window, its width in the data and its edge wrapped
 ```yaml
 history:
   foreach: [snapshot, generator]
-  expression: sum_back(on, over=snapshot, within=min_up, edge='wrap') <= units
+  expression: sum_back(on, over=snapshot, window=min_up, edge='wrap') <= units
 ```
 
 ```math
@@ -360,7 +360,7 @@ a window partitioned by a lookup: the group rides on the operator
 ```yaml
 seasonal_window:
   foreach: [snapshot, generator]
-  expression: sum_back(on, over=snapshot, within=3, by=season_of) <= units
+  expression: sum_back(on, over=snapshot, window=3, by=season_of) <= units
 ```
 
 ```math
@@ -416,8 +416,8 @@ a partition grouped by one named value column of a two-value table, and a positi
 ```yaml
 within_bus:
   foreach: [generator]
-  where: "position(generator, by=gen_bt, into=[bus, technology]) == 0"
-  expression: units <= shift(units, over=generator, offset=1, edge=0, by=gen_bt, into=bus)
+  where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
+  expression: units <= shift(units, over=generator, offset=1, edge=0, by=gen_bt, within=bus)
 ```
 
 ```math

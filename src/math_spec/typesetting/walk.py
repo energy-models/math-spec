@@ -439,7 +439,7 @@ class Walk:
             lag = f'{ctx.subscript(over.name)} {self._translation(step)} {source}'
             domain = (
                 f'{source} {self._op("in")} {self.symbols.set[over.name]} {self._op("such_that")} '
-                f'0 {self._op("le")} {lag} {self._op("lt")} {self._width(node.kwargs["within"])}'
+                f'0 {self._op("le")} {lag} {self._op("lt")} {self._width(node.kwargs["window"])}'
             )
             body = self._reduction_body(node.args[0], inner)
             return self.format.summation(domain, body), _PRECEDENCE['+']
@@ -509,7 +509,7 @@ class Walk:
         return self._tuple([self._lookup_read(walk, at, r) for r in walk.produced])
 
     def _width(self, node: ArithmeticNode) -> str:
-        """``sum_back``'s ``within=``: a number, or a parameter's own symbol.
+        """``sum_back``'s ``window=``: a number, or a parameter's own symbol.
 
         Unsubscripted where it is named, as a translation's named offset is:
         the symbol identifies the parameter and the legend carries its dims,

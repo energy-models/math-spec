@@ -90,7 +90,7 @@ does an output slot stand for several input slots, or for one?
 | ------------------------------- | ------------------------------- | ------------------------------------ |
 | `sum(x, over=d)`                | every position along `d`        | is one summand fewer; the row stands |
 | `sum(x, by=lookup)`             | every member of the group       | is one summand fewer; the row stands |
-| `sum_back(x, over=d, within=w)` | the positions the window covers | is one summand fewer; the row stands |
+| `sum_back(x, over=d, window=w)` | the positions the window covers | is one summand fewer; the row stands |
 | `shift(x, over=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
 | `at(x, by=lookup)`              | one position, through the map   | _is_ the output, so it spreads       |
 

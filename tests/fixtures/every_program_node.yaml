@@ -46,7 +46,7 @@ constraints:
     expression: "p - shift(p, over=t, offset=lead, edge='wrap') <= 0"
   windowed:
     foreach: [t, g]
-    expression: "sum_back(p, over=t, within=width) <= 10"
+    expression: "sum_back(p, over=t, window=width) <= 10"
 objective:
   sense: minimize
   expression: "sum(p * cost)"

@@ -283,9 +283,9 @@ class _Lowering:
         return program.At(self.expr(node.args[0]), walks=by_node.walks)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
-        """``sum_back(x, over=d, within=w)`` — a trailing window along one dimension.
+        """``sum_back(x, over=d, window=w)`` — a trailing window along one dimension.
 
-        *within* is an integer literal of at least one, or a parameter naming a
+        *window* is an integer literal of at least one, or a parameter naming a
         per-entity width, which the language holds to the two rules that make it
         mean one thing before this is reached.
 
@@ -295,15 +295,15 @@ class _Lowering:
         """
         over_node = node.kwargs['over']
         assert isinstance(over_node, DimensionNode), 'resolution refuses an over= that is not a dimension'
-        within_node = node.kwargs['within']
+        window_node = node.kwargs['window']
         operand = self.expr(node.args[0])
         wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
         width: int | str
-        if isinstance(within_node, ParameterNode):
-            width = within_node.name
+        if isinstance(window_node, ParameterNode):
+            width = window_node.name
         else:
-            assert isinstance(within_node, NumberNode), 'a within= that is neither is refused at load'
-            width = int(within_node.value)
+            assert isinstance(window_node, NumberNode), 'a window= that is neither is refused at load'
+            width = int(window_node.value)
         return program.Window(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
 
     def shift(self, node: FunctionCallNode) -> program.ExpressionNode:

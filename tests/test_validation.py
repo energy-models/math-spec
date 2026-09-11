@@ -646,7 +646,7 @@ class TestRulesDecidedWithoutData:
                 {'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lk, from=g))'}},
                 (
                     "shift() expects shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>]"
-                    '[, by=<lookup>[, into=<column>]])',
+                    '[, by=<lookup>[, within=<column>]])',
                 ),
                 id='a-partition-takes-no-from',
             ),
@@ -654,15 +654,15 @@ class TestRulesDecidedWithoutData:
                 {
                     'dimensions.z': {},
                     'lookups.lz': {'over': ['g', 'h', 'z'], 'key': 'g'},
-                    'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lz, into=g))'},
+                    'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=lz, within=g))'},
                 },
-                ("into=['g'] names a key column of 'lz', and a partition groups by value columns",),
-                id='a-partition-into-a-key-column',
+                ("within=['g'] names a key column of 'lz', and a partition groups by value columns",),
+                id='a-partition-grouped-within-a-key-column',
             ),
             pytest.param(
-                {'variables.q.where': 'position(g, by=lk, into=z) == 0'},
-                ("into=z names no column of 'lk', whose columns are ['g', 'h']",),
-                id='position-into-a-column-the-lookup-lacks',
+                {'variables.q.where': 'position(g, by=lk, within=z) == 0'},
+                ("within=z names no column of 'lk', whose columns are ['g', 'h']",),
+                id='position-within-a-column-the-lookup-lacks',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, from=g))'}},
@@ -827,8 +827,8 @@ class TestRulesDecidedWithoutData:
                 id='an-amount-that-is-an-expression',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum_back(p, over=g, within=2 * 1), over=g)'}},
-                ('sum_back(within=) takes a number or the name of an integer parameter',),
+                {'objective': {'expression': 'sum(sum_back(p, over=g, window=2 * 1), over=g)'}},
+                ('sum_back(window=) takes a number or the name of an integer parameter',),
                 id='a-width-that-is-an-expression',
             ),
             pytest.param(
@@ -864,7 +864,7 @@ class TestRulesDecidedWithoutData:
                     'lookups.lz': {'over': ['g', 'z', 'h'], 'key': ['g', 'z']},
                     'objective': {'expression': 'sum(sum(q, by=[lk, lz], from=g))'},
                 },
-                ('a list walks each lookup by its declared key and value, so from= and into= have nothing to name',),
+                ('a list walks each lookup by its declared key and value, so a column keyword has nothing to name',),
                 id='by-a-list-with-from',
             ),
             pytest.param(

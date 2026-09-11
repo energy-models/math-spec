@@ -330,7 +330,7 @@ Generator_com_up_time:
     up time's, which the must-stay-up mask carries
   foreach: [snapshot, generator]
   where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
+  expression: sum_back(Generator_start_up, over=snapshot, window=Generator_min_up_time) <= Generator_status
 ```
 
 ```math
@@ -346,7 +346,7 @@ Generator_com_down_time:
   description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
   foreach: [snapshot, generator]
   where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
+  expression: sum_back(Generator_shut_down, over=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
 ```
 
 ```math

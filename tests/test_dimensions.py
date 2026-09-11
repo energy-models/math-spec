@@ -96,14 +96,14 @@ def namespace() -> Namespace:
         ('sum(p, by=gen_bus)', {'snapshot', 'bus'}),
         ("shift(p, over=snapshot, offset=1, edge='wrap')", {'snapshot', 'generator'}),
         ("shift(p, over=snapshot, offset=spinup, edge='wrap')", {'snapshot', 'generator'}),
-        ('sum_back(p, over=snapshot, within=spinup)', {'snapshot', 'generator'}),
+        ('sum_back(p, over=snapshot, window=spinup)', {'snapshot', 'generator'}),
         pytest.param(
             "shift(p, over=snapshot, offset=bus_lead, edge='wrap', by=snap_bus)",
             {'snapshot', 'generator'},
             id='a-by-makes-an-offset-over-another-dim-readable-one-lag-per-group',
         ),
         pytest.param(
-            'sum_back(p, over=snapshot, within=bus_lead, by=snap_bus)',
+            'sum_back(p, over=snapshot, window=bus_lead, by=snap_bus)',
             {'snapshot', 'generator'},
             id='a-by-makes-a-width-over-another-dim-readable-one-window-per-group',
         ),
@@ -134,12 +134,12 @@ def namespace() -> Namespace:
             id='a-partition-along-one-key-joined-on-the-other',
         ),
         pytest.param(
-            "shift(p, over=generator, offset=1, edge='wrap', by=gen_bz, into=bus)",
+            "shift(p, over=generator, offset=1, edge='wrap', by=gen_bz, within=bus)",
             {'snapshot', 'generator'},
             id='a-partition-grouped-by-one-value-column-of-a-two-value-table',
         ),
         pytest.param(
-            'sum_back(p, over=generator, within=2, by=gen_bz, into=[bus, zone])',
+            'sum_back(p, over=generator, window=2, by=gen_bz, within=[bus, zone])',
             {'snapshot', 'generator'},
             id='a-window-grouped-by-both-value-columns-named',
         ),
@@ -241,12 +241,12 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             id='a-named-offset-does-not-span-the-axis-it-walks',
         ),
         pytest.param(
-            'sum_back(p, over=snapshot, within=cost)',
+            'sum_back(p, over=snapshot, window=cost)',
             r'declared dtype: float',
             id='a-named-width-is-integral',
         ),
         pytest.param(
-            'sum_back(p, over=snapshot, within=horizon)',
+            'sum_back(p, over=snapshot, window=horizon)',
             r'no longer "the last n"',
             id='a-named-width-does-not-span-the-summed-axis',
         ),
@@ -256,7 +256,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             id='a-named-offset-is-not-negated-at-the-call-62',
         ),
         pytest.param(
-            'sum_back(p, over=snapshot, within=-spinup)',
+            'sum_back(p, over=snapshot, window=-spinup)',
             r'which way a window reaches is the operator',
             id='a-named-width-has-no-direction-to-negate',
         ),
@@ -376,7 +376,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
                 id='a-nonzero-edge-over-a-variable',
             ),
             pytest.param(
-                'p <= sum_back(p, over=t, within=2, edge=0)',
+                'p <= sum_back(p, over=t, window=2, edge=0)',
                 "takes 'wrap' or nothing",
                 id='a-numeric-edge-on-a-window',
             ),
@@ -397,7 +397,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         The sign was stripped before the `at least 1` comparison, so `-2` was
         tested as `2` and reached lowering, which asserted (#222).
         """
-        assert 'at least 1' in self._refused(f'p <= sum_back(p, over=t, within={width})')
+        assert 'at least 1' in self._refused(f'p <= sum_back(p, over=t, window={width})')
 
     def test_a_zero_step_vacates_nothing_and_needs_no_edge(self):
         """`shift(x, offset=0)` reaches every coordinate from itself.
@@ -431,7 +431,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
             id='a-position-within-a-group-of-a-two-key-lookup-reads-both-keys',
         ),
         pytest.param(
-            'position(generator, by=gen_bz, into=zone) == 0',
+            'position(generator, by=gen_bz, within=zone) == 0',
             {'generator'},
             id='a-position-within-one-named-value-column-reads-the-key',
         ),

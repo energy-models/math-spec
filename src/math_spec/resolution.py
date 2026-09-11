@@ -385,7 +385,7 @@ class _Resolver:
     def _arith(self, node: ArithmeticNode, *, amount: bool = False) -> ArithmeticNode:
         """One arithmetic node typed.
 
-        *amount* marks an ``offset=``/``within=`` value, whose dtype rule is
+        *amount* marks an ``offset=``/``window=`` value, whose dtype rule is
         ``dimensions._check_named_amount``'s and stricter than "a number", so the
         numeric check here stands aside for it. A quoted keyword or a name list in
         arithmetic arrives through a macro formal bound to one.
@@ -491,7 +491,7 @@ class _Resolver:
         return CasesNode(node.name, tuple(arms))
 
     def _amount(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
-        """``offset=`` or ``within=``: a number or a parameter name, never an expression.
+        """``offset=`` or ``window=``: a number or a parameter name, never an expression.
 
         Closed so that :func:`math_spec.dimensions._check_named_amount` sees every
         parameter an amount carries.
@@ -593,7 +593,7 @@ class _Resolver:
         if len(names) > 1 and roles:
             self.errors.append(
                 f'{self.context}: {operator}({key}={shown(names)}, {", ".join(f"{k}=" for k in roles)}): a list '
-                f'walks each lookup by its declared key and value, so from= and into= have nothing to name. '
+                f'walks each lookup by its declared key and value, so a column keyword has nothing to name. '
                 f'Name one lookup, or declare one table with the columns of both.'
             )
             return value
@@ -602,7 +602,7 @@ class _Resolver:
             return value
         if operator in ('shift', 'sum_back'):
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            walks = [self._partition_walk(n, operator, over_dim, named.get('into')) for n in names]
+            walks = [self._partition_walk(n, operator, over_dim, named.get('within')) for n in names]
         else:
             walks = [self._walk(n, operator, named.get('from'), named.get('into')) for n in names]
         if any(w is None for w in walks):
@@ -726,21 +726,21 @@ class _Resolver:
         return True
 
     def _partition_walk(
-        self, name: str, operator: str, walked_dim: str | None, into_roles: tuple[str, ...] | None
+        self, name: str, operator: str, walked_dim: str | None, within_roles: tuple[str, ...] | None
     ) -> Walk | None:
         """How a partition (``shift``, ``sum_back``, ``position``) walks lookup *name* along *walked_dim*.
 
         It walks the one key column over that dimension (a key has one column
         per dimension), joins on the other key columns and groups by the value
-        columns *into_roles* names — every value column where the call names
+        columns *within_roles* names — every value column where the call names
         none. ``None`` where the dimension is not one (already refused), the
-        lookup has no key column over it, or ``into=`` names a column that is
+        lookup has no key column over it, or ``within=`` names a column that is
         not a value column.
         """
         context = self.context
         shape = self.ns.shape_of(name)
         call = f'{operator}(by={name})'
-        if walked_dim is None or not self._known_roles(name, call, into_roles, 'into'):
+        if walked_dim is None or not self._known_roles(name, call, within_roles, 'within'):
             return None
         if not shape.key:
             self.errors.append(
@@ -755,15 +755,15 @@ class _Resolver:
                 f'{list(shape.key)} — and a partition walks a key column over the dimension it groups.'
             )
             return None
-        if keyed := [r for r in into_roles or () if r in shape.key]:
+        if keyed := [r for r in within_roles or () if r in shape.key]:
             self.errors.append(
-                f"{context}: {call}: into={keyed} names a key column of '{name}', and a partition groups by "
+                f"{context}: {call}: within={keyed} names a key column of '{name}', and a partition groups by "
                 f'value columns — its value columns are {list(shape.values)}.'
             )
             return None
         (walked,) = over_keys
         joined = tuple(r for r in shape.key if r != walked)
-        return Walk(shape, (walked,), shape.values if into_roles is None else into_roles, joined)
+        return Walk(shape, (walked,), shape.values if within_roles is None else within_roles, joined)
 
     def _default_role(self, name: str, call: str, kwarg: str, side: tuple[str, ...], what: str) -> str | None:
         """The one column *side* offers, or the refusal naming what the call has to choose from."""
@@ -868,7 +868,7 @@ class _Resolver:
         return node
 
     def _position(self, node: UnresolvedPositionNode) -> DimensionPositionNode | UnresolvedPositionNode:
-        """``position(dim[, by=lookup[, into=columns]]) <op> i``: the name a dimension, ``by=`` a lookup keyed over it."""
+        """``position(dim[, by=lookup[, within=columns]]) <op> i``: the name a dimension, ``by=`` a lookup keyed over it."""
         ns, context = self.ns, self.context
         if node.dimension not in ns.dimensions:
             self.errors.append(

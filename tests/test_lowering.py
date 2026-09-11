@@ -458,17 +458,17 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-translation-stops-at-the-edges-of-the-lookup-it-names',
         ),
         pytest.param(
-            'sum_back(p, over=g, within=3)',
+            'sum_back(p, over=g, window=3)',
             Window(Variable('p'), 'g', width=3, wrap=False),
             id='a-window-is-one-node-rather-than-a-fold-of-translations',
         ),
         pytest.param(
-            'sum_back(p, over=g, within=k)',
+            'sum_back(p, over=g, window=k)',
             Window(Variable('p'), 'g', width='k', wrap=False),
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'sum_back(p, over=g, within=2, by=lk)',
+            'sum_back(p, over=g, window=2, by=lk)',
             Window(
                 Variable('p'),
                 'g',

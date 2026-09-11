@@ -158,7 +158,7 @@ either way, so nothing later would tell you.
 program.separability['bp'].windowable  # False
 tied = program.separability['generator'].coupled["constraint 'target'"]
 tied.partition(' — ')[0]  # 'sums over generator'
-'sum_back(within=n)' in tied  # True
+'sum_back(window=n)' in tied  # True
 ```
 
 Every declared axis has an entry, and the report is walked once and held, like

@@ -289,7 +289,7 @@ def _whole(node: ArithmeticNode, minimum: float) -> bool:
 
 
 def _check_amount_form(node: FunctionCallNode, context: str) -> None:
-    """An ``offset=`` or ``within=`` is a whole number in the operator's range, or a parameter name."""
+    """An ``offset=`` or ``window=`` is a whole number in the operator's range, or a parameter name."""
     kwarg, amount = _amount_of(node)
     if isinstance(amount, ParameterNode) or _whole(amount, _AMOUNTS[node.name].minimum):
         return
@@ -382,7 +382,7 @@ def _shift_over_data_message(context: str) -> str:
 
 
 def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str], schema: Spec, context: str) -> None:
-    """The rules that hold of an ``offset=`` or ``within=`` naming a parameter; a literal breaks none of them."""
+    """The rules that hold of an ``offset=`` or ``window=`` naming a parameter; a literal breaks none of them."""
     kwarg, amount = _amount_of(node)
     words = _AMOUNTS[node.name]
     if isinstance(amount, UnaryOperatorNode) and isinstance(amount.operand, ParameterNode):

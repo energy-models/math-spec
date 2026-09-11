@@ -78,7 +78,8 @@ class Builtin:
 #: The closed operator set. ``by=`` is the one keyword that addresses a lookup,
 #: and a lookup carries its own dimensions, so no sibling kwarg restates them.
 #: On ``shift`` and ``sum_back`` it partitions the axis the operator walks: it
-#: says which rows are neighbours, not which group a term lands in.
+#: says which rows are neighbours, not which group a term lands in, and
+#: ``within=`` names the columns whose values that group is read from.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
         'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<lookup>[, from=<column>, into=<column>])',
@@ -95,22 +96,22 @@ BUILTINS: dict[str, Builtin] = {
         optional_kwargs=('from', 'into'),
     ),
     'sum_back': Builtin(
-        "sum_back(<expr>, over=<dim>, within=<n|parameter>[, edge='wrap'][, by=<lookup>[, into=<column>]])",
+        "sum_back(<expr>, over=<dim>, window=<n|parameter>[, edge='wrap'][, by=<lookup>[, within=<column>]])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
-        role_kwargs=('into',),
-        required_value_kwargs=('within',),
+        role_kwargs=('within',),
+        required_value_kwargs=('window',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by', 'into'),
+        optional_kwargs=('by', 'within'),
     ),
     'shift': Builtin(
-        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>[, into=<column>]])",
+        "shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>[, within=<column>]])",
         dimension_kwargs=('over',),
         lookup_kwargs=('by',),
-        role_kwargs=('into',),
+        role_kwargs=('within',),
         required_value_kwargs=('offset',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by', 'into'),
+        optional_kwargs=('by', 'within'),
     ),
     'dual': Builtin('dual(<constraint>)'),
 }

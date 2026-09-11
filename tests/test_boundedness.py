@@ -93,7 +93,7 @@ def test_nothing_is_claimed_where_the_file_does_not_decide_it(patch):
 THROUGH_EACH_OPERATOR = {
     'sum': {'objective.expression': 'sum(v, over=g)'},
     'shift': {'objective.expression': 'sum(shift(v, over=g, offset=1), over=g)'},
-    'sum_back': {'objective.expression': 'sum(sum_back(v, over=g, within=2), over=g)'},
+    'sum_back': {'objective.expression': 'sum(sum_back(v, over=g, window=2), over=g)'},
     # `at` reads onto the lookup's source, so the variable it drives is on `h`
     'at': {'variables.u': {'foreach': ['h']}, 'objective.expression': 'sum(at(u, by=lk), over=g)'},
 }

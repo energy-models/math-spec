@@ -130,7 +130,7 @@ sentence tells them apart:
 A cycle basis is the first kind. It needs the network's topology, which only the
 data has, so `cycle_incidence` arrives as a parameter. A minimum up time is the
 second kind. `min_up_time` is a column the model already binds, and the window
-"the last `min_up_time` hours" follows from it, so `sum_back(within=min_up_time)`
+"the last `min_up_time` hours" follows from it, so `sum_back(window=min_up_time)`
 reads the width off the column and you ship no window mask
 ([#849](https://github.com/fluxopt/lpspec/issues/849)).
 

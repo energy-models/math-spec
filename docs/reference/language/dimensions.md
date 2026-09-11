@@ -183,8 +183,8 @@ could have been left out.
 **A partition walks a key column and groups by the value columns.**
 `shift(x, over=d, by=l)`, `sum_back(x, over=d, by=l)` and
 `position(d, by=l)` take the one key column over `d`; the other key columns
-are joined on, and the group is the value tuple. `into=` names the value columns the group is made of
-where the table has several: `shift(x, over=snapshot, by=cal, into=week)`
+are joined on, and the group is the value tuple. `within=` names the value columns the group is made of
+where the table has several: `shift(x, over=snapshot, by=cal, within=week)`
 walks within weeks of a calendar declared once over `[snapshot, day, week]`,
 and a value column not named is not read.
 
@@ -209,13 +209,13 @@ The rules, each decided at load with a refusal naming the rewrite:
 - **`at` reads one value.** Its key lies inside `into=` and the joined columns,
   or the call is refused; a bare relation is never read by `at`.
 - **A partition walks the one key column over the dimension it walks, and
-  groups by the value columns `into=` names** — all of them where it names
-  none. `into=` naming a key column is refused, and a bare relation
+  groups by the value columns `within=` names** — all of them where it names
+  none. `within=` naming a key column is refused, and a bare relation
   partitions nothing. The group may hold two columns over one dimension, a
   pair of buses say: a partition lands nothing, so nothing needs the
   dimension twice.
 - **A `by=` list walks each lookup by its declared arrow.** `by=[a, b]` is one
-  grouping, so `from=` and `into=` have nothing to name; every lookup in it
+  grouping, so no column keyword has anything to name; every lookup in it
   consumes the same dimension, joins on its own other columns, and no two
   produce the same dimension.
 - **A `where` comparison reads a value column of a keyed lookup at its key.**

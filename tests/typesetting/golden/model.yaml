@@ -140,13 +140,13 @@ constraints:
     expression: p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)
   window: # a trailing window of fixed width
     foreach: [snapshot, generator]
-    expression: sum_back(on, over=snapshot, within=3) <= units
+    expression: sum_back(on, over=snapshot, window=3) <= units
   history: # the same window, its width in the data and its edge wrapped
     foreach: [snapshot, generator]
-    expression: sum_back(on, over=snapshot, within=min_up, edge='wrap') <= units
+    expression: sum_back(on, over=snapshot, window=min_up, edge='wrap') <= units
   seasonal_window: # a window partitioned by a lookup: the group rides on the operator
     foreach: [snapshot, generator]
-    expression: sum_back(on, over=snapshot, within=3, by=season_of) <= units
+    expression: sum_back(on, over=snapshot, window=3, by=season_of) <= units
   pullback: # at(), which re-indexes through a lookup instead of an offset
     foreach: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of)
@@ -158,8 +158,8 @@ constraints:
     expression: units <= at(tech_cap, by=gen_bt, from=[bus, technology])
   within_bus: # a partition grouped by one named value column of a two-value table, and a position within both
     foreach: [generator]
-    where: "position(generator, by=gen_bt, into=[bus, technology]) == 0"
-    expression: units <= shift(units, over=generator, offset=1, edge=0, by=gen_bt, into=bus)
+    where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
+    expression: units <= shift(units, over=generator, offset=1, edge=0, by=gen_bt, within=bus)
   relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
     foreach: [snapshot, bus]
     expression: sum(p, by=connection, from=generator, into=bus) <= load

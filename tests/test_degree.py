@@ -85,7 +85,7 @@ def test_the_objective_takes_degree_two(text):
         pytest.param('(p * q) * (p * q)', 'this product is degree 4', id='a-quartic'),
         pytest.param('sum(p, over=g) * sum(q, over=g)', 'outer product', id='two-reductions'),
         pytest.param('(p + q) * (p + q)', 'outer product', id='two-sums-of-variables'),
-        pytest.param('sum_back(p, over=g, within=1) * (p - q)', 'outer product', id='a-window-against-a-difference'),
+        pytest.param('sum_back(p, over=g, window=1) * (p - q)', 'outer product', id='a-window-against-a-difference'),
     ],
 )
 def test_degree_two_is_one_term_against_one_term_and_no_higher(text, fragment):

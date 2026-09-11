@@ -53,8 +53,8 @@ def _rows(expression: str, *, foreach: list[str] | None = None, **block: Any) ->
             _rows('p >= shift(p, over=h, offset=1, edge=0)'), 0, id='a-shift-behind-is-the-edge-and-asks-nothing'
         ),
         pytest.param(_rows('p >= shift(p, over=h, offset=-2, edge=0)'), 2, id='a-negative-shift-reads-ahead'),
-        pytest.param(_rows('sum_back(p, over=h, within=4) >= 0'), 0, id='a-trailing-window-reads-behind-only'),
-        pytest.param(_rows('sum_back(p, over=h, within=width) >= 0'), 0, id='and-so-does-one-of-a-width-from-data'),
+        pytest.param(_rows('sum_back(p, over=h, window=4) >= 0'), 0, id='a-trailing-window-reads-behind-only'),
+        pytest.param(_rows('sum_back(p, over=h, window=width) >= 0'), 0, id='and-so-does-one-of-a-width-from-data'),
         pytest.param(_rows('p >= shift(p, over=u, offset=-1, edge=0)'), 0, id='a-shift-along-another-axis-is-nothing'),
     ],
 )
@@ -156,7 +156,7 @@ def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
 
 def test_a_coupling_names_the_change_that_would_lift_it():
     coupled = _verdict(**_rows('sum(p, over=h) <= budget', foreach=['u'])).coupled["constraint 'k'"]
-    assert 'sum_back(within=n)' in coupled, 'a horizon total becomes a rolling one'
+    assert 'sum_back(window=n)' in coupled, 'a horizon total becomes a rolling one'
     wrapped = _verdict(**_rows("p >= shift(p, over=h, offset=1, edge='wrap')")).coupled["constraint 'k'"]
     assert 'position(h) == 0' in wrapped, 'a wrap becomes an opening-state seed'
 

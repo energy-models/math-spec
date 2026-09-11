@@ -37,10 +37,10 @@ OPERATORS = {
     'shift(array, over=dim, offset=n, edge=v)': 'shift_edge',
     'shift(array, over=dim, offset=p, edge=…)': 'shift_by_parameter',
     'shift(array, over=dim, offset=n, by=lookup)': 'shift_partitioned',
-    'sum_back(array, over=dim, within=n)': 'sum_back',
-    'sum_back(array, over=dim, within=p)': 'sum_back_by_parameter',
-    "sum_back(array, over=dim, within=p, edge='wrap')": 'sum_back_wrap',
-    'sum_back(array, over=dim, within=n, by=lookup)': 'sum_back_partitioned',
+    'sum_back(array, over=dim, window=n)': 'sum_back',
+    'sum_back(array, over=dim, window=p)': 'sum_back_by_parameter',
+    "sum_back(array, over=dim, window=p, edge='wrap')": 'sum_back_wrap',
+    'sum_back(array, over=dim, window=n, by=lookup)': 'sum_back_partitioned',
     'dual(constraint)': 'dual',
 }
 
