@@ -83,6 +83,11 @@ class TestValidateExpressions:
                 ("'not_a_param' not found",),
                 id='an-unknown-name-in-a-where-used-to-evaluate-to-false',
             ),
+            pytest.param(
+                {'constraints': {'cap': {'foreach': ['g'], 'where': 'lkk', 'expression': 'p <= c'}}},
+                ("'lkk' not found", "Lookups: ['lk']"),
+                id='a-mistyped-lookup-in-a-where-lists-the-lookups',
+            ),
         ],
     )
     def test_a_bad_declaration_is_refused_at_load(self, patch, fragments):
