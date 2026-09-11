@@ -218,7 +218,7 @@
     },
     "LookupBlock": {
       "additionalProperties": false,
-      "description": "A named single-valued map out of one dimension ``into:`` another.\n\nIts values are labels of ``into``, which is what ``sum(by=)`` and\n``at(by=)`` land terms on::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n\nThe map itself is data, and arrives at bind time under the lookup's name.",
+      "description": "A named single-valued map out of one dimension ``into:`` another.\n\nIts values are labels of ``into``, which is what ``sum(by=)`` and\n``at(by=)`` land terms on. ``per:`` conditions the map on further\ndimensions, which every operator joins on and passes through::\n\n    lookups:\n      bus_of: {over: generator, into: bus}\n      zone_of: {over: generator, into: zone, per: [period]}\n\nThe map itself is data, and arrives at bind time under the lookup's name,\nsingle-valued per ``(over, *per)``.",
       "properties": {
         "description": {
           "anyOf": [
@@ -239,6 +239,14 @@
         "over": {
           "title": "Over",
           "type": "string"
+        },
+        "per": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Per",
+          "type": "array"
         }
       },
       "required": [

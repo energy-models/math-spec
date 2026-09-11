@@ -161,6 +161,7 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
                 'drop the sum, or fix the dim',
             )
         )
+    _check_conditioned(f'sum(by={by.shown})', by, inner, context)
     collides = sorted(set(by.into) & (inner - {by.dimension}))
     if collides:
         raise DimensionError(
@@ -185,6 +186,7 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
             f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
             f'sum is the direction that produces them.'
         )
+    _check_conditioned(f'at(by={by.shown})', by, inner, context)
     if by.dimension in inner - set(by.into):
         raise DimensionError(
             f'{context}: at(by={by.shown}) places terms onto '
@@ -228,7 +230,18 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
                 f"'{over.name}' carries it, so no coordinate has a neighbour inside a group — "
                 f"partition by a lookup over '{over.name}'."
             )
+        _check_conditioned(f'{node.name}(over={over.name}, by={partition.shown})', partition, inner, context)
     return inner
+
+
+def _check_conditioned(call: str, by: LookupNode, inner: frozenset[str], context: str) -> None:
+    """A lookup conditioned ``per`` some dims is read at them, so the operand carries every one."""
+    if missing := sorted(set(by.per) - inner):
+        raise DimensionError(
+            f'{context}: {call} reads a lookup conditioned per {missing}, which the expression '
+            f'does not carry (dims {sorted(inner)}). The map varies along those dims, so the operand '
+            f'has to be read at them — index it by them, or declare the lookup without them.'
+        )
 
 
 #: The dim rule of each built-in, by name.

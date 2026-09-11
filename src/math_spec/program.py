@@ -268,13 +268,16 @@ class GroupSum(Expression):
     labels of the matching dim in ``into``; the result replaces ``over`` with
     all of them. The two tuples are the same length and their order pairs
     them: several coordinates are one grouping into a product of targets,
-    consumed in a single join.
+    consumed in a single join. ``per`` is the dims the coordinates are
+    conditioned on, shared by all of them: the join keys on ``(over, *per)``
+    and the operand carries every one, so they survive in the result.
     """
 
     operand: ExpressionNode
     over: str
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
+    per: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -283,13 +286,15 @@ class At(Expression):
 
     Same mapping table, walked the other way: ``GroupSum`` consumes ``over``
     and produces ``into``, this consumes ``into`` and produces ``over``. The
-    join fans out, many ``over`` labels sharing one ``into`` tuple.
+    join fans out, many ``over`` labels sharing one ``into`` tuple — within
+    each ``per`` coordinate, which the operand carries and the result keeps.
     """
 
     operand: ExpressionNode
     over: str
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
+    per: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -443,11 +448,14 @@ class LookupDeclaration(NamedTuple):
     Its values are labels of ``target``, checked for containment once the dim
     tables exist — which keeps a mistyped label from silently dropping its
     terms in the join that places them — and it is what ``sum(by=)`` lands
-    terms on.
+    terms on. ``per`` is the dimensions the map is conditioned on: it is
+    single-valued per ``(over, *per)``, and every operator joins on them and
+    passes them through.
     """
 
     name: str
     target: str
+    per: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1057,36 +1065,44 @@ class DimensionPositionNode:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
     Both sides are integers, negative counting from the end. With ``by`` the
-    position is counted within each group the lookup makes.
+    position is counted within each group the lookup makes, at each coordinate
+    of the dims ``per`` the lookup is conditioned on.
     """
 
     name: str
     op: PredicateOperator
     position: int
     by: str | None = None
+    per: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class LookupComparisonNode:
     """Compare a lookup's values against a literal — ``period_of == 2030``.
 
-    ``over`` is the dimension the lookup maps out of.
+    ``over`` is the dimension the lookup maps out of, ``per`` the dims it is
+    conditioned on; the leaf is read at all of them.
     """
 
     name: str
     over: str
     op: PredicateOperator
     value: float | str | datetime.date
+    per: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class LookupPairComparisonNode:
-    """Compare two lookups over one dimension — ``from != to``, row by row on that dimension's table."""
+    """Compare two lookups over one dimension — ``from != to``, row by row on that dimension's table.
+
+    Both are conditioned on the same ``per`` dims, or they share no row.
+    """
 
     name: str
     other: str
     over: str
     op: PredicateOperator
+    per: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1095,6 +1111,7 @@ class LookupDefinedNode:
 
     name: str
     over: str
+    per: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1192,18 +1209,21 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
     A parameter or variable leaf carries its own dims off the declaration; a
     comparison on a dimension is read through that dimension, and a lookup
     through the dimension it maps out of — the dim it leaves, not the one it
-    lands in. Separate from the union because the load-time frame check
-    reports per leaf. Closed by ``assert_never``: a predicate node added
-    without a reading is a type error here, at the one place that has to grow
-    a branch, rather than a wrong dim set at the first model to use it.
+    lands in — and the dims it is conditioned on. Separate from the union
+    because the load-time frame check reports per leaf. Closed by
+    ``assert_never``: a predicate node added without a reading is a type error
+    here, at the one place that has to grow a branch, rather than a wrong dim
+    set at the first model to use it.
     """
     match atom:
         case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
             return frozenset(atom.dims)
-        case DimensionComparisonNode() | DimensionPositionNode():
+        case DimensionComparisonNode():
             return frozenset({atom.name})
+        case DimensionPositionNode():
+            return frozenset({atom.name, *atom.per})
         case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
-            return frozenset({atom.over})
+            return frozenset({atom.over, *atom.per})
         case _:
             assert_never(atom)
 

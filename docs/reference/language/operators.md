@@ -17,6 +17,7 @@ model can never depend on what a caller registered. A composition of them goes i
 | `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
 | `sum(array, by=lookup)`                            | The dimension that the lookup is over collapses onto the dimension it maps into                                                                   |
 | `sum(array, by=[lookup, …])`                       | The same, onto every dimension that the lookups map into. All the lookups must be over the same dimension                                         |
+| `sum(array, by=conditioned)`                       | A lookup that declares `per:` is joined on those dimensions too. The array carries them, and the result keeps them                                |
 | `at(array, by=lookup)`                             | The dimension that the lookup maps into is replaced by the dimension it is over                                                                   |
 | `shift(array, over=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
 | `shift(array, over=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
@@ -77,6 +78,10 @@ outflow, with no adjacency matrix and no join written by hand.
 Give **at most one** of `over=` and `by=`. A lookup carries its own dimensions,
 so `by=` leaves `over=` nothing to add.
 
+A lookup [conditioned on a second dimension](dimensions.md#maps-that-vary-along-a-second-dimension)
+is joined on that dimension as well. The operand carries it, the sum keeps it,
+and each group is one coordinate of it.
+
 The lookup's values are the group labels, checked against the target dimension
 when the data binds. A group with no members contributes nothing, and a member
 whose lookup value is null belongs to no group. An empty group is a value rather
@@ -95,6 +100,10 @@ once by every line that touches the bus, is `at(decision, by=line_bus)`.
 
 A fine label whose lookup value is null reads nothing, and its row is absent.
 That matches the null group in `sum(by=)`.
+
+Through a lookup [conditioned on a second dimension](dimensions.md#maps-that-vary-along-a-second-dimension)
+`at` reads the coarse value at the row's own coordinate of that dimension. That
+is the price of the zone this generator sat in that period.
 
 ## `sum_back`
 

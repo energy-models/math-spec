@@ -143,7 +143,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     dimensions = {
         dname: program.DimensionDeclaration(
             tuple(
-                program.LookupDeclaration(lname, lk.into) for lname, lk in expanded.lookups.items() if lk.over == dname
+                program.LookupDeclaration(lname, lk.into, tuple(lk.per))
+                for lname, lk in expanded.lookups.items()
+                if lk.over == dname
             ),
             ddef.dtype,
         )
@@ -272,7 +274,9 @@ class _Lowering:
             assert isinstance(over_node, DimensionNode), 'resolution refuses an over= that is not a dimension'
             return program.Sum(operand, (over_node.name,))
         assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
-        return program.GroupSum(operand, over=by_node.dimension, coordinate=by_node.names, into=by_node.into)
+        return program.GroupSum(
+            operand, over=by_node.dimension, coordinate=by_node.names, into=by_node.into, per=by_node.per
+        )
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``at(x, by=lookup)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
@@ -283,6 +287,7 @@ class _Lowering:
             over=by_node.dimension,
             coordinate=by_node.names,
             into=by_node.into,
+            per=by_node.per,
         )
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:

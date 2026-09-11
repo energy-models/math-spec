@@ -49,6 +49,7 @@ lookups:
   zone_of: { over: bus, into: zone }
   area_of: { over: bus, into: zone } # a second map into the same set, to compare against
   season_of: { over: snapshot, into: season }
+  gen_zone: { over: generator, into: zone, per: [snapshot] } # a map conditioned on a second dimension, which it is read at and keeps
 
 parameters:
   p_max: { dims: [generator] }
@@ -70,7 +71,7 @@ parameters:
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` (`int` coordinates) with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}`$ |
-| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E}`$ |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$ |
 | $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z}`$ |
 | $`\mathcal{Z}`$ | index $`z`$ — `zone` |
 | $`\mathcal{S}`$ | index $`s`$ — `season` |
@@ -400,6 +401,35 @@ pulled_back_twice:
 
 ```math
 \mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `zonal`
+
+a grouping through a conditioned map: the condition reads the dim the map is per, and the row keeps it
+
+```yaml
+zonal:
+  foreach: [snapshot, zone]
+  expression: sum(p, by=gen_zone) <= zone_cap
+```
+
+```math
+\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) = z} p_{t,g} \le \mathrm{zone\_cap}_{z} \qquad \forall\, t \in \mathcal{T},\ z \in \mathcal{Z}
+```
+
+#### `zonal_pullback`
+
+its adjoint, reading the slot the row's own snapshot puts the generator in
+
+```yaml
+zonal_pullback:
+  foreach: [snapshot, generator]
+  where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
+  expression: p <= at(spill * zone_cap, by=gen_zone)
+```
+
+```math
+p_{t,g} \le \mathit{spill}_{t} \cdot \mathrm{zone\_cap}_{\mathrm{gen\_zone}(g,\ t)} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) = \text{'}\mathrm{north}\text{'} \wedge \mathrm{pos}_{\mathrm{gen\_zone}(g,\ t)}(g) = 0
 ```
 
 #### `arithmetic`

@@ -103,7 +103,7 @@ class Namespace:
         variables: Iterable[str],
         parameters: Iterable[str],
         dimensions: Iterable[str],
-        lookups: Mapping[str, tuple[str, str]],
+        lookups: Mapping[str, tuple[str, str, tuple[str, ...]]],
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
         constraints: Iterable[str],
@@ -118,8 +118,8 @@ class Namespace:
         #: name -> declared dtype, for dimensions, parameters and lookups alike;
         #: what a where comparison checks its literal against.
         self.dtypes: dict[str, DeclaredDtype] = dict(dtypes)
-        #: lookup name -> ``(over, into)``.
-        self.lookups: dict[str, tuple[str, str]] = dict(lookups)
+        #: lookup name -> ``(over, into, per)``.
+        self.lookups: dict[str, tuple[str, str, tuple[str, ...]]] = dict(lookups)
         #: parameter or variable name -> the dims it is read through —
         #: parameters by their ``dims``, variables by their frame. Stamped onto
         #: each leaf a where names, the way a lookup leaf carries ``over``.
@@ -135,7 +135,7 @@ class Namespace:
             schema.variables,
             schema.parameters,
             schema.dimensions,
-            {n: (lk.over, lk.into) for n, lk in schema.lookups.items()},
+            {n: (lk.over, lk.into, tuple(lk.per)) for n, lk in schema.lookups.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
@@ -167,6 +167,10 @@ class Namespace:
     def into_of(self, lookup: str) -> str:
         """The dimension *lookup*'s values are labels of."""
         return self.lookups[lookup][1]
+
+    def per_of(self, lookup: str) -> tuple[str, ...]:
+        """The dimensions *lookup* is conditioned on, as declared."""
+        return self.lookups[lookup][2]
 
     def unknown(self, name: str, context: str, *, allow_dims: bool, formals: Iterable[str] = ()) -> str:
         """The refusal for a *name* declared nowhere, listing what it could have been.
@@ -568,7 +572,8 @@ class _Resolver:
         consulted: the names alone decide both the dim the operator consumes and
         the ones it produces. A bracketed list is one grouping through several
         maps at once rather than a composition of groupings, so its members must
-        share the dim they are over and must not target the same dim twice.
+        share the dim they are over and the dims they are conditioned on, and
+        must not target the same dim twice.
         """
         names = names_in(value)
         if not names:
@@ -591,6 +596,16 @@ class _Resolver:
             )
             return value
 
+        pers = {ns.per_of(name) for name in names}
+        if len(pers) > 1:
+            self.errors.append(
+                f'{self.context}: {operator}({key}={shown(names)}) groups through lookups conditioned on '
+                f'different dimensions ({", ".join(f"{n} per {list(ns.per_of(n))}" for n in names)}). '
+                f'One grouping is one join, so every lookup in the list must share its per: — '
+                f'group through them in turn instead, one call each.'
+            )
+            return value
+
         targets = tuple(ns.into_of(name) for name in names)
         repeated = sorted({t for t in targets if targets.count(t) > 1})
         if repeated:
@@ -601,7 +616,7 @@ class _Resolver:
             )
             return value
 
-        return LookupNode(names, dimension=next(iter(over)), into=targets)
+        return LookupNode(names, dimension=next(iter(over)), into=targets, per=next(iter(pers)))
 
     def _not_a_lookup(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a lookup; ``None`` where it is one."""
@@ -609,7 +624,7 @@ class _Resolver:
         if name in ns.lookups:
             return None
         if name in ns.dimensions:
-            into_here = sorted(n for n, (_, into) in ns.lookups.items() if into == name)
+            into_here = sorted(n for n, (_, into, _) in ns.lookups.items() if into == name)
             hint = f"  Lookups into '{name}': {into_here}" if into_here else f"  No lookup maps into '{name}'."
             return (
                 f"{context}: {operator}({key}={name}): '{name}' is a dimension, and "
@@ -663,7 +678,7 @@ class _Resolver:
                     f'Remove it, or compare it: where: "{node.name} > 0".'
                 )
             case 'lookup':
-                return LookupDefinedNode(node.name, ns.over_of(node.name))
+                return LookupDefinedNode(node.name, ns.over_of(node.name), ns.per_of(node.name))
             case 'variable':
                 if node.name == self.self_variable:
                     self.errors.append(
@@ -703,7 +718,7 @@ class _Resolver:
                 f"position within a group to name — group by a lookup over '{node.dimension}'."
             )
             return node
-        return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
+        return DimensionPositionNode(node.dimension, node.op, node.position, node.by, ns.per_of(node.by))
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``lookup <op> lookup``."""
@@ -714,7 +729,7 @@ class _Resolver:
                 if (refusal := _lookup_pair_error(context, node, value, ns)) is not None:
                     self.errors.append(refusal)
                     return node
-                return LookupPairComparisonNode(node.name, value, ns.over_of(node.name), node.op)
+                return LookupPairComparisonNode(node.name, value, ns.over_of(node.name), node.op, ns.per_of(node.name))
             self.errors.append(_declared_rhs_error(context, node, value, rhs_kind))
             return node
 
@@ -735,7 +750,7 @@ class _Resolver:
             case 'dimension':
                 return DimensionComparisonNode(node.name, node.op, value)
             case 'lookup':
-                return LookupComparisonNode(node.name, ns.over_of(node.name), node.op, value)
+                return LookupComparisonNode(node.name, ns.over_of(node.name), node.op, value, ns.per_of(node.name))
             case 'variable':
                 self.errors.append(
                     f"{context}: where references variable '{node.name}'. A where "
@@ -886,9 +901,10 @@ def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str
 def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str, ns: Namespace) -> str | None:
     """Why two lookups may not be compared, or ``None`` where they may.
 
-    They must map out of the same dimension, or no row carries both; and into
-    the same one, or no value of one is ever a value of the other. Both wrong
-    answers are silent, and a build's data library decides which one.
+    They must map out of the same dimension and be conditioned on the same
+    ones, or no row carries both; and into the same one, or no value of one is
+    ever a value of the other. Both wrong answers are silent, and a build's
+    data library decides which one.
     """
     comparison = f"'{node.name} {node.op} {other}'"
     left_over, right_over = ns.over_of(node.name), ns.over_of(other)
@@ -898,6 +914,14 @@ def _lookup_pair_error(context: str, node: UnresolvedComparisonNode, other: str,
             f"('{left_over}' and '{right_over}') — there is no row carrying both, so the "
             f'comparison has nothing to test. Two lookups may be compared only where they '
             f'map out of the same dimension.'
+        )
+    left_per, right_per = ns.per_of(node.name), ns.per_of(other)
+    if left_per != right_per:
+        return (
+            f'{context}: {comparison} compares lookups conditioned on different dimensions '
+            f"('{node.name}' per {list(left_per)}, '{other}' per {list(right_per)}) — there is no row "
+            f'carrying both, so the comparison has nothing to test. Two lookups may be compared '
+            f'only where they share their per:.'
         )
     left, right = ns.into_of(node.name), ns.into_of(other)
     if left != right:
