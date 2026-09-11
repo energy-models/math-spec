@@ -107,6 +107,7 @@ extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
 # script, where a summary line it has to fit in is the worse sentence.
 "tools/**/*.py" = ["T20", "D"] # a generator says what it wrote
 "tests/**/*.py" = ["D"]
+"comparison-gams/**/*.py" = ["T20", "D"] # a probe script says what it measured
 "examples/references/**/*.py" = [
   "T20",
   "D",
