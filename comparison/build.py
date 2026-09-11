@@ -536,7 +536,7 @@ def refusal(ev: dict, probe: str, proposal: str) -> str:
 
 
 def kinds_html() -> str:
-    """One card per kind of pairing, with the everyday reading above the model one."""
+    """One full-width row per kind: the words beside the file, and the three answers under both."""
     cards = []
     for kind in KINDS:
         code = ''.join(
@@ -547,9 +547,13 @@ def kinds_html() -> str:
         cards.append(
             f'<article class="kind">'
             f'<p class="kind-shape">{html.escape(kind["shape"])}</p>'
+            f'<div class="kind-head">'
+            f'<div class="kind-words">'
             f'<p class="kind-everyday">{html.escape(kind["everyday"])}</p>'
             f'<p class="kind-model">{html.escape(kind["model"])}</p>'
-            f'{code}'
+            f'</div>'
+            f'<div class="kind-codes">{code}</div>'
+            f'</div>'
             f'<div class="options tight">{says}</div>'
             f'</article>'
         )

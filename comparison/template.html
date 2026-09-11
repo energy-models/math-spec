@@ -161,7 +161,9 @@
 
   /* ---------- one row per proposal, everywhere ---------- */
   .options { display: grid; gap: 14px; }
-  .options.tight { gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  /* the hairlines are drawn between the rows, not by a gap over a coloured ground,
+     so padding above the block does not show as a bar */
+  .options.tight { gap: 0; border: 1px solid var(--rule); border-radius: var(--radius); }
   .option[data-proposal="per"] { --accent: var(--per); }
   .option[data-proposal="keys"] { --accent: var(--keys); }
   .option[data-proposal="relations"] { --accent: var(--relations); }
@@ -171,6 +173,7 @@
     display: grid; grid-template-columns: 13rem minmax(0, 1fr); align-items: start;
   }
   .options.tight .option { border: 0; border-left: 3px solid var(--accent); border-radius: 0; }
+  .options.tight .option + .option { border-top: 1px solid var(--rule); }
   .option-name {
     font-size: 13px; font-weight: 600; color: var(--accent);
     padding: 14px 16px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
@@ -242,22 +245,22 @@
   .primer { border-top: 0; padding-top: clamp(32px, 5vw, 56px); }
   .kinds {
     display: grid; gap: 1px; background: var(--rule);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     border: 1px solid var(--rule); margin-top: 26px;
   }
-  .kind { background: var(--surface); padding: 20px 22px 18px; display: flex; flex-direction: column; }
-  /* an odd last card would leave the grid's own background showing as a dead cell */
-  .kind:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .kind { background: var(--surface); padding: 22px 24px 20px; }
+  .kind-head {
+    display: grid; grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
+    gap: 28px; align-items: start; margin-bottom: 18px;
+  }
   .kind-shape {
     margin: 0 0 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
     color: var(--ink-3);
   }
   .kind-everyday {
     margin: 0; font-family: var(--serif); font-size: 17px; line-height: 1.45; color: var(--ink);
-    max-width: 34ch;
   }
-  .kind-model { margin: 8px 0 14px; font-size: 13.5px; color: var(--ink-2); max-width: 46ch; }
-  .kind-code + .kind-code { margin-top: 8px; }
+  .kind-model { margin: 8px 0 0; font-size: 13.5px; color: var(--ink-2); }
+  .kind-code + .kind-code { margin-top: 10px; }
   .kind-code-label {
     display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
     color: var(--ink-3); margin-bottom: 3px;
@@ -273,9 +276,7 @@
   }
   /* the whole line is the point here, so nothing inside it is marked as differing */
   .kind-code .line.focus { background: transparent; border-left-color: transparent; }
-  .kind .options { margin-top: auto; padding-top: 16px; }
   .kind .option-name { font-size: 12px; }
-  .kind .option { grid-template-columns: 10rem minmax(0, 1fr); }
 
   .thumb {
     margin-top: 26px; padding: 20px 24px; background: var(--surface);
@@ -337,9 +338,14 @@
   }
 
   @media (max-width: 760px) {
+    .option { grid-template-columns: 1fr; }
+    .option-name { padding-bottom: 0; }
+    .options.tight .option-name { padding: 10px 16px 0; }
+    .option-body { padding-left: 16px; }
+    .options.tight .option-body { padding-left: 16px; }
   }
   @media (max-width: 1000px) {
-    .kinds { grid-template-columns: 1fr; }
+    .kind-head { grid-template-columns: 1fr; gap: 16px; }
     .cards, .reading { grid-template-columns: 1fr; }
     .extra { grid-template-columns: 1fr; }
   }
