@@ -85,7 +85,7 @@ means:
 
 ```yaml
 running:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   domain: binary
   where: committable # only some units have a commitment decision
 ```
@@ -194,7 +194,7 @@ ties three, write the formulation out:
 ```yaml
 variables:
   weight: # the convex combination, one per converter and period
-    foreach: [converter, time, bp]
+    dims: [converter, time, bp]
     where: bp_present # how far each curve runs
     bounds: { lower: 0, upper: 1 }
 
@@ -203,10 +203,10 @@ sos:
 
 constraints:
   one_operating_point:
-    foreach: [converter, time]
+    dims: [converter, time]
     expression: sum(weight, over=bp) == 1
   on_the_curve: # one row per flow — this is where the count goes
-    foreach: [flow, time]
+    dims: [flow, time]
     expression: rate == sum(at(weight, by=converter_of) * bp_rate, over=bp)
 ```
 

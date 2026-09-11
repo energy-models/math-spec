@@ -71,7 +71,7 @@ on the way past.
 ## `variables`
 
 A variable is what the solver decides. There is one column per coordinate of
-`foreach`.
+`dims`.
 
 ```yaml
 dimensions:
@@ -81,7 +81,7 @@ parameters:
   p_max: { dims: [generator] }
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     where: "p_max > 0"
     bounds:
       lower: 0
@@ -90,7 +90,7 @@ variables:
 
 | Field                           |                                                                                                                                              |                        |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `foreach`                       | required. The dimensions it is indexed by                                                                                                    |                        |
+| `dims`                          | required. The dimensions it is indexed by                                                                                                    |                        |
 | `where`                         | which coordinates exist ([absence](absence.md))                                                                                              | default `null`         |
 | `bounds.lower` / `bounds.upper` | a number, or the name of a `float` or `int` parameter. Two numbers that cross are refused at load. A named bound is checked against its data | default `-inf` / `inf` |
 | `domain`                        | `continuous`, `integer` or `binary`. `binary` carries fixed 0/1 bounds                                                                       | default `continuous`   |
@@ -105,7 +105,7 @@ A bound is a name or a number, never arithmetic. `upper: p_max` is accepted, and
 `upper: -rating` is refused with a message that says so. Ship the negated column
 as data. Arithmetic in a bound is
 [#31](https://github.com/fluxopt/lpspec/issues/31). The dimensions of a bound
-parameter must not exceed `foreach`.
+parameter must not exceed its `dims`.
 
 Equal bounds pin a variable. That is how one declaration covers a quantity that
 is a decision in one model and data in another: bind `lower` and `upper` to the
@@ -126,21 +126,21 @@ dimensions:
 parameters:
   load: { dims: [snapshot] }
 variables:
-  p: { foreach: [snapshot, generator] }
+  p: { dims: [snapshot, generator] }
 constraints:
   power_balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, over=generator) == load
 ```
 
 | Field         |                                                     |                |
 | ------------- | --------------------------------------------------- | -------------- |
-| `foreach`     | required. The rows this rule builds                 |                |
+| `dims`        | required. The rows this rule builds                 |                |
 | `expression`  | required. It uses exactly one of `<=`, `>=` or `==` |                |
 | `where`       | which rows are built ([absence](absence.md))        | default `null` |
 | `description` | free text                                           | default `null` |
 
-The dimensions of the expression must **equal** `foreach`. See
+The dimensions of the expression must **equal** its `dims`. See
 [how dimensions combine](expressions.md#how-dimensions-combine).
 
 Either side of the comparator may carry variables, and one side must. A
@@ -149,7 +149,7 @@ is settled before the solve. A single _row_ can still end up with no variable
 terms, because the data left its terms nowhere to sit. Such a row is not built.
 See [absence](absence.md#rows-with-no-variable-terms).
 
-`foreach: []` gives one scalar row, for a rule such as a system-wide budget. An
+`dims: []` gives one scalar row, for a rule such as a system-wide budget. An
 empty dimension list means one value for a parameter, one column for a variable
 and one row for a constraint, so a scalar is never written as a dummy dimension
 of size 1. A scalar _variable_ may not carry a `where`
@@ -162,11 +162,11 @@ Two regimes of one rule are two blocks, each with a name a reader chose:
 
 ```yaml
 storage_balance:
-  foreach: [snapshot, storage]
+  dims: [snapshot, storage]
   expression: soc == shift(soc, over=snapshot, offset=1) * (1 - loss) + charge - discharge
 
 storage_balance_initial:
-  foreach: [snapshot, storage]
+  dims: [snapshot, storage]
   where: "position(snapshot) == 0"
   expression: soc == soc_initial
 ```
@@ -188,7 +188,7 @@ dimensions:
 parameters:
   cost: { dims: [generator] }
 variables:
-  p: { foreach: [generator] }
+  p: { dims: [generator] }
 objective:
   sense: minimize
   expression: sum(p * cost)

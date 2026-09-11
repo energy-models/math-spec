@@ -23,9 +23,9 @@ if TYPE_CHECKING:
     from math_spec.typesetting.format import Format
 
 #: One region and the fallback. `opening` is a column and `otherwise` a scalar,
-#: so the cases alone would not give a quantity its shape — the `foreach` does.
+#: so the cases alone would not give a quantity its shape — the `dims` does.
 BY_REGION = {
-    'foreach': ['snapshot', 'generator'],
+    'dims': ['snapshot', 'generator'],
     'cases': {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}},
     'otherwise': 0,
 }
@@ -35,7 +35,7 @@ CASED = override(
     DISPATCH,
     **{
         'expressions.headroom': BY_REGION,
-        'constraints.spare': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
+        'constraints.spare': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
     },
 )
 
@@ -45,7 +45,7 @@ _NESTED = override(
     CASED,
     **{
         'expressions.headroom.cases.opening.expression': 'p',
-        'expressions.opening_cost.foreach': ['snapshot', 'generator'],
+        'expressions.opening_cost.dims': ['snapshot', 'generator'],
         'expressions.opening_cost.cases': {
             'opening': {'when': 'position(snapshot) == 0', 'expression': 'headroom * cost'},
         },

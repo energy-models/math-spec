@@ -112,7 +112,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         else:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
         variables[vname] = program.VariableDeclaration(
-            tuple(vdef.foreach),
+            tuple(vdef.dims),
             where=resolved.variables[vname],
             lower=lower,
             upper=upper,
@@ -125,7 +125,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         expression, where = resolved.constraints[cname]
         lowering = _Lowering(expanded, f"constraint '{cname}'")
         constraints[cname] = program.ConstraintDeclaration(
-            tuple(cdef.foreach),
+            tuple(cdef.dims),
             lhs=lowering.expr(expression.left),
             sense=expression.op,
             rhs=lowering.expr(expression.right),

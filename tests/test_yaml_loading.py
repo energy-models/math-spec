@@ -24,12 +24,12 @@ parameters:
   cost: {dims: [generator]}
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     where: "cost > 0"
     bounds: {lower: 0, upper: 100}
 constraints:
   balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, over=generator) == 5
 objective:
   expression: sum(p * cost)
@@ -75,14 +75,14 @@ def test_the_loader_yields_plain_types(tmp_path):
 
     schema = to_spec(raw)
     assert all(type(name) is str for name in schema.dimensions), 'a declaration is keyed by a plain str'
-    assert type(schema.variables['p'].foreach) is list
-    assert all(type(d) is str for d in schema.variables['p'].foreach)
+    assert type(schema.variables['p'].dims) is list
+    assert all(type(d) is str for d in schema.variables['p'].dims)
 
 
 def test_duplicate_key_is_an_error_naming_both_lines(tmp_path):
     """PyYAML keeps the last one, discarding a declaration the file contains."""
     path = _write(
-        tmp_path, MODEL.replace('constraints:\n', 'constraints:\n  balance:\n    foreach: []\n    equations: []\n')
+        tmp_path, MODEL.replace('constraints:\n', 'constraints:\n  balance:\n    dims: []\n    equations: []\n')
     )
 
     first = MODEL.splitlines().index('  balance:') + 1
@@ -101,12 +101,12 @@ def test_a_merge_key_override_is_not_a_duplicate(tmp_path):
     """`<<:` then a key of the same name is an override — the point of merging."""
     path = _write(
         tmp_path,
-        'defaults: &d\n  foreach: [generator]\n'
+        'defaults: &d\n  dims: [generator]\n'
         'dimensions:\n  generator: {dtype: str}\n'
-        'variables:\n  p:\n    <<: *d\n    foreach: [generator]\n',
+        'variables:\n  p:\n    <<: *d\n    dims: [generator]\n',
     )
 
-    assert read_yaml(path)['variables']['p']['foreach'] == ['generator'], 'the explicit key wins over the merged one'
+    assert read_yaml(path)['variables']['p']['dims'] == ['generator'], 'the explicit key wins over the merged one'
 
 
 @pytest.mark.parametrize(

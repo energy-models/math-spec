@@ -34,7 +34,7 @@ is the [test](docs/about/what-counts-as-language.md) for what belongs here.
 Three properties follow:
 
 - **Nothing is guessed.** A misspelled name, a `where` string on an undeclared
-  parameter, a constraint whose dimensions do not match its `foreach`: each fails
+  parameter, a constraint whose dimensions do not match its `dims`: each fails
   when the file loads, with a message that names the fix. A repository of models
   checks in CI with no data ([errors](docs/reference/language/errors.md)).
 - **The operators are a fixed set.** `sum`, `sum_back`, `at` and `shift`. A file
@@ -86,13 +86,13 @@ parameters:
 variables:
   p:
     description: output of a generator in a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     where: "p_max > 0"
     bounds: { lower: 0, upper: p_max }
 
 constraints:
   power_balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, over=generator) == load
 
 objective:
@@ -208,7 +208,7 @@ git reference until then; see [RELEASING.md](RELEASING.md).
 Every file under `src/` was written in [lpspec](https://github.com/fluxopt/lpspec)
 and extracted here, so that the language and the syntax tree a tool reads it
 through are a dependency rather than one engine's internals. The keys themselves,
-which are YAML math, a block per component, `foreach:` and a `where:` string,
+which are YAML math, a block per component, `dims:` and a `where:` string,
 come from [Calliope](https://github.com/calliope-project/calliope).
 [linopy](https://github.com/PyPSA/linopy) supplies the vocabulary that
 `sum(over=)` and the dimension rules are named against. Issue numbers in these

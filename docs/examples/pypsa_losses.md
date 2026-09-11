@@ -152,7 +152,7 @@ objective:
 ```yaml
 Generator_fix_p_lower:
   description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
 ```
 
@@ -167,7 +167,7 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qq
 ```yaml
 Generator_fix_p_upper:
   description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
 ```
 
@@ -182,7 +182,7 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qqu
 ```yaml
 Link_fix_p_lower:
   description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
-  foreach: [snapshot, link]
+  dims: [snapshot, link]
   expression: Link_p >= Link_p_min_pu * Link_p_nom
 ```
 
@@ -197,7 +197,7 @@ f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qq
 ```yaml
 Link_fix_p_upper:
   description: "`Link-fix-p-upper` — a link carries at most its nominal power"
-  foreach: [snapshot, link]
+  dims: [snapshot, link]
   expression: Link_p <= Link_p_max_pu * Link_p_nom
 ```
 
@@ -212,7 +212,7 @@ f_{t,l} \le \overline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qqu
 ```yaml
 Line_fix_s_lower:
   description: "`Line-fix-s-lower` — a fixed line carries at least the negative of its rating, the loss counted against it"
-  foreach: [snapshot, line]
+  dims: [snapshot, line]
   where: not Line_s_nom_extendable
   expression: Line_s - Line_loss >= -Line_s_max_pu * Line_s_nom
 ```
@@ -228,7 +228,7 @@ s_{t,k} - \ell_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{
 ```yaml
 Line_fix_s_upper:
   description: "`Line-fix-s-upper` — a fixed line carries at most its rating, loss included"
-  foreach: [snapshot, line]
+  dims: [snapshot, line]
   where: not Line_s_nom_extendable
   expression: Line_s + Line_loss <= Line_s_max_pu * Line_s_nom
 ```
@@ -244,7 +244,7 @@ s_{t,k} + \ell_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot \mathrm{s}^{\mathrm{n
 ```yaml
 Line_ext_s_lower:
   description: "`Line-ext-s-lower` — an extendable line carries at least the negative of its rating of the chosen build"
-  foreach: [snapshot, line]
+  dims: [snapshot, line]
   where: Line_s_nom_extendable
   expression: Line_s - Line_loss >= -Line_s_max_pu * Line_s_nom_ext
 ```
@@ -260,7 +260,7 @@ s_{t,k} - \ell_{t,k} \ge -\overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall
 ```yaml
 Line_ext_s_upper:
   description: "`Line-ext-s-upper` — an extendable line carries at most its rating of the chosen build"
-  foreach: [snapshot, line]
+  dims: [snapshot, line]
   where: Line_s_nom_extendable
   expression: Line_s + Line_loss <= Line_s_max_pu * Line_s_nom_ext
 ```
@@ -276,7 +276,7 @@ s_{t,k} + \ell_{t,k} \le \overline{\mathrm{s}}_{t,k} \cdot S_{k} \qquad \forall\
 ```yaml
 Line_ext_s_nom_lower:
   description: "`Line-ext-s_nom-lower` — the chosen build is at least its floor"
-  foreach: [line]
+  dims: [line]
   where: Line_s_nom_extendable
   expression: Line_s_nom_ext >= Line_s_nom_min
 ```
@@ -292,7 +292,7 @@ S_{k} \ge \underline{\mathrm{s}}^{\mathrm{nom}}_{k} \qquad \forall\, k \in \math
 ```yaml
 Line_ext_s_nom_upper:
   description: "`Line-ext-s_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  foreach: [line]
+  dims: [line]
   where: Line_s_nom_extendable AND Line_s_nom_max
   expression: Line_s_nom_ext <= Line_s_nom_max
 ```
@@ -311,7 +311,7 @@ Kirchhoff_Voltage_Law:
     `Kirchhoff-Voltage-Law` — around every independent cycle the
     impedance-weighted flows sum to nothing, which is what makes the linear
     power flow physical rather than transport
-  foreach: [snapshot, cycle]
+  dims: [snapshot, cycle]
   expression: sum(Line_s * Line_cycle_weight, over=line) == 0
 ```
 
@@ -329,7 +329,7 @@ Bus_nodal_balance:
     `Bus-nodal_balance` — what is generated at a bus, plus what the links and
     lines bring, meets the load there, less half of every incident line's
     loss — PyPSA dissipates a branch's loss half at either end
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   expression: >-
     sum(Generator_p, by=Generator_bus)
     - sum(Link_p, by=Link_bus0)
@@ -352,7 +352,7 @@ Bus_nodal_balance:
 ```yaml
 Line_loss_upper:
   description: "`Line-loss_upper` — a line dissipates at most the loss at its rating"
-  foreach: [snapshot, line]
+  dims: [snapshot, line]
   expression: Line_loss <= Line_loss_max
 ```
 
@@ -370,7 +370,7 @@ Line_loss_tangents_forward:
     `Line-loss_tangents-{k}-1` — the loss sits above every tangent to its
     curve for flow one way; PyPSA names one row per segment `k`, this block
     states them all over the segment dimension
-  foreach: [snapshot, line, segment]
+  dims: [snapshot, line, segment]
   expression: Line_loss + Line_loss_slope * Line_s >= Line_loss_offset
 ```
 
@@ -385,7 +385,7 @@ Line_loss_tangents_forward:
 ```yaml
 Line_loss_tangents_reverse:
   description: "`Line-loss_tangents-{k}--1` — the same fan mirrored, the loss depending on the flow's magnitude"
-  foreach: [snapshot, line, segment]
+  dims: [snapshot, line, segment]
   expression: Line_loss - Line_loss_slope * Line_s >= Line_loss_offset
 ```
 

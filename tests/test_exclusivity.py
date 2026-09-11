@@ -44,8 +44,8 @@ STORAGE: dict[str, Any] = {
         'capacity': {'dims': ['storage']},
         'age': {'dims': ['storage'], 'dtype': 'int'},
     },
-    'variables': {'soc': {'foreach': ['snapshot', 'storage']}},
-    'constraints': {'balance': {'foreach': ['snapshot', 'storage'], 'expression': 'soc == 1'}},
+    'variables': {'soc': {'dims': ['snapshot', 'storage']}},
+    'constraints': {'balance': {'dims': ['snapshot', 'storage'], 'expression': 'soc == 1'}},
 }
 
 
@@ -201,8 +201,8 @@ class TestWillNotDecide:
         model = {
             'dimensions': {'generator': {}},
             'parameters': {f'p{axis}': {'dims': ['generator']} for axis in range(4)},
-            'variables': {'x': {'foreach': ['generator']}},
-            'constraints': {'c': {'foreach': ['generator'], 'expression': 'x >= 0'}},
+            'variables': {'x': {'dims': ['generator']}},
+            'constraints': {'c': {'dims': ['generator'], 'expression': 'x >= 0'}},
         }
         [refusal] = refusals(to_spec(model), {'wide': bands, 'rest': 'not (' + bands + ')'})
         assert f'exceeds the budget of {CELL_BUDGET}' in refusal

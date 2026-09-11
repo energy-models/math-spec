@@ -56,7 +56,7 @@ dimensions:
 parameters:
   c: {dims: [g]}
 variables:
-  p: {foreach: [g], bounds: {lower: 0}}
+  p: {dims: [g], bounds: {lower: 0}}
 objective: {sense: minimize, expression: "sum(p * c)"}
 """
 
