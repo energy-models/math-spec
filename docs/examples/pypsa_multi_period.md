@@ -188,7 +188,7 @@ objective:
 ```yaml
 Generator_fix_p_lower:
   description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: not Generator_p_nom_extendable AND Generator_active
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
 ```
@@ -204,7 +204,7 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qq
 ```yaml
 Generator_fix_p_upper:
   description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: not Generator_p_nom_extendable AND Generator_active
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
 ```
@@ -220,7 +220,7 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qqu
 ```yaml
 Generator_ext_p_lower:
   description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_p_nom_extendable AND Generator_active
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
 ```
@@ -236,7 +236,7 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, t \in \mat
 ```yaml
 Generator_ext_p_upper:
   description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_p_nom_extendable AND Generator_active
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
 ```
@@ -252,7 +252,7 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, t \in \math
 ```yaml
 Generator_ext_p_nom_lower:
   description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
-  foreach: [generator]
+  dims: [generator]
   where: Generator_p_nom_extendable
   expression: Generator_p_nom_ext >= Generator_p_nom_min
 ```
@@ -268,7 +268,7 @@ P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \math
 ```yaml
 Generator_ext_p_nom_upper:
   description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  foreach: [generator]
+  dims: [generator]
   where: Generator_p_nom_extendable AND Generator_p_nom_max
   expression: Generator_p_nom_ext <= Generator_p_nom_max
 ```
@@ -284,7 +284,7 @@ P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \mathc
 ```yaml
 Link_fix_p_lower:
   description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
-  foreach: [snapshot, link]
+  dims: [snapshot, link]
   expression: Link_p >= Link_p_min_pu * Link_p_nom
 ```
 
@@ -299,7 +299,7 @@ f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qq
 ```yaml
 Link_fix_p_upper:
   description: "`Link-fix-p-upper` — a link carries at most its nominal power"
-  foreach: [snapshot, link]
+  dims: [snapshot, link]
   expression: Link_p <= Link_p_max_pu * Link_p_nom
 ```
 
@@ -317,7 +317,7 @@ Bus_nodal_balance:
     `Bus-nodal_balance` — what is generated at a bus, less what the links
     take away, plus what arrives over them after losses, meets the load
     there
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   expression: >-
     sum(Generator_p, by=Generator_bus)
     - sum(Link_p, by=Link_bus0)
@@ -340,7 +340,7 @@ Carrier_growth_limit:
     build in the first period it stands in, is at most its allowance plus a
     share of what it added the period before; the first period has no
     predecessor, so `edge=0` leaves it the bare allowance
-  foreach: [carrier, period]
+  dims: [carrier, period]
   where: Carrier_max_growth
   expression: >-
     sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier)

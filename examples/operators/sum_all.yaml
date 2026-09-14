@@ -13,12 +13,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   fleet_budget:
-    foreach: []
+    dims: []
     expression: sum(p) <= budget
 
 objective: { sense: minimize, expression: sum(p) }

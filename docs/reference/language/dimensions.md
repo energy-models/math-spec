@@ -154,7 +154,7 @@ does with the column, not what the column holds:
 | is a mask                                                                              | a `bool` parameter                    | a bare name in a `where` is its own answer                                                    |
 
 Two rules follow from the table. If `b` has one value per `a`, then `b` is a
-**lookup** over `a`, and not a dimension: a `foreach` product over two
+**lookup** over `a`, and not a dimension: a `dims:` product over two
 dimensions that depend on each other, cut back with a mask, is the shape that
 `lookups` replaces.
 

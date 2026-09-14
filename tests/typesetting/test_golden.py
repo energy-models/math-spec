@@ -252,8 +252,8 @@ def test_a_model_with_no_objective_prints_the_rest():
     """The one arm the fixture structurally cannot take. See :data:`UNREACHABLE`."""
     model = {
         'dimensions': {'t': {'dtype': 'int'}},
-        'variables': {'x': {'foreach': ['t'], 'bounds': {'lower': 0}}},
-        'constraints': {'cap': {'foreach': ['t'], 'expression': 'x <= 1'}},
+        'variables': {'x': {'dims': ['t'], 'bounds': {'lower': 0}}},
+        'constraints': {'cap': {'dims': ['t'], 'expression': 'x <= 1'}},
     }
     rendered = to_latex(model)
     assert 'Objective' not in rendered, 'no objective was declared, so no section says one was'

@@ -20,12 +20,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   bus_total:
-    foreach: [snapshot, bus]
+    dims: [snapshot, bus]
     expression: sum(p, by=gen_bus) <= limit
 
 objective: { sense: minimize, expression: sum(p) }

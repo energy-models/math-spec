@@ -32,16 +32,16 @@ the recipe needs no second model file.
      committable: { dims: [generator], dtype: bool }
 
    variables:
-     p: { foreach: [snapshot, generator], bounds: { lower: 0, upper: p_max } }
-     on: { foreach: [snapshot, generator], where: committable, domain: binary }
+     p: { dims: [snapshot, generator], bounds: { lower: 0, upper: p_max } }
+     on: { dims: [snapshot, generator], where: committable, domain: binary }
 
    constraints:
      floor_committed:
-       foreach: [snapshot, generator]
+       dims: [snapshot, generator]
        where: committable
        expression: p >= p_min * on
      ceiling_committed:
-       foreach: [snapshot, generator]
+       dims: [snapshot, generator]
        where: committable
        expression: p <= p_max * on
    ```
@@ -63,12 +63,12 @@ the recipe needs no second model file.
      committable: { dims: [generator], dtype: bool }
 
    variables:
-     p: { foreach: [snapshot, generator], bounds: { lower: 0 } }
-     on: { foreach: [snapshot, generator], where: committable, domain: binary }
+     p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+     on: { dims: [snapshot, generator], where: committable, domain: binary }
 
    expressions:
      available:
-       foreach: [snapshot, generator]
+       dims: [snapshot, generator]
        cases:
          committed:
            when: committable
@@ -77,7 +77,7 @@ the recipe needs no second model file.
 
    constraints:
      ceiling:
-       foreach: [snapshot, generator]
+       dims: [snapshot, generator]
        expression: p <= available
    ```
 

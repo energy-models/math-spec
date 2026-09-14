@@ -44,12 +44,12 @@ class TestValidateExpressions:
         ('patch', 'fragments'),
         [
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'nope <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'nope <= c'}}},
                 ("'nope' not found", "Constraint 'cap'", 'c'),
                 id='an-unknown-name-in-a-constraint',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p + c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'p + c'}}},
                 ('exactly one comparison',),
                 id='a-constraint-without-a-comparison',
             ),
@@ -59,12 +59,12 @@ class TestValidateExpressions:
                 id='an-objective-with-a-comparison',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'c <= 1'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'c <= 1'}}},
                 ('decides nothing', "Constraint 'cap'", "'c <= 1'"),
                 id='a-comparison-with-no-variable-in-it',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p * p * p <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'p * p * p <= c'}}},
                 ("Constraint 'cap'", 'this product is degree 3'),
                 id='a-cubic-constraint',
             ),
@@ -74,12 +74,12 @@ class TestValidateExpressions:
                 id='a-variable-under-a-power',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'where': 'c >', 'expression': 'p <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'where': 'c >', 'expression': 'p <= c'}}},
                 ('Failed to parse where string',),
                 id='a-malformed-where-string',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'where': 'not_a_param > 0', 'expression': 'p <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'where': 'not_a_param > 0', 'expression': 'p <= c'}}},
                 ("'not_a_param' not found",),
                 id='an-unknown-name-in-a-where-used-to-evaluate-to-false',
             ),
@@ -98,15 +98,15 @@ class TestValidateExpressions:
 
     def test_the_objective_and_a_constraint_take_degree_two(self):
         _schema(
-            constraints={'floor': {'foreach': ['g'], 'expression': 'p * p >= 1'}},
+            constraints={'floor': {'dims': ['g'], 'expression': 'p * p >= 1'}},
             objective={'expression': 'sum(p * p * c, over=g)'},
         )
 
     def test_multiple_errors_collected(self):
         message = _refusal(
             constraints={
-                'a': {'foreach': ['g'], 'expression': 'nope <= 1'},
-                'b': {'foreach': ['g'], 'expression': 'p + 1'},
+                'a': {'dims': ['g'], 'expression': 'nope <= 1'},
+                'b': {'dims': ['g'], 'expression': 'p + 1'},
             },
         )
         assert "'nope' not found" in message
@@ -116,7 +116,7 @@ class TestValidateExpressions:
         ('patch', 'fragments'),
         [
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p <= bad'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'p <= bad'}}},
                 ("Constraint 'cap'", 'the divisor contains variables, which is not affine'),
                 id='constraint',
             ),
@@ -152,7 +152,7 @@ class TestValidateExpressions:
                 id='bound',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'where': 'bad > 0', 'expression': 'p <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'where': 'bad > 0', 'expression': 'p <= c'}}},
                 "'bad' not found",
                 id='where',
             ),
@@ -182,12 +182,12 @@ class TestValidateExpressions:
         assert 'lcoe' in to_markdown(model), 'and the page prints it, under its own name'
 
 
-def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str, Any]:
+def _kwarg_model(expression: str, dims: list[str] | None = None) -> dict[str, Any]:
     """A model over (snapshot, generator), with `zone` a lookup into `bus`.
 
     `zone` deliberately targets a dim `p` does *not* carry: grouping into
     one it already has needs that dim twice, which is its own error.
-    An explicit ``foreach=[]`` is a scalar constraint; ``None`` is the
+    An explicit ``dims=[]`` is a scalar constraint; ``None`` is the
     default frame over `snapshot`.
     """
     return {
@@ -198,15 +198,15 @@ def _kwarg_model(expression: str, foreach: list[str] | None = None) -> dict[str,
         },
         'lookups': {'zone': {'over': 'generator', 'into': 'bus'}},
         'parameters': {'load': {'dims': ['snapshot']}},
-        'variables': {'p': {'foreach': ['snapshot', 'generator']}},
-        'constraints': {'c': {'foreach': ['snapshot'] if foreach is None else foreach, 'expression': expression}},
+        'variables': {'p': {'dims': ['snapshot', 'generator']}},
+        'constraints': {'c': {'dims': ['snapshot'] if dims is None else dims, 'expression': expression}},
     }
 
 
 class TestDual:
     """`dual(c)`: a primitive legal only in an entry the math never reads, its argument a constraint name resolved against constraints alone."""
 
-    BASE = override(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
+    BASE = override(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -237,7 +237,7 @@ class TestDual:
                 id='an-uncalled-macro-template-names-an-unknown-constraint',
             ),
             pytest.param(
-                {'constraints': {'lim': {'foreach': ['g'], 'expression': 'dual(lim) <= c'}}},
+                {'constraints': {'lim': {'dims': ['g'], 'expression': 'dual(lim) <= c'}}},
                 ('a dual exists only after a solve', 'the math cannot read one'),
                 id='a-dual-written-inside-a-constraint',
             ),
@@ -249,7 +249,7 @@ class TestDual:
             pytest.param(
                 {
                     'macros': {'shadow': {'args': ['x'], 'template': 'dual(x)'}},
-                    'constraints': {'lim': {'foreach': ['g'], 'expression': 'shadow(lim) <= c'}},
+                    'constraints': {'lim': {'dims': ['g'], 'expression': 'shadow(lim) <= c'}},
                 },
                 ('a dual exists only after a solve', 'the math cannot read one'),
                 id='a-dual-smuggled-through-a-macro-into-a-constraint',
@@ -257,7 +257,7 @@ class TestDual:
             pytest.param(
                 {
                     'expressions': {'price': 'dual(lim)'},
-                    'constraints': {'lim': {'foreach': ['g'], 'expression': 'price <= c'}},
+                    'constraints': {'lim': {'dims': ['g'], 'expression': 'price <= c'}},
                 },
                 ('a dual exists only after a solve', 'keep the entry that carries it out of constraints'),
                 id='a-dual-smuggled-through-an-entry-into-a-constraint',
@@ -305,7 +305,7 @@ class TestDimensionKwargs:
             assert fragment in message
 
     @pytest.mark.parametrize(
-        ('expression', 'foreach'),
+        ('expression', 'dims'),
         [
             pytest.param('sum(p, over=generator) == load', ['snapshot'], id='a-sum'),
             pytest.param('sum(p, by=zone) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
@@ -317,8 +317,8 @@ class TestDimensionKwargs:
             pytest.param('shift(p, over=snapshot, offset=1) == load', ['snapshot', 'generator'], id='a-bare-shift'),
         ],
     )
-    def test_declared_dimensions_still_pass(self, expression, foreach):
-        to_spec(_kwarg_model(expression, foreach))
+    def test_declared_dimensions_still_pass(self, expression, dims):
+        to_spec(_kwarg_model(expression, dims))
 
     def test_macro_formals_are_not_mistaken_for_dimensions(self):
         """A formal in a dim position is legal inside the template body."""
@@ -359,7 +359,7 @@ class TestArithmeticDtype:
         return _schema(
             **{
                 'parameters.a': {'dims': ['g'], 'dtype': dtype},
-                'constraints': {'cap': {'foreach': ['g'], 'expression': expression}},
+                'constraints': {'cap': {'dims': ['g'], 'expression': expression}},
             }
         )
 
@@ -432,7 +432,7 @@ POSITION_SCHEMA = to_spec(
             'starts_at': {'over': 'period', 'into': 'snapshot'},
         },
         'parameters': {'load': {'dims': ['snapshot']}},
-        'variables': {'p': {'foreach': ['snapshot']}},
+        'variables': {'p': {'dims': ['snapshot']}},
     }
 )
 
@@ -486,12 +486,12 @@ class TestRulesDecidedWithoutData:
         ('patch', 'fragments'),
         [
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'nope <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'nope <= c'}}},
                 ("'nope' not found", "Constraint 'cap'", 'c'),
                 id='an-unknown-name-in-a-constraint',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p + c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'p + c'}}},
                 ('exactly one comparison',),
                 id='a-constraint-without-a-comparison',
             ),
@@ -501,12 +501,12 @@ class TestRulesDecidedWithoutData:
                 id='an-objective-with-a-comparison',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'c <= 1'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'c <= 1'}}},
                 ('decides nothing', "Constraint 'cap'", "'c <= 1'"),
                 id='a-comparison-with-no-variable-in-it',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'expression': 'p * p * p <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'expression': 'p * p * p <= c'}}},
                 ("Constraint 'cap'", 'this product is degree 3'),
                 id='a-cubic-constraint',
             ),
@@ -516,12 +516,12 @@ class TestRulesDecidedWithoutData:
                 id='a-variable-under-a-power',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'where': 'c >', 'expression': 'p <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'where': 'c >', 'expression': 'p <= c'}}},
                 ('Failed to parse where string',),
                 id='a-malformed-where-string',
             ),
             pytest.param(
-                {'constraints': {'cap': {'foreach': ['g'], 'where': 'not_a_param > 0', 'expression': 'p <= c'}}},
+                {'constraints': {'cap': {'dims': ['g'], 'where': 'not_a_param > 0', 'expression': 'p <= c'}}},
                 ("'not_a_param' not found",),
                 id='an-unknown-name-in-a-where',
             ),
@@ -617,9 +617,9 @@ class TestRulesDecidedWithoutData:
                 id='infinite-bounds-that-cross',
             ),
             pytest.param(
-                {'variables.p.foreach': ['g', 'g']},
+                {'variables.p.dims': ['g', 'g']},
                 ("Variable 'p' names dimension 'g' twice",),
-                id='foreach-repeats-a-dim',
+                id='dims-repeats-a-dim',
             ),
             pytest.param(
                 {'parameters.c.dims': ['g', 'g']}, ("Parameter 'c' names dimension 'g' twice",), id='dims-repeat-a-dim'
@@ -655,7 +655,7 @@ class TestRulesDecidedWithoutData:
                 id='a-misspelt-key-names-the-near-miss',
             ),
             pytest.param(
-                {'variables.p.foreach': ['g', 'z']}, ("references undeclared dimension 'z'",), id='foreach-undeclared'
+                {'variables.p.dims': ['g', 'z']}, ("references undeclared dimension 'z'",), id='dims-undeclared'
             ),
             pytest.param({'parameters.c.dims': ['z']}, ("references undeclared dimension 'z'",), id='dims-undeclared'),
             pytest.param(
@@ -788,10 +788,10 @@ class TestTheFrontDoor:
         assert to_spec(parse_yaml(model.to_yaml())) == model
 
     def test_an_empty_list_survives_the_round_trip(self):
-        """`foreach: []` is a scalar declaration, not an absence — stripping it would put the variable on every dim it names."""
-        model = _schema(**{'variables.p.foreach': []})
-        assert model.to_dict()['variables']['p']['foreach'] == [], 'the empty frame is written out, not dropped'
-        assert to_spec(model.to_dict()).variables['p'].foreach == [], 'and reads back as the scalar it declares'
+        """`dims: []` is a scalar declaration, not an absence — stripping it would put the variable on every dim it names."""
+        model = _schema(**{'variables.p.dims': []})
+        assert model.to_dict()['variables']['p']['dims'] == [], 'the empty frame is written out, not dropped'
+        assert to_spec(model.to_dict()).variables['p'].dims == [], 'and reads back as the scalar it declares'
 
     def test_an_empty_section_is_not_written(self):
         written = to_spec(DISPATCH_MODEL).to_yaml()
@@ -810,7 +810,7 @@ class TestTheFrontDoor:
 CASED_BASE = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}},
     'parameters': {'p_max': {'dims': ['generator']}, 'load': {'dims': ['snapshot']}},
-    'variables': {'p': {'foreach': ['snapshot', 'generator']}},
+    'variables': {'p': {'dims': ['snapshot', 'generator']}},
 }
 
 #: The one region of a quantity whose `otherwise` carries everything else.
@@ -826,7 +826,7 @@ def _cased(cases: dict[str, Any] | None = None, **block: Any) -> dict[str, Any]:
     """`_headroom` over a cased block: `OPENING` or *cases*, an `otherwise:` of 0, and *block* on top."""
     return _headroom(
         {
-            'foreach': ['snapshot', 'generator'],
+            'dims': ['snapshot', 'generator'],
             'cases': OPENING if cases is None else cases,
             'otherwise': 0,
             **block,
@@ -876,19 +876,19 @@ class TestExpressionCases:
         ('block', 'fragment'),
         [
             pytest.param(
-                {'expression': 'load', 'foreach': ['snapshot'], 'cases': OPENING, 'otherwise': 0},
+                {'expression': 'load', 'dims': ['snapshot'], 'cases': OPENING, 'otherwise': 0},
                 'this has both',
                 id='both',
             ),
             pytest.param({'description': 'nothing at all'}, 'this has neither', id='neither'),
-            pytest.param({'cases': OPENING, 'otherwise': 0}, '`cases:` needs a `foreach:`', id='no-foreach'),
+            pytest.param({'cases': OPENING, 'otherwise': 0}, '`cases:` needs a `dims:`', id='no-dims'),
             pytest.param(
-                {'expression': 'load', 'foreach': ['snapshot']},
-                '`foreach:` is only for a named expression with `cases:`',
-                id='foreach-alone',
+                {'expression': 'load', 'dims': ['snapshot']},
+                '`dims:` is only for a named expression with `cases:`',
+                id='dims-alone',
             ),
             pytest.param(
-                {'foreach': ['snapshot', 'generator'], 'cases': OPENING},
+                {'dims': ['snapshot', 'generator'], 'cases': OPENING},
                 'a `cases:` block needs an `otherwise:`',
                 id='no-otherwise',
             ),
@@ -953,20 +953,20 @@ class TestExpressionCases:
 
     def test_the_frame_must_name_declared_dimensions(self):
         with pytest.raises(SchemaError, match="references undeclared dimension 'region'"):
-            to_spec(_cased(foreach=['snapshot', 'region']))
+            to_spec(_cased(dims=['snapshot', 'region']))
 
     def test_a_case_may_not_widen_the_frame(self):
         """A case is a value within the frame, and `load` carries a dim it lacks."""
         cases = {'gas': {'when': "generator == 'gas'", 'expression': 'p_max'}}
         with pytest.raises(DimensionError, match="otherwise: the value carries dims \\['snapshot'\\]"):
-            to_spec(_cased(cases, foreach=['generator'], otherwise='load'))
+            to_spec(_cased(cases, dims=['generator'], otherwise='load'))
 
     def test_a_when_may_not_test_a_dim_outside_the_frame(self):
         """The same rule a variable's or a constraint's mask is held to."""
         with pytest.raises(
             DimensionError, match=r"where-dimension 'snapshot' reads dims \['snapshot'\] outside the frame"
         ):
-            to_spec(_cased(foreach=['generator']))
+            to_spec(_cased(dims=['generator']))
 
     def test_an_unknown_name_in_a_case_is_a_load_error(self):
         with pytest.raises(SchemaError, match="case 'opening'"):
@@ -980,10 +980,10 @@ class TestExpressionCases:
     def test_a_constraint_naming_it_carries_the_declared_frame(self):
         """Not the union of the cases: one narrower than the frame broadcasts."""
         model = _cased()
-        model['constraints'] = {'spare': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
+        model['constraints'] = {'spare': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
         to_spec(model)
 
-        model['constraints'] = {'spare': {'foreach': ['generator'], 'expression': 'p <= headroom'}}
+        model['constraints'] = {'spare': {'dims': ['generator'], 'expression': 'p <= headroom'}}
         with pytest.raises(DimensionError, match='snapshot'):
             to_spec(model)
 
@@ -996,7 +996,7 @@ class TestExpressionCases:
         """
         model = _cased({'opening': {'when': 'position(snapshot) == 0', 'expression': 'nope'}})
         model['constraints'] = {
-            name: {'foreach': ['snapshot', 'generator'], 'expression': f'p <= headroom + {n}'}
+            name: {'dims': ['snapshot', 'generator'], 'expression': f'p <= headroom + {n}'}
             for n, name in enumerate(('cap', 'floor'))
         }
         message = _refusal(model)
@@ -1011,7 +1011,7 @@ class TestExpressionCases:
         second time and where the label was read off the arm.
         """
         model = _cased(otherwise='nope')
-        model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
+        model['constraints'] = {'cap': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
         message = _refusal(model)
         assert "Named expression 'headroom', otherwise: 'nope' not found" in message
         assert "case 'otherwise'" not in message, 'the fallback is not one of the cases'
@@ -1019,13 +1019,13 @@ class TestExpressionCases:
     def test_a_case_may_name_another_expression(self):
         model = _cased({'opening': {'when': 'position(snapshot) == 0', 'expression': 'spare'}})
         model['expressions']['spare'] = 'p_max * 2'
-        model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
+        model['constraints'] = {'cap': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'}}
         to_spec(model)
 
     def test_a_macro_may_name_one(self):
         model = _cased()
         model['macros'] = {'twice': {'args': ['x'], 'template': 'x * 2'}}
-        model['constraints'] = {'cap': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= twice(headroom)'}}
+        model['constraints'] = {'cap': {'dims': ['snapshot', 'generator'], 'expression': 'p <= twice(headroom)'}}
         to_spec(model)
 
 
@@ -1086,10 +1086,10 @@ class TestADeclarationIsNamed:
             'dimensions': {'dtype': 'str'},
             'lookups': {'over': 'g', 'into': 'h'},
             'parameters': {'dims': ['g']},
-            'variables': {'foreach': ['g']},
+            'variables': {'dims': ['g']},
             'expressions': {'expression': 'c'},
             'macros': {'args': ['x'], 'template': 'x * 2'},
-            'constraints': {'foreach': ['g'], 'expression': 'p <= c'},
+            'constraints': {'dims': ['g'], 'expression': 'p <= c'},
             'piecewise': {'over': 'g', 'links': [['p', 'c'], ['q', 'c']], 'method': 'convex'},
             'sos': {'variable': 'p', 'over': 'g', 'type': 1},
         }
@@ -1173,11 +1173,11 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
             **{
                 'variables.p.where': 'p_max > 0',
                 'expressions.headroom': {
-                    'foreach': ['snapshot', 'generator'],
+                    'dims': ['snapshot', 'generator'],
                     'cases': {'opening': {'when': 'position(snapshot) == 0', 'expression': 'p_max'}},
                     'otherwise': 'p_max - p',
                 },
-                'constraints.spare': {'foreach': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
+                'constraints.spare': {'dims': ['snapshot', 'generator'], 'expression': 'p <= headroom'},
             },
         )
     )

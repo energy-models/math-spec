@@ -36,10 +36,10 @@ parameters:
   bp_y: { dims: [generator, bp] }
 variables:
   p:
-    foreach: [generator]
+    dims: [generator]
     bounds: { lower: 0 }
   cost:
-    foreach: [generator]
+    dims: [generator]
     bounds: { lower: 0 }
 piecewise:
   curve:
@@ -50,7 +50,7 @@ piecewise:
     method: convex
 constraints:
   target:
-    foreach: []
+    dims: []
     expression: sum(p, over=generator) >= 100
 objective:
   sense: minimize
@@ -205,5 +205,5 @@ gets a file for a reviewer to read.
 
 `to_yaml()` writes every value and omits every absence. `domain: continuous` is
 written out, because a reviewer should see the default. A `null`, an infinite
-bound and an empty section are left out. `foreach: []` is written, because an
+bound and an empty section are left out. `dims: []` is written, because an
 empty list is a value: it says the declaration is a scalar.

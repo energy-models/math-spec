@@ -200,7 +200,7 @@ class Dual(Expression):
 
     Stands only under an :class:`ExpressionDeclaration` the math never reads:
     the loader refuses ``dual()`` anywhere a solver ingests. One value per
-    coordinate of the named constraint's own ``foreach`` frame, which is what
+    coordinate of the named constraint's own ``dims`` frame, which is what
     :func:`fan_in` answers ``one-to-one`` for — the leaf reshapes nothing,
     like a parameter.
     """
@@ -659,11 +659,11 @@ class ConstraintDeclaration:
 
 @dataclass(frozen=True)
 class SosDeclaration:
-    """One special-ordered set per coordinate of the variable's ``foreach`` minus ``over``.
+    """One special-ordered set per coordinate of the variable's ``dims`` minus ``over``.
 
     The only declaration that adds neither a column nor a row: it names
     columns a consumer already has and says what may be nonzero among them. Which
-    dims those are is the variable's own ``foreach`` and is read from it: a
+    dims those are is the variable's own ``dims`` and is read from it: a
     copy here would be a second home for a fact
     (:meth:`Program.variable`).
 

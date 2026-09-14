@@ -47,10 +47,10 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: {lower: 0, upper: 100}
   op_cost:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: {lower: 0}
 
 piecewise:
@@ -62,7 +62,7 @@ piecewise:
 
 constraints:
   balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p == load
 
 objective:
@@ -71,7 +71,7 @@ objective:
 """
 GATED = override(
     raw_of(NONCONVEX_YAML),
-    **{'variables.u': {'foreach': ['snapshot'], 'domain': 'binary'}, 'piecewise.cost_curve.activity': 'u'},
+    **{'variables.u': {'dims': ['snapshot'], 'domain': 'binary'}, 'piecewise.cost_curve.activity': 'u'},
 )
 #: The convex curve stated as its segment lines, plus a binary the method cannot gate on.
 LP = override(
@@ -79,20 +79,20 @@ LP = override(
     **{
         'piecewise.cost_curve.method': 'lp',
         'piecewise.cost_curve.links': [['p', 'bp_x'], ['op_cost', 'bp_y', '>=']],
-        'variables.running': {'foreach': ['snapshot'], 'domain': 'binary'},
+        'variables.running': {'dims': ['snapshot'], 'domain': 'binary'},
     },
 )
 #: The ``lp`` curve masked by one of its own values-parameters, so every check a block can carry is on it.
 LP_MASKED = override(LP, **{'piecewise.cost_curve.points': 'bp_x'})
-#: Two dims in the frame, so the emitted ``foreach`` has an order to get wrong.
+#: Two dims in the frame, so the emitted ``dims`` has an order to get wrong.
 TWO_DIM = override(
     raw_of(NONCONVEX_YAML),
     **{
         'dimensions.generator': {'dtype': 'str'},
         'parameters.bp_x.dims': ['generator', 'bp'],
         'parameters.bp_y.dims': ['generator', 'bp'],
-        'variables.p.foreach': ['snapshot', 'generator'],
-        'variables.op_cost.foreach': ['snapshot', 'generator'],
+        'variables.p.dims': ['snapshot', 'generator'],
+        'variables.op_cost.dims': ['snapshot', 'generator'],
         'constraints.balance.expression': 'sum(p, over=generator) == load',
         'objective.expression': 'sum(op_cost)',
     },
@@ -168,7 +168,7 @@ def test_the_emitted_foreach_follows_declaration_order(order):
     same way for the same names within one process — so a run that reads the
     set rather than the declaration fails one of the two orderings."""
     schema = schema_of(TWO_DIM, dimensions={d: TWO_DIM['dimensions'][d] for d in order})
-    assert expand_piecewise(schema).variables['cost_curve_lam'].foreach == order
+    assert expand_piecewise(schema).variables['cost_curve_lam'].dims == order
 
 
 @pytest.mark.parametrize(
@@ -217,7 +217,7 @@ def test_any_affine_expression_is_a_legal_link(link):
         ),
         pytest.param(
             GATED,
-            {'variables.u': {'foreach': ['snapshot'], 'bounds': {'lower': 0, 'upper': 1}}},
+            {'variables.u': {'dims': ['snapshot'], 'bounds': {'lower': 0, 'upper': 1}}},
             'must be binary',
             id='activity-must-be-binary',
         ),

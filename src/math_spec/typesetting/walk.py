@@ -251,7 +251,7 @@ class Walk:
     def _frame_of(self, name: str) -> list[str]:
         block = self.schema.expressions[name]
         if block.cases:
-            return list(block.foreach or ())
+            return list(block.dims or ())
         return self._sorted(dims_of(self.schema.resolved.expressions[name], self.schema, f"expression '{name}'"))
 
     def _op(self, name: OperatorName) -> str:
@@ -312,7 +312,7 @@ class Walk:
             return ctx.indexed(self.symbols.name[node.name], list(self.schema.parameters[node.name].dims)), _ATOM
 
         if isinstance(node, VariableNode):
-            return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].foreach)), _ATOM
+            return ctx.indexed(self.symbols.name[node.name], list(self.schema.variables[node.name].dims)), _ATOM
 
         if isinstance(node, UnaryOperatorNode):
             if node.op == '+':
@@ -642,13 +642,13 @@ class Walk:
     def _constraint(self, name: str) -> Line:
         block = self.schema.constraints[name]
         node, where = self.schema.resolved.constraints[name]
-        ctx = self._context(frame=block.foreach)
+        ctx = self._context(frame=block.dims)
         condition = self._condition(ctx, where)
         return Line(
             label=name,
             left=self._expression(node.left, ctx),
             right=f'{self._op(_PREDICATES[node.op])} {self._expression(node.right, ctx)}',
-            condition=self._quantifier(list(block.foreach), condition),
+            condition=self._quantifier(list(block.dims), condition),
         )
 
     def _definitions(self) -> list[Line]:
@@ -732,15 +732,15 @@ class Walk:
         for name, block in self.schema.variables.items():
             lines.append(self._variable(name))
             if name in sets:
-                lines.append(self._sos(name, sets[name], self._context(frame=block.foreach)))
+                lines.append(self._sos(name, sets[name], self._context(frame=block.dims)))
         return lines
 
     def _variable(self, name: str) -> Line:
         block = self.schema.variables[name]
-        ctx = self._context(frame=block.foreach)
-        symbol = ctx.indexed(self.symbols.name[name], list(block.foreach))
+        ctx = self._context(frame=block.dims)
+        symbol = ctx.indexed(self.symbols.name[name], list(block.dims))
         where = self.schema.resolved.variables[name]
-        condition = self._quantifier(list(block.foreach), self._condition(ctx, where))
+        condition = self._quantifier(list(block.dims), self._condition(ctx, where))
         lower, upper = block.bounds.lower, block.bounds.upper
 
         if block.domain == 'binary':
@@ -763,13 +763,13 @@ class Walk:
 
     def _sos(self, name: str, block: SosBlock, ctx: _Context) -> Line:
         """The variable's family along the set's dim, as one member of the SOS set, quantified over the other dims."""
-        foreach = self.schema.variables[name].foreach
-        family = self.format.parenthesise(ctx.indexed(self.symbols.name[name], list(foreach)))
+        dims = self.schema.variables[name].dims
+        family = self.format.parenthesise(ctx.indexed(self.symbols.name[name], list(dims)))
         return Line(
             label=f'{name} sos',
             left=self.format.subscript(family, [self._membership(block.over)]),
             right=f'{self._op("in")} {self._op("sos_set")}{block.type}',
-            condition=self._quantifier([d for d in foreach if d != block.over], ''),
+            condition=self._quantifier([d for d in dims if d != block.over], ''),
         )
 
     def _bound(self, ctx: _Context, value: float | str) -> str:
@@ -798,7 +798,7 @@ class Walk:
             for p, block in self.schema.parameters.items()
         ]
         variables = [
-            self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.foreach))}', block.description)
+            self._entry(self.symbols.name[v], f'{fmt.mono(v)}{self._over(list(block.dims))}', block.description)
             for v, block in self.schema.variables.items()
         ]
         definitions = [

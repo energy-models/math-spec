@@ -13,7 +13,7 @@ varies when it needs a base to change one thing in.
 The `where:` on `p` deletes the rows where a generator has no capacity, so
 [absence](../reference/language/absence.md) is declared in the file rather than
 checked at run time. `sum(p, over=generator)` names the dimension it reduces, so
-the constraint's `foreach` is what remains.
+the constraint's `dims` is what remains.
 
 <!-- gallery:begin -->
 ```yaml
@@ -31,13 +31,13 @@ parameters:
 variables:
   p:
     description: output of a generator in a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     where: "p_max > 0"
     bounds: { lower: 0, upper: p_max }
 
 constraints:
   power_balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, over=generator) == load
 
 objective:

@@ -69,7 +69,7 @@ that too depends on the data
 | `MathSpecError`           | The root. Everything below is an instance of it                                                                                  |
 | `LanguageError`           | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
 | `SchemaError`             | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
-| `DimensionError`          | Dimensions that disagree, such as a constraint whose expression does not equal its `foreach`                                     |
+| `DimensionError`          | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
 | `PiecewiseExpansionError` | A `piecewise:` block that cannot be expanded                                                                                     |
 
 Every one of these means the file is wrong, and every one is reproducible from

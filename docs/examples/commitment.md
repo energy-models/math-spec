@@ -42,17 +42,17 @@ parameters:
 variables:
   p:
     description: output of a generator in a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0, upper: p_max }
   status:
     description: whether the unit is running in a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     domain: binary
 
 expressions:
   previous_status:
     description: the commitment state a unit carries into a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     cases:
       always_on:
         when: "not committable"
@@ -64,21 +64,21 @@ expressions:
 
 constraints:
   power_balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, over=generator) == load
   upper:
     description: a unit that is not running produces nothing
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     expression: p <= status * p_max
   lower:
     description: and one that is running produces at least its floor
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     expression: p >= status * p_min
   ramp_up:
     description: >-
       one inequality for both regimes — a unit already running is held to
       `ramp_limit`, a unit starting up to `start_up_limit`.
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     expression: >-
       p - shift(p, over=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
