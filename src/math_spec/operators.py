@@ -59,15 +59,17 @@ class Builtin:
             - frozenset(self.optional_kwargs)
         )
 
-    def kind_of(self, kwarg: str) -> Literal['dimension', 'lookup', 'edge', 'value']:
-        """What resolution turns the value of *kwarg* into: a dimension, a lookup, an edge policy, or a plain value."""
+    def kind_of(self, kwarg: str) -> Literal['dimension', 'lookup', 'edge', 'value'] | None:
+        """What resolution turns the value of *kwarg* into, or ``None`` where the operator does not declare it."""
         if kwarg in self.dimension_kwargs:
             return 'dimension'
         if kwarg in self.lookup_kwargs:
             return 'lookup'
         if kwarg in self.edge_kwargs:
             return 'edge'
-        return 'value'
+        if kwarg in self.required_value_kwargs:
+            return 'value'
+        return None
 
 
 #: The closed operator set. ``by=`` is the one keyword that addresses a lookup,

@@ -480,6 +480,8 @@ class _Resolver:
                     kwargs[key] = self._lookup_ref(value, node.name, key)
                 case 'value':
                     kwargs[key] = self._amount(value, node.name, key)
+                case None:
+                    pass  # a keyword the operator does not declare; the shape error already named it
         return FunctionCallNode(node.name, args, kwargs)
 
     def _cases(self, node: CasesNode) -> CasesNode:
