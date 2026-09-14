@@ -380,6 +380,32 @@ class TestAnUndeclaredKeywordIsRefusedOnce:
             'a misspelt keyword is the signature, not advice about the value it happens to carry'
         )
 
+    TEMPLATE_SIGNATURE = (
+        "Macro 'm': shift() expects shift(<expr>, over=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<lookup>])"
+    )
+
+    @pytest.mark.parametrize(
+        'value',
+        [
+            pytest.param('g', id='a-dimension-name'),
+            pytest.param('[g, h]', id='a-list'),
+            pytest.param('2 * c', id='an-expression'),
+            pytest.param('3', id='a-number'),
+            pytest.param('k', id='a-parameter-name'),
+        ],
+    )
+    def test_an_uncalled_macro_template_is_refused_by_the_signature_whatever_the_value(self, value):
+        """A macro nothing calls is checked too: #441's refusal reaches the template, by the same signature.
+
+        The template checker used to send an undeclared keyword's value down the
+        value path — so a number loaded and a name earned a second message about
+        the value, not the mistake.
+        """
+        message = _refusal(macros={'m': {'args': ['x'], 'template': f'shift(x, over=g, offset=1, foo={value})'}})
+        assert message == self.TEMPLATE_SIGNATURE, (
+            'an undeclared keyword in an uncalled macro template is refused once, by the signature, whatever its value'
+        )
+
 
 class TestArithmeticDtype:
     """A name in a value position has to be a number, which its `dtype` says.
