@@ -17,6 +17,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.87](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.86...v0.0.0-alpha.87) (2026-09-14)
+
+
+### Features
+
+* **language:** a variable, a constraint and a cased expression declare their shape as dims, as a parameter does ([#429](https://github.com/energy-models/math-spec/issues/429)) ([d8dfdb0](https://github.com/energy-models/math-spec/commit/d8dfdb01fcffdf2190a73875f73ed266635dc15a))
+
 ## [0.0.0-alpha.86](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.85...v0.0.0-alpha.86) (2026-09-11)
 
 
