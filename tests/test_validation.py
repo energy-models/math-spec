@@ -689,6 +689,11 @@ class TestRulesDecidedWithoutData:
                 id='at-through-a-bare-relation',
             ),
             pytest.param(
+                {'objective': {'expression': 'sum(sum(q, by=lk, consume=h, produce=g))'}},
+                ("this sum walks to the key ['g']", 'that is a read, which is', 'at(..., by=lk'),
+                id='a-sum-that-walks-to-the-key-is-a-read',
+            ),
+            pytest.param(
                 {
                     'lookups.rel': {'columns': ['g', 'h']},
                     'objective': {'expression': 'sum(shift(p, over=g, offset=1, edge=0, by=rel))'},

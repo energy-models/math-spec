@@ -665,6 +665,9 @@ class _Resolver:
         The call consumes one or more columns and produces one or more; a
         side it leaves unsaid is taken from the declaration where it has
         exactly one candidate, and refused with the candidates otherwise.
+        ``at`` needs the walk single-valued and ``sum`` needs it not: a sum
+        that walks to the key has one term per coordinate and adds up nothing,
+        which is a read, so it is refused toward ``at``.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
@@ -709,6 +712,14 @@ class _Resolver:
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
                 f'{list(from_roles)} at the columns the operand fixes ({[*into_roles, *joined]}) — its key is '
                 f'{list(shape.key)}. Declare a key those columns contain, or read the other way.'
+            )
+            return None
+        if forward and walk.is_function_read:
+            self.errors.append(
+                f'{context}: {call}: this sum walks to the key {list(shape.key)}, so each coordinate has one '
+                f"term and nothing is added up — that is a read, which is at()'s. Write "
+                f'at(..., by={name}, consume={list(from_roles)}, produce={list(into_roles)}), or sum toward '
+                f'a value column.'
             )
             return None
         return walk

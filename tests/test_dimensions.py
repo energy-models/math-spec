@@ -167,11 +167,6 @@ def namespace() -> Namespace:
             id='a-from-list-consumes-two-key-columns-at-once',
         ),
         pytest.param(
-            'sum(zone_load, by=gen_zone, consume=zone, produce=generator)',
-            {'snapshot', 'generator'},
-            id='a-value-column-consumed-fans-out-onto-the-key',
-        ),
-        pytest.param(
             'sum(p, by=gen_bz, produce=bus)',
             {'snapshot', 'bus'},
             id='a-value-column-not-walked-is-not-read',

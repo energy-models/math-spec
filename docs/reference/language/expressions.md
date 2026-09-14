@@ -128,7 +128,7 @@ before any data binds**:
 | `a + b`, `a * b`, `a / b`       | `dims(a) ∪ dims(b)`                       |                                                                                                                               |
 | `sum(x)`                        | `{}`                                      | error if `dims(x)` is already empty                                                                                           |
 | `sum(x, consume=d)`             | `dims(x) − {d}`                           | error if `d ∉ dims(x)`                                                                                                        |
-| `sum(x, by=l)`                  | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, or if a joined column's dimension is not in `dims(x)`                                           |
+| `sum(x, by=l)`                  | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not in `dims(x)`, or if `l`'s key lies inside the columns `produce=` names and the joined columns — that walk is a read, which is `at`'s |
 | `sum(x, by=[l, m])`             | `(dims(x) − from(l)) ∪ into(l) ∪ into(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one                   |
 | `at(x, by=l)`                   | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not, or if `l` has no key inside the columns `produce=` names |
 | `shift(x, over=d, offset=n)`    | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                        |
