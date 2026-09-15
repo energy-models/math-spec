@@ -29,8 +29,8 @@ TARGET_ONLY = override(
     objective={'sense': 'minimize', 'expression': 'sum(p * c)'},
 )
 
-#: The same with the lookup gone, so nothing reaches ``h`` at all.
-UNREACHED = override(TARGET_ONLY, lookups={})
+#: The same with the relation gone, so nothing reaches ``h`` at all.
+UNREACHED = override(TARGET_ONLY, relations={})
 
 
 def test_a_dimension_nothing_reaches_is_named():
@@ -42,7 +42,7 @@ def test_a_dimension_nothing_reaches_is_named():
 @pytest.mark.parametrize(
     'patch',
     [
-        pytest.param({}, id='targeted-by-a-lookup'),
+        pytest.param({}, id='targeted-by-a-relation'),
         pytest.param(
             {'constraints': {'cap': {'dims': ['h'], 'expression': 'sum(p, by=lk) <= k'}}},
             id='grouping-into-it',
@@ -52,7 +52,7 @@ def test_a_dimension_nothing_reaches_is_named():
 )
 def test_a_dimension_something_reaches_is_in_use(patch):
     assert not advice(override(TARGET_ONLY, **patch)), (
-        'a dimension a lookup targets, a declaration indexes or a grouping lands on is in use'
+        'a dimension a relation targets, a declaration indexes or a grouping lands on is in use'
     )
 
 

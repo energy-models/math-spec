@@ -22,7 +22,7 @@ from math_spec.errors import SchemaError
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Predicate
+    from math_spec.program import Predicate, Walk
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -114,17 +114,21 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
-class LookupNode:
-    """A resolved reference to one or more declared lookups, legal only in a kwarg value.
+class RelationNode:
+    """A resolved ``by=`` — one or more relations, each with the walk the call takes through it.
 
-    ``dimension`` is the one every lookup is over — what ``sum`` consumes and
-    ``at`` produces — and ``into`` the targets, one per name in the order
-    written; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
+    ``dimensions`` is the fine side every walk shares — what ``sum`` consumes
+    and ``at`` produces — and ``into`` the coarse dims, in the order the
+    names and their columns are written, which ``sum`` produces and ``at``
+    consumes; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
+    The roles joined on are the operand's to carry, and the operator passes
+    them through.
     """
 
     names: tuple[str, ...]
-    dimension: str
+    dimensions: tuple[str, ...]
     into: tuple[str, ...]
+    walks: tuple[Walk, ...] = ()
 
     @property
     def shown(self) -> str:
@@ -240,7 +244,7 @@ ArithmeticNode = (
     | ParameterNode
     | DualNode
     | DimensionNode
-    | LookupNode
+    | RelationNode
     | EdgeNode
     | KeywordNode
     | UnaryOperatorNode
@@ -272,10 +276,10 @@ def shown(names: tuple[str, ...]) -> str:
 # Node groups
 
 #: A resolved reference the language admits only as an operator kwarg *value*:
-#: ``sum(x, over=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
+#: ``sum(x, along=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
 #: the three is data, so none may stand in arithmetic — which is why the passes
 #: that walk a value position refuse them together.
-KwargNode = DimensionNode | LookupNode | EdgeNode
+KwargNode = DimensionNode | RelationNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one

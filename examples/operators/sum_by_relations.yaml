@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  Grouping through several maps at once — `sum(array, by=[lookup, …])` lands
-  the result on every dimension the lookups map into, which is one grouping
+  Grouping through several maps at once — `sum(array, by=[relation, …])` lands
+  the result on every dimension the relations map into, which is one grouping
   rather than a composition of two: the generator dimension is consumed once.
 
 dimensions:
@@ -13,9 +13,9 @@ dimensions:
   bus: { dtype: str }
   technology: { dtype: str }
 
-lookups:
-  gen_bus: { over: generator, into: bus }
-  gen_tech: { over: generator, into: technology }
+relations:
+  gen_bus: { columns: [generator, bus], key: generator }
+  gen_tech: { columns: [generator, technology], key: generator }
 
 parameters:
   limit: { dims: [snapshot, bus, technology] }

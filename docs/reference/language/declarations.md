@@ -163,7 +163,7 @@ Two regimes of one rule are two blocks, each with a name a reader chose:
 ```yaml
 storage_balance:
   dims: [snapshot, storage]
-  expression: soc == shift(soc, over=snapshot, offset=1) * (1 - loss) + charge - discharge
+  expression: soc == shift(soc, along=snapshot, offset=1) * (1 - loss) + charge - discharge
 
 storage_balance_initial:
   dims: [snapshot, storage]

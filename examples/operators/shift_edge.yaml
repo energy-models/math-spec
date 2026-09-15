@@ -17,6 +17,6 @@ variables:
 constraints:
   no_faster_than_before:
     dims: [snapshot]
-    expression: p <= shift(p, over=snapshot, offset=1, edge=0)
+    expression: p <= shift(p, along=snapshot, offset=1, edge=0)
 
 objective: { sense: minimize, expression: sum(p) }

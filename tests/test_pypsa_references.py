@@ -114,7 +114,7 @@ def test_a_file_of_its_own_shares_its_declarations_with_the_base(page: str):
     """A keyword file restates the base surface; a shared name keeps its PyPSA name and its dtype, or it has drifted."""
     own = SPECS[page]
     drifted = []
-    for section in ('parameters', 'lookups', 'variables', 'constraints'):
+    for section in ('parameters', 'relations', 'variables', 'constraints'):
         theirs, ours = getattr(BASE, section), getattr(own, section)
         for name in set(theirs) & set(ours):
             if (theirs[name].description or '').split(' — ')[0] != (ours[name].description or '').split(' — ')[0]:
