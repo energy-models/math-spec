@@ -381,7 +381,7 @@ through are a dependency rather than one engine's internals. The keys themselves
 which are YAML math, a block per component, `dims:` and a `where:` string,
 come from [Calliope](https://github.com/calliope-project/calliope).
 [linopy](https://github.com/PyPSA/linopy) supplies the vocabulary that
-`sum(consume=)` and the dimension rules are named against. Issue numbers in these
+`sum(over=)` and the dimension rules are named against. Issue numbers in these
 pages point at lpspec, where the arguments happened.
 
 ## Status
