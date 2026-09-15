@@ -24,6 +24,10 @@ nowhere.
 
 * **program:** a walk that says which regions each node stands under ([#474](https://github.com/energy-models/math-spec/issues/474)) ([3986c6b](https://github.com/energy-models/math-spec/commit/3986c6bbe25261ec3720fbadf0005a6990fa5c16))
 
+### Reverts
+
+* the walk that says which regions each node stands under ([#481](https://github.com/energy-models/math-spec/issues/481)) ([26ce4b4](https://github.com/energy-models/math-spec/commit/26ce4b4bc371979a8f7fede0e96dccbff5b0f3f0))
+
 ## [0.0.0-alpha.90](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.89...v0.0.0-alpha.90) (2026-09-15)
 
 

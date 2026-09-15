@@ -18,6 +18,7 @@
         { "type": "perf", "section": "Performance" },
         { "type": "refactor", "section": "Refactoring" },
         { "type": "docs", "section": "Documentation" },
+        { "type": "revert", "section": "Reverts" },
         { "type": "chore", "section": "Chores", "hidden": true },
         { "type": "test", "section": "Tests", "hidden": true },
         { "type": "ci", "section": "CI", "hidden": true },

@@ -37,6 +37,17 @@ Three files own it:
 `.github/workflows/pr-title.yml` guards the input.
 `.github/workflows/build.yml` consumes the output.
 
+## Reverts
+
+release-please prints a revert. It does not cancel what the revert undid. So a
+release that carries a change and the revert of that change prints both lines,
+and the reader subtracts one from the other. 0.0.0-alpha.91 is such a release.
+
+This works only while `revert` has a section in `changelog-sections`. Without
+one, release-please drops the subject and the release announces a change that
+the tag does not carry. `tests/test_releasing.py` holds that list to the types
+`pr-title.yml` accepts, because that is where the two drifted apart.
+
 ## Why release-please and `pyproject.toml` need no glue
 
 `release-type` is `simple`, and `simple` never touches `pyproject.toml`.

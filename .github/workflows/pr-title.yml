@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # keep in sync with changelog-sections in .release-please-config.json
+          # tests/test_releasing.py holds this to changelog-sections in .release-please-config.json
           TYPES='feat|fix|perf|refactor|docs|chore|test|ci|build|style|revert'
           # type, optional (scope), optional ! for breaking, ": ", then a subject
           PATTERN="^(${TYPES})(\([a-z0-9._/-]+\))?!?: .+"

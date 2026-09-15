@@ -337,8 +337,8 @@ vocabulary. So the title names the problem solved. It names an outcome, not an
 activity, and not a mechanism.
 
 **The file list of the diff decides the type, before you write a word of the
-subject.** `feat`, `fix`, `perf`, `refactor` and `docs` publish to the
-changelog. `chore`, `test`, `ci`, `build` and `style` hide.
+subject.** `feat`, `fix`, `perf`, `refactor`, `docs` and `revert` publish to
+the changelog. `chore`, `test`, `ci`, `build` and `style` hide.
 
 | The diff touches                                                       | Type                           |
 | ---------------------------------------------------------------------- | ------------------------------ |
@@ -350,6 +350,10 @@ changelog. `chore`, `test`, `ci`, `build` and `style` hide.
 
 A diff that crosses several rows takes the topmost row it touches. So a
 construct that lands with its docs and its tests is still a `feat`.
+
+`revert` is the one type the table does not decide. A change that undoes a
+merged commit takes it whatever the diff touches, because it is the only thing
+that tells a changelog reader the release took something back.
 
 A reshuffle inside `src/` that no consumer can tell apart is a `chore`. Moving a
 module and changing a private name are both that. `refactor` publishes, so
