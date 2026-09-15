@@ -27,26 +27,26 @@ the recipe needs no second model file.
      generator: { dtype: str }
 
    parameters:
-     p_max: { dims: [generator] }
-     p_min: { dims: [generator] }
+     capacity: { dims: [generator] }
+     min_output: { dims: [generator] }
      committable: { dims: [generator], dtype: bool }
 
    variables:
-     p: { dims: [snapshot, generator], bounds: { lower: 0, upper: p_max } }
+     dispatch: { dims: [snapshot, generator], bounds: { lower: 0, upper: capacity } }
      on: { dims: [snapshot, generator], where: committable, domain: binary }
 
    constraints:
      floor_committed:
        dims: [snapshot, generator]
        where: committable
-       expression: p >= p_min * on
+       expression: dispatch >= min_output * on
      ceiling_committed:
        dims: [snapshot, generator]
        where: committable
-       expression: p <= p_max * on
+       expression: dispatch <= capacity * on
    ```
 
-   Here a non-committable generator is bounded by `p_max` alone, through the
+   Here a non-committable generator is bounded by `capacity` alone, through the
    variable's `bounds:`. Where the other regime has a rule of its own, write
    it as a third block under `where: "NOT committable"`.
 
@@ -59,11 +59,11 @@ the recipe needs no second model file.
      generator: { dtype: str }
 
    parameters:
-     p_max: { dims: [generator] }
+     capacity: { dims: [generator] }
      committable: { dims: [generator], dtype: bool }
 
    variables:
-     p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+     dispatch: { dims: [snapshot, generator], bounds: { lower: 0 } }
      on: { dims: [snapshot, generator], where: committable, domain: binary }
 
    expressions:
@@ -72,13 +72,13 @@ the recipe needs no second model file.
        cases:
          committed:
            when: committable
-           expression: p_max * on
-       otherwise: p_max
+           expression: capacity * on
+       otherwise: capacity
 
    constraints:
      ceiling:
        dims: [snapshot, generator]
-       expression: p <= available
+       expression: dispatch <= available
    ```
 
    The loader proves at load that no two cases can hold at one coordinate,

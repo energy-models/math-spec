@@ -69,8 +69,8 @@ if TYPE_CHECKING:
 
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'
 
-#: The mask `examples/dispatch.yaml` puts on `p`, as the plan carries it.
-P_MAX_POSITIVE = ParameterComparison('p_max', '>', 0.0, ('generator',))
+#: The mask `examples/dispatch.yaml` puts on `dispatch`, as the plan carries it.
+CAPACITY_POSITIVE = ParameterComparison('capacity', '>', 0.0, ('generator',))
 
 #: One dimension, one parameter, one bounded variable and a scalar constraint:
 #: the smallest model that loads, for a claim about the plan's record rather
@@ -134,23 +134,23 @@ def shapes_schema() -> Spec:
 
 
 def test_lower_program_structure(dispatch_program):
-    assert list(dispatch_program.parameters) == ['p_max', 'load', 'cost'], 'keyed by name, in declaration order'
+    assert list(dispatch_program.parameters) == ['capacity', 'load', 'cost'], 'keyed by name, in declaration order'
     ((vname, v),) = dispatch_program.variables.items()
-    assert vname == 'p'
+    assert vname == 'dispatch'
     assert v.dims == ('snapshot', 'generator'), 'the frame is the dims, in the order the file wrote it'
-    assert v.where == Mask(P_MAX_POSITIVE)
-    assert v.upper == Parameter('p_max')
+    assert v.where == Mask(CAPACITY_POSITIVE)
+    assert v.upper == Parameter('capacity')
 
     ((cname, c),) = dispatch_program.constraints.items()
     assert cname == 'power_balance'
     assert c.dims == ('snapshot',), 'the frame is the dims, in the order the file wrote it'
-    assert c.lhs == Sum(Variable('p'), ('generator',))
+    assert c.lhs == Sum(Variable('dispatch'), ('generator',))
     assert c.sense == '==', "the comparison crosses as the file's own operator, untranslated"
     assert c.rhs == Parameter('load')
 
     assert dispatch_program.objective.sense == 'minimize', "the program carries the language's spelling, untranslated"
     assert dispatch_program.objective.expression == Sum(
-        Multiply(Variable('p'), Parameter('cost')), ('generator', 'snapshot')
+        Multiply(Variable('dispatch'), Parameter('cost')), ('generator', 'snapshot')
     ), 'the objective carries the sum the file wrote, over the dims it named none of'
 
 
@@ -171,7 +171,7 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
 def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
     """`offset=-1` parses as a unary minus over `1`; after resolution it is `-1`, for every reader alike."""
     ns = Namespace.of(dispatch_schema)
-    node = expression_of('shift(p, along=snapshot, offset=-1, edge=+2)', dispatch_schema, ns, 't')
+    node = expression_of('shift(dispatch, along=snapshot, offset=-1, edge=+2)', dispatch_schema, ns, 't')
     assert isinstance(node, FunctionCallNode)
     assert (node.kwargs['offset'], node.kwargs['edge']) == (NumberNode(-1.0), NumberNode(2.0))
 
@@ -181,32 +181,32 @@ def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
     [
         pytest.param(None, None, id='no-where-at-all'),
         pytest.param('True', None, id='True-is-no-mask'),
-        pytest.param('p_max', ParameterDefined('p_max', ('generator',)), id='a-bare-parameter-name'),
+        pytest.param('capacity', ParameterDefined('capacity', ('generator',)), id='a-bare-parameter-name'),
         pytest.param(
             'snapshot > 5',
             DimensionComparison('snapshot', '>', 5),
             id='a-dimension-coordinate-compares-like-a-parameter',
         ),
         pytest.param(
-            'p_max > 0 AND NOT load == 0',
-            And(P_MAX_POSITIVE, Not(ParameterComparison('load', '==', 0.0, ('snapshot',)))),
+            'capacity > 0 AND NOT load == 0',
+            And(CAPACITY_POSITIVE, Not(ParameterComparison('load', '==', 0.0, ('snapshot',)))),
             id='a-compound-where-keeps-its-connectives',
         ),
         pytest.param('False', BooleanLiteral(False), id='the-empty-declaration-keeps-its-own-spelling'),
-        pytest.param('p_max > 0 AND True', P_MAX_POSITIVE, id='and-true-is-the-other-side'),
-        pytest.param('p_max > 0 OR False', P_MAX_POSITIVE, id='or-false-is-the-other-side'),
-        pytest.param('p_max > 0 OR True', None, id='or-true-is-no-mask-at-all'),
-        pytest.param('p_max > 0 AND False', BooleanLiteral(False), id='and-false-is-the-empty-declaration'),
+        pytest.param('capacity > 0 AND True', CAPACITY_POSITIVE, id='and-true-is-the-other-side'),
+        pytest.param('capacity > 0 OR False', CAPACITY_POSITIVE, id='or-false-is-the-other-side'),
+        pytest.param('capacity > 0 OR True', None, id='or-true-is-no-mask-at-all'),
+        pytest.param('capacity > 0 AND False', BooleanLiteral(False), id='and-false-is-the-empty-declaration'),
         pytest.param('NOT True', BooleanLiteral(False), id='not-true-is-false'),
         pytest.param('NOT False', None, id='not-false-is-no-mask'),
-        pytest.param('NOT (p_max > 0 AND False)', None, id='a-branch-folded-away-folds-the-one-above-it'),
+        pytest.param('NOT (capacity > 0 AND False)', None, id='a-branch-folded-away-folds-the-one-above-it'),
         pytest.param(
-            'NOT (NOT p_max)',
-            ParameterDefined('p_max', ('generator',)),
+            'NOT (NOT capacity)',
+            ParameterDefined('capacity', ('generator',)),
             id='a-double-negation-cancels-on-the-load-path',
         ),
         pytest.param(
-            '(p_max > 0 OR True) AND load',
+            '(capacity > 0 OR True) AND load',
             ParameterDefined('load', ('snapshot',)),
             id='an-absorbed-side-takes-its-own-branch-with-it',
         ),
@@ -243,18 +243,18 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_program):
     """A consumer handed a program could invert the mask another one reads.
 
     The where nodes were plain dataclasses while every declaration embedding
-    them was frozen, so `variable.where.root.op = '!='` rewrote `p_max > 0` into
-    `p_max != 0` on the shared object — two consumers disagreeing about one
+    them was frozen, so `variable.where.root.op = '!='` rewrote `capacity > 0` into
+    `capacity != 0` on the shared object — two consumers disagreeing about one
     file, which is the failure a program exists to prevent. It also left
     hashability depending on the file: an unmasked declaration hashed and a
     masked one raised TypeError.
     """
     (v,) = dispatch_program.variables.values()
-    assert v.where == Mask(P_MAX_POSITIVE)
+    assert v.where == Mask(CAPACITY_POSITIVE)
 
     with pytest.raises(FrozenInstanceError):
         v.where.root.op = '!='
-    assert v.where == Mask(P_MAX_POSITIVE), 'the mask the file wrote, unchanged'
+    assert v.where == Mask(CAPACITY_POSITIVE), 'the mask the file wrote, unchanged'
     assert isinstance(hash(v), int), 'a masked declaration hashes like an unmasked one'
 
 
@@ -266,10 +266,10 @@ def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_program):
     """
     (v,) = dispatch_program.variables.values()
 
-    assert v.where == Mask(P_MAX_POSITIVE)
-    assert v.where.names_read == {'p_max'}, 'the declarations the mask names'
-    assert v.where.conjuncts == (P_MAX_POSITIVE,), 'a mask that is not an AND is its own only conjunct'
-    assert v.where.atoms == (P_MAX_POSITIVE,), 'a single leaf, connectives removed'
+    assert v.where == Mask(CAPACITY_POSITIVE)
+    assert v.where.names_read == {'capacity'}, 'the declarations the mask names'
+    assert v.where.conjuncts == (CAPACITY_POSITIVE,), 'a mask that is not an AND is its own only conjunct'
+    assert v.where.atoms == (CAPACITY_POSITIVE,), 'a single leaf, connectives removed'
 
 
 @pytest.mark.parametrize(
@@ -310,10 +310,10 @@ FLAG = ParameterDefined('flag', ('generator',))
 @pytest.mark.parametrize(
     ('where', 'under'),
     [
-        pytest.param(Not(P_MAX_POSITIVE), (P_MAX_POSITIVE,), id='a-not-carries-its-operand'),
-        pytest.param(And(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-and-carries-both-sides'),
-        pytest.param(Or(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-or-carries-both-sides'),
-        pytest.param(P_MAX_POSITIVE, (), id='a-leaf-carries-nothing'),
+        pytest.param(Not(CAPACITY_POSITIVE), (CAPACITY_POSITIVE,), id='a-not-carries-its-operand'),
+        pytest.param(And(CAPACITY_POSITIVE, FLAG), (CAPACITY_POSITIVE, FLAG), id='an-and-carries-both-sides'),
+        pytest.param(Or(CAPACITY_POSITIVE, FLAG), (CAPACITY_POSITIVE, FLAG), id='an-or-carries-both-sides'),
+        pytest.param(CAPACITY_POSITIVE, (), id='a-leaf-carries-nothing'),
         pytest.param(BooleanLiteral(False), (), id='a-literal-carries-nothing'),
     ],
 )
@@ -339,9 +339,9 @@ def test_a_synthetic_predicate_answers_its_own_dims():
     """
     b = ParameterDefined('load', ('snapshot',))
 
-    assert Mask(Not(P_MAX_POSITIVE)).dims == {'generator'}, 'negation keeps the dims it negates'
-    assert (Mask(P_MAX_POSITIVE) & Mask(b)).dims == {'generator', 'snapshot'}, 'conjunction unions both sides'
-    assert (Mask(P_MAX_POSITIVE) & Mask(b)).root == And(P_MAX_POSITIVE, b), (
+    assert Mask(Not(CAPACITY_POSITIVE)).dims == {'generator'}, 'negation keeps the dims it negates'
+    assert (Mask(CAPACITY_POSITIVE) & Mask(b)).dims == {'generator', 'snapshot'}, 'conjunction unions both sides'
+    assert (Mask(CAPACITY_POSITIVE) & Mask(b)).root == And(CAPACITY_POSITIVE, b), (
         'the conjunction joins the roots under one AND'
     )
 
@@ -544,8 +544,10 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
 
 
 def test_a_binary_variable_lowers_to_a_binary_domain():
-    program = to_program(schema_of(DISPATCH_YAML, **{'variables.p.domain': 'binary', 'variables.p.bounds': {}}))
-    assert program.variables['p'].domain == 'binary'
+    program = to_program(
+        schema_of(DISPATCH_YAML, **{'variables.dispatch.domain': 'binary', 'variables.dispatch.bounds': {}})
+    )
+    assert program.variables['dispatch'].domain == 'binary'
 
 
 def test_a_divisor_under_a_pullback_is_still_named():

@@ -22,8 +22,10 @@ EXAMPLES = Path(__file__).resolve().parent.parent / 'examples'
 #: from the same directory, so a probe added for the page is swept here too.
 OPERATOR_PROBES = sorted((EXAMPLES / 'operators').glob('*.yaml'))
 
-#: ``examples/dispatch.yaml`` without its ``where:`` and with the constraint
-#: named ``balance``, as a dict a test can vary with :func:`override`.
+#: The shape of ``examples/dispatch.yaml`` as a dict a test can vary with
+#: :func:`override`: no ``where:``, the constraint named ``balance``, and short
+#: names, so a test that prints it asserts on the math rather than on the
+#: example's own vocabulary.
 DISPATCH_MODEL: dict[str, Any] = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
     'parameters': {
