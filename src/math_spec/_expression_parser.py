@@ -353,8 +353,12 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
 # ---------------------------------------------------------------------------
 
 
-def _build_grammar() -> pp.ParserElement:
-    """``inf`` is a ``pp.Keyword`` rather than a ``pp.Literal``, which would match the prefix of ``inflow``."""
+def _build_grammar() -> tuple[pp.ParserElement, pp.ParserElement]:
+    """The arithmetic grammar, and the expression grammar that puts one comparison over it.
+
+    ``inf`` is a ``pp.Keyword`` rather than a ``pp.Literal``, which would
+    match the prefix of ``inflow``.
+    """
     arith = pp.Forward()
 
     inf_literal = (pp.Keyword('.inf') | pp.Keyword('inf')).set_parse_action(lambda: NumberNode(float('inf')))
@@ -390,9 +394,10 @@ def _build_grammar() -> pp.ParserElement:
     arith <<= add_sub
 
     comparator = pp.one_of(list(get_args(ComparisonOperator)))
-    return (arith + pp.Optional(comparator + arith)).set_parse_action(
+    expression = (arith + pp.Optional(comparator + arith)).set_parse_action(
         lambda t: ComparisonNode(t[1], t[0], t[2]) if len(t) == 3 else t[0]
     )
+    return arith, expression
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
@@ -425,7 +430,9 @@ def _make_power(tokens: pp.ParseResults) -> Any:
     return items[0] if len(items) == 1 else BinaryOperatorNode('**', items[0], items[2])
 
 
-_GRAMMAR = _build_grammar()
+#: The arithmetic half on its own, for the where grammar to put a predicate's
+#: comparator over — one grammar for what a side may say, wherever it stands.
+ARITHMETIC, _GRAMMAR = _build_grammar()
 
 
 #: How deep a tree the language admits. Every pass over an expression recurses,

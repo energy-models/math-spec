@@ -109,6 +109,11 @@ questions that every engine would otherwise work out for itself:
 - `.atoms` gives its leaves, with the connectives removed.
 - `.dims` gives the dimensions the mask is read at.
 
+A comparison of expressions arrives as an `ExpressionComparisonNode`, whose two
+sides are program expressions like a constraint's, and whose `dims` are every
+dimension either side carries. Its `names_read` are every parameter and lookup
+the sides read, the lookup a grouping joins through included.
+
 A predicate you build yourself answers the same four questions: wrap it in `Mask`,
 or build it there with `~`, `&` and `|`. A mask folds as it is built: a double
 negation cancels, and a `True` or `False` is absorbed rather than buried in the

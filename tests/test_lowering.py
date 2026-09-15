@@ -33,6 +33,7 @@ from math_spec.program import (
     DimensionDeclaration,
     Divide,
     Dual,
+    ExpressionComparisonNode,
     ExpressionNode,
     Footprint,
     GroupSum,
@@ -398,6 +399,40 @@ def test_a_constraint_where_is_a_mask_like_a_variable_s():
     (c,) = lowered.constraints.values()
 
     assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0, ('snapshot',)))
+
+
+def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides():
+    """The resolved tree holds the core syntax tree; the program holds the vocabulary a consumer reads, and every mask is rebuilt so."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'parameters.zc': {'dims': ['z']},
+                'variables.p.where': 'c <= 0.5 * k',
+                'constraints.w': {
+                    'dims': ['g'],
+                    'where': 'c <= at(zc, by=lk2) + sum_back(c, along=g, window=2, by=lk2)',
+                    'expression': 'p <= c',
+                },
+            },
+        )
+    )
+    where = program.variables['p'].where
+    assert where is not None
+    assert where.root == ExpressionComparisonNode(
+        Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
+    ), 'the sides are lowered as a constraint side is, and the dims are what either side carries'
+    mask = program.constraints['w'].where
+    assert mask is not None and isinstance(mask.root, ExpressionComparisonNode)
+    assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, At)
+    assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
+        'the relation a pullback and a partition read through is data the consumer binds too'
+    )
+
+
+def test_a_mask_with_no_arithmetic_is_the_same_mask_after_lowering(dispatch_program):
+    """Every other predicate node is already the program's own, so lowering hands it through unchanged."""
+    assert dispatch_program.variables['dispatch'].where == Mask(CAPACITY_POSITIVE)
 
 
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):

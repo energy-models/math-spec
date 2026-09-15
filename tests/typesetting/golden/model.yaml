@@ -86,6 +86,7 @@ sos:
     type: 2
 
 expressions:
+  spend_cap: cost * 2 # a data-only entry, so a where may compare it
   spend: # a plain named expression: its symbol prints where it is used, its body once as a definition
     description: what a snapshot's dispatch costs
     expression: sum(p * cost, over=generator)
@@ -232,6 +233,22 @@ constraints:
     dims: [snapshot]
     where: "false"
     expression: slack >= 0
+  margin: # a mask comparing two expressions, which prints as the arithmetic it is
+    dims: [snapshot, generator]
+    where: "p_max - p_min > cost / 2"
+    expression: p <= p_max
+  ramped: # a translation under a comparison names its edge, a pullback reads through a lookup, and the position keeps the vacated row out
+    dims: [snapshot, bus]
+    where: "load - shift(load, along=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of) AND position(snapshot) > 0"
+    expression: slack <= load
+  covered: # a reduction on a side of a scalar mask, so nothing is left to quantify
+    dims: []
+    where: "sum(p_max, over=generator) >= budget"
+    expression: sum(p) <= budget
+  capped: # an expressions: entry on a side, read by the name the file gave it
+    dims: [snapshot, generator]
+    where: "spend_cap > 0 OR NOT is_flexible"
+    expression: p <= p_max
 
 objective: # a sense, a product of two variables, a power over two parameters, a power of one of those, and the summations a scalar objective spells out beside two scalar terms
   sense: maximize
