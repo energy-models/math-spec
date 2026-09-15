@@ -40,13 +40,20 @@ the value of a keyword argument, such as `over=snapshot`, never in the key. A
 macro can write `over=d` and let the caller supply `d`. It could not do that if
 the dimension were the keyword itself.
 
-**Each output row reads a bounded number of input rows.** `sum(p, over=g)` reads
-one row per generator. `shift(p, over=t, offset=1)` reads one row, the one
-before it. `x * y * a` reads the rows of `a` that pair an `x` with a `y`. An
-operator that reads the whole table to produce one row, or that calls itself, is
-refused, because an engine cannot then build the model one chunk of rows at a
-time. Reading only the coordinate labels does not count: "the last snapshot"
-looks at the list of snapshots, not at the data, and is allowed.
+**An operator may read the whole table. It pays one full pass over the data.**
+`sum(p, over=g)` reads one row per generator. `shift(p, over=t, offset=1)` reads
+one row, the one before it. `x * y * a` reads the rows of `a` that pair an `x`
+with a `y`. Each reads a bounded number of rows per output row, so an engine
+builds the model one chunk of rows at a time.
+
+One kind of operator reads every row to produce one row. The engine then reads
+the whole table before it builds any chunk, and the chunks stop being
+independent. That is the price, and a request for such an operator names it.
+Reading only the coordinate labels costs nothing. "The last snapshot" looks at
+the list of snapshots, not at the data.
+
+**An operator that calls itself is refused.** Nothing bounds how far it expands,
+so no number of passes over the data is enough.
 
 | The operator                                         | Allowed?                                        |
 | ---------------------------------------------------- | ----------------------------------------------- |
@@ -54,7 +61,8 @@ looks at the list of snapshots, not at the data, and is allowed.
 | joins each row against a parameter or a lookup table | yes                                             |
 | reads a fixed number of neighbouring rows            | yes                                             |
 | reads only the coordinate labels                     | yes                                             |
-| reads every row, or calls itself                     | no, and the message names what to write instead |
+| reads every row                                      | yes, at one full pass before any chunk builds   |
+| calls itself                                         | no, and the message names what to write instead |
 
 **Degree is not a third test.** `p * q` at one coordinate is a join of a table
 with itself, so the objective and the constraints take it. Two things limit the
@@ -74,11 +82,11 @@ the same model written out by hand.
 
 ### Three kinds of refusal
 
-| The language refuses it because…                         | Examples                                                                                                                                                            | Can it change?                                                                                                |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **one solver cannot take it**                            | indicator constraints (#220); a quadratic constraint. `sos:` was in this group, and entered: a solver with sets takes it as one, and a solver without gets binaries | yes, solver by solver                                                                                         |
-| **no engine could build it one chunk of rows at a time** | an operator that reads a whole table; arbitrary Python                                                                                                              | not today. A capped block of Python for this is planned as [#38](https://github.com/fluxopt/lpspec/issues/38) |
-| **this project puts the work elsewhere**                 | data preparation such as resampling; helpers for one domain; Python that decides which declarations exist                                                           | it could; this project does not want it to                                                                    |
+| The language refuses it because…           | Examples                                                                                                                                                            | Can it change?                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **one solver cannot take it**              | indicator constraints (#220); a quadratic constraint. `sos:` was in this group, and entered: a solver with sets takes it as one, and a solver without gets binaries | yes, solver by solver                      |
+| **the file would stop being the artifact** | arbitrary Python, whose content no loader can check and no typesetter can print                                                                                     | no                                         |
+| **this project puts the work elsewhere**   | data preparation such as resampling; helpers for one domain; Python that decides which declarations exist                                                           | it could; this project does not want it to |
 
 Three things never appear inside one model: an `if`, a loop, and a set of
 declarations that depends on the data. `dims: [snapshot]` does not know how
