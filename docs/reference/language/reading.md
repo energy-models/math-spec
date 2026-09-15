@@ -99,9 +99,10 @@ data.
 You never build a node yourself. The node classes are exported so that you can
 test one with `isinstance` and read its fields. `children()` walks an expression
 node's operands, and `where_children()` walks a predicate's. `walk()` yields
-every node under an expression, parents first. `walk_regions()` yields each node
-with the `cases:` regions it stands inside, outermost first, so an engine that
-asks which rows a piece owes data at does not recurse for the answer itself.
+every node under an expression, parents first. `walk_with_whens()` yields each
+node with the `when` of every `cases:` region it stands inside, outermost first.
+An engine that asks which rows a piece owes data at does not recurse for the
+answer itself.
 
 Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate, which
 is the node an engine tests with `isinstance`. The mask also answers four

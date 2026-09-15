@@ -59,7 +59,7 @@ from math_spec.program import (
     quotients,
     variables_of,
     walk,
-    walk_regions,
+    walk_with_whens,
     where_children,
 )
 from math_spec.resolution import Namespace, expression_of, where_of
@@ -588,7 +588,7 @@ def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():
 
 OUTER = Mask(ParameterDefinedNode('committable', ('g',)))
 INNER = Mask(ParameterDefinedNode('flag', ('g',)))
-NESTED = Add(
+TWO_DEEP_CASES = Add(
     Variable('x'),
     Cases(
         (
@@ -599,26 +599,26 @@ NESTED = Add(
 )
 
 
-def test_walk_regions_carries_the_regions_a_node_stands_under():
+def test_walk_with_whens_carries_the_when_of_every_region_a_node_stands_under():
     """Which regions stand above a node decides which rows a piece owes data at,
     and every consumer recursed for it on its own (#473)."""
-    assert list(walk_regions(NESTED)) == [
-        (NESTED, ()),
+    assert list(walk_with_whens(TWO_DEEP_CASES)) == [
+        (TWO_DEEP_CASES, ()),
         (Variable('x'), ()),
-        (NESTED.right, ()),
-        (NESTED.right.regions[0].value, (OUTER,)),
+        (TWO_DEEP_CASES.right, ()),
+        (TWO_DEEP_CASES.right.regions[0].value, (OUTER,)),
         (Variable('p'), (OUTER, INNER)),
         (Constant(0.0), (OUTER, ~INNER)),
         (Parameter('q'), (~OUTER,)),
     ], (
-        'parents first; a node outside any block carries nothing; a `Cases` carries only the regions '
-        'above it; a value under two blocks carries both, the outer one first'
+        'parents first; a node outside any block carries nothing; a `Cases` carries the `when` of the '
+        'regions above it, not of its own; a value under two blocks carries both, the outer one first'
     )
 
 
-def test_walk_is_the_node_column_of_walk_regions():
+def test_walk_is_the_node_column_of_walk_with_whens():
     """One recursion, so a node kind that learns to descend reaches both walks at once."""
-    assert list(walk(NESTED)) == [node for node, _ in walk_regions(NESTED)]
+    assert list(walk(TWO_DEEP_CASES)) == [node for node, _ in walk_with_whens(TWO_DEEP_CASES)]
 
 
 FAN_IN = {
