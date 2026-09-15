@@ -19,6 +19,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
+  bp: { dtype: int }
 
 lookups:
   gen_bus: { over: generator, into: bus }
@@ -40,6 +41,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
+  bp_x: { dims: [generator, bp] } # a curve's breakpoints, one curve per generator
+  bp_y: { dims: [generator, bp] }
+  fuel_bp: { dims: [bp] } # a second curve's breakpoints, one curve for every generator
+  heat_bp: { dims: [bp] }
 
 variables:
   p: # both bounds, and a where with all three connectives
@@ -74,6 +79,27 @@ variables:
   weight: # the family a sos runs along
     dims: [snapshot, generator]
     bounds: { lower: 0, upper: 1 }
+  op_cost: # what a curve bounds below
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+  heat: # what a second curve bounds above
+    dims: [snapshot, generator]
+    bounds: { lower: 0 }
+
+piecewise:
+  cost_curve: # a curve as its segment lines, masked by its own breakpoints: every check a curve can carry prints under Assumptions
+    over: bp
+    points: bp_x
+    method: lp
+    links:
+      - [p, bp_x]
+      - [op_cost, bp_y, ">="]
+  heat_curve: # the same method over every breakpoint, so the count is the set's own size and the curve bends the other way
+    over: bp
+    method: lp
+    links:
+      - [p, fuel_bp]
+      - [heat, heat_bp, "<="]
 
 sos:
   adjacent: # at most two adjacent members nonzero, one set per snapshot
@@ -198,6 +224,14 @@ constraints:
     dims: [snapshot]
     where: "false"
     expression: slack >= 0
+
+assumptions:
+  capacity_is_nonnegative: p_max >= 0 # one comparison, so the line aligns on its relation
+  bounds_are_ordered: # two parameters compared coordinate by coordinate, checked where the narrower one is defined
+    holds: "p_min <= p_max"
+    where: "p_min"
+  budget_is_positive: budget > 0 # a scalar, so no quantifier
+  flexible_units_are_cheap: "NOT is_flexible OR cost <= budget" # a compound predicate, which no one relation aligns
 
 objective: # a sense, a product of two variables, a power over two parameters, a power of one of those, and the summations a scalar objective spells out beside two scalar terms
   sense: maximize

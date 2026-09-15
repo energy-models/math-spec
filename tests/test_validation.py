@@ -715,7 +715,9 @@ class TestRulesDecidedWithoutData:
                 id='by-the-same-target-twice',
             ),
             pytest.param(
-                {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'
+                {'variables.p.where': 'c > flag'},
+                ('compares a float parameter against a bool one', 'Declare both as numbers'),
+                id='where-against-a-parameter-of-another-dtype',
             ),
             pytest.param(
                 {'variables.p.where': 'c > q'},
@@ -743,6 +745,83 @@ class TestRulesDecidedWithoutData:
         message = _refusal(**patch)
         for fragment in fragments:
             assert fragment in message
+
+
+class TestAssumptions:
+    """What an `assumptions:` entry may say, decided with no data bound."""
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'assumptions': {'a': 'True'}},
+                ("Assumption 'a'", 'folds to True', 'assumes nothing of the data'),
+                id='a-predicate-that-is-always-true',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c > 0 AND False'}},
+                ('folds to False', 'holds on no data at all'),
+                id='a-predicate-that-is-always-false',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'p'}},
+                ("variable 'p' stands in what the assumption assumes", 'an assumption is about the data'),
+                id='a-variable-in-the-predicate',
+            ),
+            pytest.param(
+                {'assumptions': {'a': {'holds': 'c > 0', 'where': 'q'}}},
+                ("variable 'q' stands in what the assumption is checked where",),
+                id='a-variable-in-the-where',
+            ),
+            pytest.param({'assumptions': {'a': 'nope > 0'}}, ("'nope' not found",), id='an-unknown-name'),
+            pytest.param({'assumptions': {'a': 'c >'}}, ('Failed to parse where string',), id='a-malformed-predicate'),
+            pytest.param(
+                {'assumptions': {'a': 'c > tag'}},
+                ('compares a float parameter against a str one', 'Declare both as numbers'),
+                id='two-parameters-of-different-dtypes',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c > p'}}, ('compares against variable',), id='a-parameter-against-a-variable'
+            ),
+            pytest.param(
+                {'assumptions': {'a': {'holds': 'c > 0', 'wher': 'flag'}}},
+                ("unknown key 'wher' in an assumption declaration", "Did you mean 'where'?"),
+                id='a-misspelt-key',
+            ),
+        ],
+    )
+    def test_a_bad_assumption_is_refused_at_load(self, patch, fragments):
+        message = _refusal(**patch)
+        for fragment in fragments:
+            assert fragment in message
+
+    @pytest.mark.parametrize(
+        ('patch', 'holds'),
+        [
+            pytest.param({}, 'c >= 0', id='one-parameter-against-a-number'),
+            pytest.param({}, 'c <= k', id='two-numbers-of-different-dims'),
+            pytest.param({'parameters.n': {'dims': ['g'], 'dtype': 'int'}}, 'n < c', id='an-int-against-a-float'),
+            pytest.param({'parameters.tag2': {'dims': ['g'], 'dtype': 'str'}}, 'tag != tag2', id='two-labels'),
+            pytest.param({'parameters.flag2': {'dims': ['g'], 'dtype': 'bool'}}, 'flag == flag2', id='two-flags'),
+            pytest.param({}, "tag == 'gas'", id='a-label-against-a-literal'),
+            pytest.param({}, 'NOT flag OR c > 0', id='a-compound-predicate'),
+            pytest.param({}, 'k > 0', id='a-scalar'),
+        ],
+    )
+    def test_an_assumption_about_the_data_loads(self, patch, holds):
+        spec = _schema(**patch, assumptions={'a': holds})
+        assert list(spec.assumptions) == ['a']
+
+    def test_an_assumption_round_trips_in_the_form_it_was_written(self):
+        """A bare string stays a bare string, and a mapping stays a mapping, so `to_yaml` reproduces the file."""
+        spec = _schema(
+            assumptions={'bare': 'c > 0', 'masked': {'holds': 'c <= k', 'where': 'flag', 'description': 'why'}}
+        )
+        assert to_spec(spec.to_dict()) == spec
+        assert spec.to_dict()['assumptions'] == {
+            'bare': 'c > 0',
+            'masked': {'holds': 'c <= k', 'where': 'flag', 'description': 'why'},
+        }, 'each entry is written back in the form it arrived in'
 
 
 class TestTheFrontDoor:

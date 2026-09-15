@@ -127,13 +127,23 @@ def test_a_body_naming_another_expression_inlines_it_on_its_own_and_names_it_in_
 @pytest.mark.parametrize(
     ('name', 'match'),
     [
-        pytest.param('spent', r"'spent' is not a named expression, constraint or variable.*spend", id='a-near-miss'),
+        pytest.param(
+            'spent', r"'spent' is not a named expression, constraint, assumption or variable.*spend", id='a-near-miss'
+        ),
         pytest.param('objective', r"'objective' is not a named expression", id='the-objective-has-no-name'),
     ],
 )
-def test_a_name_declared_as_none_of_the_three_is_refused(name: str, match: str):
+def test_a_name_declared_as_none_of_the_four_is_refused(name: str, match: str):
     with pytest.raises(SchemaError, match=match):
         typeset_declaration(PLAIN, name, 'latex')
+
+
+def test_an_assumption_prints_as_the_line_the_document_prints_for_it():
+    """The frame is every dim either mask names, so a `where` over another dim widens the quantifier."""
+    model = override(PLAIN, assumptions={'affordable': {'holds': 'cost <= 10', 'where': 'load > 0'}})
+    assert typeset_declaration(model, 'affordable', 'latex') == (
+        r'\mathrm{cost}_{g} \le 10 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{load}_{t} > 0'
+    )
 
 
 def test_a_name_shared_by_a_constraint_and_a_variable_is_refused_rather_than_guessed():

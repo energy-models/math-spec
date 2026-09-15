@@ -15,6 +15,7 @@
 \item[{$\mathcal{Z}$}] index $z$ --- \texttt{zone}
 \item[{$\mathcal{S}$}] index $s$ --- \texttt{season}
 \item[{$\mathcal{E}$}] index $e$ --- \texttt{technology}
+\item[{$\mathcal{A}$}] index $a$ --- \texttt{bp}
 \end{description}
 
 \paragraph{Parameters}
@@ -31,6 +32,13 @@
 \item[{$\mathrm{lead}$}] \texttt{lead} over $\mathcal{G}$
 \item[{$\mathrm{budget}$}] \texttt{budget} (scalar)
 \item[{$\mathrm{growth}$}] \texttt{growth} (scalar)
+\item[{$\mathrm{bp\_x}$}] \texttt{bp\_x} over $\mathcal{G} \times \mathcal{A}$
+\item[{$\mathrm{bp\_y}$}] \texttt{bp\_y} over $\mathcal{G} \times \mathcal{A}$
+\item[{$\mathrm{fuel\_bp}$}] \texttt{fuel\_bp} over $\mathcal{A}$
+\item[{$\mathrm{heat}^{\mathrm{bp}}$}] \texttt{heat\_bp} over $\mathcal{A}$
+\item[{$\mathrm{cost}^{\mathrm{curve,points}}$}] \texttt{cost\_curve\_points} over $\mathcal{G} \times \mathcal{A}$ --- where 'bp\_x' has a row, and so where the curve runs
+\item[{$\mathrm{cost}^{\mathrm{curve,starts}}$}] \texttt{cost\_curve\_starts} over $\mathcal{G} \times \mathcal{A}$ --- the first breakpoint of each curve
+\item[{$\mathrm{cost}^{\mathrm{curve,ends}}$}] \texttt{cost\_curve\_ends} over $\mathcal{G} \times \mathcal{A}$ --- the last breakpoint of each curve
 \end{description}
 
 \paragraph{Variables}
@@ -45,6 +53,8 @@
 \item[{$\mathit{reserve}$}] \texttt{reserve} (scalar)
 \item[{$\mathit{headroom}$}] \texttt{headroom} (scalar)
 \item[{$\mathit{weight}$}] \texttt{weight} over $\mathcal{T} \times \mathcal{G}$
+\item[{$\mathit{op\_cost}$}] \texttt{op\_cost} over $\mathcal{T} \times \mathcal{G}$
+\item[{$\mathit{heat}$}] \texttt{heat} over $\mathcal{T} \times \mathcal{G}$
 \end{description}
 
 \paragraph{Definitions}
@@ -105,7 +115,13 @@
 \text{ceiling} && \theta_{b} & \le \infty && \forall\, b \in \mathcal{B} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \mathit{spill}_{t} \text{ exists} \\
-\text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot
+\text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot \\
+\text{cost\_curve\_chord} && \mathit{op\_cost}_{t,g} \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) & \ge \left( \mathrm{bp\_y}_{g,a} - \mathrm{bp\_y}_{g,a \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathrm{bp\_x}_{g,a} \right) + \mathrm{bp\_y}_{g,a} \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,points}}_{g,a} \wedge \neg \mathrm{cost}^{\mathrm{curve,starts}}_{g,a} \\
+\text{cost\_curve\_domain\_lo} && p_{t,g} & \ge \mathrm{bp\_x}_{g,a} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,starts}}_{g,a} \\
+\text{cost\_curve\_domain\_hi} && p_{t,g} & \le \mathrm{bp\_x}_{g,a} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,ends}}_{g,a} \\
+\text{heat\_curve\_chord} && \mathit{heat}_{t,g} \cdot \left( \mathrm{fuel\_bp}_{a} - \mathrm{fuel\_bp}_{a \boxminus_{0} 1} \right) & \le \left( \mathrm{heat}^{\mathrm{bp}}_{a} - \mathrm{heat}^{\mathrm{bp}}_{a \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathrm{fuel\_bp}_{a} \right) + \mathrm{heat}^{\mathrm{bp}}_{a} \cdot \left( \mathrm{fuel\_bp}_{a} - \mathrm{fuel\_bp}_{a \boxminus_{0} 1} \right) && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) \neq 0 \\
+\text{heat\_curve\_domain\_lo} && p_{t,g} & \ge \mathrm{fuel\_bp}_{a} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) = 0 \\
+\text{heat\_curve\_domain\_hi} && p_{t,g} & \le \mathrm{fuel\_bp}_{a} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{pos}(a) = \lvert \mathcal{A} \rvert - 1
 \end{align}
 
 \paragraph{Definitions}
@@ -128,7 +144,24 @@
 \text{reserve} && \mathit{reserve} & \ge 0 \\
 \text{headroom} && \mathit{headroom} & \ge 0 && \text{where } \mathrm{budget} \text{ is defined} \\
 \text{weight} && 0 \le \mathit{weight}_{t,g} & \le 1 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
-\text{weight sos} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T}
+\text{weight sos} && \left( \mathit{weight}_{t,g} \right)_{g \in \mathcal{G}} & \in \mathrm{SOS}2 && \forall\, t \in \mathcal{T} \\
+\text{op\_cost} && \mathit{op\_cost}_{t,g} & \ge 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \\
+\text{heat} && \mathit{heat}_{t,g} & \ge 0 && \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+\end{align}
+
+\paragraph{Assumptions}
+\begin{align}
+\text{capacity\_is\_nonnegative} && \mathrm{p}^{\mathrm{max}}_{g} & \ge 0 && \forall\, g \in \mathcal{G} \\
+\text{bounds\_are\_ordered} && \mathrm{p}^{\mathrm{min}}_{g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{min}}_{g} \text{ is defined} \\
+\text{budget\_is\_positive} && \mathrm{budget} & > 0 \\
+\text{flexible\_units\_are\_cheap} && \neg \mathrm{is\_flexible}_{g} \vee \mathrm{cost}_{g} \le \mathrm{budget} &  && \forall\, g \in \mathcal{G} \\
+\text{cost\_curve increasing} && \mathrm{bp\_x}_{g,a - 1} & < \mathrm{bp\_x}_{g,a} && \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,points}}_{g,a} \wedge \mathrm{cost}^{\mathrm{curve,points}}_{g,a - 1} \\
+\text{cost\_curve curvature} && \mathrm{bp\_y}_{g,a} & \text{ is a convex function of } \mathrm{bp\_x}_{g,a} \text{ along } a && \forall\, g \in \mathcal{G} \\
+\text{cost\_curve breakpoints} && \lvert \{ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,points}}_{g,a} \} \rvert & \ge 2 && \forall\, g \in \mathcal{G} \\
+\text{cost\_curve points} && \{ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,points}}_{g,a} \} & \text{ is one run of consecutive breakpoints} && \forall\, g \in \mathcal{G} \\
+\text{heat\_curve increasing} && \mathrm{fuel\_bp}_{a - 1} & < \mathrm{fuel\_bp}_{a} && \forall\, a \in \mathcal{A} \\
+\text{heat\_curve curvature} && \mathrm{heat}^{\mathrm{bp}}_{a} & \text{ is a concave function of } \mathrm{fuel\_bp}_{a} \text{ along } a \\
+\text{heat\_curve breakpoints} && \lvert \mathcal{A} \rvert & \ge 2
 \end{align}
 
 \end{document}

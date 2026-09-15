@@ -426,6 +426,56 @@ class ExpressionBlock(_StrictBlock):
         return {'expression': self.expression, 'description': self.description}
 
 
+class AssumptionBlock(_StrictBlock):
+    """What the model assumes of its data: a predicate every coordinate has to satisfy.
+
+    Written in YAML as a bare where string, or as a mapping once it carries a
+    ``where:`` or a ``description:``, and serialised back to whichever form it
+    was written in::
+
+        assumptions:
+          efficiency_is_a_fraction: "efficiency > 0 AND efficiency <= 1"
+          bounds_do_not_cross:
+            holds: "p_min <= p_max"
+            where: "p_min"
+            description: a unit with no minimum is unconstrained below
+
+    The language decides nothing about the numbers, so the consumer binding
+    the data checks it, and refuses the data where it does not hold.
+    """
+
+    _label: ClassVar[str] = 'an assumption declaration'
+
+    #: The predicate, in the where grammar. It holds at every coordinate of
+    #: its own frame that ``where`` admits.
+    holds: str
+    #: Which coordinates are checked, in the same grammar; absent means every one.
+    where: str | None = None
+    description: str | None = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def _from_string(cls, data: Any) -> Any:
+        return {'holds': data} if isinstance(data, str) else data
+
+    @classmethod
+    @override
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """The published schema admits the bare string the one-line form is written as."""
+        return _also_written_as(core_schema, handler, {'type': 'string'})
+
+    @model_serializer
+    def _as_written(self) -> str | dict[str, Any]:
+        if self.where is None and self.description is None:
+            return self.holds
+        written: dict[str, Any] = {'holds': self.holds}
+        if self.where is not None:
+            written['where'] = self.where
+        if self.description is not None:
+            written['description'] = self.description
+        return written
+
+
 class PiecewiseLink(_StrictBlock):
     """One link of a piecewise block: an expression pinned to a values curve.
 
@@ -643,7 +693,7 @@ class Spec(_StrictBlock):
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
-    The API is the ten declaration sections plus ``version`` and
+    The API is the eleven declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads. Everything else on
     this class is pydantic's, not a contract this package keeps.
@@ -674,6 +724,7 @@ class Spec(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
+    assumptions: dict[str, AssumptionBlock] = {}
 
     def lookups_of(self, dimension: str) -> dict[str, str]:
         """The lookups over *dimension*: name -> the dim they map into."""

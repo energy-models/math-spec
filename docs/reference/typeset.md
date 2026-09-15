@@ -74,6 +74,9 @@ a flag.
   symbol table touches it.
 - A `piecewise:` block prints as the variables and constraints it expands into,
   because the expansion is the math the solver receives.
+- An `assumptions:` block prints under its own heading, after the variable
+  domains, and so does what each `piecewise:` block assumes of its breakpoints
+  ([assumptions](language/declarations.md#assumptions)).
 - Inlining reaches only an expression that the math reads. A `cases:` block has
   no single body to substitute, and a [reported entry](language/reported.md) is
   read by nothing, so both keep their definition line under either setting.
@@ -86,7 +89,7 @@ a flag.
 ## Printing one declaration on its own
 
 `typeset_declaration` returns the line the document prints for one named
-expression, constraint or variable, with its quantifier and without a document,
+expression, constraint, assumption or variable, with its quantifier and without a document,
 a label, a number or math delimiters. Use it for a docstring, a table cell or a
 comment beside the value it computes:
 
@@ -114,7 +117,7 @@ A line on its own has no _Definitions_ section beside it, so the plain named
 expressions it uses are substituted unless you say otherwise. A cased expression
 prints by symbol, and a second call with its name prints its block.
 
-A name that is none of the three kinds is refused with the near miss. A name that
+A name that is none of the four kinds is refused with the near miss. A name that
 is both a constraint and a variable is refused too, because one line can print
 only one of them. Constraints sit outside the
 [flat namespace](language/expressions.md#name-resolution), so a model may use one

@@ -42,6 +42,7 @@ dimensions:
   zone: { dtype: str }
   season: { dtype: str }
   technology: { dtype: str }
+  bp: { dtype: int }
 
 lookups:
   gen_bus: { over: generator, into: bus }
@@ -63,6 +64,10 @@ parameters:
   lead: { dims: [generator], dtype: int }
   budget: { dims: [] } # scalar: the legend says so rather than printing an empty product
   growth: { dims: [] } # the base of a power; the exponent is `lead`, a column
+  bp_x: { dims: [generator, bp] } # a curve's breakpoints, one curve per generator
+  bp_y: { dims: [generator, bp] }
+  fuel_bp: { dims: [bp] } # a second curve's breakpoints, one curve for every generator
+  heat_bp: { dims: [bp] }
 ```
 
 #### Sets
@@ -75,6 +80,7 @@ parameters:
 | $`\mathcal{Z}`$ | index $`z`$ — `zone` |
 | $`\mathcal{S}`$ | index $`s`$ — `season` |
 | $`\mathcal{E}`$ | index $`e`$ — `technology` |
+| $`\mathcal{A}`$ | index $`a`$ — `bp` |
 
 #### Parameters
 
@@ -92,6 +98,13 @@ parameters:
 | $`\mathrm{lead}`$ | `lead` over $`\mathcal{G}`$ |
 | $`\mathrm{budget}`$ | `budget` (scalar) |
 | $`\mathrm{growth}`$ | `growth` (scalar) |
+| $`\mathrm{bp\_x}`$ | `bp_x` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{bp\_y}`$ | `bp_y` over $`\mathcal{G} \times \mathcal{A}`$ |
+| $`\mathrm{fuel\_bp}`$ | `fuel_bp` over $`\mathcal{A}`$ |
+| $`\mathrm{heat}^{\mathrm{bp}}`$ | `heat_bp` over $`\mathcal{A}`$ |
+| $`\mathrm{cost}^{\mathrm{curve,points}}`$ | `cost_curve_points` over $`\mathcal{G} \times \mathcal{A}`$ — where 'bp\_x' has a row, and so where the curve runs |
+| $`\mathrm{cost}^{\mathrm{curve,starts}}`$ | `cost_curve_starts` over $`\mathcal{G} \times \mathcal{A}`$ — the first breakpoint of each curve |
+| $`\mathrm{cost}^{\mathrm{curve,ends}}`$ | `cost_curve_ends` over $`\mathcal{G} \times \mathcal{A}`$ — the last breakpoint of each curve |
 
 #### Variables
 
@@ -107,6 +120,8 @@ parameters:
 | $`\mathit{reserve}`$ | `reserve` (scalar) |
 | $`\mathit{headroom}`$ | `headroom` (scalar) |
 | $`\mathit{weight}`$ | `weight` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{op\_cost}`$ | `op_cost` over $`\mathcal{T} \times \mathcal{G}`$ |
+| $`\mathit{heat}`$ | `heat` over $`\mathcal{T} \times \mathcal{G}`$ |
 
 #### Definitions
 
@@ -780,6 +795,86 @@ weight:
 0 \le \mathit{weight}_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
 ```
 
+#### `op_cost`
+
+what a curve bounds below
+
+```yaml
+op_cost:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{op\_cost}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### `heat`
+
+what a second curve bounds above
+
+```yaml
+heat:
+  dims: [snapshot, generator]
+  bounds: { lower: 0 }
+```
+
+```math
+\mathit{heat}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+### Assumptions
+
+#### `capacity_is_nonnegative`
+
+one comparison, so the line aligns on its relation
+
+```yaml
+capacity_is_nonnegative: p_max >= 0
+```
+
+```math
+\mathrm{p}^{\mathrm{max}}_{g} \ge 0 \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `bounds_are_ordered`
+
+two parameters compared coordinate by coordinate, checked where the narrower one is defined
+
+```yaml
+bounds_are_ordered:
+  holds: "p_min <= p_max"
+  where: "p_min"
+```
+
+```math
+\mathrm{p}^{\mathrm{min}}_{g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{min}}_{g} \text{ is defined}
+```
+
+#### `budget_is_positive`
+
+a scalar, so no quantifier
+
+```yaml
+budget_is_positive: budget > 0
+```
+
+```math
+\mathrm{budget} > 0
+```
+
+#### `flexible_units_are_cheap`
+
+a compound predicate, which no one relation aligns
+
+```yaml
+flexible_units_are_cheap: "NOT is_flexible OR cost <= budget"
+```
+
+```math
+\neg \mathrm{is\_flexible}_{g} \vee \mathrm{cost}_{g} \le \mathrm{budget} \qquad \forall\, g \in \mathcal{G}
+```
+
 ### Curves, as what they expand to
 
 A curve is sugar: what prints is the formulation it expands to, which is the math the solver receives. One row per `method:`, each from the model named under it, so the symbols in this section are that model's.
@@ -920,6 +1015,14 @@ p_{t,g} = \sum_{b \in \mathcal{B}} \lambda_{t,g,b} \cdot \mathrm{x}_{g,b} \qquad
 0 \le \lambda_{t,g,b} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B}
 ```
 
+```math
+\mathrm{x}_{g,b - 1} < \mathrm{x}_{g,b} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\mathrm{y}_{g,b} \text{ is a convex or concave function of } \mathrm{x}_{g,b} \text{ along } b \qquad \forall\, g \in \mathcal{G}
+```
+
 #### `cost_curve`
 
 **`method: lp`** — no weights at all — one row per segment line, plus the two rows holding the domain, in `examples/piecewise_lp.yaml`.
@@ -953,6 +1056,18 @@ p_{t,g} \ge \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal
 
 ```math
 p_{t,g} \le \mathrm{x}_{g,b} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ b \in \mathcal{B} \,:\, \mathrm{pos}(b) = \lvert \mathcal{B} \rvert - 1
+```
+
+```math
+\mathrm{x}_{g,b - 1} < \mathrm{x}_{g,b} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\mathrm{y}_{g,b} \text{ is a convex function of } \mathrm{x}_{g,b} \text{ along } b \qquad \forall\, g \in \mathcal{G}
+```
+
+```math
+\lvert \mathcal{B} \rvert \ge 2
 ```
 
 ### Sets carried to the solver

@@ -67,6 +67,11 @@ constraints:
       p - shift(p, over=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 
+assumptions:
+  floor_below_capacity:
+    description: a floor above the capacity leaves `upper` and `lower` no output to agree on
+    holds: "p_min <= p_max"
+
 objective:
   sense: minimize
   expression: sum(p * cost)

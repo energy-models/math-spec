@@ -129,6 +129,10 @@ def _rendered_trees() -> Iterator[object]:
     for mask in resolved.variables.values():
         if mask is not None:
             yield mask.root
+    for holds, where in resolved.assumptions.values():
+        yield holds.root
+        if where is not None:
+            yield where.root
     yield from resolved.expressions.values()
 
 
@@ -221,7 +225,7 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
         'to_latex(model)\n'
         'to_latex(model, inline_expressions=True)\n'
         'spec = to_spec(model)\n'
-        'for name in (*spec.expressions, *spec.constraints, *spec.variables):\n'
+        'for name in (*spec.expressions, *spec.constraints, *spec.assumptions, *spec.variables):\n'
         "    typeset_declaration(model, name, 'latex')\n"
     )
     subprocess.run(

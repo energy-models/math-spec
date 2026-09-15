@@ -171,6 +171,9 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         dimensions=dimensions,
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
+        assumptions={
+            name: program.AssumptionDeclaration(holds, where) for name, (holds, where) in resolved.assumptions.items()
+        },
         named_expressions=expressions,
     )
 

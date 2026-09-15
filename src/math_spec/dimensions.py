@@ -48,6 +48,7 @@ from math_spec.program import (
     Mask,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterPairComparisonNode,
     VariableDefinedNode,
 )
 
@@ -514,7 +515,7 @@ def _check_where_dims(
         if not (outside := sorted(Mask(atom).dims - frame)):
             continue
         match atom:
-            case ParameterDefinedNode() | ParameterComparisonNode():
+            case ParameterDefinedNode() | ParameterComparisonNode() | ParameterPairComparisonNode():
                 noun = 'parameter'
             case VariableDefinedNode():
                 noun = 'variable'

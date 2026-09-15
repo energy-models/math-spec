@@ -5,7 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Parameters, variables, constraints and the objective
 
-These four blocks carry the math. Each takes an optional `description:`.
+These four blocks carry the math, and a fifth, `assumptions`, says what the
+math takes for granted about its data. Each takes an optional `description:`.
 
 A description is free text with no length limit. The parser throws a `#` comment
 away, but keeps a description, so a renderer or a checker can print it. The
@@ -210,3 +211,68 @@ different models.
 
 A second objective cannot be written, because the schema holds one block. To
 pursue several goals, weight them into one expression.
+
+## `assumptions`
+
+An assumption is a claim about the data: a predicate that every coordinate
+has to satisfy before the model is built. The language decides nothing about
+the numbers, so the tool that binds the data checks each assumption and refuses
+the data where one does not hold. The [typeset](../typeset.md) document prints
+every assumption under its own heading, so the math a reader checks carries what
+the model assumes of its inputs.
+
+```yaml
+dimensions:
+  generator: { dtype: str }
+parameters:
+  p_min: { dims: [generator] }
+  p_max: { dims: [generator] }
+  efficiency: { dims: [generator] }
+variables:
+  p: { dims: [generator], bounds: { lower: p_min, upper: p_max } }
+assumptions:
+  efficiency_is_a_fraction: "efficiency > 0 AND efficiency <= 1"
+  bounds_do_not_cross:
+    holds: "p_min <= p_max"
+    where: "p_min"
+    description: a unit with no minimum is unconstrained below
+```
+
+```math
+\mathrm{efficiency}_{g} > 0 \wedge \mathrm{efficiency}_{g} \le 1 \qquad \forall\, g \in \mathcal{G}
+```
+
+```math
+\mathrm{p}^{\mathrm{min}}_{g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{min}}_{g} \text{ is defined}
+```
+
+| Field         |                                                                                                                                      |                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| `holds`       | required. A [`where` string](expressions.md#where-strings) over parameters, dimensions and lookups. A bare string is read as `holds` |                |
+| `where`       | which coordinates are checked, in the same grammar                                                                                   | default `null` |
+| `description` | free text                                                                                                                            | default `null` |
+
+Three rules say what an assumption means:
+
+- **It holds at every coordinate of its frame.** The frame is the product of
+  every dimension that `holds` and `where` name, so `p_min <= p_max` over one
+  dimension is checked once per generator, and `budget > 0` over none is
+  checked once. There is no `dims:` to declare, because a predicate widens
+  nothing.
+- **A missing row reads as false**, as it does in every `where`
+  ([absence](absence.md#what-creates-absence)). So `efficiency > 0` refuses a
+  generator whose row is missing. Where a parameter is supplied only for the
+  units it applies to, say so in `where:`, as `bounds_do_not_cross` does: the
+  assumption is checked where `p_min` is defined and nowhere else.
+- **Two parameters may be compared.** `p_min <= p_max` reads the two coordinate
+  by coordinate, the narrower one at every coordinate of the wider. Both are
+  numbers, or both share a dtype. A number against a label is refused.
+
+A predicate that names a variable is refused, because an assumption is about
+the data and a variable is what the solver decides from it. State a rule about
+a decision as a constraint. A predicate that folds to `True` or `False` is
+refused too: the first assumes nothing, and the second admits no data.
+
+A `piecewise:` block assumes things of its breakpoints that no file writes,
+such as a strictly increasing x-axis. Those print under the same heading,
+labelled by the block ([what a curve assumes](piecewise.md#what-a-curve-assumes)).

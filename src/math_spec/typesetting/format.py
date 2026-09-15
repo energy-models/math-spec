@@ -221,6 +221,10 @@ class Format(Protocol):
 
     def fraction(self, numerator: str, denominator: str) -> str: ...
 
+    def set_of(self, members: str, condition: str) -> str:
+        """A set by comprehension: ``{ k ∈ K : condition }``."""
+        ...
+
     def summation(self, domain: str, body: str) -> str: ...
 
     def cases(self, arms: list[tuple[str, str]]) -> str:

@@ -60,6 +60,27 @@ def refusals(schema: Spec, cases: dict[str, str]) -> list[str]:
     return list(overlapping({name: _mask(when, namespace, name) for name, when in cases.items()}, namespace.dtypes))
 
 
+def test_two_parameters_compared_are_one_subject_ordered_three_ways(schema):
+    """The order between two columns is less, equal or greater, so `<` and `>=` are apart and `<=` meets `>=` at equality."""
+    assert refusals(schema, {'below': 'soc_initial < capacity', 'above': 'soc_initial >= capacity'}) == [], (
+        'the two orders share no cell'
+    )
+    [refusal] = refusals(schema, {'below': 'soc_initial <= capacity', 'above': 'soc_initial >= capacity'})
+    assert 'soc_initial vs capacity is equal' in refusal, 'the witness names the order both cases claim'
+
+
+def test_a_parameter_pair_with_a_row_missing_compares_false_under_every_comparator(schema):
+    """`NOT (a < b)` and `NOT (a >= b)` are apart wherever both rows exist, and both claim a coordinate where one is missing.
+
+    A missing row read as the smallest value instead would put the two apart
+    everywhere, and the data would then give one coordinate two values.
+    """
+    [refusal] = refusals(
+        schema, {'not_below': 'NOT (soc_initial < capacity)', 'not_above': 'NOT (soc_initial >= capacity)'}
+    )
+    assert 'soc_initial vs capacity is absent' in refusal, 'the one cell both claim is the missing row'
+
+
 def _mask(text: str, namespace: Namespace, name: str) -> WhereNode:
     """Resolved but not folded, which is the shape a case's `when` reaches the prover in."""
     errors: list[str] = []

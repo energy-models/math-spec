@@ -174,6 +174,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `name OP value`                  | parameter                        | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                    |
 | `name OP value`                  | dimension                        | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                       |
 | `name OP value`                  | lookup                           | A filter on the lookup's value, so the `over` dimension has to be in the frame. A null compares false                                                                                                                                                                                               |
+| `name OP name`                   | two parameters                   | Coordinate by coordinate, the narrower one read at every coordinate of the wider. Both are numbers, or both share a dtype. A null on either side compares false                                                                                                                                     |
 | `name OP name`                   | two lookups                      | Legal only where both lookups are over the same dimension and into the same dimension. `from != to` excludes a self-loop                                                                                                                                                                            |
 | `position(name) OP i`            | dimension                        | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
 | `position(name, by=lookup) OP i` | a dimension and a lookup over it | The same, counted within each group the lookup makes                                                                                                                                                                                                                                                |
@@ -211,10 +212,10 @@ so `node >= 'b'` means the same however the nodes were listed. A label the
 dimension does not carry compares equal to nothing, so the mask is false there
 rather than an error.
 
-Comparing two parameters, or two dimensions, is not in the language. Precompute a
-boolean parameter instead. Two lookups are the exception, where both lookups
-share both ends: over one dimension they are two columns of one table, and into
-one dimension they draw from one label set.
+Two parameters compare coordinate by coordinate, as `p_min <= p_max` does, and
+so do two lookups that share both ends: over one dimension they are two columns
+of one table, and into one dimension they draw from one label set. Comparing two
+dimensions is not in the language. Precompute a boolean parameter instead.
 
 ### `position()`
 

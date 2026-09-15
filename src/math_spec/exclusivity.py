@@ -34,6 +34,7 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterPairComparisonNode,
     TypedPredicateNode,
     VariableDefinedNode,
 )
@@ -136,7 +137,7 @@ class Subject:
     a rank is further split by the ``by=`` lookup it is counted within.
     """
 
-    kind: Literal['param', 'dim', 'rank', 'lookup', 'lookup_pair', 'variable']
+    kind: Literal['param', 'param_pair', 'dim', 'rank', 'lookup', 'lookup_pair', 'variable']
     name: str
     qualifier: str | None = None
 
@@ -144,7 +145,7 @@ class Subject:
         if self.kind == 'rank':
             within = f' within {self.qualifier}' if self.qualifier else ''
             return f'the position of {self.name}{within}'
-        if self.kind == 'lookup_pair':
+        if self.kind in ('lookup_pair', 'param_pair'):
             return f'{self.name} vs {self.qualifier}'
         return self.name
 
@@ -187,8 +188,12 @@ def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtype
     """Record what *node* says about its subject: a position, or a literal.
 
     ``position()`` converts the dimension to an integer, so an ordering over a
-    rank is an ordering of integers and every comparator is admitted there.
+    rank is an ordering of integers and every comparator is admitted there. A
+    parameter pair names no literal: its subject is the order between the two
+    columns, whose cells :func:`_cells_for` fixes.
     """
+    if isinstance(node, ParameterPairComparisonNode):
+        return
     if isinstance(node, DimensionPositionNode):
         values.add(node.position)
     elif isinstance(node, LookupPairComparisonNode):
@@ -224,6 +229,8 @@ def _subject_of(node: TypedPredicateNode) -> Subject:
             return Subject('lookup', name)
         case LookupPairComparisonNode(name=name, other=other):
             return Subject('lookup_pair', name, other)
+        case ParameterPairComparisonNode(name=name, other=other):
+            return Subject('param_pair', name, other)
         case _:
             assert_never(node)
 
@@ -238,6 +245,8 @@ def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, Declared
         return _rank_cells(subject, cast('set[int]', values))
     if subject.kind in ('lookup_pair', 'variable'):
         return [True, False]
+    if subject.kind == 'param_pair':
+        return [*_PAIR_ORDERS, Special.NULL]
     dtype = dtypes.get(subject.name)
     if dtype == 'bool':
         if values:
@@ -359,11 +368,18 @@ def _rank_cells(subject: Subject, positions_seen: set[int]) -> list[Cell]:
     return cells
 
 
+#: The order the left side of a parameter pair stands in to the right: the sign
+#: of their difference, which every comparator reads against ``0``.
+_PAIR_ORDERS: tuple[int, ...] = (-1, 0, 1)
+
+
 def _shown(subject: Subject, value: Cell) -> str:
     if subject.kind == 'rank':
         return str(value)
     if subject.kind == 'lookup_pair':
         return 'equal' if value else 'different'
+    if subject.kind == 'param_pair' and isinstance(value, int):
+        return {-1: 'less', 0: 'equal', 1: 'greater'}[value]
     if isinstance(value, Special):
         return {Special.NULL: 'absent', Special.OTHER: 'anything else'}.get(value, value.value)
     if isinstance(value, bool):
@@ -405,6 +421,10 @@ def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], grid: _Grid) -> b
             return bool(value)
         case LookupPairComparisonNode(op=op):
             return bool(value) if op == '==' else not value
+        case ParameterPairComparisonNode(op=op):
+            if value is Special.NULL:
+                return False
+            return _compare(value, op, 0)
         case DimensionPositionNode(op=op, position=position):
             return _compare(value, op, position)
         case ParameterComparisonNode(op=op, value=literal) | LookupComparisonNode(op=op, value=literal):

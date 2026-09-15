@@ -25,6 +25,7 @@ from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
     AndNode,
+    AssumptionDeclaration,
     At,
     BooleanLiteralNode,
     Cases,
@@ -45,6 +46,7 @@ from math_spec.program import (
     Parameter,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterPairComparisonNode,
     Power,
     Program,
     Region,
@@ -52,6 +54,7 @@ from math_spec.program import (
     Translate,
     Variable,
     Window,
+    assumption_message,
     children,
     divisor_parameters,
     fan_in,
@@ -390,6 +393,44 @@ def test_a_constraint_where_is_a_mask_like_a_variable_s():
     (c,) = lowered.constraints.values()
 
     assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0, ('snapshot',)))
+
+
+def test_an_assumption_lowers_to_its_predicate_and_the_mask_it_is_checked_under():
+    """What the file assumes of its data reaches the consumer as two masks under the name the file wrote."""
+    program = to_program(
+        override(
+            DISPATCH_MODEL,
+            assumptions={'capacity': 'p_max >= 0', 'ordered': {'holds': 'cost <= p_max', 'where': 'cost'}},
+        )
+    )
+
+    assert program.assumptions['capacity'] == AssumptionDeclaration(
+        Mask(ParameterComparisonNode('p_max', '>=', 0.0, ('generator',)))
+    ), 'an assumption without a where is checked at every coordinate its predicate names'
+    assert program.assumptions['ordered'] == AssumptionDeclaration(
+        Mask(ParameterPairComparisonNode('cost', 'p_max', '<=', ('generator',))),
+        Mask(ParameterDefinedNode('cost', ('generator',))),
+    )
+    assert assumption_message('ordered', program.assumptions['ordered']) == (
+        "assumption 'ordered' does not hold for the data bound to 'cost', 'p_max'"
+    ), 'the sentence names every parameter the predicate reads, sorted, for the consumer to append what it saw'
+
+
+def test_a_parameter_pair_carries_the_union_of_both_dims_left_first():
+    """`p_max <= floor` over `[generator]` and `[snapshot, generator]` is read at every coordinate of both."""
+    program = to_program(
+        override(
+            DISPATCH_MODEL,
+            **{'parameters.floor': {'dims': ['snapshot', 'generator']}, 'assumptions': {'a': 'p_max <= floor'}},
+        )
+    )
+    holds = program.assumptions['a'].holds
+
+    assert holds.root == ParameterPairComparisonNode('p_max', 'floor', '<=', ('generator', 'snapshot')), (
+        "the left parameter's dims first, then what the right one adds"
+    )
+    assert holds.dims == frozenset({'generator', 'snapshot'})
+    assert holds.names_read == frozenset({'p_max', 'floor'}), 'a pair names both sides it compares'
 
 
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):

@@ -83,6 +83,11 @@ constraints:
       p - shift(p, over=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 
+assumptions:
+  floor_below_capacity:
+    description: a floor above the capacity leaves `upper` and `lower` no output to agree on
+    holds: "p_min <= p_max"
+
 objective:
   sense: minimize
   expression: sum(p * cost)
@@ -181,6 +186,14 @@ p_{t,g} - p_{t \boxminus_{0} 1,g} \le \mathrm{ramp\_limit}_{g} \cdot \mathit{pre
 
 ```math
 \mathit{status}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### Assumptions
+
+**`floor_below_capacity`**
+
+```math
+\mathrm{p}^{\mathrm{min}}_{g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, g \in \mathcal{G}
 ```
 <!-- gallery:end -->
 
