@@ -15,12 +15,23 @@ from typing import TYPE_CHECKING, Any, cast, get_args
 
 import pyparsing as pp
 
-from math_spec._expression_parser import NAME, REAL, parse_text
+from math_spec._expression_parser import (
+    ARITHMETIC,
+    NAME,
+    REAL,
+    FunctionCallNode,
+    NameNode,
+    NumberNode,
+    UnaryOperatorNode,
+    children,
+    parse_text,
+)
 from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, PredicateOperator, where_children
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from math_spec._expression_parser import ArithmeticNode
     from math_spec.program import WhereNode
 
 # ---------------------------------------------------------------------------
@@ -50,6 +61,19 @@ class UnresolvedComparisonNode:
 
 
 @dataclass(frozen=True)
+class UnresolvedExpressionComparisonNode:
+    """``expression <op> expression``, both sides still the bare parse — ``resolution.py`` types and judges them.
+
+    The grammar reaches for this only where a side is more than one name or
+    literal, so the simpler forms keep their own nodes and their own rules.
+    """
+
+    left: ArithmeticNode
+    op: PredicateOperator
+    right: ArithmeticNode
+
+
+@dataclass(frozen=True)
 class UnresolvedPositionNode:
     """``position(dim[, by=lookup]) <op> i`` before the names are checked; ``resolution.py`` types it."""
 
@@ -61,7 +85,9 @@ class UnresolvedPositionNode:
 
 #: What resolution rewrites away on the where side — the three nodes whose
 #: left-hand side is still a name the schema has not been asked about.
-UnresolvedWhereNode = UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedPositionNode
+UnresolvedWhereNode = (
+    UnresolvedNameNode | UnresolvedComparisonNode | UnresolvedExpressionComparisonNode | UnresolvedPositionNode
+)
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +108,31 @@ def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
     return UnresolvedPositionNode(str(dimension), op, at, None if by is None else str(by))
 
 
+def _is_plain(node: ArithmeticNode) -> bool:
+    """Whether *node* is one name or one signed number — a side the simpler comparison forms own."""
+    if isinstance(node, UnaryOperatorNode):
+        return isinstance(node.operand, NumberNode)
+    return isinstance(node, NameNode | NumberNode)
+
+
+def _reads_arithmetic(tokens: pp.ParseResults) -> bool:
+    """Whether a comparison needs the expression form at all.
+
+    Two plain sides are ``name <op> literal`` or ``name <op> name``, and a
+    ``position(...)`` call against a plain side is the position form; each of
+    those has a node of its own, so this form stands aside for them.
+    """
+    left, _, right = tokens
+    if _is_plain(left) and _is_plain(right):
+        return False
+    return not (isinstance(left, FunctionCallNode) and left.name == 'position' and _is_plain(right))
+
+
+def _expression_comparison(tokens: pp.ParseResults) -> UnresolvedExpressionComparisonNode:
+    left, op, right = tokens
+    return UnresolvedExpressionComparisonNode(left, op, right)
+
+
 def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
     """``name <op> literal`` off the tokens the grammar captured, the quoted marker turned into a flag."""
     name, op, value = tokens
@@ -93,8 +144,11 @@ def _build_where_grammar() -> pp.ParserElement:
     """Build the pyparsing grammar for where strings.
 
     Both quote characters are accepted because YAML already owns one of them.
-    ``NOT`` binds tightest, then ``AND``, then ``OR``. ``position(...)`` leads
-    the alternation, since ``position`` would otherwise be read as a bare name.
+    ``NOT`` binds tightest, then ``AND``, then ``OR``. The three comparison
+    forms are matched longest-first, so ``p > 2 * q`` is not cut short at
+    ``p > 2``; the expression form stands aside for the two plain shapes
+    (:func:`_reads_arithmetic`), so ``p > 0`` keeps the node its dtype rule
+    is written for.
     """
     where_expr = pp.Forward()
 
@@ -121,14 +175,16 @@ def _build_where_grammar() -> pp.ParserElement:
     position_comparison = (position_call + comparator + position).set_parse_action(_position_comparison)
 
     comparison = (name + comparator + (number | quoted | name)).set_parse_action(_comparison)
+    expression_comparison = (
+        (ARITHMETIC + comparator + ARITHMETIC).add_condition(_reads_arithmetic).add_parse_action(_expression_comparison)
+    )
     # pyrefly: ignore[implicit-any-lambda]
     existence = name.copy().set_parse_action(lambda t: UnresolvedNameNode(t[0]))
 
     atom = (
         true_lit
         | false_lit
-        | position_comparison
-        | comparison
+        | (position_comparison ^ comparison ^ expression_comparison)
         | existence
         | (pp.Suppress('(') + where_expr + pp.Suppress(')'))
     )
@@ -192,6 +248,17 @@ _DEEP_REWRITE = (
 )
 
 
+def _nested(node: Any) -> tuple[Any, ...]:
+    """What a where string nests through: a connective's operands, and the arithmetic under a comparison of expressions."""
+    if isinstance(node, UnresolvedExpressionComparisonNode):
+        return (node.left, node.right)
+    if isinstance(node, UnresolvedWhereNode):
+        return ()
+    if isinstance(node, AndNode | OrNode | NotNode | BooleanLiteralNode):
+        return where_children(node)
+    return children(node)
+
+
 @lru_cache(maxsize=4096)
 def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
@@ -208,5 +275,5 @@ def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
     """
     return cast(
         'WhereNode | UnresolvedWhereNode',
-        parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, where_children, _DEEP_REWRITE),
+        parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, _nested, _DEEP_REWRITE),
     )

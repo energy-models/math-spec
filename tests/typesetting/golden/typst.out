@@ -48,6 +48,7 @@ every character a notation escapes, set as text: link\_to, 100% & \#1 costs \$5 
 / $italic("heat")$: `heat` over $cal(T) times cal(G)$
 
 == Definitions
+/ $upright("spend")^(upright("cap"))$: `spend_cap` over $cal(G)$
 / $italic("spend")$: `spend` over $cal(T)$ --- what a snapshot's dispatch costs
 / $italic("lcoe")$: `lcoe` (scalar)
 / $italic("marginal_price")$: `marginal_price` over $cal(T) times cal(B)$
@@ -103,6 +104,7 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
   upright("always") & italic("spill")_(t) & >= 0 & forall t in cal(T) \
   upright("redundant") & italic("spill")_(t) & >= 0 & forall t in cal(T) colon italic("spill")_(t) upright(" exists") \
   upright("never") & italic("slack")_(t) & >= 0 & forall t in cal(T) colon bot \
+  upright("margin") & p_(t,g) & <= upright("p")^(upright("max"))_(g) & forall t in cal(T), g in cal(G) colon upright("p")^(upright("max"))_(g) - upright("p")^(upright("min"))_(g) > frac(upright("cost")_(g), 2) \
   upright("cost_curve_chord") & italic("op_cost")_(t,g) dot (upright("bp_x")_(g,a) - upright("bp_x")_(g,a minus.square_(0) 1)) & >= (upright("bp_y")_(g,a) - upright("bp_y")_(g,a minus.square_(0) 1)) dot (p_(t,g) - upright("bp_x")_(g,a)) + upright("bp_y")_(g,a) dot (upright("bp_x")_(g,a) - upright("bp_x")_(g,a minus.square_(0) 1)) & forall t in cal(T), g in cal(G), a in cal(A) colon upright("cost")^(upright("curve,points"))_(g,a) and not upright("cost")^(upright("curve,starts"))_(g,a) \
   upright("cost_curve_domain_lo") & p_(t,g) & >= upright("bp_x")_(g,a) & forall t in cal(T), g in cal(G), a in cal(A) colon upright("cost")^(upright("curve,starts"))_(g,a) \
   upright("cost_curve_domain_hi") & p_(t,g) & <= upright("bp_x")_(g,a) & forall t in cal(T), g in cal(G), a in cal(A) colon upright("cost")^(upright("curve,ends"))_(g,a) \
@@ -112,7 +114,8 @@ $ upright("budgeted") & italic("spend")_(t) & <= upright("budget") & forall t in
 
 == Definitions
 #set math.equation(numbering: "(1)")
-$ upright("spend") & italic("spend")_(t) & = sum_(g in cal(G)) p_(t,g) dot upright("cost")_(g) & forall t in cal(T) \
+$ upright("spend_cap") & upright("spend")^(upright("cap"))_(g) & = upright("cost")_(g) dot 2 & forall g in cal(G) \
+  upright("spend") & italic("spend")_(t) & = sum_(g in cal(G)) p_(t,g) dot upright("cost")_(g) & forall t in cal(T) \
   upright("lcoe") & italic("lcoe") & = frac(sum_(t in cal(T), g in cal(G)) p_(t,g) dot upright("cost")_(g), sum_(t in cal(T), g in cal(G)) p_(t,g)) \
   upright("marginal_price") & italic("marginal_price")_(t,b) & = lambda_(upright("balance"),t,b) & forall t in cal(T), b in cal(B) \
   upright("startup_cost") & upright("startup_cost")_(t,g) & = cases(upright("cost")_(g) & upright("if ") upright("pos")(t) = 0, upright("cost")_(g) dot 2 & upright("if ") upright("pos")(t) > 0 and upright("season_of")(t) = upright("'winter'"), 0 & upright("otherwise")) & forall t in cal(T), g in cal(G) $
@@ -139,6 +142,10 @@ $ upright("capacity_is_nonnegative") & upright("p")^(upright("max"))_(g) & >= 0 
   upright("bounds_are_ordered") & upright("p")^(upright("min"))_(g) & <= upright("p")^(upright("max"))_(g) & forall g in cal(G) colon upright("p")^(upright("min"))_(g) upright(" is defined") \
   upright("budget_is_positive") & upright("budget") & > 0 \
   upright("flexible_units_are_cheap") & not upright("is_flexible")_(g) or upright("cost")_(g) <= upright("budget") &  & forall g in cal(G) \
+  upright("floor_is_half_the_capacity") & upright("p")^(upright("min"))_(g) & <= 0.5 dot upright("p")^(upright("max"))_(g) & forall g in cal(G) \
+  upright("load_ramps_within_the_zone_cap") & upright("load")_(t,b) - upright("load")_(t minus.square_(0) 1,b) & <= upright("zone_cap")_(upright("zone_of")(b)) & forall t in cal(T), b in cal(B) colon upright("pos")(t) > 0 \
+  upright("fleet_covers_the_budget") & sum_(g in cal(G)) upright("p")^(upright("max"))_(g) & >= upright("budget") \
+  upright("cheap_when_spent") & upright("spend")^(upright("cap"))_(g) > 0 or not upright("is_flexible")_(g) &  & forall g in cal(G) \
   upright("cost_curve increasing") & upright("bp_x")_(g,a - 1) & < upright("bp_x")_(g,a) & forall g in cal(G), a in cal(A) colon upright("cost")^(upright("curve,points"))_(g,a) and upright("cost")^(upright("curve,points"))_(g,a - 1) \
   upright("cost_curve curvature") & upright("bp_y")_(g,a) & upright(" is a convex function of ") upright("bp_x")_(g,a) upright(" along ") a & forall g in cal(G) \
   upright("cost_curve breakpoints") & abs({a in cal(A) colon upright("cost")^(upright("curve,points"))_(g,a)}) & >= 2 & forall g in cal(G) \

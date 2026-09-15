@@ -127,6 +127,7 @@ parameters:
 
 | Symbol | Meaning |
 |---|---|
+| $`\mathrm{spend}^{\mathrm{cap}}`$ | `spend_cap` over $`\mathcal{G}`$ |
 | $`\mathit{spend}`$ | `spend` over $`\mathcal{T}`$ — what a snapshot's dispatch costs |
 | $`\mathit{lcoe}`$ | `lcoe` (scalar) |
 | $`\mathit{marginal\_price}`$ | `marginal_price` over $`\mathcal{T} \times \mathcal{B}`$ |
@@ -595,7 +596,34 @@ never:
 \mathit{slack}_{t} \ge 0 \qquad \forall\, t \in \mathcal{T} \,:\, \bot
 ```
 
+#### `margin`
+
+a mask comparing two expressions, which prints as the arithmetic it is
+
+```yaml
+margin:
+  dims: [snapshot, generator]
+  where: "p_max - p_min > cost / 2"
+  expression: p <= p_max
+```
+
+```math
+p_{t,g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} - \mathrm{p}^{\mathrm{min}}_{g} > \frac{\mathrm{cost}_{g}}{2}
+```
+
 ### Definitions
+
+#### `spend_cap`
+
+a data-only entry, so a where or an assumption may compare it
+
+```yaml
+spend_cap: cost * 2
+```
+
+```math
+\mathrm{spend}^{\mathrm{cap}}_{g} = \mathrm{cost}_{g} \cdot 2 \qquad \forall\, g \in \mathcal{G}
+```
 
 #### `spend`
 
@@ -873,6 +901,56 @@ flexible_units_are_cheap: "NOT is_flexible OR cost <= budget"
 
 ```math
 \neg \mathrm{is\_flexible}_{g} \vee \mathrm{cost}_{g} \le \mathrm{budget} \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `floor_is_half_the_capacity`
+
+arithmetic on a side, which reads as an expression does
+
+```yaml
+floor_is_half_the_capacity: "p_min <= 0.5 * p_max"
+```
+
+```math
+\mathrm{p}^{\mathrm{min}}_{g} \le 0.5 \cdot \mathrm{p}^{\mathrm{max}}_{g} \qquad \forall\, g \in \mathcal{G}
+```
+
+#### `load_ramps_within_the_zone_cap`
+
+a translation under a comparison names its edge, and the where keeps the vacated row out
+
+```yaml
+load_ramps_within_the_zone_cap:
+  holds: "load - shift(load, over=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of)"
+  where: "position(snapshot) > 0"
+```
+
+```math
+\mathrm{load}_{t,b} - \mathrm{load}_{t \boxminus_{0} 1,b} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{pos}(t) > 0
+```
+
+#### `fleet_covers_the_budget`
+
+a reduction on a side, so the frame is what is left
+
+```yaml
+fleet_covers_the_budget: "sum(p_max, over=generator) >= budget"
+```
+
+```math
+\sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} \ge \mathrm{budget}
+```
+
+#### `cheap_when_spent`
+
+an expressions: entry on a side, read by the name the file gave it
+
+```yaml
+cheap_when_spent: "spend_cap > 0 OR NOT is_flexible"
+```
+
+```math
+\mathrm{spend}^{\mathrm{cap}}_{g} > 0 \vee \neg \mathrm{is\_flexible}_{g} \qquad \forall\, g \in \mathcal{G}
 ```
 
 ### Curves, as what they expand to

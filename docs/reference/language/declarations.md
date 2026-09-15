@@ -267,6 +267,11 @@ Three rules say what an assumption means:
 - **Two parameters may be compared.** `p_min <= p_max` reads the two coordinate
   by coordinate, the narrower one at every coordinate of the wider. Both are
   numbers, or both share a dtype. A number against a label is refused.
+- **Either side may be arithmetic.** `p_min <= 0.5 * p_max`,
+  `sum(p_max, over=generator) >= peak` and
+  `p_max <= at(bus_cap, by=bus_of)` are each one assumption, read as an
+  [expression](expressions.md#arithmetic-in-a-comparison) is: macros and named
+  expressions expand, `shift` names its `edge=`, and a variable is refused.
 
 A predicate that names a variable is refused, because an assumption is about
 the data and a variable is what the solver decides from it. State a rule about

@@ -134,9 +134,9 @@ class TestValidateExpressions:
         is a reported quantity. The constraint and the objective
         read it and hit the divisor ban at their own ceiling, which is the whole
         point of grading rather than banning at declaration. The piecewise-link
-        position is `test_a_link_reading_a_nonlinear_entry_is_refused`; a bound
-        and a where, which reference no expression at all, are
-        `test_a_bound_or_where_cannot_name_an_expression`.
+        position is `test_a_link_reading_a_nonlinear_entry_is_refused`; a bound,
+        which references no expression at all, and a where, which reads one
+        as arithmetic, are `test_a_bound_or_where_cannot_name_an_expression`.
         """
         with pytest.raises(LanguageError) as exc:
             _schema(**_NONLINEAR_ENTRY, **patch)
@@ -153,13 +153,13 @@ class TestValidateExpressions:
             ),
             pytest.param(
                 {'constraints': {'cap': {'dims': ['g'], 'where': 'bad > 0', 'expression': 'p <= c'}}},
-                "'bad' not found",
+                'a where compares expressions, and one side names a variable',
                 id='where',
             ),
         ],
     )
     def test_a_bound_or_where_cannot_name_an_expression(self, patch, fragment):
-        """A bound and a where reference parameters/variables, never a named expression, so the name fails to resolve whatever the entry's body."""
+        """A bound names a parameter and nothing else; a where reads the entry as arithmetic, and a body carrying a variable is refused there."""
         with pytest.raises(LanguageError) as exc:
             _schema(**_NONLINEAR_ENTRY, **patch)
         assert fragment in str(exc.value)
@@ -788,6 +788,39 @@ class TestAssumptions:
                 ("unknown key 'wher' in an assumption declaration", "Did you mean 'where'?"),
                 id='a-misspelt-key',
             ),
+            pytest.param(
+                {'assumptions': {'a': 'c > 2 * p'}},
+                ('one side names a variable', 'built before variables exist'),
+                id='a-variable-inside-arithmetic',
+            ),
+            pytest.param(
+                {
+                    'constraints': {'x': {'dims': ['g'], 'expression': 'p <= c'}},
+                    'assumptions': {'a': 'dual(x) * 2 > 0'},
+                },
+                ('one side reads a dual', 'test the data instead'),
+                id='a-dual-inside-arithmetic',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'tag * 2 > 0'}},
+                ("'tag' is declared dtype: str, and an expression is arithmetic",),
+                id='a-label-inside-arithmetic',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c / (k + 1) > 0'}},
+                ('a divisor must be a single Constant/Parameter factor',),
+                id='a-divisor-that-adds',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'shift(c, over=g, offset=1) <= k'}},
+                ('shift() over a variable-free expression leaves vacated positions with no value',),
+                id='a-translation-with-no-edge',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c * nope > 0'}},
+                ("'nope' not found",),
+                id='an-unknown-name-inside-arithmetic',
+            ),
         ],
     )
     def test_a_bad_assumption_is_refused_at_load(self, patch, fragments):
@@ -806,11 +839,48 @@ class TestAssumptions:
             pytest.param({}, "tag == 'gas'", id='a-label-against-a-literal'),
             pytest.param({}, 'NOT flag OR c > 0', id='a-compound-predicate'),
             pytest.param({}, 'k > 0', id='a-scalar'),
+            pytest.param({}, 'c <= 0.5 * k', id='arithmetic-on-a-side'),
+            pytest.param({'macros.half': {'args': ['x'], 'template': 'x / 2'}}, 'c <= half(k)', id='a-macro'),
+            pytest.param({'expressions.e': 'c * 2'}, 'e > 0', id='a-named-expression-on-the-left'),
+            pytest.param({'expressions.e': 'c * 2'}, 'k < e', id='a-named-expression-on-the-right'),
+            pytest.param({}, 'sum(c, over=g) >= k', id='a-reduction'),
+            pytest.param({'parameters.d': {'dims': ['h']}}, 'c <= at(d, by=lk)', id='a-pullback-through-a-lookup'),
+            pytest.param(
+                {},
+                {'holds': 'c - shift(c, over=g, offset=1, edge=0) <= k', 'where': 'position(g) > 0'},
+                id='a-translation',
+            ),
         ],
     )
     def test_an_assumption_about_the_data_loads(self, patch, holds):
         spec = _schema(**patch, assumptions={'a': holds})
         assert list(spec.assumptions) == ['a']
+
+    def test_a_comparison_of_expressions_is_held_to_the_frame_it_sits_in(self):
+        message = _refusal(
+            **{
+                'parameters.d': {'dims': ['h']},
+                'constraints': {'cap': {'dims': ['g'], 'where': 'c > d * 2', 'expression': 'p <= c'}},
+            }
+        )
+        assert "a where-comparison of expressions reads dims ['h'] outside the frame ['g']" in message
+
+    def test_a_case_comparing_expressions_is_refused_as_undecidable(self):
+        """Two cases split by arithmetic cannot be proved apart without the numbers, and the rewrite is named."""
+        message = _refusal(
+            expressions={
+                'e': {
+                    'dims': ['g'],
+                    'cases': {
+                        'wide': {'when': 'c > 2 * k', 'expression': 'c'},
+                        'narrow': {'when': 'c <= 2 * k', 'expression': 'k'},
+                    },
+                    'otherwise': 0,
+                }
+            }
+        )
+        assert 'cannot be told apart before the data arrives: it compares expressions' in message
+        assert 'precompute the test as a boolean parameter' in message
 
     def test_an_assumption_round_trips_in_the_form_it_was_written(self):
         """A bare string stays a bare string, and a mapping stays a mapping, so `to_yaml` reproduces the file."""

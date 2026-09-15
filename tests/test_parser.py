@@ -27,6 +27,7 @@ from math_spec._expression_parser import (
 )
 from math_spec._where_parser import (
     UnresolvedComparisonNode,
+    UnresolvedExpressionComparisonNode,
     UnresolvedNameNode,
     UnresolvedPositionNode,
     parse_where,
@@ -255,6 +256,35 @@ def test_a_where_string_parses_to_its_node(text, node_type, attrs):
     assert isinstance(node, node_type)
     for attr, expected in attrs.items():
         assert getattr(node, attr) == expected
+
+
+@pytest.mark.parametrize(
+    ('text', 'node_type'),
+    [
+        pytest.param('p > 0', UnresolvedComparisonNode, id='a-name-against-a-literal'),
+        pytest.param('x >= -1', UnresolvedComparisonNode, id='a-name-against-a-signed-literal'),
+        pytest.param('a == b', UnresolvedComparisonNode, id='a-name-against-a-name'),
+        pytest.param('position(t) == -1', UnresolvedPositionNode, id='a-position'),
+        pytest.param('p > 0.5 * q', UnresolvedExpressionComparisonNode, id='arithmetic-on-the-right'),
+        pytest.param('(a + b) <= c', UnresolvedExpressionComparisonNode, id='a-bracketed-sum-on-the-left'),
+        pytest.param('-p < 1', UnresolvedExpressionComparisonNode, id='a-negated-name'),
+        pytest.param('sum(p, over=g) >= k', UnresolvedExpressionComparisonNode, id='a-reduction'),
+        pytest.param('position(t) + 1 == 0', UnresolvedExpressionComparisonNode, id='position-inside-arithmetic'),
+    ],
+)
+def test_a_comparison_takes_the_expression_form_only_past_the_plain_shapes(text, node_type):
+    """`p > 0` keeps the node its dtype rule is written for; `p > 2 * q` is not cut short at `p > 2`."""
+    assert isinstance(parse_where(text), node_type)
+
+
+def test_a_bracketed_predicate_is_still_a_predicate():
+    """`(a > 0) AND b` groups a comparison; only `(a + b) <= c` brackets arithmetic."""
+    assert isinstance(parse_where('(a > 0) AND b'), AndNode)
+
+
+def test_a_where_side_is_held_to_the_depth_an_expression_is():
+    with pytest.raises(SchemaError, match='nests 121 deep'):
+        parse_where(' + '.join(['p'] * 120) + ' > 0')
 
 
 def test_and_binds_tighter_than_or():
