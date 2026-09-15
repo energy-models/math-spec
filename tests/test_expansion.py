@@ -212,19 +212,19 @@ def test_macro_collisions_rejected(patch, match):
             id='a-comparison-in-a-template',
         ),
         pytest.param(
-            {'lag': {'args': ['x'], 'template': 'shift(x, over=snapshot, offset=nope)'}},
+            {'lag': {'args': ['x'], 'template': 'shift(x, along=snapshot, offset=nope)'}},
             r"Macro 'lag'.*'nope' not found",
             id='a-typo-in-an-amount',
         ),
         pytest.param(
             {'grouped': {'args': ['x'], 'template': 'sum(x, by=nope)'}},
-            r"Macro 'grouped'.*sum\(by=nope\) does not name a lookup",
-            id='a-typo-in-a-lookup-kwarg',
+            r"Macro 'grouped'.*sum\(by=nope\) does not name a relation",
+            id='a-typo-in-a-relation-kwarg',
         ),
         pytest.param(
             {'grouped': {'args': ['x'], 'template': 'sum(x, by=[nope, also])'}},
-            r"Macro 'grouped'.*sum\(by=nope\) does not name a lookup",
-            id='a-typo-in-a-lookup-list',
+            r"Macro 'grouped'.*sum\(by=nope\) does not name a relation",
+            id='a-typo-in-a-relation-list',
         ),
     ],
 )

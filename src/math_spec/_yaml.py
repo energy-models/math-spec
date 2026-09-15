@@ -8,7 +8,7 @@
 language whose scalars are user data; both are fixed here:
 
 - **1.2 booleans.** ``on``/``off``/``yes``/``no``/``y``/``n`` are ordinary
-  names in this language — a country code as a dimension, a mode as a lookup.
+  names in this language — a country code as a dimension, a mode as a relation.
   YAML 1.1 resolves them to ``True``/``False``; only ``true``/``false`` are
   booleans here, which is the YAML 1.2 core schema.
 - **Duplicate keys.** 1.1 lets the last one win silently, discarding a
