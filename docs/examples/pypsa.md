@@ -5,41 +5,34 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA in one file
 
-This file states the model that a plain `n.optimize()` builds. It grows one
-**rung** at a time, where a rung is one `n.optimize()` keyword stated in full,
-towards [milestone 1](https://github.com/energy-models/math-spec/milestone/1).
-
-The index below lists every row that PyPSA `1.3.0` emits from
-`pypsa/optimization/`. Once a row is stated here, the index links it to its block
-in the file. The blocks are generated, so a row that stops loading or changes its
+The model a plain `n.optimize()` builds, stated as one file and grown a rung
+at a time towards
+[milestone 1](https://github.com/energy-models/math-spec/milestone/1). The
+index below lists every row PyPSA emits (PyPSA `1.3.0`,
+`pypsa/optimization/`) and links each to its block in the file once it is
+there. The blocks are generated, so a row that stops loading or changes its
 math fails CI.
 
-Three rules shape the file:
-
-- Bounds are the explicit rows that PyPSA writes, so their duals are row duals.
-- Regimes are data columns and `where:` masks, never variants of the file.
-- Names are PyPSA's own, in the form `Component_attribute`. The symbol table
-  `examples/symbols/pypsa.yaml` makes the math read as math.
+Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
+their duals are row duals. Regimes are data columns and `where:` masks, never
+file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
+(`examples/symbols/pypsa.yaml`) making the math read as math.
 
 ## Index
 
-A row is **done**, and gets a link, once the file states it as the one block that
-PyPSA builds, on this branch as it stands. A fix still on its way stays not-done,
-and the note carries its PR or issue. Three words say how far a row has to go:
+A row is **done** and links once the file states it as the one block PyPSA
+builds — on this branch, as it stands; a fix still on its way stays
+not-done, its PR or issue in the note. Three words say the distance:
+**split** — the same feasible region and optimum under a different
+statement: several `where:` blocks, or a bookkeeping difference the note
+names · **open** — not stated yet · **out** — never stated, deliberately:
+emitted only under the keyword, scope or version the note names. A name carrying `{k}` or `{s}` stands for the family PyPSA numbers per segment or scenario.
 
-- **split**: the same feasible region and the same optimum, stated differently,
-  as several `where:` blocks or with a bookkeeping difference the note names.
-- **open**: not stated yet.
-- **out**: never stated, deliberately. PyPSA emits it only under the keyword,
-  scope or version the note names.
-
-A name that carries `{k}` or `{s}` stands for the family that PyPSA numbers per
-segment or per scenario.
-
-Each rung's banner below states what PyPSA solved its reference network to. What
-an engine makes of the same rung is that engine's own record: the objective, the
-prices, and the two linopy models compared label for label. lpspec certifies
-itself against these rungs under `differential/pypsa/` in its own tree.
+Each rung's banner below states what PyPSA solved its reference network
+to. What an engine makes of the same rung — the objective and prices across
+the fence, and the two linopy models label for label — is that engine's own
+record: lpspec certifies itself against these rungs under
+`differential/pypsa/` in its own tree.
 
 <!-- reference:spine:begin -->
 > Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to the file, and what it makes of it, is that engine's own record.
@@ -420,8 +413,8 @@ def build():
 
 ### Rung 5 — global constraints
 
-PyPSA names all of these `GlobalConstraint-{name}`. The type and the comparator
-are both data, so each type becomes three blocks here, one per sense.
+`GlobalConstraint-{name}` for all; the type and the comparator are data, so
+each type is three blocks by sense.
 
 | PyPSA type                            | status      | note                                              |
 | ------------------------------------- | ----------- | ------------------------------------------------- |
@@ -612,7 +605,7 @@ def build():
 | [`{c}-com-p-lower/upper`](#generator-com-p-lower) | done |                                                          |
 | [`{c}-*-p-fixed-upper`](#generator-status-p-fixed-upper) | done | status, start and stop each at most one, as explicit rows |
 | [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | the state carried into a snapshot is a cased quantity, so the first snapshot needs no block of its own |
-| [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(within=min_up_time)`                    |
+| [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(window=min_up_time)`                    |
 | [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal, not a parameter |
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
 | [`{c}-com-p-before/-current/-partly-*`](pypsa_linearized_uc.md) | done | rung 12, a file of its own                          |
@@ -825,10 +818,9 @@ def build():
 
 ### Rung 11 — ac-dc-meshed
 
-This is PyPSA's `ac_dc_meshed` example in full. It has meshed AC and DC,
-extendable lines, links and generators, carriers, and a CO2 budget. It composes
-every statement above. It is also the first rung that has an objective
-constant.
+PyPSA's `ac_dc_meshed` example, whole: meshed AC and DC, extendable lines,
+links and generators, carriers, a CO2 budget. Every statement above,
+composed; the first rung with an objective constant.
 
 <!-- reference:rung_11_ac_dc_meshed:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `-3474256.0405499237`, 468 rows.
@@ -1115,25 +1107,18 @@ def build():
 
 ### Rung 16 — link delay
 
-This rung has a source feeding two sinks, over links whose energy arrives late.
+A source feeding two sinks over links whose energy arrives late. PyPSA's
+`delay` lags a port's delivery by a number of snapshots, and `cyclic_delay`
+says whether the flow still in transit at the horizon's edge wraps to the start
+or is lost. The two are a per-link number and a per-link kind, so the balance
+turns them on with a `cases:` block over `shift(…, offset=Link_output_delay,
+edge=…)` — one arm wrapping (`edge='wrap'`), the other vacating (`edge=0`).
 
-PyPSA's `delay` lags a port's delivery by a number of snapshots. `cyclic_delay`
-says what happens to the flow that is still in transit at the edge of the
-horizon: it either wraps around to the start, or it is lost.
-
-So the two settings are a per-link number and a per-link kind. The balance
-turns them on with a `cases:` block over
-`shift(…, offset=Link_output_delay, edge=…)`. One arm wraps, with
-`edge='wrap'`, and the other vacates, with `edge=0`.
-
-This is the one rung whose `generators` weighting is uniform, and that matters.
-PyPSA measures `delay` in those units. So with a uniform column, a delay of `n`
-is a shift of exactly `n` snapshot positions, which a positional `shift`
-reproduces.
-
-Under a non-uniform column, PyPSA resamples by elapsed time rather than by
-position. That is a shift which varies along the snapshot axis, and it is above
-what `shift` can state (#299).
+This is the one rung whose `generators` weighting is uniform. PyPSA measures
+`delay` in those units, so a uniform column makes a delay of `n` a shift of
+exactly `n` snapshot positions, which a positional `shift` reproduces. Under a
+non-uniform column PyPSA resamples by elapsed time rather than by position — a
+shift that varies along the snapshot axis, above what `shift` states (#299).
 
 | PyPSA                     | status | note                                            |
 | ------------------------- | ------ | ----------------------------------------------- |
@@ -1212,14 +1197,10 @@ def build():
 
 ## Refusals
 
-Where PyPSA refuses to build, parity means refusing here too.
-
-None of these is a gap in the language. Each one is a data check that has not
-been made yet. Where each check should live is one open question, and the
-candidates are the language, data preparation, and the harness.
-
-The line numbers below are pinned to pypsa 1.3.0, which is the version the
-records above come from.
+Where PyPSA refuses to build, parity means refusing too. None is a language
+gap; each is a data check not made yet, and where it should live — language,
+data prep, or harness — is one open question. Line numbers are pinned pypsa
+1.3.0, the version the records above are from.
 
 | PyPSA raises                                 | on                                                | here                    | note |
 | -------------------------------------------- | ------------------------------------------------- | ----------------------- | ---- |
@@ -1229,9 +1210,9 @@ records above come from.
 | `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
 | `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | out                     |      |
 
-The harness on the lpspec side reads the duals and the solutions back.
-`marginal_price` is the balance dual over `w_objective`. `mu_upper` is the
-concatenation of the regime blocks. `p0` and `p1` are derived from `Link-p`.
+Duals and solutions are read back by the harness on the lpspec side:
+`marginal_price` is the balance dual over `w_objective`, `mu_upper` the
+concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 
 ## The file
 
@@ -1243,9 +1224,9 @@ The model a plain `n.optimize()` builds, stated in one file. Every declaration i
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
-| $`\mathcal{N}`$ | index $`n`$ — `bus` — network nodes |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N},\ \mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N},\ \mathrm{Store\_bus}: \mathcal{V} \to \mathcal{N}`$ — network nodes |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
-| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
 | $`\mathcal{S}`$ | index $`s`$ — `storage_unit` with $`\mathrm{StorageUnit\_bus}: \mathcal{S} \to \mathcal{N}`$ — storage units, dispatch and store behind one bus connection |
@@ -1874,7 +1855,7 @@ Generator_com_up_time:
     up time's, which the must-stay-up mask carries
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
+  expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
 ```
 
 ```math
@@ -1890,7 +1871,7 @@ Generator_com_down_time:
   description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
+  expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
 ```
 
 ```math
@@ -2448,7 +2429,7 @@ Link_p_ramp_limit_up:
     optimize builds no row either
   dims: [snapshot, link]
   where: Link_ramp_limit_up
-  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
+  expression: Link_p - shift(Link_p, along=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
 ```
 
 ```math
@@ -2464,7 +2445,7 @@ Link_p_ramp_limit_down:
   description: "`Link-p-ramp_limit_down` — a link lowers flow no faster than its limit of the build"
   dims: [snapshot, link]
   where: Link_ramp_limit_down
-  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
+  expression: shift(Link_p, along=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
 ```
 
 ```math
@@ -3129,7 +3110,7 @@ Generator_previous_status:
   dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
-  otherwise: shift(Generator_status, over=snapshot, offset=1)
+  otherwise: shift(Generator_status, along=snapshot, offset=1)
 ```
 
 ```math
@@ -3147,7 +3128,7 @@ Generator_previous_p:
   dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: 0 }
-  otherwise: shift(Generator_p, over=snapshot, offset=1)
+  otherwise: shift(Generator_p, along=snapshot, offset=1)
 ```
 
 ```math
@@ -3243,11 +3224,11 @@ StorageUnit_charge_carried_in:
   cases:
     cyclic:
       when: StorageUnit_cyclic_state_of_charge
-      expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+      expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap')
     opening:
       when: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
       expression: StorageUnit_state_of_charge_initial
-  otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
+  otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1)
 ```
 
 ```math
@@ -3267,11 +3248,11 @@ Store_energy_carried_in:
   cases:
     cyclic:
       when: Store_e_cyclic
-      expression: Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
+      expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap')
     opening:
       when: not Store_e_cyclic AND position(snapshot) == 0
       expression: Store_e_initial
-  otherwise: Store_retention * shift(Store_e, over=snapshot, offset=1)
+  otherwise: Store_retention * shift(Store_e, along=snapshot, offset=1)
 ```
 
 ```math
@@ -3293,8 +3274,8 @@ Link_output_arrival:
   cases:
     wrapping:
       when: Link_output_cyclic_delay
-      expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge='wrap')
-  otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge=0)
+      expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
+  otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
 ```
 
 ```math

@@ -60,7 +60,7 @@ expressions:
       boundary:
         when: "committable and position(snapshot) == 0"
         expression: status_initial
-    otherwise: shift(status, over=snapshot, offset=1)
+    otherwise: shift(status, along=snapshot, offset=1)
 
 constraints:
   power_balance:
@@ -80,7 +80,7 @@ constraints:
       `ramp_limit`, a unit starting up to `start_up_limit`.
     dims: [snapshot, generator]
     expression: >-
-      p - shift(p, over=snapshot, offset=1, edge=0)
+      p - shift(p, along=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 
 objective:

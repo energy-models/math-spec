@@ -5,17 +5,15 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the relaxed commitment
 
-This is rung 12 of [PyPSA in one file](pypsa.md). It states
-`n.optimize(linearized_unit_commitment=True)` on rungs 1 and 7, in a file of its
-own. The model's description below says why it has its own file. Its network is
-the shared spine plus the script's own additions.
+Rung 12 of [PyPSA in one file](pypsa.md): `n.optimize(linearized_unit_commitment=True)`, stated on rungs 1 and 7 in a
+file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
 
 ## Rung 12 — linearized unit commitment
 
 | PyPSA | status | note |
 | --- | --- | --- |
 | [`Generator-status`, `-start_up`, `-shut_down`](#variable-domains) | done | shares in [0, 1], not binaries |
-| [`Generator-com-p-before`](#generator-com-p-before) | done | used where a start and a stop cost the same. It is a boolean from data preparation |
+| [`Generator-com-p-before`](#generator-com-p-before) | done | where start and stop cost the same — a data-prep bool |
 | [`Generator-com-p-current`](#generator-com-p-current) | done | |
 | [`Generator-com-partly-start-up`](#generator-com-partly-start-up) | done | |
 | [`Generator-com-partly-shut-down`](#generator-com-partly-shut-down) | done | |
@@ -100,9 +98,9 @@ The relaxed class of a plain `n.optimize()`: `linearized_unit_commitment`, state
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
-| $`\mathcal{N}`$ | index $`n`$ — `bus` — network nodes |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — network nodes |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
-| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — demands, each on one bus |
 
@@ -332,7 +330,7 @@ Generator_com_up_time:
     up time's, which the must-stay-up mask carries
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
+  expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
 ```
 
 ```math
@@ -348,7 +346,7 @@ Generator_com_down_time:
   description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
+  expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
 ```
 
 ```math
@@ -487,8 +485,8 @@ Generator_com_p_before:
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
-    shift(Generator_p, over=snapshot, offset=1)
-    - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+    shift(Generator_p, along=snapshot, offset=1)
+    - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
     - (Generator_p_max_pu * Generator_p_nom - Generator_ramp_limit_shut_down * Generator_p_nom)
     * (Generator_status - Generator_start_up) <= 0
 ```
@@ -525,9 +523,9 @@ Generator_com_partly_start_up:
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1)
+    Generator_p - shift(Generator_p, along=snapshot, offset=1)
     - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_up * Generator_p_nom) * Generator_status
-    + Generator_p_min_pu * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+    + Generator_p_min_pu * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
     + (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_up * Generator_p_nom - Generator_ramp_limit_start_up * Generator_p_nom)
     * Generator_start_up <= 0
 ```
@@ -546,8 +544,8 @@ Generator_com_partly_shut_down:
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p
-    - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+    shift(Generator_p, along=snapshot, offset=1) - Generator_p
+    - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
     + (Generator_ramp_limit_shut_down * Generator_p_nom - Generator_ramp_limit_down * Generator_p_nom) * Generator_status
     - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_down * Generator_p_nom - Generator_ramp_limit_shut_down * Generator_p_nom)
     * Generator_start_up <= 0
@@ -567,7 +565,7 @@ Generator_previous_status:
   dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
-  otherwise: shift(Generator_status, over=snapshot, offset=1)
+  otherwise: shift(Generator_status, along=snapshot, offset=1)
 ```
 
 ```math
@@ -585,7 +583,7 @@ Generator_previous_p:
   dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: 0 }
-  otherwise: shift(Generator_p, over=snapshot, offset=1)
+  otherwise: shift(Generator_p, along=snapshot, offset=1)
 ```
 
 ```math
