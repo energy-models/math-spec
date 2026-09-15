@@ -55,6 +55,7 @@ SECTIONS = {
     'constraints': 'Constraints',
     'expressions': 'Definitions',
     'variables': 'Variable domains',
+    'assumptions': 'Assumptions',
     'piecewise': 'Curves, as what they expand to',
     'sos': 'Sets carried to the solver',
 }
@@ -262,15 +263,16 @@ def _labels(declaration: Declaration, printed: dict[str, str]) -> list[str]:
     Two blocks do not print under their own name. A ``sos:`` block restricts a
     variable, so its line sits with that variable; a ``piecewise:`` block is
     sugar, and what prints is the rows and columns it expands to — every one of
-    which the expander names after the block. A declaration printing nothing is
-    an error rather than an empty row: it means the walk stopped rendering
-    something the file still declares.
+    which the expander names after the block — and, under Assumptions, what
+    the block assumes of its breakpoints, labelled ``<block> <check>``. A
+    declaration printing nothing is an error rather than an empty row: it
+    means the walk stopped rendering something the file still declares.
     """
     if declaration.name in printed:
         return [declaration.name]
     if (variable := declaration.field('variable')) and f'{variable} sos' in printed:
         return [f'{variable} sos']
-    expanded = [label for label in printed if label.startswith(f'{declaration.name}_')]
+    expanded = [label for label in printed if label.startswith((f'{declaration.name}_', f'{declaration.name} '))]
     assert expanded, f'{declaration.name} declares math and the walk printed none of it'
     return expanded
 

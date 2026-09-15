@@ -18,6 +18,7 @@ from math_spec.typesetting.format import OPERATOR_NAMES
 from math_spec.typesetting.symbols import Symbols, _derive_name_symbol, chosen_expressions
 from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, override
+from tests.test_piecewise import LP, LP_MASKED
 from tests.typesetting import golden
 from tests.typesetting.fixtures import EVERY_FORMAT, LATEX
 
@@ -762,10 +763,57 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(name: FormatName, fm
 
 
 @EVERY_FORMAT
-def test_a_comparison_of_expressions_prints_as_the_arithmetic_it_is(name: FormatName, fmt: Format):
-    """`cost <= p_max / 2` on a quantifier renders each side as an expression, around the relation."""
-    model = override(DISPATCH_MODEL, **{'variables.p.where': 'cost <= p_max / 2'})
+def test_an_assumption_prints_under_its_own_heading_quantified_over_its_frame(name: FormatName, fmt: Format):
+    """What the data is held to prints last, after what the solver decides, one line per entry.
+
+    A predicate that is one comparison splits on its relation as a constraint
+    does; its `where` sits on the quantifier as a constraint's does.
+    """
+    model = override(
+        DISPATCH_MODEL,
+        assumptions={'ordered': {'holds': 'cost <= p_max', 'where': 'cost'}, 'positive': 'cost > 0'},
+    )
     text = typeset(model, name, legend=False)
-    p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
+    assert text.index('Variable domains') < text.index('Assumptions'), 'the section comes after the domains'
     cost = fmt.subscript(fmt.upright('cost'), ['g'])
-    assert f'{cost} {fmt.operators["le"]} {fmt.fraction(p_max, "2")}' in text
+    p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
+    section = text[text.index('Assumptions') :]
+    [ordered] = [line for line in section.splitlines() if f'{fmt.operators["le"]} {p_max}' in line]
+    assert cost in ordered and ordered.index(cost) < ordered.index(fmt.operators['le']), 'the relation splits the line'
+    assert fmt.operators['such_that'] in ordered and fmt.prose(' is defined') in ordered, (
+        'the where is the condition on the quantifier'
+    )
+    assert f'{fmt.operators["gt"]} 0' in section
+
+
+@EVERY_FORMAT
+def test_a_curve_prints_what_it_assumes_of_its_breakpoints(name: FormatName, fmt: Format):
+    """The checks a `piecewise:` block carries print beside the author's, under the block's name."""
+    text = typeset(LP_MASKED, name, legend=False)
+    section = text[text.index('Assumptions') :]
+    for kind in ('increasing', 'curvature', 'breakpoints', 'points'):
+        assert f'curve {kind}' in section, 'every check the block carries prints as a line labelled by the block'
+    bp_x = fmt.upright('bp_x')
+    [increasing] = [line for line in section.splitlines() if fmt.subscript(bp_x, ['b - 1']) in line]
+    assert f'{fmt.operators["lt"]} {fmt.subscript(bp_x, ["b"])}' in increasing, (
+        'strictly increasing breakpoints are an inequality between neighbours'
+    )
+    assert fmt.prose(' is a convex function of ') in section, 'the shape lp is exact for, as a paper writes it'
+    assert f'{fmt.operators["ge"]} 2' in section
+
+    unmasked = typeset(LP, name, legend=False)
+    unmasked = unmasked[unmasked.index('Assumptions') :]
+    assert fmt.cardinality(fmt.script('B')) in unmasked and f'{fmt.operators["ge"]} 2' in unmasked, (
+        'with no mask the count is the size of the breakpoint set itself'
+    )
+    assert 'curve points' not in unmasked, 'nothing to be contiguous without a mask'
+
+
+@EVERY_FORMAT
+def test_a_comparison_of_expressions_prints_as_the_arithmetic_it_is(name: FormatName, fmt: Format):
+    """`p_min <= 0.5 * p_max` aligns on its relation like any comparison, each side rendered as an expression."""
+    model = override(DISPATCH_MODEL, assumptions={'half': 'cost <= p_max / 2'})
+    text = typeset(model, name, legend=False)
+    section = text[text.index('Assumptions') :]
+    p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
+    assert f'{fmt.operators["le"]} {fmt.fraction(p_max, "2")}' in section

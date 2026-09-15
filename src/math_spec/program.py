@@ -42,6 +42,7 @@ __all__ = [
     'Add',
     'AndNode',
     'ArithmeticComparisonNode',
+    'AssumptionDeclaration',
     'At',
     'AtLeastTwo',
     'BooleanLiteralNode',
@@ -83,6 +84,7 @@ __all__ = [
     'ParameterDeclaration',
     'ParameterDefinedNode',
     'ParameterDtype',
+    'ParameterPairComparisonNode',
     'PiecewiseDeclaration',
     'Power',
     'PredicateOperator',
@@ -107,6 +109,7 @@ __all__ = [
     'Walk',
     'WhereNode',
     'Window',
+    'assumption_message',
     'carries_variable',
     'check_message',
     'children',
@@ -755,6 +758,32 @@ class ConstraintDeclaration:
 
 
 @dataclass(frozen=True)
+class AssumptionDeclaration:
+    """An ``assumptions:`` entry: what the file assumes of its data, kept for the consumer holding it to check.
+
+    ``holds`` is true at every coordinate of its frame — the product of every
+    dim the two masks name — that ``where`` admits, a missing row reading as
+    false as it does in any mask. The language decides nothing about the
+    numbers, so a consumer binding data checks, and refuses the data with
+    :func:`assumption_message` at the first coordinate where ``holds`` is
+    false.
+    """
+
+    holds: Mask
+    where: Mask | None = None
+
+
+def assumption_message(name: str, assumption: AssumptionDeclaration) -> str:
+    """The sentence a consumer raises when the data bound to *assumption*, called *name*, fails it.
+
+    The language's own wording, so every consumer refuses in the same words;
+    a consumer appends the coordinates it saw.
+    """
+    read = ', '.join(f"'{n}'" for n in sorted(assumption.holds.names_read))
+    return f"assumption '{name}' does not hold for the data bound to {read}"
+
+
+@dataclass(frozen=True)
 class SosDeclaration:
     """One special-ordered set per coordinate of the variable's ``dims`` minus ``over``.
 
@@ -948,6 +977,9 @@ class Program:
     #: Each ``piecewise:`` block the file wrote, as facts — see
     #: :class:`PiecewiseDeclaration`.
     piecewise: Mapping[str, PiecewiseDeclaration] = Sealed({})
+    #: What the file assumes of its data, by the name it wrote — see
+    #: :class:`AssumptionDeclaration`. A consumer binding data checks each.
+    assumptions: Mapping[str, AssumptionDeclaration] = Sealed({})
     #: Declared ``expressions:``, lowered, each saying whether the math reads
     #: it. None builds a row of its own — one the math reads is inlined where
     #: it is read — but all are lowered with the program, so a file whose
@@ -1141,6 +1173,20 @@ class ParameterComparisonNode:
 
 
 @dataclass(frozen=True)
+class ParameterPairComparisonNode:
+    """Compare two parameters, coordinate by coordinate — ``p_min <= p_max``.
+
+    ``dims`` is the union of both parameters' dims: the narrower one is read
+    at every coordinate of the wider, as a product of the two would be.
+    """
+
+    name: str
+    other: str
+    op: PredicateOperator
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ExpressionComparisonNode:
     """Compare two variable-free expressions, coordinate by coordinate — ``p_min <= 0.5 * p_max``.
 
@@ -1269,6 +1315,7 @@ WhereNode = (
     | ParameterDefinedNode
     | VariableDefinedNode
     | ParameterComparisonNode
+    | ParameterPairComparisonNode
     | ExpressionComparisonNode
     | ArithmeticComparisonNode
     | DimensionComparisonNode
@@ -1285,6 +1332,7 @@ WhereNode = (
 #: decide about them.
 TypedPredicateNode = (
     ParameterComparisonNode
+    | ParameterPairComparisonNode
     | ExpressionComparisonNode
     | ArithmeticComparisonNode
     | ParameterDefinedNode
@@ -1350,6 +1398,7 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
     match atom:
         case (
             ParameterComparisonNode()
+            | ParameterPairComparisonNode()
             | ExpressionComparisonNode()
             | ArithmeticComparisonNode()
             | ParameterDefinedNode()
@@ -1370,8 +1419,9 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
     """One leaf's declarations, its dimension apart — the rule :attr:`Mask.names_read` is the union of.
 
     A comparison on a dimension names no declaration — a coordinate is not
-    data to feed — a relation pair names both maps it compares, and a comparison
-    of expressions names every parameter and relation its sides read.
+    data to feed — a relation pair and a parameter pair each name both sides
+    they compare, and a comparison of expressions names every parameter and
+    relation its sides read.
     ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
     node added without a reading is a type error at this one branch rather
     than a name silently dropped at the first model to use it.
@@ -1385,7 +1435,7 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
             | RelationDefinedNode()
         ):
             return frozenset({atom.name})
-        case RelationPairComparisonNode():
+        case RelationPairComparisonNode() | ParameterPairComparisonNode():
             return frozenset({atom.name, atom.other})
         case ExpressionComparisonNode():
             return _names_under(atom.left, atom.right)

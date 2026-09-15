@@ -33,6 +33,7 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterPairComparisonNode,
     RelationComparisonNode,
     RelationDefinedNode,
     RelationPairComparisonNode,
@@ -138,7 +139,7 @@ class Subject:
     a rank is further split by the ``by=`` relation it is counted within.
     """
 
-    kind: Literal['param', 'expression', 'dim', 'rank', 'relation', 'relation_pair', 'variable']
+    kind: Literal['param', 'param_pair', 'expression', 'dim', 'rank', 'relation', 'relation_pair', 'variable']
     name: str
     qualifier: str | None = None
     #: A rank's group columns: two positions by one relation into different columns are two subjects.
@@ -148,7 +149,7 @@ class Subject:
         if self.kind == 'rank':
             within = f' within {self.qualifier}' if self.qualifier else ''
             return f'the position of {self.name}{within}'
-        if self.kind == 'relation_pair':
+        if self.kind in ('relation_pair', 'param_pair'):
             return f'{self.name} vs {self.qualifier}'
         return self.name
 
@@ -191,12 +192,16 @@ def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtype
     """Record what *node* says about its subject: a position, or a literal.
 
     ``position()`` converts the dimension to an integer, so an ordering over a
-    rank is an ordering of integers and every comparator is admitted there.
+    rank is an ordering of integers and every comparator is admitted there. A
+    parameter pair names no literal: its subject is the order between the two
+    columns, whose cells :func:`_cells_for` fixes.
     """
+    if isinstance(node, ParameterPairComparisonNode):
+        return
     if isinstance(node, ArithmeticComparisonNode | ExpressionComparisonNode):
         msg = (
             'it compares expressions, whose values only the data decides — compare one parameter against a '
-            'literal, or precompute the test as a boolean parameter and test that'
+            'literal or another parameter, or precompute the test as a boolean parameter and test that'
         )
         raise Undecidable(msg)
     if isinstance(node, DimensionPositionNode):
@@ -228,6 +233,8 @@ def _subject_of(node: TypedPredicateNode) -> Subject:
             return Subject('variable', name)
         case DimensionComparisonNode(name=name):
             return Subject('dim', name)
+        case ParameterPairComparisonNode(name=name, other=other):
+            return Subject('param_pair', name, other)
         case DimensionPositionNode(name=name, partition=partition):
             if partition is None:
                 return Subject('rank', name)
@@ -252,6 +259,8 @@ def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, Declared
         return _rank_cells(subject, cast('set[int]', values))
     if subject.kind in ('relation_pair', 'variable'):
         return [True, False]
+    if subject.kind == 'param_pair':
+        return [*_PAIR_ORDERS, Special.NULL]
     dtype = dtypes.get(subject.name)
     if dtype == 'bool':
         if values:
@@ -373,11 +382,18 @@ def _rank_cells(subject: Subject, positions_seen: set[int]) -> list[Cell]:
     return cells
 
 
+#: The order the left side of a parameter pair stands in to the right: the sign
+#: of their difference, which every comparator reads against ``0``.
+_PAIR_ORDERS: tuple[int, ...] = (-1, 0, 1)
+
+
 def _shown(subject: Subject, value: Cell) -> str:
     if subject.kind == 'rank':
         return str(value)
     if subject.kind == 'relation_pair':
         return 'equal' if value else 'different'
+    if subject.kind == 'param_pair' and isinstance(value, int):
+        return {-1: 'less', 0: 'equal', 1: 'greater'}[value]
     if isinstance(value, Special):
         return {Special.NULL: 'absent', Special.OTHER: 'anything else'}.get(value, value.value)
     if isinstance(value, bool):
@@ -419,6 +435,10 @@ def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], grid: _Grid) -> b
             return bool(value)
         case RelationPairComparisonNode(op=op):
             return bool(value) if op == '==' else not value
+        case ParameterPairComparisonNode(op=op):
+            if value is Special.NULL:
+                return False
+            return _compare(value, op, 0)
         case ArithmeticComparisonNode() | ExpressionComparisonNode():
             msg = 'a comparison of expressions is refused as undecidable before any cell is read'
             raise AssertionError(msg)

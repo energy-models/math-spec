@@ -175,6 +175,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `name OP value`                           | parameter                                | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                    |
 | `name OP value`                           | dimension                                | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                       |
 | `name OP value`, `name.col OP value`      | relation                                 | A filter on a value column of a keyed relation, read at its key, so the key's dimensions have to be in the frame. Name the column where the key determines several. A null compares false                                                                                                           |
+| `name OP name`                            | two parameters                           | Coordinate by coordinate, the narrower one read at every coordinate of the wider. Both are numbers, or both share a dtype. A null on either side compares false                                                                                                                                     |
 | `name OP name`, `name.a OP name.b`        | two relation columns                     | Legal only where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                                                                                                                           |
 | `expression OP expression`                | arithmetic over parameters               | Coordinate by coordinate, over every dimension either side carries. A macro and a named expression expand as in an expression, and every operator keeps its rule, so a `shift` names its `edge=`. A side with no value at a coordinate compares false                                               |
 | `position(name) OP i`                     | dimension                                | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
@@ -213,12 +214,13 @@ so `node >= 'b'` means the same however the nodes were listed. A label the
 dimension does not carry compares equal to nothing, so the mask is false there
 rather than an error.
 
-Comparing two parameters, or two dimensions, is not in the language. Precompute a
-boolean parameter instead. Two relation columns are the exception, where the two
-relations are keyed over the same dimensions and the two columns are over one
-dimension. Keyed alike, they are two columns of one key table, so the comparison
-filters that table rather than joining two. Over one dimension they draw from one
-label set, so a match is possible at all.
+Two parameters compare coordinate by coordinate, as `p_min <= p_max` does.
+Two relation columns compare where the two relations are keyed over the same
+dimensions and the two columns are over one dimension. Keyed alike, they are
+two columns of one key table, so the comparison filters that table rather than
+joining two. Over one dimension they draw from one label set, so a match is
+possible at all. Comparing two dimensions is not in the language. Precompute a
+boolean parameter instead.
 
 ### Arithmetic in a comparison
 

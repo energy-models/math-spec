@@ -83,6 +83,11 @@ constraints:
       dispatch - shift(dispatch, along=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 
+assumptions:
+  floor_below_capacity:
+    description: a floor above the capacity leaves `upper` and `lower` no output to agree on
+    holds: "min_output <= capacity"
+
 objective:
   sense: minimize
   expression: sum(dispatch * cost)
@@ -181,6 +186,14 @@ $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own ord
 
 ```math
 \mathit{status}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+```
+
+#### Assumptions
+
+**`floor_below_capacity`**
+
+```math
+\mathrm{min\_output}_{g} \le \mathrm{capacity}_{g} \qquad \forall\, g \in \mathcal{G}
 ```
 <!-- gallery:end -->
 

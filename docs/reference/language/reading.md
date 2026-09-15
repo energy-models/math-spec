@@ -94,6 +94,11 @@ parameters it is about. The engine, which has the numbers, runs the check, and
 says how a parameter is filled, and `None` means the engine binds it from its
 data.
 
+`program.assumptions` keeps each `assumptions:` entry as two masks, `holds` and
+`where`, under the name the file wrote. The engine checks `holds` at every
+coordinate of the product of the dimensions the two masks name that `where`
+admits, and `assumption_message` gives it the sentence to raise.
+
 ## Nodes and masks
 
 You never build a node yourself. The node classes are exported so that you can

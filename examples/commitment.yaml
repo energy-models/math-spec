@@ -67,6 +67,11 @@ constraints:
       dispatch - shift(dispatch, along=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
 
+assumptions:
+  floor_below_capacity:
+    description: a floor above the capacity leaves `upper` and `lower` no output to agree on
+    holds: "min_output <= capacity"
+
 objective:
   sense: minimize
   expression: sum(dispatch * cost)

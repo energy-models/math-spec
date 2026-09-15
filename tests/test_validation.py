@@ -893,7 +893,9 @@ class TestRulesDecidedWithoutData:
                 id='where-two-relations-with-different-keys',
             ),
             pytest.param(
-                {'variables.p.where': 'c > flag'}, ('compares two parameters',), id='where-against-a-parameter'
+                {'variables.p.where': 'c > flag'},
+                ('compares a float parameter against a bool one', 'Declare both as numbers'),
+                id='where-against-a-parameter-of-another-dtype',
             ),
             pytest.param(
                 {'variables.p.where': 'c > q'},
@@ -921,6 +923,153 @@ class TestRulesDecidedWithoutData:
         message = _refusal(**patch)
         for fragment in fragments:
             assert fragment in message
+
+
+class TestAssumptions:
+    """What an `assumptions:` entry may say, decided with no data bound."""
+
+    @pytest.mark.parametrize(
+        ('patch', 'fragments'),
+        [
+            pytest.param(
+                {'assumptions': {'a': 'True'}},
+                ("Assumption 'a'", 'folds to True', 'assumes nothing of the data'),
+                id='a-predicate-that-is-always-true',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c > 0 AND False'}},
+                ('folds to False', 'holds on no data at all'),
+                id='a-predicate-that-is-always-false',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'p'}},
+                ("variable 'p' stands in what the assumption assumes", 'an assumption is about the data'),
+                id='a-variable-in-the-predicate',
+            ),
+            pytest.param(
+                {'assumptions': {'a': {'holds': 'c > 0', 'where': 'q'}}},
+                ("variable 'q' stands in what the assumption is checked where",),
+                id='a-variable-in-the-where',
+            ),
+            pytest.param({'assumptions': {'a': 'nope > 0'}}, ("'nope' not found",), id='an-unknown-name'),
+            pytest.param({'assumptions': {'a': 'c >'}}, ('Failed to parse where string',), id='a-malformed-predicate'),
+            pytest.param(
+                {'assumptions': {'a': 'c > tag'}},
+                ('compares a float parameter against a str one', 'Declare both as numbers'),
+                id='two-parameters-of-different-dtypes',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c > p'}}, ('compares against variable',), id='a-parameter-against-a-variable'
+            ),
+            pytest.param(
+                {'assumptions': {'a': {'holds': 'c > 0', 'wher': 'flag'}}},
+                ("unknown key 'wher' in an assumption declaration", "Did you mean 'where'?"),
+                id='a-misspelt-key',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c > 2 * p'}},
+                ('one side names a variable', 'built before variables exist'),
+                id='a-variable-inside-arithmetic',
+            ),
+            pytest.param(
+                {
+                    'constraints': {'x': {'dims': ['g'], 'expression': 'p <= c'}},
+                    'assumptions': {'a': 'dual(x) * 2 > 0'},
+                },
+                ('one side reads a dual', 'test the data instead'),
+                id='a-dual-inside-arithmetic',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'tag * 2 > 0'}},
+                ("'tag' is declared dtype: str, and an expression is arithmetic",),
+                id='a-label-inside-arithmetic',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c / (k + 1) > 0'}},
+                ('a divisor must be a single Constant/Parameter factor',),
+                id='a-divisor-that-adds',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'shift(c, along=g, offset=1) <= k'}},
+                ('shift() over a variable-free expression leaves vacated positions with no value',),
+                id='a-translation-with-no-edge',
+            ),
+            pytest.param(
+                {'assumptions': {'a': 'c * nope > 0'}},
+                ("'nope' not found",),
+                id='an-unknown-name-inside-arithmetic',
+            ),
+        ],
+    )
+    def test_a_bad_assumption_is_refused_at_load(self, patch, fragments):
+        message = _refusal(**patch)
+        for fragment in fragments:
+            assert fragment in message
+
+    @pytest.mark.parametrize(
+        ('patch', 'holds'),
+        [
+            pytest.param({}, 'c >= 0', id='one-parameter-against-a-number'),
+            pytest.param({}, 'c <= k', id='two-numbers-of-different-dims'),
+            pytest.param({'parameters.n': {'dims': ['g'], 'dtype': 'int'}}, 'n < c', id='an-int-against-a-float'),
+            pytest.param({'parameters.tag2': {'dims': ['g'], 'dtype': 'str'}}, 'tag != tag2', id='two-labels'),
+            pytest.param({'parameters.flag2': {'dims': ['g'], 'dtype': 'bool'}}, 'flag == flag2', id='two-flags'),
+            pytest.param({}, "tag == 'gas'", id='a-label-against-a-literal'),
+            pytest.param({}, 'NOT flag OR c > 0', id='a-compound-predicate'),
+            pytest.param({}, 'k > 0', id='a-scalar'),
+            pytest.param({}, 'c <= 0.5 * k', id='arithmetic-on-a-side'),
+            pytest.param({'macros.half': {'args': ['x'], 'template': 'x / 2'}}, 'c <= half(k)', id='a-macro'),
+            pytest.param({'expressions.e': 'c * 2'}, 'e > 0', id='a-named-expression-on-the-left'),
+            pytest.param({'expressions.e': 'c * 2'}, 'k < e', id='a-named-expression-on-the-right'),
+            pytest.param({}, 'sum(c, over=g) >= k', id='a-reduction'),
+            pytest.param({'parameters.d': {'dims': ['h']}}, 'c <= at(d, by=lk)', id='a-pullback-through-a-lookup'),
+            pytest.param(
+                {},
+                {'holds': 'c - shift(c, along=g, offset=1, edge=0) <= k', 'where': 'position(g) > 0'},
+                id='a-translation',
+            ),
+        ],
+    )
+    def test_an_assumption_about_the_data_loads(self, patch, holds):
+        spec = _schema(**patch, assumptions={'a': holds})
+        assert list(spec.assumptions) == ['a']
+
+    def test_a_comparison_of_expressions_is_held_to_the_frame_it_sits_in(self):
+        message = _refusal(
+            **{
+                'parameters.d': {'dims': ['h']},
+                'constraints': {'cap': {'dims': ['g'], 'where': 'c > d * 2', 'expression': 'p <= c'}},
+            }
+        )
+        assert "a where-comparison of expressions reads dims ['h'] outside the frame ['g']" in message
+
+    def test_a_case_comparing_expressions_is_refused_as_undecidable(self):
+        """Two cases split by arithmetic cannot be proved apart without the numbers, and the rewrite is named."""
+        message = _refusal(
+            expressions={
+                'e': {
+                    'dims': ['g'],
+                    'cases': {
+                        'wide': {'when': 'c > 2 * k', 'expression': 'c'},
+                        'narrow': {'when': 'c <= 2 * k', 'expression': 'k'},
+                    },
+                    'otherwise': 0,
+                }
+            }
+        )
+        assert 'cannot be told apart before the data arrives: it compares expressions' in message
+        assert 'precompute the test as a boolean parameter' in message
+
+    def test_an_assumption_round_trips_in_the_form_it_was_written(self):
+        """A bare string stays a bare string, and a mapping stays a mapping, so `to_yaml` reproduces the file."""
+        spec = _schema(
+            assumptions={'bare': 'c > 0', 'masked': {'holds': 'c <= k', 'where': 'flag', 'description': 'why'}}
+        )
+        assert to_spec(spec.to_dict()) == spec
+        assert spec.to_dict()['assumptions'] == {
+            'bare': 'c > 0',
+            'masked': {'holds': 'c <= k', 'where': 'flag', 'description': 'why'},
+        }, 'each entry is written back in the form it arrived in'
 
 
 class TestArithmeticInAWhere:
@@ -993,23 +1142,6 @@ class TestArithmeticInAWhere:
         message = _refusal(**patch)
         for fragment in fragments:
             assert fragment in message
-
-    def test_a_case_comparing_expressions_is_refused_as_undecidable(self):
-        """Two cases split by arithmetic cannot be proved apart without the numbers, and the rewrite is named."""
-        message = _refusal(
-            expressions={
-                'e': {
-                    'dims': ['g'],
-                    'cases': {
-                        'wide': {'when': 'c > 2 * k', 'expression': 'c'},
-                        'narrow': {'when': 'c <= 2 * k', 'expression': 'k'},
-                    },
-                    'otherwise': 0,
-                }
-            }
-        )
-        assert 'cannot be told apart before the data arrives: it compares expressions' in message
-        assert 'precompute the test as a boolean parameter' in message
 
 
 class TestTheFrontDoor:

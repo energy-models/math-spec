@@ -25,6 +25,7 @@ from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
     AndNode,
+    AssumptionDeclaration,
     At,
     BooleanLiteralNode,
     Cases,
@@ -45,6 +46,7 @@ from math_spec.program import (
     Parameter,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterPairComparisonNode,
     Power,
     Program,
     Region,
@@ -54,6 +56,7 @@ from math_spec.program import (
     Variable,
     Walk,
     Window,
+    assumption_message,
     children,
     divisor_parameters,
     fan_in,
@@ -401,7 +404,45 @@ def test_a_constraint_where_is_a_mask_like_a_variable_s():
     assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0, ('snapshot',)))
 
 
-def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides():
+def test_an_assumption_lowers_to_its_predicate_and_the_mask_it_is_checked_under():
+    """What the file assumes of its data reaches the consumer as two masks under the name the file wrote."""
+    program = to_program(
+        override(
+            DISPATCH_MODEL,
+            assumptions={'capacity': 'p_max >= 0', 'ordered': {'holds': 'cost <= p_max', 'where': 'cost'}},
+        )
+    )
+
+    assert program.assumptions['capacity'] == AssumptionDeclaration(
+        Mask(ParameterComparisonNode('p_max', '>=', 0.0, ('generator',)))
+    ), 'an assumption without a where is checked at every coordinate its predicate names'
+    assert program.assumptions['ordered'] == AssumptionDeclaration(
+        Mask(ParameterPairComparisonNode('cost', 'p_max', '<=', ('generator',))),
+        Mask(ParameterDefinedNode('cost', ('generator',))),
+    )
+    assert assumption_message('ordered', program.assumptions['ordered']) == (
+        "assumption 'ordered' does not hold for the data bound to 'cost', 'p_max'"
+    ), 'the sentence names every parameter the predicate reads, sorted, for the consumer to append what it saw'
+
+
+def test_a_parameter_pair_carries_the_union_of_both_dims_left_first():
+    """`p_max <= floor` over `[generator]` and `[snapshot, generator]` is read at every coordinate of both."""
+    program = to_program(
+        override(
+            DISPATCH_MODEL,
+            **{'parameters.floor': {'dims': ['snapshot', 'generator']}, 'assumptions': {'a': 'p_max <= floor'}},
+        )
+    )
+    holds = program.assumptions['a'].holds
+
+    assert holds.root == ParameterPairComparisonNode('p_max', 'floor', '<=', ('generator', 'snapshot')), (
+        "the left parameter's dims first, then what the right one adds"
+    )
+    assert holds.dims == frozenset({'generator', 'snapshot'})
+    assert holds.names_read == frozenset({'p_max', 'floor'}), 'a pair names both sides it compares'
+
+
+def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides(shapes_schema):
     """The resolved tree holds the core syntax tree; the program holds the vocabulary a consumer reads, and every mask is rebuilt so."""
     program = to_program(
         override(
@@ -409,11 +450,7 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
             **{
                 'parameters.zc': {'dims': ['z']},
                 'variables.p.where': 'c <= 0.5 * k',
-                'constraints.w': {
-                    'dims': ['g'],
-                    'where': 'c <= at(zc, by=lk2) + sum_back(c, along=g, window=2, by=lk2)',
-                    'expression': 'p <= c',
-                },
+                'assumptions': {'a': 'c <= at(zc, by=lk2) + sum_back(c, along=g, window=2, by=lk2)'},
             },
         )
     )
@@ -422,10 +459,10 @@ def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides
     assert where.root == ExpressionComparisonNode(
         Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
     ), 'the sides are lowered as a constraint side is, and the dims are what either side carries'
-    mask = program.constraints['w'].where
-    assert mask is not None and isinstance(mask.root, ExpressionComparisonNode)
-    assert isinstance(mask.root.right, Add) and isinstance(mask.root.right.left, At)
-    assert mask.names_read == frozenset({'c', 'zc', 'lk2'}), (
+    holds = program.assumptions['a'].holds
+    assert isinstance(holds.root, ExpressionComparisonNode)
+    assert isinstance(holds.root.right, Add) and isinstance(holds.root.right.left, At)
+    assert holds.names_read == frozenset({'c', 'zc', 'lk2'}), (
         'the relation a pullback and a partition read through is data the consumer binds too'
     )
 

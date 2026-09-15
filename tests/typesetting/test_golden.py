@@ -129,6 +129,10 @@ def _rendered_trees() -> Iterator[object]:
     for mask in resolved.variables.values():
         if mask is not None:
             yield mask.root
+    for holds, where in resolved.assumptions.values():
+        yield holds.root
+        if where is not None:
+            yield where.root
     yield from resolved.expressions.values()
 
 
@@ -189,7 +193,8 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 
 #: What the fixture cannot reach, by the source text of the line. The guards
 #: are what the walk raises when resolution hands it something it types away,
-#: so a model reaching one is a bug upstream. The absent objective is the arm a
+#: so a model reaching one is a bug upstream; the closing arm over a curve's
+#: checks is the same guard on the closed ``Check`` union. The absent objective is the arm a
 #: *different* model takes — a file declares at most one — and
 #: `test_a_model_with_no_objective_prints_the_rest` covers it.
 UNREACHABLE = {
@@ -201,6 +206,8 @@ UNREACHABLE = {
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
     'raise AssertionError(msg)',
     'assert_never(node)',
+    'case _:',
+    'assert_never(check)',
     'if block is None:',
     'return []',
 }
@@ -226,7 +233,7 @@ def test_the_golden_model_reaches_every_line_of_the_walk(tmp_path: Path):
         'to_latex(model)\n'
         'to_latex(model, inline_expressions=True)\n'
         'spec = to_spec(model)\n'
-        'for name in (*spec.expressions, *spec.constraints, *spec.variables):\n'
+        'for name in (*spec.expressions, *spec.constraints, *spec.assumptions, *spec.variables):\n'
         "    typeset_declaration(model, name, 'latex')\n"
     )
     subprocess.run(

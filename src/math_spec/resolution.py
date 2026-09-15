@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
@@ -74,6 +74,7 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterPairComparisonNode,
     PredicateOperator,
     RelationComparisonNode,
     RelationDeclaration,
@@ -211,6 +212,13 @@ class ResolvedConstraint(NamedTuple):
     where: Mask | None
 
 
+class Assumption(NamedTuple):
+    """One assumption's typed halves: what holds, and where it is checked."""
+
+    holds: Mask
+    where: Mask | None
+
+
 @dataclass(frozen=True)
 class Resolved:
     """Every expression and where string of one schema, typed once at load.
@@ -232,12 +240,15 @@ class Resolved:
         constraints: Each constraint's comparison and ``where``.
         objective: The objective's expression, ``None`` where the file
             declares none.
+        assumptions: Each assumption's predicate and the mask it is checked
+            under.
     """
 
     expressions: dict[str, CasesNode | DefinitionNode]
     variables: dict[str, Mask | None]
     constraints: dict[str, ResolvedConstraint]
     objective: ArithmeticNode | None
+    assumptions: dict[str, Assumption] = field(default_factory=dict)
 
     @cached_property
     def read_by_the_math(self) -> frozenset[str]:
@@ -921,7 +932,7 @@ class _Resolver:
         return DimensionPositionNode(node.dimension, node.op, node.position, walk)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
-        """``name <op> literal``, or the one structural form ``relation <op> relation``.
+        """``name <op> literal``, or the two pair forms: ``relation <op> relation`` and ``parameter <op> parameter``.
 
         A side that names an ``expressions:`` entry is arithmetic, whatever
         the grammar first read it as, and takes the expression path.
@@ -945,7 +956,16 @@ class _Resolver:
                         return node
                     dims = tuple(ns.shape_of(left_name).dim(k) for k in ns.shape_of(left_name).key)
                     return RelationPairComparisonNode(left_name, left, right_name, right, node.op, dims)
-                self.errors.append(_declared_rhs_error(context, node, value, rhs_kind))
+                if rhs_kind == 'parameter' and ns.kind(left_name) == 'parameter' and not (left_column or right_column):
+                    if (refusal := _parameter_pair_error(context, node, value, ns)) is not None:
+                        self.errors.append(refusal)
+                        return node
+                    dims = (
+                        *ns.leaf_dims[node.name],
+                        *(d for d in ns.leaf_dims[value] if d not in ns.leaf_dims[node.name]),
+                    )
+                    return ParameterPairComparisonNode(node.name, value, node.op, dims)
+                self.errors.append(_declared_rhs_error(context, node, value, rhs_kind, ns))
                 return node
 
         kind = ns.kind(left_name)
@@ -1181,15 +1201,14 @@ def _literal(value: ArithmeticNode) -> NumberNode | None:
     return None
 
 
-def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str, kind: str) -> str:
+def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str, kind: str, ns: Namespace) -> str:
     """Why the right-hand side of a where-comparison may not name a declaration."""
     comparison = f"'{node.name} {node.op} {value}'"
     if kind == 'parameter':
         return (
-            f'{context}: {comparison} compares two parameters, which is not in the '
-            f'language — a where-comparison tests one parameter or dimension against '
-            f'a literal. Precompute the comparison as a boolean parameter in data '
-            f'prep and test that.'
+            f'{context}: {comparison} compares {node.name!r}, which is {_declared_as(ns, node.name)}, against '
+            f'parameter {value!r}. Two parameters may be compared, and nothing else may be compared against '
+            f'one — test a parameter, or a literal.'
         )
     if kind == 'variable':
         return (
@@ -1208,6 +1227,23 @@ def _declared_rhs_error(context: str, node: UnresolvedComparisonNode, value: str
         f'as the literal coordinate {value!r} and so masks everything out. Comparing two '
         f'dimensions is not in the language; if {value!r} is a coordinate rather than the '
         f'dimension, rename one of the two.'
+    )
+
+
+def _parameter_pair_error(context: str, node: UnresolvedComparisonNode, other: str, ns: Namespace) -> str | None:
+    """Why two parameters may not be compared, or ``None`` where they may.
+
+    Two numbers compare, as do two labels and two flags; a number against a
+    label or a flag compares nothing, silently, whatever the data library
+    makes of it.
+    """
+    left, right = ns.dtypes[node.name], ns.dtypes[other]
+    if left == right or {left, right} <= NUMERIC_DTYPES:
+        return None
+    return (
+        f"{context}: '{node.name} {node.op} {other}' compares a {left} parameter against a {right} one, "
+        f'and the two have no value in common to compare. Declare both as numbers, or both as the same '
+        f'dtype, or precompute the test as a boolean parameter.'
     )
 
 

@@ -37,8 +37,9 @@ from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
-from math_spec.program import BooleanLiteralNode
+from math_spec.program import BooleanLiteralNode, Mask, VariableDefinedNode
 from math_spec.resolution import (
+    Assumption,
     Namespace,
     Resolved,
     ResolvedConstraint,
@@ -51,7 +52,7 @@ from math_spec.resolution import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from math_spec.model import ExpressionBlock
+    from math_spec.model import AssumptionBlock, ExpressionBlock
     from math_spec.program import WhereNode
 
 
@@ -161,10 +162,15 @@ def validate_expressions(schema: Spec) -> Resolved:
             schema.objective.expression, schema, ns, 'The objective', errors, comparison=False, ceiling=2
         )
 
+    assumptions: dict[str, Assumption] = {}
+    for aname, adef in schema.assumptions.items():
+        if (assumption := _assumption(aname, adef, ns, errors)) is not None:
+            assumptions[aname] = assumption
+
     if errors:
         raise SchemaError(_once(errors))
 
-    resolved = Resolved(expressions, variables, constraints, objective)
+    resolved = Resolved(expressions, variables, constraints, objective, assumptions)
     check_schema(schema, resolved)
     return resolved
 
@@ -204,6 +210,43 @@ def _named(
         return None
     errors.extend(f'{context}: {problem}' for problem in overlapping(masks, ns.dtypes))
     return CasesNode(name, (*arms, CaseArm('otherwise', None, fallback)))
+
+
+def _assumption(name: str, block: AssumptionBlock, ns: Namespace, errors: list[str]) -> Assumption | None:
+    """One ``assumptions:`` entry typed, or ``None`` once anything in it failed.
+
+    A predicate the connectives decide is refused: one that folds to true
+    assumes nothing, and one that folds to false refuses every dataset. A
+    variable is refused too, since an assumption is about the data and a
+    variable is what the solver decides from it.
+    """
+    context = f"Assumption '{name}'"
+    found = len(errors)
+    holds = resolve_where_text(block.holds, ns, context, errors)
+    where = resolve_where_text(block.where, ns, f'{context}, where', errors)
+    if isinstance(holds, BooleanLiteralNode):
+        errors.append(
+            f'{context}: the predicate {block.holds!r} folds to {holds.value}, so it '
+            + (
+                'assumes nothing of the data. Delete it, or name a parameter it constrains.'
+                if holds.value
+                else 'holds on no data at all. Delete it, or write the predicate the data can satisfy.'
+            )
+        )
+    for mask, part in ((holds, 'assumes'), (where, 'is checked where')):
+        if mask is None or isinstance(mask, BooleanLiteralNode):
+            continue
+        errors.extend(
+            f"{context}: variable '{atom.name}' stands in what the assumption {part}, and an assumption is "
+            f'about the data — a variable is what the solver decides from it. Name a parameter, or state the '
+            f'rule as a constraint.'
+            for atom in Mask(mask).atoms
+            if isinstance(atom, VariableDefinedNode)
+        )
+    if len(errors) > found:
+        return None
+    assert holds is not None, 'a where string that read to nothing appended an error'
+    return Assumption(Mask(holds), mask_of(where))
 
 
 def _prefixed(context: str, e: ValueError) -> str:
@@ -299,7 +342,7 @@ def _check_expression(
             f'Got: {expression!r}\n'
             f'A constraint is a claim about a decision, and a comparison of numbers and parameters '
             f'is settled before the solve — no consumer builds a row for it. Name the variable it should '
-            f'bound, or drop the declaration and check the fact where the data is prepared.'
+            f'bound, or state the fact under `assumptions:`, where the consumer binding the data checks it.'
         )
         return None
     return resolved

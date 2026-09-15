@@ -183,6 +183,25 @@ stating lines rather than weights:
   along the end segments. They are the same rows that `linopy`'s own `lp` method
   emits.
 
+### What a curve assumes
+
+A method assumes things of the breakpoints that no file writes. `convex` and
+`lp` sort by the first link's values, so those have to increase along `over`
+within each curve, and each method is exact only for the shape named above.
+`lp` needs at least two breakpoints per curve, and a `points:` mask has to
+admit one consecutive run. The engine checks each of these when the data
+binds. The [typeset](../typeset.md) document prints them under the
+[assumptions](declarations.md#assumptions), labelled by the block, beside the
+assumptions the file writes itself:
+
+```math
+\mathrm{bp\_x}_{g,b - 1} < \mathrm{bp\_x}_{g,b} \qquad \forall\, g \in \mathcal{G},\ b \in \mathcal{B}
+```
+
+```math
+\mathrm{bp\_y}_{g,b} \text{ is a convex function of } \mathrm{bp\_x}_{g,b} \text{ along } b \qquad \forall\, g \in \mathcal{G}
+```
+
 ### Writing the curve out by hand
 
 `links:` is a list, so the number of expressions a block ties is written in the

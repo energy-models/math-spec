@@ -47,6 +47,7 @@ from math_spec.program import (
     Mask,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    ParameterPairComparisonNode,
     RelationComparisonNode,
     RelationDefinedNode,
     RelationPairComparisonNode,
@@ -522,7 +523,7 @@ def _check_where_dims(
         if not (outside := sorted(Mask(atom).dims - frame)):
             continue
         match atom:
-            case ParameterDefinedNode() | ParameterComparisonNode():
+            case ParameterDefinedNode() | ParameterComparisonNode() | ParameterPairComparisonNode():
                 leaf = f"where-parameter '{atom.name}'"
             case VariableDefinedNode():
                 leaf = f"where-variable '{atom.name}'"
