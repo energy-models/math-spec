@@ -357,7 +357,7 @@ def _check_template_names(
                         for one in names_in(value)
                         if one not in formals and ns.kind(one) != 'relation'
                     )
-                case 'value':
+                case 'value' | None:
                     _check_template_names(value, context, ns, formals, errors)
                 case 'role':
                     pass

@@ -67,8 +67,8 @@ class Builtin:
 
     def kind_of(
         self, kwarg: str, *, with_relation: bool = False
-    ) -> Literal['dimension', 'relation', 'role', 'edge', 'value']:
-        """What resolution turns the value of *kwarg* into.
+    ) -> Literal['dimension', 'relation', 'role', 'edge', 'value'] | None:
+        """What resolution turns the value of *kwarg* into, or ``None`` where the operator does not declare it.
 
         A dimension, a relation, a column of it, an edge policy, or a plain value.
         *with_relation* says whether the call carries a ``by=``, which is what
@@ -84,7 +84,9 @@ class Builtin:
             return 'role'
         if kwarg in self.edge_kwargs:
             return 'edge'
-        return 'value'
+        if kwarg in self.required_value_kwargs:
+            return 'value'
+        return None
 
 
 #: The closed operator set. ``by=`` is the one keyword that addresses a relation,
