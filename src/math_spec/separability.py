@@ -96,7 +96,7 @@ def separabilities(program: Program) -> dict[str, Separability]:
                     for relation in node.coordinate:
                         waits_on(dimension, label, relation, 'coordinate')
             elif isinstance(node, (Translate, WindowSum)):
-                dimension = node.over
+                dimension = node.along
                 if node.wrap:
                     report(
                         'coupled',

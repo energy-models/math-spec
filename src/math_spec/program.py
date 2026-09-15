@@ -310,9 +310,9 @@ class Translate:
     and contribute it. Always ``None`` under ``wrap``.
 
     ``offset`` is an integer, or the name of an integer parameter that does
-    not depend on ``over`` and carries its sign in the values.
+    not depend on ``along`` and carries its sign in the values.
 
-    ``partition`` is a relation walked along ``over`` — its consumed
+    ``partition`` is a relation walked along ``along`` — its consumed
     column is a key over that dimension, its produced columns are the group —
     and the translation then happens inside each group: the neighbour is the
     one before in the same group, the edge is the group's, and a wrap closes
@@ -321,7 +321,7 @@ class Translate:
     """
 
     operand: Expression
-    over: str
+    along: str
     offset: int | str
     wrap: bool
     fill: float | None = None
@@ -350,7 +350,7 @@ class WindowSum:
     """
 
     operand: Expression
-    over: str
+    along: str
     width: int | str
     wrap: bool
     partition: Walk | None = None
