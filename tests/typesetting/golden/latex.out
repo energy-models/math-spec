@@ -59,6 +59,7 @@
 
 \paragraph{Definitions}
 \begin{description}
+\item[{$\mathrm{spend}^{\mathrm{cap}}$}] \texttt{spend\_cap} over $\mathcal{G}$
 \item[{$\mathit{spend}$}] \texttt{spend} over $\mathcal{T}$ --- what a snapshot's dispatch costs
 \item[{$\mathit{lcoe}$}] \texttt{lcoe} (scalar)
 \item[{$\mathit{marginal\_price}$}] \texttt{marginal\_price} over $\mathcal{T} \times \mathcal{B}$
@@ -116,6 +117,10 @@
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \mathit{spill}_{t} \text{ exists} \\
 \text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot \\
+\text{margin} && p_{t,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} - \mathrm{p}^{\mathrm{min}}_{g} > \frac{\mathrm{cost}_{g}}{2} \\
+\text{ramped} && \mathit{slack}_{t} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} - \mathrm{load}_{t \boxminus_{0} 1,b} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \wedge \mathrm{pos}(t) > 0 \\
+\text{covered} && \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} & \le \mathrm{budget} && \text{where } \sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} \ge \mathrm{budget} \\
+\text{capped} && p_{t,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{spend}^{\mathrm{cap}}_{g} > 0 \vee \neg \mathrm{is\_flexible}_{g} \\
 \text{cost\_curve\_chord} && \mathit{op\_cost}_{t,g} \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) & \ge \left( \mathrm{bp\_y}_{g,a} - \mathrm{bp\_y}_{g,a \boxminus_{0} 1} \right) \cdot \left( p_{t,g} - \mathrm{bp\_x}_{g,a} \right) + \mathrm{bp\_y}_{g,a} \cdot \left( \mathrm{bp\_x}_{g,a} - \mathrm{bp\_x}_{g,a \boxminus_{0} 1} \right) && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,points}}_{g,a} \wedge \neg \mathrm{cost}^{\mathrm{curve,starts}}_{g,a} \\
 \text{cost\_curve\_domain\_lo} && p_{t,g} & \ge \mathrm{bp\_x}_{g,a} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,starts}}_{g,a} \\
 \text{cost\_curve\_domain\_hi} && p_{t,g} & \le \mathrm{bp\_x}_{g,a} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,ends}}_{g,a} \\
@@ -126,6 +131,7 @@
 
 \paragraph{Definitions}
 \begin{align}
+\text{spend\_cap} && \mathrm{spend}^{\mathrm{cap}}_{g} & = \mathrm{cost}_{g} \cdot 2 && \forall\, g \in \mathcal{G} \\
 \text{spend} && \mathit{spend}_{t} & = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} && \forall\, t \in \mathcal{T} \\
 \text{lcoe} && \mathit{lcoe} & = \frac{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g}} \\
 \text{marginal\_price} && \mathit{marginal\_price}_{t,b} & = \lambda_{\mathrm{balance},t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\
@@ -155,6 +161,10 @@
 \text{bounds\_are\_ordered} && \mathrm{p}^{\mathrm{min}}_{g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{min}}_{g} \text{ is defined} \\
 \text{budget\_is\_positive} && \mathrm{budget} & > 0 \\
 \text{flexible\_units\_are\_cheap} && \neg \mathrm{is\_flexible}_{g} \vee \mathrm{cost}_{g} \le \mathrm{budget} &  && \forall\, g \in \mathcal{G} \\
+\text{floor\_is\_half\_the\_capacity} && \mathrm{p}^{\mathrm{min}}_{g} & \le 0.5 \cdot \mathrm{p}^{\mathrm{max}}_{g} && \forall\, g \in \mathcal{G} \\
+\text{load\_ramps\_within\_the\_zone\_cap} && \mathrm{load}_{t,b} - \mathrm{load}_{t \boxminus_{0} 1,b} & \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{pos}(t) > 0 \\
+\text{fleet\_covers\_the\_budget} && \sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} & \ge \mathrm{budget} \\
+\text{cheap\_when\_spent} && \mathrm{spend}^{\mathrm{cap}}_{g} > 0 \vee \neg \mathrm{is\_flexible}_{g} &  && \forall\, g \in \mathcal{G} \\
 \text{cost\_curve increasing} && \mathrm{bp\_x}_{g,a - 1} & < \mathrm{bp\_x}_{g,a} && \forall\, g \in \mathcal{G},\ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,points}}_{g,a} \wedge \mathrm{cost}^{\mathrm{curve,points}}_{g,a - 1} \\
 \text{cost\_curve curvature} && \mathrm{bp\_y}_{g,a} & \text{ is a convex function of } \mathrm{bp\_x}_{g,a} \text{ along } a && \forall\, g \in \mathcal{G} \\
 \text{cost\_curve breakpoints} && \lvert \{ a \in \mathcal{A} \,:\, \mathrm{cost}^{\mathrm{curve,points}}_{g,a} \} \rvert & \ge 2 && \forall\, g \in \mathcal{G} \\

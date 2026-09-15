@@ -25,7 +25,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
 
 import math_spec.model as _model
-from math_spec._expression_parser import ComparisonOperator
+from math_spec._expression_parser import ComparisonOperator, LookupNode, ParameterNode, nodes
 from math_spec._sealed import Sealed
 from math_spec.errors import did_you_mean
 
@@ -33,12 +33,15 @@ if TYPE_CHECKING:
     import datetime
     from collections.abc import Iterator
 
+    from math_spec._expression_parser import ArithmeticNode
+
 
 #: What ``math_spec.program`` promises a consumer, sorted.
 __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
     'AndNode',
+    'ArithmeticComparisonNode',
     'AssumptionDeclaration',
     'At',
     'AtLeastTwo',
@@ -59,6 +62,7 @@ __all__ = [
     'Divide',
     'Dual',
     'Expression',
+    'ExpressionComparisonNode',
     'ExpressionDeclaration',
     'ExpressionNode',
     'FanIn',
@@ -1090,6 +1094,38 @@ class ParameterPairComparisonNode:
 
 
 @dataclass(frozen=True)
+class ExpressionComparisonNode:
+    """Compare two variable-free expressions, coordinate by coordinate — ``p_min <= 0.5 * p_max``.
+
+    ``dims`` is every dim either side carries. A side whose value is absent at
+    a coordinate — a parameter row missing, a translation that vacated it —
+    makes the comparison false there, as a null does in every other
+    comparison; under a summing operator the absent term is one fewer.
+    """
+
+    left: ExpressionNode
+    op: PredicateOperator
+    right: ExpressionNode
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ArithmeticComparisonNode:
+    """The same comparison as resolution types it, its sides in the core syntax tree.
+
+    What the spec-side readers walk — the typesetter, the dim rules, the
+    exclusivity check. :func:`~math_spec.lowering.lower_program` rebuilds
+    every mask with an :class:`ExpressionComparisonNode` in its place, so a
+    program never carries one.
+    """
+
+    left: ArithmeticNode
+    op: PredicateOperator
+    right: ArithmeticNode
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class DimensionComparisonNode:
     """Compare a dimension's own coordinates against a literal."""
 
@@ -1171,6 +1207,8 @@ WhereNode = (
     | VariableDefinedNode
     | ParameterComparisonNode
     | ParameterPairComparisonNode
+    | ExpressionComparisonNode
+    | ArithmeticComparisonNode
     | DimensionComparisonNode
     | LookupComparisonNode
     | LookupPairComparisonNode
@@ -1186,6 +1224,8 @@ WhereNode = (
 TypedPredicateNode = (
     ParameterComparisonNode
     | ParameterPairComparisonNode
+    | ExpressionComparisonNode
+    | ArithmeticComparisonNode
     | ParameterDefinedNode
     | VariableDefinedNode
     | DimensionComparisonNode
@@ -1246,7 +1286,14 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
     a branch, rather than a wrong dim set at the first model to use it.
     """
     match atom:
-        case ParameterComparisonNode() | ParameterPairComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
+        case (
+            ParameterComparisonNode()
+            | ParameterPairComparisonNode()
+            | ExpressionComparisonNode()
+            | ArithmeticComparisonNode()
+            | ParameterDefinedNode()
+            | VariableDefinedNode()
+        ):
             return frozenset(atom.dims)
         case DimensionComparisonNode() | DimensionPositionNode():
             return frozenset({atom.name})
@@ -1276,10 +1323,45 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
             return frozenset({atom.name})
         case LookupPairComparisonNode() | ParameterPairComparisonNode():
             return frozenset({atom.name, atom.other})
+        case ExpressionComparisonNode():
+            return _names_under(atom.left, atom.right)
+        case ArithmeticComparisonNode():
+            return frozenset(
+                name
+                for node in nodes(atom.left, atom.right)
+                for name in (
+                    (node.name,)
+                    if isinstance(node, ParameterNode)
+                    else node.names
+                    if isinstance(node, LookupNode)
+                    else ()
+                )
+            )
         case DimensionComparisonNode() | DimensionPositionNode():
             return frozenset()
         case _:
             assert_never(atom)
+
+
+def _names_under(*expressions: ExpressionNode) -> frozenset[str]:
+    """Every parameter and lookup the data has to supply for *expressions* — what a mask's ``names_read`` promises.
+
+    :func:`parameters_of` alone misses the data an operator reads beside its
+    operand: the lookup a grouping or a pullback joins through, the one a
+    translation is partitioned by, and the parameter a named offset or width
+    is read from.
+    """
+    names: set[str] = set(parameters_of(*expressions))
+    for node in walk(*expressions):
+        if isinstance(node, (GroupSum, At)):
+            names.update(node.coordinate)
+        elif isinstance(node, (Translate, Window)):
+            if node.partition is not None:
+                names.add(node.partition)
+            amount = node.offset if isinstance(node, Translate) else node.width
+            if isinstance(amount, str):
+                names.add(amount)
+    return frozenset(names)
 
 
 def _conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:

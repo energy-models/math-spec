@@ -37,6 +37,7 @@ from math_spec.dimensions import dims_of
 from math_spec.piecewise import declaration_of
 from math_spec.program import (
     AndNode,
+    ArithmeticComparisonNode,
     AtLeastTwo,
     BooleanLiteralNode,
     Check,
@@ -44,6 +45,7 @@ from math_spec.program import (
     Curved,
     DimensionComparisonNode,
     DimensionPositionNode,
+    ExpressionComparisonNode,
     Increasing,
     LookupComparisonNode,
     LookupDefinedNode,
@@ -83,6 +85,7 @@ _WHERE_PRECEDENCE = {'or': 0, 'and': 1, 'comparison': 2, 'not': 3}
 RelationNode = (
     ParameterComparisonNode
     | ParameterPairComparisonNode
+    | ArithmeticComparisonNode
     | DimensionComparisonNode
     | DimensionPositionNode
     | LookupComparisonNode
@@ -545,6 +548,10 @@ class Walk:
             left, right = self._relation(node, ctx)
             return f'{left} {right}', comparison
 
+        if isinstance(node, ExpressionComparisonNode):
+            msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'
+            raise AssertionError(msg)
+
         if isinstance(node, LookupDefinedNode):
             applied = self._lookup(node.name, ctx.subscript(node.over))
             return f'{applied} {self.format.prose(" is defined")}', comparison
@@ -577,6 +584,8 @@ class Walk:
             left, right = self._parameter(node.name, ctx), self._literal(node.value)
         elif isinstance(node, ParameterPairComparisonNode):
             left, right = self._parameter(node.name, ctx), self._parameter(node.other, ctx)
+        elif isinstance(node, ArithmeticComparisonNode):
+            left, right = self._expression(node.left, ctx), self._expression(node.right, ctx)
         elif isinstance(node, DimensionComparisonNode):
             if isinstance(node.value, int | float):
                 self.noticed.numeric_coordinates.add(node.name)

@@ -157,10 +157,11 @@ A `where:` is a boolean mask, and true means "this coordinate exists".
 ```text
 where_expr ::= atom | "NOT" where_expr | where_expr ("AND"|"OR") where_expr
             |  "(" where_expr ")"
-atom       ::= NAME | NAME COMPARATOR value | POSITION COMPARATOR INTEGER
-            |  "True" | "False"
+atom       ::= NAME | NAME COMPARATOR value | expression COMPARATOR expression
+            |  POSITION COMPARATOR INTEGER | "True" | "False"
 COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
 value      ::= NUMBER | QUOTED | NAME_OR_STRING
+expression ::= the arithmetic grammar above, with no variable and no dual in it
 POSITION   ::= "position" "(" NAME [ "," "by" "=" NAME ] ")"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
@@ -176,6 +177,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `name OP value`                  | lookup                           | A filter on the lookup's value, so the `over` dimension has to be in the frame. A null compares false                                                                                                                                                                                               |
 | `name OP name`                   | two parameters                   | Coordinate by coordinate, the narrower one read at every coordinate of the wider. Both are numbers, or both share a dtype. A null on either side compares false                                                                                                                                     |
 | `name OP name`                   | two lookups                      | Legal only where both lookups are over the same dimension and into the same dimension. `from != to` excludes a self-loop                                                                                                                                                                            |
+| `expression OP expression`       | arithmetic over parameters       | Coordinate by coordinate, over every dimension either side carries. A macro and a named expression expand as in an expression, and every operator keeps its rule, so a `shift` names its `edge=`. A side with no value at a coordinate compares false                                               |
 | `position(name) OP i`            | dimension                        | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
 | `position(name, by=lookup) OP i` | a dimension and a lookup over it | The same, counted within each group the lookup makes                                                                                                                                                                                                                                                |
 | `AND` `OR` `NOT`                 | —                                | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                                                                                                                                       |
@@ -216,6 +218,42 @@ Two parameters compare coordinate by coordinate, as `p_min <= p_max` does, and
 so do two lookups that share both ends: over one dimension they are two columns
 of one table, and into one dimension they draw from one label set. Comparing two
 dimensions is not in the language. Precompute a boolean parameter instead.
+
+### Arithmetic in a comparison
+
+Either side of a comparison may be an expression: `p_min <= 0.5 * p_max`,
+`sum(p_max, over=generator) >= peak`, `p_max <= at(bus_cap, by=bus_of)`. The
+side is read exactly as an [expression](#expressions) is, so a macro and a
+named expression expand into it and every operator keeps its own rule. Two
+things an expression may carry are refused here, because a mask is built before
+either exists: a variable, and a `dual()`.
+
+A comparison of expressions is checked over every dimension either side
+carries. A side whose value is absent at a coordinate compares false there, as
+a null does in every other comparison; under a summing operator the absent
+term is one fewer. A `shift` says what its vacated positions hold, as it does
+everywhere, so a comparison against the previous row names an `edge=` and a
+`position()` term keeps the first row out:
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+parameters:
+  load: { dims: [snapshot] }
+  ramp: { dims: [] }
+variables:
+  shed: { dims: [snapshot], bounds: { lower: 0 } }
+constraints:
+  shed_when_load_jumps:
+    dims: [snapshot]
+    where: "load - shift(load, over=snapshot, offset=1, edge=0) > ramp AND position(snapshot) > 0"
+    expression: shed >= load - ramp
+```
+
+A case `when:` that compares expressions cannot be proved apart from its
+neighbours before the data arrives, so it is refused there with the rewrite:
+compare one parameter against a literal, or precompute the test as a boolean
+parameter.
 
 ### `position()`
 

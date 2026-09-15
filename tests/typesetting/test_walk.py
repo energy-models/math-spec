@@ -807,3 +807,13 @@ def test_a_curve_prints_what_it_assumes_of_its_breakpoints(name: FormatName, fmt
         'with no mask the count is the size of the breakpoint set itself'
     )
     assert 'curve points' not in unmasked, 'nothing to be contiguous without a mask'
+
+
+@EVERY_FORMAT
+def test_a_comparison_of_expressions_prints_as_the_arithmetic_it_is(name: FormatName, fmt: Format):
+    """`p_min <= 0.5 * p_max` aligns on its relation like any comparison, each side rendered as an expression."""
+    model = override(DISPATCH_MODEL, assumptions={'half': 'cost <= p_max / 2'})
+    text = typeset(model, name, legend=False)
+    section = text[text.index('Assumptions') :]
+    p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
+    assert f'{fmt.operators["le"]} {fmt.fraction(p_max, "2")}' in section

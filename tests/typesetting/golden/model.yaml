@@ -108,6 +108,7 @@ sos:
     type: 2
 
 expressions:
+  spend_cap: cost * 2 # a data-only entry, so a where may compare it
   spend: # a plain named expression: its symbol prints where it is used, its body once as a definition
     description: what a snapshot's dispatch costs
     expression: sum(p * cost, over=generator)
@@ -224,6 +225,22 @@ constraints:
     dims: [snapshot]
     where: "false"
     expression: slack >= 0
+  margin: # a mask comparing two expressions, which prints as the arithmetic it is
+    dims: [snapshot, generator]
+    where: "p_max - p_min > cost / 2"
+    expression: p <= p_max
+  ramped: # a translation under a comparison names its edge, a pullback reads through a lookup, and the position keeps the vacated row out
+    dims: [snapshot, bus]
+    where: "load - shift(load, over=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of) AND position(snapshot) > 0"
+    expression: slack <= load
+  covered: # a reduction on a side of a scalar mask, so nothing is left to quantify
+    dims: []
+    where: "sum(p_max, over=generator) >= budget"
+    expression: sum(p) <= budget
+  capped: # an expressions: entry on a side, read by the name the file gave it
+    dims: [snapshot, generator]
+    where: "spend_cap > 0 OR NOT is_flexible"
+    expression: p <= p_max
 
 assumptions:
   capacity_is_nonnegative: p_max >= 0 # one comparison, so the line aligns on its relation
@@ -232,6 +249,12 @@ assumptions:
     where: "p_min"
   budget_is_positive: budget > 0 # a scalar, so no quantifier
   flexible_units_are_cheap: "NOT is_flexible OR cost <= budget" # a compound predicate, which no one relation aligns
+  floor_is_half_the_capacity: "p_min <= 0.5 * p_max" # arithmetic on a side, which reads as an expression does
+  load_ramps_within_the_zone_cap: # a translation under a comparison names its edge, and the where keeps the vacated row out
+    holds: "load - shift(load, over=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of)"
+    where: "position(snapshot) > 0"
+  fleet_covers_the_budget: "sum(p_max, over=generator) >= budget" # a reduction on a side, so the frame is what is left
+  cheap_when_spent: "spend_cap > 0 OR NOT is_flexible" # an expressions: entry on a side, read by the name the file gave it
 
 objective: # a sense, a product of two variables, a power over two parameters, a power of one of those, and the summations a scalar objective spells out beside two scalar terms
   sense: maximize

@@ -34,6 +34,7 @@ from math_spec.program import (
     DimensionDeclaration,
     Divide,
     Dual,
+    ExpressionComparisonNode,
     ExpressionNode,
     Footprint,
     GroupSum,
@@ -431,6 +432,36 @@ def test_a_parameter_pair_carries_the_union_of_both_dims_left_first():
     )
     assert holds.dims == frozenset({'generator', 'snapshot'})
     assert holds.names_read == frozenset({'p_max', 'floor'}), 'a pair names both sides it compares'
+
+
+def test_a_comparison_of_expressions_lowers_to_program_expressions_on_both_sides(shapes_schema):
+    """The resolved tree holds the core syntax tree; the program holds the vocabulary a consumer reads, and every mask is rebuilt so."""
+    program = to_program(
+        override(
+            SHAPES_MODEL,
+            **{
+                'parameters.zc': {'dims': ['z']},
+                'variables.p.where': 'c <= 0.5 * k',
+                'assumptions': {'a': 'c <= at(zc, by=lk2) + sum_back(c, over=g, within=2, by=lk2)'},
+            },
+        )
+    )
+    where = program.variables['p'].where
+    assert where is not None
+    assert where.root == ExpressionComparisonNode(
+        Parameter('c'), '<=', Multiply(Constant(0.5), Parameter('k')), ('g',)
+    ), 'the sides are lowered as a constraint side is, and the dims are what either side carries'
+    holds = program.assumptions['a'].holds
+    assert isinstance(holds.root, ExpressionComparisonNode)
+    assert isinstance(holds.root.right, Add) and isinstance(holds.root.right.left, At)
+    assert holds.names_read == frozenset({'c', 'zc', 'lk2'}), (
+        'the lookup a pullback and a partition read through is data the consumer binds too'
+    )
+
+
+def test_a_mask_with_no_arithmetic_is_the_same_mask_after_lowering(dispatch_program):
+    """Every other predicate node is already the program's own, so lowering hands it through unchanged."""
+    assert dispatch_program.variables['p'].where == Mask(P_MAX_POSITIVE)
 
 
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
