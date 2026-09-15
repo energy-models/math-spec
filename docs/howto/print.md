@@ -17,7 +17,7 @@ keep the document current as the file changes.
 
 2. **Give the symbols their conventional spelling** with a symbol table beside
    the model, `model.symbols.yaml`. Without one, `load` prints as
-   $\mathit{load}_t$; with one it prints as whatever you write:
+   $\mathrm{load}_t$; with one it prints as whatever you write:
 
    <!-- doctest: skip -->
 
@@ -31,7 +31,7 @@ keep the document current as the file changes.
    names:
      cost: c
      load: "\\ell"
-     p_max: "\\bar p"
+     capacity: "\\bar p"
    ```
 
    A key naming nothing in the model is an error, so a table cannot drift

@@ -134,12 +134,12 @@ binds.
 
 `method` varies one thing: how the weights are restricted once they exist.
 
-| `method`                | What it adds                                                                   |                                                                |
-| ----------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `adjacency` _(default)_ | a binary per segment, and `lam <= seg + shift(seg, over=bp, offset=1, edge=0)` | the curve, built                                               |
-| `sos2`                  | an [`sos:`](#sos) block over the same weights                                  | the curve, stated for a solver that branches on the set itself |
-| `convex`                | nothing                                                                        | the hull, which is a pure linear program                       |
-| `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain  | the curve as its own lines                                     |
+| `method`                | What it adds                                                                    |                                                                |
+| ----------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `adjacency` _(default)_ | a binary per segment, and `lam <= seg + shift(seg, along=bp, offset=1, edge=0)` | the curve, built                                               |
+| `sos2`                  | an [`sos:`](#sos) block over the same weights                                   | the curve, stated for a solver that branches on the set itself |
+| `convex`                | nothing                                                                         | the hull, which is a pure linear program                       |
+| `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain   | the curve as its own lines                                     |
 
 `adjacency` and `sos2` state the same restriction and reach the same optimum.
 They differ in what the solver is handed, so which is faster is a property of the
