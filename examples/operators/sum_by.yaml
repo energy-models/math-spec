@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  The membership reduction — `sum(array, by=lookup)` lands the result on the
-  column the lookup is walked to, which is what makes topology data rather than
+  The membership reduction — `sum(array, by=relation)` lands the result on the
+  column the relation is walked to, which is what makes topology data rather than
   structure.
 
 dimensions:
@@ -12,7 +12,7 @@ dimensions:
   generator: { dtype: str }
   bus: { dtype: str }
 
-lookups:
+relations:
   gen_bus: { columns: [generator, bus], key: generator }
 
 parameters:

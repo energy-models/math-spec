@@ -105,7 +105,7 @@ parameters:
     description: demand
     dims: [snapshot, load]
 
-lookups:
+relations:
   snapshot_period:
     description: the investment period a snapshot falls in
     columns: [snapshot, period]
@@ -130,7 +130,7 @@ lookups:
     description: >-
       the bus an output port delivers to — PyPSA's `bus1`, `bus2`, … columns.
       A link of three output ports is three labels here rather than a third
-      lookup, so the file states any number of them
+      relation, so the file states any number of them
     columns: [link_output, bus]
     key: link_output
   Load_bus:
@@ -216,7 +216,7 @@ constraints:
     where: Carrier_max_growth
     expression: >-
       sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier)
-      - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier), over=period, offset=1, edge=0)
+      - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier), along=period, offset=1, edge=0)
       * Carrier_max_relative_growth
       <= Carrier_max_growth
 

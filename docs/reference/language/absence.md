@@ -28,12 +28,12 @@ This page says what the mask means for the rows that are built.
 
 ## What creates absence
 
-| Construct                                    | What is absent                                                   |
-| -------------------------------------------- | ---------------------------------------------------------------- |
-| `where:` on a variable                       | the variable, at the masked coordinates                          |
-| `where:` on a constraint                     | the row                                                          |
-| `shift(x, over=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))        |
-| a label a lookup does not map                | that label's group membership ([lookups](dimensions.md#lookups)) |
+| Construct                                     | What is absent                                                       |
+| --------------------------------------------- | -------------------------------------------------------------------- |
+| `where:` on a variable                        | the variable, at the masked coordinates                              |
+| `where:` on a constraint                      | the row                                                              |
+| `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))            |
+| a label a relation does not map               | that label's group membership ([relations](dimensions.md#relations)) |
 
 Nothing else creates absence. **A missing parameter row is not absence.** A
 sparse table is a compressed dense table, and a missing row reads as the value
@@ -58,10 +58,10 @@ constraints:
     expression: x + y >= 1 # rows at wind and gas; no row at old
   total:
     dims: []
-    expression: sum(x + y, consume=g) >= 1 # x[wind] + y[wind] + x[gas] + y[gas] >= 1
+    expression: sum(x + y, over=g) >= 1 # x[wind] + y[wind] + x[gas] + y[gas] >= 1
   split:
     dims: []
-    expression: sum(x, consume=g) + sum(y, consume=g) >= 1 # x[old] is back in
+    expression: sum(x, over=g) + sum(y, over=g) >= 1 # x[old] is back in
 ```
 
 `each` has no row at `old`, so there is no `x[old] >= 1`. `total` sums the
@@ -86,13 +86,13 @@ there instead, write `where: rel_max` on the constraint.
 Every operator falls on one side of the line, and one question decides which:
 does an output slot stand for several input slots, or for one?
 
-| Operator                        | An output slot reads            | An absent input                      |
-| ------------------------------- | ------------------------------- | ------------------------------------ |
-| `sum(x, consume=d)`             | every position along `d`        | is one summand fewer; the row stands |
-| `sum(x, by=lookup)`             | every member of the group       | is one summand fewer; the row stands |
-| `sum_back(x, over=d, window=w)` | the positions the window covers | is one summand fewer; the row stands |
-| `shift(x, over=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
-| `at(x, by=lookup)`              | one position, through the map   | _is_ the output, so it spreads       |
+| Operator                         | An output slot reads            | An absent input                      |
+| -------------------------------- | ------------------------------- | ------------------------------------ |
+| `sum(x, over=d)`                 | every position along `d`        | is one summand fewer; the row stands |
+| `sum(x, by=relation)`            | every member of the group       | is one summand fewer; the row stands |
+| `sum_back(x, along=d, window=w)` | the positions the window covers | is one summand fewer; the row stands |
+| `shift(x, along=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
+| `at(x, by=relation)`             | one position, through the map   | _is_ the output, so it spreads       |
 
 The three summing operators put several slots into one, so a missing slot gives a
 shorter sum and the row survives. A window that reaches past the start of its
@@ -148,7 +148,7 @@ them, and that is the start of the recurrence rather than a bug.
 A [reported expression](reported.md) is arithmetic over solved numbers, so it
 inherits their absence by the same rule as above. Through pointwise arithmetic,
 a null spreads: `cost / delivered` has no value wherever either operand is
-masked. Out of a summing operator, it does not: `sum(p, consume=g)` is one summand
+masked. Out of a summing operator, it does not: `sum(p, over=g)` is one summand
 shorter where a `p[g]` is masked, and stands as long as one slot does.
 
 A quotient whose divisor solved to zero is absent in the same way. The language
@@ -164,6 +164,6 @@ separate not-a-number.
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | the row kept, the masked variable read as zero | `absence: zero` on the variable                                                                                              |
 | the row dropped where a parameter has no data  | `where: p` on the constraint                                                                                                 |
-| a vacated shift position to contribute         | `shift(x, over=d, offset=n, edge=0)`                                                                                         |
+| a vacated shift position to contribute         | `shift(x, along=d, offset=n, edge=0)`                                                                                        |
 | to test whether a variable exists here         | its bare name in a `where`                                                                                                   |
 | a bound only where the data has one            | supply the bound, because `inf` is a value, or mask the variable. These are different models, so the language infers neither |

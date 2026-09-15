@@ -93,7 +93,7 @@ running:
 Where the gate does not exist, the curve is ungated. The block emits the
 convexity row twice, under complementary masks: `== running` where the gate
 exists, and `== 1` where it does not. The row cannot be allowed to drop, because
-it is `sum(lam, consume=bp) == (activity)`, and
+it is `sum(lam, over=bp) == (activity)`, and
 [absence](absence.md#how-absence-travels) does not spread out of a reduction: an
 absent right-hand side would take the whole row, and leave the weights with
 nothing to make them a curve.
@@ -134,12 +134,12 @@ binds.
 
 `method` varies one thing: how the weights are restricted once they exist.
 
-| `method`                | What it adds                                                                   |                                                                |
-| ----------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `adjacency` _(default)_ | a binary per segment, and `lam <= seg + shift(seg, over=bp, offset=1, edge=0)` | the curve, built                                               |
-| `sos2`                  | an [`sos:`](#sos) block over the same weights                                  | the curve, stated for a solver that branches on the set itself |
-| `convex`                | nothing                                                                        | the hull, which is a pure linear program                       |
-| `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain  | the curve as its own lines                                     |
+| `method`                | What it adds                                                                    |                                                                |
+| ----------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `adjacency` _(default)_ | a binary per segment, and `lam <= seg + shift(seg, along=bp, offset=1, edge=0)` | the curve, built                                               |
+| `sos2`                  | an [`sos:`](#sos) block over the same weights                                   | the curve, stated for a solver that branches on the set itself |
+| `convex`                | nothing                                                                         | the hull, which is a pure linear program                       |
+| `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain   | the curve as its own lines                                     |
 
 `adjacency` and `sos2` state the same restriction and reach the same optimum.
 They differ in what the solver is handed, so which is faster is a property of the
@@ -204,10 +204,10 @@ sos:
 constraints:
   one_operating_point:
     dims: [converter, time]
-    expression: sum(weight, consume=bp) == 1
+    expression: sum(weight, over=bp) == 1
   on_the_curve: # one row per flow — this is where the count goes
     dims: [flow, time]
-    expression: rate == sum(at(weight, by=converter_of) * bp_rate, consume=bp)
+    expression: rate == sum(at(weight, by=converter_of) * bp_rate, over=bp)
 ```
 
 Making the tie a row turns the count into data: a converter with a fourth flow is

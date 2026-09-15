@@ -66,10 +66,6 @@ __all__ = [
     'GroupSum',
     'Increasing',
     'LastOf',
-    'LookupComparisonNode',
-    'LookupDeclaration',
-    'LookupDefinedNode',
-    'LookupPairComparisonNode',
     'Mask',
     'MaskOf',
     'Multiply',
@@ -90,6 +86,10 @@ __all__ = [
     'QuadraticPosition',
     'Reach',
     'Region',
+    'RelationComparisonNode',
+    'RelationDeclaration',
+    'RelationDefinedNode',
+    'RelationPairComparisonNode',
     'Separability',
     'SosDeclaration',
     'Sum',
@@ -263,11 +263,11 @@ class Sum(Expression):
 
 @dataclass(frozen=True)
 class GroupSum(Expression):
-    """Sum ``operand`` through lookups, consuming the dims ``over`` and producing ``into``.
+    """Sum ``operand`` through relations, consuming the dims ``over`` and producing ``into``.
 
-    ``walks`` says, per lookup, which columns are consumed, which produced
+    ``walks`` says, per relation, which columns are consumed, which produced
     and which joined on, and is the one fact the node holds: ``coordinate``
-    names the lookups, ``over`` is the dims every walk consumes and ``into``
+    names the relations, ``over`` is the dims every walk consumes and ``into``
     the dims they produce, in walk order, so that several coordinates are
     one grouping into a product of targets, consumed in a single join. The
     result replaces every dim in ``over`` with every dim in ``into``. The
@@ -293,7 +293,7 @@ class GroupSum(Expression):
 
 @dataclass(frozen=True)
 class At(Expression):
-    """Read ``operand`` through lookups — the adjoint of :class:`GroupSum`.
+    """Read ``operand`` through relations — the adjoint of :class:`GroupSum`.
 
     Same tables, walked the other way: this consumes the dims in ``into`` and
     produces the dims in ``over``, one value per coordinate because every
@@ -332,11 +332,11 @@ class Translate(Expression):
     ``offset`` is an integer, or the name of an integer parameter that does
     not depend on ``dimension`` and carries its sign in the values.
 
-    ``partition`` is a lookup walked along ``dimension`` — its consumed
+    ``partition`` is a relation walked along ``dimension`` — its consumed
     column is a key over that dimension, its produced columns are the group —
     and the translation then happens inside each group: the neighbour is the
     one before in the same group, the edge is the group's, and a wrap closes
-    each group onto itself. A coordinate the lookup sends nowhere reaches
+    each group onto itself. A coordinate the relation sends nowhere reaches
     nothing.
     """
 
@@ -364,9 +364,9 @@ class Window(Expression):
     ``wrap`` says whether the window reaches around the start of the axis
     instead of stopping short at it, and is stated on every node.
 
-    ``partition`` names a lookup over that dimension, and the window then stops
+    ``partition`` names a relation over that dimension, and the window then stops
     at each group's edge. Positions are counted inside the group, so a
-    coordinate the lookup places nowhere reaches nothing — not even itself.
+    coordinate the relation places nowhere reaches nothing — not even itself.
     """
 
     operand: ExpressionNode
@@ -467,8 +467,8 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 # --------------------------------------------------------------------------
 
 
-class LookupDeclaration(NamedTuple):
-    """One declared lookup: a relation over its ``columns``, single-valued per ``key``.
+class RelationDeclaration(NamedTuple):
+    """One declared relation: a relation over its ``columns``, single-valued per ``key``.
 
     ``columns`` binds each role to its dimension in the order the table
     carries them; ``key`` is the roles a row is identified by, empty for a
@@ -500,10 +500,10 @@ class LookupDeclaration(NamedTuple):
 
 
 class Walk(NamedTuple):
-    """One lookup as an operator walks it — which columns are consumed, which produced, which joined on.
+    """One relation as an operator walks it — which columns are consumed, which produced, which joined on.
 
     ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
-    ``lookup``, which binds every role to its dimension and names the key.
+    ``relation``, which binds every role to its dimension and names the key.
     ``joined`` is the key roles not walked (every role, for a bare relation):
     the join keys on them, and a value role not walked is not read. For a
     partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
@@ -511,30 +511,30 @@ class Walk(NamedTuple):
     the group — every value role unless the call named some with ``within=``.
     """
 
-    lookup: LookupDeclaration
+    relation: RelationDeclaration
     consumed: tuple[str, ...]
     produced: tuple[str, ...]
     joined: tuple[str, ...]
 
     @property
     def name(self) -> str:
-        return self.lookup.name
+        return self.relation.name
 
     @property
     def key(self) -> tuple[str, ...]:
-        return self.lookup.key
+        return self.relation.key
 
     @property
     def roles(self) -> tuple[str, ...]:
-        return self.lookup.roles
+        return self.relation.roles
 
     @property
     def values(self) -> tuple[str, ...]:
-        return self.lookup.values
+        return self.relation.values
 
     def dim(self, role: str) -> str:
         """The dimension *role* is bound to."""
-        return self.lookup.dim(role)
+        return self.relation.dim(role)
 
     @property
     def consumed_dims(self) -> tuple[str, ...]:
@@ -556,9 +556,9 @@ class Walk(NamedTuple):
 
 @dataclass(frozen=True)
 class DimensionDeclaration:
-    """A dimension and the lookups with a column over it."""
+    """A dimension and the relations with a column over it."""
 
-    lookups: tuple[LookupDeclaration, ...] = ()
+    relations: tuple[RelationDeclaration, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
     #: whatever table carries it, so the declared type is what that column is
     #: checked against — the same claim ``ParameterDeclaration.dtype`` makes
@@ -830,10 +830,10 @@ class Reach:
 
     Attributes:
         label: The declaration reading, as the lowering's messages label it.
-        name: The parameter or lookup that says how far.
+        name: The parameter or relation that says how far.
         kind: An ``offset`` is a parameter's values, which
             :meth:`Separability.resolved` folds in; a ``partition`` and a
-            ``coordinate`` are a lookup's groups, which it does not.
+            ``coordinate`` are a relation's groups, which it does not.
     """
 
     label: str
@@ -871,7 +871,7 @@ class Separability:
             applied.
         undecided: Each read along the axis whose reach only data can say —
             a named offset, a partition whose groups a window may cut, a read
-            through a lookup at a coordinate the data chooses.
+            through a relation at a coordinate the data chooses.
             :meth:`resolved` folds a parameter's values in.
         restarts: Each declaration counting a position along the axis, which a
             window restarts at its first row. Whether that is wanted — a seed
@@ -904,7 +904,7 @@ class Separability:
 
         Args:
             least: Parameter name to the least of its values. A reach through
-                a lookup — a partition, a coordinate — cannot be folded this
+                a relation — a partition, a coordinate — cannot be folded this
                 way and stays undecided, as does a parameter left out.
 
         Raises:
@@ -987,9 +987,9 @@ class Program:
         return _declared(self.dimensions, name, 'dimension')
 
     @property
-    def lookups(self) -> dict[str, LookupDeclaration]:
-        """Every lookup in the program by name, each once — a lookup keyed by two dimensions sits under both."""
-        return {lk.name: lk for d in self.dimensions.values() for lk in d.lookups}
+    def relations(self) -> dict[str, RelationDeclaration]:
+        """Every relation in the program by name, each once — a relation keyed by two dimensions sits under both."""
+        return {lk.name: lk for d in self.dimensions.values() for lk in d.relations}
 
     def parameter(self, name: str) -> ParameterDeclaration:
         return _declared(self.parameters, name, 'parameter')
@@ -1150,7 +1150,7 @@ class DimensionPositionNode:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
     Both sides are integers, negative counting from the end. With a
-    ``partition`` the position is counted within each group the lookup makes,
+    ``partition`` the position is counted within each group the relation makes,
     walked as :class:`Translate` walks one: its consumed column is the key
     column over ``name``, the group is its produced columns, and its joined
     columns are the other key columns, whose dimensions the frame carries.
@@ -1163,8 +1163,8 @@ class DimensionPositionNode:
 
 
 @dataclass(frozen=True)
-class LookupComparisonNode:
-    """Compare one value column of a keyed lookup against a literal — ``period_of == 2030``.
+class RelationComparisonNode:
+    """Compare one value column of a keyed relation against a literal — ``period_of == 2030``.
 
     ``column`` is the role read, and ``dims`` the dimensions of the key
     columns: the leaf is read at them, one value per coordinate.
@@ -1178,8 +1178,8 @@ class LookupComparisonNode:
 
 
 @dataclass(frozen=True)
-class LookupPairComparisonNode:
-    """Compare a value column of one keyed lookup with one of another — ``from_bus != to_bus`` — row by row on the key.
+class RelationPairComparisonNode:
+    """Compare a value column of one keyed relation with one of another — ``from_bus != to_bus`` — row by row on the key.
 
     Both keys are over the same ``dims``, and the two columns are over one
     dimension, so a match is possible at all.
@@ -1194,11 +1194,11 @@ class LookupPairComparisonNode:
 
 
 @dataclass(frozen=True)
-class LookupDefinedNode:
-    """True where the lookup has a row at the frame's coordinates.
+class RelationDefinedNode:
+    """True where the relation has a row at the frame's coordinates.
 
     ``dims`` is what the frame supplies: the key's dimensions for a keyed
-    lookup, whose row is then the one the key finds; every column's for a
+    relation, whose row is then the one the key finds; every column's for a
     bare relation, where a row is the whole tuple.
     """
 
@@ -1234,9 +1234,9 @@ WhereNode = (
     | VariableDefinedNode
     | ParameterComparisonNode
     | DimensionComparisonNode
-    | LookupComparisonNode
-    | LookupPairComparisonNode
-    | LookupDefinedNode
+    | RelationComparisonNode
+    | RelationPairComparisonNode
+    | RelationDefinedNode
     | NotNode
     | AndNode
     | OrNode
@@ -1251,9 +1251,9 @@ TypedPredicateNode = (
     | VariableDefinedNode
     | DimensionComparisonNode
     | DimensionPositionNode
-    | LookupComparisonNode
-    | LookupPairComparisonNode
-    | LookupDefinedNode
+    | RelationComparisonNode
+    | RelationPairComparisonNode
+    | RelationDefinedNode
 )
 
 #: The boolean connectives — the only where nodes carrying other where nodes,
@@ -1299,7 +1299,7 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
     """One leaf's dims — the rule :attr:`Mask.dims` is the union of.
 
     A parameter or variable leaf carries its own dims off the declaration; a
-    comparison on a dimension is read through that dimension, and a lookup
+    comparison on a dimension is read through that dimension, and a relation
     through the dimensions of the columns it is read at — its key for a
     comparison, every column for a bare existence.
     Separate from the union because the load-time frame check reports per
@@ -1314,7 +1314,7 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
             return frozenset({atom.name})
         case DimensionPositionNode():
             return frozenset({atom.name, *(atom.partition.joined_dims if atom.partition is not None else ())})
-        case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
+        case RelationComparisonNode() | RelationPairComparisonNode() | RelationDefinedNode():
             return frozenset(atom.dims)
         case _:
             assert_never(atom)
@@ -1324,7 +1324,7 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
     """One leaf's declarations, its dimension apart — the rule :attr:`Mask.names_read` is the union of.
 
     A comparison on a dimension names no declaration — a coordinate is not
-    data to feed — and a lookup pair names both maps it compares.
+    data to feed — and a relation pair names both maps it compares.
     ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
     node added without a reading is a type error at this one branch rather
     than a name silently dropped at the first model to use it.
@@ -1334,11 +1334,11 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
             ParameterComparisonNode()
             | ParameterDefinedNode()
             | VariableDefinedNode()
-            | LookupComparisonNode()
-            | LookupDefinedNode()
+            | RelationComparisonNode()
+            | RelationDefinedNode()
         ):
             return frozenset({atom.name})
-        case LookupPairComparisonNode():
+        case RelationPairComparisonNode():
             return frozenset({atom.name, atom.other})
         case DimensionComparisonNode() | DimensionPositionNode():
             return frozenset()
@@ -1428,7 +1428,7 @@ class Mask:
 
     @property
     def names_read(self) -> frozenset[str]:
-        """The parameters, lookups and variables the mask names."""
+        """The parameters, relations and variables the mask names."""
         return frozenset(name for atom in self.atoms for name in _atom_names(atom))
 
     @property

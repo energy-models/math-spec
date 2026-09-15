@@ -93,7 +93,7 @@ variables:
 constraints:
   power_balance:
     dims: [snapshot]
-    expression: sum(p, consume=generator) == load
+    expression: sum(p, over=generator) == load
 
 objective:
   sense: minimize

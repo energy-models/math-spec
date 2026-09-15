@@ -41,7 +41,7 @@ macro can write `over=d` and let the caller supply `d`. It could not do that if
 the dimension were the keyword itself.
 
 **An operator may read the whole table. It pays one full pass over the data.**
-`sum(p, consume=g)` reads one row per generator. `shift(p, over=t, offset=1)` reads
+`sum(p, over=g)` reads one row per generator. `shift(p, along=t, offset=1)` reads
 one row, the one before it. `x * y * a` reads the rows of `a` that pair an `x`
 with a `y`. Each reads a bounded number of rows per output row, so an engine
 builds the model one chunk of rows at a time.
@@ -55,14 +55,14 @@ the list of snapshots, not at the data.
 **An operator that calls itself is refused.** Nothing bounds how far it expands,
 so no number of passes over the data is enough.
 
-| The operator                                         | Allowed?                                        |
-| ---------------------------------------------------- | ----------------------------------------------- |
-| filters rows on a column they already carry          | yes                                             |
-| joins each row against a parameter or a lookup table | yes                                             |
-| reads a fixed number of neighbouring rows            | yes                                             |
-| reads only the coordinate labels                     | yes                                             |
-| reads every row                                      | yes, at one full pass before any chunk builds   |
-| calls itself                                         | no, and the message names what to write instead |
+| The operator                                     | Allowed?                                        |
+| ------------------------------------------------ | ----------------------------------------------- |
+| filters rows on a column they already carry      | yes                                             |
+| joins each row against a parameter or a relation | yes                                             |
+| reads a fixed number of neighbouring rows        | yes                                             |
+| reads only the coordinate labels                 | yes                                             |
+| reads every row                                  | yes, at one full pass before any chunk builds   |
+| calls itself                                     | no, and the message names what to write instead |
 
 **Degree is not a third test.** `p * q` at one coordinate is a join of a table
 with itself, so the objective and the constraints take it. Two things limit the
@@ -71,7 +71,7 @@ quadratic case:
 - **Where it stands.** More solvers and file formats take a quadratic objective
   than a quadratic constraint. Which ones is the
   [separate question below](#solver-capability).
-- **A product of two sums.** `sum(x, consume=i) * sum(y, consume=j)` multiplies every
+- **A product of two sums.** `sum(x, over=i) * sum(y, over=j)` multiplies every
   term of the first sum by every term of the second, and the file does not say
   how many terms either sum has. It is refused. `x[i] * y[j] * a[i, j]` is
   allowed, because the table `a` says which pairs exist.

@@ -117,7 +117,7 @@ parameters:
     dims: [generator]
     dtype: bool
 
-lookups:
+relations:
   Generator_bus:
     description: the bus a generator sits on
     columns: [generator, bus]
@@ -134,7 +134,7 @@ lookups:
     description: >-
       the bus an output port delivers to — PyPSA's `bus1`, `bus2`, … columns.
       A link of three output ports is three labels here rather than a third
-      lookup, so the file states any number of them
+      relation, so the file states any number of them
     columns: [link_output, bus]
     key: link_output
   Load_bus:
@@ -182,7 +182,7 @@ expressions:
     dims: [snapshot, generator]
     cases:
       opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
-    otherwise: shift(Generator_status, over=snapshot, offset=1)
+    otherwise: shift(Generator_status, along=snapshot, offset=1)
   Generator_previous_p:
     description: >-
       the output a generator carries into a snapshot — nothing at the start of
@@ -191,7 +191,7 @@ expressions:
     dims: [snapshot, generator]
     cases:
       opening: { when: "position(snapshot) == 0", expression: 0 }
-    otherwise: shift(Generator_p, over=snapshot, offset=1)
+    otherwise: shift(Generator_p, along=snapshot, offset=1)
 
 constraints:
   Generator_fix_p_lower:
@@ -250,12 +250,12 @@ constraints:
       up time's, which the must-stay-up mask carries
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
-    expression: sum_back(Generator_start_up, over=snapshot, window=Generator_min_up_time) <= Generator_status
+    expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
   Generator_com_down_time:
     description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
-    expression: sum_back(Generator_shut_down, over=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
+    expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
   Generator_com_status_must_stay_up:
     description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
     dims: [snapshot, generator]
@@ -317,8 +317,8 @@ constraints:
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_partly_tightened
     expression: >-
-      shift(Generator_p, over=snapshot, offset=1)
-      - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+      shift(Generator_p, along=snapshot, offset=1)
+      - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
       - (Generator_p_max_pu * Generator_p_nom - Generator_ramp_limit_shut_down * Generator_p_nom)
       * (Generator_status - Generator_start_up) <= 0
   Generator_com_p_current:
@@ -333,9 +333,9 @@ constraints:
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_partly_tightened
     expression: >-
-      Generator_p - shift(Generator_p, over=snapshot, offset=1)
+      Generator_p - shift(Generator_p, along=snapshot, offset=1)
       - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_up * Generator_p_nom) * Generator_status
-      + Generator_p_min_pu * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+      + Generator_p_min_pu * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
       + (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_up * Generator_p_nom - Generator_ramp_limit_start_up * Generator_p_nom)
       * Generator_start_up <= 0
   Generator_com_partly_shut_down:
@@ -343,8 +343,8 @@ constraints:
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_partly_tightened
     expression: >-
-      shift(Generator_p, over=snapshot, offset=1) - Generator_p
-      - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+      shift(Generator_p, along=snapshot, offset=1) - Generator_p
+      - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
       + (Generator_ramp_limit_shut_down * Generator_p_nom - Generator_ramp_limit_down * Generator_p_nom) * Generator_status
       - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_down * Generator_p_nom - Generator_ramp_limit_shut_down * Generator_p_nom)
       * Generator_start_up <= 0

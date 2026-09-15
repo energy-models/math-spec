@@ -190,23 +190,23 @@ class _Block:
         )
         gated = self._gate_rows()
         for suffix, where, rhs in gated:
-            self._constraint(self.convexity + suffix, list(self.frame), f'sum({self.lam}, consume={d}) == {rhs}', where)
+            self._constraint(self.convexity + suffix, list(self.frame), f'sum({self.lam}, over={d}) == {rhs}', where)
         for cname, link in zip(self.links, self.pw.links, strict=True):
             self._constraint(
                 cname,
                 list(self.frame),
-                f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, consume={d})',
+                f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, over={d})',
             )
         if self.pw.method == 'sos2':
             self.raw.setdefault('sos', {})[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
         elif self.pw.method == 'adjacency':
             self._weight(self.seg, domain='binary', bounds={})
             for suffix, where, rhs in gated:
-                self._constraint(self.pick + suffix, list(self.frame), f'sum({self.seg}, consume={d}) == {rhs}', where)
+                self._constraint(self.pick + suffix, list(self.frame), f'sum({self.seg}, over={d}) == {rhs}', where)
             self._constraint(
                 self.adjacency,
                 [*self.frame, d],
-                f'{self.lam} <= {self.seg} + shift({self.seg}, over={d}, offset=1, edge=0)',
+                f'{self.lam} <= {self.seg} + shift({self.seg}, along={d}, offset=1, edge=0)',
             )
 
     def _gate_rows(self) -> tuple[tuple[str, str | None, str], ...]:
@@ -247,8 +247,8 @@ class _Block:
         x_link, y_link = self.pw.curve
         d = self.pw.over
         mask = self.mask
-        run = f'({x_link.values} - shift({x_link.values}, over={d}, offset=1, edge=0))'
-        rise = f'({y_link.values} - shift({y_link.values}, over={d}, offset=1, edge=0))'
+        run = f'({x_link.values} - shift({x_link.values}, along={d}, offset=1, edge=0))'
+        rise = f'({y_link.values} - shift({y_link.values}, along={d}, offset=1, edge=0))'
         interior = f'{mask} AND NOT {self.starts}' if mask else f'position({d}) != 0'
         self._constraint(
             self.chord,

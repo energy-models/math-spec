@@ -36,7 +36,6 @@ from math_spec.program import (
     ExpressionNode,
     Footprint,
     GroupSum,
-    LookupDeclaration,
     Mask,
     Multiply,
     Negate,
@@ -48,6 +47,7 @@ from math_spec.program import (
     Power,
     Program,
     Region,
+    RelationDeclaration,
     Sum,
     Translate,
     Variable,
@@ -79,25 +79,25 @@ TINY = {
     'dimensions': {'g': {}},
     'parameters': {'cost': {'dims': ['g']}},
     'variables': {'p': {'dims': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
-    'constraints': {'c': {'dims': [], 'expression': 'sum(p, consume=g) >= 1'}},
+    'constraints': {'c': {'dims': [], 'expression': 'sum(p, over=g) >= 1'}},
 }
 
 #: `lk` and `lk2` as `sum` walks them: key consumed, value produced, nothing joined.
-LK = LookupDeclaration('lk', (('g', 'g'), ('h', 'h')), ('g',))
-LK2 = LookupDeclaration('lk2', (('g', 'g'), ('z', 'z')), ('g',))
+LK = RelationDeclaration('lk', (('g', 'g'), ('h', 'h')), ('g',))
+LK2 = RelationDeclaration('lk2', (('g', 'g'), ('z', 'z')), ('g',))
 LK_WALK = Walk(LK, ('g',), ('h',), ())
 LK2_WALK = Walk(LK2, ('g',), ('z',), ())
-AT_BUS = LookupDeclaration('at_bus', (('g', 'g'), ('bus', 'bus')), ('g',))
+AT_BUS = RelationDeclaration('at_bus', (('g', 'g'), ('bus', 'bus')), ('g',))
 
-#: `fixtures.SMALL_MODEL` plus a second lookup and a per-entity
+#: `fixtures.SMALL_MODEL` plus a second relation and a per-entity
 #: offset. Which node a construct becomes is mostly a claim about the dim it
 #: consumes and the dim it lands on, and stating that needs a third dimension
-#: and two lookups over one of them.
+#: and two relations over one of them.
 SHAPES_MODEL = override(
     SMALL_MODEL,
     **{
         'dimensions.z': {'dtype': 'str'},
-        'lookups.lk2': {'columns': ['g', 'z'], 'key': 'g'},
+        'relations.lk2': {'columns': ['g', 'z'], 'key': 'g'},
         'parameters.lead': {'dims': ['g'], 'dtype': 'int'},
     },
 )
@@ -157,7 +157,7 @@ def test_lower_program_structure(dispatch_program):
 @pytest.mark.parametrize('sense', [pytest.param('minimize', id='minimize'), pytest.param('maximize', id='maximize')])
 def test_the_objective_sense_crosses_untranslated(sense: str):
     """One spelling from the file to the program, in both directions — each sink translates at its own edge."""
-    program = to_program(override(TINY, objective={'sense': sense, 'expression': 'sum(p * cost, consume=g)'}))
+    program = to_program(override(TINY, objective={'sense': sense, 'expression': 'sum(p * cost, over=g)'}))
     assert program.objective is not None
     assert program.objective.sense == sense, "the file's own word for the direction, unchanged"
 
@@ -171,7 +171,7 @@ def test_a_file_with_no_objective_lowers_to_no_sense():
 def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
     """`offset=-1` parses as a unary minus over `1`; after resolution it is `-1`, for every reader alike."""
     ns = Namespace.of(dispatch_schema)
-    node = expression_of('shift(p, over=snapshot, offset=-1, edge=+2)', dispatch_schema, ns, 't')
+    node = expression_of('shift(p, along=snapshot, offset=-1, edge=+2)', dispatch_schema, ns, 't')
     assert isinstance(node, FunctionCallNode)
     assert (node.kwargs['offset'], node.kwargs['edge']) == (NumberNode(-1.0), NumberNode(2.0))
 
@@ -282,7 +282,7 @@ def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_program):
             {'g', 'h'},
             2,
             2,
-            id='a-lookup-is-read-at-the-dim-it-maps-out-of-and-a-position-at-its-own',
+            id='a-relation-is-read-at-the-dim-it-maps-out-of-and-a-position-at-its-own',
         ),
         pytest.param('p', 'k > 0', set(), 1, 1, id='a-scalar-parameter-is-read-at-no-coordinate'),
         pytest.param(
@@ -409,7 +409,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
     ('expression', 'expected'),
     [
         pytest.param('sum(q)', Sum(Variable('q'), ('g', 'h')), id='a-bare-sum-consumes-every-dim-the-operand-carries'),
-        pytest.param('sum(q, consume=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
+        pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk)',
             GroupSum(Variable('p'), walks=(LK_WALK,)),
@@ -431,22 +431,22 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-pullback-walks-the-same-table-back',
         ),
         pytest.param(
-            "shift(p, over=g, offset=1, edge='wrap')",
+            "shift(p, along=g, offset=1, edge='wrap')",
             Translate(Variable('p'), 'g', offset=1, wrap=True, fill=None),
             id='a-wrapping-translation-fills-nothing',
         ),
         pytest.param(
-            'shift(p, over=g, offset=-2, edge=0)',
+            'shift(p, along=g, offset=-2, edge=0)',
             Translate(Variable('p'), 'g', offset=-2, wrap=False, fill=0.0),
             id='a-lead-is-a-negative-offset-and-the-edge-is-what-it-fills-with',
         ),
         pytest.param(
-            'shift(p, over=g, offset=lead, edge=0)',
+            'shift(p, along=g, offset=lead, edge=0)',
             Translate(Variable('p'), 'g', offset='lead', wrap=False, fill=0.0),
             id='a-named-offset-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'shift(p, over=g, offset=1, by=lk, edge=0)',
+            'shift(p, along=g, offset=1, by=lk, edge=0)',
             Translate(
                 Variable('p'),
                 'g',
@@ -455,20 +455,20 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 fill=0.0,
                 partition=Walk(LK, ('g',), ('h',), ()),
             ),
-            id='a-translation-stops-at-the-edges-of-the-lookup-it-names',
+            id='a-translation-stops-at-the-edges-of-the-relation-it-names',
         ),
         pytest.param(
-            'sum_back(p, over=g, window=3)',
+            'sum_back(p, along=g, window=3)',
             Window(Variable('p'), 'g', width=3, wrap=False),
             id='a-window-is-one-node-rather-than-a-fold-of-translations',
         ),
         pytest.param(
-            'sum_back(p, over=g, window=k)',
+            'sum_back(p, along=g, window=k)',
             Window(Variable('p'), 'g', width='k', wrap=False),
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'sum_back(p, over=g, window=2, by=lk)',
+            'sum_back(p, along=g, window=2, by=lk)',
             Window(
                 Variable('p'),
                 'g',
@@ -476,7 +476,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 wrap=False,
                 partition=Walk(LK, ('g',), ('h',), ()),
             ),
-            id='a-window-stops-at-the-edges-of-the-lookup-it-names',
+            id='a-window-stops-at-the-edges-of-the-relation-it-names',
         ),
     ],
 )
@@ -487,35 +487,35 @@ def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
 
 
 def test_a_relation_lowers_with_the_walk_each_call_takes():
-    """Every node reading a lookup carries its columns, its key and the walk, so a consumer joins on the right columns."""
+    """Every node reading a relation carries its columns, its key and the walk, so a consumer joins on the right columns."""
     program = to_program(
         {
             'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
-            'lookups': {'zone_of': {'columns': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']}},
+            'relations': {'zone_of': {'columns': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']}},
             'parameters': {'price': {'dims': ['snapshot', 'zone']}},
             'variables': {
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
                 'first': {'dims': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
             },
             'constraints': {
-                'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, consume=generator) <= 1'},
+                'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, over=generator) <= 1'},
                 'priced': {
                     'dims': ['snapshot', 'generator'],
-                    'expression': 'p <= at(price, by=zone_of, produce=generator)',
+                    'expression': 'p <= at(price, by=zone_of, into=generator)',
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, consume=snapshot) <= 1',
+                    'expression': 'sum(p, by=zone_of, over=snapshot) <= 1',
                 },
             },
         }
     )
 
     columns = (('generator', 'generator'), ('snapshot', 'snapshot'), ('zone', 'zone'))
-    declared = LookupDeclaration('zone_of', columns, ('generator', 'snapshot'))
-    assert program.dimension('generator').lookups == (declared,), 'the lookup sits under its first column'
-    assert program.dimension('zone').lookups == (declared,), 'and under its last'
-    assert program.lookups == {'zone_of': declared}, 'and once in the program'
+    declared = RelationDeclaration('zone_of', columns, ('generator', 'snapshot'))
+    assert program.dimension('generator').relations == (declared,), 'the relation sits under its first column'
+    assert program.dimension('zone').relations == (declared,), 'and under its last'
+    assert program.relations == {'zone_of': declared}, 'and once in the program'
     zonal = program.constraints['zonal'].lhs
     assert zonal == GroupSum(Variable('p'), walks=(Walk(declared, ('generator',), ('zone',), ('snapshot',)),)), (
         'a grouped sum names the column it consumes, the one it produces and the one it joins on'
@@ -538,9 +538,9 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     p_where = program.variable('p').where
     assert p_where is not None
     assert [(type(a).__name__, a.dims) for a in p_where.atoms] == [
-        ('LookupComparisonNode', ('generator', 'snapshot')),
-        ('LookupDefinedNode', ('generator', 'snapshot')),
-    ], 'a comparison and an existence are both read at the key of a keyed lookup'
+        ('RelationComparisonNode', ('generator', 'snapshot')),
+        ('RelationDefinedNode', ('generator', 'snapshot')),
+    ], 'a comparison and an existence are both read at the key of a keyed relation'
     first_where = program.variable('first').where
     assert first_where is not None
     assert first_where.dims == {'generator', 'snapshot'}, 'a position within a group is read at every key column'
@@ -554,7 +554,7 @@ def test_a_binary_variable_lowers_to_a_binary_domain():
 def test_a_divisor_under_a_pullback_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
-    component_of = LookupDeclaration('component_of', (('flow', 'flow'), ('component', 'component')), ('flow',))
+    component_of = RelationDeclaration('component_of', (('flow', 'flow'), ('component', 'component')), ('flow',))
     pulled = At(quotient, walks=(Walk(component_of, ('component',), ('flow',), ()),))
 
     assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `At`'
@@ -617,7 +617,7 @@ def test_a_node_answers_its_fan_in(node, expected):
     assert fan_in(node) == expected
 
 
-def test_a_lookup_names_the_dimension_its_values_label():
+def test_a_relation_names_the_dimension_its_values_label():
     """Five sites asked this and each walked for it; the plan answers it once."""
     program = Program(
         parameters={},
@@ -626,19 +626,19 @@ def test_a_lookup_names_the_dimension_its_values_label():
         objective=None,
         dimensions={
             'snapshot': DimensionDeclaration(
-                (LookupDeclaration('season_of', (('snapshot', 'snapshot'), ('season', 'season')), ('snapshot',)),)
+                (RelationDeclaration('season_of', (('snapshot', 'snapshot'), ('season', 'season')), ('snapshot',)),)
             ),
             'generator': DimensionDeclaration(
-                (LookupDeclaration('at_bus', (('generator', 'generator'), ('bus', 'bus')), ('generator',)),)
+                (RelationDeclaration('at_bus', (('generator', 'generator'), ('bus', 'bus')), ('generator',)),)
             ),
         },
     )
 
-    assert [lk.name for lk in program.dimension('snapshot').lookups] == ['season_of'], (
+    assert [lk.name for lk in program.dimension('snapshot').relations] == ['season_of'], (
         'one dimension names its own maps and no other dimension'
     )
-    assert program.dimension('snapshot').lookups[0].values == ('season',), 'and the map says what its key determines'
-    assert list(program.lookups) == ['season_of', 'at_bus'], 'every map once, by name, in declaration order'
+    assert program.dimension('snapshot').relations[0].values == ('season',), 'and the map says what its key determines'
+    assert list(program.relations) == ['season_of', 'at_bus'], 'every map once, by name, in declaration order'
 
 
 def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():
@@ -669,8 +669,8 @@ def test_expressions_are_the_ones_a_row_is_built_from():
     program = to_program(
         override(
             TINY,
-            expressions={'spend': 'sum(cost, consume=g)'},
-            objective={'sense': 'minimize', 'expression': 'sum(p * cost, consume=g)'},
+            expressions={'spend': 'sum(cost, over=g)'},
+            objective={'sense': 'minimize', 'expression': 'sum(p * cost, over=g)'},
         )
     )
 
@@ -703,12 +703,12 @@ def test_the_footprint_says_which_position_a_quadratic_stands_in():
     actually make — quadratic is bounded "by convexity and again by what it
     stands beside" — and leave the sink walking the program to recover it.
     """
-    assert _footprint_of('p <= 1', 'sum(p * p, consume=g)').quadratic == {'objective'}, 'a quadratic objective alone'
-    assert _footprint_of('p * p <= 1', 'sum(p, consume=g)').quadratic == {'constraint'}, 'a quadratic constraint alone'
-    assert _footprint_of('p * p <= 1', 'sum(p * p, consume=g)').quadratic == {'objective', 'constraint'}, (
+    assert _footprint_of('p <= 1', 'sum(p * p, over=g)').quadratic == {'objective'}, 'a quadratic objective alone'
+    assert _footprint_of('p * p <= 1', 'sum(p, over=g)').quadratic == {'constraint'}, 'a quadratic constraint alone'
+    assert _footprint_of('p * p <= 1', 'sum(p * p, over=g)').quadratic == {'objective', 'constraint'}, (
         'both positions, each named'
     )
-    assert _footprint_of('p <= 1', 'sum(p, consume=g)').quadratic == frozenset(), 'affine throughout is the empty set'
+    assert _footprint_of('p <= 1', 'sum(p, over=g)').quadratic == frozenset(), 'affine throughout is the empty set'
 
 
 def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
@@ -717,7 +717,7 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
     None would make three states out of two and put a null check in front of
     every read.
     """
-    footprint = _footprint_of('p <= 1', 'sum(p, consume=g)')
+    footprint = _footprint_of('p <= 1', 'sum(p, over=g)')
 
     assert footprint.sos_types == frozenset(), 'a file declaring no sos'
     assert footprint.quadratic == frozenset(), 'a file with no quadratic anywhere'
@@ -738,7 +738,7 @@ def test_the_footprint_is_walked_once_and_held(dispatch_program):
 
 def test_a_named_expression_is_not_in_the_footprint():
     """It builds no row, so counting it would answer wrongly about what is solved."""
-    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, consume=g)'}))
+    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}))
 
     assert Parameter not in program.footprint.shapes, "the named expression's parameter reaches no row"
     assert Parameter in {type(n) for n in walk(program.named_expressions['spend'].expression)}, (
@@ -769,7 +769,7 @@ CASED = {
                 'always_on': {'when': 'not committable', 'expression': 1},
                 'boundary': {'when': 'committable and position(t) == 0', 'expression': 'initial'},
             },
-            'otherwise': 'shift(status, over=t, offset=1)',
+            'otherwise': 'shift(status, along=t, offset=1)',
         }
     },
     'constraints': {'no_restart': {'dims': ['t', 'g'], 'expression': 'status - previous <= 1'}},
@@ -870,7 +870,7 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
         ),
         pytest.param({}, False, id='nothing-reads-it'),
         pytest.param(
-            {'expressions.ratio': 'spend / sum(p, consume=g)'},
+            {'expressions.ratio': 'spend / sum(p, over=g)'},
             False,
             id='only-an-entry-the-math-never-reads-inlines-it',
         ),
@@ -878,7 +878,7 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
 )
 def test_an_entry_is_in_the_math_where_the_objective_or_a_constraint_inlines_it(patch, in_math):
     """`in_math` is usage, not shape: one affine body is in the math when a row inlines it, however indirectly, and a reported quantity when none does."""
-    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, consume=g)'}, **patch))
+    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch))
     assert program.named_expressions['spend'].in_math is in_math
 
 
@@ -887,7 +887,7 @@ def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
     program = to_program(
         override(
             TINY,
-            expressions={'spend': 'sum(p * cost, consume=g)', 'twice': 'spend * 2'},
+            expressions={'spend': 'sum(p * cost, over=g)', 'twice': 'spend * 2'},
             **{'constraints.c.expression': 'twice >= 1'},
         )
     )
@@ -902,9 +902,9 @@ def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
     program = to_program(
         override(
             TINY,
-            expressions={'spend': 'sum(p * cost, consume=g)'},
+            expressions={'spend': 'sum(p * cost, over=g)'},
             macros={'scaled': {'args': ['spend'], 'template': 'spend * 2'}},
-            **{'constraints.c.expression': 'scaled(sum(p, consume=g)) >= 1'},
+            **{'constraints.c.expression': 'scaled(sum(p, over=g)) >= 1'},
         )
     )
     assert program.named_expressions['spend'].in_math is False, (
@@ -936,8 +936,8 @@ def test_a_lowered_spec_still_pickles_and_lowers_to_the_same_program():
             'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
             'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
             'variables': {'p': {'dims': ['t', 'g'], 'bounds': {'lower': 0}}},
-            'constraints': {'balance': {'dims': ['t'], 'expression': 'sum(p, consume=g) >= load'}},
-            'expressions': {'spend': 'sum(p * cost, consume=g)'},
+            'constraints': {'balance': {'dims': ['t'], 'expression': 'sum(p, over=g) >= load'}},
+            'expressions': {'spend': 'sum(p * cost, over=g)'},
             'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
         }
     )
@@ -964,8 +964,8 @@ def test_a_lowered_program_pickles_and_is_the_same_program():
             'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
             'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
             'variables': {'p': {'dims': ['t', 'g'], 'bounds': {'lower': 0}}},
-            'constraints': {'balance': {'dims': ['t'], 'expression': 'sum(p, consume=g) >= load'}},
-            'expressions': {'spend': 'sum(p * cost, consume=g)'},
+            'constraints': {'balance': {'dims': ['t'], 'expression': 'sum(p, over=g) >= load'}},
+            'expressions': {'spend': 'sum(p * cost, over=g)'},
             'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
         }
     )

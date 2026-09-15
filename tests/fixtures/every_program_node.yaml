@@ -7,7 +7,7 @@ dimensions:
   t: { dtype: int }
   g: { dtype: str }
   zone: { dtype: str }
-lookups:
+relations:
   zone_of: { columns: [g, zone], key: g }
 parameters:
   cost: { dims: [g] }
@@ -23,7 +23,7 @@ expressions:
     dims: [t, g]
     cases:
       opening: { when: "position(t) == 0", expression: 0 }
-    otherwise: shift(p, over=t, offset=1, edge='wrap')
+    otherwise: shift(p, along=t, offset=1, edge='wrap')
   shadow: dual(grouped) # a Dual leaf, the one node only an entry the math never reads lowers to
 constraints:
   regional:
@@ -43,10 +43,10 @@ constraints:
     expression: "p - at(q, by=zone_of) <= 0"
   translated:
     dims: [t, g]
-    expression: "p - shift(p, over=t, offset=lead, edge='wrap') <= 0"
+    expression: "p - shift(p, along=t, offset=lead, edge='wrap') <= 0"
   windowed:
     dims: [t, g]
-    expression: "sum_back(p, over=t, window=width) <= 10"
+    expression: "sum_back(p, along=t, window=width) <= 10"
 objective:
   sense: minimize
   expression: "sum(p * cost)"

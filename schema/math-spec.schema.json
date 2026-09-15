@@ -79,7 +79,7 @@
     },
     "DimensionBlock": {
       "additionalProperties": false,
-      "description": "A declared dimension, and the dtype its coordinates must be.\n\nA dimension is an axis and nothing else: it declares that the axis exists\nand what its coordinates are typed as, never which coordinates there are \u2014\nthose are data, and arrive at bind time. The maps its members carry \u2014 a\ngenerator's bus, a snapshot's period \u2014 are top-level ``lookups:``\n(:class:`LookupBlock`), keyed by their own name.",
+      "description": "A declared dimension, and the dtype its coordinates must be.\n\nA dimension is an axis and nothing else: it declares that the axis exists\nand what its coordinates are typed as, never which coordinates there are \u2014\nthose are data, and arrive at bind time. The maps its members carry \u2014 a\ngenerator's bus, a snapshot's period \u2014 are top-level ``relations:``\n(:class:`RelationBlock`), keyed by their own name.",
       "properties": {
         "description": {
           "anyOf": [
@@ -112,7 +112,7 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "A named quantity: one arithmetic expression, referenced by the math or read back after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, consume=generator)\n      emissions:\n        expression: sum(p * rate, consume=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by region is written as ``cases:`` over a\ndeclared ``dims:``, with an ``otherwise:`` for the rest \u2014 see the\nlanguage reference.",
+          "description": "A named quantity: one arithmetic expression, referenced by the math or read back after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by region is written as ``cases:`` over a\ndeclared ``dims:``, with an ``otherwise:`` for the rest \u2014 see the\nlanguage reference.",
           "properties": {
             "cases": {
               "additionalProperties": {
@@ -214,67 +214,6 @@
         "expression"
       ],
       "title": "ExpressionCase",
-      "type": "object"
-    },
-    "LookupBlock": {
-      "additionalProperties": false,
-      "description": "A named relation between dimensions, and the key it is single-valued per.\n\n``columns:`` is the table's columns \u2014 a list of dimensions, or a mapping\nof column name to dimension where two columns share one. ``key:`` names the\ncolumns each row is identified by, and is the claim the language checks\nat bind: one row per key tuple, so the other columns are a function of\nit. Without a key the table is a bare relation::\n\n    lookups:\n      gen_bus: {columns: [generator, bus], key: generator}\n      zone_of: {columns: [generator, period, zone], key: [generator, period]}\n      rep_of: {columns: {snapshot: snapshot, rep: snapshot}, key: snapshot}\n      connection: {columns: [entity, bus]}\n\nAn operator walks the table in the direction the call names\n(``consume=``, ``produce=``), joining on the other key columns; the\ndeclaration fixes no direction. The map itself is data, and arrives at bind\ntime under the lookup's name, one column per role.",
-      "properties": {
-        "columns": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            }
-          ],
-          "title": "Columns"
-        },
-        "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Description"
-        },
-        "key": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Key"
-        }
-      },
-      "required": [
-        "columns"
-      ],
-      "title": "LookupBlock",
       "type": "object"
     },
     "MacroBlock": {
@@ -509,6 +448,67 @@
         }
       ]
     },
+    "RelationBlock": {
+      "additionalProperties": false,
+      "description": "A named relation between dimensions, and the key it is single-valued per.\n\n``columns:`` is the table's columns \u2014 a list of dimensions, or a mapping\nof column name to dimension where two columns share one. ``key:`` names the\ncolumns each row is identified by, and is the claim the language checks\nat bind: one row per key tuple, so the other columns are a function of\nit. Without a key the table is a bare relation::\n\n    relations:\n      gen_bus: {columns: [generator, bus], key: generator}\n      zone_of: {columns: [generator, period, zone], key: [generator, period]}\n      rep_of: {columns: {snapshot: snapshot, rep: snapshot}, key: snapshot}\n      connection: {columns: [entity, bus]}\n\nAn operator walks the table in the direction the call names\n(``over=``, ``into=``), joining on the other key columns; the\ndeclaration fixes no direction. The map itself is data, and arrives at bind\ntime under the relation's name, one column per role.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          ],
+          "title": "Columns"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        }
+      },
+      "required": [
+        "columns"
+      ],
+      "title": "RelationBlock",
+      "type": "object"
+    },
     "SosBlock": {
       "additionalProperties": false,
       "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order, and ``big_m`` is the optional cap a consumer\nthat reformulates the set puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath to read off ``A``: it is a *set*, carried to a consumer that has the\nconcept and reformulated for one that does not.",
@@ -668,14 +668,6 @@
       "title": "Expressions",
       "type": "object"
     },
-    "lookups": {
-      "additionalProperties": {
-        "$ref": "#/$defs/LookupBlock"
-      },
-      "default": {},
-      "title": "Lookups",
-      "type": "object"
-    },
     "macros": {
       "additionalProperties": {
         "$ref": "#/$defs/MacroBlock"
@@ -709,6 +701,14 @@
       },
       "default": {},
       "title": "Piecewise",
+      "type": "object"
+    },
+    "relations": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RelationBlock"
+      },
+      "default": {},
+      "title": "Relations",
       "type": "object"
     },
     "sos": {

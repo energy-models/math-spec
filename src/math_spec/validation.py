@@ -106,7 +106,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     - where strings parse *and* resolve — an unknown name there is an error,
       not a silently-empty mask;
     - macro formals may shadow model names but not a declared dimension, since
-      ``consume=snapshot`` under a formal ``snapshot`` cannot say which it means;
+      ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
     Returns:
@@ -343,19 +343,19 @@ def _check_template_names(
         for arg in node.args:
             _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():
-            with_lookup = builtin is not None and any(k in node.kwargs for k in builtin.lookup_kwargs)
-            match builtin.kind_of(kwarg, with_lookup=with_lookup) if builtin else 'value':
+            with_relation = builtin is not None and any(k in node.kwargs for k in builtin.relation_kwargs)
+            match builtin.kind_of(kwarg, with_relation=with_relation) if builtin else 'value':
                 case 'dimension':
                     if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
                         errors.append(
                             f'{context}: {node.name}({kwarg}={value.name}) does not name a '
                             f'declared dimension or a formal of this macro.'
                         )
-                case 'lookup':
+                case 'relation':
                     errors.extend(
-                        f'{context}: {node.name}({kwarg}={one}) does not name a lookup or a formal of this macro.'
+                        f'{context}: {node.name}({kwarg}={one}) does not name a relation or a formal of this macro.'
                         for one in names_in(value)
-                        if one not in formals and ns.kind(one) != 'lookup'
+                        if one not in formals and ns.kind(one) != 'relation'
                     )
                 case 'value':
                     _check_template_names(value, context, ns, formals, errors)

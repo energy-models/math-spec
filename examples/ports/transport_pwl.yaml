@@ -71,10 +71,10 @@ piecewise:
 constraints:
   within_capacity:
     dims: [plant]
-    expression: sum(shipment, consume=market) <= capacity
+    expression: sum(shipment, over=market) <= capacity
   meet_demand:
     dims: [market]
-    expression: sum(shipment, consume=plant) >= demand
+    expression: sum(shipment, over=plant) >= demand
 
 objective:
   sense: minimize

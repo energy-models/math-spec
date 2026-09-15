@@ -93,8 +93,8 @@ def separabilities(program: Program) -> dict[str, Separability]:
                     )
             elif isinstance(node, At):
                 for dimension in node.into:
-                    for lookup in node.coordinate:
-                        waits_on(dimension, label, lookup, 'coordinate')
+                    for relation in node.coordinate:
+                        waits_on(dimension, label, relation, 'coordinate')
             elif isinstance(node, (Translate, Window)):
                 dimension = node.dimension
                 if node.wrap:

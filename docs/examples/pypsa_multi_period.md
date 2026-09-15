@@ -339,7 +339,7 @@ Carrier_growth_limit:
   where: Carrier_max_growth
   expression: >-
     sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier)
-    - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier), over=period, offset=1, edge=0)
+    - shift(sum(Generator_p_nom_ext * Generator_first_active, by=Generator_carrier), along=period, offset=1, edge=0)
     * Carrier_max_relative_growth
     <= Carrier_max_growth
 ```
