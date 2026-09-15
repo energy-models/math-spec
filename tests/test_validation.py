@@ -15,7 +15,7 @@ import pytest
 from math_spec._yaml import parse_yaml
 from math_spec.errors import DimensionError, LanguageError, SchemaError
 from math_spec.lowering import to_program
-from math_spec.program import DimensionPositionNode
+from math_spec.program import DimensionPosition
 from math_spec.resolution import Namespace, where_of
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
@@ -176,7 +176,7 @@ class TestValidateExpressions:
         nothing consumes.
         """
         model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
-        assert to_program(model).named_expressions['lcoe'].in_math is False, (
+        assert to_program(model).expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
         assert 'lcoe' in to_markdown(model), 'and the page prints it, under its own name'
@@ -461,7 +461,7 @@ class TestPositionResolves:
         resolved = where_of(mask, Namespace.of(POSITION_SCHEMA), 'the mask')
         assert resolved is not None
         node = resolved.root
-        assert isinstance(node, DimensionPositionNode)
+        assert isinstance(node, DimensionPosition)
         assert node.name == 'snapshot'
         assert node.position == position
         assert (node.partition.name if node.partition is not None else None) == by

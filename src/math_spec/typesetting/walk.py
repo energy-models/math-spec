@@ -35,21 +35,21 @@ from math_spec._expression_parser import (
 )
 from math_spec.dimensions import dims_of
 from math_spec.program import (
-    AndNode,
-    BooleanLiteralNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
+    And,
+    BooleanLiteral,
+    DimensionComparison,
+    DimensionPosition,
     Mask,
-    NotNode,
-    OrNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
+    Not,
+    Or,
+    ParameterComparison,
+    ParameterDefined,
+    Predicate,
     PredicateOperator,
-    RelationComparisonNode,
-    RelationDefinedNode,
-    RelationPairComparisonNode,
-    VariableDefinedNode,
-    WhereNode,
+    RelationComparison,
+    RelationDefined,
+    RelationPairComparison,
+    VariableDefined,
 )
 from math_spec.typesetting.format import Entry, Glossary, Line, OperatorName
 
@@ -295,7 +295,7 @@ class Walk:
         keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
         return self.format.apply(self._column(name, column, len(lk.values) == 1), keyed)
 
-    def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
+    def _position_group(self, node: DimensionPosition, ctx: _Context) -> str:
         """The group a grouped position counts within: the relation's group columns read at the row's key."""
         assert node.partition is not None
         walk = node.partition
@@ -553,33 +553,33 @@ class Walk:
 
     # -- where strings -----------------------------------------------------
 
-    def _predicate(self, node: WhereNode, ctx: _Context, *, need: int = 0) -> str:
+    def _predicate(self, node: Predicate, ctx: _Context, *, need: int = 0) -> str:
         text, precedence = self._where(node, ctx)
         return self.format.parenthesise(text) if precedence < need else text
 
-    def _where(self, node: WhereNode, ctx: _Context) -> tuple[str, int]:
+    def _where(self, node: Predicate, ctx: _Context) -> tuple[str, int]:
         comparison = _WHERE_PRECEDENCE['comparison']
-        if isinstance(node, BooleanLiteralNode):
+        if isinstance(node, BooleanLiteral):
             assert not node.value, 'an always-true mask is folded away or refused before anything prints it'
             return self._op('false'), _ATOM
 
-        if isinstance(node, ParameterDefinedNode):
+        if isinstance(node, ParameterDefined):
             indexed = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             if self.schema.parameters[node.name].dtype == 'bool':
                 return indexed, _ATOM
             return f'{indexed} {self.format.prose(" is defined")}', comparison
 
-        if isinstance(node, VariableDefinedNode):
+        if isinstance(node, VariableDefined):
             return (
                 f'{ctx.indexed(self.symbols.name[node.name], list(node.dims))} {self.format.prose(" exists")}',
                 comparison,
             )
 
-        if isinstance(node, ParameterComparisonNode):
+        if isinstance(node, ParameterComparison):
             left = ctx.indexed(self.symbols.name[node.name], list(node.dims))
             return f'{left} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
-        if isinstance(node, DimensionComparisonNode):
+        if isinstance(node, DimensionComparison):
             if isinstance(node.value, int | float):
                 self.noticed.numeric_coordinates.add(node.name)
             return (
@@ -587,22 +587,22 @@ class Walk:
                 comparison,
             )
 
-        if isinstance(node, DimensionPositionNode):
+        if isinstance(node, DimensionPosition):
             grouping = None if node.partition is None else self._position_group(node, ctx)
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
             return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
 
-        if isinstance(node, RelationComparisonNode):
+        if isinstance(node, RelationComparison):
             applied = self._value_read(node.name, node.column, ctx)
             return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
 
-        if isinstance(node, RelationPairComparisonNode):
+        if isinstance(node, RelationPairComparison):
             left = self._value_read(node.name, node.column, ctx)
             right = self._value_read(node.other, node.other_column, ctx)
             return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
 
-        if isinstance(node, RelationDefinedNode):
+        if isinstance(node, RelationDefined):
             lk = self.schema.relations[node.name]
             if lk.keys:
                 keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
@@ -611,18 +611,18 @@ class Walk:
             row = self.format.parenthesise(self.format.joined([ctx.subscript(d) for d in lk.dims], ''))
             return f'{row} {self._op("in")} {self.format.upright(node.name)}', comparison
 
-        if isinstance(node, NotNode):
+        if isinstance(node, Not):
             return (
                 f'{self._op("not")} {self._predicate(node.operand, ctx, need=_WHERE_PRECEDENCE["not"])}',
                 _WHERE_PRECEDENCE['not'],
             )
 
-        if isinstance(node, AndNode):
+        if isinstance(node, And):
             need = _WHERE_PRECEDENCE['and']
             sides = [self._predicate(node.left, ctx, need=need), self._predicate(node.right, ctx, need=need)]
             return self.format.joined(sides, self._op('and')), need
 
-        if isinstance(node, OrNode):
+        if isinstance(node, Or):
             need = _WHERE_PRECEDENCE['or']
             sides = [self._predicate(node.left, ctx, need=need), self._predicate(node.right, ctx, need=need)]
             return self.format.joined(sides, self._op('or')), need

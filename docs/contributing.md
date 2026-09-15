@@ -126,11 +126,11 @@ stale anchor fails it.
 The same construct passes through three layers, and each names it in full. The
 suffix says which layer, which keeps the three vocabularies from colliding:
 
-| Layer                           | Suffix               | Example                                   |
-| ------------------------------- | -------------------- | ----------------------------------------- |
-| YAML block (`math_spec.model`)  | `Block`              | `VariableBlock`, `PiecewiseBlock`         |
-| Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `DimensionComparisonNode` |
-| Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`         |
+| Layer                           | Suffix               | Example                                    |
+| ------------------------------- | -------------------- | ------------------------------------------ |
+| YAML block (`math_spec.model`)  | `Block`              | `VariableBlock`, `PiecewiseBlock`          |
+| Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `UnresolvedComparisonNode` |
+| Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`          |
 
 Two rules follow, and a PR that adds a construct keeps them:
 

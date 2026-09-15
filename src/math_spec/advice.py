@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from math_spec.boundedness import unbounded_notes
 from math_spec.errors import Advice
 from math_spec.lowering import to_program
-from math_spec.program import At, GroupSum, walk
+from math_spec.program import GroupSum, Pullback, walk
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -72,9 +72,9 @@ def _produced_axes(program: Program) -> set[str]:
     ``sum(by=)`` lands on its target and ``at()`` spreads onto its fine dimension.
     """
     axes: set[str] = set()
-    for node in walk(*program.expressions):
+    for node in walk(*program.roots):
         if isinstance(node, GroupSum):
             axes.update(node.into)
-        elif isinstance(node, At):
+        elif isinstance(node, Pullback):
             axes.update(node.over)
     return axes

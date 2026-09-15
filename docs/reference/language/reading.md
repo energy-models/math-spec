@@ -128,7 +128,7 @@ footprint = program.footprint
 sorted(footprint.quadratic)  # []
 sorted(footprint.domains)  # ['continuous']
 sorted(footprint.sos_types)  # []
-sorted(kind.__name__ for kind in footprint.shapes)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
+sorted(kind.__name__ for kind in footprint.nodes)  # ['Constant', 'Multiply', 'Parameter', 'Sum', 'Variable']
 ```
 
 Every field is a set. `if footprint.sos_types` asks whether sets appear at all,
@@ -143,7 +143,7 @@ model does not use the construct, not that the construct does not exist.
     on the numbers.
 
 The footprint stops at the kind of construct. An engine whose solver accepts a
-window but not a wrapped one reads `Window in footprint.shapes`, then walks the
+window but not a wrapped one reads `WindowSum in footprint.nodes`, then walks the
 tree for the detail.
 
 ## Asking whether an axis can be cut

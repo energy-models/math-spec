@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 
 from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
-from math_spec.program import Mask, RelationPairComparisonNode
+from math_spec.program import Mask, RelationPairComparison
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
 from tests.fixtures import override, schema_of
@@ -499,6 +499,6 @@ def test_names_read_takes_both_sides_of_a_relation_pair():
     BASE has one relation per dimension, so the pair is built directly rather than
     resolved from a predicate string.
     """
-    where = RelationPairComparisonNode('from_bus', 'bus', 'to_bus', 'bus', '!=', ('line',))
+    where = RelationPairComparison('from_bus', 'bus', 'to_bus', 'bus', '!=', ('line',))
 
     assert Mask(where).names_read == {'from_bus', 'to_bus'}, 'a relation pair names both maps it compares'
