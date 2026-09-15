@@ -43,7 +43,7 @@ def advice(model: str | Path | dict[str, Any] | Spec | Program) -> tuple[Advice,
 def _never_an_axis(program: Program) -> list[Advice]:
     """One piece of advice per dimension nothing reaches.
 
-    A dimension a lookup has a column over is reached: its members are the
+    A dimension a relation has a column over is reached: its members are the
     labels that column is checked against, and a ``where`` selects on them,
     so it is in use even where nothing is indexed by it.
     """
@@ -51,14 +51,14 @@ def _never_an_axis(program: Program) -> list[Advice]:
     for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
         reached.update(declaration.dims)
     reached |= _produced_axes(program)
-    reached |= {dim for lk in program.lookups.values() for dim in lk.dims}
+    reached |= {dim for lk in program.relations.values() for dim in lk.dims}
 
     return [
         Advice(
             'never-an-axis',
             name,
             f"dimension '{name}' is never used: nothing is indexed by it, nothing "
-            f'aggregates into it, and no lookup has a column over it. Remove it — or keep it '
+            f'aggregates into it, and no relation has a column over it. Remove it — or keep it '
             f'knowingly, if the declarations that use it are still to be written.',
         )
         for name in program.dimensions

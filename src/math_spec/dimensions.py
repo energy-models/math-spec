@@ -27,10 +27,10 @@ from math_spec._expression_parser import (
     EdgeNode,
     FunctionCallNode,
     KwargNode,
-    LookupNode,
     NumberNode,
     ParameterNode,
     ParsedNode,
+    RelationNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -42,12 +42,12 @@ from math_spec.operators import BUILTINS
 from math_spec.program import (
     DimensionComparisonNode,
     DimensionPositionNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
-    LookupPairComparisonNode,
     Mask,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    RelationComparisonNode,
+    RelationDefinedNode,
+    RelationPairComparisonNode,
     VariableDefinedNode,
 )
 
@@ -134,26 +134,26 @@ def _dims_call(node: FunctionCallNode, schema: Spec, context: str) -> frozenset[
 
 
 def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``sum`` reduces a dim away, or walks lookups: the consumed dim goes, the produced dims arrive, the joined stay."""
+    """``sum`` reduces a dim away, or walks relations: the consumed dim goes, the produced dims arrive, the joined stay."""
     by = node.kwargs.get('by')
-    if by is None and 'consume' not in node.kwargs:
+    if by is None and 'over' not in node.kwargs:
         if not inner:
             raise DimensionError(
-                f'{context}: sum() with no consume= or by= sums every dim the operand '
+                f'{context}: sum() with no over= or by= sums every dim the operand '
                 f'carries, and this one carries none — the expression is already a '
                 f'scalar. Drop the sum.'
             )
         return frozenset()
     if by is None:
-        consumed = node.kwargs['consume']
+        consumed = node.kwargs['over']
         assert isinstance(consumed, DimensionNode)
         if consumed.name not in inner:
             raise DimensionError(
-                _not_carried(context, f'sum(consume={consumed.name})', inner, 'drop the sum, or fix the dim')
+                _not_carried(context, f'sum(over={consumed.name})', inner, 'drop the sum, or fix the dim')
             )
         return inner - {consumed.name}
 
-    assert isinstance(by, LookupNode)
+    assert isinstance(by, RelationNode)
     if missing := sorted(set(by.dimensions) - inner):
         raise DimensionError(
             _not_carried(
@@ -170,7 +170,7 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
     """``at`` is the adjoint of ``sum(by=)``: it consumes the dims the walks produce and produces the one they consume."""
     by = node.kwargs['by']
-    assert isinstance(by, LookupNode)
+    assert isinstance(by, RelationNode)
     absent = sorted(set(by.into) - inner)
     if absent:
         raise DimensionError(
@@ -185,13 +185,13 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
 
 def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
     """``shift`` and ``sum_back`` keep every dim, and their amount, edge and partition are checked here."""
-    over = node.kwargs['over']
+    over = node.kwargs['along']
     assert isinstance(over, DimensionNode)
     if over.name not in inner:
         raise DimensionError(
             _not_carried(
                 context,
-                f'{node.name}(over={over.name})',
+                f'{node.name}(along={over.name})',
                 inner,
                 f'walk a dim the operand carries, or drop the {node.name}',
             )
@@ -201,26 +201,26 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     _check_edge(node, context)
     partition = node.kwargs.get('by')
     if partition is not None:
-        assert isinstance(partition, LookupNode)
+        assert isinstance(partition, RelationNode)
         if len(partition.names) > 1:
             raise DimensionError(
-                f'{context}: {node.name}(over={over.name}, by={partition.shown}) partitions by '
-                f'several lookups at once. A partition says which rows are neighbours rather than '
-                f'which group a term lands in, so it names one lookup — partition by a lookup whose '
+                f'{context}: {node.name}(along={over.name}, by={partition.shown}) partitions by '
+                f'several relations at once. A partition says which rows are neighbours rather than '
+                f'which group a term lands in, so it names one relation — partition by a relation whose '
                 f'values already distinguish them.'
             )
-        _check_joined(f'{node.name}(over={over.name}, by={partition.shown})', partition, inner, context)
+        _check_joined(f'{node.name}(along={over.name}, by={partition.shown})', partition, inner, context)
     return inner
 
 
-def _check_joined(call: str, by: LookupNode, inner: frozenset[str], context: str) -> None:
+def _check_joined(call: str, by: RelationNode, inner: frozenset[str], context: str) -> None:
     """The columns a walk joins on are read at their dimensions, so the operand carries every one, each once."""
     for walk in by.walks:
         dims = walk.joined_dims
         if missing := sorted(set(dims) - inner):
             raise DimensionError(
                 f'{context}: {call} joins on {missing} (columns {[r for r in walk.joined if walk.dim(r) in missing]} '
-                f"of '{walk.name}'), which the expression does not carry (dims {sorted(inner)}). A lookup is "
+                f"of '{walk.name}'), which the expression does not carry (dims {sorted(inner)}). A relation is "
                 f'walked between two of its columns and read at the others — index the operand by them, or '
                 f'walk between different columns.'
             )
@@ -228,7 +228,7 @@ def _check_joined(call: str, by: LookupNode, inner: frozenset[str], context: str
         if twice:
             raise DimensionError(
                 f"{context}: {call} joins '{walk.name}' on {twice} through more than one column, and the operand "
-                f'carries each dimension once. Give the walk different columns, or a lookup whose joined '
+                f'carries each dimension once. Give the walk different columns, or a relation whose joined '
                 f'columns are over distinct dimensions.'
             )
 
@@ -375,8 +375,8 @@ def _shift_over_data_message(context: str) -> str:
     return (
         f'{context}: shift() over a variable-free expression leaves vacated positions with no '
         f'value, and inventing one is what silently pinned a bound to zero. Say which you mean:\n'
-        f"  shift(x, over=d, offset=n, edge='wrap')   the dimension really is cyclic\n"
-        f'  shift(x, over=d, offset=n, edge=0)        the vacated positions contribute zero\n'
+        f"  shift(x, along=d, offset=n, edge='wrap')   the dimension really is cyclic\n"
+        f'  shift(x, along=d, offset=n, edge=0)        the vacated positions contribute zero\n'
         f'  ...and a where: excluding them        the vacated rows should not exist at all\n'
         f'A where: alone does not lift this — it is decided on the expression, before any mask '
         f'is read — and edge=0 alone leaves a row whose bound is that zero.'
@@ -411,7 +411,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
     partition = node.kwargs.get('by')
     groups = (
         frozenset(partition.walks[0].dim(v) for v in partition.walks[0].produced)
-        if isinstance(partition, LookupNode)
+        if isinstance(partition, RelationNode)
         else frozenset()
     )
     if stray := sorted(frozenset(declared.dims) - inner - groups):
@@ -419,7 +419,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
             f'{context}: {node.name}({kwarg}={amount.name}) reads its {words.noun} at the coordinate it '
             f"walks, but '{amount.name}' varies over {stray}, which that coordinate does not carry "
             f'(dims {sorted(inner)}). A dim the coordinate does not have is no coordinate at all — '
-            f"declare '{amount.name}' over dims the expression carries, or group by a lookup into "
+            f"declare '{amount.name}' over dims the expression carries, or group by a relation into "
             f'one of {stray}, so that each group is reached by its own {words.noun}.'
         )
 
@@ -526,8 +526,8 @@ def _check_where_dims(
                 noun = 'variable'
             case DimensionComparisonNode() | DimensionPositionNode():
                 noun = 'dimension'
-            case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
-                noun = 'lookup'
+            case RelationComparisonNode() | RelationPairComparisonNode() | RelationDefinedNode():
+                noun = 'relation'
             case _:
                 assert_never(atom)
         raise DimensionError(

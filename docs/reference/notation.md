@@ -35,7 +35,7 @@ and changes nothing else on this page.
 <!-- notation:begin -->
 ### The legend
 
-A dimension, a lookup and a parameter declare no equation; what they print is the legend every model opens with.
+A dimension, a relation and a parameter declare no equation; what they print is the legend every model opens with.
 
 ```yaml
 dimensions:
@@ -46,7 +46,7 @@ dimensions:
   season: { dtype: str }
   technology: { dtype: str }
 
-lookups:
+relations:
   gen_bus: { columns: [generator, bus], key: generator }
   gen_tech: { columns: [generator, technology], key: generator } # a second map out of `generator`, to group through both at once
   zone_of: { columns: [bus, zone], key: bus }
@@ -130,11 +130,11 @@ $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size 
 
 $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $`v`$ rather than being dropped.
 
-$`t \ominus^{\mathrm{lookup}(t)} k`$ denotes a translation counted inside the group a lookup puts $`t`$ in (`shift(by=lookup)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $`t \boxminus_{v}^{\mathrm{lookup}(t)} k`$ is both at once.
+$`t \ominus^{\mathrm{relation}(t)} k`$ denotes a translation counted inside the group a relation puts $`t`$ in (`shift(by=relation)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $`t \boxminus_{v}^{\mathrm{relation}(t)} k`$ is both at once.
 
 $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` walks, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
 
-$`\mathrm{pos}_{\mathrm{lookup}(t)}(t)`$ counts within the group a lookup puts $`t`$ in: the subscript names the map, $`\mathcal{T}_{\mathrm{lookup}(t)}`$ is the group it lands in, and that group has a first position of its own.
+$`\mathrm{pos}_{\mathrm{relation}(t)}(t)`$ counts within the group a relation puts $`t`$ in: the subscript names the map, $`\mathcal{T}_{\mathrm{relation}(t)}`$ is the group it lands in, and that group has a first position of its own.
 
 $`\lvert \mathcal{T} \rvert`$ denotes the size of the set being counted along, and a position counted from the end prints against it — $`\lvert \mathcal{T} \rvert - 1`$ is the last position, one less than the size because the first is $`0`$.
 
@@ -185,7 +185,7 @@ p_{t,g} \le \mathrm{startup\_cost}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g 
 
 #### `balance`
 
-sum over a lookup
+sum over a relation
 
 ```yaml
 balance:
@@ -204,7 +204,7 @@ roll (cyclic) and shift (acyclic) in one equation
 ```yaml
 ramp:
   dims: [snapshot, generator]
-  expression: p - shift(p, over=snapshot, offset=1, edge='wrap') <= shift(p, over=snapshot, offset=1) + p_max
+  expression: p - shift(p, along=snapshot, offset=1, edge='wrap') <= shift(p, along=snapshot, offset=1) + p_max
 ```
 
 ```math
@@ -219,8 +219,8 @@ the two translations `ramp` leaves out: a fill, and forwards
 edges:
   dims: [snapshot, generator]
   expression: >-
-    shift(p, over=snapshot, offset=1, edge=0)
-    <= shift(p, over=snapshot, offset=-1, edge=0) + p_max
+    shift(p, along=snapshot, offset=1, edge=0)
+    <= shift(p, along=snapshot, offset=-1, edge=0) + p_max
 ```
 
 ```math
@@ -234,7 +234,7 @@ the cyclic translation forwards, which is a fourth symbol again
 ```yaml
 ahead:
   dims: [snapshot, generator]
-  expression: p <= shift(p, over=snapshot, offset=-1, edge='wrap')
+  expression: p <= shift(p, along=snapshot, offset=-1, edge='wrap')
 ```
 
 ```math
@@ -248,7 +248,7 @@ two steps of one policy are one step; a zero step is none at all
 ```yaml
 composed:
   dims: [snapshot, generator]
-  expression: shift(shift(p, over=snapshot, offset=1), over=snapshot, offset=1) <= shift(p_max, over=generator, offset=0)
+  expression: shift(shift(p, along=snapshot, offset=1), along=snapshot, offset=1) <= shift(p_max, along=generator, offset=0)
 ```
 
 ```math
@@ -262,7 +262,7 @@ a named offset under a numbered one stays two steps, not their sum
 ```yaml
 uncomposed:
   dims: [snapshot, generator]
-  expression: shift(shift(p, over=snapshot, offset=lead, edge=0), over=snapshot, offset=1) <= p_max
+  expression: shift(shift(p, along=snapshot, offset=lead, edge=0), along=snapshot, offset=1) <= p_max
 ```
 
 ```math
@@ -276,7 +276,7 @@ two dimensions translated at one leaf, each with its own policy
 ```yaml
 crossed:
   dims: [snapshot, generator]
-  expression: shift(shift(p, over=snapshot, offset=1, edge='wrap'), over=generator, offset=-1) <= p_max
+  expression: shift(shift(p, along=snapshot, offset=1, edge='wrap'), along=generator, offset=-1) <= p_max
 ```
 
 ```math
@@ -290,7 +290,7 @@ an offset the data carries, so it prints as a symbol rather than a number
 ```yaml
 lead_time:
   dims: [snapshot, generator]
-  expression: shift(p, over=snapshot, offset=lead, edge=0) <= p_max
+  expression: shift(p, along=snapshot, offset=lead, edge=0) <= p_max
 ```
 
 ```math
@@ -299,12 +299,12 @@ p_{t \boxminus_{0} \mathrm{lead},g} \le \mathrm{p}^{\mathrm{max}}_{g} \qquad \fo
 
 #### `in_season`
 
-a translation partitioned by a lookup: the group rides on the operator
+a translation partitioned by a relation: the group rides on the operator
 
 ```yaml
 in_season:
   dims: [snapshot, generator]
-  expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
+  expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of)
 ```
 
 ```math
@@ -318,7 +318,7 @@ the same group, with a fill: each season's opening row is kept and given a zero
 ```yaml
 held_in_season:
   dims: [snapshot, generator]
-  expression: p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)
+  expression: p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of)
 ```
 
 ```math
@@ -332,7 +332,7 @@ a trailing window of fixed width
 ```yaml
 window:
   dims: [snapshot, generator]
-  expression: sum_back(on, over=snapshot, window=3) <= units
+  expression: sum_back(on, along=snapshot, window=3) <= units
 ```
 
 ```math
@@ -346,7 +346,7 @@ the same window, its width in the data and its edge wrapped
 ```yaml
 history:
   dims: [snapshot, generator]
-  expression: sum_back(on, over=snapshot, window=min_up, edge='wrap') <= units
+  expression: sum_back(on, along=snapshot, window=min_up, edge='wrap') <= units
 ```
 
 ```math
@@ -355,12 +355,12 @@ history:
 
 #### `seasonal_window`
 
-a window partitioned by a lookup: the group rides on the operator
+a window partitioned by a relation: the group rides on the operator
 
 ```yaml
 seasonal_window:
   dims: [snapshot, generator]
-  expression: sum_back(on, over=snapshot, window=3, by=season_of) <= units
+  expression: sum_back(on, along=snapshot, window=3, by=season_of) <= units
 ```
 
 ```math
@@ -369,7 +369,7 @@ seasonal_window:
 
 #### `pullback`
 
-at(), which re-indexes through a lookup instead of an offset
+at(), which re-indexes through a relation instead of an offset
 
 ```yaml
 pullback:
@@ -388,7 +388,7 @@ one table walked to two value columns: the domain carries a condition per column
 ```yaml
 grouped_once:
   dims: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt, produce=[bus, technology]) <= tech_cap
+  expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -402,7 +402,7 @@ its adjoint, reading one slot through two columns of one table
 ```yaml
 pulled_back_once:
   dims: [generator]
-  expression: units <= at(tech_cap, by=gen_bt, consume=[bus, technology])
+  expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
 ```
 
 ```math
@@ -417,7 +417,7 @@ a partition grouped by one named value column of a two-value table, and a positi
 within_bus:
   dims: [generator]
   where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
-  expression: units <= shift(units, over=generator, offset=1, edge=0, by=gen_bt, within=bus)
+  expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt, within=bus)
 ```
 
 ```math
@@ -431,7 +431,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 ```yaml
 relational:
   dims: [snapshot, bus]
-  expression: sum(p, by=connection, consume=generator, produce=bus) <= load
+  expression: sum(p, by=connection, over=generator, into=bus) <= load
 ```
 
 ```math
@@ -502,7 +502,7 @@ a grouping through a two-key map, walked along one key: the condition reads the 
 ```yaml
 zonal:
   dims: [snapshot, zone]
-  expression: sum(p, by=gen_zone, consume=generator) <= zone_cap
+  expression: sum(p, by=gen_zone, over=generator) <= zone_cap
 ```
 
 ```math
@@ -516,7 +516,7 @@ the same table walked along its other key
 ```yaml
 zonal_history:
   dims: [generator, zone]
-  expression: sum(p, by=gen_zone, consume=snapshot) <= zone_cap
+  expression: sum(p, by=gen_zone, over=snapshot) <= zone_cap
 ```
 
 ```math
@@ -531,7 +531,7 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 zonal_pullback:
   dims: [snapshot, generator]
   where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
-  expression: p <= at(spill * zone_cap, by=gen_zone, produce=generator)
+  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
 ```
 
 ```math
@@ -546,8 +546,8 @@ division, both unary signs, a sign beside a sign, floats with and without an exp
 arithmetic:
   dims: [snapshot]
   expression: >-
-    sum(p / 2 + -cost - -1e-5 * p + 2.5e-7 * cost + 0.5 * p, consume=generator)
-    >= -sum(+p, consume=generator) * -3
+    sum(p / 2 + -cost - -1e-5 * p + 2.5e-7 * cost + 0.5 * p, over=generator)
+    >= -sum(+p, over=generator) * -3
 ```
 
 ```math
@@ -630,7 +630,7 @@ last:
 
 #### `northern`
 
-a lookup compared to a label, to another lookup, and to nothing
+a relation compared to a label, to another relation, and to nothing
 
 ```yaml
 northern:
@@ -724,7 +724,7 @@ a plain named expression: its symbol prints where it is used, its body once as a
 
 ```yaml
 spend:
-  expression: sum(p * cost, consume=generator)
+  expression: sum(p * cost, over=generator)
 ```
 
 ```math

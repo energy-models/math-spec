@@ -26,9 +26,9 @@ from math_spec._expression_parser import (
     EdgeNode,
     FunctionCallNode,
     KwargNode,
-    LookupNode,
     NumberNode,
     ParameterNode,
+    RelationNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -143,8 +143,8 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     dimensions = {
         dname: program.DimensionDeclaration(
             tuple(
-                program.LookupDeclaration(lname, lk.pairs, lk.keys)
-                for lname, lk in expanded.lookups.items()
+                program.RelationDeclaration(lname, lk.pairs, lk.keys)
+                for lname, lk in expanded.relations.items()
                 if dname in lk.dims
             ),
             ddef.dtype,
@@ -259,7 +259,7 @@ class _Lowering:
         return program.Cases(tuple(regions))
 
     def sum(self, node: FunctionCallNode) -> program.ExpressionNode:
-        """``sum(x)``, ``sum(x, consume=d)`` or ``sum(x, by=lookup)``.
+        """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=relation)``.
 
         Two program nodes under one surface verb: reducing a dim away and reducing it
         *into* another are different relational shapes, so ``by=`` decides which
@@ -267,34 +267,34 @@ class _Lowering:
         """
         by_node = node.kwargs.get('by')
         operand = self.expr(node.args[0])
-        if by_node is None and 'consume' not in node.kwargs:
+        if by_node is None and 'over' not in node.kwargs:
             return program.Sum(operand, tuple(sorted(dims_of(node.args[0], self.schema, self.context))))
         if by_node is None:
-            consumed = node.kwargs['consume']
-            assert isinstance(consumed, DimensionNode), 'resolution refuses a consume= that is not a dimension'
+            consumed = node.kwargs['over']
+            assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
             return program.Sum(operand, (consumed.name,))
-        assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
+        assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
         return program.GroupSum(operand, walks=by_node.walks)
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
-        """``at(x, by=lookup)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
+        """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
-        assert isinstance(by_node, LookupNode), 'resolution refuses a by= that is not a lookup'
+        assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
         return program.At(self.expr(node.args[0]), walks=by_node.walks)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
-        """``sum_back(x, over=d, window=w)`` — a trailing window along one dimension.
+        """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
 
         *window* is an integer literal of at least one, or a parameter naming a
         per-entity width, which the language holds to the two rules that make it
         mean one thing before this is reached.
 
-        ``by=`` names the lookup the window stops at the edges of, and rides on
+        ``by=`` names the relation the window stops at the edges of, and rides on
         the node the way it rides on a translation — the dim rules have already
-        held it to one lookup over the walked dimension.
+        held it to one relation over the walked dimension.
         """
-        over_node = node.kwargs['over']
-        assert isinstance(over_node, DimensionNode), 'resolution refuses an over= that is not a dimension'
+        over_node = node.kwargs['along']
+        assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
         window_node = node.kwargs['window']
         operand = self.expr(node.args[0])
         wrap = isinstance(node.kwargs.get('edge'), EdgeNode)
@@ -307,13 +307,13 @@ class _Lowering:
         return program.Window(operand, over_node.name, width=width, wrap=wrap, partition=_partition_of(node))
 
     def shift(self, node: FunctionCallNode) -> program.ExpressionNode:
-        """``shift(x, over=d, offset=n)`` — the value at *t - offset* along one dim.
+        """``shift(x, along=d, offset=n)`` — the value at *t - offset* along one dim.
 
         What the vacated positions contribute is ``edge=``'s to say, and the
         language has already held it to the keyword or a number.
         """
-        over_node = node.kwargs['over']
-        assert isinstance(over_node, DimensionNode), 'resolution refuses an over= that is not a dimension'
+        over_node = node.kwargs['along']
+        assert isinstance(over_node, DimensionNode), 'resolution refuses an along= that is not a dimension'
         by_node = node.kwargs['offset']
         operand = self.expr(node.args[0])
         edge = node.kwargs.get('edge')
@@ -343,16 +343,16 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 
 
 def _partition_of(node: FunctionCallNode) -> program.Walk | None:
-    """The walk a translation partitions by, if the call names a lookup.
+    """The walk a translation partitions by, if the call names a relation.
 
-    That it is a *single* lookup, walked *along the translated dimension*, is
+    That it is a *single* relation, walked *along the translated dimension*, is
     checked with the other dim rules (``math_spec.dimensions``), where a model
     is refused before any data is read.
     """
     by_node = node.kwargs.get('by')
     if by_node is None:
         return None
-    assert isinstance(by_node, LookupNode)
+    assert isinstance(by_node, RelationNode)
     return by_node.walks[0]
 
 

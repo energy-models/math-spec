@@ -30,7 +30,7 @@ variables:
 constraints:
   balance:
     dims: [snapshot]
-    expression: sum(p, consume=generator) == 5
+    expression: sum(p, over=generator) == 5
 objective:
   expression: sum(p * cost)
 """

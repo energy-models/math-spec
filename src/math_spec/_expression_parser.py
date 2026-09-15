@@ -91,7 +91,7 @@ class DualNode:
 class DimensionNode:
     """A resolved reference to a declared dimension.
 
-    Only legal in operator kwarg *values* (``sum(x, consume=generator)``), never as
+    Only legal in operator kwarg *values* (``sum(x, over=generator)``), never as
     a value in arithmetic — a dimension is a coordinate space, not data.
     """
 
@@ -114,8 +114,8 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
-class LookupNode:
-    """A resolved ``by=`` — one or more lookups, each with the walk the call takes through it.
+class RelationNode:
+    """A resolved ``by=`` — one or more relations, each with the walk the call takes through it.
 
     ``dimensions`` is the fine side every walk shares — what ``sum`` consumes
     and ``at`` produces — and ``into`` the coarse dims, in the order the
@@ -244,7 +244,7 @@ ArithmeticNode = (
     | ParameterNode
     | DualNode
     | DimensionNode
-    | LookupNode
+    | RelationNode
     | EdgeNode
     | KeywordNode
     | UnaryOperatorNode
@@ -276,10 +276,10 @@ def shown(names: tuple[str, ...]) -> str:
 # Node groups
 
 #: A resolved reference the language admits only as an operator kwarg *value*:
-#: ``sum(x, over=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
+#: ``sum(x, along=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
 #: the three is data, so none may stand in arithmetic — which is why the passes
 #: that walk a value position refuse them together.
-KwargNode = DimensionNode | LookupNode | EdgeNode
+KwargNode = DimensionNode | RelationNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
@@ -509,7 +509,7 @@ def _named_rewrite(text: str, loc: int) -> str | None:
         return f"'{rest[0]}' is not a constraint sense — the senses are <=, >= and ==. Write the bound inclusive."
     if rest.startswith('='):
         return (
-            "'=' on its own is how a kwarg is written inside a call, like sum(x, consume=d). "
+            "'=' on its own is how a kwarg is written inside a call, like sum(x, over=d). "
             'Equality between two sides is written ==.'
         )
     if rest.startswith('^'):

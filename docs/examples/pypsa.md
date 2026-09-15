@@ -1578,7 +1578,7 @@ Generator_e_sum_min:
   description: "`Generator-e_sum_min` — energy over the horizon is at least its floor; a floor of minus infinity is no row"
   dims: [generator]
   where: Generator_e_sum_min
-  expression: sum(Generator_p * snapshot_weightings_generators, consume=snapshot) >= Generator_e_sum_min
+  expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) >= Generator_e_sum_min
 ```
 
 ```math
@@ -1594,7 +1594,7 @@ Generator_e_sum_max:
   description: "`Generator-e_sum_max` — energy over the horizon is at most its budget; a budget of infinity is no row"
   dims: [generator]
   where: Generator_e_sum_max
-  expression: sum(Generator_p * snapshot_weightings_generators, consume=snapshot) <= Generator_e_sum_max
+  expression: sum(Generator_p * snapshot_weightings_generators, over=snapshot) <= Generator_e_sum_max
 ```
 
 ```math
@@ -1855,7 +1855,7 @@ Generator_com_up_time:
     up time's, which the must-stay-up mask carries
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_start_up, over=snapshot, window=Generator_min_up_time) <= Generator_status
+  expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
 ```
 
 ```math
@@ -1871,7 +1871,7 @@ Generator_com_down_time:
   description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_shut_down, over=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
+  expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
 ```
 
 ```math
@@ -2362,7 +2362,7 @@ Kirchhoff_Voltage_Law:
     impedance-weighted flows sum to nothing, which is what makes the linear
     power flow physical rather than transport
   dims: [snapshot, cycle]
-  expression: sum(Line_s * Line_cycle_weight, consume=line) == 0
+  expression: sum(Line_s * Line_cycle_weight, over=line) == 0
 ```
 
 ```math
@@ -2429,7 +2429,7 @@ Link_p_ramp_limit_up:
     optimize builds no row either
   dims: [snapshot, link]
   where: Link_ramp_limit_up
-  expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
+  expression: Link_p - shift(Link_p, along=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
 ```
 
 ```math
@@ -2445,7 +2445,7 @@ Link_p_ramp_limit_down:
   description: "`Link-p-ramp_limit_down` — a link lowers flow no faster than its limit of the build"
   dims: [snapshot, link]
   where: Link_ramp_limit_down
-  expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
+  expression: shift(Link_p, along=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
 ```
 
 ```math
@@ -3110,7 +3110,7 @@ Generator_previous_status:
   dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
-  otherwise: shift(Generator_status, over=snapshot, offset=1)
+  otherwise: shift(Generator_status, along=snapshot, offset=1)
 ```
 
 ```math
@@ -3128,7 +3128,7 @@ Generator_previous_p:
   dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: 0 }
-  otherwise: shift(Generator_p, over=snapshot, offset=1)
+  otherwise: shift(Generator_p, along=snapshot, offset=1)
 ```
 
 ```math
@@ -3224,11 +3224,11 @@ StorageUnit_charge_carried_in:
   cases:
     cyclic:
       when: StorageUnit_cyclic_state_of_charge
-      expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+      expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap')
     opening:
       when: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
       expression: StorageUnit_state_of_charge_initial
-  otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
+  otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1)
 ```
 
 ```math
@@ -3248,11 +3248,11 @@ Store_energy_carried_in:
   cases:
     cyclic:
       when: Store_e_cyclic
-      expression: Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
+      expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap')
     opening:
       when: not Store_e_cyclic AND position(snapshot) == 0
       expression: Store_e_initial
-  otherwise: Store_retention * shift(Store_e, over=snapshot, offset=1)
+  otherwise: Store_retention * shift(Store_e, along=snapshot, offset=1)
 ```
 
 ```math
@@ -3274,8 +3274,8 @@ Link_output_arrival:
   cases:
     wrapping:
       when: Link_output_cyclic_delay
-      expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge='wrap')
-  otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge=0)
+      expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
+  otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
 ```
 
 ```math
@@ -3291,9 +3291,9 @@ primary_energy:
     the charge left in weighted storage at the horizon's end; the initial
     charge it is compared against is folded into the row's constant
   expression: >-
-    sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, consume=snapshot), consume=generator)
-    - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, consume=snapshot), consume=storage_unit)
-    - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, consume=snapshot), consume=store)
+    sum(sum(Generator_p * snapshot_weightings_generators * Generator_primary_energy_weight, over=snapshot), over=generator)
+    - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_primary_energy_weight, over=snapshot), over=storage_unit)
+    - sum(sum(Store_e * snapshot_is_last * Store_primary_energy_weight, over=snapshot), over=store)
 ```
 
 ```math
@@ -3309,9 +3309,9 @@ operational_limit:
     generators deliver, plus what its non-cyclic storage draws down; the
     initial charge it draws from is folded into the row's constant
   expression: >-
-    sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, consume=snapshot), consume=generator)
-    - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_operational_limit_weight, consume=snapshot), consume=storage_unit)
-    - sum(sum(Store_e * snapshot_is_last * Store_operational_limit_weight, consume=snapshot), consume=store)
+    sum(sum(Generator_p * snapshot_weightings_generators * Generator_operational_limit_weight, over=snapshot), over=generator)
+    - sum(sum(StorageUnit_state_of_charge * snapshot_is_last * StorageUnit_operational_limit_weight, over=snapshot), over=storage_unit)
+    - sum(sum(Store_e * snapshot_is_last * Store_operational_limit_weight, over=snapshot), over=store)
 ```
 
 ```math
@@ -3324,8 +3324,8 @@ operational_limit:
 transmission_volume_expansion:
   description: what a `transmission_volume_expansion_limit` row totals — length times the chosen build of the row's branches
   expression: >-
-    sum(Line_s_nom_ext * Line_volume_weight, consume=line)
-    + sum(Link_p_nom_ext * Link_volume_weight, consume=link)
+    sum(Line_s_nom_ext * Line_volume_weight, over=line)
+    + sum(Link_p_nom_ext * Link_volume_weight, over=link)
 ```
 
 ```math
@@ -3338,8 +3338,8 @@ transmission_volume_expansion:
 transmission_expansion_cost:
   description: what a `transmission_expansion_cost_limit` row totals — capital cost times the chosen build of the row's branches
   expression: >-
-    sum(Line_s_nom_ext * Line_expansion_cost_weight, consume=line)
-    + sum(Link_p_nom_ext * Link_expansion_cost_weight, consume=link)
+    sum(Line_s_nom_ext * Line_expansion_cost_weight, over=line)
+    + sum(Link_p_nom_ext * Link_expansion_cost_weight, over=link)
 ```
 
 ```math
@@ -3352,11 +3352,11 @@ transmission_expansion_cost:
 tech_capacity_expansion:
   description: what a `tech_capacity_expansion_limit` row totals — the chosen build of the row's carrier-and-bus set
   expression: >-
-    sum(Generator_p_nom_ext * Generator_tech_capacity_weight, consume=generator)
-    + sum(Link_p_nom_ext * Link_tech_capacity_weight, consume=link)
-    + sum(Line_s_nom_ext * Line_tech_capacity_weight, consume=line)
-    + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, consume=storage_unit)
-    + sum(Store_e_nom_ext * Store_tech_capacity_weight, consume=store)
+    sum(Generator_p_nom_ext * Generator_tech_capacity_weight, over=generator)
+    + sum(Link_p_nom_ext * Link_tech_capacity_weight, over=link)
+    + sum(Line_s_nom_ext * Line_tech_capacity_weight, over=line)
+    + sum(StorageUnit_p_nom_ext * StorageUnit_tech_capacity_weight, over=storage_unit)
+    + sum(Store_e_nom_ext * Store_tech_capacity_weight, over=store)
 ```
 
 ```math

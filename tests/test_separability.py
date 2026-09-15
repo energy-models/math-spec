@@ -25,7 +25,7 @@ FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yam
 
 BASE: dict[str, Any] = {
     'dimensions': {'h': {'dtype': 'int'}, 'u': {'dtype': 'str'}, 'zone': {'dtype': 'str'}, 'day': {'dtype': 'int'}},
-    'lookups': {'zone_of': {'columns': ['u', 'zone'], 'key': 'u'}, 'day_of': {'columns': ['h', 'day'], 'key': 'h'}},
+    'relations': {'zone_of': {'columns': ['u', 'zone'], 'key': 'u'}, 'day_of': {'columns': ['h', 'day'], 'key': 'h'}},
     'parameters': {
         'cost': {'dims': ['u']},
         'budget': {'dims': []},
@@ -50,12 +50,12 @@ def _rows(expression: str, *, dims: list[str] | None = None, **block: Any) -> di
     [
         pytest.param(_rows('p >= 0'), 0, id='pointwise-needs-no-overlap'),
         pytest.param(
-            _rows('p >= shift(p, over=h, offset=1, edge=0)'), 0, id='a-shift-behind-is-the-edge-and-asks-nothing'
+            _rows('p >= shift(p, along=h, offset=1, edge=0)'), 0, id='a-shift-behind-is-the-edge-and-asks-nothing'
         ),
-        pytest.param(_rows('p >= shift(p, over=h, offset=-2, edge=0)'), 2, id='a-negative-shift-reads-ahead'),
-        pytest.param(_rows('sum_back(p, over=h, window=4) >= 0'), 0, id='a-trailing-window-reads-behind-only'),
-        pytest.param(_rows('sum_back(p, over=h, window=width) >= 0'), 0, id='and-so-does-one-of-a-width-from-data'),
-        pytest.param(_rows('p >= shift(p, over=u, offset=-1, edge=0)'), 0, id='a-shift-along-another-axis-is-nothing'),
+        pytest.param(_rows('p >= shift(p, along=h, offset=-2, edge=0)'), 2, id='a-negative-shift-reads-ahead'),
+        pytest.param(_rows('sum_back(p, along=h, window=4) >= 0'), 0, id='a-trailing-window-reads-behind-only'),
+        pytest.param(_rows('sum_back(p, along=h, window=width) >= 0'), 0, id='and-so-does-one-of-a-width-from-data'),
+        pytest.param(_rows('p >= shift(p, along=u, offset=-1, edge=0)'), 0, id='a-shift-along-another-axis-is-nothing'),
     ],
 )
 def test_a_separable_model_reports_the_lookahead_a_window_needs(patch, ahead):
@@ -67,8 +67,8 @@ def test_a_separable_model_reports_the_lookahead_a_window_needs(patch, ahead):
 @pytest.mark.parametrize(
     ('patch', 'fragment'),
     [
-        pytest.param(_rows('sum(p, consume=h) <= budget', dims=['u']), 'sums over h', id='a-budget-over-the-horizon'),
-        pytest.param(_rows("p >= shift(p, over=h, offset=1, edge='wrap')"), 'wraps around h', id='a-cyclic-shift'),
+        pytest.param(_rows('sum(p, over=h) <= budget', dims=['u']), 'sums over h', id='a-budget-over-the-horizon'),
+        pytest.param(_rows("p >= shift(p, along=h, offset=1, edge='wrap')"), 'wraps around h', id='a-cyclic-shift'),
     ],
 )
 def test_a_model_the_axis_ties_together_names_what_ties_it(patch, fragment):
@@ -82,19 +82,19 @@ def test_a_model_the_axis_ties_together_names_what_ties_it(patch, fragment):
     ('patch', 'reach'),
     [
         pytest.param(
-            _rows('p >= shift(p, over=h, offset=1, by=day_of, edge=0)'),
+            _rows('p >= shift(p, along=h, offset=1, by=day_of, edge=0)'),
             Reach("constraint 'k'", 'day_of', 'partition'),
             id='a-shift-inside-groups',
         ),
         pytest.param(
-            _rows('p >= shift(p, over=h, offset=width, edge=0)'),
+            _rows('p >= shift(p, along=h, offset=width, edge=0)'),
             Reach("constraint 'k'", 'width', 'offset'),
             id='an-offset-from-data',
         ),
     ],
 )
 def test_a_reach_only_data_can_say_names_what_says_it(patch, reach):
-    """The verdict names the parameter or lookup and what it stands as, rather
+    """The verdict names the parameter or relation and what it stands as, rather
     than refusing the model, so a driver holding the data knows what to read
     and `resolved` knows how to fold it."""
     verdict = _verdict(**patch)
@@ -106,10 +106,12 @@ def test_a_reach_only_data_can_say_names_what_says_it(patch, reach):
 @pytest.mark.parametrize(
     ('patch', 'least', 'ahead'),
     [
-        pytest.param(_rows('p >= shift(p, over=h, offset=width, edge=0)'), 1, 0, id='offsets-behind-ask-nothing'),
-        pytest.param(_rows('p >= shift(p, over=h, offset=width, edge=0)'), -3, 3, id='offsets-ahead-read-by-the-least'),
+        pytest.param(_rows('p >= shift(p, along=h, offset=width, edge=0)'), 1, 0, id='offsets-behind-ask-nothing'),
         pytest.param(
-            _rows('shift(p, over=h, offset=width, edge=0) + shift(p, over=h, offset=-1, edge=0) + p >= 0'),
+            _rows('p >= shift(p, along=h, offset=width, edge=0)'), -3, 3, id='offsets-ahead-read-by-the-least'
+        ),
+        pytest.param(
+            _rows('shift(p, along=h, offset=width, edge=0) + shift(p, along=h, offset=-1, edge=0) + p >= 0'),
             -3,
             3,
             id='a-folded-value-widens-what-the-model-reads-on-its-own',
@@ -124,40 +126,40 @@ def test_a_named_reach_resolves_to_the_lookahead_its_values_need(patch, least, a
     assert verdict.ahead == ahead, 'the value decides the lookahead, by its sign'
 
 
-def test_resolving_keeps_the_static_reach_and_what_a_lookup_decides():
+def test_resolving_keeps_the_static_reach_and_what_a_relation_decides():
     verdict = _verdict(
         constraints={
-            'fixed': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-2, edge=0)'},
-            'named': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=width, edge=0)'},
-            'grouped': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=1, by=day_of, edge=0)'},
+            'fixed': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=-2, edge=0)'},
+            'named': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=width, edge=0)'},
+            'grouped': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=1, by=day_of, edge=0)'},
         }
     ).resolved({'width': -1})
     assert verdict.ahead == 2, 'a folded value never narrows what the model reads on its own'
     assert verdict.undecided == (Reach("constraint 'grouped'", 'day_of', 'partition'),), (
-        'a reach a lookup decides is not a value and stays undecided'
+        'a reach a relation decides is not a value and stays undecided'
     )
     assert not verdict.windowable, 'so the axis is still not windowable'
 
 
 def test_resolving_a_name_nothing_waits_on_is_refused():
     with pytest.raises(KeyError, match="'depth' is not a parameter an undecided reach along 'h' waits on"):
-        _verdict(**_rows('p >= shift(p, over=h, offset=width, edge=0)')).resolved({'depth': 0})
+        _verdict(**_rows('p >= shift(p, along=h, offset=width, edge=0)')).resolved({'depth': 0})
 
 
-def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
-    """`at(cap, by=zone_of)` reads `zone` at whatever coordinate the lookup
-    chooses, so how far that reaches along `zone` is the lookup's data to say."""
+def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
+    """`at(cap, by=zone_of)` reads `zone` at whatever coordinate the relation
+    chooses, so how far that reaches along `zone` is the relation's data to say."""
     verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of) <= 0'))
-    assert not verdict.windowable and not verdict.coupled, 'undecided until the lookup binds'
+    assert not verdict.windowable and not verdict.coupled, 'undecided until the relation binds'
     assert verdict.undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
-        'the report names the lookup a driver has to read'
+        'the report names the relation a driver has to read'
     )
 
 
 def test_a_coupling_names_the_change_that_would_lift_it():
-    coupled = _verdict(**_rows('sum(p, consume=h) <= budget', dims=['u'])).coupled["constraint 'k'"]
+    coupled = _verdict(**_rows('sum(p, over=h) <= budget', dims=['u'])).coupled["constraint 'k'"]
     assert 'sum_back(window=n)' in coupled, 'a horizon total becomes a rolling one'
-    wrapped = _verdict(**_rows("p >= shift(p, over=h, offset=1, edge='wrap')")).coupled["constraint 'k'"]
+    wrapped = _verdict(**_rows("p >= shift(p, along=h, offset=1, edge='wrap')")).coupled["constraint 'k'"]
     assert 'position(h) == 0' in wrapped, 'a wrap becomes an opening-state seed'
 
 
@@ -176,7 +178,7 @@ def test_a_sum_over_the_axis_couples_a_constraint_and_leaves_the_objective_alone
     every other. A verdict treating the two alike would refuse every windowable
     model there is — and `BASE`'s objective sums over `h` in every case above."""
     assert _verdict(**_rows('p >= 0')).windowable, 'the objective sums over h and that is not a coupling'
-    coupled = _verdict(**_rows('sum(p, consume=h) <= budget', dims=['u']))
+    coupled = _verdict(**_rows('sum(p, over=h) <= budget', dims=['u']))
     assert not coupled.windowable, 'the same sum in a constraint is one'
 
 
@@ -189,7 +191,7 @@ def test_a_position_inside_a_cased_region_is_found():
             'prev': {
                 'dims': ['h', 'u'],
                 'cases': {'opening': {'when': 'position(h) == 0', 'expression': 0}},
-                'otherwise': 'shift(p, over=h, offset=1, edge=0)',
+                'otherwise': 'shift(p, along=h, offset=1, edge=0)',
             }
         },
         **_rows('p - prev <= 1'),
@@ -200,8 +202,8 @@ def test_a_position_inside_a_cased_region_is_found():
 def test_the_lookahead_is_the_widest_reach_of_any_block():
     verdict = _verdict(
         constraints={
-            'near': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-1, edge=0)'},
-            'far': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-5, edge=0)'},
+            'near': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=-1, edge=0)'},
+            'far': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=-5, edge=0)'},
         }
     )
     assert verdict.ahead == 5, 'one window must see past its last row as far as any block reads'

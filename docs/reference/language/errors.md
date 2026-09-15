@@ -40,7 +40,7 @@ contrast, prints to stderr and exits 1.
 
 | `kind`          | The file has…                                                                                                                                                                        | The advice says…                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no lookup targets                                                                                                     | remove it, or keep it knowingly if its declarations are still to come |
+| `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no relation targets                                                                                                   | remove it, or keep it knowingly if its declarations are still to come |
 | `unbounded`     | a variable that no constraint uses, whose objective term pushes it towards a bound it does not have. `slack` with `bounds.lower: -inf` and a `+slack` term in a `minimize` objective | give it a finite bound, or the constraint that was meant to define it |
 
 A variable of the second kind runs to infinity for every dataset there is. A
@@ -84,7 +84,7 @@ and [the limits](../../about/limits.md) gives the reasons.
 | Not in the language                                                            | Instead                                                                                                                                                             |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `variable * variable` in a bound or a `piecewise:` link                        | The objective and the constraints take it. Everywhere else, use a parameter coefficient ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed)) |
-| `sum(x, consume=d) * sum(y, consume=d)`                                        | Multiply before you reduce, or constrain a variable to equal the reduction. A product of two sums pairs every term against every term                               |
+| `sum(x, over=d) * sum(y, over=d)`                                              | Multiply before you reduce, or constrain a variable to equal the reduction. A product of two sums pairs every term against every term                               |
 | degree 3 (`x * y * z`)                                                         | A variable constrained to equal one product, multiplied by the third                                                                                                |
 | `**` with a variable in it                                                     | `x * x` for a square. Over variable-free operands `**` is in the language ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))               |
 | arithmetic in `bounds:`                                                        | A name or a number. Ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31))                                                            |

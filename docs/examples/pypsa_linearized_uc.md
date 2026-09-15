@@ -330,7 +330,7 @@ Generator_com_up_time:
     up time's, which the must-stay-up mask carries
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_start_up, over=snapshot, window=Generator_min_up_time) <= Generator_status
+  expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
 ```
 
 ```math
@@ -346,7 +346,7 @@ Generator_com_down_time:
   description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
-  expression: sum_back(Generator_shut_down, over=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
+  expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
 ```
 
 ```math
@@ -485,8 +485,8 @@ Generator_com_p_before:
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
-    shift(Generator_p, over=snapshot, offset=1)
-    - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+    shift(Generator_p, along=snapshot, offset=1)
+    - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
     - (Generator_p_max_pu * Generator_p_nom - Generator_ramp_limit_shut_down * Generator_p_nom)
     * (Generator_status - Generator_start_up) <= 0
 ```
@@ -523,9 +523,9 @@ Generator_com_partly_start_up:
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
-    Generator_p - shift(Generator_p, over=snapshot, offset=1)
+    Generator_p - shift(Generator_p, along=snapshot, offset=1)
     - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_up * Generator_p_nom) * Generator_status
-    + Generator_p_min_pu * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+    + Generator_p_min_pu * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
     + (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_up * Generator_p_nom - Generator_ramp_limit_start_up * Generator_p_nom)
     * Generator_start_up <= 0
 ```
@@ -544,8 +544,8 @@ Generator_com_partly_shut_down:
   dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
-    shift(Generator_p, over=snapshot, offset=1) - Generator_p
-    - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, over=snapshot, offset=1)
+    shift(Generator_p, along=snapshot, offset=1) - Generator_p
+    - Generator_ramp_limit_shut_down * Generator_p_nom * shift(Generator_status, along=snapshot, offset=1)
     + (Generator_ramp_limit_shut_down * Generator_p_nom - Generator_ramp_limit_down * Generator_p_nom) * Generator_status
     - (Generator_p_min_pu * Generator_p_nom + Generator_ramp_limit_down * Generator_p_nom - Generator_ramp_limit_shut_down * Generator_p_nom)
     * Generator_start_up <= 0
@@ -565,7 +565,7 @@ Generator_previous_status:
   dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
-  otherwise: shift(Generator_status, over=snapshot, offset=1)
+  otherwise: shift(Generator_status, along=snapshot, offset=1)
 ```
 
 ```math
@@ -583,7 +583,7 @@ Generator_previous_p:
   dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: 0 }
-  otherwise: shift(Generator_p, over=snapshot, offset=1)
+  otherwise: shift(Generator_p, along=snapshot, offset=1)
 ```
 
 ```math

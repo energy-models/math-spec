@@ -32,17 +32,17 @@ DISPATCH_MODEL: dict[str, Any] = {
         'load': {'dims': ['snapshot']},
     },
     'variables': {'p': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
-    'constraints': {'balance': {'dims': ['snapshot'], 'expression': 'sum(p, consume=generator) == load'}},
+    'constraints': {'balance': {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) == load'}},
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
 }
 
-#: Two dimensions, a lookup between them, a numeric, a scalar, a boolean and a
+#: Two dimensions, a relation between them, a numeric, a scalar, a boolean and a
 #: label parameter, a variable on each frame — one declaration of every kind
 #: a rule can name, and no objective, so a test adds what it judges. `p` and `r`
 #: share no dimension, which is what a rule about *different* dims needs.
 SMALL_MODEL: dict[str, Any] = {
     'dimensions': {'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}},
-    'lookups': {'lk': {'columns': ['g', 'h'], 'key': 'g'}},
+    'relations': {'lk': {'columns': ['g', 'h'], 'key': 'g'}},
     'parameters': {
         'c': {'dims': ['g']},
         'k': {'dims': []},
