@@ -206,7 +206,7 @@ class _Block:
             self._constraint(
                 self.adjacency,
                 [*self.frame, d],
-                f'{self.lam} <= {self.seg} + shift({self.seg}, over={d}, offset=1, edge=0)',
+                f'{self.lam} <= {self.seg} + shift({self.seg}, along={d}, offset=1, edge=0)',
             )
 
     def _gate_rows(self) -> tuple[tuple[str, str | None, str], ...]:
@@ -247,8 +247,8 @@ class _Block:
         x_link, y_link = self.pw.curve
         d = self.pw.over
         mask = self.mask
-        run = f'({x_link.values} - shift({x_link.values}, over={d}, offset=1, edge=0))'
-        rise = f'({y_link.values} - shift({y_link.values}, over={d}, offset=1, edge=0))'
+        run = f'({x_link.values} - shift({x_link.values}, along={d}, offset=1, edge=0))'
+        rise = f'({y_link.values} - shift({y_link.values}, along={d}, offset=1, edge=0))'
         interior = f'{mask} AND NOT {self.starts}' if mask else f'position({d}) != 0'
         self._constraint(
             self.chord,

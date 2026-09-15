@@ -11,7 +11,7 @@ and `description`. Any subset of the ten is accepted.
 | Key           |                                                                                                                     |
 | ------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `dimensions`  | the axes ([dimensions](dimensions.md))                                                                              |
-| `lookups`     | named maps out of a dimension ([lookups](dimensions.md#lookups))                                                    |
+| `relations`   | named relations between dimensions ([relations](dimensions.md#relations))                                           |
 | `parameters`  | the data the model expects ([declarations](declarations.md))                                                        |
 | `variables`   | what the solver decides                                                                                             |
 | `constraints` | the rules those decisions obey                                                                                      |
