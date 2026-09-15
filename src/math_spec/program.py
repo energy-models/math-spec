@@ -1370,8 +1370,8 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
     """One leaf's declarations, its dimension apart — the rule :attr:`Mask.names_read` is the union of.
 
     A comparison on a dimension names no declaration — a coordinate is not
-    data to feed — a relation pair names both maps it compares, and a
-    comparison of expressions names every parameter and relation its sides read.
+    data to feed — a relation pair names both maps it compares, and a comparison
+    of expressions names every parameter and relation its sides read.
     ``assert_never``-closed for the reason :func:`_atom_dims` is: a predicate
     node added without a reading is a type error at this one branch rather
     than a name silently dropped at the first model to use it.

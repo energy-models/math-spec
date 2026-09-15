@@ -247,7 +247,7 @@ variables:
 constraints:
   shed_when_load_jumps:
     dims: [snapshot]
-    where: "load - shift(load, over=snapshot, offset=1, edge=0) > ramp AND position(snapshot) > 0"
+    where: "load - shift(load, along=snapshot, offset=1, edge=0) > ramp AND position(snapshot) > 0"
     expression: shed >= load - ramp
 ```
 

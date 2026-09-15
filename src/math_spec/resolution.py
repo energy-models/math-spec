@@ -103,16 +103,7 @@ class Namespace:
     A name has one kind: model.py refuses one declared under two sections.
     """
 
-    __slots__ = (
-        'constraints',
-        'dimensions',
-        'dtypes',
-        'leaf_dims',
-        'parameters',
-        'relations',
-        'schema',
-        'variables',
-    )
+    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'parameters', 'relations', 'schema', 'variables')
 
     def __init__(
         self,
