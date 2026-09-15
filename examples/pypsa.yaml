@@ -453,46 +453,46 @@ parameters:
     dims: [global_constraint, store]
 
     coverage: masked
-lookups:
+relations:
   Generator_bus:
     description: the bus a generator sits on
-    over: generator
-    into: bus
+    columns: [generator, bus]
+    key: generator
   Link_bus0:
     description: the bus a link leaves
-    over: link
-    into: bus
+    columns: [link, bus]
+    key: link
   Link_output_link:
     description: the link an output port belongs to
-    over: link_output
-    into: link
+    columns: [link_output, link]
+    key: link_output
   Link_output_bus:
     description: >-
       the bus an output port delivers to — PyPSA's `bus1`, `bus2`, … columns.
       A link of three output ports is three labels here rather than a third
-      lookup, so the file states any number of them
-    over: link_output
-    into: bus
+      relation, so the file states any number of them
+    columns: [link_output, bus]
+    key: link_output
   Load_bus:
     description: the bus a load sits on
-    over: load
-    into: bus
+    columns: [load, bus]
+    key: load
   StorageUnit_bus:
     description: the bus a storage unit sits on
-    over: storage_unit
-    into: bus
+    columns: [storage_unit, bus]
+    key: storage_unit
   Line_bus0:
     description: the bus a line's flow is measured at
-    over: line
-    into: bus
+    columns: [line, bus]
+    key: line
   Line_bus1:
     description: the bus at a line's other end
-    over: line
-    into: bus
+    columns: [line, bus]
+    key: line
   Store_bus:
     description: the bus a store sits on
-    over: store
-    into: bus
+    columns: [store, bus]
+    key: store
 
 variables:
   Generator_p:
@@ -605,7 +605,7 @@ expressions:
     dims: [snapshot, generator]
     cases:
       opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
-    otherwise: shift(Generator_status, over=snapshot, offset=1)
+    otherwise: shift(Generator_status, along=snapshot, offset=1)
   Generator_previous_p:
     description: >-
       the output a generator carries into a snapshot — nothing at the start of
@@ -614,7 +614,7 @@ expressions:
     dims: [snapshot, generator]
     cases:
       opening: { when: "position(snapshot) == 0", expression: 0 }
-    otherwise: shift(Generator_p, over=snapshot, offset=1)
+    otherwise: shift(Generator_p, along=snapshot, offset=1)
   Generator_p_nom_effective:
     description: the build a generator's limits are taken against — the chosen one where it is extendable, the given one otherwise
     dims: [generator]
@@ -665,11 +665,11 @@ expressions:
     cases:
       cyclic:
         when: StorageUnit_cyclic_state_of_charge
-        expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1, edge='wrap')
+        expression: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1, edge='wrap')
       opening:
         when: not StorageUnit_cyclic_state_of_charge AND position(snapshot) == 0
         expression: StorageUnit_state_of_charge_initial
-    otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, over=snapshot, offset=1)
+    otherwise: StorageUnit_retention * shift(StorageUnit_state_of_charge, along=snapshot, offset=1)
   Store_energy_carried_in:
     description: >-
       the energy a store opens a snapshot with — its last snapshot's less
@@ -680,11 +680,11 @@ expressions:
     cases:
       cyclic:
         when: Store_e_cyclic
-        expression: Store_retention * shift(Store_e, over=snapshot, offset=1, edge='wrap')
+        expression: Store_retention * shift(Store_e, along=snapshot, offset=1, edge='wrap')
       opening:
         when: not Store_e_cyclic AND position(snapshot) == 0
         expression: Store_e_initial
-    otherwise: Store_retention * shift(Store_e, over=snapshot, offset=1)
+    otherwise: Store_retention * shift(Store_e, along=snapshot, offset=1)
   Link_output_arrival:
     description: >-
       what a link delivers to an output port at a snapshot — its flow after the
@@ -697,8 +697,8 @@ expressions:
     cases:
       wrapping:
         when: Link_output_cyclic_delay
-        expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge='wrap')
-    otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, over=snapshot, offset=Link_output_delay, edge=0)
+        expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
+    otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
   primary_energy:
     description: >-
       what a `primary_energy` row totals — weighted generator energy, less
@@ -876,12 +876,12 @@ constraints:
       up time's, which the must-stay-up mask carries
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
-    expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
+    expression: sum_back(Generator_start_up, along=snapshot, window=Generator_min_up_time) <= Generator_status
   Generator_com_down_time:
     description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
     dims: [snapshot, generator]
     where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
-    expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
+    expression: sum_back(Generator_shut_down, along=snapshot, window=Generator_min_down_time) <= 1 - Generator_status
   Generator_com_status_must_stay_up:
     description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
     dims: [snapshot, generator]
@@ -1109,12 +1109,12 @@ constraints:
       optimize builds no row either
     dims: [snapshot, link]
     where: Link_ramp_limit_up
-    expression: Link_p - shift(Link_p, over=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
+    expression: Link_p - shift(Link_p, along=snapshot, offset=1) <= Link_ramp_limit_up * Link_p_nom_effective
   Link_p_ramp_limit_down:
     description: "`Link-p-ramp_limit_down` — a link lowers flow no faster than its limit of the build"
     dims: [snapshot, link]
     where: Link_ramp_limit_down
-    expression: shift(Link_p, over=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
+    expression: shift(Link_p, along=snapshot, offset=1) - Link_p <= Link_ramp_limit_down * Link_p_nom_effective
   StorageUnit_ext_p_dispatch_lower:
     description: "`StorageUnit-ext-p_dispatch-lower` — dispatch is non-negative"
     dims: [snapshot, storage_unit]

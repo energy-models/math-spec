@@ -22,8 +22,10 @@ EXAMPLES = Path(__file__).resolve().parent.parent / 'examples'
 #: from the same directory, so a probe added for the page is swept here too.
 OPERATOR_PROBES = sorted((EXAMPLES / 'operators').glob('*.yaml'))
 
-#: ``examples/dispatch.yaml`` without its ``where:`` and with the constraint
-#: named ``balance``, as a dict a test can vary with :func:`override`.
+#: The shape of ``examples/dispatch.yaml`` as a dict a test can vary with
+#: :func:`override`: no ``where:``, the constraint named ``balance``, and short
+#: names, so a test that prints it asserts on the math rather than on the
+#: example's own vocabulary.
 DISPATCH_MODEL: dict[str, Any] = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}},
     'parameters': {
@@ -36,13 +38,13 @@ DISPATCH_MODEL: dict[str, Any] = {
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
 }
 
-#: Two dimensions, a lookup between them, a numeric, a scalar, a boolean and a
+#: Two dimensions, a relation between them, a numeric, a scalar, a boolean and a
 #: label parameter, a variable on each frame — one declaration of every kind
 #: a rule can name, and no objective, so a test adds what it judges. `p` and `r`
 #: share no dimension, which is what a rule about *different* dims needs.
 SMALL_MODEL: dict[str, Any] = {
     'dimensions': {'g': {'dtype': 'str'}, 'h': {'dtype': 'str'}},
-    'lookups': {'lk': {'over': 'g', 'into': 'h'}},
+    'relations': {'lk': {'columns': ['g', 'h'], 'key': 'g'}},
     'parameters': {
         'c': {'dims': ['g']},
         'k': {'dims': []},

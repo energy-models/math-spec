@@ -10,8 +10,8 @@ dimensions:
   snapshot: { dtype: int }
   season: { dtype: str }
 
-lookups:
-  season_of: { over: snapshot, into: season }
+relations:
+  season_of: { columns: [snapshot, season], key: snapshot }
 
 variables:
   p:
@@ -21,6 +21,6 @@ variables:
 constraints:
   no_faster_than_before_in_season:
     dims: [snapshot]
-    expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
+    expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of)
 
 objective: { sense: minimize, expression: sum(p) }

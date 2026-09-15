@@ -45,7 +45,7 @@ def _notes(**patch) -> list[str]:
         pytest.param({'objective.expression': 'sum(-3 * v, over=g)'}, 'upper', id='a-negative-literal-flips-it'),
         pytest.param({'objective.expression': 'sum(v / 2, over=g)'}, 'lower', id='a-literal-divisor-keeps-it'),
         pytest.param(
-            {'objective.expression': 'sum(shift(v, over=g, offset=1), over=g)'},
+            {'objective.expression': 'sum(shift(v, along=g, offset=1), over=g)'},
             'lower',
             id='an-operator-argument-keeps-it',
         ),
@@ -92,9 +92,9 @@ def test_nothing_is_claimed_where_the_file_does_not_decide_it(patch):
 #: built-in arrives with a case of its own.
 THROUGH_EACH_OPERATOR = {
     'sum': {'objective.expression': 'sum(v, over=g)'},
-    'shift': {'objective.expression': 'sum(shift(v, over=g, offset=1), over=g)'},
-    'sum_back': {'objective.expression': 'sum(sum_back(v, over=g, within=2), over=g)'},
-    # `at` reads onto the lookup's source, so the variable it drives is on `h`
+    'shift': {'objective.expression': 'sum(shift(v, along=g, offset=1), over=g)'},
+    'sum_back': {'objective.expression': 'sum(sum_back(v, along=g, window=2), over=g)'},
+    # `at` reads onto the relation's source, so the variable it drives is on `h`
     'at': {'variables.u': {'dims': ['h']}, 'objective.expression': 'sum(at(u, by=lk), over=g)'},
 }
 

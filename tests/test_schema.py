@@ -62,7 +62,7 @@ def test_no_definition_refers_only_to_itself():
         pytest.param('ParameterBlock', 'dtype', model.ParameterDtype, id='parameter-dtype'),
         pytest.param('DimensionBlock', 'dtype', model.DimensionDtype, id='dimension-dtype'),
         pytest.param('ParameterBlock', 'coverage', model.Coverage, id='parameter-coverage'),
-        pytest.param('LookupBlock', 'coverage', model.Coverage, id='lookup-coverage'),
+        pytest.param('RelationBlock', 'coverage', model.Coverage, id='relation-coverage'),
         pytest.param('PiecewiseBlock', 'method', model.PiecewiseMethod, id='method'),
         pytest.param('SosBlock', 'type', model.SosType, id='sos-type'),
     ],

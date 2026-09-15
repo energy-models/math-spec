@@ -23,8 +23,8 @@ message lists the valid options:
 
 ```text
 Constraint 'balance', equation 0: 'p_charge' not found.
-  Variables: ['p', 'soc']
-  Parameters: ['p_max', 'load', 'efficiency']
+  Variables: ['dispatch', 'soc']
+  Parameters: ['capacity', 'load', 'efficiency']
 Check for typos, or ensure 'p_charge' is declared.
 ```
 
@@ -40,7 +40,7 @@ contrast, prints to stderr and exits 1.
 
 | `kind`          | The file has…                                                                                                                                                                        | The advice says…                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no lookup targets                                                                                                     | remove it, or keep it knowingly if its declarations are still to come |
+| `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no relation targets                                                                                                   | remove it, or keep it knowingly if its declarations are still to come |
 | `unbounded`     | a variable that no constraint uses, whose objective term pushes it towards a bound it does not have. `slack` with `bounds.lower: -inf` and a `+slack` term in a `minimize` objective | give it a finite bound, or the constraint that was meant to define it |
 
 A variable of the second kind runs to infinity for every dataset there is. A

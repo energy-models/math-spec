@@ -3,15 +3,15 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  The adjoint of the membership reduction — `at(array, by=lookup)` reads one
+  The adjoint of the membership reduction — `at(array, by=relation)` reads one
   coarse value once per fine label pointing at it.
 
 dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 
-lookups:
-  period_of: { over: snapshot, into: period }
+relations:
+  period_of: { columns: [snapshot, period], key: snapshot }
 
 parameters:
   cap: { dims: [period] }
