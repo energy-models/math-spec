@@ -37,17 +37,6 @@ Three files own it:
 `.github/workflows/pr-title.yml` guards the input.
 `.github/workflows/build.yml` consumes the output.
 
-## Reverts
-
-release-please prints a revert. It does not cancel what the revert undid. So a
-release that carries a change and the revert of that change prints both lines,
-and the reader subtracts one from the other. 0.0.0-alpha.91 is such a release.
-
-This works only while `revert` has a section in `changelog-sections`. Without
-one, release-please drops the subject and the release announces a change that
-the tag does not carry. `tests/test_releasing.py` holds that list to the types
-`pr-title.yml` accepts, because that is where the two drifted apart.
-
 ## Why release-please and `pyproject.toml` need no glue
 
 `release-type` is `simple`, and `simple` never touches `pyproject.toml`.
@@ -98,6 +87,27 @@ Two consequences worth knowing:
   into `0.1.0-alpha.12`. So `pr-title.yml` refuses the marker. Describe the
   break in the PR body instead. The alpha stream carries no compatibility
   promise, so there is nothing for the version to announce.
+
+## A revert does not cancel what it reverts
+
+conventional-changelog drops both halves of a revert when the message carries
+the `Revert "…"` subject and the `This reverts commit <sha>.` body. That never
+fires here: release-please hands the writer every commit with its `revert`
+field set to `null` (`src/changelog-notes/default.ts`), so no message makes one
+commit cancel another.
+
+So a revert is an entry of its own, under `Reverts`. Revert something released
+earlier and that is the whole story. Revert something merged but **not yet
+released** and the release announces both: the original entry, and the revert
+that cancelled it. Read the pair, not the first line.
+
+What made 0.0.0-alpha.91 worse than that is that the pair was never printed.
+`revert` had no entry in `changelog-sections`, and release-please drops a commit
+whose type has no section, so the revert went missing and the feature it
+cancelled was announced alone — in a release whose tree is 0.0.0-alpha.90's.
+The two lists are now held together by `tests/test_release_config.py`: a type
+`pr-title.yml` accepts and the config gives no section is a hole in the
+changelog, which is the one thing that check exists to prevent.
 
 ## Leaving the alpha stream
 

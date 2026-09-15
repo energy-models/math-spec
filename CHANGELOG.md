@@ -7,7 +7,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Written by [release-please](https://github.com/googleapis/release-please) from
 the conventional-commit subjects that land on `main` — see RELEASING.md. Do not
-edit it by hand; the next release overwrites what you wrote.
+write an entry by hand; the next release lands above whatever you put at the
+top. An entry it has already written is never rewritten, though, so a released
+entry that turned out to be wrong is corrected in place — 0.0.0-alpha.91 below
+is the one that was.
 
 New releases are inserted directly below this paragraph, so nothing may sit
 between it and the first `##` heading. The Keep a Changelog skeleton that used
@@ -19,14 +22,17 @@ nowhere.
 
 ## [0.0.0-alpha.91](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.90...v0.0.0-alpha.91) (2026-09-15)
 
+This release carries no change to the package: outside this file and the
+version manifest, the tree it tags is the tree `v0.0.0-alpha.90` tags.
+[#474](https://github.com/energy-models/math-spec/pull/474) was merged and then
+reverted by [#481](https://github.com/energy-models/math-spec/pull/481), both
+before the tag was cut. release-please announced the feature and not the revert,
+because `revert` had no entry in `changelog-sections` and a type with no section
+is dropped. The entry it wrote, which describes nothing in this release, was:
 
-### Features
-
-* **program:** a walk that says which regions each node stands under ([#474](https://github.com/energy-models/math-spec/issues/474)) ([3986c6b](https://github.com/energy-models/math-spec/commit/3986c6bbe25261ec3720fbadf0005a6990fa5c16))
-
-### Reverts
-
-* the walk that says which regions each node stands under ([#481](https://github.com/energy-models/math-spec/issues/481)) ([26ce4b4](https://github.com/energy-models/math-spec/commit/26ce4b4bc371979a8f7fede0e96dccbff5b0f3f0))
+> ### Features
+>
+> * **program:** a walk that says which regions each node stands under ([#474](https://github.com/energy-models/math-spec/issues/474)) ([3986c6b](https://github.com/energy-models/math-spec/commit/3986c6bbe25261ec3720fbadf0005a6990fa5c16))
 
 ## [0.0.0-alpha.90](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.89...v0.0.0-alpha.90) (2026-09-15)
 
