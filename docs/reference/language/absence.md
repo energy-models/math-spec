@@ -13,27 +13,27 @@ follows from that.
 dimensions:
   g: { dtype: str }
 parameters:
-  p_max: { dims: [g] }
+  capacity: { dims: [g] }
 variables:
-  p:
+  dispatch:
     dims: [g]
-    where: "p_max > 0"
+    where: "capacity > 0"
 ```
 
-With `p_max = {wind: 10, gas: 5, old: 0}`, the model has `p[wind]` and
-`p[gas]`. There is no `p[old]`.
+With `capacity = {wind: 10, gas: 5, old: 0}`, the model has `dispatch[wind]` and
+`dispatch[gas]`. There is no `dispatch[old]`.
 
 The [grammar](expressions.md#where-strings) says what a `where:` may contain.
 This page says what the mask means for the rows that are built.
 
 ## What creates absence
 
-| Construct                                    | What is absent                                                   |
-| -------------------------------------------- | ---------------------------------------------------------------- |
-| `where:` on a variable                       | the variable, at the masked coordinates                          |
-| `where:` on a constraint                     | the row                                                          |
-| `shift(x, over=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))        |
-| a label a lookup does not map                | that label's group membership ([lookups](dimensions.md#lookups)) |
+| Construct                                     | What is absent                                                       |
+| --------------------------------------------- | -------------------------------------------------------------------- |
+| `where:` on a variable                        | the variable, at the masked coordinates                              |
+| `where:` on a constraint                      | the row                                                              |
+| `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))            |
+| a label a relation does not map               | that label's group membership ([relations](dimensions.md#relations)) |
 
 Nothing else creates absence. **A missing parameter row is not absence.** A
 sparse table is a compressed dense table, and a missing row reads as the value
@@ -51,7 +51,7 @@ operator, it does not.
 ```yaml
 variables:
   x: { dims: [g] }
-  y: { dims: [g], where: "p_max > 0" } # no y[old]
+  y: { dims: [g], where: "capacity > 0" } # no y[old]
 constraints:
   each:
     dims: [g]
@@ -86,13 +86,13 @@ there instead, write `where: rel_max` on the constraint.
 Every operator falls on one side of the line, and one question decides which:
 does an output slot stand for several input slots, or for one?
 
-| Operator                        | An output slot reads            | An absent input                      |
-| ------------------------------- | ------------------------------- | ------------------------------------ |
-| `sum(x, over=d)`                | every position along `d`        | is one summand fewer; the row stands |
-| `sum(x, by=lookup)`             | every member of the group       | is one summand fewer; the row stands |
-| `sum_back(x, over=d, within=w)` | the positions the window covers | is one summand fewer; the row stands |
-| `shift(x, over=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
-| `at(x, by=lookup)`              | one position, through the map   | _is_ the output, so it spreads       |
+| Operator                         | An output slot reads            | An absent input                      |
+| -------------------------------- | ------------------------------- | ------------------------------------ |
+| `sum(x, over=d)`                 | every position along `d`        | is one summand fewer; the row stands |
+| `sum(x, by=relation)`            | every member of the group       | is one summand fewer; the row stands |
+| `sum_back(x, along=d, window=w)` | the positions the window covers | is one summand fewer; the row stands |
+| `shift(x, along=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
+| `at(x, by=relation)`             | one position, through the map   | _is_ the output, so it spreads       |
 
 The three summing operators put several slots into one, so a missing slot gives a
 shorter sum and the row survives. A window that reaches past the start of its
@@ -148,8 +148,9 @@ them, and that is the start of the recurrence rather than a bug.
 A [reported expression](reported.md) is arithmetic over solved numbers, so it
 inherits their absence by the same rule as above. Through pointwise arithmetic,
 a null spreads: `cost / delivered` has no value wherever either operand is
-masked. Out of a summing operator, it does not: `sum(p, over=g)` is one summand
-shorter where a `p[g]` is masked, and stands as long as one slot does.
+masked. Out of a summing operator, it does not: `sum(dispatch, over=g)` is one
+summand shorter where a `dispatch[g]` is masked, and stands as long as one slot
+does.
 
 A quotient whose divisor solved to zero is absent in the same way. The language
 has one "no value", and an undefined quotient joins it rather than raising a
@@ -163,7 +164,7 @@ separate not-a-number.
 | You want                                       | You write                                                                                                                    |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | the row kept, the masked variable read as zero | `absence: zero` on the variable                                                                                              |
-| the row dropped where a parameter has no data  | `where: p` on the constraint                                                                                                 |
-| a vacated shift position to contribute         | `shift(x, over=d, offset=n, edge=0)`                                                                                         |
+| the row dropped where a parameter has no data  | `where: capacity` on the constraint                                                                                          |
+| a vacated shift position to contribute         | `shift(x, along=d, offset=n, edge=0)`                                                                                        |
 | to test whether a variable exists here         | its bare name in a `where`                                                                                                   |
 | a bound only where the data has one            | supply the bound, because `inf` is a value, or mask the variable. These are different models, so the language infers neither |

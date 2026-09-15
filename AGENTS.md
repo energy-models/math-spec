@@ -81,7 +81,9 @@ answer here is the mistake.
   the ones nothing calls. Where a file does not determine the answer, loading
   fails, and the message names the rewrite.
 - **Triage a new construct first: is it a primitive, a macro, or refused?**
-  A primitive is admissible when it is relational and local. Read the
+  A primitive is admissible when it is relational. Locality prices a primitive
+  rather than barring it. An operator that reads the whole table costs one full
+  pass over the data. Read the
   deliberate non-primitives in
   [limits.md](docs/about/limits.md) first. The argument for admitting one of
   those is the argument that page is already making, not a new argument.
