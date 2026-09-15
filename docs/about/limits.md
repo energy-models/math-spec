@@ -41,7 +41,7 @@ macro can write `over=d` and let the caller supply `d`. It could not do that if
 the dimension were the keyword itself.
 
 **An operator may read the whole table. It pays one full pass over the data.**
-`sum(p, over=g)` reads one row per generator. `shift(p, over=t, offset=1)` reads
+`sum(p, over=g)` reads one row per generator. `shift(p, along=t, offset=1)` reads
 one row, the one before it. `x * y * a` reads the rows of `a` that pair an `x`
 with a `y`. Each reads a bounded number of rows per output row, so an engine
 builds the model one chunk of rows at a time.
@@ -55,14 +55,14 @@ the list of snapshots, not at the data.
 **An operator that calls itself is refused.** Nothing bounds how far it expands,
 so no number of passes over the data is enough.
 
-| The operator                                         | Allowed?                                        |
-| ---------------------------------------------------- | ----------------------------------------------- |
-| filters rows on a column they already carry          | yes                                             |
-| joins each row against a parameter or a lookup table | yes                                             |
-| reads a fixed number of neighbouring rows            | yes                                             |
-| reads only the coordinate labels                     | yes                                             |
-| reads every row                                      | yes, at one full pass before any chunk builds   |
-| calls itself                                         | no, and the message names what to write instead |
+| The operator                                     | Allowed?                                        |
+| ------------------------------------------------ | ----------------------------------------------- |
+| filters rows on a column they already carry      | yes                                             |
+| joins each row against a parameter or a relation | yes                                             |
+| reads a fixed number of neighbouring rows        | yes                                             |
+| reads only the coordinate labels                 | yes                                             |
+| reads every row                                  | yes, at one full pass before any chunk builds   |
+| calls itself                                     | no, and the message names what to write instead |
 
 **Degree is not a third test.** `p * q` at one coordinate is a join of a table
 with itself, so the objective and the constraints take it. Two things limit the
@@ -138,7 +138,7 @@ sentence tells them apart:
 A cycle basis is the first kind. It needs the network's topology, which only the
 data has, so `cycle_incidence` arrives as a parameter. A minimum up time is the
 second kind. `min_up_time` is a column the model already binds, and the window
-"the last `min_up_time` hours" follows from it, so `sum_back(within=min_up_time)`
+"the last `min_up_time` hours" follows from it, so `sum_back(window=min_up_time)`
 reads the width off the column and you ship no window mask
 ([#849](https://github.com/fluxopt/lpspec/issues/849)).
 
