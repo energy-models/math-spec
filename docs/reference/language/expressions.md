@@ -223,7 +223,7 @@ dimensions is not in the language. Precompute a boolean parameter instead.
 
 Either side of a comparison may be an expression: `p_min <= 0.5 * p_max`,
 `sum(p_max, over=generator) >= peak`, `p_max <= at(bus_cap, by=bus_of)`. The
-side is read exactly as an [expression](#the-expression-grammar) is, so a macro
+side is read exactly as an [expression](#expressions) is, so a macro
 and a named expression expand into it and every operator keeps its own rule.
 Two things an expression may carry are refused here, because a mask is built
 before either exists: a variable, and a `dual()`.
