@@ -249,10 +249,21 @@ constraints:
     expression: shed >= load - ramp
 ```
 
-A case `when:` that compares expressions cannot be proved apart from its
-neighbours before the data arrives, so it is refused there with the rewrite:
-compare one parameter against a literal, or precompute the test as a boolean
-parameter.
+A case `when:` may not compare expressions. The loader proves the cases of a
+[`cases:` block](#the-rules-that-keep-the-cases-apart) apart at load: no two of
+them may claim one coordinate. It proves that by trying every value the masks
+name. A comparison of expressions names no value, because only the data decides
+whether `c > 2 * k` holds. There is nothing to try, so the loader refuses the
+block:
+
+> `Named expression 'e'`: cases `wide` and `narrow` cannot be told apart before
+> the data arrives: it compares expressions, whose values only the data decides
+> — compare one parameter against a literal, or precompute the test as a boolean
+> parameter and test that. Two cases claiming one coordinate would give it two
+> values, so this is refused the way a proven overlap is.
+
+A variable's `where` and a constraint's `where` are not held to this, because
+neither is proved apart from anything.
 
 ### `position()`
 
