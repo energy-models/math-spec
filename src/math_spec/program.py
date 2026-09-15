@@ -11,7 +11,8 @@ nothing here re-checks a hand-built one.
 
 Node and declaration classes are matched with ``isinstance``. The rules a
 node's structure does not show are :func:`children` and :func:`fan_in`; the
-questions over the walk are :func:`walk` and the filters beside it. A
+questions over the walk are :func:`walk_regions`, :func:`walk` and the filters
+beside them. A
 resolved ``where`` arrives as a :class:`Mask`. Frozen dataclasses only — no
 execution logic, and nothing imported from a consumer. How a consumer reads
 one: ``docs/reference/language/reading.md``.
@@ -112,6 +113,7 @@ __all__ = [
     'quotients',
     'variables_of',
     'walk',
+    'walk_regions',
     'where_children',
 ]
 
@@ -934,19 +936,52 @@ class Program:
 # --------------------------------------------------------------------------
 
 
-def walk(*expressions: ExpressionNode) -> Iterator[ExpressionNode]:
-    """Every node under *expressions*, each expression itself included, parents first.
+def walk_regions(*expressions: ExpressionNode) -> Iterator[tuple[ExpressionNode, tuple[Mask, ...]]]:
+    """Every node under *expressions*, each with the regions it stands inside, outermost first.
 
     The traversal every *question* about a program is a filter of — which names
     it mentions, whether a variable stands under it, which divisions it
-    contains. One generator rather than that five-line recursion once per
-    question: how a program is traversed is one fact, so a node kind
-    :func:`children` learns to descend into reaches every caller at once
-    rather than the callers that remembered.
+    contains, which rows a piece owes data at. One generator rather than that
+    five-line recursion once per question: how a program is traversed is one
+    fact, so a node kind :func:`children` learns to descend into reaches every
+    caller at once rather than the callers that remembered.
+
+    The regions are the ``when`` of every :class:`Cases` region the node's
+    value stands under, the outermost first, which is the order the masks
+    conjoin in. A node outside any ``cases:`` block carries the empty tuple,
+    and a ``Cases`` node carries only the regions above it, not its own. The
+    tuple rather than one conjoined mask: what a consumer does with the
+    regions is its own, and the conjunction is one ``&`` away.
+    """
+    yield from _walk_regions(expressions, ())
+
+
+def _walk_regions(
+    expressions: tuple[ExpressionNode, ...], above: tuple[Mask, ...]
+) -> Iterator[tuple[ExpressionNode, tuple[Mask, ...]]]:
+    """The recursion under :func:`walk_regions`, with the regions above *expressions* carried down.
+
+    A ``Cases`` descends by its regions rather than by :func:`children`, because
+    only the region pairs a value with its ``when``; every other node kind
+    descends by :func:`children`, which stays the one home of what sits under
+    a node.
     """
     for expression in expressions:
-        yield expression
-        yield from walk(*children(expression))
+        yield expression, above
+        if isinstance(expression, Cases):
+            for region in expression.regions:
+                yield from _walk_regions((region.value,), (*above, region.when))
+        else:
+            yield from _walk_regions(children(expression), above)
+
+
+def walk(*expressions: ExpressionNode) -> Iterator[ExpressionNode]:
+    """Every node under *expressions*, each expression itself included, parents first.
+
+    :func:`walk_regions` with the regions dropped, for the questions that do
+    not ask where a node stands.
+    """
+    return (node for node, _ in walk_regions(*expressions))
 
 
 def is_quadratic(expression: ExpressionNode) -> bool:

@@ -58,6 +58,7 @@ from math_spec.program import (
     quotients,
     variables_of,
     walk,
+    walk_regions,
     where_children,
 )
 from math_spec.resolution import Namespace, expression_of, where_of
@@ -501,6 +502,41 @@ def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():
     assert divisor_parameters(Sum(left + right, ('flow',))) == frozenset({'rate', 'loss'}), (
         'the flat answer is still the union of the same walk'
     )
+
+
+OUTER = Mask(ParameterDefinedNode('committable', ('g',)))
+INNER = Mask(ParameterDefinedNode('flag', ('g',)))
+NESTED = Add(
+    Variable('x'),
+    Cases(
+        (
+            Region(OUTER, Cases((Region(INNER, Variable('p')), Region(~INNER, Constant(0.0))))),
+            Region(~OUTER, Parameter('q')),
+        )
+    ),
+)
+
+
+def test_walk_regions_carries_the_regions_a_node_stands_under():
+    """Which regions stand above a node decides which rows a piece owes data at,
+    and every consumer recursed for it on its own (#473)."""
+    assert list(walk_regions(NESTED)) == [
+        (NESTED, ()),
+        (Variable('x'), ()),
+        (NESTED.right, ()),
+        (NESTED.right.regions[0].value, (OUTER,)),
+        (Variable('p'), (OUTER, INNER)),
+        (Constant(0.0), (OUTER, ~INNER)),
+        (Parameter('q'), (~OUTER,)),
+    ], (
+        'parents first; a node outside any block carries nothing; a `Cases` carries only the regions '
+        'above it; a value under two blocks carries both, the outer one first'
+    )
+
+
+def test_walk_is_the_node_column_of_walk_regions():
+    """One recursion, so a node kind that learns to descend reaches both walks at once."""
+    assert list(walk(NESTED)) == [node for node, _ in walk_regions(NESTED)]
 
 
 FAN_IN = {
