@@ -22,27 +22,27 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, assert_never, cast
 
 from math_spec.program import (
-    AndNode,
-    BooleanLiteralNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
-    LookupPairComparisonNode,
+    And,
+    BooleanLiteral,
+    DimensionComparison,
+    DimensionPosition,
+    LookupComparison,
+    LookupDefined,
+    LookupPairComparison,
     Mask,
-    NotNode,
-    OrNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
-    TypedPredicateNode,
-    VariableDefinedNode,
+    Not,
+    Or,
+    ParameterComparison,
+    ParameterDefined,
+    TypedPredicate,
+    VariableDefined,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
 
     from math_spec.model import DeclaredDtype
-    from math_spec.program import PredicateOperator, WhereNode
+    from math_spec.program import Predicate, PredicateOperator
 
 #: The most cells one pair may multiply out to; a pair past it is several expressions.
 CELL_BUDGET = 8192
@@ -56,7 +56,7 @@ class Undecidable(Exception):  # noqa: N818
     """A pair this procedure will not reason about. Carries the rewrite."""
 
 
-def overlapping(cases: Mapping[str, WhereNode], dtypes: Mapping[str, DeclaredDtype]) -> Iterator[str]:
+def overlapping(cases: Mapping[str, Predicate], dtypes: Mapping[str, DeclaredDtype]) -> Iterator[str]:
     """One refusal per pair of cases that could both claim a coordinate.
 
     Args:
@@ -89,7 +89,7 @@ def overlapping(cases: Mapping[str, WhereNode], dtypes: Mapping[str, DeclaredDty
             )
 
 
-def _witness(first: WhereNode, second: WhereNode, dtypes: Mapping[str, DeclaredDtype]) -> str | None:
+def _witness(first: Predicate, second: Predicate, dtypes: Mapping[str, DeclaredDtype]) -> str | None:
     """A coordinate both masks claim, rendered — ``None`` where no cell holds both."""
     masks = (Mask(first), Mask(second))
     grid = _Grid.of(masks, dtypes)
@@ -183,15 +183,15 @@ class _Grid:
         return ', '.join(f'{subject} is {_shown(subject, value)}' for subject, value in cell.items())
 
 
-def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> None:
+def _observe(node: TypedPredicate, subject: Subject, values: set[Any], dtypes: Mapping[str, DeclaredDtype]) -> None:
     """Record what *node* says about its subject: a position, or a literal.
 
     ``position()`` converts the dimension to an integer, so an ordering over a
     rank is an ordering of integers and every comparator is admitted there.
     """
-    if isinstance(node, DimensionPositionNode):
+    if isinstance(node, DimensionPosition):
         values.add(node.position)
-    elif isinstance(node, LookupPairComparisonNode):
+    elif isinstance(node, LookupPairComparison):
         if node.op not in ('==', '!='):
             msg = (
                 f'{subject} is ordered with {node.op!r}, and two lookups carry no order '
@@ -199,7 +199,7 @@ def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtype
                 f'ordering as a boolean parameter and test that'
             )
             raise Undecidable(msg)
-    elif isinstance(node, ParameterComparisonNode | DimensionComparisonNode | LookupComparisonNode):
+    elif isinstance(node, ParameterComparison | DimensionComparison | LookupComparison):
         if node.op not in ('==', '!=') and dtypes.get(subject.name) not in _ORDERED_DTYPES:
             msg = (
                 f'{subject} has dtype {dtypes.get(subject.name)!r} and is ordered with '
@@ -210,19 +210,19 @@ def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtype
         values.add(node.value)
 
 
-def _subject_of(node: TypedPredicateNode) -> Subject:
+def _subject_of(node: TypedPredicate) -> Subject:
     match node:
-        case ParameterDefinedNode(name=name) | ParameterComparisonNode(name=name):
+        case ParameterDefined(name=name) | ParameterComparison(name=name):
             return Subject('param', name)
-        case VariableDefinedNode(name=name):
+        case VariableDefined(name=name):
             return Subject('variable', name)
-        case DimensionComparisonNode(name=name):
+        case DimensionComparison(name=name):
             return Subject('dim', name)
-        case DimensionPositionNode(name=name, by=by):
+        case DimensionPosition(name=name, by=by):
             return Subject('rank', name, by)
-        case LookupDefinedNode(name=name) | LookupComparisonNode(name=name):
+        case LookupDefined(name=name) | LookupComparison(name=name):
             return Subject('lookup', name)
-        case LookupPairComparisonNode(name=name, other=other):
+        case LookupPairComparison(name=name, other=other):
             return Subject('lookup_pair', name, other)
         case _:
             assert_never(node)
@@ -376,42 +376,42 @@ def _shown(subject: Subject, value: Cell) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _evaluate(node: WhereNode, cell: dict[Subject, Cell], grid: _Grid) -> bool:
+def _evaluate(node: Predicate, cell: dict[Subject, Cell], grid: _Grid) -> bool:
     """Is *node* true in this cell?"""
-    if isinstance(node, TypedPredicateNode):
+    if isinstance(node, TypedPredicate):
         return _atom(node, cell, grid)
     match node:
-        case BooleanLiteralNode(value=value):
+        case BooleanLiteral(value=value):
             return value
-        case NotNode(operand=operand):
+        case Not(operand=operand):
             return not _evaluate(operand, cell, grid)
-        case AndNode(left=left, right=right):
+        case And(left=left, right=right):
             return _evaluate(left, cell, grid) and _evaluate(right, cell, grid)
-        case OrNode(left=left, right=right):
+        case Or(left=left, right=right):
             return _evaluate(left, cell, grid) or _evaluate(right, cell, grid)
         case _:
             assert_never(node)
 
 
-def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], grid: _Grid) -> bool:
+def _atom(node: TypedPredicate, cell: dict[Subject, Cell], grid: _Grid) -> bool:
     subject = grid.subjects[id(node)]
     value = cell[subject]
     match node:
-        case ParameterDefinedNode() | LookupDefinedNode():
+        case ParameterDefined() | LookupDefined():
             if isinstance(value, bool):
                 return value
             return value not in (Special.NULL, Special.POS_INF, Special.NEG_INF)
-        case VariableDefinedNode():
+        case VariableDefined():
             return bool(value)
-        case LookupPairComparisonNode(op=op):
+        case LookupPairComparison(op=op):
             return bool(value) if op == '==' else not value
-        case DimensionPositionNode(op=op, position=position):
+        case DimensionPosition(op=op, position=position):
             return _compare(value, op, position)
-        case ParameterComparisonNode(op=op, value=literal) | LookupComparisonNode(op=op, value=literal):
+        case ParameterComparison(op=op, value=literal) | LookupComparison(op=op, value=literal):
             if value is Special.NULL:
                 return False
             return _compare(value, op, literal)
-        case DimensionComparisonNode(op=op, value=literal):
+        case DimensionComparison(op=op, value=literal):
             return _compare(value, op, literal)
         case _:
             assert_never(node)

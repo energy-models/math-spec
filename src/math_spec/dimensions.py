@@ -40,15 +40,15 @@ from math_spec._expression_parser import (
 from math_spec.errors import DimensionError
 from math_spec.operators import BUILTINS
 from math_spec.program import (
-    DimensionComparisonNode,
-    DimensionPositionNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
-    LookupPairComparisonNode,
+    DimensionComparison,
+    DimensionPosition,
+    LookupComparison,
+    LookupDefined,
+    LookupPairComparison,
     Mask,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
-    VariableDefinedNode,
+    ParameterComparison,
+    ParameterDefined,
+    VariableDefined,
 )
 
 if TYPE_CHECKING:
@@ -514,13 +514,13 @@ def _check_where_dims(
         if not (outside := sorted(Mask(atom).dims - frame)):
             continue
         match atom:
-            case ParameterDefinedNode() | ParameterComparisonNode():
+            case ParameterDefined() | ParameterComparison():
                 noun = 'parameter'
-            case VariableDefinedNode():
+            case VariableDefined():
                 noun = 'variable'
-            case DimensionComparisonNode() | DimensionPositionNode():
+            case DimensionComparison() | DimensionPosition():
                 noun = 'dimension'
-            case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
+            case LookupComparison() | LookupPairComparison() | LookupDefined():
                 noun = 'lookup'
             case _:
                 assert_never(atom)

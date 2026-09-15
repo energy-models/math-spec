@@ -61,21 +61,21 @@ from math_spec.operators import (
     unknown_operator_message,
 )
 from math_spec.program import (
-    AndNode,
-    BooleanLiteralNode,
-    DimensionComparisonNode,
-    DimensionPositionNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
-    LookupPairComparisonNode,
+    And,
+    BooleanLiteral,
+    DimensionComparison,
+    DimensionPosition,
+    LookupComparison,
+    LookupDefined,
+    LookupPairComparison,
     Mask,
-    NotNode,
-    OrNode,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
-    TypedPredicateNode,
-    VariableDefinedNode,
-    WhereNode,
+    Not,
+    Or,
+    ParameterComparison,
+    ParameterDefined,
+    Predicate,
+    TypedPredicate,
+    VariableDefined,
 )
 
 if TYPE_CHECKING:
@@ -277,7 +277,7 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
 
     ``None`` for no mask, however the file spelled it: a mask that admits every
     row is dropped, and one that admits none arrives as a mask over
-    ``BooleanLiteralNode(False)``.
+    ``BooleanLiteral(False)``.
 
     Raises:
         LanguageError: Listing every problem the predicate has.
@@ -296,9 +296,9 @@ def names_in(value: ArithmeticNode) -> tuple[str, ...]:
     return value.names if isinstance(value, NameListNode) else ()
 
 
-def mask_of(node: WhereNode | None) -> Mask | None:
+def mask_of(node: Predicate | None) -> Mask | None:
     """The mask a declaration carries for a resolved where: ``None`` where there is none, or where every row passes."""
-    if node is None or (isinstance(node, BooleanLiteralNode) and node.value):
+    if node is None or (isinstance(node, BooleanLiteral) and node.value):
         return None
     return Mask(node)
 
@@ -327,22 +327,22 @@ def resolve_expression(
 
 
 def resolve_where(
-    node: WhereNode | UnresolvedWhereNode,
+    node: Predicate | UnresolvedWhereNode,
     ns: Namespace,
     context: str,
     errors: list[str],
     self_variable: str | None = None,
-) -> WhereNode | None:
+) -> Predicate | None:
     """Rewrite a parsed where AST into typed predicates, folded as :class:`~math_spec.program.Mask` folds.
 
     Returns:
         The typed tree — a mask admitting every row or none comes back as the
-        one ``BooleanLiteralNode`` — or ``None`` once anything failed, with the
+        one ``BooleanLiteral`` — or ``None`` once anything failed, with the
         problems appended to *errors*.
     """
     before = len(errors)
     resolved = _Resolver(ns, context, errors, self_variable).where(node)
-    return None if len(errors) > before else Mask(cast('WhereNode', resolved)).root
+    return None if len(errors) > before else Mask(cast('Predicate', resolved)).root
 
 
 def resolve_where_text(
@@ -351,7 +351,7 @@ def resolve_where_text(
     context: str,
     errors: list[str],
     self_variable: str | None = None,
-) -> WhereNode | None:
+) -> Predicate | None:
     """Parse and resolve one where string as :func:`resolve_where` does, a parse failure appended to *errors*.
 
     Returns:
@@ -624,9 +624,9 @@ class _Resolver:
 
     # -- where strings -----------------------------------------------------
 
-    def where(self, node: WhereNode | UnresolvedWhereNode) -> WhereNode | UnresolvedWhereNode:
+    def where(self, node: Predicate | UnresolvedWhereNode) -> Predicate | UnresolvedWhereNode:
         """One predicate node typed, or returned unresolved with its refusal appended."""
-        if isinstance(node, BooleanLiteralNode | TypedPredicateNode):
+        if isinstance(node, BooleanLiteral | TypedPredicate):
             return node
         if isinstance(node, UnresolvedNameNode):
             return self._where_name(node)
@@ -634,19 +634,19 @@ class _Resolver:
             return self._position(node)
         if isinstance(node, UnresolvedComparisonNode):
             return self._comparison(node)
-        if isinstance(node, NotNode):
-            return NotNode(self._child(node.operand))
-        if isinstance(node, AndNode):
-            return AndNode(self._child(node.left), self._child(node.right))
-        if isinstance(node, OrNode):
-            return OrNode(self._child(node.left), self._child(node.right))
+        if isinstance(node, Not):
+            return Not(self._child(node.operand))
+        if isinstance(node, And):
+            return And(self._child(node.left), self._child(node.right))
+        if isinstance(node, Or):
+            return Or(self._child(node.left), self._child(node.right))
         assert_never(node)
 
-    def _child(self, node: WhereNode | UnresolvedWhereNode) -> WhereNode:
+    def _child(self, node: Predicate | UnresolvedWhereNode) -> Predicate:
         """A connective's child, typed as resolved: an unresolved one survives only with its refusal appended."""
-        return cast('WhereNode', self.where(node))
+        return cast('Predicate', self.where(node))
 
-    def _where_name(self, node: UnresolvedNameNode) -> WhereNode | UnresolvedWhereNode:
+    def _where_name(self, node: UnresolvedNameNode) -> Predicate | UnresolvedWhereNode:
         """A bare name: a parameter's or lookup's definedness, or a variable's existence."""
         ns, context = self.ns, self.context
         kind = ns.kind(node.name)
@@ -655,7 +655,7 @@ class _Resolver:
             return node
         match kind:
             case 'parameter':
-                return ParameterDefinedNode(node.name, ns.leaf_dims[node.name])
+                return ParameterDefined(node.name, ns.leaf_dims[node.name])
             case 'dimension':
                 self.errors.append(
                     f"{context}: '{node.name}' is a dimension, and a bare dimension "
@@ -663,7 +663,7 @@ class _Resolver:
                     f'Remove it, or compare it: where: "{node.name} > 0".'
                 )
             case 'lookup':
-                return LookupDefinedNode(node.name, ns.over_of(node.name))
+                return LookupDefined(node.name, ns.over_of(node.name))
             case 'variable':
                 if node.name == self.self_variable:
                     self.errors.append(
@@ -672,10 +672,10 @@ class _Resolver:
                         f'exists. Test a parameter, or another variable declared before it.'
                     )
                 else:
-                    return VariableDefinedNode(node.name, ns.leaf_dims[node.name])
+                    return VariableDefined(node.name, ns.leaf_dims[node.name])
         return node
 
-    def _position(self, node: UnresolvedPositionNode) -> DimensionPositionNode | UnresolvedPositionNode:
+    def _position(self, node: UnresolvedPositionNode) -> DimensionPosition | UnresolvedPositionNode:
         """``position(dim[, by=lookup]) <op> i``: the name a dimension, ``by=`` a lookup over it."""
         ns, context = self.ns, self.context
         if node.dimension not in ns.dimensions:
@@ -686,7 +686,7 @@ class _Resolver:
             )
             return node
         if node.by is None:
-            return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
+            return DimensionPosition(node.dimension, node.op, node.position, node.by)
         call = f'position({node.dimension}, by={node.by})'
         if ns.kind(node.by) != 'lookup':
             self.errors.append(
@@ -703,9 +703,9 @@ class _Resolver:
                 f"position within a group to name — group by a lookup over '{node.dimension}'."
             )
             return node
-        return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
+        return DimensionPosition(node.dimension, node.op, node.position, node.by)
 
-    def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
+    def _comparison(self, node: UnresolvedComparisonNode) -> Predicate | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``lookup <op> lookup``."""
         ns, context = self.ns, self.context
         value = node.value
@@ -714,7 +714,7 @@ class _Resolver:
                 if (refusal := _lookup_pair_error(context, node, value, ns)) is not None:
                     self.errors.append(refusal)
                     return node
-                return LookupPairComparisonNode(node.name, value, ns.over_of(node.name), node.op)
+                return LookupPairComparison(node.name, value, ns.over_of(node.name), node.op)
             self.errors.append(_declared_rhs_error(context, node, value, rhs_kind))
             return node
 
@@ -731,11 +731,11 @@ class _Resolver:
         match kind:
             case 'parameter':
                 assert not isinstance(value, datetime.date)
-                return ParameterComparisonNode(node.name, node.op, value, ns.leaf_dims[node.name])
+                return ParameterComparison(node.name, node.op, value, ns.leaf_dims[node.name])
             case 'dimension':
-                return DimensionComparisonNode(node.name, node.op, value)
+                return DimensionComparison(node.name, node.op, value)
             case 'lookup':
-                return LookupComparisonNode(node.name, ns.over_of(node.name), node.op, value)
+                return LookupComparison(node.name, ns.over_of(node.name), node.op, value)
             case 'variable':
                 self.errors.append(
                     f"{context}: where references variable '{node.name}'. A where "

@@ -16,12 +16,12 @@ from typing import TYPE_CHECKING, Any, cast, get_args
 import pyparsing as pp
 
 from math_spec._expression_parser import NAME, REAL, parse_text
-from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, PredicateOperator, where_children
+from math_spec.program import And, BooleanLiteral, Not, Or, PredicateOperator, where_children
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from math_spec.program import WhereNode
+    from math_spec.program import Predicate
 
 # ---------------------------------------------------------------------------
 # AST nodes
@@ -98,8 +98,8 @@ def _build_where_grammar() -> pp.ParserElement:
     """
     where_expr = pp.Forward()
 
-    true_lit = pp.CaselessKeyword('True').set_parse_action(lambda: BooleanLiteralNode(True))
-    false_lit = pp.CaselessKeyword('False').set_parse_action(lambda: BooleanLiteralNode(False))
+    true_lit = pp.CaselessKeyword('True').set_parse_action(lambda: BooleanLiteral(True))
+    false_lit = pp.CaselessKeyword('False').set_parse_action(lambda: BooleanLiteral(False))
 
     # pyrefly: ignore[implicit-any-lambda]
     number = pp.Regex(rf'-?({REAL}|\d+)').set_parse_action(lambda t: float(t[0]))
@@ -135,28 +135,28 @@ def _build_where_grammar() -> pp.ParserElement:
 
     NOT = pp.CaselessKeyword('NOT').suppress()
     # pyrefly: ignore[implicit-any-lambda]
-    not_expr = (NOT + atom).set_parse_action(lambda t: NotNode(t[0])) | atom
+    not_expr = (NOT + atom).set_parse_action(lambda t: Not(t[0])) | atom
 
     AND = pp.CaselessKeyword('AND').suppress()
     and_expr = not_expr + pp.ZeroOrMore(AND + not_expr)
-    and_expr.set_parse_action(_folder(AndNode))
+    and_expr.set_parse_action(_folder(And))
 
     OR = pp.CaselessKeyword('OR').suppress()
     or_expr = and_expr + pp.ZeroOrMore(OR + and_expr)
-    or_expr.set_parse_action(_folder(OrNode))
+    or_expr.set_parse_action(_folder(Or))
 
     where_expr <<= or_expr
     return where_expr
 
 
-def _folder(node_type: type[AndNode] | type[OrNode]) -> Callable[[pp.ParseResults], Any]:
+def _folder(node_type: type[And] | type[Or]) -> Callable[[pp.ParseResults], Any]:
     """A parse action left-folding a flat operator chain into *node_type*."""
 
     def fold(tokens: pp.ParseResults) -> Any:
         items = list(tokens)
-        result: WhereNode | UnresolvedWhereNode = items[0]
+        result: Predicate | UnresolvedWhereNode = items[0]
         for item in items[1:]:
-            result = node_type(cast('WhereNode', result), item)
+            result = node_type(cast('Predicate', result), item)
         return result
 
     return fold
@@ -193,7 +193,7 @@ _DEEP_REWRITE = (
 
 
 @lru_cache(maxsize=4096)
-def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
+def parse_where(text: str) -> Predicate | UnresolvedWhereNode:
     """Parse a where string into an AST, its leaves still unresolved.
 
     The connectives and literals are the resolved vocabulary's own; the leaves
@@ -207,6 +207,6 @@ def parse_where(text: str) -> WhereNode | UnresolvedWhereNode:
             complaint.
     """
     return cast(
-        'WhereNode | UnresolvedWhereNode',
+        'Predicate | UnresolvedWhereNode',
         parse_text(_WHERE_GRAMMAR, text, 'where string', _named_rewrite, where_children, _DEEP_REWRITE),
     )

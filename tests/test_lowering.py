@@ -24,34 +24,34 @@ from math_spec.piecewise import expand_piecewise
 from math_spec.program import (
     QUADRATIC_POSITIONS,
     Add,
-    AndNode,
-    At,
-    BooleanLiteralNode,
+    And,
+    BooleanLiteral,
     Cases,
     Constant,
-    DimensionComparisonNode,
+    DimensionComparison,
     DimensionDeclaration,
     Divide,
     Dual,
-    ExpressionNode,
+    Expression,
     Footprint,
     GroupSum,
     LookupDeclaration,
     Mask,
     Multiply,
     Negate,
-    NotNode,
-    OrNode,
+    Not,
+    Or,
     Parameter,
-    ParameterComparisonNode,
-    ParameterDefinedNode,
+    ParameterComparison,
+    ParameterDefined,
     Power,
     Program,
+    Pullback,
     Region,
     Sum,
     Translate,
     Variable,
-    Window,
+    WindowSum,
     children,
     divisor_parameters,
     fan_in,
@@ -69,7 +69,7 @@ if TYPE_CHECKING:
 DISPATCH_YAML = EXAMPLES / 'dispatch.yaml'
 
 #: The mask `examples/dispatch.yaml` puts on `p`, as the plan carries it.
-P_MAX_POSITIVE = ParameterComparisonNode('p_max', '>', 0.0, ('generator',))
+P_MAX_POSITIVE = ParameterComparison('p_max', '>', 0.0, ('generator',))
 
 #: One dimension, one parameter, one bounded variable and a scalar constraint:
 #: the smallest model that loads, for a claim about the plan's record rather
@@ -141,9 +141,9 @@ def test_lower_program_structure(dispatch_program):
     assert c.rhs == Parameter('load')
 
     assert dispatch_program.objective.sense == 'minimize', "the program carries the language's spelling, untranslated"
-    assert dispatch_program.objective.expression == Sum(Variable('p') * Parameter('cost'), ('generator', 'snapshot')), (
-        'the objective carries the sum the file wrote, over the dims it named none of'
-    )
+    assert dispatch_program.objective.expression == Sum(
+        Multiply(Variable('p'), Parameter('cost')), ('generator', 'snapshot')
+    ), 'the objective carries the sum the file wrote, over the dims it named none of'
 
 
 @pytest.mark.parametrize('sense', [pytest.param('minimize', id='minimize'), pytest.param('maximize', id='maximize')])
@@ -173,33 +173,33 @@ def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
     [
         pytest.param(None, None, id='no-where-at-all'),
         pytest.param('True', None, id='True-is-no-mask'),
-        pytest.param('p_max', ParameterDefinedNode('p_max', ('generator',)), id='a-bare-parameter-name'),
+        pytest.param('p_max', ParameterDefined('p_max', ('generator',)), id='a-bare-parameter-name'),
         pytest.param(
             'snapshot > 5',
-            DimensionComparisonNode('snapshot', '>', 5),
+            DimensionComparison('snapshot', '>', 5),
             id='a-dimension-coordinate-compares-like-a-parameter',
         ),
         pytest.param(
             'p_max > 0 AND NOT load == 0',
-            AndNode(P_MAX_POSITIVE, NotNode(ParameterComparisonNode('load', '==', 0.0, ('snapshot',)))),
+            And(P_MAX_POSITIVE, Not(ParameterComparison('load', '==', 0.0, ('snapshot',)))),
             id='a-compound-where-keeps-its-connectives',
         ),
-        pytest.param('False', BooleanLiteralNode(False), id='the-empty-declaration-keeps-its-own-spelling'),
+        pytest.param('False', BooleanLiteral(False), id='the-empty-declaration-keeps-its-own-spelling'),
         pytest.param('p_max > 0 AND True', P_MAX_POSITIVE, id='and-true-is-the-other-side'),
         pytest.param('p_max > 0 OR False', P_MAX_POSITIVE, id='or-false-is-the-other-side'),
         pytest.param('p_max > 0 OR True', None, id='or-true-is-no-mask-at-all'),
-        pytest.param('p_max > 0 AND False', BooleanLiteralNode(False), id='and-false-is-the-empty-declaration'),
-        pytest.param('NOT True', BooleanLiteralNode(False), id='not-true-is-false'),
+        pytest.param('p_max > 0 AND False', BooleanLiteral(False), id='and-false-is-the-empty-declaration'),
+        pytest.param('NOT True', BooleanLiteral(False), id='not-true-is-false'),
         pytest.param('NOT False', None, id='not-false-is-no-mask'),
         pytest.param('NOT (p_max > 0 AND False)', None, id='a-branch-folded-away-folds-the-one-above-it'),
         pytest.param(
             'NOT (NOT p_max)',
-            ParameterDefinedNode('p_max', ('generator',)),
+            ParameterDefined('p_max', ('generator',)),
             id='a-double-negation-cancels-on-the-load-path',
         ),
         pytest.param(
             '(p_max > 0 OR True) AND load',
-            ParameterDefinedNode('load', ('snapshot',)),
+            ParameterDefined('load', ('snapshot',)),
             id='an-absorbed-side-takes-its-own-branch-with-it',
         ),
     ],
@@ -207,7 +207,7 @@ def test_a_literal_amount_resolves_to_one_signed_number(dispatch_schema):
 def test_a_where_is_one_resolved_predicate_with_every_literal_folded(dispatch_schema, where, expected):
     """One mask had two lowerings: `True` was dropped at the root and kept under a connective.
 
-    A `BooleanLiteralNode` is a node a consumer meets at the root or nowhere.
+    A `BooleanLiteral` is a node a consumer meets at the root or nowhere.
     """
     mask = where_of(where, Namespace.of(dispatch_schema), 't')
     assert (mask.root if mask is not None else None) == expected, (
@@ -221,7 +221,7 @@ def test_a_folded_mask_reaches_the_declaration_the_shorter_spelling_would_have()
         expand_piecewise(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0 AND True'}))
     )
     plain = lower_program(expand_piecewise(schema_of(DISPATCH_MODEL, **{'variables.p.where': 'p_max > 0'})))
-    assert written_out.variable('p') == plain.variable('p'), 'the same mask, so the same declaration'
+    assert written_out.variables['p'] == plain.variables['p'], 'the same mask, so the same declaration'
 
 
 def test_an_unknown_where_name_is_an_error_at_lowering_too(dispatch_schema):
@@ -253,9 +253,8 @@ def test_a_lowered_mask_cannot_be_rewritten_in_place(dispatch_program):
 def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_program):
     """The `where` a lowering carries is a `Mask`, and its questions are its root's.
 
-    A consumer asks the mask — `where.names_read`, `where.conjuncts` — the way it
-    asks a dimension `dimension.targets`, rather than reaching for a free function
-    with the raw node.
+    A consumer asks the mask — `where.names_read`, `where.conjuncts` — rather
+    than reaching for a free function with the raw node.
     """
     (v,) = dispatch_program.variables.values()
 
@@ -297,17 +296,17 @@ def test_a_lowered_mask_answers_its_dims_conjuncts_and_atoms(variable, where, di
     assert len(mask.atoms) == atoms, 'the leaves of every arm, connectives removed'
 
 
-FLAG = ParameterDefinedNode('flag', ('generator',))
+FLAG = ParameterDefined('flag', ('generator',))
 
 
 @pytest.mark.parametrize(
     ('where', 'under'),
     [
-        pytest.param(NotNode(P_MAX_POSITIVE), (P_MAX_POSITIVE,), id='a-not-carries-its-operand'),
-        pytest.param(AndNode(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-and-carries-both-sides'),
-        pytest.param(OrNode(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-or-carries-both-sides'),
+        pytest.param(Not(P_MAX_POSITIVE), (P_MAX_POSITIVE,), id='a-not-carries-its-operand'),
+        pytest.param(And(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-and-carries-both-sides'),
+        pytest.param(Or(P_MAX_POSITIVE, FLAG), (P_MAX_POSITIVE, FLAG), id='an-or-carries-both-sides'),
         pytest.param(P_MAX_POSITIVE, (), id='a-leaf-carries-nothing'),
-        pytest.param(BooleanLiteralNode(False), (), id='a-literal-carries-nothing'),
+        pytest.param(BooleanLiteral(False), (), id='a-literal-carries-nothing'),
     ],
 )
 def test_where_children_is_the_one_walk_under_a_predicate(where, under):
@@ -325,32 +324,32 @@ def test_where_children_is_the_one_walk_under_a_predicate(where, under):
 def test_a_synthetic_predicate_answers_its_own_dims():
     """A tree built from resolved pieces answers like a declaration's own mask.
 
-    A consumer builds region complements and conjunctions — `NotNode(root)`,
-    `AndNode(a, b)` — with no declaration behind them. Because the leaves carry
+    A consumer builds region complements and conjunctions — `Not(root)`,
+    `And(a, b)` — with no declaration behind them. Because the leaves carry
     their dims, wrapping any such tree in `Mask` answers without a name-to-dims
     mapping, which is what let the mapping die everywhere.
     """
-    b = ParameterDefinedNode('load', ('snapshot',))
+    b = ParameterDefined('load', ('snapshot',))
 
-    assert Mask(NotNode(P_MAX_POSITIVE)).dims == {'generator'}, 'negation keeps the dims it negates'
+    assert Mask(Not(P_MAX_POSITIVE)).dims == {'generator'}, 'negation keeps the dims it negates'
     assert (Mask(P_MAX_POSITIVE) & Mask(b)).dims == {'generator', 'snapshot'}, 'conjunction unions both sides'
-    assert (Mask(P_MAX_POSITIVE) & Mask(b)).root == AndNode(P_MAX_POSITIVE, b), (
+    assert (Mask(P_MAX_POSITIVE) & Mask(b)).root == And(P_MAX_POSITIVE, b), (
         'the conjunction joins the roots under one AND'
     )
 
 
 def test_mask_construction_folds_so_a_literal_stands_at_the_root_or_nowhere():
     """The fold lives in the constructor, so the invariant holds however a mask is built."""
-    x = ParameterDefinedNode('committable', ('g',))
-    empty, every = Mask(BooleanLiteralNode(False)), Mask(BooleanLiteralNode(True))
+    x = ParameterDefined('committable', ('g',))
+    empty, every = Mask(BooleanLiteral(False)), Mask(BooleanLiteral(True))
 
-    assert Mask(OrNode(BooleanLiteralNode(True), x)) == every, 'a True side absorbs the OR at the door'
-    assert Mask(AndNode(BooleanLiteralNode(False), x)) == empty, 'a False side dominates the AND at the door'
-    assert Mask(NotNode(BooleanLiteralNode(True))) == empty, 'NOT over a literal flips at the door'
-    assert Mask(NotNode(NotNode(x))) == Mask(x), 'a double negation cancels at the door'
+    assert Mask(Or(BooleanLiteral(True), x)) == every, 'a True side absorbs the OR at the door'
+    assert Mask(And(BooleanLiteral(False), x)) == empty, 'a False side dominates the AND at the door'
+    assert Mask(Not(BooleanLiteral(True))) == empty, 'NOT over a literal flips at the door'
+    assert Mask(Not(Not(x))) == Mask(x), 'a double negation cancels at the door'
 
-    assert ~Mask(x) == Mask(NotNode(x)), 'a plain predicate negated gains one NOT'
-    assert ~Mask(NotNode(x)) == Mask(x), '`not (not x)` cancels rather than stacking, so no consumer evaluates it twice'
+    assert ~Mask(x) == Mask(Not(x)), 'a plain predicate negated gains one NOT'
+    assert ~Mask(Not(x)) == Mask(x), '`not (not x)` cancels rather than stacking, so no consumer evaluates it twice'
     assert ~empty == every, 'the empty mask negated admits every row, with no NOT stacked'
     assert ~every == empty, 'and back again'
     assert empty & Mask(x) == empty, 'a False root dominates the conjunction'
@@ -362,9 +361,9 @@ def test_mask_construction_folds_so_a_literal_stands_at_the_root_or_nowhere():
 
 def test_a_held_leaf_walk_is_taken_after_the_fold_absorbed_a_branch():
     """`atoms` is held from construction, and construction folds first — so the fold's losses are not in it."""
-    absorbed = Mask(AndNode(BooleanLiteralNode(False), ParameterDefinedNode('committable', ('g',))))
+    absorbed = Mask(And(BooleanLiteral(False), ParameterDefined('committable', ('g',))))
 
-    assert absorbed.root == BooleanLiteralNode(False)
+    assert absorbed.root == BooleanLiteral(False)
     assert absorbed.atoms == (), 'the absorbed leaf is not among them'
     assert absorbed.names_read == frozenset(), 'nor named'
     assert absorbed.dims == frozenset(), 'nor read at any dim'
@@ -389,7 +388,7 @@ def test_a_constraint_where_is_a_mask_like_a_variable_s():
     lowered = to_program(override(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'}))
     (c,) = lowered.constraints.values()
 
-    assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0, ('snapshot',)))
+    assert c.where == Mask(ParameterComparison('load', '>', 0.0, ('snapshot',)))
 
 
 def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
@@ -419,7 +418,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         ),
         pytest.param(
             'at(r, by=lk)',
-            At(Variable('r'), over='g', coordinate=('lk',), into=('h',)),
+            Pullback(Variable('r'), over='g', coordinate=('lk',), into=('h',)),
             id='a-pullback-walks-the-same-table-back',
         ),
         pytest.param(
@@ -444,17 +443,17 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         ),
         pytest.param(
             'sum_back(p, over=g, within=3)',
-            Window(Variable('p'), 'g', width=3, wrap=False),
+            WindowSum(Variable('p'), 'g', width=3, wrap=False),
             id='a-window-is-one-node-rather-than-a-fold-of-translations',
         ),
         pytest.param(
             'sum_back(p, over=g, within=k)',
-            Window(Variable('p'), 'g', width='k', wrap=False),
+            WindowSum(Variable('p'), 'g', width='k', wrap=False),
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
             'sum_back(p, over=g, within=2, by=lk)',
-            Window(Variable('p'), 'g', width=2, wrap=False, partition='lk'),
+            WindowSum(Variable('p'), 'g', width=2, wrap=False, partition='lk'),
             id='a-window-stops-at-the-edges-of-the-lookup-it-names',
         ),
     ],
@@ -467,15 +466,15 @@ def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
 
 def test_a_binary_variable_lowers_to_a_binary_domain():
     program = to_program(schema_of(DISPATCH_YAML, **{'variables.p.domain': 'binary', 'variables.p.bounds': {}}))
-    assert program.variable('p').domain == 'binary'
+    assert program.variables['p'].domain == 'binary'
 
 
 def test_a_divisor_under_a_pullback_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
-    pulled = At(quotient, over='flow', coordinate=('component',), into=('component',))
+    pulled = Pullback(quotient, over='flow', coordinate=('component',), into=('component',))
 
-    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `At`'
+    assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `Pullback`'
     assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
 
 
@@ -493,12 +492,12 @@ def test_a_quotient_is_found_whole_so_its_two_halves_stay_paired():
     left = Divide(Variable('x'), Parameter('rate'))
     right = Divide(Variable('y'), Parameter('loss'))
 
-    found = quotients(Sum(left + right, ('flow',)))
+    found = quotients(Sum(Add(left, right), ('flow',)))
     assert [(variables_of(q.numerator), q.divisor) for q in found] == [
         (frozenset({'x'}), Parameter('rate')),
         (frozenset({'y'}), Parameter('loss')),
     ], 'each quotient keeps its own numerator, in the order the expression writes them'
-    assert divisor_parameters(Sum(left + right, ('flow',))) == frozenset({'rate', 'loss'}), (
+    assert divisor_parameters(Sum(Add(left, right), ('flow',))) == frozenset({'rate', 'loss'}), (
         'the flat answer is still the union of the same walk'
     )
 
@@ -514,10 +513,10 @@ FAN_IN = {
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
     GroupSum(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'many-to-one',
-    At(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'one-to-one',
+    Pullback(Variable('p'), over='g', coordinate=('at_bus',), into=('bus',)): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
-    Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
-    Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',
+    WindowSum(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
+    Cases((Region(Mask(ParameterDefined('c', ('g',))), Variable('p')),)): 'one-to-one',
     Dual('balance'): 'one-to-one',
 }
 
@@ -525,8 +524,8 @@ FAN_IN = {
 def test_every_expression_node_is_classified_by_fan_in():
     """`fan_in` was a ClassVar on five nodes, so `Add(...).fan_in` was an AttributeError."""
     covered = {type(node) for node in FAN_IN}
-    assert covered == set(get_args(ExpressionNode)), (
-        'every node in the ExpressionNode union is classified, and nothing retired lingers'
+    assert covered == set(get_args(Expression)), (
+        'every node in the Expression union is classified, and nothing retired lingers'
     )
 
 
@@ -535,37 +534,21 @@ def test_a_node_answers_its_fan_in(node, expected):
     assert fan_in(node) == expected
 
 
-def test_a_lookup_names_the_dimension_its_values_label():
-    """Five sites asked this and each walked for it; the plan answers it once."""
-    program = Program(
-        parameters={},
-        variables={},
-        constraints={},
-        objective=None,
-        dimensions={
-            'snapshot': DimensionDeclaration((LookupDeclaration('season_of', 'season'),)),
-            'generator': DimensionDeclaration((LookupDeclaration('at_bus', 'bus'),)),
-        },
+def test_a_lookup_is_declared_as_the_file_declares_it():
+    """One group keyed by name, each entry naming the dimension it leaves and the one it lands in."""
+    program = to_program(
+        override(
+            TINY,
+            dimensions={'g': {}, 'bus': {}, 'season': {}},
+            lookups={'at_bus': {'over': 'g', 'into': 'bus'}, 'season_of': {'over': 'g', 'into': 'season'}},
+        )
     )
 
-    assert program.dimension('snapshot').targets == {'season_of': 'season'}, (
-        'one dimension names its own maps and no other dimension'
-    )
-    assert program.dimension('generator').targets == {'at_bus': 'bus'}, 'and the same for the second'
-    assert [(d, lk.name) for d, lk in program.lookups] == [
-        ('snapshot', 'season_of'),
-        ('generator', 'at_bus'),
-    ], 'every map with the dimension it is over, in declaration order'
-
-
-def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():
-    """A typo used to return an empty declaration, silently dropping every join."""
-    program = to_program(override(TINY, **{'dimensions.snapshot': {}}))
-
-    assert program.dimension('snapshot').dtype == 'str', 'a declared dimension still comes back'
-    with pytest.raises(KeyError, match='snapshto') as excinfo:
-        program.dimension('snapshto')
-    assert 'snapshot' in str(excinfo.value), 'the message names the near miss, which is the whole point of raising'
+    assert program.lookups == {
+        'at_bus': LookupDeclaration(over='g', into='bus'),
+        'season_of': LookupDeclaration(over='g', into='season'),
+    }, 'every lookup under its own name, in declaration order, and nothing nested under a dimension'
+    assert program.dimensions['g'] == DimensionDeclaration(dtype='str'), 'a dimension carries its dtype and no map'
 
 
 def test_a_program_is_built_by_keyword_so_a_field_added_later_cannot_reorder_an_old_call():
@@ -581,8 +564,8 @@ def test_a_program_seals_its_declaration_groups(dispatch_program, group):
         getattr(dispatch_program, group)['sneak'] = None  # pyrefly: ignore[unsupported-operation]  the point of the test
 
 
-def test_expressions_are_the_ones_a_row_is_built_from():
-    """`expressions` named the *declared* ones, which build no row at all."""
+def test_roots_are_the_trees_a_row_is_built_from():
+    """`expressions` is the file's own section, which builds no row at all; the row-building trees are `roots`."""
     program = to_program(
         override(
             TINY,
@@ -591,16 +574,16 @@ def test_expressions_are_the_ones_a_row_is_built_from():
         )
     )
 
-    assert list(program.named_expressions) == ['spend'], 'the declared ones keep their own name'
-    assert program.expressions == (
+    assert list(program.expressions) == ['spend'], 'the declared ones keep their own name'
+    assert program.roots == (
         program.objective.expression,
         program.constraints['c'].lhs,
         program.constraints['c'].rhs,
     ), 'the objective first, then both sides of each constraint, in declaration order'
-    assert program.named_expressions['spend'].expression not in program.expressions, (
+    assert program.expressions['spend'].expression not in program.roots, (
         'a named expression builds no row, so it is not one of the expressions a row is built from'
     )
-    assert len(program.expressions) == 3, 'and nothing else is counted'
+    assert len(program.roots) == 3, 'and nothing else is counted'
 
 
 def _footprint_of(constraint: str, objective: str) -> Footprint:
@@ -639,7 +622,7 @@ def test_a_construct_the_file_does_not_use_is_an_empty_set_rather_than_none():
     assert footprint.sos_types == frozenset(), 'a file declaring no sos'
     assert footprint.quadratic == frozenset(), 'a file with no quadratic anywhere'
     assert footprint.domains == {'continuous'}, 'never empty — a program has variables'
-    assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.shapes)} == {frozenset}, (
+    assert {type(f) for f in (footprint.sos_types, footprint.quadratic, footprint.nodes)} == {frozenset}, (
         'every field is a set, so one rule reads all of them'
     )
     assert footprint.quadratic <= QUADRATIC_POSITIONS, 'and the vocabulary a consumer pins its table against'
@@ -657,8 +640,8 @@ def test_a_named_expression_is_not_in_the_footprint():
     """It builds no row, so counting it would answer wrongly about what is solved."""
     program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}))
 
-    assert Parameter not in program.footprint.shapes, "the named expression's parameter reaches no row"
-    assert Parameter in {type(n) for n in walk(program.named_expressions['spend'].expression)}, (
+    assert Parameter not in program.footprint.nodes, "the named expression's parameter reaches no row"
+    assert Parameter in {type(n) for n in walk(program.expressions['spend'].expression)}, (
         'though it is in the expression'
     )
 
@@ -671,8 +654,8 @@ def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
     """
     program = to_program(override(TINY, **{'dimensions.t': {'dtype': 'int'}}))
 
-    assert program.dimension('t').dtype == 'int', 'a declared dtype reaches the plan'
-    assert program.dimension('g').dtype == 'str', "and the schema's default does too, rather than nothing"
+    assert program.dimensions['t'].dtype == 'int', 'a declared dtype reaches the plan'
+    assert program.dimensions['g'].dtype == 'str', "and the schema's default does too, rather than nothing"
 
 
 CASED = {
@@ -719,10 +702,8 @@ def test_the_fallback_region_carries_the_mask_the_file_left_unwritten():
     """
     remainder = _cases_in(to_program(CASED)).regions[-1]
 
-    assert isinstance(remainder.when.root, AndNode), (
-        'two stated cases, so the remainder is a conjunction of two negations'
-    )
-    assert remainder.when.root.left == ParameterDefinedNode('committable', ('g',)), (
+    assert isinstance(remainder.when.root, And), 'two stated cases, so the remainder is a conjunction of two negations'
+    assert remainder.when.root.left == ParameterDefined('committable', ('g',)), (
         'the negation of `not committable` is the term itself, not a second `not` around it'
     )
 
@@ -759,10 +740,10 @@ def test_the_lowered_regions_are_still_proved_apart():
 
 
 def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
-    """`Program.expressions` carries it, so a consumer reads it back whole."""
+    """`Program.expressions` carries it under its name, so a consumer reads it back whole."""
     program = to_program(CASED)
 
-    assert isinstance(program.named_expressions['previous'].expression, Cases), (
+    assert isinstance(program.expressions['previous'].expression, Cases), (
         'a cased expression reaches the program as the node, not as its fallback arm alone'
     )
 
@@ -794,7 +775,7 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
 def test_an_entry_is_in_the_math_where_the_objective_or_a_constraint_inlines_it(patch, in_math):
     """`in_math` is usage, not shape: one affine body is in the math when a row inlines it, however indirectly, and a reported quantity when none does."""
     program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch))
-    assert program.named_expressions['spend'].in_math is in_math
+    assert program.expressions['spend'].in_math is in_math
 
 
 def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
@@ -806,7 +787,7 @@ def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
             **{'constraints.c.expression': 'twice >= 1'},
         )
     )
-    reads = {name: program.named_expressions[name].in_math for name in ('twice', 'spend')}
+    reads = {name: program.expressions[name].in_math for name in ('twice', 'spend')}
     assert reads == {'twice': True, 'spend': True}, (
         'the entry the row names and the one it reaches through are both in the math'
     )
@@ -822,7 +803,7 @@ def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
             **{'constraints.c.expression': 'scaled(sum(p, over=g)) >= 1'},
         )
     )
-    assert program.named_expressions['spend'].in_math is False, (
+    assert program.expressions['spend'].in_math is False, (
         'the formal shadows the entry, so the constraint inlines the argument and the math never reads spend'
     )
 
@@ -830,7 +811,7 @@ def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
 def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
     """A dual is read after the solve, so an entry calling one is never in the math: it lowers to a Dual leaf and stays reported."""
     program = to_program(override(TINY, expressions={'shadow_price': 'dual(c)'}))
-    declaration = program.named_expressions['shadow_price']
+    declaration = program.expressions['shadow_price']
     assert declaration.in_math is False, 'the entry reading a dual is reported, never in the math'
     assert isinstance(declaration.expression, Dual), 'and it lowers to a Dual leaf'
 

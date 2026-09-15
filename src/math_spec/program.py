@@ -22,7 +22,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, get_args
+from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 import math_spec.model as _model
 from math_spec._expression_parser import ComparisonOperator
@@ -38,55 +38,55 @@ if TYPE_CHECKING:
 __all__ = [
     'QUADRATIC_POSITIONS',
     'Add',
-    'AndNode',
-    'At',
+    'And',
     'AtLeastTwo',
-    'BooleanLiteralNode',
+    'BooleanLiteral',
     'Cases',
     'Check',
-    'ConnectiveWhereNode',
+    'Connective',
     'Constant',
     'ConstraintDeclaration',
     'ConstraintSense',
     'Contiguous',
     'Curved',
     'Derivation',
-    'DimensionComparisonNode',
+    'DimensionComparison',
     'DimensionDeclaration',
     'DimensionDtype',
-    'DimensionPositionNode',
+    'DimensionPosition',
     'Divide',
     'Dual',
     'Expression',
     'ExpressionDeclaration',
-    'ExpressionNode',
     'FanIn',
     'FirstOf',
     'Footprint',
     'GroupSum',
     'Increasing',
     'LastOf',
-    'LookupComparisonNode',
+    'LookupComparison',
     'LookupDeclaration',
-    'LookupDefinedNode',
-    'LookupPairComparisonNode',
+    'LookupDefined',
+    'LookupPairComparison',
     'Mask',
     'MaskOf',
     'Multiply',
     'Negate',
-    'NotNode',
+    'Not',
     'ObjectiveDeclaration',
     'ObjectiveSense',
-    'OrNode',
+    'Or',
     'Parameter',
-    'ParameterComparisonNode',
+    'ParameterComparison',
     'ParameterDeclaration',
-    'ParameterDefinedNode',
+    'ParameterDefined',
     'ParameterDtype',
     'PiecewiseDeclaration',
     'Power',
+    'Predicate',
     'PredicateOperator',
     'Program',
+    'Pullback',
     'QuadraticPosition',
     'Reach',
     'Region',
@@ -94,14 +94,13 @@ __all__ = [
     'SosDeclaration',
     'Sum',
     'Translate',
-    'TypedPredicateNode',
+    'TypedPredicate',
     'Variable',
     'VariableAbsence',
     'VariableDeclaration',
-    'VariableDefinedNode',
+    'VariableDefined',
     'VariableDomain',
-    'WhereNode',
-    'Window',
+    'WindowSum',
     'carries_variable',
     'check_message',
     'children',
@@ -155,47 +154,28 @@ VariableDomain = _model.VariableDomain
 
 
 @dataclass(frozen=True)
-class Expression:
-    """Base class for expressions over variables and parameters.
-
-    The degree rules (``math_spec.degree``) hold on every tree the math reads
-    — :attr:`Program.expressions`, a bound, and a named expression that is
-    ``in_math`` — affine but where a :class:`QuadraticPosition` admits a
-    :class:`Multiply` of two variable-carrying operands. A
-    :class:`ExpressionDeclaration` the math never reads is held to none of
-    them. No node records which tree it stands in.
-    """
-
-    def __add__(self: ExpressionNode, other: ExpressionNode) -> ExpressionNode:
-        return Add(self, other)
-
-    def __mul__(self: ExpressionNode, other: ExpressionNode) -> ExpressionNode:
-        return Multiply(self, other)
-
-
-@dataclass(frozen=True)
-class Constant(Expression):
+class Constant:
     """A scalar constant."""
 
     value: float
 
 
 @dataclass(frozen=True)
-class Parameter(Expression):
+class Parameter:
     """A parameter reference — contributes to the constant part."""
 
     name: str
 
 
 @dataclass(frozen=True)
-class Variable(Expression):
+class Variable:
     """A variable reference — one term per existing variable row."""
 
     name: str
 
 
 @dataclass(frozen=True)
-class Dual(Expression):
+class Dual:
     """A constraint's dual — its shadow price, read after the solve.
 
     Stands only under an :class:`ExpressionDeclaration` the math never reads:
@@ -209,30 +189,30 @@ class Dual(Expression):
 
 
 @dataclass(frozen=True)
-class Negate(Expression):
-    operand: ExpressionNode
+class Negate:
+    operand: Expression
 
 
 @dataclass(frozen=True)
-class Add(Expression):
-    left: ExpressionNode
-    right: ExpressionNode
+class Add:
+    left: Expression
+    right: Expression
 
 
 @dataclass(frozen=True)
-class Multiply(Expression):
+class Multiply:
     """Product of two operands.
 
     Affine where at least one factor is variable-free; degree 2 where neither
     is, which ``math_spec.degree`` admits in a :data:`QuadraticPosition` alone.
     """
 
-    left: ExpressionNode
-    right: ExpressionNode
+    left: Expression
+    right: Expression
 
 
 @dataclass(frozen=True)
-class Power(Expression):
+class Power:
     """``base ** exponent``, both variable-free wherever the math reads it.
 
     The language refuses a variable anywhere under it (``math_spec.degree``),
@@ -240,28 +220,28 @@ class Power(Expression):
     coordinate like any other parameter arithmetic.
     """
 
-    base: ExpressionNode
-    exponent: ExpressionNode
+    base: Expression
+    exponent: Expression
 
 
 @dataclass(frozen=True)
-class Divide(Expression):
+class Divide:
     """Quotient ``numerator / divisor``, the divisor variable-free wherever the math reads it (``math_spec.degree``)."""
 
-    numerator: ExpressionNode
-    divisor: ExpressionNode
+    numerator: Expression
+    divisor: Expression
 
 
 @dataclass(frozen=True)
-class Sum(Expression):
+class Sum:
     """Sum ``operand`` over the named dims, removing them from the result."""
 
-    operand: ExpressionNode
+    operand: Expression
     over: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class GroupSum(Expression):
+class GroupSum:
     """Sum ``operand`` through coordinates declared on dim ``over``.
 
     ``coordinate`` names lookups carried by dim ``over`` whose values are
@@ -271,14 +251,14 @@ class GroupSum(Expression):
     consumed in a single join.
     """
 
-    operand: ExpressionNode
+    operand: Expression
     over: str
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class At(Expression):
+class Pullback:
     """Read ``operand`` through a lookup — the adjoint of :class:`GroupSum`.
 
     Same mapping table, walked the other way: ``GroupSum`` consumes ``over``
@@ -286,14 +266,14 @@ class At(Expression):
     join fans out, many ``over`` labels sharing one ``into`` tuple.
     """
 
-    operand: ExpressionNode
+    operand: Expression
     over: str
     coordinate: tuple[str, ...]
     into: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class Translate(Expression):
+class Translate:
     """Re-index along one dimension: the result at *t* is ``operand`` at *t - offset*.
 
     ``wrap`` is ``edge='wrap'`` in the file: periodic, and stated on every
@@ -302,16 +282,16 @@ class Translate(Expression):
     and contribute it. Always ``None`` under ``wrap``.
 
     ``offset`` is an integer, or the name of an integer parameter that does
-    not depend on ``dimension`` and carries its sign in the values.
+    not depend on ``over`` and carries its sign in the values.
 
-    ``partition`` names a lookup over ``dimension``, and the translation then
+    ``partition`` names a lookup over ``over``, and the translation then
     happens inside each group it makes: the neighbour is the one before in
     the same group, the edge is the group's, and a wrap closes each group onto
     itself. A coordinate the lookup sends nowhere reaches nothing.
     """
 
-    operand: ExpressionNode
-    dimension: str
+    operand: Expression
+    over: str
     offset: int | str
     wrap: bool
     fill: float | None = None
@@ -319,7 +299,7 @@ class Translate(Expression):
 
 
 @dataclass(frozen=True)
-class Window(Expression):
+class WindowSum:
     """Sum ``operand`` over a trailing window along one dimension.
 
     The result at *t* is the sum of the operand at every position from
@@ -339,8 +319,8 @@ class Window(Expression):
     coordinate the lookup places nowhere reaches nothing — not even itself.
     """
 
-    operand: ExpressionNode
-    dimension: str
+    operand: Expression
+    over: str
     width: int | str
     wrap: bool
     partition: str | None = None
@@ -355,11 +335,11 @@ class Region:
     """
 
     when: Mask
-    value: ExpressionNode
+    value: Expression
 
 
 @dataclass(frozen=True)
-class Cases(Expression):
+class Cases:
     """A value defined by region — exactly one region applies at each coordinate.
 
     The regions are disjoint and total, so a consumer adds them rather than
@@ -370,13 +350,17 @@ class Cases(Expression):
     regions: tuple[Region, ...]
 
 
-#: Every expression node, as one type. The set is *closed* — nothing registers
-#: into it — so a consumer that walks it ends in ``assert_never`` and a node
-#: added without a branch is a type error at the site that must grow one,
-#: rather than a ``LanguageError`` raised at the first model that uses it.
-#: ``Expression`` stays the base class the nodes inherit and the operators are
-#: declared on; this is what a walk *takes*.
-ExpressionNode = (
+#: Every expression node, as one type — what a walk takes. The set is
+#: *closed*: nothing registers into it, so a consumer that walks it ends in
+#: ``assert_never`` and a node added without a branch is a type error at the
+#: site that must grow one, rather than a ``LanguageError`` raised at the first
+#: model that uses it. The degree rules (``math_spec.degree``) hold on every
+#: tree the math reads — :attr:`Program.roots`, a bound, and a named expression
+#: that is ``in_math`` — affine but where a :class:`QuadraticPosition` admits a
+#: :class:`Multiply` of two variable-carrying operands. A
+#: :class:`ExpressionDeclaration` the math never reads is held to none of them.
+#: No node records which tree it stands in.
+Expression = (
     Constant
     | Parameter
     | Variable
@@ -388,14 +372,14 @@ ExpressionNode = (
     | Divide
     | Sum
     | GroupSum
-    | At
+    | Pullback
     | Translate
-    | Window
+    | WindowSum
     | Cases
 )
 
 
-def fan_in(expression: ExpressionNode) -> FanIn:
+def fan_in(expression: Expression) -> FanIn:
     """How *expression*'s output rows relate to its input slots.
 
     For the absence rules, both classes other than ``'one-to-one'`` sum
@@ -403,17 +387,17 @@ def fan_in(expression: ExpressionNode) -> FanIn:
     """
     if isinstance(expression, (Sum, GroupSum)):
         return 'many-to-one'
-    if isinstance(expression, Window):
+    if isinstance(expression, WindowSum):
         return 'one-to-many'
     if isinstance(
         expression,
-        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, At, Translate, Cases),
+        (Constant, Parameter, Variable, Dual, Negate, Add, Multiply, Power, Divide, Pullback, Translate, Cases),
     ):
         return 'one-to-one'
     assert_never(expression)
 
 
-def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
+def children(expression: Expression) -> tuple[Expression, ...]:
     """The sub-expressions of *expression* — what every walk recurses through."""
     if isinstance(expression, Negate):
         return (expression.operand,)
@@ -423,7 +407,7 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
         return (expression.numerator, expression.divisor)
     if isinstance(expression, Power):
         return (expression.base, expression.exponent)
-    if isinstance(expression, (Sum, GroupSum, At, Translate, Window)):
+    if isinstance(expression, (Sum, GroupSum, Pullback, Translate, WindowSum)):
         return (expression.operand,)
     if isinstance(expression, Cases):
         return tuple(region.value for region in expression.regions)
@@ -437,40 +421,29 @@ def children(expression: ExpressionNode) -> tuple[ExpressionNode, ...]:
 # --------------------------------------------------------------------------
 
 
-class LookupDeclaration(NamedTuple):
-    """One declared lookup over a dimension.
+@dataclass(frozen=True)
+class LookupDeclaration:
+    """One declared map out of dimension ``over`` into dimension ``into``.
 
-    Its values are labels of ``target``, checked for containment once the dim
+    Its values are labels of ``into``, checked for containment once the dim
     tables exist — which keeps a mistyped label from silently dropping its
     terms in the join that places them — and it is what ``sum(by=)`` lands
     terms on.
     """
 
-    name: str
-    target: str
+    over: str
+    into: str
 
 
 @dataclass(frozen=True)
 class DimensionDeclaration:
-    """A dimension and the lookups its labels carry."""
+    """A dimension, as the file declares it."""
 
-    lookups: tuple[LookupDeclaration, ...] = ()
     #: What the labels are, as the file declares them. A dimension is read from
     #: whatever table carries it, so the declared type is what that column is
     #: checked against — the same claim ``ParameterDeclaration.dtype`` makes
     #: about a value column, one axis over.
     dtype: DimensionDtype = 'str'
-
-    @property
-    def targets(self) -> dict[str, str]:
-        """Each map over the dimension, to the dimension its values are labels of.
-
-        The question every consumer of a ``by=`` asks, and asked here so it has
-        one answer: an operator grouping through a lookup names the target as
-        the dim it lands on, and a partition array is named for it so an amount
-        declared over the group's own dim can be read through it.
-        """
-        return {lk.name: lk.target for lk in self.lookups}
 
 
 @dataclass(frozen=True)
@@ -635,8 +608,8 @@ class ParameterDeclaration:
 class VariableDeclaration:
     dims: tuple[str, ...]
     where: Mask | None = None
-    lower: ExpressionNode = field(default_factory=lambda: Constant(float('-inf')))
-    upper: ExpressionNode = field(default_factory=lambda: Constant(float('inf')))
+    lower: Expression = field(default_factory=lambda: Constant(float('-inf')))
+    upper: Expression = field(default_factory=lambda: Constant(float('inf')))
     domain: VariableDomain = 'continuous'
     absence: VariableAbsence = 'undefined'
 
@@ -651,9 +624,9 @@ class ConstraintDeclaration:
     """
 
     dims: tuple[str, ...]
-    lhs: ExpressionNode
+    lhs: Expression
     sense: ConstraintSense
-    rhs: ExpressionNode
+    rhs: Expression
     where: Mask | None = None
 
 
@@ -665,7 +638,7 @@ class SosDeclaration:
     columns a consumer already has and says what may be nonzero among them. Which
     dims those are is the variable's own ``dims`` and is read from it: a
     copy here would be a second home for a fact
-    (:meth:`Program.variable`).
+    (:attr:`Program.variables`).
 
     ``big_m`` caps the linking coefficient a consumer without the concept
     reformulates with, and is ``None`` where the variable's own upper bound is
@@ -683,7 +656,7 @@ class ObjectiveDeclaration:
     """Objective — scalar, every reduction in it one the file wrote."""
 
     sense: ObjectiveSense
-    expression: ExpressionNode
+    expression: Expression
 
 
 @dataclass(frozen=True)
@@ -692,13 +665,13 @@ class ExpressionDeclaration:
 
     ``in_math`` where the objective or a constraint inlines it, directly or
     through another entry or a macro; its body then stands inside
-    :attr:`Program.expressions` and is held to the degree rules where it is
+    :attr:`Program.roots` and is held to the degree rules where it is
     read. Otherwise nothing a solver sees contains it: it is a reported
     quantity, its body held to no degree, the one place a :class:`Dual` may
     stand. A bound and a ``where`` name no entry, so neither decides this.
     """
 
-    expression: ExpressionNode
+    expression: Expression
     in_math: bool
 
 
@@ -714,21 +687,13 @@ class Footprint:
             stands in; empty is affine throughout.
         domains: Every domain declared.
         sos_types: The order of each special-ordered set declared.
-        shapes: Every expression node kind that appears.
+        nodes: Every expression node kind that appears.
     """
 
     quadratic: frozenset[QuadraticPosition]
     domains: frozenset[VariableDomain]
     sos_types: frozenset[Literal[1, 2]]
-    shapes: frozenset[type[ExpressionNode]]
-
-
-def _declared[Declaration](items: Mapping[str, Declaration], name: str, kind: str) -> Declaration:
-    """The declaration called *name*, or a ``KeyError`` naming the near miss."""
-    try:
-        return items[name]
-    except KeyError:
-        raise KeyError(f"unknown {kind} '{name}'. " + did_you_mean(name, list(items))) from None
+    nodes: frozenset[type[Expression]]
 
 
 @dataclass(frozen=True)
@@ -847,6 +812,7 @@ class Program:
     #: whose answer is whether the constraints can be met at all.
     objective: ObjectiveDeclaration | None
     dimensions: Mapping[str, DimensionDeclaration] = Sealed({})
+    lookups: Mapping[str, LookupDeclaration] = Sealed({})
     sos: Mapping[str, SosDeclaration] = Sealed({})
     #: Each ``piecewise:`` block the file wrote, as facts — see
     #: :class:`PiecewiseDeclaration`.
@@ -856,7 +822,7 @@ class Program:
     #: it is read — but all are lowered with the program, so a file whose
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
-    named_expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
+    expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""
@@ -865,16 +831,16 @@ class Program:
             if isinstance(group, Mapping):
                 object.__setattr__(self, f.name, Sealed(group))
 
-    def _by_position(self) -> Iterator[tuple[QuadraticPosition, tuple[ExpressionNode, ...]]]:
+    def _by_position(self) -> Iterator[tuple[QuadraticPosition, tuple[Expression, ...]]]:
         """The row-building expressions, grouped by the position they stand in."""
         yield 'objective', (self.objective.expression,) if self.objective is not None else ()
         yield 'constraint', tuple(side for c in self.constraints.values() for side in (c.lhs, c.rhs))
 
     @property
-    def expressions(self) -> tuple[ExpressionNode, ...]:
-        """Every expression a row is built from — the objective and both sides of each constraint.
+    def roots(self) -> tuple[Expression, ...]:
+        """Every tree a row is built from — the objective and both sides of each constraint.
 
-        A :attr:`named_expressions` entry builds no row and is not among them.
+        An :attr:`expressions` entry builds no row and is not among them.
         """
         return tuple(e for _, group in self._by_position() for e in group)
 
@@ -887,22 +853,8 @@ class Program:
             ),
             domains=frozenset(v.domain for v in self.variables.values()),
             sos_types=frozenset(s.sos_type for s in self.sos.values()),
-            shapes=frozenset(type(node) for node in walk(*self.expressions)),
+            nodes=frozenset(type(node) for node in walk(*self.roots)),
         )
-
-    def dimension(self, name: str) -> DimensionDeclaration:
-        return _declared(self.dimensions, name, 'dimension')
-
-    @property
-    def lookups(self) -> tuple[tuple[str, LookupDeclaration], ...]:
-        """Every lookup in the program, with the dimension it is over."""
-        return tuple((dimension, lk) for dimension, d in self.dimensions.items() for lk in d.lookups)
-
-    def parameter(self, name: str) -> ParameterDeclaration:
-        return _declared(self.parameters, name, 'parameter')
-
-    def variable(self, name: str) -> VariableDeclaration:
-        return _declared(self.variables, name, 'variable')
 
     @cached_property
     def separability(self) -> Mapping[str, Separability]:
@@ -934,7 +886,7 @@ class Program:
 # --------------------------------------------------------------------------
 
 
-def walk(*expressions: ExpressionNode) -> Iterator[ExpressionNode]:
+def walk(*expressions: Expression) -> Iterator[Expression]:
     """Every node under *expressions*, each expression itself included, parents first.
 
     The traversal every *question* about a program is a filter of — which names
@@ -949,7 +901,7 @@ def walk(*expressions: ExpressionNode) -> Iterator[ExpressionNode]:
         yield from walk(*children(expression))
 
 
-def is_quadratic(expression: ExpressionNode) -> bool:
+def is_quadratic(expression: Expression) -> bool:
     """Whether *expression* contains a product of two variable-carrying operands.
 
     A structural question over the program, and unrelated consumers ask it —
@@ -968,22 +920,22 @@ def is_quadratic(expression: ExpressionNode) -> bool:
     )
 
 
-def carries_variable(expression: ExpressionNode) -> bool:
+def carries_variable(expression: Expression) -> bool:
     """Whether a variable appears anywhere under *expression*."""
     return any(isinstance(node, Variable) for node in walk(expression))
 
 
-def parameters_of(*expressions: ExpressionNode) -> frozenset[str]:
+def parameters_of(*expressions: Expression) -> frozenset[str]:
     """Every parameter named anywhere under *expressions*."""
     return frozenset(node.name for node in walk(*expressions) if isinstance(node, Parameter))
 
 
-def variables_of(*expressions: ExpressionNode) -> frozenset[str]:
+def variables_of(*expressions: Expression) -> frozenset[str]:
     """Every variable named anywhere under *expressions*."""
     return frozenset(node.name for node in walk(*expressions) if isinstance(node, Variable))
 
 
-def quotients(*expressions: ExpressionNode) -> tuple[Divide, ...]:
+def quotients(*expressions: Expression) -> tuple[Divide, ...]:
     """Every division under *expressions*, each kept whole.
 
     The divisor and the numerator answer different questions and one consumer
@@ -994,7 +946,7 @@ def quotients(*expressions: ExpressionNode) -> tuple[Divide, ...]:
     return tuple(node for node in walk(*expressions) if isinstance(node, Divide))
 
 
-def divisor_parameters(*expressions: ExpressionNode) -> frozenset[str]:
+def divisor_parameters(*expressions: Expression) -> frozenset[str]:
     """Every parameter named anywhere in a divisor under *expressions*."""
     return frozenset().union(*(parameters_of(q.divisor) for q in quotients(*expressions)))
 
@@ -1008,12 +960,12 @@ PredicateOperator = Literal['<=', '>=', '==', '!=', '<', '>']
 
 
 @dataclass(frozen=True)
-class BooleanLiteralNode:
+class BooleanLiteral:
     value: bool
 
 
 @dataclass(frozen=True)
-class ParameterDefinedNode:
+class ParameterDefined:
     """True wherever the named parameter is non-null and finite.
 
     ``dims`` is the parameter's own, copied off the declaration during
@@ -1026,7 +978,7 @@ class ParameterDefinedNode:
 
 
 @dataclass(frozen=True)
-class VariableDefinedNode:
+class VariableDefined:
     """True at the coordinates where the named variable exists."""
 
     name: str
@@ -1034,7 +986,7 @@ class VariableDefinedNode:
 
 
 @dataclass(frozen=True)
-class ParameterComparisonNode:
+class ParameterComparison:
     """Compare a parameter against a literal, element-wise."""
 
     name: str
@@ -1044,7 +996,7 @@ class ParameterComparisonNode:
 
 
 @dataclass(frozen=True)
-class DimensionComparisonNode:
+class DimensionComparison:
     """Compare a dimension's own coordinates against a literal."""
 
     name: str
@@ -1053,7 +1005,7 @@ class DimensionComparisonNode:
 
 
 @dataclass(frozen=True)
-class DimensionPositionNode:
+class DimensionPosition:
     """Compare where a row sits along a dimension against a position — ``position(snapshot) == 0``.
 
     Both sides are integers, negative counting from the end. With ``by`` the
@@ -1067,7 +1019,7 @@ class DimensionPositionNode:
 
 
 @dataclass(frozen=True)
-class LookupComparisonNode:
+class LookupComparison:
     """Compare a lookup's values against a literal — ``period_of == 2030``.
 
     ``over`` is the dimension the lookup maps out of.
@@ -1080,7 +1032,7 @@ class LookupComparisonNode:
 
 
 @dataclass(frozen=True)
-class LookupPairComparisonNode:
+class LookupPairComparison:
     """Compare two lookups over one dimension — ``from != to``, row by row on that dimension's table."""
 
     name: str
@@ -1090,7 +1042,7 @@ class LookupPairComparisonNode:
 
 
 @dataclass(frozen=True)
-class LookupDefinedNode:
+class LookupDefined:
     """True where the named lookup has a value — a null says the label belongs to no group."""
 
     name: str
@@ -1098,77 +1050,77 @@ class LookupDefinedNode:
 
 
 @dataclass(frozen=True)
-class NotNode:
-    operand: WhereNode
+class Not:
+    operand: Predicate
 
 
 @dataclass(frozen=True)
-class AndNode:
-    left: WhereNode
-    right: WhereNode
+class And:
+    left: Predicate
+    right: Predicate
 
 
 @dataclass(frozen=True)
-class OrNode:
-    left: WhereNode
-    right: WhereNode
+class Or:
+    left: Predicate
+    right: Predicate
 
 
 #: Every resolved predicate node — what a lowered mask's ``root`` is built of.
 #: The parser's ``Unresolved*`` nodes are not members: they live with the
 #: grammar in :mod:`math_spec._where_parser`, and resolution rewrites them away
 #: before anything here is asked.
-WhereNode = (
-    BooleanLiteralNode
-    | DimensionPositionNode
-    | ParameterDefinedNode
-    | VariableDefinedNode
-    | ParameterComparisonNode
-    | DimensionComparisonNode
-    | LookupComparisonNode
-    | LookupPairComparisonNode
-    | LookupDefinedNode
-    | NotNode
-    | AndNode
-    | OrNode
+Predicate = (
+    BooleanLiteral
+    | DimensionPosition
+    | ParameterDefined
+    | VariableDefined
+    | ParameterComparison
+    | DimensionComparison
+    | LookupComparison
+    | LookupPairComparison
+    | LookupDefined
+    | Not
+    | And
+    | Or
 )
 
 #: Every predicate resolution has typed: it names a declaration and the kind is
 #: settled. Resolution passes these straight through, having nothing left to
 #: decide about them.
-TypedPredicateNode = (
-    ParameterComparisonNode
-    | ParameterDefinedNode
-    | VariableDefinedNode
-    | DimensionComparisonNode
-    | DimensionPositionNode
-    | LookupComparisonNode
-    | LookupPairComparisonNode
-    | LookupDefinedNode
+TypedPredicate = (
+    ParameterComparison
+    | ParameterDefined
+    | VariableDefined
+    | DimensionComparison
+    | DimensionPosition
+    | LookupComparison
+    | LookupPairComparison
+    | LookupDefined
 )
 
 #: The boolean connectives — the only where nodes carrying other where nodes,
 #: and so the only place a walk over a predicate recurses. The grammar builds
 #: these classes directly, over leaves still unresolved, so a pre-resolution
 #: tree shares them — the transient impurity resolution normalizes away.
-ConnectiveWhereNode = NotNode | AndNode | OrNode
+Connective = Not | And | Or
 
 
-def where_children(where: WhereNode) -> tuple[WhereNode, ...]:
+def where_children(where: Predicate) -> tuple[Predicate, ...]:
     """The predicates under *where* — a connective's operands, and nothing under a leaf.
 
     What every walk over a predicate recurses through, as :func:`children` is
     for an expression. A leaf has nothing under it whether or not it is
     resolved, so the grammar measures its own output with this too.
     """
-    if isinstance(where, NotNode):
+    if isinstance(where, Not):
         return (where.operand,)
-    if isinstance(where, (AndNode, OrNode)):
+    if isinstance(where, (And, Or)):
         return (where.left, where.right)
     return ()
 
 
-def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
+def _atoms(where: Predicate) -> Iterator[TypedPredicate]:
     """Every node in *where* that reads a declaration, connectives removed.
 
     A boolean literal yields nothing.
@@ -1176,9 +1128,9 @@ def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
     Raises:
         AssertionError: An unresolved node reached the walk.
     """
-    if isinstance(where, TypedPredicateNode):
+    if isinstance(where, TypedPredicate):
         yield where
-    elif isinstance(where, BooleanLiteralNode | ConnectiveWhereNode):
+    elif isinstance(where, BooleanLiteral | Connective):
         for child in where_children(where):
             yield from _atoms(child)
     else:
@@ -1186,7 +1138,7 @@ def _atoms(where: WhereNode) -> Iterator[TypedPredicateNode]:
         raise AssertionError(msg)
 
 
-def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
+def _atom_dims(atom: TypedPredicate) -> frozenset[str]:
     """One leaf's dims — the rule :attr:`Mask.dims` is the union of.
 
     A parameter or variable leaf carries its own dims off the declaration; a
@@ -1198,17 +1150,17 @@ def _atom_dims(atom: TypedPredicateNode) -> frozenset[str]:
     a branch, rather than a wrong dim set at the first model to use it.
     """
     match atom:
-        case ParameterComparisonNode() | ParameterDefinedNode() | VariableDefinedNode():
+        case ParameterComparison() | ParameterDefined() | VariableDefined():
             return frozenset(atom.dims)
-        case DimensionComparisonNode() | DimensionPositionNode():
+        case DimensionComparison() | DimensionPosition():
             return frozenset({atom.name})
-        case LookupComparisonNode() | LookupPairComparisonNode() | LookupDefinedNode():
+        case LookupComparison() | LookupPairComparison() | LookupDefined():
             return frozenset({atom.over})
         case _:
             assert_never(atom)
 
 
-def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
+def _atom_names(atom: TypedPredicate) -> frozenset[str]:
     """One leaf's declarations, its dimension apart — the rule :attr:`Mask.names_read` is the union of.
 
     A comparison on a dimension names no declaration — a coordinate is not
@@ -1218,23 +1170,17 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
     than a name silently dropped at the first model to use it.
     """
     match atom:
-        case (
-            ParameterComparisonNode()
-            | ParameterDefinedNode()
-            | VariableDefinedNode()
-            | LookupComparisonNode()
-            | LookupDefinedNode()
-        ):
+        case ParameterComparison() | ParameterDefined() | VariableDefined() | LookupComparison() | LookupDefined():
             return frozenset({atom.name})
-        case LookupPairComparisonNode():
+        case LookupPairComparison():
             return frozenset({atom.name, atom.other})
-        case DimensionComparisonNode() | DimensionPositionNode():
+        case DimensionComparison() | DimensionPosition():
             return frozenset()
         case _:
             assert_never(atom)
 
 
-def _conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
+def _conjuncts(where: Predicate) -> tuple[Predicate, ...]:
     """The flatten rule behind :attr:`Mask.conjuncts` — the one home of the split.
 
     ``a AND b AND c`` gives three, and a predicate that is not an ``AND`` gives
@@ -1243,12 +1189,12 @@ def _conjuncts(where: WhereNode) -> tuple[WhereNode, ...]:
     ``NOT (a AND b)`` the single ``NOT`` — neither an ``OR`` nor a ``NOT`` is a
     claim the predicate makes on its own, so neither is split.
     """
-    if isinstance(where, AndNode):
+    if isinstance(where, And):
         return _conjuncts(where.left) + _conjuncts(where.right)
     return (where,)
 
 
-def _fold(node: WhereNode) -> WhereNode:
+def _fold(node: Predicate) -> Predicate:
     """*node* with every connective a literal or a double negation decides evaluated away.
 
     ``X AND True`` is ``X``, ``X OR True`` is every row, ``X AND False`` is
@@ -1257,27 +1203,27 @@ def _fold(node: WhereNode) -> WhereNode:
     the invariant :class:`Mask` applies at construction, so it holds wherever
     a mask is built.
     """
-    if isinstance(node, NotNode):
+    if isinstance(node, Not):
         operand = _fold(node.operand)
-        if isinstance(operand, BooleanLiteralNode):
-            return BooleanLiteralNode(not operand.value)
-        if isinstance(operand, NotNode):
+        if isinstance(operand, BooleanLiteral):
+            return BooleanLiteral(not operand.value)
+        if isinstance(operand, Not):
             return operand.operand
-        return NotNode(operand)
-    if isinstance(node, AndNode):
+        return Not(operand)
+    if isinstance(node, And):
         left, right = _fold(node.left), _fold(node.right)
-        if isinstance(left, BooleanLiteralNode):
+        if isinstance(left, BooleanLiteral):
             return right if left.value else left
-        if isinstance(right, BooleanLiteralNode):
+        if isinstance(right, BooleanLiteral):
             return left if right.value else right
-        return AndNode(left, right)
-    if isinstance(node, OrNode):
+        return And(left, right)
+    if isinstance(node, Or):
         left, right = _fold(node.left), _fold(node.right)
-        if isinstance(left, BooleanLiteralNode):
+        if isinstance(left, BooleanLiteral):
             return left if left.value else right
-        if isinstance(right, BooleanLiteralNode):
+        if isinstance(right, BooleanLiteral):
             return right if right.value else left
-        return OrNode(left, right)
+        return Or(left, right)
     return node
 
 
@@ -1294,14 +1240,14 @@ class Mask:
         root: The resolved predicate the mask restricts rows by, folded.
     """
 
-    root: WhereNode
+    root: Predicate
 
     def __post_init__(self) -> None:
         object.__setattr__(self, 'root', _fold(self.root))
         _ = self.atoms  # the walk is the refusal, and runs after the fold
 
     @cached_property
-    def atoms(self) -> tuple[TypedPredicateNode, ...]:
+    def atoms(self) -> tuple[TypedPredicate, ...]:
         """The mask's leaves, connectives removed — the one walk the other questions read.
 
         Held rather than re-walked: construction takes this walk anyway, to
@@ -1310,7 +1256,7 @@ class Mask:
         return tuple(_atoms(self.root))
 
     @property
-    def conjuncts(self) -> tuple[WhereNode, ...]:
+    def conjuncts(self) -> tuple[Predicate, ...]:
         """The predicates the mask joins with ``AND`` — its ``AND`` spine flattened, stopping at an ``OR`` or a ``NOT``."""
         return _conjuncts(self.root)
 
@@ -1331,12 +1277,12 @@ class Mask:
 
     def __invert__(self) -> Mask:
         """The mask admitting exactly the rows this one refuses — construction folds a double negation or a literal flip."""
-        return Mask(NotNode(self.root))
+        return Mask(Not(self.root))
 
     def __and__(self, other: Mask) -> Mask:
         """Both masks at once — construction absorbs a literal side rather than burying it."""
-        return Mask(AndNode(self.root, other.root))
+        return Mask(And(self.root, other.root))
 
     def __or__(self, other: Mask) -> Mask:
         """Either mask — construction absorbs a literal side rather than burying it."""
-        return Mask(OrNode(self.root, other.root))
+        return Mask(Or(self.root, other.root))

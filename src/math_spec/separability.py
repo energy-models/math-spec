@@ -9,26 +9,26 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from math_spec.program import (
-    At,
     Cases,
-    DimensionPositionNode,
+    DimensionPosition,
     GroupSum,
     Mask,
+    Pullback,
     Reach,
     Separability,
     Sum,
     Translate,
-    Window,
+    WindowSum,
     walk,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from math_spec.program import ExpressionNode, Program
+    from math_spec.program import Expression, Program
 
 
-def _built_blocks(program: Program) -> Iterator[tuple[str, tuple[ExpressionNode, ...], Mask | None, bool]]:
+def _built_blocks(program: Program) -> Iterator[tuple[str, tuple[Expression, ...], Mask | None, bool]]:
     """Every block that builds rows, labelled as the lowering's own messages label it.
 
     A named expression is not one: it is inlined where it is referenced, so
@@ -90,12 +90,12 @@ def separabilities(program: Program) -> dict[str, Separability]:
                     label,
                     f'groups {node.over} into {", ".join(node.into)} — window that dimension instead, or cut only at the group edges',
                 )
-            elif isinstance(node, At):
+            elif isinstance(node, Pullback):
                 for dimension in node.into:
                     for lookup in node.coordinate:
                         waits_on(dimension, label, lookup, 'coordinate')
-            elif isinstance(node, (Translate, Window)):
-                dimension = node.dimension
+            elif isinstance(node, (Translate, WindowSum)):
+                dimension = node.over
                 if node.wrap:
                     report(
                         'coupled',
@@ -107,7 +107,7 @@ def separabilities(program: Program) -> dict[str, Separability]:
                     continue
                 if node.partition is not None:
                     waits_on(dimension, label, node.partition, 'partition')
-                if isinstance(node, Window):
+                if isinstance(node, WindowSum):
                     continue
                 if isinstance(node.offset, str):
                     waits_on(dimension, label, node.offset, 'offset')
@@ -115,7 +115,7 @@ def separabilities(program: Program) -> dict[str, Separability]:
                     ahead[dimension] = max(ahead[dimension], -node.offset)
         for candidate in masks:
             for atom in candidate.atoms if candidate is not None else ():
-                if isinstance(atom, DimensionPositionNode):
+                if isinstance(atom, DimensionPosition):
                     report('restarts', atom.name, label, f'counts a position along {atom.name}')
 
     for name, block in program.sos.items():

@@ -44,7 +44,7 @@ variable in it, such as `(1 + rate) ** period`, is reported all the same.
 Deciding by use costs one thing: an entry meant for a constraint, and never named
 there, loads as a reported quantity instead of failing.
 
-An engine reads the answer at `Program.named_expressions[name].in_math`.
+An engine reads the answer at `Program.expressions[name].in_math`.
 
 ## Which restrictions do not apply
 

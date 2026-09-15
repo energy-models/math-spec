@@ -37,7 +37,7 @@ from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import Spec
 from math_spec.operators import BUILTINS, unknown_operator_message
-from math_spec.program import BooleanLiteralNode
+from math_spec.program import BooleanLiteral
 from math_spec.resolution import (
     Namespace,
     Resolved,
@@ -52,7 +52,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from math_spec.model import ExpressionBlock
-    from math_spec.program import WhereNode
+    from math_spec.program import Predicate
 
 
 def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
@@ -185,11 +185,11 @@ def _named(
 
     found = len(errors)
     arms: list[CaseArm] = []
-    masks: dict[str, WhereNode] = {}
+    masks: dict[str, Predicate] = {}
     for case_name, case in block.cases.items():
         arm_context = case_context(name, case_name)
         when = resolve_where_text(case.when, ns, arm_context, errors)
-        if isinstance(when, BooleanLiteralNode):
+        if isinstance(when, BooleanLiteral):
             errors.append(_constant_arm(arm_context, value=when.value))
         elif when is not None:
             masks[case_name] = when

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pytest
 
 from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
-from math_spec.program import LookupPairComparisonNode, Mask
+from math_spec.program import LookupPairComparison, Mask
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
 from tests.fixtures import override, schema_of
@@ -392,6 +392,6 @@ def test_names_read_takes_both_sides_of_a_lookup_pair():
     BASE has one lookup per dimension, so the pair is built directly rather than
     resolved from a predicate string.
     """
-    where = LookupPairComparisonNode('from_bus', 'to_bus', 'line', '!=')
+    where = LookupPairComparison('from_bus', 'to_bus', 'line', '!=')
 
     assert Mask(where).names_read == {'from_bus', 'to_bus'}, 'a lookup pair names both maps it compares'
