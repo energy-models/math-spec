@@ -5,14 +5,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # One construct per model
 
-The probes: for each built-in [operator](../reference/language/operators.md),
-the smallest model that declares it, beside the equation it renders. The
-reference page shows the same equations as a table — what each operator _looks
-like_, side by side. This page shows the **file** that produced each one.
+For each built-in [operator](../reference/language/operators.md), the smallest
+model that declares it, beside the equation it prints. The reference page shows
+the same equations as one table. This page shows the **file** that produced each
+one.
 
-They are models rather than fragments on purpose. A probe whose operator
-changed shape stops loading, in CI, in the run that would otherwise have
-shipped the old math.
+Each is a whole model rather than a fragment, so a model whose operator changed
+shape stops loading in CI, in the run that would otherwise have shipped the old
+math.
 
 <!-- gallery:begin -->
 ### `sum(array)`
@@ -31,18 +31,18 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   fleet_budget:
-    foreach: []
+    dims: []
     expression: sum(p) <= budget
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$\sum_{t \in \mathcal{T},\enspace g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}$
+$`\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}`$
 
 ### `sum(array, over=dim)`
 
@@ -60,18 +60,18 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   fleet_total:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, over=generator) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\thinspace t \in \mathcal{T}$
+$`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$
 
 ### `sum(array, by=lookup)`
 
@@ -96,18 +96,18 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   bus_total:
-    foreach: [snapshot, bus]
+    dims: [snapshot, bus]
     expression: sum(p, by=gen_bus) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B}$
+$`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$
 
 ### `sum(array, by=[lookup, …])`
 
@@ -134,18 +134,18 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   bus_technology_total:
-    foreach: [snapshot, bus, technology]
+    dims: [snapshot, bus, technology]
     expression: sum(p, by=[gen_bus, gen_tech]) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$\sum_{g \in \mathcal{G} \thinspace:\thinspace \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\thinspace t \in \mathcal{T},\enspace b \in \mathcal{B},\enspace e \in \mathcal{E}$
+$`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$
 
 ### `at(array, by=lookup)`
 
@@ -168,18 +168,18 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   within_cap:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= at(cap, by=period_of)
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\thinspace t \in \mathcal{T}$
+$`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$
 
 ### `shift(array, over=dim, offset=n)`
 
@@ -195,18 +195,18 @@ dimensions:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1)
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$p_{t} \le p_{t - 1} \qquad \forall\thinspace t \in \mathcal{T}$
+$`p_{t} \le p_{t - 1} \qquad \forall\, t \in \mathcal{T}`$
 
 ### `shift(array, over=dim, offset=n, edge='wrap')`
 
@@ -222,18 +222,18 @@ dimensions:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap')
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$p_{t} \le p_{t \ominus 1} \qquad \forall\thinspace t \in \mathcal{T}$
+$`p_{t} \le p_{t \ominus 1} \qquad \forall\, t \in \mathcal{T}`$
 
 ### `shift(array, over=dim, offset=n, edge=v)`
 
@@ -249,18 +249,18 @@ dimensions:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge=0)
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\thinspace t \in \mathcal{T}$
+$`p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T}`$
 
 ### `shift(array, over=dim, offset=p, edge=…)`
 
@@ -282,18 +282,18 @@ parameters:
 
 variables:
   order:
-    foreach: [technology, month]
+    dims: [technology, month]
     bounds: { lower: 0 }
 
 constraints:
   arrives_after_its_lead:
-    foreach: [technology, month]
+    dims: [technology, month]
     expression: shift(order, over=month, offset=lead, edge=0) >= demand
 
 objective: { sense: minimize, expression: sum(order) }
 ```
 
-$\mathit{order}_{t,m \boxminus_{0} \mathrm{lead}} \ge \mathrm{demand}_{t,m} \qquad \forall\thinspace t \in \mathcal{T},\enspace m \in \mathcal{M}$
+$`\mathit{order}_{t,m \boxminus_{0} \mathrm{lead}} \ge \mathrm{demand}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}`$
 
 ### `shift(array, over=dim, offset=n, by=lookup)`
 
@@ -313,18 +313,18 @@ lookups:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before_in_season:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\thinspace t \in \mathcal{T}$
+$`p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\, t \in \mathcal{T}`$
 
 ### `sum_back(array, over=dim, within=n)`
 
@@ -344,21 +344,21 @@ parameters:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_its_own_time:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=3) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+$`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
 ### `sum_back(array, over=dim, within=p)`
 
@@ -378,21 +378,21 @@ parameters:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_its_own_time:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=min_up) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+$`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
 ### `sum_back(array, over=dim, within=p, edge='wrap')`
 
@@ -412,21 +412,21 @@ parameters:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_its_own_time:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=min_up, edge='wrap') <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+$`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
 ### `sum_back(array, over=dim, within=n, by=lookup)`
 
@@ -436,7 +436,7 @@ $\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h \ominus h' < \mathrm{min
 description: >-
   A window that stops at each group's edge: representative days are separate
   samples rather than consecutive hours, so a window must not reach across the
-  seam between two of them.
+  boundary between two of them.
 
 dimensions:
   unit: { dtype: str }
@@ -448,21 +448,21 @@ lookups:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_inside_its_day:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=3, by=day_of) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```
 
-$\sum_{h' \in \mathcal{H} \thinspace:\thinspace 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\thinspace u \in \mathcal{U},\enspace h \in \mathcal{H}$
+$`\sum_{h' \in \mathcal{H} \,:\, 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
 ### `dual(constraint)`
 
@@ -479,12 +479,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p >= load
 
 expressions:
@@ -493,7 +493,7 @@ expressions:
 objective: { sense: minimize, expression: sum(p) }
 ```
 
-$\mathit{price}_{t} = \lambda_{\mathrm{balance},t} \qquad \forall\thinspace t \in \mathcal{T}$
+$`\mathit{price}_{t} = \lambda_{\mathrm{balance},t} \qquad \forall\, t \in \mathcal{T}`$
 <!-- gallery:end -->
 
 Regenerate with `pixi run python -m tools.gallery`.

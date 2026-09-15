@@ -14,6 +14,8 @@ otherwise have shipped the old math.
 
 from __future__ import annotations
 
+import re
+
 from math_spec.typesetting import to_markdown
 from tools._page import ROOT, splice
 from tools._page import main as page_main
@@ -50,9 +52,10 @@ def _section(page: str, title: str) -> str:
     return body if tail < 0 else body[:tail]
 
 
-def _inline(display: str) -> str:
-    """A ``$$…$$`` block as ``$…$``, which is what fits in a table cell."""
-    return f'${display.strip().removeprefix("$$").removesuffix("$$").strip()}$'
+def _inline(fence: str) -> str:
+    """A ``math`` fence as inline math, which is what fits in a table cell."""
+    body = fence.strip().removeprefix('```math').removesuffix('```').strip()
+    return f'$`{body}`$'
 
 
 def rendered_probe(name: str) -> tuple[str, list[str]]:
@@ -66,7 +69,7 @@ def rendered_probe(name: str) -> tuple[str, list[str]]:
     page = to_markdown(PROBES / f'{name}.yaml', numbered=False)
     math = page[page.index('#### Objective') :]
     title = 'Definitions' if '#### Definitions' in math else 'Subject to'
-    equations = [line for line in _section(math, title).splitlines() if line.startswith('$$')]
+    equations = re.findall(r'^```math\n.+?\n```$', _section(math, title), re.DOTALL | re.MULTILINE)
     assert len(equations) == 1, f'{name}.yaml should feature exactly one equation; it rendered {len(equations)}'
     notes = [block.strip() for block in page.split('\n\n') if 'denotes' in block]
     return _inline(equations[0]), notes

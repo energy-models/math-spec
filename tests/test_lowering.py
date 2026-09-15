@@ -68,7 +68,7 @@ from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, sche
 CURVE: dict[str, Any] = {
     'parameters.bx': {'dims': ['h']},
     'parameters.by': {'dims': ['h']},
-    'variables.s': {'foreach': ['g']},
+    'variables.s': {'dims': ['g']},
     'piecewise.curve': {'over': 'h', 'links': [['p', 'bx'], ['s', 'by']], 'method': 'convex'},
 }
 
@@ -86,8 +86,8 @@ P_MAX_POSITIVE = ParameterComparisonNode('p_max', '>', 0.0, ('generator',))
 TINY = {
     'dimensions': {'g': {}},
     'parameters': {'cost': {'dims': ['g']}},
-    'variables': {'p': {'foreach': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
-    'constraints': {'c': {'foreach': [], 'expression': 'sum(p, over=g) >= 1'}},
+    'variables': {'p': {'dims': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
+    'constraints': {'c': {'dims': [], 'expression': 'sum(p, over=g) >= 1'}},
 }
 
 #: `fixtures.SMALL_MODEL` plus a second lookup and a per-entity
@@ -138,13 +138,13 @@ def test_lower_program_structure(dispatch_program):
     assert list(dispatch_program.parameters) == ['p_max', 'load', 'cost'], 'keyed by name, in declaration order'
     ((vname, v),) = dispatch_program.variables.items()
     assert vname == 'p'
-    assert v.dims == ('snapshot', 'generator'), 'the frame is the foreach, in the order the file wrote it'
+    assert v.dims == ('snapshot', 'generator'), 'the frame is the dims, in the order the file wrote it'
     assert v.where == Mask(P_MAX_POSITIVE)
     assert v.upper == Parameter('p_max')
 
     ((cname, c),) = dispatch_program.constraints.items()
     assert cname == 'power_balance'
-    assert c.dims == ('snapshot',), 'the frame is the foreach, in the order the file wrote it'
+    assert c.dims == ('snapshot',), 'the frame is the dims, in the order the file wrote it'
     assert c.lhs == Sum(Variable('p'), ('generator',))
     assert c.sense == '==', "the comparison crosses as the file's own operator, untranslated"
     assert c.rhs == Parameter('load')
@@ -616,7 +616,7 @@ def _footprint_of(constraint: str, objective: str) -> Footprint:
     return to_program(
         override(
             TINY,
-            constraints={'k': {'foreach': ['g'], 'expression': constraint}},
+            constraints={'k': {'dims': ['g'], 'expression': constraint}},
             objective={'sense': 'minimize', 'expression': objective},
         )
     ).footprint
@@ -625,7 +625,7 @@ def _footprint_of(constraint: str, objective: str) -> Footprint:
 def test_the_footprint_says_which_position_a_quadratic_stands_in():
     """A sink may take a quadratic objective and refuse a quadratic constraint.
 
-    One flag for both would collapse the distinction `ceiling.md` says sinks
+    One flag for both would collapse the distinction `limits.md` says sinks
     actually make — quadratic is bounded "by convexity and again by what it
     stands beside" — and leave the sink walking the program to recover it.
     """
@@ -687,10 +687,10 @@ def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
 CASED = {
     'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
     'parameters': {'committable': {'dims': ['g'], 'dtype': 'bool'}, 'initial': {'dims': ['g']}},
-    'variables': {'status': {'foreach': ['t', 'g'], 'domain': 'binary'}},
+    'variables': {'status': {'dims': ['t', 'g'], 'domain': 'binary'}},
     'expressions': {
         'previous': {
-            'foreach': ['t', 'g'],
+            'dims': ['t', 'g'],
             'cases': {
                 'always_on': {'when': 'not committable', 'expression': 1},
                 'boundary': {'when': 'committable and position(t) == 0', 'expression': 'initial'},
@@ -698,7 +698,7 @@ CASED = {
             'otherwise': 'shift(status, over=t, offset=1)',
         }
     },
-    'constraints': {'no_restart': {'foreach': ['t', 'g'], 'expression': 'status - previous <= 1'}},
+    'constraints': {'no_restart': {'dims': ['t', 'g'], 'expression': 'status - previous <= 1'}},
 }
 
 
@@ -859,8 +859,8 @@ def test_a_lowered_spec_still_pickles_and_lowers_to_the_same_program():
         {
             'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
             'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
-            'variables': {'p': {'foreach': ['t', 'g'], 'bounds': {'lower': 0}}},
-            'constraints': {'balance': {'foreach': ['t'], 'expression': 'sum(p, over=g) >= load'}},
+            'variables': {'p': {'dims': ['t', 'g'], 'bounds': {'lower': 0}}},
+            'constraints': {'balance': {'dims': ['t'], 'expression': 'sum(p, over=g) >= load'}},
             'expressions': {'spend': 'sum(p * cost, over=g)'},
             'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
         }
@@ -887,8 +887,8 @@ def test_a_lowered_program_pickles_and_is_the_same_program():
         {
             'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
             'parameters': {'load': {'dims': ['t']}, 'cost': {'dims': ['g']}},
-            'variables': {'p': {'foreach': ['t', 'g'], 'bounds': {'lower': 0}}},
-            'constraints': {'balance': {'foreach': ['t'], 'expression': 'sum(p, over=g) >= load'}},
+            'variables': {'p': {'dims': ['t', 'g'], 'bounds': {'lower': 0}}},
+            'constraints': {'balance': {'dims': ['t'], 'expression': 'sum(p, over=g) >= load'}},
             'expressions': {'spend': 'sum(p * cost, over=g)'},
             'objective': {'sense': 'minimize', 'expression': 'sum(spend)'},
         }
@@ -911,8 +911,8 @@ def test_two_groups_of_a_program_merge_with_or_as_they_did_behind_the_proxy():
         {
             'dimensions': {'t': {'dtype': 'int'}},
             'parameters': {'load': {'dims': ['t']}},
-            'variables': {'p': {'foreach': ['t'], 'bounds': {'lower': 0}}},
-            'constraints': {'meet': {'foreach': ['t'], 'expression': 'p >= load'}},
+            'variables': {'p': {'dims': ['t'], 'bounds': {'lower': 0}}},
+            'constraints': {'meet': {'dims': ['t'], 'expression': 'p >= load'}},
             'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
         }
     )

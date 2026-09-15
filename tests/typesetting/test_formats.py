@@ -6,10 +6,12 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 import pytest
 
+from math_spec import to_spec, typeset_declaration
 from math_spec.typesetting import FORMATS, to_latex, to_markdown, to_typst, typeset
 from math_spec.typesetting.format import OPERATOR_NAMES
 from tests.fixtures import DISPATCH_MODEL, override
@@ -23,18 +25,63 @@ if TYPE_CHECKING:
     from math_spec.typesetting.format import Format
 
 
+#: Every math span of a Markdown document: a `math` fence, then the verbatim
+#: inline pair.
+_BLOCK = re.compile(r'^```math\n(.+?)\n```$', re.DOTALL | re.MULTILINE)
+_INLINE = re.compile(r'\$`([^`\n]+)`\$')
+
+
+#: Every line the golden model can be asked for on its own — the constructs
+#: whose spelling the two formats have to agree on, all of them.
+_DECLARATIONS = [*to_spec(golden.MODEL).constraints, *to_spec(golden.MODEL).expressions]
+
+
+def _math_spans(markdown: str) -> list[str]:
+    """Every span in *markdown* that GitHub hands to MathJax, and nothing outside one."""
+    return _BLOCK.findall(markdown) + _INLINE.findall(_BLOCK.sub('', markdown))
+
+
 def test_latex_numbering_can_be_turned_off():
     assert r'\begin{align*}' in to_latex(DISPATCH_MODEL, numbered=False)
 
 
 def test_markdown_keeps_names_out_of_the_math():
-    """`\\text{total\\_cost}` is correct in a LaTeX document and wrong in a
-    browser: MathJax renders the `\\_` escape literally, backslash and all. A
-    name is not math, so it goes outside the `$$` as a code span."""
+    """A name is not math, so the label goes outside the `$$` as the code span prose has."""
     md = to_markdown(DISPATCH_MODEL, legend=False)
     assert '**`balance`**' in md
-    for block in md.split('$$')[1::2]:
-        assert '\\_' not in block, f'escaped underscore reached the math: {block!r}'
+    assert all('balance' not in span for span in _math_spans(md)), (
+        'the label is the code span above the block, not a term in it'
+    )
+
+
+def test_markdown_delimits_math_the_one_way_github_hands_over_verbatim():
+    r"""GitHub runs Markdown's escape pass inside a `$…$` span, so the math has to be delimited out of its reach.
+
+    `\mathrm{gen\_bus}` reached MathJax as `\mathrm{gen_bus}` — a subscript,
+    and a *Double subscripts* refusal where the name had two underscores — and
+    `\{0, 1\}` as `{0, 1}`, a binary domain printed with no braces. The
+    verbatim pair is handed over untouched, which is what lets this format
+    keep LaTeX's math rather than spell its own.
+    """
+    md = typeset(golden.MODEL, 'markdown', standalone=True)
+    assert _math_spans(md), 'the golden model prints math to scan'
+    assert r'$\mathrm' not in md and '$$' not in md, 'no span is left in the pair GitHub reaches into'
+    assert r'\mathrm{gen\_bus}' in md, 'the escape TeX needs survives, because nothing is going to eat it'
+
+
+@pytest.mark.parametrize('declaration', sorted(_DECLARATIONS), ids=sorted(_DECLARATIONS))
+def test_markdown_prints_the_math_latex_prints(declaration: str):
+    r"""Markdown's math *is* LaTeX's, and the delimiters are now the whole of the difference.
+
+    Each escape the pass would eat used to be worked around by a spelling only
+    MathJax reads — `\thinspace` for `\,`, `\cr` for `\\`, a text box for a
+    name with an underscore — and every one of them was a line the two formats
+    no longer agreed on. Delimiting the span out of the pass's reach retired
+    them all, so this is the assertion that keeps them retired.
+    """
+    assert typeset_declaration(golden.MODEL, declaration, 'markdown') == typeset_declaration(
+        golden.MODEL, declaration, 'latex'
+    )
 
 
 def test_typst_standalone_adds_page_setup():
@@ -189,7 +236,7 @@ def test_typst_prose_escapes_what_typst_reads_as_markup(typst, tmp_path: Path):
 def test_markdown_glossary_cells_survive_a_pipe_and_a_newline():
     described = override(DISPATCH_MODEL, **{'parameters.load.description': 'a | b\nc'})
     md = to_markdown(described)
-    assert r'| `load` over $\mathcal{T}$ — a \| b c |' in md, (
+    assert r'| `load` over $`\mathcal{T}`$ — a \| b c |' in md, (
         'the pipe is escaped and the newline folded, so the cell stays one cell'
     )
 

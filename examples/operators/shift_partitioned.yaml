@@ -15,12 +15,12 @@ lookups:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before_in_season:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
 
 objective: { sense: minimize, expression: sum(p) }

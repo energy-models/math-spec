@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Degree — the one admissibility rule that is a scope choice (docs/about/ceiling.md).
+"""Degree — the one admissibility rule that is a scope choice (docs/about/limits.md).
 
 **Degree 2 in the math, degree 1 in what stands beside it.** An objective and a
 constraint both take ``variable * variable``; a *bound* and a ``piecewise:``
@@ -114,7 +114,7 @@ def _degree(node: ParsedNode) -> int:
     (:func:`check_binary` has already refused a divisor carrying a variable);
     everything else — a sum, a reduction, a shape operator — is the highest
     degree beneath it. No data, so this answers at ``check`` time, which is
-    what stops a cubic from reaching a lane to be refused by whichever one
+    what stops a cubic from reaching a consumer to be refused by whichever one
     happens to notice.
     """
     if isinstance(node, VariableNode):
@@ -141,7 +141,7 @@ def _a_variable_under_a_power_message(where: str) -> str:
         f'carry none.\n'
         f'Write the product out — `x * x` for a square — or precompute the factor as a parameter. '
         f'A variable base above degree 2 has no rewrite at all, and one whose exponent is data has '
-        f'no degree until the data arrives — see docs/about/ceiling.md.'
+        f'no degree until the data arrives — see docs/about/limits.md.'
     )
 
 
@@ -203,8 +203,7 @@ def check_expression(node: ParsedNode, context: str, *, ceiling: int = 1) -> Non
 
     Asked of the *expanded* tree, so a dual or a product inlined through a
     macro or a named expression is caught alongside one written in place.
-    What a plan node can represent is a consuming lane's question, not this
-    one's.
+    What a plan node can represent is the consumer's question, not this one's.
 
     Raises:
         LanguageError: A dual, which exists only after a solve; or what

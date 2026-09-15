@@ -17,6 +17,41 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.88](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.87...v0.0.0-alpha.88) (2026-09-15)
+
+
+### Documentation
+
+* **limits:** a whole-table operator is priced at a barrier rather than refused ([#468](https://github.com/energy-models/math-spec/issues/468)) ([835e4a4](https://github.com/energy-models/math-spec/commit/835e4a430a79a71ca0ee7f74e3c5fe5626719521))
+
+## [0.0.0-alpha.87](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.86...v0.0.0-alpha.87) (2026-09-14)
+
+
+### Features
+
+* **language:** a variable, a constraint and a cased expression declare their shape as dims, as a parameter does ([#429](https://github.com/energy-models/math-spec/issues/429)) ([d8dfdb0](https://github.com/energy-models/math-spec/commit/d8dfdb01fcffdf2190a73875f73ed266635dc15a))
+
+## [0.0.0-alpha.86](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.85...v0.0.0-alpha.86) (2026-09-11)
+
+
+### Bug Fixes
+
+* **language:** a where that mistypes a lookup name lists the lookups ([#455](https://github.com/energy-models/math-spec/issues/455)) ([46c48b2](https://github.com/energy-models/math-spec/commit/46c48b27241dc2569fed30911ab5b636e124becd))
+
+## [0.0.0-alpha.85](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.84...v0.0.0-alpha.85) (2026-09-10)
+
+
+### Documentation
+
+* the pages read in plain English, arranged by what each is for ([#442](https://github.com/energy-models/math-spec/issues/442)) ([8dc4b60](https://github.com/energy-models/math-spec/commit/8dc4b602edaff106aa671f11346f8a07c813d3ce))
+
+## [0.0.0-alpha.84](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.83...v0.0.0-alpha.84) (2026-09-10)
+
+
+### Bug Fixes
+
+* **typesetting:** Markdown math renders on GitHub as the file's own math ([#446](https://github.com/energy-models/math-spec/issues/446)) ([31ff1c3](https://github.com/energy-models/math-spec/commit/31ff1c375c5c8dd29f830d2c344ce3037463e1aa))
+
 ## [0.0.0-alpha.83](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.82...v0.0.0-alpha.83) (2026-09-09)
 
 

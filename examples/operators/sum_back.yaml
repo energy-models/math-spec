@@ -15,15 +15,15 @@ parameters:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_its_own_time:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=3) <= on
 
 objective: { sense: minimize, expression: sum(on) }

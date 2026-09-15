@@ -32,7 +32,7 @@ BASE: dict[str, Any] = {
         'width': {'dims': ['u'], 'dtype': 'int'},
         'cap': {'dims': ['zone']},
     },
-    'variables': {'p': {'foreach': ['h', 'u'], 'bounds': {'lower': 0}}},
+    'variables': {'p': {'dims': ['h', 'u'], 'bounds': {'lower': 0}}},
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
 }
 
@@ -41,8 +41,8 @@ def _verdict(dimension: str = 'h', **patch: Any):
     return ms.to_program({**BASE, **patch}).separability[dimension]
 
 
-def _rows(expression: str, *, foreach: list[str] | None = None, **block: Any) -> dict[str, Any]:
-    return {'constraints': {'k': {'foreach': foreach or ['h', 'u'], 'expression': expression, **block}}}
+def _rows(expression: str, *, dims: list[str] | None = None, **block: Any) -> dict[str, Any]:
+    return {'constraints': {'k': {'dims': dims or ['h', 'u'], 'expression': expression, **block}}}
 
 
 @pytest.mark.parametrize(
@@ -67,7 +67,7 @@ def test_a_separable_model_reports_the_lookahead_a_window_needs(patch, ahead):
 @pytest.mark.parametrize(
     ('patch', 'fragment'),
     [
-        pytest.param(_rows('sum(p, over=h) <= budget', foreach=['u']), 'sums over h', id='a-budget-over-the-horizon'),
+        pytest.param(_rows('sum(p, over=h) <= budget', dims=['u']), 'sums over h', id='a-budget-over-the-horizon'),
         pytest.param(_rows("p >= shift(p, over=h, offset=1, edge='wrap')"), 'wraps around h', id='a-cyclic-shift'),
     ],
 )
@@ -127,9 +127,9 @@ def test_a_named_reach_resolves_to_the_lookahead_its_values_need(patch, least, a
 def test_resolving_keeps_the_static_reach_and_what_a_lookup_decides():
     verdict = _verdict(
         constraints={
-            'fixed': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-2, edge=0)'},
-            'named': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=width, edge=0)'},
-            'grouped': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=1, by=day_of, edge=0)'},
+            'fixed': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-2, edge=0)'},
+            'named': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=width, edge=0)'},
+            'grouped': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=1, by=day_of, edge=0)'},
         }
     ).resolved({'width': -1})
     assert verdict.ahead == 2, 'a folded value never narrows what the model reads on its own'
@@ -155,7 +155,7 @@ def test_a_read_through_a_lookup_is_undecided_on_the_axis_it_reads():
 
 
 def test_a_coupling_names_the_change_that_would_lift_it():
-    coupled = _verdict(**_rows('sum(p, over=h) <= budget', foreach=['u'])).coupled["constraint 'k'"]
+    coupled = _verdict(**_rows('sum(p, over=h) <= budget', dims=['u'])).coupled["constraint 'k'"]
     assert 'sum_back(within=n)' in coupled, 'a horizon total becomes a rolling one'
     wrapped = _verdict(**_rows("p >= shift(p, over=h, offset=1, edge='wrap')")).coupled["constraint 'k'"]
     assert 'position(h) == 0' in wrapped, 'a wrap becomes an opening-state seed'
@@ -176,7 +176,7 @@ def test_a_sum_over_the_axis_couples_a_constraint_and_leaves_the_objective_alone
     every other. A verdict treating the two alike would refuse every windowable
     model there is — and `BASE`'s objective sums over `h` in every case above."""
     assert _verdict(**_rows('p >= 0')).windowable, 'the objective sums over h and that is not a coupling'
-    coupled = _verdict(**_rows('sum(p, over=h) <= budget', foreach=['u']))
+    coupled = _verdict(**_rows('sum(p, over=h) <= budget', dims=['u']))
     assert not coupled.windowable, 'the same sum in a constraint is one'
 
 
@@ -187,7 +187,7 @@ def test_a_position_inside_a_cased_region_is_found():
     verdict = _verdict(
         expressions={
             'prev': {
-                'foreach': ['h', 'u'],
+                'dims': ['h', 'u'],
                 'cases': {'opening': {'when': 'position(h) == 0', 'expression': 0}},
                 'otherwise': 'shift(p, over=h, offset=1, edge=0)',
             }
@@ -200,8 +200,8 @@ def test_a_position_inside_a_cased_region_is_found():
 def test_the_lookahead_is_the_widest_reach_of_any_block():
     verdict = _verdict(
         constraints={
-            'near': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-1, edge=0)'},
-            'far': {'foreach': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-5, edge=0)'},
+            'near': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-1, edge=0)'},
+            'far': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, over=h, offset=-5, edge=0)'},
         }
     )
     assert verdict.ahead == 5, 'one window must see past its last row as far as any block reads'
@@ -209,7 +209,7 @@ def test_the_lookahead_is_the_widest_reach_of_any_block():
 
 def test_a_grouping_that_consumes_the_axis_couples_it():
     program = ms.to_program(
-        {**BASE, 'constraints': {'z': {'foreach': ['h', 'zone'], 'expression': 'sum(p, by=zone_of) <= cap'}}}
+        {**BASE, 'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, by=zone_of) <= cap'}}}
     )
     verdict = program.separability['u']
     assert not verdict.windowable, 'the grouping consumes u, so a window of u is a different sum'
@@ -238,6 +238,6 @@ def test_a_reduction_over_several_axes_couples_every_one_of_them():
     """`sum(p)` with no `over=` collapses every dimension its operand carries,
     so the verdict for each of them has to say so — a walk that read only the
     first would call the rest windowable."""
-    program = ms.to_program({**BASE, 'constraints': {'all': {'foreach': [], 'expression': 'sum(p) <= budget'}}})
+    program = ms.to_program({**BASE, 'constraints': {'all': {'dims': [], 'expression': 'sum(p) <= budget'}}})
     assert not program.separability['h'].windowable, 'the reduction consumes h'
     assert not program.separability['u'].windowable, 'and u, in the same node'

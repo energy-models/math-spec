@@ -7,7 +7,7 @@
 Every node's dim set is computable before any data is bound, so this pass runs
 at load on the resolved AST. The per-node rules are the "Dim algebra" table in
 ``docs/reference/language/expressions.md``; a constraint's two sides together
-must equal its ``foreach``, and a where or a bound may not exceed the frame.
+must equal its ``dims``, and a where or a bound may not exceed the frame.
 """
 
 from __future__ import annotations
@@ -90,14 +90,14 @@ def _dims(
         return frozenset(schema.parameters[node.name].dims)
 
     if isinstance(node, VariableNode):
-        return frozenset(schema.variables[node.name].foreach)
+        return frozenset(schema.variables[node.name].dims)
 
     if isinstance(node, UnresolvedNode | KwargNode):
         msg = f'{type(node).__name__} reached the dim checker; resolve the expression first.'
         raise AssertionError(msg)
 
     if isinstance(node, DualNode):
-        return frozenset(schema.constraints[node.constraint].foreach)
+        return frozenset(schema.constraints[node.constraint].dims)
 
     if isinstance(node, FunctionCallNode):
         return _dims_call(node, schema, context)
@@ -116,7 +116,7 @@ def _cases_dims(node: CasesNode, schema: Spec) -> frozenset[str]:
 
     A narrower arm broadcasts, as a parameter with fewer dims does.
     """
-    return frozenset(schema.expressions[node.name].foreach or ())
+    return frozenset(schema.expressions[node.name].dims or ())
 
 
 def _not_carried(context: str, call: str, inner: frozenset[str], rewrite: str) -> str:
@@ -430,7 +430,7 @@ def check_schema(schema: Spec, resolved: Resolved) -> None:
         DimensionError: On the first declaration that breaks one.
     """
     for vname, vdef in schema.variables.items():
-        frame = frozenset(vdef.foreach)
+        frame = frozenset(vdef.dims)
         context = f"Variable '{vname}'"
         _check_where_dims(resolved.variables[vname], frame, context)
         for side in ('lower', 'upper'):
@@ -440,14 +440,14 @@ def check_schema(schema: Spec, resolved: Resolved) -> None:
                 if not bdims <= frame:
                     raise DimensionError(
                         f"{context}: bounds.{side} parameter '{bound}' has dims "
-                        f"{sorted(bdims - frame)} outside the variable's foreach "
+                        f"{sorted(bdims - frame)} outside the variable's dims "
                         f'{sorted(frame)}.'
                     )
 
     for ename, node in resolved.expressions.items():
         if not isinstance(node, CasesNode):
             continue
-        frame = frozenset(schema.expressions[ename].foreach or [])
+        frame = frozenset(schema.expressions[ename].dims or [])
         for arm in node.arms:
             context = case_context(ename, None if arm.when is None else arm.label)
             if arm.when is not None:
@@ -455,19 +455,19 @@ def check_schema(schema: Spec, resolved: Resolved) -> None:
             _check_value_dims(arm.value, schema, frame, context)
 
     for cname, (expression, where) in resolved.constraints.items():
-        frame = frozenset(schema.constraints[cname].foreach)
+        frame = frozenset(schema.constraints[cname].dims)
         context = f"Constraint '{cname}'"
         _check_where_dims(where, frame, context)
         got = dims_of(expression, schema, context)
         if got != frame:
             stray, missing = sorted(got - frame), sorted(frame - got)
             detail = (
-                f'carries dims {stray} that are not in foreach {sorted(frame)} — every '
+                f'carries dims {stray} that are not in its dims: {sorted(frame)} — every '
                 f'stray dim multiplies the rows this constraint builds; add it to '
-                f'foreach if that is intended, or sum it out'
+                f'dims: if that is intended, or sum it out'
                 if stray
-                else f'does not carry {missing}, which foreach declares — the same row '
-                f'would be repeated across {missing}; drop it from foreach, or use it '
+                else f'does not carry {missing}, which its dims: declares — the same row '
+                f'would be repeated across {missing}; drop it from dims:, or use it '
                 f'in the expression'
             )
             raise DimensionError(f'{context}: the expression {detail}.')
@@ -487,12 +487,12 @@ def _check_value_dims(node: ArithmeticNode, schema: Spec, frame: frozenset[str],
     """A region's value may only carry dims the frame does — the ``otherwise:`` included.
 
     A wider one would give the quantity dims its declaration does not, which is
-    the second answer a ``foreach:`` exists to avoid.
+    the second answer a ``dims:`` exists to avoid.
     """
     got = dims_of(node, schema, context)
     if not got <= frame:
         raise DimensionError(
-            f'{context}: the value carries dims {sorted(got - frame)} outside the foreach '
+            f'{context}: the value carries dims {sorted(got - frame)} outside the dims: '
             f'{sorted(frame)}. A case is a value within the frame — it cannot widen it.'
         )
 
@@ -526,6 +526,6 @@ def _check_where_dims(
                 assert_never(atom)
         raise DimensionError(
             f"{context}: where-{noun} '{atom.name}' reads dims {outside} outside the frame {sorted(frame)}. "
-            f'Reducing a mask over an unlisted dim would silently widen it — add the dim to foreach, '
+            f'Reducing a mask over an unlisted dim would silently widen it — add the dim to dims:, '
             f'or test a name the frame carries.'
         )

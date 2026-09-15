@@ -20,6 +20,13 @@ path = [
 SPDX-FileCopyrightText = "math-spec contributors"
 SPDX-License-Identifier = "CC0-1.0"
 
+# A skill file opens with YAML front matter, which has to be line 1, so the
+# header cannot go above it. The skill is prose, under the prose licence.
+[[annotations]]
+path = [".claude/skills/**/SKILL.md"]
+SPDX-FileCopyrightText = "math-spec contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
 [[annotations]]
 path = ["resources/**/*"]
 SPDX-FileCopyrightText = "math-spec contributors"
