@@ -49,6 +49,7 @@
 
 \paragraph{Definitions}
 \begin{description}
+\item[{$\mathrm{spend}^{\mathrm{cap}}$}] \texttt{spend\_cap} over $\mathcal{G}$
 \item[{$\mathit{spend}$}] \texttt{spend} over $\mathcal{T}$ --- what a snapshot's dispatch costs
 \item[{$\mathit{lcoe}$}] \texttt{lcoe} (scalar)
 \item[{$\mathit{marginal\_price}$}] \texttt{marginal\_price} over $\mathcal{T} \times \mathcal{B}$
@@ -105,11 +106,16 @@
 \text{ceiling} && \theta_{b} & \le \infty && \forall\, b \in \mathcal{B} \\
 \text{always} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \\
 \text{redundant} && \mathit{spill}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \mathit{spill}_{t} \text{ exists} \\
-\text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot
+\text{never} && \mathit{slack}_{t} & \ge 0 && \forall\, t \in \mathcal{T} \,:\, \bot \\
+\text{margin} && p_{t,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{p}^{\mathrm{max}}_{g} - \mathrm{p}^{\mathrm{min}}_{g} > \frac{\mathrm{cost}_{g}}{2} \\
+\text{ramped} && \mathit{slack}_{t} & \le \mathrm{load}_{t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \,:\, \mathrm{load}_{t,b} - \mathrm{load}_{t \boxminus_{0} 1,b} \le \mathrm{zone\_cap}_{\mathrm{zone\_of}(b)} \wedge \mathrm{pos}(t) > 0 \\
+\text{covered} && \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} & \le \mathrm{budget} && \text{where } \sum_{g \in \mathcal{G}} \mathrm{p}^{\mathrm{max}}_{g} \ge \mathrm{budget} \\
+\text{capped} && p_{t,g} & \le \mathrm{p}^{\mathrm{max}}_{g} && \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \mathrm{spend}^{\mathrm{cap}}_{g} > 0 \vee \neg \mathrm{is\_flexible}_{g}
 \end{align}
 
 \paragraph{Definitions}
 \begin{align}
+\text{spend\_cap} && \mathrm{spend}^{\mathrm{cap}}_{g} & = \mathrm{cost}_{g} \cdot 2 && \forall\, g \in \mathcal{G} \\
 \text{spend} && \mathit{spend}_{t} & = \sum_{g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g} && \forall\, t \in \mathcal{T} \\
 \text{lcoe} && \mathit{lcoe} & = \frac{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{cost}_{g}}{\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g}} \\
 \text{marginal\_price} && \mathit{marginal\_price}_{t,b} & = \lambda_{\mathrm{balance},t,b} && \forall\, t \in \mathcal{T},\ b \in \mathcal{B} \\

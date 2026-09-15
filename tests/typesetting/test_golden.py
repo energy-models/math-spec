@@ -132,17 +132,20 @@ def _rendered_trees() -> Iterator[object]:
     yield from resolved.expressions.values()
 
 
-#: What resolution never hands the walk: the three nodes it types away, and the
-#: three an expression only carries before names are resolved. The walk raises on
+#: What resolution never hands the walk: the four nodes it types away, the three
+#: an expression only carries before names are resolved, and the lowered form of
+#: a comparison of expressions, which only a program carries. The walk raises on
 #: each rather than rendering it, so a fixture reaching one would be a bug in
 #: resolution rather than a case worth committing output for.
 UNRESOLVED = {
     'UnresolvedNameNode',
     'UnresolvedComparisonNode',
+    'UnresolvedExpressionComparisonNode',
     'UnresolvedPositionNode',
     'NameNode',
     'NameListNode',
     'KeywordNode',
+    'ExpressionComparisonNode',
 }
 
 #: A dataclass the walk steps *through* rather than renders: an arm has no
@@ -192,6 +195,8 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 UNREACHABLE = {
     'if isinstance(node, UnresolvedNode | KwargNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
+    'if isinstance(node, ExpressionComparisonNode):',
+    "msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'",
     'if not isinstance(node, ComparisonNode):',
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",
     'raise AssertionError(msg)',

@@ -23,9 +23,11 @@ from typing import TYPE_CHECKING, Any, Literal, assert_never, cast
 
 from math_spec.program import (
     AndNode,
+    ArithmeticComparisonNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
+    ExpressionComparisonNode,
     LookupComparisonNode,
     LookupDefinedNode,
     LookupPairComparisonNode,
@@ -136,7 +138,7 @@ class Subject:
     a rank is further split by the ``by=`` lookup it is counted within.
     """
 
-    kind: Literal['param', 'dim', 'rank', 'lookup', 'lookup_pair', 'variable']
+    kind: Literal['param', 'expression', 'dim', 'rank', 'lookup', 'lookup_pair', 'variable']
     name: str
     qualifier: str | None = None
 
@@ -189,6 +191,12 @@ def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtype
     ``position()`` converts the dimension to an integer, so an ordering over a
     rank is an ordering of integers and every comparator is admitted there.
     """
+    if isinstance(node, ArithmeticComparisonNode | ExpressionComparisonNode):
+        msg = (
+            'it compares expressions, whose values only the data decides — compare one parameter against a '
+            'literal, or precompute the test as a boolean parameter and test that'
+        )
+        raise Undecidable(msg)
     if isinstance(node, DimensionPositionNode):
         values.add(node.position)
     elif isinstance(node, LookupPairComparisonNode):
@@ -224,6 +232,8 @@ def _subject_of(node: TypedPredicateNode) -> Subject:
             return Subject('lookup', name)
         case LookupPairComparisonNode(name=name, other=other):
             return Subject('lookup_pair', name, other)
+        case ArithmeticComparisonNode() | ExpressionComparisonNode():
+            return Subject('expression', 'a comparison of expressions')
         case _:
             assert_never(node)
 
@@ -405,6 +415,9 @@ def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], grid: _Grid) -> b
             return bool(value)
         case LookupPairComparisonNode(op=op):
             return bool(value) if op == '==' else not value
+        case ArithmeticComparisonNode() | ExpressionComparisonNode():
+            msg = 'a comparison of expressions is refused as undecidable before any cell is read'
+            raise AssertionError(msg)
         case DimensionPositionNode(op=op, position=position):
             return _compare(value, op, position)
         case ParameterComparisonNode(op=op, value=literal) | LookupComparisonNode(op=op, value=literal):

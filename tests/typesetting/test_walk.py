@@ -759,3 +759,13 @@ def test_a_string_value_in_a_where_prints_as_a_quoted_label(name: FormatName, fm
     assert fmt.quoted('gas_ccgt') in text
     unquoted = text.replace(fmt.quoted('gas_ccgt'), '')
     assert fmt.prose('gas_ccgt') not in unquoted, 'a string value is data, never words inside math'
+
+
+@EVERY_FORMAT
+def test_a_comparison_of_expressions_prints_as_the_arithmetic_it_is(name: FormatName, fmt: Format):
+    """`cost <= p_max / 2` on a quantifier renders each side as an expression, around the relation."""
+    model = override(DISPATCH_MODEL, **{'variables.p.where': 'cost <= p_max / 2'})
+    text = typeset(model, name, legend=False)
+    p_max = fmt.subscript(fmt.superscript(fmt.upright('p'), fmt.upright('max')), ['g'])
+    cost = fmt.subscript(fmt.upright('cost'), ['g'])
+    assert f'{cost} {fmt.operators["le"]} {fmt.fraction(p_max, "2")}' in text

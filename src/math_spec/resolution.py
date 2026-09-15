@@ -17,6 +17,7 @@ from dataclasses import dataclass, replace
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
+import math_spec.degree as degree
 from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
@@ -45,13 +46,15 @@ from math_spec._expression_parser import (
 )
 from math_spec._where_parser import (
     UnresolvedComparisonNode,
+    UnresolvedExpressionComparisonNode,
     UnresolvedNameNode,
     UnresolvedPositionNode,
     UnresolvedWhereNode,
     parse_where,
 )
+from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, did_you_mean
-from math_spec.expansion import parse_and_expand
+from math_spec.expansion import expand, parse_and_expand
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
     BUILTINS,
@@ -62,6 +65,7 @@ from math_spec.operators import (
 )
 from math_spec.program import (
     AndNode,
+    ArithmeticComparisonNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
@@ -96,7 +100,7 @@ class Namespace:
     A name has one kind: model.py refuses one declared under two sections.
     """
 
-    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'lookups', 'parameters', 'variables')
+    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'lookups', 'parameters', 'schema', 'variables')
 
     def __init__(
         self,
@@ -107,7 +111,12 @@ class Namespace:
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
         constraints: Iterable[str],
+        schema: Spec,
     ) -> None:
+        #: The schema the names come from — what a where comparison's sides
+        #: are expanded and dim-checked against, since those read operators
+        #: and named expressions that the flat listing above cannot answer for.
+        self.schema = schema
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
         self.dimensions = frozenset(dimensions)
@@ -146,6 +155,7 @@ class Namespace:
                 **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
             },
             schema.constraints,
+            schema,
         )
 
     def kind(self, name: str) -> DeclarationKind | None:
@@ -634,6 +644,8 @@ class _Resolver:
             return self._position(node)
         if isinstance(node, UnresolvedComparisonNode):
             return self._comparison(node)
+        if isinstance(node, UnresolvedExpressionComparisonNode):
+            return self._expression_comparison(node)
         if isinstance(node, NotNode):
             return NotNode(self._child(node.operand))
         if isinstance(node, AndNode):
@@ -706,9 +718,16 @@ class _Resolver:
         return DimensionPositionNode(node.dimension, node.op, node.position, node.by)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
-        """``name <op> literal``, or the one structural form ``lookup <op> lookup``."""
+        """``name <op> literal``, or the one structural form ``lookup <op> lookup``.
+
+        A side that names an ``expressions:`` entry is arithmetic, whatever
+        the grammar first read it as, and takes the expression path.
+        """
         ns, context = self.ns, self.context
         value = node.value
+        if node.name in ns.schema.expressions or (not node.quoted and value in ns.schema.expressions):
+            right: ArithmeticNode = NameNode(value) if isinstance(value, str) else NumberNode(value)
+            return self._expression_comparison(UnresolvedExpressionComparisonNode(NameNode(node.name), node.op, right))
         if not node.quoted and isinstance(value, str) and (rhs_kind := ns.kind(value)) is not None:
             if rhs_kind == 'lookup' and ns.kind(node.name) == 'lookup':
                 if (refusal := _lookup_pair_error(context, node, value, ns)) is not None:
@@ -743,6 +762,50 @@ class _Resolver:
                     f'and dimension coordinates only.'
                 )
         return node
+
+    def _expression_comparison(
+        self, node: UnresolvedExpressionComparisonNode
+    ) -> ArithmeticComparisonNode | UnresolvedExpressionComparisonNode:
+        """``expression <op> expression``: each side expanded, typed and held to what a mask may read.
+
+        A side is read as an expression is — macros and named expressions
+        expand, every operator and dim rule applies — except that it names no
+        variable and no dual, since a mask is built before either exists.
+        """
+        ns, context = self.ns, self.context
+        found = len(self.errors)
+        sides = []
+        for side in (node.left, node.right):
+            try:
+                expanded = expand(side, ns.schema, context)
+            except ValueError as e:
+                self.errors.append(str(e) if str(e).startswith(context) else f'{context}: {e}')
+                continue
+            sides.append(self._arith(expanded))
+        if len(self.errors) > found:
+            return node
+        dims: set[str] = set()
+        for side in sides:
+            if degree.carries_variable(side):
+                self.errors.append(
+                    f'{context}: a where compares expressions, and one side names a variable. A where mask '
+                    f'is built before variables exist — it may test parameters and dimension coordinates only.'
+                )
+            elif degree.calls_dual(side):
+                self.errors.append(
+                    f'{context}: a where compares expressions, and one side reads a dual, which only a solve '
+                    f'produces. A mask is built before it — test the data instead.'
+                )
+            else:
+                try:
+                    degree.check_expression(side, context, ceiling=1)
+                    dims |= dims_of(side, ns.schema, context)
+                except LanguageError as e:
+                    self.errors.append(str(e))
+        if len(self.errors) > found:
+            return node
+        left, right = sides
+        return ArithmeticComparisonNode(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
 
     def _typed_literal(
         self, node: UnresolvedComparisonNode, dtype: DeclaredDtype
