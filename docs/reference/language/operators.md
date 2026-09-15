@@ -63,11 +63,11 @@ lookups:
 parameters:
   load: { dims: [bus] }
 variables:
-  p: { foreach: [generator] }
-  f: { foreach: [line] }
+  p: { dims: [generator] }
+  f: { dims: [line] }
 constraints:
   nodal_balance:
-    foreach: [bus]
+    dims: [bus]
     expression: >-
       sum(p, by=gen_bus)
       + sum(f, by=line_to)
@@ -129,12 +129,12 @@ parameters:
   min_up: { dims: [unit], dtype: int }
 
 variables:
-  started: { foreach: [unit, hour], domain: binary }
-  on: { foreach: [unit, hour], domain: binary }
+  started: { dims: [unit, hour], domain: binary }
+  on: { dims: [unit, hour], domain: binary }
 
 constraints:
   stays_up_its_own_time:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, window=min_up) <= on
 
 objective: { sense: minimize, expression: sum(on) }
@@ -175,12 +175,12 @@ dimensions:
 parameters:
   eta: { dims: [storage] }
 variables:
-  soc: { foreach: [snapshot, storage] }
-  charge: { foreach: [snapshot, storage] }
-  discharge: { foreach: [snapshot, storage] }
+  soc: { dims: [snapshot, storage] }
+  charge: { dims: [snapshot, storage] }
+  discharge: { dims: [snapshot, storage] }
 constraints:
   storage_balance:
-    foreach: [snapshot, storage]
+    dims: [snapshot, storage]
     expression: soc == shift(soc, over=snapshot, offset=1, edge='wrap') + charge * eta - discharge
 ```
 
@@ -231,10 +231,10 @@ lookups:
 parameters:
   inflow: { dims: [snapshot] }
 variables:
-  soc: { foreach: [snapshot], bounds: { lower: 0 } }
+  soc: { dims: [snapshot], bounds: { lower: 0 } }
 constraints:
   season_balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: soc == shift(soc, over=snapshot, offset=1, edge='wrap', by=season_of) + inflow
 objective: { sense: minimize, expression: sum(soc) }
 ```
@@ -270,11 +270,11 @@ parameters:
   demand: { dims: [technology, month] }
 variables:
   order:
-    foreach: [technology, month]
+    dims: [technology, month]
     bounds: { lower: 0 }
 constraints:
   arrives_after_its_lead:
-    foreach: [technology, month]
+    dims: [technology, month]
     expression: shift(order, over=month, offset=lead, edge=0) >= demand
 objective: { sense: minimize, expression: sum(order) }
 ```
@@ -316,11 +316,11 @@ parameters:
   demand: { dims: [snapshot] }
 variables:
   order:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 constraints:
   arrives_after_its_periods_lead:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: shift(order, over=snapshot, offset=lead, by=period_of, edge=0) >= demand
 objective: { sense: minimize, expression: sum(order) }
 ```

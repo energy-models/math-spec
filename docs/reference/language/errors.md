@@ -69,7 +69,7 @@ that too depends on the data
 | `MathSpecError`           | The root. Everything below is an instance of it                                                                                  |
 | `LanguageError`           | Something in the model: a construct outside the language, a dimension set that does not compose, or a name that nothing declares |
 | `SchemaError`             | Something in the file: an unknown key, a malformed declaration, or a bad symbol table                                            |
-| `DimensionError`          | Dimensions that disagree, such as a constraint whose expression does not equal its `foreach`                                     |
+| `DimensionError`          | Dimensions that disagree, such as a constraint whose expression does not equal its `dims`                                        |
 | `PiecewiseExpansionError` | A `piecewise:` block that cannot be expanded                                                                                     |
 
 Every one of these means the file is wrong, and every one is reproducible from
@@ -91,7 +91,7 @@ and [the limits](../../about/limits.md) gives the reasons.
 | time-series processing (resample, cluster, interpolate, align), file IO, units | Data preparation. Pass a parameter                                                                                                                                  |
 | indicator constraints                                                          | What a solver can take is a question of its own, and `sos:` is where it landed ([#220](https://github.com/fluxopt/lpspec/issues/220))                               |
 | multi-objective                                                                | There is one `objective:` block. Weight the goals into one expression                                                                                               |
-| arbitrary array operations (`merge`, `reindex`, `apply_ufunc`)                 | Data preparation. The closed operator set is what lets a build stream its terms                                                                                     |
+| arbitrary array operations (`merge`, `reindex`, `apply_ufunc`)                 | Data preparation. The operator set is closed so that every tool reads the file the same way                                                                         |
 | filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if the coordinate should not exist. Inside the language, only `shift(..., edge=)` fills ([absence](absence.md))                      |
 | schema migrations                                                              | —                                                                                                                                                                   |
 
@@ -101,7 +101,7 @@ The arrays it holds would build the same model, but an `expression:` string and 
 reviewer could read. A library that wants a file passes a `dict` with the file's
 keys to `to_spec`, and calls `to_yaml()`.
 
-For math the language cannot express, a block of Python named in the file, with
-a cap on how many rows and columns it may emit, is planned as
-[#38](https://github.com/fluxopt/lpspec/issues/38). It has not shipped, and no
-key for it exists yet.
+The language has no escape hatch. Math it cannot express is a gap in the
+language, and a gap closes as a macro, a primitive or a formulation
+([the limits](../../about/limits.md)). Where the table above has a row, that row
+names what to write instead.

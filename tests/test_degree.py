@@ -112,7 +112,7 @@ def test_carries_variable_refuses_an_unresolved_name():
 
 
 def _dual_ast(text: str):
-    schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'}})
+    schema = schema_of(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
     return expression_of(text, schema, Namespace.of(schema), 'test')
 
 
@@ -146,9 +146,9 @@ def test_calls_dual_finds_a_dual_inside_a_cased_arm():
     schema = schema_of(
         SMALL_MODEL,
         **{
-            'constraints.lim': {'foreach': ['g'], 'expression': 'p <= c'},
+            'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'},
             'expressions.dcase': {
-                'foreach': ['g'],
+                'dims': ['g'],
                 'cases': {'flagged': {'when': 'flag', 'expression': 'dual(lim)'}},
                 'otherwise': 0,
             },

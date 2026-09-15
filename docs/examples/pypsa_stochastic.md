@@ -138,7 +138,7 @@ objective:
 ```yaml
 Generator_fix_p_lower:
   description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
-  foreach: [scenario, snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: not Generator_p_nom_extendable
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
 ```
@@ -154,7 +154,7 @@ p_{s,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \
 ```yaml
 Generator_fix_p_upper:
   description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
-  foreach: [scenario, snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: not Generator_p_nom_extendable
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
 ```
@@ -170,7 +170,7 @@ p_{s,t,g} \le \overline{\mathrm{p}}_{s,t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} 
 ```yaml
 Generator_ext_p_lower:
   description: "`Generator-ext-p-lower` — an extendable generator outputs at least its minimum of the chosen build"
-  foreach: [scenario, snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: Generator_p_nom_extendable
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom_ext
 ```
@@ -186,7 +186,7 @@ p_{s,t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot P_{g} \qquad \forall\, s \in \m
 ```yaml
 Generator_ext_p_upper:
   description: "`Generator-ext-p-upper` — an extendable generator outputs at most what is available of the chosen build"
-  foreach: [scenario, snapshot, generator]
+  dims: [scenario, snapshot, generator]
   where: Generator_p_nom_extendable
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom_ext
 ```
@@ -202,7 +202,7 @@ p_{s,t,g} \le \overline{\mathrm{p}}_{s,t,g} \cdot P_{g} \qquad \forall\, s \in \
 ```yaml
 Generator_ext_p_nom_lower:
   description: "`Generator-ext-p_nom-lower` — the chosen build is at least its floor"
-  foreach: [generator]
+  dims: [generator]
   where: Generator_p_nom_extendable
   expression: Generator_p_nom_ext >= Generator_p_nom_min
 ```
@@ -218,7 +218,7 @@ P_{g} \ge \underline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \math
 ```yaml
 Generator_ext_p_nom_upper:
   description: "`Generator-ext-p_nom-upper` — the chosen build is at most its cap; a cap of infinity is no row"
-  foreach: [generator]
+  dims: [generator]
   where: Generator_p_nom_extendable AND Generator_p_nom_max
   expression: Generator_p_nom_ext <= Generator_p_nom_max
 ```
@@ -234,7 +234,7 @@ P_{g} \le \overline{\mathrm{p}}^{\mathrm{nom}}_{g} \qquad \forall\, g \in \mathc
 ```yaml
 Link_fix_p_lower:
   description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
-  foreach: [scenario, snapshot, link]
+  dims: [scenario, snapshot, link]
   expression: Link_p >= Link_p_min_pu * Link_p_nom
 ```
 
@@ -249,7 +249,7 @@ f_{s,t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \
 ```yaml
 Link_fix_p_upper:
   description: "`Link-fix-p-upper` — a link carries at most its nominal power"
-  foreach: [scenario, snapshot, link]
+  dims: [scenario, snapshot, link]
   expression: Link_p <= Link_p_max_pu * Link_p_nom
 ```
 
@@ -267,7 +267,7 @@ Bus_nodal_balance:
     `Bus-nodal_balance` — what is generated at a bus, less what the links
     take away, plus what arrives over them after losses, meets the load
     there
-  foreach: [scenario, snapshot, bus]
+  dims: [scenario, snapshot, bus]
   expression: >-
     sum(Generator_p, by=Generator_bus)
     - sum(Link_p, by=Link_bus0)
@@ -286,7 +286,7 @@ Bus_nodal_balance:
 ```yaml
 CVaR_excess:
   description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"
-  foreach: [scenario]
+  dims: [scenario]
   expression: CVaR_a - scenario_opex + CVaR_theta >= 0
 ```
 
@@ -301,7 +301,7 @@ a_{s} - \mathit{scenario\_opex}_{s} + \theta \ge 0 \qquad \forall\, s \in \mathc
 ```yaml
 CVaR_def:
   description: "`CVaR-def` — the tail's average is at least where it starts plus the expected excess over the tail's probability"
-  foreach: []
+  dims: []
   expression: CVaR_theta + CVaR_inv_tail * sum(scenario_weight * CVaR_a, consume=scenario) <= CVaR
 ```
 

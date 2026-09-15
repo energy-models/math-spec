@@ -158,16 +158,16 @@ parameters:
   demand: { dims: [zone, period] }
   price: { dims: [zone, period] }
 variables:
-  p: { foreach: [generator, period] }
+  p: { dims: [generator, period] }
 constraints:
   zone_balance: # p[generator, period] → [zone, period]
-    foreach: [zone, period]
+    dims: [zone, period]
     expression: sum(p, by=zone_of, consume=generator, produce=zone) >= demand
   history: # p[generator, period] → [generator, zone]: the same table, walked from its other key column
-    foreach: [generator, zone]
+    dims: [generator, zone]
     expression: sum(p, by=zone_of, consume=period, produce=zone) <= 100
   capped_revenue: # price[zone, period] → [generator, period]: the price of the zone this generator sat in that period
-    foreach: [generator, period]
+    dims: [generator, period]
     expression: at(price, by=zone_of, consume=zone, produce=generator) * p <= 1000
 ```
 
@@ -261,10 +261,10 @@ alike:
 ```yaml
 constraints:
   representative: # every snapshot takes its representative's value
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p == at(p, by=rep_of)
   weighted: # the snapshots a representative stands for, summed onto it
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, by=rep_of) <= 100
 ```
 
@@ -322,7 +322,7 @@ does with the column, not what the column holds:
 | is a mask                                                                                                                             | a `bool` parameter                          | a bare name in a `where` is its own answer                                                                                |
 
 Two rules follow from the table. If `b` has one value per `a`, then `b` is a
-**lookup** keyed by `a`, and not a dimension: a `foreach` product over two
+**lookup** keyed by `a`, and not a dimension: a `dims` product over two
 dimensions that depend on each other, cut back with a mask, is the shape that
 `lookups` replaces.
 

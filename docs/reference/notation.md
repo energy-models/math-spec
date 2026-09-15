@@ -161,7 +161,7 @@ names the plain expression: its symbol prints here, its definition once below
 
 ```yaml
 budgeted:
-  foreach: [snapshot]
+  dims: [snapshot]
   expression: spend <= budget
 ```
 
@@ -175,7 +175,7 @@ names the cased expression: its symbol prints here, its block once below
 
 ```yaml
 starts:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: p <= startup_cost
 ```
 
@@ -189,7 +189,7 @@ sum over a lookup
 
 ```yaml
 balance:
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   expression: sum(p, by=gen_bus) + spill - slack == load
 ```
 
@@ -203,7 +203,7 @@ roll (cyclic) and shift (acyclic) in one equation
 
 ```yaml
 ramp:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: p - shift(p, over=snapshot, offset=1, edge='wrap') <= shift(p, over=snapshot, offset=1) + p_max
 ```
 
@@ -217,7 +217,7 @@ the two translations `ramp` leaves out: a fill, and forwards
 
 ```yaml
 edges:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: >-
     shift(p, over=snapshot, offset=1, edge=0)
     <= shift(p, over=snapshot, offset=-1, edge=0) + p_max
@@ -233,7 +233,7 @@ the cyclic translation forwards, which is a fourth symbol again
 
 ```yaml
 ahead:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: p <= shift(p, over=snapshot, offset=-1, edge='wrap')
 ```
 
@@ -247,7 +247,7 @@ two steps of one policy are one step; a zero step is none at all
 
 ```yaml
 composed:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: shift(shift(p, over=snapshot, offset=1), over=snapshot, offset=1) <= shift(p_max, over=generator, offset=0)
 ```
 
@@ -261,7 +261,7 @@ a named offset under a numbered one stays two steps, not their sum
 
 ```yaml
 uncomposed:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: shift(shift(p, over=snapshot, offset=lead, edge=0), over=snapshot, offset=1) <= p_max
 ```
 
@@ -275,7 +275,7 @@ two dimensions translated at one leaf, each with its own policy
 
 ```yaml
 crossed:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: shift(shift(p, over=snapshot, offset=1, edge='wrap'), over=generator, offset=-1) <= p_max
 ```
 
@@ -289,7 +289,7 @@ an offset the data carries, so it prints as a symbol rather than a number
 
 ```yaml
 lead_time:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: shift(p, over=snapshot, offset=lead, edge=0) <= p_max
 ```
 
@@ -303,7 +303,7 @@ a translation partitioned by a lookup: the group rides on the operator
 
 ```yaml
 in_season:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
 ```
 
@@ -317,7 +317,7 @@ the same group, with a fill: each season's opening row is kept and given a zero
 
 ```yaml
 held_in_season:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)
 ```
 
@@ -331,7 +331,7 @@ a trailing window of fixed width
 
 ```yaml
 window:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: sum_back(on, over=snapshot, window=3) <= units
 ```
 
@@ -345,7 +345,7 @@ the same window, its width in the data and its edge wrapped
 
 ```yaml
 history:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: sum_back(on, over=snapshot, window=min_up, edge='wrap') <= units
 ```
 
@@ -359,7 +359,7 @@ a window partitioned by a lookup: the group rides on the operator
 
 ```yaml
 seasonal_window:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: sum_back(on, over=snapshot, window=3, by=season_of) <= units
 ```
 
@@ -373,7 +373,7 @@ at(), which re-indexes through a lookup instead of an offset
 
 ```yaml
 pullback:
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   expression: spill <= at(zone_cap, by=zone_of)
 ```
 
@@ -387,7 +387,7 @@ one table walked to two value columns: the domain carries a condition per column
 
 ```yaml
 grouped_once:
-  foreach: [snapshot, bus, technology]
+  dims: [snapshot, bus, technology]
   expression: sum(p, by=gen_bt, produce=[bus, technology]) <= tech_cap
 ```
 
@@ -401,7 +401,7 @@ its adjoint, reading one slot through two columns of one table
 
 ```yaml
 pulled_back_once:
-  foreach: [generator]
+  dims: [generator]
   expression: units <= at(tech_cap, by=gen_bt, consume=[bus, technology])
 ```
 
@@ -415,7 +415,7 @@ a partition grouped by one named value column of a two-value table, and a positi
 
 ```yaml
 within_bus:
-  foreach: [generator]
+  dims: [generator]
   where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
   expression: units <= shift(units, over=generator, offset=1, edge=0, by=gen_bt, within=bus)
 ```
@@ -430,7 +430,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 
 ```yaml
 relational:
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   expression: sum(p, by=connection, consume=generator, produce=bus) <= load
 ```
 
@@ -444,7 +444,7 @@ a bare relation as a where: the row of the frame has to be a member of the relat
 
 ```yaml
 connected:
-  foreach: [snapshot, generator, bus]
+  dims: [snapshot, generator, bus]
   where: "connection"
   expression: p <= load
 ```
@@ -459,7 +459,7 @@ a map into its own dimension, walked both ways: the frame is unchanged and the i
 
 ```yaml
 representative:
-  foreach: [snapshot]
+  dims: [snapshot]
   expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
 ```
 
@@ -473,7 +473,7 @@ one grouping through two maps: the domain carries both conditions
 
 ```yaml
 grouped_twice:
-  foreach: [snapshot, bus, technology]
+  dims: [snapshot, bus, technology]
   expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap
 ```
 
@@ -487,7 +487,7 @@ its adjoint, reading one slot through a pair of labels
 
 ```yaml
 pulled_back_twice:
-  foreach: [generator]
+  dims: [generator]
   expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
 ```
 
@@ -501,7 +501,7 @@ a grouping through a two-key map, walked along one key: the condition reads the 
 
 ```yaml
 zonal:
-  foreach: [snapshot, zone]
+  dims: [snapshot, zone]
   expression: sum(p, by=gen_zone, consume=generator) <= zone_cap
 ```
 
@@ -515,7 +515,7 @@ the same table walked along its other key
 
 ```yaml
 zonal_history:
-  foreach: [generator, zone]
+  dims: [generator, zone]
   expression: sum(p, by=gen_zone, consume=snapshot) <= zone_cap
 ```
 
@@ -529,7 +529,7 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 
 ```yaml
 zonal_pullback:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
   expression: p <= at(spill * zone_cap, by=gen_zone, produce=generator)
 ```
@@ -544,7 +544,7 @@ division, both unary signs, a sign beside a sign, floats with and without an exp
 
 ```yaml
 arithmetic:
-  foreach: [snapshot]
+  dims: [snapshot]
   expression: >-
     sum(p / 2 + -cost - -1e-5 * p + 2.5e-7 * cost + 0.5 * p, consume=generator)
     >= -sum(+p, consume=generator) * -3
@@ -560,7 +560,7 @@ a sum naming no dim, whose domain is the one place the dims it took are said
 
 ```yaml
 total:
-  foreach: []
+  dims: []
   expression: sum(p) <= budget
 ```
 
@@ -574,7 +574,7 @@ a parameter over nothing, and a mask that is a bare parameter
 
 ```yaml
 scalar:
-  foreach: [generator]
+  dims: [generator]
   where: "cost"
   expression: units <= budget
 ```
@@ -589,7 +589,7 @@ a mask on a variable's existence, and one on a dimension's label
 
 ```yaml
 running:
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   where: "theta AND snapshot >= 3"
   expression: theta <= load
 ```
@@ -604,7 +604,7 @@ a position in a dimension, and the same position within a group
 
 ```yaml
 first:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: "position(snapshot) == 0 OR position(snapshot, by=season_of) == 0"
   expression: on == 1
 ```
@@ -619,7 +619,7 @@ the same two counted from the end, which print against a size rather than as the
 
 ```yaml
 last:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: "position(snapshot) == -1 OR position(snapshot, by=season_of) == -1"
   expression: on == 0
 ```
@@ -634,7 +634,7 @@ a lookup compared to a label, to another lookup, and to nothing
 
 ```yaml
 northern:
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   where: "zone_of == 'north' AND zone_of != area_of AND zone_of"
   expression: slack <= load
 ```
@@ -649,7 +649,7 @@ a Greek-named parameter, which is given — so the convention wins and it prints
 
 ```yaml
 efficiency:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   expression: p <= eta * p_max
 ```
 
@@ -663,7 +663,7 @@ the infinity literal, which is the one way infinity prints
 
 ```yaml
 ceiling:
-  foreach: [bus]
+  dims: [bus]
   expression: theta <= inf
 ```
 
@@ -677,7 +677,7 @@ a mask that is only the constant true, which the language says is no mask at all
 
 ```yaml
 always:
-  foreach: [snapshot]
+  dims: [snapshot]
   where: "true"
   expression: spill >= 0
 ```
@@ -692,7 +692,7 @@ the same constant *inside* a mask, where it is what the file says and prints
 
 ```yaml
 redundant:
-  foreach: [snapshot]
+  dims: [snapshot]
   where: "True AND spill"
   expression: spill >= 0
 ```
@@ -707,7 +707,7 @@ the other constant mask, which says the rows are none and is worth seeing
 
 ```yaml
 never:
-  foreach: [snapshot]
+  dims: [snapshot]
   where: "false"
   expression: slack >= 0
 ```
@@ -761,7 +761,7 @@ a quantity defined by region: no two cases overlap, and `otherwise` is the rest
 
 ```yaml
 startup_cost:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: cost }
     winter: { when: "position(snapshot) > 0 and season_of == 'winter'", expression: cost * 2 }
@@ -780,7 +780,7 @@ both bounds, and a where with all three connectives
 
 ```yaml
 p:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: "p_max > 0 AND NOT is_flexible OR p_min > 0"
   bounds: { lower: p_min, upper: p_max }
 ```
@@ -795,7 +795,7 @@ lower only
 
 ```yaml
 spill:
-  foreach: [snapshot]
+  dims: [snapshot]
   bounds: { lower: 0 }
 ```
 
@@ -809,7 +809,7 @@ upper only
 
 ```yaml
 slack:
-  foreach: [snapshot]
+  dims: [snapshot]
   bounds: { upper: 100 }
 ```
 
@@ -823,7 +823,7 @@ unbounded
 
 ```yaml
 theta:
-  foreach: [bus]
+  dims: [bus]
 ```
 
 ```math
@@ -836,7 +836,7 @@ a binary domain, which is a set rather than a pair of bounds
 
 ```yaml
 on:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   domain: binary
 ```
 
@@ -850,7 +850,7 @@ an integer domain, which is both: bounds, and where the values live
 
 ```yaml
 units:
-  foreach: [generator]
+  dims: [generator]
   domain: integer
   bounds: { lower: 0, upper: 10 }
 ```
@@ -865,7 +865,7 @@ integer with neither bound: the domain is the whole line
 
 ```yaml
 spare:
-  foreach: [generator]
+  dims: [generator]
   domain: integer
 ```
 
@@ -875,11 +875,11 @@ spare:
 
 #### `reserve`
 
-an empty foreach: a scalar declaration, whose line carries no quantifier
+an empty dims: a scalar declaration, whose line carries no quantifier
 
 ```yaml
 reserve:
-  foreach: []
+  dims: []
   bounds: { lower: 0 }
 ```
 
@@ -893,7 +893,7 @@ scalar too, but masked, so the condition stands with no set beside it
 
 ```yaml
 headroom:
-  foreach: []
+  dims: []
   where: "budget"
   bounds: { lower: 0 }
 ```
@@ -908,7 +908,7 @@ the family a sos runs along
 
 ```yaml
 weight:
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   bounds: { lower: 0, upper: 1 }
 ```
 

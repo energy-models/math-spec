@@ -12,12 +12,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p >= load
 
 expressions:

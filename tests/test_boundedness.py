@@ -19,7 +19,7 @@ from tests.fixtures import SMALL_MODEL, override, schema_of
 
 BASE = override(
     SMALL_MODEL,
-    variables={'v': {'foreach': ['g']}, 'w': {'foreach': ['g']}},
+    variables={'v': {'dims': ['g']}, 'w': {'dims': ['g']}},
     objective={'sense': 'minimize', 'expression': 'sum(v, consume=g)'},
 )
 
@@ -72,7 +72,7 @@ def test_a_variable_the_objective_drives_unopposed_is_named_with_its_side(patch,
         pytest.param({'variables.v.bounds': {'lower': 0}}, id='bounded-on-the-improving-side'),
         pytest.param({'variables.v.bounds': {'lower': 'c'}}, id='a-parameter-bound-is-data'),
         pytest.param({'variables.v.domain': 'binary'}, id='a-binary-is-bounded-by-its-domain'),
-        pytest.param({'constraints': {'k': {'foreach': ['g'], 'expression': 'v >= c'}}}, id='named-by-a-constraint'),
+        pytest.param({'constraints': {'k': {'dims': ['g'], 'expression': 'v >= c'}}}, id='named-by-a-constraint'),
         pytest.param({'sos': {'s': {'variable': 'v', 'over': 'g', 'type': 1}}}, id='carried-by-a-set'),
         pytest.param({'objective.expression': 'sum(c * v, consume=g)'}, id='a-parameter-coefficient-may-be-zero'),
         pytest.param({'objective.expression': 'sum(v - v, consume=g)'}, id='both-signs-may-cancel'),
@@ -97,7 +97,7 @@ THROUGH_EACH_OPERATOR = {
     'shift': {'objective.expression': 'sum(shift(v, over=g, offset=1), consume=g)'},
     'sum_back': {'objective.expression': 'sum(sum_back(v, over=g, window=2), consume=g)'},
     # `at` reads onto the lookup's source, so the variable it drives is on `h`
-    'at': {'variables.u': {'foreach': ['h']}, 'objective.expression': 'sum(at(u, by=lk), consume=g)'},
+    'at': {'variables.u': {'dims': ['h']}, 'objective.expression': 'sum(at(u, by=lk), consume=g)'},
 }
 
 #: `dual` is refused in any objective, and boundedness walks the objective —
