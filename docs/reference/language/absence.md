@@ -28,12 +28,12 @@ This page says what the mask means for the rows that are built.
 
 ## What creates absence
 
-| Construct                                    | What is absent                                                   |
-| -------------------------------------------- | ---------------------------------------------------------------- |
-| `where:` on a variable                       | the variable, at the masked coordinates                          |
-| `where:` on a constraint                     | the row                                                          |
-| `shift(x, over=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))        |
-| a label a lookup does not map                | that label's group membership ([lookups](dimensions.md#lookups)) |
+| Construct                                     | What is absent                                                       |
+| --------------------------------------------- | -------------------------------------------------------------------- |
+| `where:` on a variable                        | the variable, at the masked coordinates                              |
+| `where:` on a constraint                      | the row                                                              |
+| `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))            |
+| a label a relation does not map               | that label's group membership ([relations](dimensions.md#relations)) |
 
 Nothing else creates absence. **A missing parameter row is not absence.** A
 sparse table is a compressed dense table, and a missing row reads as the value
@@ -86,13 +86,13 @@ there instead, write `where: rel_max` on the constraint.
 Every operator falls on one side of the line, and one question decides which:
 does an output slot stand for several input slots, or for one?
 
-| Operator                        | An output slot reads            | An absent input                      |
-| ------------------------------- | ------------------------------- | ------------------------------------ |
-| `sum(x, over=d)`                | every position along `d`        | is one summand fewer; the row stands |
-| `sum(x, by=lookup)`             | every member of the group       | is one summand fewer; the row stands |
-| `sum_back(x, over=d, within=w)` | the positions the window covers | is one summand fewer; the row stands |
-| `shift(x, over=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
-| `at(x, by=lookup)`              | one position, through the map   | _is_ the output, so it spreads       |
+| Operator                         | An output slot reads            | An absent input                      |
+| -------------------------------- | ------------------------------- | ------------------------------------ |
+| `sum(x, over=d)`                 | every position along `d`        | is one summand fewer; the row stands |
+| `sum(x, by=relation)`            | every member of the group       | is one summand fewer; the row stands |
+| `sum_back(x, along=d, window=w)` | the positions the window covers | is one summand fewer; the row stands |
+| `shift(x, along=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
+| `at(x, by=relation)`             | one position, through the map   | _is_ the output, so it spreads       |
 
 The three summing operators put several slots into one, so a missing slot gives a
 shorter sum and the row survives. A window that reaches past the start of its
@@ -165,6 +165,6 @@ separate not-a-number.
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | the row kept, the masked variable read as zero | `absence: zero` on the variable                                                                                              |
 | the row dropped where a parameter has no data  | `where: capacity` on the constraint                                                                                          |
-| a vacated shift position to contribute         | `shift(x, over=d, offset=n, edge=0)`                                                                                         |
+| a vacated shift position to contribute         | `shift(x, along=d, offset=n, edge=0)`                                                                                        |
 | to test whether a variable exists here         | its bare name in a `where`                                                                                                   |
 | a bound only where the data has one            | supply the bound, because `inf` is a value, or mask the variable. These are different models, so the language infers neither |

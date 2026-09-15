@@ -5,11 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PyPSA, the lossy lines
 
-This is rung 13 of [PyPSA in one file](pypsa.md). It states
-`n.optimize(transmission_losses={'mode': 'tangents', 'segments': K})` on the
-lines of rung 6, in a file of its own. The model's description below says why it
-has its own file. Its network is the shared spine plus the script's own
-additions.
+Rung 13 of [PyPSA in one file](pypsa.md): `n.optimize(transmission_losses={'mode': 'tangents', 'segments': K})`, stated on rung 6's lines in a
+file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
 
 ## Rung 13 — transmission losses
 
@@ -17,11 +14,11 @@ additions.
 | --- | --- | --- |
 | [`Line-loss`](#variable-domains) | done | |
 | [`Line-fix-s-*`, `Line-ext-s-*`](#line-fix-s-lower) | done | the loss counted against the rating |
-| [`Bus-nodal_balance`](#bus-nodal_balance) | done | half of each incident line's loss, at either end |
-| [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` comes from data preparation |
-| [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1) | split | PyPSA names one row per segment. Here it is one block over the dimension |
+| [`Bus-nodal_balance`](#bus-nodal_balance) | done | half of each incident line's loss at either end |
+| [`Line-loss_upper`](#line-loss_upper) | done | `loss_max` is data prep |
+| [`Line-loss_tangents-{k}-1`](#line-loss_tangents-k-1) | split | PyPSA names a row per segment; one block over the dimension |
 | [`Line-loss_tangents-{k}--1`](#line-loss_tangents-k--1) | split | |
-| `Line-loss_secants-*` | out | the secant mode solves for its own segment count |
+| `Line-loss_secants-*` | out | the secant mode solves for its segment count |
 
 <!-- reference:rung_13_losses:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `10645.295879552297`, 150 rows.
@@ -84,9 +81,9 @@ The lossy class of a plain `n.optimize()`: `transmission_losses` in its tangent 
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
-| $`\mathcal{N}`$ | index $`n`$ — `bus` — network nodes |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N},\ \mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N},\ \mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N},\ \mathrm{Load\_bus}: \mathcal{D} \to \mathcal{N}`$ — network nodes |
 | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_bus}: \mathcal{G} \to \mathcal{N}`$ — generating units, each on one bus |
-| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N}`$ — controllable connections, each from one bus to the buses it delivers to |
+| $`\mathcal{L}`$ | index $`l`$ — `link` with $`\mathrm{Link\_bus0}: \mathcal{L} \to \mathcal{N},\ \mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L}`$ — controllable connections, each from one bus to the buses it delivers to |
 | $`\mathcal{O}`$ | index $`o`$ — `link_output` with $`\mathrm{Link\_output\_link}: \mathcal{O} \to \mathcal{L},\ \mathrm{Link\_output\_bus}: \mathcal{O} \to \mathcal{N}`$ — a link's output ports, one label per port a link declares — PyPSA's `bus1`, `bus2`, … columns read long, so a link of any number of output ports is one term in the balance, data prep |
 | $`\mathcal{K}`$ | index $`k`$ — `line` with $`\mathrm{Line\_bus0}: \mathcal{K} \to \mathcal{N},\ \mathrm{Line\_bus1}: \mathcal{K} \to \mathcal{N}`$ — passive branches, each between two buses, their flow set by impedance |
 | $`\mathcal{C}`$ | index $`c`$ — `cycle` — independent cycles of the passive network graph — the cycle basis, data prep |
