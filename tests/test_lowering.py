@@ -11,7 +11,7 @@ it is the contract consumers are written against.
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from typing import TYPE_CHECKING, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
@@ -63,6 +63,15 @@ from math_spec.program import (
 )
 from math_spec.resolution import Namespace, expression_of, where_of
 from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
+
+#: `fixtures.SMALL_MODEL` plus a two-link curve over the second dimension, so a
+#: block's own parameters stand beside ordinary ones in the same program.
+CURVE: dict[str, Any] = {
+    'parameters.bx': {'dims': ['h']},
+    'parameters.by': {'dims': ['h']},
+    'variables.s': {'dims': ['g']},
+    'piecewise.curve': {'over': 'h', 'links': [['p', 'bx'], ['s', 'by']], 'method': 'convex'},
+}
 
 if TYPE_CHECKING:
     from math_spec._expression_parser import ArithmeticNode
@@ -998,3 +1007,39 @@ def test_two_groups_of_a_program_merge_with_or_as_they_did_behind_the_proxy():
     assert isinstance(merged, dict), 'a merge is a plain dict, as the proxy gave'
     assert list(merged) == ['meet', 'p'], 'both groups, the left one first'
     assert list({'q': None} | program.variables) == ['q', 'p'], 'and a dict on the left merges too'
+
+
+def test_a_parameter_covers_every_coordinate_unless_it_says_otherwise():
+    """The default is the strict reading — a table carries what its dims reach.
+    ``masked`` is the file saying the missing row was meant, and which of the
+    two a declaration means has to survive lowering, because whatever binds the
+    table reads it off the program rather than off the file."""
+    program = to_program(override(SMALL_MODEL, **{'parameters.k.coverage': 'masked'}))
+    assert program.parameters['c'].coverage == 'total', 'a parameter that says nothing covers its dims'
+    assert program.parameters['k'].coverage == 'masked', 'and one that says so is carried through unchanged'
+
+
+def test_a_parameter_a_curve_owns_answers_for_no_coverage():
+    """A block's own parameters carry ``None``, the way a label space does.
+
+    ``coverage:`` is refused on them at load — ``points:`` already says how far
+    each curve runs — but the refusal is a fact about the file, and whatever
+    binds the table reads the program. Reporting the unwritten default there
+    would tell a consumer to require every coordinate the dims reach, which is
+    exactly what a ragged curve does not carry.
+    """
+    program = to_program(override(SMALL_MODEL, **CURVE, **{'piecewise.curve.points': 'bx'}))
+
+    coverage = {name: p.coverage for name, p in program.parameters.items()}
+    assert coverage == {
+        'c': 'total',
+        'k': 'total',
+        'flag': 'total',
+        'tag': 'total',
+        'bx': None,
+        'by': None,
+        'curve_points': None,
+    }, (
+        "the two the block consumes and the mask it emitted answer for no coverage; every other parameter's "
+        'declaration is carried through'
+    )

@@ -571,7 +571,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'relations.tag': {'columns': 'g', 'dtype': 'str'}},
-                ("unknown key 'dtype' in a relation declaration. Valid keys: columns, description, key.",),
+                ("unknown key 'dtype' in a relation declaration. Valid keys: columns, coverage, description, key.",),
                 id='relation-with-a-dtype-of-its-own',
             ),
             pytest.param({'relations.tag': {'columns': 'g'}}, ('has 1 column(s)',), id='relation-with-one-column'),
@@ -1373,3 +1373,52 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
         ('resolve_where_text', "Named expression 'headroom', case 'opening'"),
         ('resolve_where_text', "Variable 'p'"),
     ], 'every expression and where position once, under the context validation reads it in, and nothing after'
+
+
+CURVE: dict[str, Any] = {
+    'parameters.bx': {'dims': ['h']},
+    'parameters.by': {'dims': ['h']},
+    'variables.s': {'dims': ['g']},
+    'piecewise.curve': {'over': 'h', 'links': [['p', 'bx'], ['s', 'by']], 'method': 'convex'},
+}
+
+
+class TestRelationCoverage:
+    """A map short of a key coordinate lands its terms in no group, which is the
+    wiring mistake a composed model cannot otherwise be told about."""
+
+    def test_a_map_covers_every_key_coordinate_unless_it_says_otherwise(self):
+        program = to_program(
+            override(
+                SMALL_MODEL,
+                relations={
+                    'lk': {'columns': ['g', 'h'], 'key': 'g'},
+                    'open': {'columns': ['g', 'h'], 'key': 'g', 'coverage': 'masked'},
+                },
+            )
+        )
+        declared = {rel.name: rel.coverage for rel in program.dimensions['g'].relations}
+        assert declared == {'lk': 'total', 'open': 'masked'}, (
+            'a map that says nothing covers its key, and one that says so is carried through'
+        )
+
+    def test_a_curve_and_its_parameters_load_when_neither_declares_coverage(self):
+        to_spec(override(SMALL_MODEL, **CURVE))
+
+    def test_coverage_on_a_parameter_a_curve_consumes_is_refused(self):
+        """`points:` is already the third answer — a breakpoint it leaves out
+        declares no weight and its values are not asked for — so a values
+        parameter is total over the points its block admits, which neither
+        `total` nor `masked` names. Either spelling would contradict the block."""
+        with pytest.raises(LanguageError) as exc:
+            to_spec(override(SMALL_MODEL, **CURVE, **{'parameters.bx.coverage': 'masked'}))
+        assert "parameter 'bx'" in str(exc.value), 'the message names the parameter that has to change'
+        assert "'curve'" in str(exc.value), 'and the block that already owns the answer'
+        assert "'points:'" in str(exc.value), 'and names the rewrite'
+
+    def test_total_is_refused_there_too_rather_than_read_as_agreement(self):
+        """`total` on a curve parameter is not harmlessly redundant: it claims
+        every coordinate the dims reach, which is exactly what a curve shorter
+        than its axis does not carry."""
+        with pytest.raises(LanguageError, match="'points:'"):
+            to_spec(override(SMALL_MODEL, **CURVE, **{'parameters.bx.coverage': 'total'}))

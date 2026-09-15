@@ -49,6 +49,7 @@ __all__ = [
     'ConstraintDeclaration',
     'ConstraintSense',
     'Contiguous',
+    'Coverage',
     'Curved',
     'Derivation',
     'DimensionComparisonNode',
@@ -141,6 +142,11 @@ DimensionDtype = _model.DimensionDtype
 
 #: What a parameter's values are (:data:`~math_spec.model.ParameterDtype`).
 ParameterDtype = _model.ParameterDtype
+
+#: Whether a table or a map must carry every coordinate it is declared over
+#: (:data:`~math_spec.model.Coverage`) — one word for the parameter key and the
+#: lookup key, which ask the same question.
+Coverage = _model.Coverage
 
 #: What a masked variable's non-existence means
 #: (:data:`~math_spec.model.VariableAbsence`).
@@ -481,6 +487,8 @@ class RelationDeclaration(NamedTuple):
     name: str
     columns: tuple[tuple[str, str], ...]
     key: tuple[str, ...] = ()
+    #: Whether the table must carry a row for every coordinate of :attr:`key`.
+    coverage: Coverage = 'total'
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -722,6 +730,13 @@ class ParameterDeclaration:
     #: follows: the caller binds a declared parameter, and an emitted one is
     #: built from the block's own breakpoints the way its derivation says.
     derivation: Derivation | None = None
+    #: Whether the table must carry every coordinate of *dims*. ``masked`` says
+    #: a missing row is absence the model means, so the declaration rather than
+    #: the data decides how a short table reads. ``None`` where a ``piecewise:``
+    #: block consumes or emits the parameter and so owns its shape: a curve runs
+    #: as far as ``points:`` says, which is neither of the two, and a consumer
+    #: checking coverage there would refuse a ragged curve the block admits.
+    coverage: Coverage | None = 'total'
 
 
 @dataclass(frozen=True)

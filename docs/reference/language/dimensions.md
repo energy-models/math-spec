@@ -53,8 +53,10 @@ same model.
 3. **A table has each coordinate at most once.** Two rows for `snapshot == 3`
    is an error that names `3`. The engine does not keep the last, keep the
    first, or add them. _At most_ once, not exactly once: a coordinate with no
-   row is [absence](absence.md), and absence is how a model masks. A relation's
-   table obeys the same rule.
+   row is how a parameter declared `coverage: masked` masks, and an error at the
+   bind for one declared `total`. Which of the two it is, the declaration says
+   and the table does not ([`coverage`](declarations.md)). A relation's table
+   obeys the same rule.
 
 Every dimension has one list of members, and every parameter is lined up against
 it when the data binds. So if `load` has 8760 snapshots and `price` has 8759, the
@@ -85,12 +87,13 @@ relations:
   connection: { columns: [generator, bus] } # no key: a generator may connect to several buses
 ```
 
-| Field         |                                                                                                                                      |                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
-| `over`        | required — the columns: a list of dimensions, or a mapping of column name to dimension where two columns share one ([roles](#roles)) |                |
-| `into`        | not a field: a relation declares no direction                                                                                        |                |
-| `key`         | the columns a row is identified by, one name or a list; omitted, the table is a bare relation ([below](#the-key-is-the-claim))       | default none   |
-| `description` | free text, never parsed                                                                                                              | default `null` |
+| Field         |                                                                                                                                      |                 |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
+| `over`        | required — the columns: a list of dimensions, or a mapping of column name to dimension where two columns share one ([roles](#roles)) |                 |
+| `into`        | not a field: a relation declares no direction                                                                                        |                 |
+| `key`         | the columns a row is identified by, one name or a list; omitted, the table is a bare relation ([below](#the-key-is-the-claim))       | default none    |
+| `coverage`    | `total`, `masked` — whether every coordinate of the key carries a row                                                                | default `total` |
+| `description` | free text, never parsed                                                                                                              | default `null`  |
 
 Every column is over a declared dimension, and its values are checked against
 that dimension's labels once data is bound — the check that makes `sum(by=)`
@@ -137,6 +140,29 @@ The key is also what decides which walks the table admits:
 A bare relation — no `key:` — is walked by `sum` alone, with both ends named,
 and tested by a bare `where`. That is what a many-to-many relation can say,
 and all it can say.
+
+### `coverage` says whether a gap is meant
+
+A partial relation is legal, and `coverage:` is where the file says it was
+meant. A key coordinate the table leaves out belongs to no group, so a
+generator can sit on no bus and a line can have one open end. `sum(by=)` places
+such a coordinate's terms nowhere. That is a deliberate shape and a wiring
+mistake in equal measure, and the two are identical in the data, so the
+declaration says which:
+
+```yaml
+relations:
+  gen_bus: { columns: [generator, bus], key: generator } # total: every generator is on a bus
+  line_to: { columns: [line, bus], key: line, coverage: masked } # an open end is meant
+```
+
+The default is `total`, so a component library that declares its coupling map
+`total` turns a port nobody wired from a term that quietly vanishes into an
+error that names it. "Left out" is spelled by omission: a key coordinate with
+no row. A value that names no label of its column is an error.
+
+A `total` relation must carry a row for every coordinate of its `key:`. Where
+there is no key, the claim is over every combination of its columns' dimensions.
 
 ### A walk names its ends
 

@@ -35,11 +35,15 @@ This page says what the mask means for the rows that are built.
 | `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))            |
 | a label a relation does not map               | that label's group membership ([relations](dimensions.md#relations)) |
 
-Nothing else creates absence. **A missing parameter row is not absence.** A
-sparse table is a compressed dense table, and a missing row reads as the value
-that contributes nothing: `0` as a coefficient, and `false` in a `where`.
+Nothing else creates absence. **A missing parameter row is not absence**, and
+what it is instead is the parameter's [`coverage`](declarations.md) to say.
+Under `total`, the default, a coordinate the `dims` reach with no row is an
+error when data binds, naming the coordinate: a row lost in preparation, and not
+a mask. Under `masked` the sparse table is a compressed dense table, and the
+missing row reads as the value that contributes nothing: `0` as a coefficient,
+and `false` in a `where`.
 
-Where no such value exists, loading is refused rather than guessed. There are
+Where no such value exists, the bind is refused rather than guessed. There are
 four such positions: a divisor, a `bounds:` entry, the whole constant side of a
 comparison, and a [`piecewise:`](piecewise.md) breakpoint.
 
