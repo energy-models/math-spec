@@ -168,7 +168,7 @@ either way, so nothing later would tell you.
 program.separability['bp'].windowable  # False
 tied = program.separability['generator'].coupled["constraint 'target'"]
 tied.partition(' — ')[0]  # 'sums over generator'
-'sum_back(within=n)' in tied  # True
+'sum_back(window=n)' in tied  # True
 ```
 
 Every declared axis has an entry, and the report is walked once and held, like
@@ -182,11 +182,11 @@ expansion introduced is named under the declaration the expansion emitted.
   state the caller seeds, and a grouping is windowed along the dimension it
   groups into. The report names the change and never applies it.
 - `undecided` lists each read whose reach only the data can say. Each entry is a
-  `Reach`, carrying the declaration, the parameter or lookup it reads, and the
+  `Reach`, carrying the declaration, the parameter or relation it reads, and the
   kind of read: an `offset` from a parameter, a `partition` a shift is grouped
   by, or a `coordinate` read through `at()`. A caller that holds the data reads
   the smallest value of each named parameter and hands it to `resolved`, which
-  returns the report with those reads decided. A reach that a lookup decides is
+  returns the report with those reads decided. A reach that a relation decides is
   not a number, so it stays undecided.
 - `restarts` names each declaration that counts a `position()` along the axis,
   because a window restarts that count at its first row.

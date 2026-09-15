@@ -109,14 +109,14 @@ def test_a_mask_reads_as_definedness_unless_its_parameter_is_boolean(
 
 
 def _storage(shift: str) -> dict[str, object]:
-    """A state-of-charge balance, `soc == shift(soc, over=snapshot, <shift>)`: one model per translation policy.
+    """A state-of-charge balance, `soc == shift(soc, along=snapshot, <shift>)`: one model per translation policy.
 
     No parameter, so it is also the model the "given" convention has nothing to say about.
     """
     return {
         'dimensions': {'snapshot': {'dtype': 'int'}},
         'variables': {'soc': {'dims': ['snapshot'], 'bounds': {'lower': 0, 'upper': 100}}},
-        'constraints': {'balance': {'dims': ['snapshot'], 'expression': f'soc == shift(soc, over=snapshot, {shift})'}},
+        'constraints': {'balance': {'dims': ['snapshot'], 'expression': f'soc == shift(soc, along=snapshot, {shift})'}},
     }
 
 
@@ -157,12 +157,12 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
     """
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
+        'relations': {'season_of': {'columns': ['snapshot', 'season'], 'key': 'snapshot'}},
         'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'held': {
                 'dims': ['snapshot'],
-                'expression': 'p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)',
+                'expression': 'p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of)',
             }
         },
         'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
@@ -180,7 +180,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
 def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Format):
     """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.
 
-    Whoever wrote it last used to win: ``at(shift(cap, over=period, offset=1,
+    Whoever wrote it last used to win: ``at(shift(cap, along=period, offset=1,
     edge=0), by=period_of)`` printed `cap_{period_of(t)}`, dropping a
     translation the plan builds. The subscript is a composition, so it renders
     as one.
@@ -190,13 +190,13 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
             'snapshot': {'dtype': 'int'},
             'period': {'dtype': 'int'},
         },
-        'lookups': {'period_of': {'over': 'snapshot', 'into': 'period'}},
+        'relations': {'period_of': {'columns': ['snapshot', 'period'], 'key': 'snapshot'}},
         'parameters': {'cap': {'dims': ['period']}},
         'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'within': {
                 'dims': ['snapshot'],
-                'expression': 'p <= at(shift(cap, over=period, offset=1, edge=0), by=period_of)',
+                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of)',
             }
         },
     }
@@ -220,7 +220,7 @@ def test_translations_that_disagree_at_the_edge_do_not_merge(name: FormatName, f
         'constraints': {
             'b': {
                 'dims': ['snapshot'],
-                'expression': "soc <= shift(shift(soc, over=snapshot, offset=1, edge='wrap'), over=snapshot, offset=1)",
+                'expression': "soc <= shift(shift(soc, along=snapshot, offset=1, edge='wrap'), along=snapshot, offset=1)",
             }
         },
     }
@@ -266,16 +266,16 @@ def test_a_negative_fill_prints(name: FormatName, fmt: Format):
         'dimensions': {'g': {}},
         'parameters': {'cap': {'dims': ['g']}},
         'variables': {'p': {'dims': ['g']}},
-        'constraints': {'k': {'dims': ['g'], 'expression': 'p <= shift(cap, over=g, offset=1, edge=-1)'}},
+        'constraints': {'k': {'dims': ['g'], 'expression': 'p <= shift(cap, along=g, offset=1, edge=-1)'}},
     }
     assert fmt.operators['edge_minus'] in typeset(model, name, legend=False)
 
 
 def _selected(mask: str) -> dict[str, Any]:
-    """One constraint carrying *mask*, over a dimension a lookup groups."""
+    """One constraint carrying *mask*, over a dimension a relation groups."""
     return {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'lookups': {'season_of': {'over': 'snapshot', 'into': 'season'}},
+        'relations': {'season_of': {'columns': ['snapshot', 'season'], 'key': 'snapshot'}},
         'variables': {'soc': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {'seed': {'dims': ['snapshot'], 'where': mask, 'expression': 'soc == 0'}},
     }
@@ -637,11 +637,11 @@ def test_every_operator_probe_renders(path, name: FormatName, fmt: Format):
 # ---------------------------------------------------------------------------
 
 
-#: Two frames over generators, a lookup onto buses and a boolean mask — what the
+#: Two frames over generators, a relation onto buses and a boolean mask — what the
 #: scope and bracketing cases are written against.
 BUSES = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
-    'lookups': {'bus_of': {'over': 'generator', 'into': 'bus'}},
+    'relations': {'bus_of': {'columns': ['generator', 'bus'], 'key': 'generator'}},
     'parameters': {'load': {'dims': ['snapshot']}, 'k': {'dims': []}, 'flag': {'dims': ['snapshot'], 'dtype': 'bool'}},
     'variables': {'p': {'dims': ['snapshot', 'generator']}, 'q': {'dims': ['snapshot', 'generator']}},
 }
@@ -662,7 +662,7 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
         pytest.param(
             'p == at(sum(q, by=bus_of), by=bus_of)',
             r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}",
-            id='grouped-by-a-lookup',
+            id='grouped-by-a-relation',
         ),
         pytest.param('p == q - sum(q, over=generator)', r"\sum_{g' \in \mathcal{G}} q_{t,g'}", id='over-the-whole-dim'),
     ],

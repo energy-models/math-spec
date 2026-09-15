@@ -47,7 +47,7 @@ PIECEWISE = {
 BEGIN, END = '<!-- notation:begin -->', '<!-- notation:end -->'
 
 #: The blocks that declare math, in the order the page walks them, and the
-#: heading each gets. ``dimensions``, ``lookups`` and ``parameters`` are absent
+#: heading each gets. ``dimensions``, ``relations`` and ``parameters`` are absent
 #: on purpose: they declare no equation, and what they print is the legend,
 #: which the page shows once as a legend rather than a row at a time.
 SECTIONS = {
@@ -173,11 +173,11 @@ def legend(rendered: str) -> str:
 
 #: What the legend is made of. No equation comes from these, so they are shown
 #: once, together, above the tables they turn into.
-DECLARED = ('dimensions', 'lookups', 'parameters')
+DECLARED = ('dimensions', 'relations', 'parameters')
 
 
 def preamble(text: str) -> str:
-    """The fixture's ``dimensions``/``lookups``/``parameters`` blocks, verbatim."""
+    """The fixture's ``dimensions``/``relations``/``parameters`` blocks, verbatim."""
     blocks = []
     for name in DECLARED:
         body = text[text.index(f'\n{name}:') + 1 :]
@@ -191,7 +191,7 @@ def block() -> str:
     rendered = to_markdown(MODEL, numbered=False)
     parts = [
         '### The legend',
-        'A dimension, a lookup and a parameter declare no equation; what they '
+        'A dimension, a relation and a parameter declare no equation; what they '
         'print is the legend every model opens with.',
         f'```yaml\n{preamble(MODEL.read_text())}\n```',
         legend(rendered),

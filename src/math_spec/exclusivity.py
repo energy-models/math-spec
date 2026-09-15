@@ -28,15 +28,15 @@ from math_spec.program import (
     DimensionComparisonNode,
     DimensionPositionNode,
     ExpressionComparisonNode,
-    LookupComparisonNode,
-    LookupDefinedNode,
-    LookupPairComparisonNode,
     Mask,
     NotNode,
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
     ParameterPairComparisonNode,
+    RelationComparisonNode,
+    RelationDefinedNode,
+    RelationPairComparisonNode,
     TypedPredicateNode,
     VariableDefinedNode,
 )
@@ -136,18 +136,20 @@ class Subject:
 
     ``kind`` separates the namespaces that could otherwise collide: a
     dimension's coordinates and its *rank* are two subjects over one name, and
-    a rank is further split by the ``by=`` lookup it is counted within.
+    a rank is further split by the ``by=`` relation it is counted within.
     """
 
-    kind: Literal['param', 'param_pair', 'expression', 'dim', 'rank', 'lookup', 'lookup_pair', 'variable']
+    kind: Literal['param', 'param_pair', 'expression', 'dim', 'rank', 'relation', 'relation_pair', 'variable']
     name: str
     qualifier: str | None = None
+    #: A rank's group columns: two positions by one relation into different columns are two subjects.
+    group: tuple[str, ...] = ()
 
     def __str__(self) -> str:
         if self.kind == 'rank':
             within = f' within {self.qualifier}' if self.qualifier else ''
             return f'the position of {self.name}{within}'
-        if self.kind in ('lookup_pair', 'param_pair'):
+        if self.kind in ('relation_pair', 'param_pair'):
             return f'{self.name} vs {self.qualifier}'
         return self.name
 
@@ -204,15 +206,15 @@ def _observe(node: TypedPredicateNode, subject: Subject, values: set[Any], dtype
         raise Undecidable(msg)
     if isinstance(node, DimensionPositionNode):
         values.add(node.position)
-    elif isinstance(node, LookupPairComparisonNode):
+    elif isinstance(node, RelationPairComparisonNode):
         if node.op not in ('==', '!='):
             msg = (
-                f'{subject} is ordered with {node.op!r}, and two lookups carry no order '
+                f'{subject} is ordered with {node.op!r}, and two relations carry no order '
                 f'against each other — compare them with == or !=, or precompute the '
                 f'ordering as a boolean parameter and test that'
             )
             raise Undecidable(msg)
-    elif isinstance(node, ParameterComparisonNode | DimensionComparisonNode | LookupComparisonNode):
+    elif isinstance(node, ParameterComparisonNode | DimensionComparisonNode | RelationComparisonNode):
         if node.op not in ('==', '!=') and dtypes.get(subject.name) not in _ORDERED_DTYPES:
             msg = (
                 f'{subject} has dtype {dtypes.get(subject.name)!r} and is ordered with '
@@ -231,14 +233,16 @@ def _subject_of(node: TypedPredicateNode) -> Subject:
             return Subject('variable', name)
         case DimensionComparisonNode(name=name):
             return Subject('dim', name)
-        case DimensionPositionNode(name=name, by=by):
-            return Subject('rank', name, by)
-        case LookupDefinedNode(name=name) | LookupComparisonNode(name=name):
-            return Subject('lookup', name)
-        case LookupPairComparisonNode(name=name, other=other):
-            return Subject('lookup_pair', name, other)
         case ParameterPairComparisonNode(name=name, other=other):
             return Subject('param_pair', name, other)
+        case DimensionPositionNode(name=name, partition=partition):
+            if partition is None:
+                return Subject('rank', name)
+            return Subject('rank', name, partition.name, partition.produced)
+        case RelationDefinedNode(name=name) | RelationComparisonNode(name=name):
+            return Subject('relation', name)
+        case RelationPairComparisonNode(name=name, other=other):
+            return Subject('relation_pair', name, other)
         case ArithmeticComparisonNode() | ExpressionComparisonNode():
             return Subject('expression', 'a comparison of expressions')
         case _:
@@ -253,7 +257,7 @@ def _cells_for(subject: Subject, values: set[Any], dtypes: Mapping[str, Declared
     """
     if subject.kind == 'rank':
         return _rank_cells(subject, cast('set[int]', values))
-    if subject.kind in ('lookup_pair', 'variable'):
+    if subject.kind in ('relation_pair', 'variable'):
         return [True, False]
     if subject.kind == 'param_pair':
         return [*_PAIR_ORDERS, Special.NULL]
@@ -386,7 +390,7 @@ _PAIR_ORDERS: tuple[int, ...] = (-1, 0, 1)
 def _shown(subject: Subject, value: Cell) -> str:
     if subject.kind == 'rank':
         return str(value)
-    if subject.kind == 'lookup_pair':
+    if subject.kind == 'relation_pair':
         return 'equal' if value else 'different'
     if subject.kind == 'param_pair' and isinstance(value, int):
         return {-1: 'less', 0: 'equal', 1: 'greater'}[value]
@@ -423,13 +427,13 @@ def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], grid: _Grid) -> b
     subject = grid.subjects[id(node)]
     value = cell[subject]
     match node:
-        case ParameterDefinedNode() | LookupDefinedNode():
+        case ParameterDefinedNode() | RelationDefinedNode():
             if isinstance(value, bool):
                 return value
             return value not in (Special.NULL, Special.POS_INF, Special.NEG_INF)
         case VariableDefinedNode():
             return bool(value)
-        case LookupPairComparisonNode(op=op):
+        case RelationPairComparisonNode(op=op):
             return bool(value) if op == '==' else not value
         case ParameterPairComparisonNode(op=op):
             if value is Special.NULL:
@@ -440,7 +444,7 @@ def _atom(node: TypedPredicateNode, cell: dict[Subject, Cell], grid: _Grid) -> b
             raise AssertionError(msg)
         case DimensionPositionNode(op=op, position=position):
             return _compare(value, op, position)
-        case ParameterComparisonNode(op=op, value=literal) | LookupComparisonNode(op=op, value=literal):
+        case ParameterComparisonNode(op=op, value=literal) | RelationComparisonNode(op=op, value=literal):
             if value is Special.NULL:
                 return False
             return _compare(value, op, literal)

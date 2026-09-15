@@ -79,14 +79,14 @@ dimensions:
   snapshot: { dtype: int }
   generator: { dtype: str }
 parameters:
-  p_max: { dims: [generator] }
+  capacity: { dims: [generator] }
 variables:
-  p:
+  dispatch:
     dims: [snapshot, generator]
-    where: "p_max > 0"
+    where: "capacity > 0"
     bounds:
       lower: 0
-      upper: p_max
+      upper: capacity
 ```
 
 | Field                           |                                                                                                                                              |                        |
@@ -102,7 +102,7 @@ variables:
 
     You write non-negativity. The language does not assume it.
 
-A bound is a name or a number, never arithmetic. `upper: p_max` is accepted, and
+A bound is a name or a number, never arithmetic. `upper: capacity` is accepted, and
 `upper: -rating` is refused with a message that says so. Ship the negated column
 as data. Arithmetic in a bound is
 [#31](https://github.com/fluxopt/lpspec/issues/31). The dimensions of a bound
@@ -127,11 +127,11 @@ dimensions:
 parameters:
   load: { dims: [snapshot] }
 variables:
-  p: { dims: [snapshot, generator] }
+  dispatch: { dims: [snapshot, generator] }
 constraints:
   power_balance:
     dims: [snapshot]
-    expression: sum(p, over=generator) == load
+    expression: sum(dispatch, over=generator) == load
 ```
 
 | Field         |                                                     |                |
@@ -164,7 +164,7 @@ Two regimes of one rule are two blocks, each with a name a reader chose:
 ```yaml
 storage_balance:
   dims: [snapshot, storage]
-  expression: soc == shift(soc, over=snapshot, offset=1) * (1 - loss) + charge - discharge
+  expression: soc == shift(soc, along=snapshot, offset=1) * (1 - loss) + charge - discharge
 
 storage_balance_initial:
   dims: [snapshot, storage]
@@ -189,10 +189,10 @@ dimensions:
 parameters:
   cost: { dims: [generator] }
 variables:
-  p: { dims: [generator] }
+  dispatch: { dims: [generator] }
 objective:
   sense: minimize
-  expression: sum(p * cost)
+  expression: sum(dispatch * cost)
 ```
 
 | Field         |                                          |                    |

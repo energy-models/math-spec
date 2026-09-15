@@ -23,8 +23,8 @@ message lists the valid options:
 
 ```text
 Constraint 'balance', equation 0: 'p_charge' not found.
-  Variables: ['p', 'soc']
-  Parameters: ['p_max', 'load', 'efficiency']
+  Variables: ['dispatch', 'soc']
+  Parameters: ['capacity', 'load', 'efficiency']
 Check for typos, or ensure 'p_charge' is declared.
 ```
 
@@ -40,7 +40,7 @@ contrast, prints to stderr and exits 1.
 
 | `kind`          | The file has…                                                                                                                                                                        | The advice says…                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no lookup targets                                                                                                     | remove it, or keep it knowingly if its declarations are still to come |
+| `never-an-axis` | a dimension nothing is indexed by, nothing aggregates into and no relation targets                                                                                                   | remove it, or keep it knowingly if its declarations are still to come |
 | `unbounded`     | a variable that no constraint uses, whose objective term pushes it towards a bound it does not have. `slack` with `bounds.lower: -inf` and a `+slack` term in a `minimize` objective | give it a finite bound, or the constraint that was meant to define it |
 
 A variable of the second kind runs to infinity for every dataset there is. A
@@ -91,7 +91,7 @@ and [the limits](../../about/limits.md) gives the reasons.
 | time-series processing (resample, cluster, interpolate, align), file IO, units | Data preparation. Pass a parameter                                                                                                                                  |
 | indicator constraints                                                          | What a solver can take is a question of its own, and `sos:` is where it landed ([#220](https://github.com/fluxopt/lpspec/issues/220))                               |
 | multi-objective                                                                | There is one `objective:` block. Weight the goals into one expression                                                                                               |
-| arbitrary array operations (`merge`, `reindex`, `apply_ufunc`)                 | Data preparation. The closed operator set is what lets a build stream its terms                                                                                     |
+| arbitrary array operations (`merge`, `reindex`, `apply_ufunc`)                 | Data preparation. The operator set is closed so that every tool reads the file the same way                                                                         |
 | filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if the coordinate should not exist. Inside the language, only `shift(..., edge=)` fills ([absence](absence.md))                      |
 | schema migrations                                                              | —                                                                                                                                                                   |
 
@@ -101,7 +101,7 @@ The arrays it holds would build the same model, but an `expression:` string and 
 reviewer could read. A library that wants a file passes a `dict` with the file's
 keys to `to_spec`, and calls `to_yaml()`.
 
-For math the language cannot express, a block of Python named in the file, with
-a cap on how many rows and columns it may emit, is planned as
-[#38](https://github.com/fluxopt/lpspec/issues/38). It has not shipped, and no
-key for it exists yet.
+The language has no escape hatch. Math it cannot express is a gap in the
+language, and a gap closes as a macro, a primitive or a formulation
+([the limits](../../about/limits.md)). Where the table above has a row, that row
+names what to write instead.

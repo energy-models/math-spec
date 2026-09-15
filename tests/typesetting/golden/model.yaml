@@ -21,12 +21,16 @@ dimensions:
   technology: { dtype: str }
   bp: { dtype: int }
 
-lookups:
-  gen_bus: { over: generator, into: bus }
-  gen_tech: { over: generator, into: technology } # a second map out of `generator`, to group through both at once
-  zone_of: { over: bus, into: zone }
-  area_of: { over: bus, into: zone } # a second map into the same set, to compare against
-  season_of: { over: snapshot, into: season }
+relations:
+  gen_bus: { columns: [generator, bus], key: generator }
+  gen_tech: { columns: [generator, technology], key: generator } # a second map out of `generator`, to group through both at once
+  zone_of: { columns: [bus, zone], key: bus }
+  area_of: { columns: [bus, zone], key: bus } # a second map into the same set, to compare against
+  season_of: { columns: [snapshot, season], key: snapshot }
+  gen_zone: { columns: [generator, snapshot, zone], key: [generator, snapshot] } # a map keyed by two dimensions: a call walks one and joins on the other
+  rep_of: { columns: { snapshot: snapshot, rep: snapshot }, key: snapshot } # a map into its own dimension: the representative snapshot
+  connection: { columns: [generator, bus] } # a bare relation, no key: many-to-many, walked only by sum with both ends named
+  gen_bt: { columns: [generator, bus, technology], key: generator } # one table with two value columns, walked to both at once
 
 parameters:
   p_max: { dims: [generator] }
@@ -129,56 +133,86 @@ constraints:
   starts: # names the cased expression: its symbol prints here, its block once below
     dims: [snapshot, generator]
     expression: p <= startup_cost
-  balance: # sum over a lookup
+  balance: # sum over a relation
     dims: [snapshot, bus]
     expression: sum(p, by=gen_bus) + spill - slack == load
   ramp: # roll (cyclic) and shift (acyclic) in one equation
     dims: [snapshot, generator]
-    expression: p - shift(p, over=snapshot, offset=1, edge='wrap') <= shift(p, over=snapshot, offset=1) + p_max
+    expression: p - shift(p, along=snapshot, offset=1, edge='wrap') <= shift(p, along=snapshot, offset=1) + p_max
   edges: # the two translations `ramp` leaves out: a fill, and forwards
     dims: [snapshot, generator]
     expression: >-
-      shift(p, over=snapshot, offset=1, edge=0)
-      <= shift(p, over=snapshot, offset=-1, edge=0) + p_max
+      shift(p, along=snapshot, offset=1, edge=0)
+      <= shift(p, along=snapshot, offset=-1, edge=0) + p_max
   ahead: # the cyclic translation forwards, which is a fourth symbol again
     dims: [snapshot, generator]
-    expression: p <= shift(p, over=snapshot, offset=-1, edge='wrap')
+    expression: p <= shift(p, along=snapshot, offset=-1, edge='wrap')
   composed: # two steps of one policy are one step; a zero step is none at all
     dims: [snapshot, generator]
-    expression: shift(shift(p, over=snapshot, offset=1), over=snapshot, offset=1) <= shift(p_max, over=generator, offset=0)
+    expression: shift(shift(p, along=snapshot, offset=1), along=snapshot, offset=1) <= shift(p_max, along=generator, offset=0)
   uncomposed: # a named offset under a numbered one stays two steps, not their sum
     dims: [snapshot, generator]
-    expression: shift(shift(p, over=snapshot, offset=lead, edge=0), over=snapshot, offset=1) <= p_max
+    expression: shift(shift(p, along=snapshot, offset=lead, edge=0), along=snapshot, offset=1) <= p_max
   crossed: # two dimensions translated at one leaf, each with its own policy
     dims: [snapshot, generator]
-    expression: shift(shift(p, over=snapshot, offset=1, edge='wrap'), over=generator, offset=-1) <= p_max
+    expression: shift(shift(p, along=snapshot, offset=1, edge='wrap'), along=generator, offset=-1) <= p_max
   lead_time: # an offset the data carries, so it prints as a symbol rather than a number
     dims: [snapshot, generator]
-    expression: shift(p, over=snapshot, offset=lead, edge=0) <= p_max
-  in_season: # a translation partitioned by a lookup: the group rides on the operator
+    expression: shift(p, along=snapshot, offset=lead, edge=0) <= p_max
+  in_season: # a translation partitioned by a relation: the group rides on the operator
     dims: [snapshot, generator]
-    expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
+    expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of)
   held_in_season: # the same group, with a fill: each season's opening row is kept and given a zero
     dims: [snapshot, generator]
-    expression: p <= shift(p, over=snapshot, offset=1, edge=0, by=season_of)
+    expression: p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of)
   window: # a trailing window of fixed width
     dims: [snapshot, generator]
-    expression: sum_back(on, over=snapshot, within=3) <= units
+    expression: sum_back(on, along=snapshot, window=3) <= units
   history: # the same window, its width in the data and its edge wrapped
     dims: [snapshot, generator]
-    expression: sum_back(on, over=snapshot, within=min_up, edge='wrap') <= units
-  seasonal_window: # a window partitioned by a lookup: the group rides on the operator
+    expression: sum_back(on, along=snapshot, window=min_up, edge='wrap') <= units
+  seasonal_window: # a window partitioned by a relation: the group rides on the operator
     dims: [snapshot, generator]
-    expression: sum_back(on, over=snapshot, within=3, by=season_of) <= units
-  pullback: # at(), which re-indexes through a lookup instead of an offset
+    expression: sum_back(on, along=snapshot, window=3, by=season_of) <= units
+  pullback: # at(), which re-indexes through a relation instead of an offset
     dims: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of)
+  grouped_once: # one table walked to two value columns: the domain carries a condition per column
+    dims: [snapshot, bus, technology]
+    expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
+  pulled_back_once: # its adjoint, reading one slot through two columns of one table
+    dims: [generator]
+    expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
+  within_bus: # a partition grouped by one named value column of a two-value table, and a position within both
+    dims: [generator]
+    where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
+    expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt, within=bus)
+  relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
+    dims: [snapshot, bus]
+    expression: sum(p, by=connection, over=generator, into=bus) <= load
+  connected: # a bare relation as a where: the row of the frame has to be a member of the relation
+    dims: [snapshot, generator, bus]
+    where: "connection"
+    expression: p <= load
+  representative: # a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
+    dims: [snapshot]
+    expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
   grouped_twice: # one grouping through two maps: the domain carries both conditions
     dims: [snapshot, bus, technology]
     expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap
   pulled_back_twice: # its adjoint, reading one slot through a pair of labels
     dims: [generator]
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
+  zonal: # a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
+    dims: [snapshot, zone]
+    expression: sum(p, by=gen_zone, over=generator) <= zone_cap
+  zonal_history: # the same table walked along its other key
+    dims: [generator, zone]
+    expression: sum(p, by=gen_zone, over=snapshot) <= zone_cap
+  zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
+    dims: [snapshot, generator]
+    where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
+    expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
   arithmetic: # division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
     dims: [snapshot]
     expression: >-
@@ -203,7 +237,7 @@ constraints:
     dims: [snapshot, generator]
     where: "position(snapshot) == -1 OR position(snapshot, by=season_of) == -1"
     expression: on == 0
-  northern: # a lookup compared to a label, to another lookup, and to nothing
+  northern: # a relation compared to a label, to another relation, and to nothing
     dims: [snapshot, bus]
     where: "zone_of == 'north' AND zone_of != area_of AND zone_of"
     expression: slack <= load
@@ -231,7 +265,7 @@ constraints:
     expression: p <= p_max
   ramped: # a translation under a comparison names its edge, a pullback reads through a lookup, and the position keeps the vacated row out
     dims: [snapshot, bus]
-    where: "load - shift(load, over=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of) AND position(snapshot) > 0"
+    where: "load - shift(load, along=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of) AND position(snapshot) > 0"
     expression: slack <= load
   covered: # a reduction on a side of a scalar mask, so nothing is left to quantify
     dims: []
@@ -251,7 +285,7 @@ assumptions:
   flexible_units_are_cheap: "NOT is_flexible OR cost <= budget" # a compound predicate, which no one relation aligns
   floor_is_half_the_capacity: "p_min <= 0.5 * p_max" # arithmetic on a side, which reads as an expression does
   load_ramps_within_the_zone_cap: # a translation under a comparison names its edge, and the where keeps the vacated row out
-    holds: "load - shift(load, over=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of)"
+    holds: "load - shift(load, along=snapshot, offset=1, edge=0) <= at(zone_cap, by=zone_of)"
     where: "position(snapshot) > 0"
   fleet_covers_the_budget: "sum(p_max, over=generator) >= budget" # a reduction on a side, so the frame is what is left
   cheap_when_spent: "spend_cap > 0 OR NOT is_flexible" # an expressions: entry on a side, read by the name the file gave it
