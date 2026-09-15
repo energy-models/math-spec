@@ -37,13 +37,13 @@ parameters:
 variables:
   dispatch:
     description: dispatched power
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds:
       lower: 0
       upper: capacity
   op_cost:
     description: operating cost, held above every segment of the generator's curve
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds:
       lower: 0
 
@@ -62,7 +62,7 @@ piecewise:
 
 constraints:
   balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(dispatch, over=generator) == load
 
 objective:

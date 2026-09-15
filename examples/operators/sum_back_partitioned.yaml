@@ -17,15 +17,15 @@ lookups:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_inside_its_day:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=3, by=day_of) <= on
 
 objective: { sense: minimize, expression: sum(on) }

@@ -179,7 +179,7 @@ objective:
 ```yaml
 Generator_fix_p_lower:
   description: "`Generator-fix-p-lower` — a generator outputs at least its minimum"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: not Generator_committable
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom
 ```
@@ -195,7 +195,7 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qq
 ```yaml
 Generator_fix_p_upper:
   description: "`Generator-fix-p-upper` — a generator outputs at most what is available"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: not Generator_committable
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom
 ```
@@ -211,7 +211,7 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \qqu
 ```yaml
 Link_fix_p_lower:
   description: "`Link-fix-p-lower` — a link carries at least its minimum, negative for the other way"
-  foreach: [snapshot, link]
+  dims: [snapshot, link]
   expression: Link_p >= Link_p_min_pu * Link_p_nom
 ```
 
@@ -226,7 +226,7 @@ f_{t,l} \ge \underline{\mathrm{f}}_{t,l} \cdot \mathrm{f}^{\mathrm{nom}}_{l} \qq
 ```yaml
 Link_fix_p_upper:
   description: "`Link-fix-p-upper` — a link carries at most its nominal power"
-  foreach: [snapshot, link]
+  dims: [snapshot, link]
   expression: Link_p <= Link_p_max_pu * Link_p_nom
 ```
 
@@ -244,7 +244,7 @@ Bus_nodal_balance:
     `Bus-nodal_balance` — what is generated at a bus, less what the links
     take away, plus what arrives over them after losses, meets the load
     there
-  foreach: [snapshot, bus]
+  dims: [snapshot, bus]
   expression: >-
     sum(Generator_p, by=Generator_bus)
     - sum(Link_p, by=Link_bus0)
@@ -263,7 +263,7 @@ Bus_nodal_balance:
 ```yaml
 Generator_com_p_lower:
   description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable
   expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
 ```
@@ -279,7 +279,7 @@ p_{t,g} \ge \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cd
 ```yaml
 Generator_com_p_upper:
   description: "`Generator-com-p-upper` — a committed unit outputs at most what is available; off, at most nothing"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable
   expression: Generator_p <= Generator_p_max_pu * Generator_p_nom * Generator_status
 ```
@@ -295,7 +295,7 @@ p_{t,g} \le \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdo
 ```yaml
 Generator_com_transition_start_up:
   description: "`Generator-com-transition-start-up` — turning on is a start, counted against the state the unit carried into the snapshot"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable
   expression: Generator_start_up >= Generator_status - Generator_previous_status
 ```
@@ -311,7 +311,7 @@ Generator_com_transition_start_up:
 ```yaml
 Generator_com_transition_shut_down:
   description: "`Generator-com-transition-shut-down` — turning off is a stop, counted against the state the unit carried into the snapshot"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable
   expression: Generator_shut_down >= Generator_previous_status - Generator_status
 ```
@@ -330,7 +330,7 @@ Generator_com_up_time:
     `Generator-com-up-time` — a unit started within its own minimum up time
     is still on. The first snapshot's share of the window is the brought-in
     up time's, which the must-stay-up mask carries
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_up_time > 0 AND position(snapshot) > 0
   expression: sum_back(Generator_start_up, over=snapshot, within=Generator_min_up_time) <= Generator_status
 ```
@@ -346,7 +346,7 @@ Generator_com_up_time:
 ```yaml
 Generator_com_down_time:
   description: "`Generator-com-down-time` — a unit stopped within its own minimum down time is still off"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable AND Generator_min_down_time > 0 AND position(snapshot) > 0
   expression: sum_back(Generator_shut_down, over=snapshot, within=Generator_min_down_time) <= 1 - Generator_status
 ```
@@ -362,7 +362,7 @@ Generator_com_down_time:
 ```yaml
 Generator_com_status_must_stay_up:
   description: "`Generator-com-status-min_up_time_must_stay_up` — a unit still serving the up time it brought in stays on"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable AND Generator_must_stay_up
   expression: Generator_status == 1
 ```
@@ -383,7 +383,7 @@ Generator_p_ramp_limit_up:
     start-up ramp in the snapshot it turns on. A unit that came into the
     horizon running brought an unknown output, so it carries no row at the
     first snapshot
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_ramp_limit_up
     AND (position(snapshot) > 0 OR Generator_status_initial == 0)
@@ -410,7 +410,7 @@ Generator_p_ramp_limit_down:
     shut-down ramp in the snapshot it turns off. A unit that came into the
     horizon running brought an unknown output, so it carries no row at the
     first snapshot
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: >-
     Generator_committable AND Generator_ramp_limit_down
     AND (position(snapshot) > 0 OR Generator_status_initial == 0)
@@ -432,7 +432,7 @@ Generator_p_ramp_limit_down:
 ```yaml
 Generator_status_p_fixed_upper:
   description: "`Generator-status-p-fixed-upper` — a status is at most one, an explicit row as PyPSA writes it"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable
   expression: Generator_status <= 1
 ```
@@ -448,7 +448,7 @@ u_{t,g} \le 1 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G} \,:\, \math
 ```yaml
 Generator_start_up_p_fixed_upper:
   description: "`Generator-start_up-p-fixed-upper` — a start is at most one, an explicit row as PyPSA writes it"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable
   expression: Generator_start_up <= 1
 ```
@@ -464,7 +464,7 @@ Generator_start_up_p_fixed_upper:
 ```yaml
 Generator_shut_down_p_fixed_upper:
   description: "`Generator-shut_down-p-fixed-upper` — a stop is at most one, an explicit row as PyPSA writes it"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable
   expression: Generator_shut_down <= 1
 ```
@@ -484,7 +484,7 @@ Generator_com_p_before:
     fits the share of it still on, less the share it is shutting down at
     the shut-down ramp. The translated term vacates the first snapshot, as
     PyPSA's `sns[1:]` does
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
     shift(Generator_p, over=snapshot, offset=1)
@@ -504,7 +504,7 @@ p_{t - 1,g} - \mathrm{rd}^{\mathrm{dn}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} 
 ```yaml
 Generator_com_p_current:
   description: "`Generator-com-p-current` — output fits the share on, and the share starting up only up to the start-up ramp"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened AND position(snapshot) > 0
   expression: >-
     Generator_p - Generator_p_max_pu * Generator_p_nom * Generator_status
@@ -522,7 +522,7 @@ p_{t,g} - \overline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot 
 ```yaml
 Generator_com_partly_start_up:
   description: "`Generator-com-partly-start-up` — raising output while a share is starting up is bounded by the ramp of the share on and the start-up ramp of the share coming on"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
     Generator_p - shift(Generator_p, over=snapshot, offset=1)
@@ -543,7 +543,7 @@ p_{t,g} - p_{t - 1,g} - \left( \underline{\mathrm{p}}_{t,g} \cdot \mathrm{p}^{\m
 ```yaml
 Generator_com_partly_shut_down:
   description: "`Generator-com-partly-shut-down` — lowering output while a share is shutting down is bounded likewise, by the shut-down ramp"
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   where: Generator_committable AND Generator_partly_tightened
   expression: >-
     shift(Generator_p, over=snapshot, offset=1) - Generator_p
@@ -564,7 +564,7 @@ Generator_previous_status:
   description: >-
     the commitment state a generator carries into a snapshot — the state it
     brought into the horizon at the first, the previous snapshot's after that
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: Generator_status_initial }
   otherwise: shift(Generator_status, over=snapshot, offset=1)
@@ -582,7 +582,7 @@ Generator_previous_p:
     the output a generator carries into a snapshot — nothing at the start of
     the horizon, which is why a unit that came in running carries no ramp row
     there
-  foreach: [snapshot, generator]
+  dims: [snapshot, generator]
   cases:
     opening: { when: "position(snapshot) == 0", expression: 0 }
   otherwise: shift(Generator_p, over=snapshot, offset=1)

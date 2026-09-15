@@ -16,13 +16,13 @@ parameters:
 variables:
   dispatch:
     description: output of a generator in a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     where: "capacity > 0"
     bounds: { lower: 0, upper: capacity }
 
 constraints:
   power_balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(dispatch, over=generator) == load
 
 objective:

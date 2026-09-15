@@ -16,7 +16,7 @@ dimensions:
 parameters:
   marginal_cost: { dims: [generator] }
 variables:
-  p: { foreach: [snapshot, generator] }
+  p: { dims: [snapshot, generator] }
 expressions:
   system_cost: sum(sum(p * marginal_cost, over=generator), over=snapshot)
   delivered: sum(sum(p, over=generator), over=snapshot)
@@ -84,7 +84,7 @@ quantity, move that quantity into an entry whose shape the math can read.
 ## Reading a constraint's dual
 
 `dual(c)` reads the **row dual** of the constraint `c`: the shadow price a solve
-puts on that row, over `c`'s own `foreach`. It is the one built-in that only a
+puts on that row, over `c`'s own `dims`. It is the one built-in that only a
 reported entry may call.
 
 `c` [resolves against the constraints alone](expressions.md#name-resolution),
@@ -114,7 +114,7 @@ Where the solver returns no dual, the engine reports no value.
 
 ## How an engine reads a reported entry
 
-A reported entry has the dimensions of its body, so there is no `foreach` and no
+A reported entry has the dimensions of its body, so there is no `dims:` and no
 `where`. Where a masked row leaves a solved quantity absent, the reported value
 is absent there too. See
 [absence](absence.md#reported-values).

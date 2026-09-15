@@ -238,7 +238,7 @@ class VariableBlock(_StrictBlock):
 
     _label: ClassVar[str] = 'a variable declaration'
 
-    foreach: list[str]
+    dims: list[str]
     where: str | None = None
     bounds: BoundsBlock = BoundsBlock()
     domain: VariableDomain = 'continuous'
@@ -251,7 +251,7 @@ class VariableBlock(_StrictBlock):
         if self.absence != 'undefined' and self.where is None:
             msg = (
                 f'absence: {self.absence} needs a `where:` — a variable with no mask exists at every '
-                f'coordinate of its foreach, so there is no absence for it to describe. Add the mask, '
+                f'coordinate of its dims, so there is no absence for it to describe. Add the mask, '
                 f'or drop the key.'
             )
             raise ValueError(msg)
@@ -263,7 +263,7 @@ class ConstraintBlock(_StrictBlock):
 
     _label: ClassVar[str] = 'a constraint declaration'
 
-    foreach: list[str]
+    dims: list[str]
     where: str | None = None
     expression: str
     description: str | None = None
@@ -348,7 +348,7 @@ class ExpressionBlock(_StrictBlock):
             description: CO2 released, the quantity the cap bounds
 
     A quantity whose value varies by region is written as ``cases:`` over a
-    declared ``foreach:``, with an ``otherwise:`` for the rest — see the
+    declared ``dims:``, with an ``otherwise:`` for the rest — see the
     language reference.
     """
 
@@ -356,7 +356,7 @@ class ExpressionBlock(_StrictBlock):
 
     expression: Expression | None = None
     #: The frame the cases are read over — required with them, refused without.
-    foreach: list[str] | None = None
+    dims: list[str] | None = None
     #: The regions, keyed by the name labelling the row each prints; every ``when`` is proved apart from the others.
     cases: Annotated[dict[str, ExpressionCase], Field(min_length=1)] = {}
     #: The value wherever no case's ``when`` holds, printed as the last row.
@@ -370,7 +370,7 @@ class ExpressionBlock(_StrictBlock):
 
     @model_validator(mode='after')
     def _one_form_or_the_other(self) -> Self:
-        """One ``expression:``, or ``cases:`` with the ``otherwise:`` and ``foreach:`` they need."""
+        """One ``expression:``, or ``cases:`` with the ``otherwise:`` and ``dims:`` they need."""
         if bool(self.cases) == (self.expression is not None):
             got = 'both' if self.cases else 'neither'
             msg = (
@@ -378,15 +378,15 @@ class ExpressionBlock(_StrictBlock):
                 f'Cases are for a quantity whose value varies by region; one expression is everything else.'
             )
             raise ValueError(msg)
-        if self.cases and self.foreach is None:
+        if self.cases and self.dims is None:
             msg = (
-                '`cases:` needs a `foreach:` — it is the frame the cases are read over, and no one '
+                '`cases:` needs a `dims:` — it is the frame the cases are read over, and no one '
                 "case's body gives it, since a case may be a scalar while the condition selecting it is not."
             )
             raise ValueError(msg)
-        if self.foreach is not None and not self.cases:
+        if self.dims is not None and not self.cases:
             msg = (
-                '`foreach:` is only for a named expression with `cases:`. Without them the dims fall '
+                '`dims:` is only for a named expression with `cases:`. Without them the dims fall '
                 'out of the body, and declaring a second answer is a second thing to keep true.'
             )
             raise ValueError(msg)
@@ -414,7 +414,7 @@ class ExpressionBlock(_StrictBlock):
     @model_serializer
     def _as_written(self) -> str | dict[str, Any]:
         if self.cases:
-            written: dict[str, Any] = {'foreach': list(self.foreach or [])}
+            written: dict[str, Any] = {'dims': list(self.dims or [])}
             if self.description is not None:
                 written['description'] = self.description
             written['cases'] = {name: case.model_dump() for name, case in self.cases.items()}
@@ -562,7 +562,7 @@ SOS_TYPES = frozenset(get_args(SosType))
 class SosBlock(_StrictBlock):
     """A special-ordered set over one dimension of one variable.
 
-    One set per coordinate of the variable's ``foreach`` minus ``over``; the
+    One set per coordinate of the variable's ``dims`` minus ``over``; the
     members are the variable's *existing* coordinates along ``over``, in that
     dimension's declared order, and ``big_m`` is the optional cap a consumer
     that reformulates the set puts on its linking rows.
@@ -711,7 +711,7 @@ class Spec(_StrictBlock):
     def _drop_absence(self, handler: Any) -> dict[str, Any]:
         """Absence is not serialised: a null, an infinite bound, a mapping that stripping emptied, a section declaring nothing.
 
-        An empty list stays, being a value rather than an absence (``foreach:
+        An empty list stays, being a value rather than an absence (``dims:
         []`` is a scalar). On the serializer so that ``model_dump``,
         :meth:`to_dict` and :meth:`to_yaml` agree.
         """
@@ -794,9 +794,9 @@ class Spec(_StrictBlock):
         """Every frame is a product of distinct, declared dimensions."""
         frames = [
             *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
-            *(('Variable', name, v.foreach) for name, v in self.variables.items()),
-            *(('Constraint', name, c.foreach) for name, c in self.constraints.items()),
-            *(('Named expression', name, e.foreach or []) for name, e in self.expressions.items()),
+            *(('Variable', name, v.dims) for name, v in self.variables.items()),
+            *(('Constraint', name, c.dims) for name, c in self.constraints.items()),
+            *(('Named expression', name, e.dims or []) for name, e in self.expressions.items()),
         ]
         for kind, name, dims in frames:
             yield from (undeclared_dimension(kind, name, d) for d in dims if d not in self.dimensions)
@@ -857,10 +857,10 @@ class Spec(_StrictBlock):
                     f'  Variables: {sorted(self.variables)}\n'
                     f'A set is over one variable, so a parameter or an expression cannot carry one.'
                 )
-            elif block.over not in self.variables[block.variable].foreach:
+            elif block.over not in self.variables[block.variable].dims:
                 yield (
                     f"{context}: over '{block.over}' is not a dim of variable "
-                    f"'{block.variable}' (foreach {self.variables[block.variable].foreach}). The set runs "
+                    f"'{block.variable}' (dims {self.variables[block.variable].dims}). The set runs "
                     f"along one of the variable's own dims — one set per coordinate of the rest."
                 )
             elif block.variable in claimed:

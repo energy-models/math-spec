@@ -46,16 +46,16 @@
           "default": null,
           "title": "Description"
         },
-        "expression": {
-          "title": "Expression",
-          "type": "string"
-        },
-        "foreach": {
+        "dims": {
           "items": {
             "type": "string"
           },
-          "title": "Foreach",
+          "title": "Dims",
           "type": "array"
+        },
+        "expression": {
+          "title": "Expression",
+          "type": "string"
         },
         "where": {
           "anyOf": [
@@ -71,7 +71,7 @@
         }
       },
       "required": [
-        "foreach",
+        "dims",
         "expression"
       ],
       "title": "ConstraintBlock",
@@ -112,7 +112,7 @@
       "anyOf": [
         {
           "additionalProperties": false,
-          "description": "A named quantity: one arithmetic expression, referenced by the math or read back after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by region is written as ``cases:`` over a\ndeclared ``foreach:``, with an ``otherwise:`` for the rest \u2014 see the\nlanguage reference.",
+          "description": "A named quantity: one arithmetic expression, referenced by the math or read back after a solve.\n\nWritten in YAML as a bare string, or as a mapping once it carries a\n``description:`` \u2014 and serialised back to whichever form it was written in,\nso a round trip through :meth:`Spec.to_yaml` reproduces the file::\n\n    expressions:\n      total_generation: sum(p, over=generator)\n      emissions:\n        expression: sum(p * rate, over=generator)\n        description: CO2 released, the quantity the cap bounds\n\nA quantity whose value varies by region is written as ``cases:`` over a\ndeclared ``dims:``, with an ``otherwise:`` for the rest \u2014 see the\nlanguage reference.",
           "properties": {
             "cases": {
               "additionalProperties": {
@@ -135,6 +135,21 @@
               "default": null,
               "title": "Description"
             },
+            "dims": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Dims"
+            },
             "expression": {
               "anyOf": [
                 {
@@ -149,21 +164,6 @@
               ],
               "default": null,
               "title": "Expression"
-            },
-            "foreach": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Foreach"
             },
             "otherwise": {
               "anyOf": [
@@ -482,7 +482,7 @@
     },
     "SosBlock": {
       "additionalProperties": false,
-      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``foreach`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order, and ``big_m`` is the optional cap a consumer\nthat reformulates the set puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath to read off ``A``: it is a *set*, carried to a consumer that has the\nconcept and reformulated for one that does not.",
+      "description": "A special-ordered set over one dimension of one variable.\n\nOne set per coordinate of the variable's ``dims`` minus ``over``; the\nmembers are the variable's *existing* coordinates along ``over``, in that\ndimension's declared order, and ``big_m`` is the optional cap a consumer\nthat reformulates the set puts on its linking rows.\n\n``type: 1`` admits at most one nonzero member, ``type: 2`` at most two,\nand those two consecutive. Unlike every other block this one declares no\nmath to read off ``A``: it is a *set*, carried to a consumer that has the\nconcept and reformulated for one that does not.",
       "properties": {
         "big_m": {
           "anyOf": [
@@ -562,6 +562,13 @@
           "default": null,
           "title": "Description"
         },
+        "dims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dims",
+          "type": "array"
+        },
         "domain": {
           "default": "continuous",
           "enum": [
@@ -571,13 +578,6 @@
           ],
           "title": "Domain",
           "type": "string"
-        },
-        "foreach": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Foreach",
-          "type": "array"
         },
         "where": {
           "anyOf": [
@@ -593,7 +593,7 @@
         }
       },
       "required": [
-        "foreach"
+        "dims"
       ],
       "title": "VariableBlock",
       "type": "object"

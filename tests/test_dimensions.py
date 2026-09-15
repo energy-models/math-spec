@@ -43,10 +43,10 @@ BASE = {
         'horizon': {'dims': ['snapshot'], 'dtype': 'int'},
         'bus_lead': {'dims': ['bus'], 'dtype': 'int'},
     },
-    'variables': {'p': {'foreach': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
+    'variables': {'p': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
     'constraints': {
         'balance': {
-            'foreach': ['snapshot', 'bus'],
+            'dims': ['snapshot', 'bus'],
             'expression': 'sum(p, by=gen_bus) == load',
         }
     },
@@ -112,14 +112,14 @@ def _dims_with(expr: str, **overrides) -> frozenset[str]:
 
 
 def test_a_dual_carries_the_constraints_own_frame():
-    """`dual(c)` is a row dual at every coordinate of the constraint's declared `foreach`."""
+    """`dual(c)` is a row dual at every coordinate of the constraint's declared `dims`."""
     s = _schema()
-    assert _dims_with('dual(balance)') == frozenset(s.constraints['balance'].foreach) == {'snapshot', 'bus'}
+    assert _dims_with('dual(balance)') == frozenset(s.constraints['balance'].dims) == {'snapshot', 'bus'}
 
 
 def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
     """Constraints sit outside the flat namespace, so only `dual()` reads the constraint store — a bare name never does, even one a constraint shares (#74)."""
-    shadowing = {'variables.balance': {'foreach': ['snapshot'], 'bounds': {'lower': 0}}}
+    shadowing = {'variables.balance': {'dims': ['snapshot'], 'bounds': {'lower': 0}}}
     assert _dims_with('balance', **shadowing) == {'snapshot'}, 'a bare name resolves to the variable of that name'
     assert _dims_with('dual(balance)', **shadowing) == {'snapshot', 'bus'}, 'dual() alone reaches the constraint'
 
@@ -213,29 +213,29 @@ def test_an_outer_product_is_legal_and_carries_both_dim_sets():
     ('patch', 'match'),
     [
         pytest.param(
-            {'constraints.stray': {'foreach': ['snapshot'], 'expression': 'p <= p_max'}},
-            r"carries dims \['generator'\] that are not in foreach",
+            {'constraints.stray': {'dims': ['snapshot'], 'expression': 'p <= p_max'}},
+            r"carries dims \['generator'\] that are not in its dims:",
             id='stray-dim-in-a-constraint',
         ),
         pytest.param(
-            {'constraints.unused': {'foreach': ['snapshot', 'generator', 'bus'], 'expression': 'p <= p_max'}},
+            {'constraints.unused': {'dims': ['snapshot', 'generator', 'bus'], 'expression': 'p <= p_max'}},
             r"does not carry \['bus'\]",
-            id='foreach-dim-the-equation-never-uses',
+            id='dims-dim-the-equation-never-uses',
         ),
         pytest.param(
-            {'variables.cap': {'foreach': ['generator'], 'where': 'load > 0'}},
+            {'variables.cap': {'dims': ['generator'], 'where': 'load > 0'}},
             r"where-parameter 'load' reads dims \['bus', 'snapshot'\]",
             id='where-dim-outside-the-frame',
         ),
         pytest.param(
-            {'variables.cap': {'foreach': ['generator'], 'where': 'snapshot > 0'}},
+            {'variables.cap': {'dims': ['generator'], 'where': 'snapshot > 0'}},
             "where-dimension 'snapshot'",
             id='where-comparison-on-a-dim-outside-the-frame',
         ),
         pytest.param(
-            {'variables.cap': {'foreach': ['generator'], 'bounds': {'lower': 0, 'upper': 'load'}}},
+            {'variables.cap': {'dims': ['generator'], 'bounds': {'lower': 0, 'upper': 'load'}}},
             r"bounds.upper parameter 'load' has dims \['bus', 'snapshot'\]",
-            id='bound-parameter-dim-outside-foreach',
+            id='bound-parameter-dim-outside-dims',
         ),
     ],
 )
@@ -254,8 +254,8 @@ class TestTheEdgeRulesAreDecidedAtLoad:
     BASE: ClassVar[dict[str, Any]] = {
         'dimensions': {'t': {'dtype': 'int'}, 'g': {'dtype': 'str'}},
         'parameters': {'cap': {'dims': ['g']}, 'lead': {'dims': ['g'], 'dtype': 'int'}},
-        'variables': {'p': {'foreach': ['t', 'g'], 'bounds': {'lower': 0, 'upper': 1}}},
-        'constraints': {'k': {'foreach': ['t', 'g'], 'expression': 'p <= 1'}},
+        'variables': {'p': {'dims': ['t', 'g'], 'bounds': {'lower': 0, 'upper': 1}}},
+        'constraints': {'k': {'dims': ['t', 'g'], 'expression': 'p <= 1'}},
     }
 
     def _refused(self, expression: str) -> str:

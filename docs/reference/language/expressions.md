@@ -116,14 +116,14 @@ variable. The objective has no name at all.
 
 ## How dimensions combine
 
-A parameter declares `dims`, a variable declares `foreach`, and every dimension
+A parameter and a variable both declare `dims`, and every dimension
 argument is name-checked. So **the dimension set of every expression is known
 before any data binds**:
 
 | Node                            | Dim set                                      | Error                                                                                                             |
 | ------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | number                          | `{}`                                         |                                                                                                                   |
-| parameter / variable            | its `dims` / its `foreach`                   |                                                                                                                   |
+| parameter / variable            | its `dims`                                   |                                                                                                                   |
 | `-x`, `+x`                      | `dims(x)`                                    |                                                                                                                   |
 | `a + b`, `a * b`, `a / b`       | `dims(a) ∪ dims(b)`                          |                                                                                                                   |
 | `sum(x)`                        | `{}`                                         | error if `dims(x)` is already empty                                                                               |
@@ -139,8 +139,9 @@ product is allowed wherever the declaration's own dimensions cover the result.
 Those dimensions are the declaration's **frame**. What is never allowed is a
 declaration that disagrees with its expression:
 
-- A constraint requires `dims(lhs) ∪ dims(rhs)` to **equal** its `foreach`. A
-  stray dimension multiplies the rows, and an unused `foreach` dimension repeats
+- A constraint requires `dims(lhs) ∪ dims(rhs)` to **equal** its `dims`. A
+  stray dimension multiplies the rows, and a declared dimension the expression
+  does not carry repeats
   one row across them.
 - An objective must carry **no dimensions**. It is one number, and the sums that
   reduce it to one number are written in the expression.
@@ -227,10 +228,10 @@ dimensions:
 parameters:
   soc_initial: { dims: [] }
 variables:
-  soc: { foreach: [snapshot], bounds: { lower: 0 } }
+  soc: { dims: [snapshot], bounds: { lower: 0 } }
 constraints:
   soc_start:
-    foreach: [snapshot]
+    dims: [snapshot]
     where: "position(snapshot) == 0" # not: snapshot == 0
     expression: soc == soc_initial
 ```
@@ -255,10 +256,10 @@ lookups:
 parameters:
   soc_initial: { dims: [period] }
 variables:
-  soc: { foreach: [snapshot], bounds: { lower: 0 } }
+  soc: { dims: [snapshot], bounds: { lower: 0 } }
 constraints:
   soc_start:
-    foreach: [snapshot]
+    dims: [snapshot]
     where: "position(snapshot, by=period_of) == 0"
     expression: soc == at(soc_initial, by=period_of)
 ```
@@ -278,7 +279,7 @@ dimensions:
 parameters:
   rate: { dims: [generator] }
 variables:
-  p: { foreach: [generator] }
+  p: { dims: [generator] }
 expressions:
   total_generation: sum(p, over=generator)
   emissions:
@@ -287,7 +288,7 @@ expressions:
 ```
 
 Write it as a bare string, or as a mapping when it carries a `description:`. Its
-dimensions fall out of its body, so there is no `foreach`. The CO₂ that a
+dimensions fall out of its body, so there is no `dims:`. The CO₂ that a
 constraint bounds and the CO₂ that a summary reports are then one definition,
 validated once.
 
@@ -315,7 +316,7 @@ three ways. Named here, the inequality is written once:
 expressions:
   previous_status:
     description: the commitment state a unit carries into a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     cases:
       always_on:
         when: "not committable"
@@ -326,7 +327,7 @@ expressions:
     otherwise: shift(status, over=snapshot, offset=1)
 constraints:
   ramp_up:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     expression: >-
       p - shift(p, over=snapshot, offset=1, edge=0)
       <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
@@ -339,7 +340,7 @@ $$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{co
 A named expression carries **exactly one** of `expression:` and `cases:`. A
 `cases:` block is a map of named cases, each with a `when:` mask and an
 `expression:`. Beside it, `otherwise:` carries every coordinate the cases leave,
-and `foreach:` declares the **frame**: the dimensions every case ranges over. A
+and `dims:` declares the **frame**: the dimensions every case ranges over. A
 point of the frame is a **coordinate**, here one snapshot for one generator.
 
 #### The rules that keep the cases apart
@@ -372,10 +373,10 @@ point of the frame is a **coordinate**, here one snapshot for one generator.
   have no value, and absence [spreads](absence.md), so a constraint reading the
   expression would lose rows it never masked.
 
-- **`foreach:` is required with cases, and refused without them.** A case may be
+- **`dims:` is required with cases, and refused without them.** A case may be
   a single number while its `when:` ranges over dimensions, as `always_on` does,
   so the frame cannot fall out of the body. Each `when:` and each value must sit
-  inside the frame. The dimensions of a reference are the declared `foreach`,
+  inside the frame. The dimensions of a reference are the declared `dims`,
   and a narrower case broadcasts as a parameter with fewer dimensions does.
 
 Claiming a coordinate is not the same as having a value there. The `otherwise:`

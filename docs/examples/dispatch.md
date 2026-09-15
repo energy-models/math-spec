@@ -10,10 +10,10 @@ load to meet, and a cost to minimise. It is the model on the
 [home page](../index.md) and in the README, and the one the language reference
 varies when it needs a base to change one thing in.
 
-The `where:` on `dispatch` deletes the rows where a generator has no capacity,
-so [absence](../reference/language/absence.md) is declared in the file rather
-than checked at run time. `sum(dispatch, over=generator)` names the dimension it
-reduces, so the constraint's `foreach` is what remains.
+The `where:` on `dispatch` deletes the rows where a generator has no capacity, so
+[absence](../reference/language/absence.md) is declared in the file rather than
+checked at run time. `sum(dispatch, over=generator)` names the dimension it reduces, so
+the constraint's `dims` is what remains.
 
 <!-- gallery:begin -->
 ```yaml
@@ -31,13 +31,13 @@ parameters:
 variables:
   dispatch:
     description: output of a generator in a snapshot
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     where: "capacity > 0"
     bounds: { lower: 0, upper: capacity }
 
 constraints:
   power_balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(dispatch, over=generator) == load
 
 objective:

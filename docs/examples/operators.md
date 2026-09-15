@@ -31,12 +31,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   fleet_budget:
-    foreach: []
+    dims: []
     expression: sum(p) <= budget
 
 objective: { sense: minimize, expression: sum(p) }
@@ -60,12 +60,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   fleet_total:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: sum(p, over=generator) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
@@ -96,12 +96,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   bus_total:
-    foreach: [snapshot, bus]
+    dims: [snapshot, bus]
     expression: sum(p, by=gen_bus) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
@@ -134,12 +134,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot, generator]
+    dims: [snapshot, generator]
     bounds: { lower: 0 }
 
 constraints:
   bus_technology_total:
-    foreach: [snapshot, bus, technology]
+    dims: [snapshot, bus, technology]
     expression: sum(p, by=[gen_bus, gen_tech]) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
@@ -168,12 +168,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   within_cap:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= at(cap, by=period_of)
 
 objective: { sense: minimize, expression: sum(p) }
@@ -195,12 +195,12 @@ dimensions:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1)
 
 objective: { sense: minimize, expression: sum(p) }
@@ -222,12 +222,12 @@ dimensions:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap')
 
 objective: { sense: minimize, expression: sum(p) }
@@ -249,12 +249,12 @@ dimensions:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge=0)
 
 objective: { sense: minimize, expression: sum(p) }
@@ -282,12 +282,12 @@ parameters:
 
 variables:
   order:
-    foreach: [technology, month]
+    dims: [technology, month]
     bounds: { lower: 0 }
 
 constraints:
   arrives_after_its_lead:
-    foreach: [technology, month]
+    dims: [technology, month]
     expression: shift(order, over=month, offset=lead, edge=0) >= demand
 
 objective: { sense: minimize, expression: sum(order) }
@@ -313,12 +313,12 @@ lookups:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   no_faster_than_before_in_season:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p <= shift(p, over=snapshot, offset=1, edge='wrap', by=season_of)
 
 objective: { sense: minimize, expression: sum(p) }
@@ -344,15 +344,15 @@ parameters:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_its_own_time:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=3) <= on
 
 objective: { sense: minimize, expression: sum(on) }
@@ -378,15 +378,15 @@ parameters:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_its_own_time:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=min_up) <= on
 
 objective: { sense: minimize, expression: sum(on) }
@@ -412,15 +412,15 @@ parameters:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_its_own_time:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=min_up, edge='wrap') <= on
 
 objective: { sense: minimize, expression: sum(on) }
@@ -448,15 +448,15 @@ lookups:
 
 variables:
   started:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
   on:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     domain: binary
 
 constraints:
   stays_up_inside_its_day:
-    foreach: [unit, hour]
+    dims: [unit, hour]
     expression: sum_back(started, over=hour, within=3, by=day_of) <= on
 
 objective: { sense: minimize, expression: sum(on) }
@@ -479,12 +479,12 @@ parameters:
 
 variables:
   p:
-    foreach: [snapshot]
+    dims: [snapshot]
     bounds: { lower: 0 }
 
 constraints:
   balance:
-    foreach: [snapshot]
+    dims: [snapshot]
     expression: p >= load
 
 expressions:
