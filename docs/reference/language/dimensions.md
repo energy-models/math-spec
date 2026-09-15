@@ -126,13 +126,13 @@ Each cardinality is one declaration, and the key is the side that is one:
 
 The key is also what decides which walks the table admits:
 
-| the walk                             | needs                                                                                     | because                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| the walk                             | needs                                                                                                      | because                                                                                |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `sum(x, by=l, consume=a, produce=b)` | the key **not** wholly inside the columns the operand fixes — the `into` columns and the columns joined on | a sum adds its rows up; walked to the key it finds one per coordinate, which is a read |
-| `at(x, by=l, consume=a, produce=b)`  | a key inside the columns the operand fixes — the `into` columns and the columns joined on | a read is one value per coordinate, or it is not a read       |
-| `shift`, `sum_back`, `position`      | a key column over the dimension walked                                                    | a coordinate is in one group, or it has no neighbour          |
-| `where: "l == 'north'"`              | a key, and the column compared a value column                                             | a comparison is one value per coordinate                      |
-| `where: l` (bare)                    | nothing                                                                                   | a row exists, or it does not                                  |
+| `at(x, by=l, consume=a, produce=b)`  | a key inside the columns the operand fixes — the `into` columns and the columns joined on                  | a read is one value per coordinate, or it is not a read                                |
+| `shift`, `sum_back`, `position`      | a key column over the dimension walked                                                                     | a coordinate is in one group, or it has no neighbour                                   |
+| `where: "l == 'north'"`              | a key, and the column compared a value column                                                              | a comparison is one value per coordinate                                               |
+| `where: l` (bare)                    | nothing                                                                                                    | a row exists, or it does not                                                           |
 
 A bare relation — no `key:` — is walked by `sum` alone, with both ends named,
 and tested by a bare `where`. That is what a many-to-many relation can say,
