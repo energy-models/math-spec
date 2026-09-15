@@ -608,29 +608,6 @@ class Walk:
             msg = 'a lowered comparison reached the typesetter; it prints the resolved tree, which lowering rebuilds.'
             raise AssertionError(msg)
 
-        if isinstance(node, DimensionComparisonNode):
-            if isinstance(node.value, int | float):
-                self.noticed.numeric_coordinates.add(node.name)
-            return (
-                f'{ctx.subscript(node.name)} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}',
-                comparison,
-            )
-
-        if isinstance(node, DimensionPositionNode):
-            grouping = None if node.partition is None else self._position_group(node, ctx)
-            place = self._position(ctx.subscript(node.name), grouping)
-            ordinal = self._ordinal(node.name, node.position, grouping)
-            return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
-
-        if isinstance(node, RelationComparisonNode):
-            applied = self._value_read(node.name, node.column, ctx)
-            return f'{applied} {self._op(_PREDICATES[node.op])} {self._literal(node.value)}', comparison
-
-        if isinstance(node, RelationPairComparisonNode):
-            left = self._value_read(node.name, node.column, ctx)
-            right = self._value_read(node.other, node.other_column, ctx)
-            return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
-
         if isinstance(node, RelationDefinedNode):
             lk = self.schema.relations[node.name]
             if lk.keys:
