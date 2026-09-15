@@ -1082,7 +1082,7 @@ class TestArithmeticInAWhere:
             pytest.param({'macros.half': {'args': ['x'], 'template': 'x / 2'}}, 'c <= half(k)', id='a-macro'),
             pytest.param({'expressions.e': 'c * 2'}, 'e > 0', id='a-named-expression-on-the-left'),
             pytest.param({'expressions.e': 'c * 2'}, 'k < e', id='a-named-expression-on-the-right'),
-            pytest.param({'parameters.d': {'dims': ['h']}}, 'c <= at(d, by=lk)', id='a-pullback-through-a-lookup'),
+            pytest.param({'parameters.d': {'dims': ['h']}}, 'c <= at(d, by=lk)', id='a-pullback-through-a-relation'),
             pytest.param(
                 {}, 'c - shift(c, along=g, offset=1, edge=0) <= k AND position(g) > 0', id='a-translation-with-its-edge'
             ),

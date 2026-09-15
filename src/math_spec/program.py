@@ -1458,7 +1458,7 @@ def _atom_names(atom: TypedPredicateNode) -> frozenset[str]:
 
 
 def _names_under(*expressions: ExpressionNode) -> frozenset[str]:
-    """Every parameter and lookup the data has to supply for *expressions* — what a mask's ``names_read`` promises.
+    """Every parameter and relation the data has to supply for *expressions* — what a mask's ``names_read`` promises.
 
     :func:`parameters_of` alone misses the data an operator reads beside its
     operand: the relation a grouping or a pullback joins through, the one a
