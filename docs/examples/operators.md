@@ -147,13 +147,13 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=a -> b)`
+### `sum(array, by=relation, direction=a -> b)`
 
 `examples/operators/sum_by_columns.yaml`
 
 ```yaml
 description: >-
-  A walk that names its direction — `sum(array, by=relation, over=a -> b)`
+  A walk that names its direction — `sum(array, by=relation, direction=a -> b)`
   consumes the key column over dimension `a` and lands on column `b`, and the
   other key column is joined on, so each zone's total is taken per period.
 
@@ -176,20 +176,20 @@ variables:
 constraints:
   zone_balance:
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator -> zone) >= demand
+    expression: sum(p, by=zone_of, direction=generator -> zone) >= demand
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=[a, …] -> [b, …])`
+### `sum(array, by=relation, direction=[a, …] -> [b, …])`
 
 `examples/operators/sum_by_column_lists.yaml`
 
 ```yaml
 description: >-
-  A walk with several columns at each end — `sum(array, by=relation, over=[a, …] -> [b, …])`
+  A walk with several columns at each end — `sum(array, by=relation, direction=[a, …] -> [b, …])`
   consumes both key columns at once and lands on the product of both value
   columns in one join.
 
@@ -213,7 +213,7 @@ variables:
 constraints:
   slot_cap:
     dims: [bus, technology]
-    expression: sum(p, by=slot_of, over=[generator, period] -> [bus, technology]) <= cap
+    expression: sum(p, by=slot_of, direction=[generator, period] -> [bus, technology]) <= cap
 
 objective: { sense: minimize, expression: sum(p) }
 ```

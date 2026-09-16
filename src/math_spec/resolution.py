@@ -420,7 +420,7 @@ class _Resolver:
         if isinstance(node, DirectionNode):
             self.errors.append(
                 f'{self.context}: {node.shown} names a direction between columns, which is only legal as the '
-                f'over= value of a sum through a relation, such as sum(x, by=gen_bt, over=generator -> bus). '
+                f'direction= value of a sum through a relation, such as sum(x, by=gen_bt, direction=generator -> bus). '
                 f'In an expression, name a variable or a parameter.'
             )
             return node
@@ -473,15 +473,14 @@ class _Resolver:
             return node if shape_error is not None else self._dual(node)
         args = tuple(self._arith(a) for a in node.args)
         kwargs: dict[str, ArithmeticNode] = {}
-        with_relation = any(k in node.kwargs for k in builtin.relation_kwargs)
-        roles = {k: v for k, v in node.kwargs.items() if builtin.kind_of(k, with_relation=with_relation) == 'role'}
+        roles = {k: v for k, v in node.kwargs.items() if builtin.kind_of(k) == 'role'}
         if roles and 'by' not in node.kwargs:
             self.errors.append(
-                f'{self.context}: {node.name}({", ".join(f"{k}=" for k in roles)}) names a column of a relation, '
+                f'{self.context}: {node.name}({", ".join(f"{k}=" for k in roles)}) says how a relation is walked, '
                 f'and no by= names the relation. Write {builtin.usage}'
             )
         for key, value in node.kwargs.items():
-            match builtin.kind_of(key, with_relation=with_relation):
+            match builtin.kind_of(key):
                 case 'edge':
                     kwargs[key] = self._edge(value, node.name)
                 case 'dimension':
@@ -547,8 +546,8 @@ class _Resolver:
         """An operator kwarg whose *value* must name a declared dimension."""
         if isinstance(value, DirectionNode):
             self.errors.append(
-                f'{self.context}: {operator}({key}={value.shown}) walks a relation between two of its columns, '
-                f'and no by= names the relation. Write {operator}(<expr>, by=<relation>, {key}={value.shown}).'
+                f'{self.context}: {operator}({key}={value.shown}): {key}= names a dimension, and a direction '
+                f'belongs in direction=. Write {operator}(<expr>, by=<relation>, direction={value.shown}).'
             )
             return value
         if not isinstance(value, NameNode):
@@ -590,7 +589,7 @@ class _Resolver:
         """An operator's ``by=``, with the ``over=`` or ``within=`` that says how each relation is walked.
 
         A relation carries its own dimensions, so the call names columns rather
-        than dims: ``over=<consumed> -> <produced>`` the two ends of a sum's
+        than dims: ``direction=<consumed> -> <produced>`` the two ends of a sum's
         walk, every other key column joined on — a value column not walked
         is not read, and a bare relation's columns are all key. A read lands on
         the whole key, so ``at`` names only what it consumes. Where the
@@ -618,8 +617,8 @@ class _Resolver:
             )
             return value
         if operator == 'sum':
-            ends = None if 'over' not in roles else self._ends(names[0], roles['over'])
-            if 'over' in roles and ends is None:
+            ends = None if 'direction' not in roles else self._ends(names[0], roles['direction'])
+            if 'direction' in roles and ends is None:
                 return value
             walks = [self._walk(n, ends) for n in names]
         else:
@@ -667,24 +666,24 @@ class _Resolver:
         return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
 
     def _ends(self, name: str, value: ArithmeticNode) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
-        """A sum's ``over=`` beside ``by=``: the dimensions that leave and the columns that arrive, or the refusal.
+        """A sum's ``direction=``: the dimensions that leave and the columns that arrive, or the refusal.
 
-        Beside a ``by=`` the value is the whole direction or nothing, so a bare
-        name here is refused toward the arrow: a bare ``over=`` is a reduction
-        over a dimension, and reading it as a column of the table would give
-        one spelling two meanings.
+        The value is the whole direction, both ends, so a bare name is refused
+        toward the arrow; a call that leaves the direction to the declaration
+        writes no ``direction=`` at all.
         """
         if not isinstance(value, DirectionNode):
             shape = self.ns.shape_of(name)
             written = shown(names_in(value)) if names_in(value) else '...'
             landing = shape.values[0] if len(shape.values) == 1 else '<column>'
             self.errors.append(
-                f'{self.context}: sum(by={name}, over={written}): beside a by=, over= names the whole direction. '
-                f'Write over={written} -> {landing}, or drop over= where the declaration decides both ends.'
+                f'{self.context}: sum(by={name}, direction={written}): direction= names both ends, what leaves '
+                f'and what arrives. Write direction={written} -> {landing}, or drop direction= where the '
+                f'declaration decides both ends.'
             )
             return None
-        consumed = self._role_name(value.consumed, 'sum', 'over')
-        produced = self._role_name(value.produced, 'sum', 'over')
+        consumed = self._role_name(value.consumed, 'sum', 'direction')
+        produced = self._role_name(value.produced, 'sum', 'direction')
         return None if consumed is None or produced is None else (consumed, produced)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
@@ -697,7 +696,8 @@ class _Resolver:
             end = value.consumed if operator == 'at' else value.produced
             self.errors.append(
                 f'{self.context}: {operator}({key}={value.shown}) names columns to read, and only a sum names a '
-                f'direction: at lands on the key and a partition on its groups. Write {key}={shown(names_in(end))}.'
+                f'direction, in direction=: at lands on the key and a partition on its groups. Write '
+                f'{key}={shown(names_in(end))}.'
             )
             return None
         self.errors.append(
@@ -718,7 +718,7 @@ class _Resolver:
         shape = ns.shape_of(name)
         call = f'sum(by={name})'
         if ends is None:
-            ask = f'the direction: over=<dimension> -> {shape.values[0] if len(shape.values) == 1 else "<column>"}'
+            ask = f'the direction: direction=<dimension> -> {shape.values[0] if len(shape.values) == 1 else "<column>"}'
             consumed = self._default_role(name, call, shape.key, 'key', ask)
             produced = self._default_role(name, call, shape.values, 'value', ask)
             if consumed is None or produced is None:
@@ -726,7 +726,7 @@ class _Resolver:
             from_roles, into_roles = (consumed,), (produced,)
         else:
             from_dims, into_roles = ends
-            written = f'over={shown(from_dims)} -> {shown(into_roles)}'
+            written = f'direction={shown(from_dims)} -> {shown(into_roles)}'
             consumed_roles = self._key_columns_over(name, call, written, from_dims)
             if consumed_roles is None or not self._known_roles(name, call, into_roles, written):
                 return None
@@ -893,7 +893,7 @@ class _Resolver:
         if not shape.key:
             self.errors.append(
                 f"{self.context}: {call}: '{name}' declares no key, so nothing says which columns sum walks. Name "
-                f'both ends, over=<dimension> -> <column> among {list(shape.roles)}, or declare key: on the relation.'
+                f'both ends, direction=<dimension> -> <column> among {list(shape.roles)}, or declare key: on the relation.'
             )
             return None
         self.errors.append(

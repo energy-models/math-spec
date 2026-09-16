@@ -500,7 +500,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
             'constraints': {
                 'zonal': {
                     'dims': ['snapshot', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=generator -> zone) <= 1',
+                    'expression': 'sum(p, by=zone_of, direction=generator -> zone) <= 1',
                 },
                 'priced': {
                     'dims': ['snapshot', 'generator'],
@@ -512,7 +512,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=snapshot -> zone) <= 1',
+                    'expression': 'sum(p, by=zone_of, direction=snapshot -> zone) <= 1',
                 },
             },
         }

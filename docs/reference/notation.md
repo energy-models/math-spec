@@ -388,7 +388,7 @@ one table walked to two value columns: the domain carries a condition per column
 ```yaml
 grouped_once:
   dims: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt, over=generator -> [bus, technology]) <= tech_cap
+  expression: sum(p, by=gen_bt, direction=generator -> [bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -431,7 +431,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 ```yaml
 relational:
   dims: [snapshot, bus]
-  expression: sum(p, by=connection, over=generator -> bus) <= load
+  expression: sum(p, by=connection, direction=generator -> bus) <= load
 ```
 
 ```math
@@ -502,7 +502,7 @@ a grouping through a two-key map, walked along one key: the condition reads the 
 ```yaml
 zonal:
   dims: [snapshot, zone]
-  expression: sum(p, by=gen_zone, over=generator -> zone) <= zone_cap
+  expression: sum(p, by=gen_zone, direction=generator -> zone) <= zone_cap
 ```
 
 ```math
@@ -516,7 +516,7 @@ the same table walked along its other key
 ```yaml
 zonal_history:
   dims: [generator, zone]
-  expression: sum(p, by=gen_zone, over=snapshot -> zone) <= zone_cap
+  expression: sum(p, by=gen_zone, direction=snapshot -> zone) <= zone_cap
 ```
 
 ```math

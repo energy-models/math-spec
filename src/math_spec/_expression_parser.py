@@ -115,7 +115,7 @@ class NameListNode:
 
 @dataclass(frozen=True)
 class DirectionNode:
-    """A walk's direction in a kwarg value — ``sum(x, by=l, over=a -> b)``.
+    """A walk's direction in a kwarg value — ``sum(x, by=l, direction=a -> b)``.
 
     Each end is a bare name or a bracketed list, and each is a child rather
     than a string so that a macro formal standing at either end is bound.

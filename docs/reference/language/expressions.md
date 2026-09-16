@@ -87,15 +87,16 @@ named `snapshot` would silently change what `where: "snapshot > 0"` means.
 Position decides which kinds of name are legal, and the kind of every name is
 fixed at load:
 
-| Position                                  | Legal kinds                                                                                                  |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| expression (`p * cost`)                   | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
-| dimension argument (`over=`, `along=`)    | a dimension. Beside a `by=`, `over=` is a direction, `a -> b`: a dimension out, a column in                  |
-| relation argument (`by=` on `sum` / `at`) | a relation, and never a dimension                                                                            |
-| `where` string                            | a parameter, variable, dimension or relation ([where strings](#where-strings))                               |
-| `bounds.lower` / `bounds.upper`           | a parameter name, or a number                                                                                |
-| the `edge` key of `shift`                 | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |
-| `dual` argument (`dual(c)`)               | a constraint. It resolves against the constraints alone ([reported](reported.md#reading-a-constraints-dual)) |
+| Position                                   | Legal kinds                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| expression (`p * cost`)                    | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
+| dimension argument (`over=`, `along=`)     | a dimension                                                                                                  |
+| direction argument (`direction=` on `sum`) | `a -> b`, a dimension out and a column in, beside a `by=`                                                    |
+| relation argument (`by=` on `sum` / `at`)  | a relation, and never a dimension                                                                            |
+| `where` string                             | a parameter, variable, dimension or relation ([where strings](#where-strings))                               |
+| `bounds.lower` / `bounds.upper`            | a parameter name, or a number                                                                                |
+| the `edge` key of `shift`                  | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |
+| `dual` argument (`dual(c)`)                | a constraint. It resolves against the constraints alone ([reported](reported.md#reading-a-constraints-dual)) |
 
 A bare word in the value of a keyword argument is a name to resolve. That is why
 `wrap` is quoted: `shift(x, along=wrap, edge='wrap')` reads one way, even in a

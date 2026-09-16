@@ -215,25 +215,29 @@ def test_a_list_the_grammar_cannot_read_is_refused_at_load(text):
 @pytest.mark.parametrize(
     ('text', 'consumed', 'produced'),
     [
-        pytest.param('sum(p, by=l, over=a -> b)', NameNode('a'), NameNode('b'), id='one-name-at-each-end'),
-        pytest.param('sum(p, by=l, over=[a, b] -> c)', NameListNode(('a', 'b')), NameNode('c'), id='a-list-consumed'),
-        pytest.param('sum(p, by=l, over=a -> [b, c])', NameNode('a'), NameListNode(('b', 'c')), id='a-list-produced'),
-        pytest.param('sum(p,by=l,over=a->b)', NameNode('a'), NameNode('b'), id='no-spaces'),
+        pytest.param('sum(p, by=l, direction=a -> b)', NameNode('a'), NameNode('b'), id='one-name-at-each-end'),
+        pytest.param(
+            'sum(p, by=l, direction=[a, b] -> c)', NameListNode(('a', 'b')), NameNode('c'), id='a-list-consumed'
+        ),
+        pytest.param(
+            'sum(p, by=l, direction=a -> [b, c])', NameNode('a'), NameListNode(('b', 'c')), id='a-list-produced'
+        ),
+        pytest.param('sum(p,by=l,direction=a->b)', NameNode('a'), NameNode('b'), id='no-spaces'),
     ],
 )
 def test_a_direction_is_a_kwarg_value_with_a_name_at_each_end(text, consumed, produced):
-    """`over=a -> b` is one value whose ends are nodes, so a macro formal at either end is bound."""
+    """`direction=a -> b` is one value whose ends are nodes, so a macro formal at either end is bound."""
     node = parse_expression(text)
-    assert node.kwargs['over'] == DirectionNode(consumed, produced)
+    assert node.kwargs['direction'] == DirectionNode(consumed, produced)
 
 
 @pytest.mark.parametrize(
     'text',
     [
-        pytest.param('sum(p, by=l, over=a, b -> c)', id='two-names-without-brackets'),
-        pytest.param('sum(p, by=l, over=a -> b -> c)', id='a-chain'),
-        pytest.param('sum(p, by=l, over=-> b)', id='no-consumed-end'),
-        pytest.param('sum(p, by=l, over=a ->)', id='no-produced-end'),
+        pytest.param('sum(p, by=l, direction=a, b -> c)', id='two-names-without-brackets'),
+        pytest.param('sum(p, by=l, direction=a -> b -> c)', id='a-chain'),
+        pytest.param('sum(p, by=l, direction=-> b)', id='no-consumed-end'),
+        pytest.param('sum(p, by=l, direction=a ->)', id='no-produced-end'),
         pytest.param('sum(p -> q, by=l)', id='a-positional-argument'),
         pytest.param('p -> q', id='the-whole-expression'),
     ],

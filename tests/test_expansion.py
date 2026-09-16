@@ -112,16 +112,18 @@ def test_a_call_expands_to_core_ast(expressions, macros, call, want):
 
 
 def test_a_macro_formal_may_stand_at_either_end_of_a_direction():
-    """`over=a -> b` holds its ends as nodes, so a caller's name for either end is bound like any formal."""
+    """`direction=a -> b` holds its ends as nodes, so a caller's name for either end is bound like any formal."""
     spec = schema(
         **{
             'dimensions.bus': {},
             'relations.gen_bus': {'columns': ['generator', 'bus'], 'key': 'generator'},
-            'macros': {'grouped': {'args': ['x'], 'kwargs': ['a', 'b'], 'template': 'sum(x, by=gen_bus, over=a -> b)'}},
+            'macros': {
+                'grouped': {'args': ['x'], 'kwargs': ['a', 'b'], 'template': 'sum(x, by=gen_bus, direction=a -> b)'}
+            },
         }
     )
     expanded = parse_and_expand('grouped(p, a=generator, b=bus)', spec, 'expression')
-    assert expanded == parse_expression('sum(p, by=gen_bus, over=generator -> bus)')
+    assert expanded == parse_expression('sum(p, by=gen_bus, direction=generator -> bus)')
 
 
 def test_a_named_expression_arrives_under_the_node_carrying_its_name():

@@ -38,15 +38,10 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     relation_kwargs: tuple[str, ...] = ()
-    #: Kwargs naming columns of the relation ``by=`` names — ``over=`` and
-    #: ``within=`` — which resolution folds into the relation's walk.
+    #: Kwargs that say how the relation ``by=`` names is walked, which resolution
+    #: folds into its walk: ``direction=`` on a sum, ``over=`` on a read, and
+    #: ``within=`` on a partition.
     role_kwargs: tuple[str, ...] = ()
-    #: Kwargs naming a dimension on their own and a column of the relation where
-    #: ``by=`` names one. ``sum(x, over=generator)`` reduces the dimension
-    #: away; ``sum(x, by=l, over=c)`` names the column the walk consumes, and
-    #: ``sum(x, by=l, over=c -> d)`` the column it lands on too. One meaning —
-    #: what leaves the frame — read in the namespace ``by=`` decides.
-    dimension_or_role_kwargs: tuple[str, ...] = ()
     #: Kwargs of which the call carries at most one. Members are excluded from
     #: the required set; their kind still comes from the tuples above.
     at_most_one_of: tuple[str, ...] = ()
@@ -65,17 +60,8 @@ class Builtin:
             - frozenset(self.optional_kwargs)
         )
 
-    def kind_of(
-        self, kwarg: str, *, with_relation: bool = False
-    ) -> Literal['dimension', 'relation', 'role', 'edge', 'value']:
-        """What resolution turns the value of *kwarg* into.
-
-        A dimension, a relation, a column of it, an edge policy, or a plain value.
-        *with_relation* says whether the call carries a ``by=``, which is what
-        decides the kind of a :attr:`dimension_or_role_kwargs` member.
-        """
-        if kwarg in self.dimension_or_role_kwargs:
-            return 'role' if with_relation else 'dimension'
+    def kind_of(self, kwarg: str) -> Literal['dimension', 'relation', 'role', 'edge', 'value']:
+        """What resolution turns the value of *kwarg* into: a dimension, a relation, a column of it, an edge policy, or a plain value."""
         if kwarg in self.dimension_kwargs:
             return 'dimension'
         if kwarg in self.relation_kwargs:
@@ -94,10 +80,12 @@ class Builtin:
 #: ``within=`` names the columns whose values that group is read from.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>[, over=<column> -> <column>])',
+        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>[, direction=<dim> -> <column>])',
+        dimension_kwargs=('over',),
         relation_kwargs=('by',),
-        dimension_or_role_kwargs=('over',),
-        optional_kwargs=('by', 'over'),
+        role_kwargs=('direction',),
+        at_most_one_of=('by', 'over'),
+        optional_kwargs=('by', 'over', 'direction'),
     ),
     'at': Builtin(
         'at(<expr>, by=<relation>[, over=<column>])',
@@ -151,7 +139,7 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
         alternatives = ' or '.join(f'{k}=' for k in builtin.at_most_one_of)
         return (
             f'{name}() takes at most one of {alternatives} — a relation carries '
-            f'its own dimensions, so by= leaves over= nothing to add.\n'
+            f'its own dimensions, and direction= names what leaves beside by=, so over= has nothing to add.\n'
             f'Write: {builtin.usage}'
         )
     optional = {*builtin.edge_kwargs, *builtin.at_most_one_of, *builtin.optional_kwargs}

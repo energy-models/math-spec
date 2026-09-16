@@ -169,7 +169,7 @@ class RelationBlock(_StrictBlock):
           connection: {columns: [entity, bus]}
 
     An operator walks the table in the direction the call names
-    (``over=<consumed> -> <produced>``), joining on the other key columns;
+    (``direction=<consumed> -> <produced>``), joining on the other key columns;
     the declaration fixes no direction. The map itself is data, and arrives at bind
     time under the relation's name, one column per role.
     """

@@ -17,8 +17,8 @@ model can never depend on what a caller registered. A composition of them goes i
 | `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
 | `sum(array, by=relation)`                            | The relation's key column collapses onto its value column                                                                                          |
 | `sum(array, by=[relation, …])`                       | The same, onto every relation's value column. All the relations must consume the same dimension                                                       |
-| `sum(array, by=relation, over=a -> b)`               | Dimension `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them. The key column over `a` leaves, so a value column cannot: reading one is `at`'s |
-| `sum(array, by=relation, over=[a, …] -> [b, …])`     | The same with several dimensions and columns at either end: consumed together, landed on a product                                                 |
+| `sum(array, by=relation, direction=a -> b)`               | Dimension `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them. The key column over `a` leaves, so a value column cannot: reading one is `at`'s |
+| `sum(array, by=relation, direction=[a, …] -> [b, …])`     | The same with several dimensions and columns at either end: consumed together, landed on a product                                                 |
 | `at(array, by=relation)`                             | The relation's value column is replaced by its key column                                                                                          |
 | `at(array, by=relation, over=a)`                     | Column `a` is replaced by the key, one value per coordinate. A key column whose dimension `array` carries is read at the array's own coordinate. `a` may be a list |
 | `shift(array, along=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
@@ -48,7 +48,7 @@ operand does not carry, are both errors rather than no-ops.
 
 `sum(x, by=l)` sums through a [relation](dimensions.md#relations) and lands the result
 on the column it walks to: the value column, where the key draws the arrow, or
-the one `over=a -> b` lands on. A nodal balance is one `sum(by=)` per kind of component,
+the one `direction=a -> b` lands on. A nodal balance is one `sum(by=)` per kind of component,
 and the network's wiring stays in the relations:
 
 ```yaml
@@ -79,10 +79,10 @@ The same `f` is summed twice through two relations, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
 `sum(by=)` consumes a key column and produces a value column. Beside `by=`,
-`over=a -> b` names the direction where the relation offers a choice: the
+`direction=a -> b` names the direction where the relation offers a choice: the
 dimension `a` leaves and the column `b` arrives ([walks](dimensions.md#walks)).
 Every other key column is joined on, so each group is one coordinate of it.
-`over=` on its own is a reduction over a dimension.
+`over=` is a reduction over a dimension, and a sum with a `by=` takes none.
 A bare relation, one with no `key:`, is summed with both ends named, and a row
 it holds twice counts twice.
 
@@ -342,8 +342,8 @@ language prints on [Every construct, as math](../notation.md).
 | `sum(array, over=dim)` | $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$ |
 | `sum(array, by=relation)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$ |
 | `sum(array, by=[relation, …])` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$ |
-| `sum(array, by=relation, over=a -> b)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$ |
-| `sum(array, by=relation, over=[a, …] -> [b, …])` | $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$ |
+| `sum(array, by=relation, direction=a -> b)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$ |
+| `sum(array, by=relation, direction=[a, …] -> [b, …])` | $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$ |
 | `at(array, by=relation)` | $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$ |
 | `at(array, by=relation, over=a)` | $`f_{l} \le \mathrm{cap}_{\mathrm{ends.bus0}(l)} \qquad \forall\, l \in \mathcal{L}`$ |
 | `shift(array, along=dim, offset=n)` | $`p_{t} \le p_{t - 1} \qquad \forall\, t \in \mathcal{T}`$ |

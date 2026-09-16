@@ -347,8 +347,7 @@ def _check_template_names(
         for arg in node.args:
             _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():
-            with_relation = builtin is not None and any(k in node.kwargs for k in builtin.relation_kwargs)
-            match builtin.kind_of(kwarg, with_relation=with_relation) if builtin else 'value':
+            match builtin.kind_of(kwarg) if builtin else 'value':
                 case 'dimension':
                     if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
                         errors.append(
