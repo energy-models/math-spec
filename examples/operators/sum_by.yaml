@@ -13,7 +13,7 @@ dimensions:
   bus: { dtype: str }
 
 relations:
-  gen_bus: { columns: [generator, bus], key: generator }
+  gen_bus: { key: generator, value: bus }
 
 parameters:
   limit: { dims: [snapshot, bus] }

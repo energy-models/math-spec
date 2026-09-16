@@ -47,15 +47,15 @@ dimensions:
   technology: { dtype: str }
 
 relations:
-  gen_bus: { columns: [generator, bus], key: generator }
-  gen_tech: { columns: [generator, technology], key: generator } # a second map out of `generator`, to group through both at once
-  zone_of: { columns: [bus, zone], key: bus }
-  area_of: { columns: [bus, zone], key: bus } # a second map into the same set, to compare against
-  season_of: { columns: [snapshot, season], key: snapshot }
-  gen_zone: { columns: [generator, snapshot, zone], key: [generator, snapshot] } # a map keyed by two dimensions: a call walks one and joins on the other
-  rep_of: { columns: { snapshot: snapshot, rep: snapshot }, key: snapshot } # a map into its own dimension: the representative snapshot
-  connection: { columns: [generator, bus] } # a bare relation, no key: many-to-many, walked only by sum with both ends named
-  gen_bt: { columns: [generator, bus, technology], key: generator } # one table with two value columns, walked to both at once
+  gen_bus: { key: generator, value: bus }
+  gen_tech: { key: generator, value: technology } # a second map out of `generator`, to group through both at once
+  zone_of: { key: bus, value: zone }
+  area_of: { key: bus, value: zone } # a second map into the same set, to compare against
+  season_of: { key: snapshot, value: season }
+  gen_zone: { key: [generator, snapshot], value: zone } # a map keyed by two dimensions: a call walks one and joins on the other
+  rep_of: { key: snapshot, value: { rep: snapshot } } # a map into its own dimension: the representative snapshot
+  connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, walked only by sum with both ends named
+  gen_bt: { key: generator, value: [bus, technology] } # one table with two value columns, walked to both at once
 
 parameters:
   p_max: { dims: [generator] }

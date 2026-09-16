@@ -12,7 +12,7 @@ dimensions:
   bus: { dtype: str }
 
 relations:
-  ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }
+  ends: { key: line, value: { bus0: bus, bus1: bus } }
 
 parameters:
   cap: { dims: [bus] }

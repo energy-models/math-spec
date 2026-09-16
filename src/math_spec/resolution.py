@@ -713,7 +713,7 @@ class _Resolver:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' is not single-valued in "
                 f'{list(from_roles)} at the columns the operand fixes ({[*into_roles, *joined]}) — its key is '
-                f'{list(shape.key)}. Declare a key those columns contain, or read the other way.'
+                f'{list(shape.key)}. Key the table by columns the read fixes, or read the other way.'
             )
             return None
         if forward and walk.is_function_read:
@@ -758,10 +758,11 @@ class _Resolver:
         call = f'{operator}(by={name})'
         if walked_dim is None or not self._known_roles(name, call, within_roles, 'within'):
             return None
-        if not shape.key:
+        if not shape.values:
             self.errors.append(
-                f"{context}: {call}: '{name}' declares no key, so no coordinate is in exactly one group. "
-                f'Declare key: on the relation, naming the column {operator} walks.'
+                f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so it makes no "
+                f'groups and no coordinate is in exactly one. Move the columns the group is made of under '
+                f'value:, leaving key: the column {operator} walks.'
             )
             return None
         over_keys = [r for r in shape.key if shape.dim(r) == walked_dim]
@@ -786,10 +787,11 @@ class _Resolver:
         if len(side) == 1:
             return side[0]
         shape = self.ns.shape_of(name)
-        if not shape.key:
+        if not shape.values:
             self.errors.append(
-                f"{self.context}: {call}: '{name}' declares no key, so nothing says which column {call.split('(', maxsplit=1)[0]} "
-                f'walks. Name both: {kwarg}= among {list(shape.roles)} — or declare key: on the relation.'
+                f"{self.context}: {call}: '{name}' is a bare relation — every column is in its key — so nothing "
+                f'says which column {call.split("(", maxsplit=1)[0]} walks. Name both: {kwarg}= among '
+                f'{list(shape.roles)} — or declare the column it walks to under value:.'
             )
             return None
         self.errors.append(
@@ -817,8 +819,8 @@ class _Resolver:
         return (
             f'{context}: {operator}({key}={name}) does not name a relation. '
             f'{did_you_mean(name, ns.relations, label="Relations")}\n'
-            f"Declare it under 'relations:' — {name}: {{over: [<its columns>], key: <the column a row is "
-            f'identified by>}}.'
+            f"Declare it under 'relations:' — {name}: {{key: <the columns a row is identified by>, "
+            f'value: <the columns they determine>}}.'
         )
 
     # -- where strings -----------------------------------------------------
@@ -863,7 +865,7 @@ class _Resolver:
                 )
             case 'relation':
                 shape = ns.shape_of(node.name)
-                dims = tuple(shape.dim(k) for k in shape.key) if shape.key else tuple(dim for _, dim in shape.columns)
+                dims = tuple(shape.dim(k) for k in shape.key)
                 if len(set(dims)) < len(dims):
                     self.errors.append(
                         f"{context}: '{node.name}' has two columns over one dimension ({list(shape.roles)}), so a "
@@ -981,11 +983,11 @@ class _Resolver:
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
-        if not shape.key:
+        if not shape.values:
             self.errors.append(
-                f"{context}: '{spelling}' compares a column of '{name}', which declares no key, so it has no one "
-                f'value per coordinate to compare. Declare key: on the relation, or test the bare name — '
-                f"'{name}' — for whether a row exists."
+                f"{context}: '{spelling}' compares a column of '{name}', a bare relation — every column is in its "
+                f'key — so it has no one value per coordinate to compare. Declare that column under value:, or '
+                f"test the bare name — '{name}' — for whether a row exists."
             )
             return None
         if column is None:

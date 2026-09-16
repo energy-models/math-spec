@@ -14,7 +14,7 @@ dimensions:
   technology: { dtype: str }
 
 relations:
-  slot_of: { columns: [generator, period, bus, technology], key: [generator, period] }
+  slot_of: { key: [generator, period], value: [bus, technology] }
 
 parameters:
   cap: { dims: [bus, technology] }
