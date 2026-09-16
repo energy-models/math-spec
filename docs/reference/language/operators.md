@@ -78,14 +78,11 @@ constraints:
 The same `f` is summed twice through two relations, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
-`by=` and `over=` compose: `by=` names the table and `over=` names what
-leaves the frame, so a call may give both, either, or neither.
-
-`over=` and `into=` say [which columns the walk runs between](dimensions.md#a-walk-names-its-ends)
-where the declaration leaves a choice. Every other key column is joined on, so
-the operand carries it, the sum keeps it, and each group is one coordinate of
-it. A value column that is not walked is not read. A bare relation, one with no
-`key:`, is summed with both ends named, and a row it holds twice counts twice.
+`sum(by=)` consumes a key column and produces a value column. `over=` and
+`into=` name them where the relation offers two ([walks](dimensions.md#walks)),
+and every other key column is joined on, so each group is one coordinate of it.
+A bare relation, one with no `key:`, is summed with both ends named, and a row
+it holds twice counts twice.
 
 The relation's values are the group labels, checked against their own dimension
 when the data binds. A group with no members contributes nothing, and a member
@@ -95,21 +92,17 @@ coordinate the data never covered is refused. See [absence](absence.md).
 
 ## `at`
 
-`at(x, by=l)` walks the same relation the other way. `sum(by=)` consumes the
-key column and produces the value column. `at` consumes the value column and
-produces the key column: it reads one coarse value once for each fine label that
-points at it. `over=` and `into=` name the two columns where the key leaves a
-choice. A read is one value per coordinate, so the relation's key must lie inside
-`into=` and the columns joined on, and a bare relation is never read by `at`.
+`at(x, by=l)` walks the same relation the other way. It consumes a value column
+and produces the key, so it reads one coarse value once for each fine label that
+points at it, and a bare relation is never read by `at`. `over=` and `into=`
+name the columns where the relation offers two, and every other key column is
+read at the row's own coordinate ([walks](dimensions.md#walks)).
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus)`.
 
 A fine label whose relation value is null reads nothing, and its row is absent.
-That matches the null group in `sum(by=)`. Through a relation with a
-[column joined on](dimensions.md#a-walk-names-its-ends) `at` reads the coarse
-value at the row's own coordinate of that column, which is the price of the zone
-this generator sat in that period.
+That matches the null group in `sum(by=)`.
 
 ## `sum_back`
 
