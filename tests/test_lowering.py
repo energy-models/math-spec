@@ -521,9 +521,12 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
         'a grouped sum names the column it consumes, the one it produces and the one it joins on'
     )
     assert isinstance(zonal, GroupSum)
-    assert (zonal.over, zonal.into, zonal.coordinate) == (('generator',), ('zone',), ('zone_of',)), (
-        'the dims a consumer reads are read off the walk'
-    )
+    assert (zonal.over, zonal.into, zonal.joined, zonal.coordinate) == (
+        ('generator',),
+        ('zone',),
+        ('snapshot',),
+        ('zone_of',),
+    ), 'the dims a consumer reads are read off the walk'
     assert program.constraints['history'].lhs == GroupSum(
         Variable('p'), walks=(Walk(declared, ('snapshot',), ('zone',), ('generator',)),)
     ), 'the same table walked from its other key column'
@@ -532,8 +535,8 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
         'and its adjoint consumes the value column and produces the key column'
     )
     assert isinstance(priced, At)
-    assert (priced.over, priced.into) == (('generator',), ('zone',)), (
-        'an at produces the fine dims and consumes the coarse'
+    assert (priced.over, priced.into, priced.joined) == (('generator',), ('zone',), ('snapshot',)), (
+        'an at produces the fine dims, consumes the coarse, and joins on the rest of the key'
     )
     p_where = program.variable('p').where
     assert p_where is not None
