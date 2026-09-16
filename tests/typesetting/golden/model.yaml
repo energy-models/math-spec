@@ -178,10 +178,10 @@ constraints:
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
   zonal: # a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
     dims: [snapshot, zone]
-    expression: sum(p, by=gen_zone, over=generator) <= zone_cap
+    expression: sum(p, by=gen_zone, over=generator -> zone) <= zone_cap
   zonal_history: # the same table walked along its other key
     dims: [generator, zone]
-    expression: sum(p, by=gen_zone, over=snapshot) <= zone_cap
+    expression: sum(p, by=gen_zone, over=snapshot -> zone) <= zone_cap
   zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
     dims: [snapshot, generator]
     where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"

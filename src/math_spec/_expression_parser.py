@@ -119,7 +119,8 @@ class DirectionNode:
 
     Each end is a bare name or a bracketed list, and each is a child rather
     than a string so that a macro formal standing at either end is bound.
-    Unresolved: the relation ``by=`` names says which columns the ends are.
+    Unresolved: the relation ``by=`` names says which key columns the
+    dimensions on the left are over, and which columns the right names.
     """
 
     consumed: ArithmeticNode

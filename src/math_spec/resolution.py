@@ -618,10 +618,10 @@ class _Resolver:
             )
             return value
         if operator == 'sum':
-            ends = (None, None) if 'over' not in roles else self._ends(roles['over'])
-            if ends is None:
+            ends = None if 'over' not in roles else self._ends(names[0], roles['over'])
+            if 'over' in roles and ends is None:
                 return value
-            walks = [self._walk(n, *ends) for n in names]
+            walks = [self._walk(n, ends) for n in names]
         else:
             named = {k: self._role_name(v, operator, k) for k, v in roles.items()}
             if any(r is None for r in named.values()):
@@ -666,11 +666,23 @@ class _Resolver:
             return value
         return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
 
-    def _ends(self, value: ArithmeticNode) -> tuple[tuple[str, ...], tuple[str, ...] | None] | None:
-        """A sum's ``over=``: the columns consumed, and the columns produced where a direction names them."""
+    def _ends(self, name: str, value: ArithmeticNode) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+        """A sum's ``over=`` beside ``by=``: the dimensions that leave and the columns that arrive, or the refusal.
+
+        Beside a ``by=`` the value is the whole direction or nothing, so a bare
+        name here is refused toward the arrow: a bare ``over=`` is a reduction
+        over a dimension, and reading it as a column of the table would give
+        one spelling two meanings.
+        """
         if not isinstance(value, DirectionNode):
-            consumed = self._role_name(value, 'sum', 'over')
-            return None if consumed is None else (consumed, None)
+            shape = self.ns.shape_of(name)
+            written = shown(names_in(value)) if names_in(value) else '...'
+            landing = shape.values[0] if len(shape.values) == 1 else '<column>'
+            self.errors.append(
+                f'{self.context}: sum(by={name}, over={written}): beside a by=, over= names the whole direction. '
+                f'Write over={written} -> {landing}, or drop over= where the declaration decides both ends.'
+            )
+            return None
         consumed = self._role_name(value.consumed, 'sum', 'over')
         produced = self._role_name(value.produced, 'sum', 'over')
         return None if consumed is None or produced is None else (consumed, produced)
@@ -693,58 +705,80 @@ class _Resolver:
         )
         return None
 
-    def _walk(self, name: str, from_roles: tuple[str, ...] | None, into_roles: tuple[str, ...] | None) -> Walk | None:
-        """How ``sum`` walks relation *name*, from the columns the call named and the declaration's defaults.
+    def _walk(self, name: str, ends: tuple[tuple[str, ...], tuple[str, ...]] | None) -> Walk | None:
+        """How ``sum`` walks relation *name*: by the direction the call wrote, or by the declaration's one arrow.
 
-        The call consumes one or more columns and produces one or more; a
-        side it leaves unsaid is taken from the declaration where it has
-        exactly one candidate, and refused with the candidates otherwise. A
-        sum that walks to the key has one term per coordinate and adds up
-        nothing, which is a read, so it is refused toward ``at``.
+        The consumed end names dimensions, and a key has one column per
+        dimension, so each names one key column; the produced end names value
+        columns, which may share a dimension. With no direction written the
+        key and the value each have to be one column, and the refusal lists
+        the candidates otherwise.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
         call = f'sum(by={name})'
-        written = 'over=' + (
-            shown(from_roles or ()) if into_roles is None else f'{shown(from_roles or ())} -> {shown(into_roles)}'
-        )
-        if not (
-            self._known_roles(name, call, from_roles or (), written)
-            and self._known_roles(name, call, into_roles or (), written)
-        ):
-            return None
-
-        if from_roles is None:
-            default = self._default_role(name, call, shape.key, 'key', 'which over= consumes')
-            if default is None:
+        if ends is None:
+            ask = f'the direction: over=<dimension> -> {shape.values[0] if len(shape.values) == 1 else "<column>"}'
+            consumed = self._default_role(name, call, shape.key, 'key', ask)
+            produced = self._default_role(name, call, shape.values, 'value', ask)
+            if consumed is None or produced is None:
                 return None
-            from_roles = (default,)
-        if into_roles is None:
-            ask = f'which the walk lands on: over={shown(from_roles)} -> <column>'
-            default = self._default_role(name, call, shape.values, 'value', ask)
-            if default is None:
+            from_roles, into_roles = (consumed,), (produced,)
+        else:
+            from_dims, into_roles = ends
+            written = f'over={shown(from_dims)} -> {shown(into_roles)}'
+            consumed_roles = self._key_columns_over(name, call, written, from_dims)
+            if consumed_roles is None or not self._known_roles(name, call, into_roles, written):
                 return None
-            into_roles = (default,)
-        if both := sorted(set(from_roles) & set(into_roles)):
-            self.errors.append(
-                f'{context}: {call}: {written} names {both} at both ends, and a walk goes between two sets of columns.'
-            )
-            return None
-        if not (
-            self._distinct_dims(name, call, f'{written} consumes', from_roles)
-            and self._distinct_dims(name, call, f'{written} lands on', into_roles)
-        ):
-            return None
+            from_roles = consumed_roles
+            if both := sorted(set(from_roles) & set(into_roles)):
+                self.errors.append(
+                    f'{context}: {call}: {written} names {both} at both ends, and a walk goes between two sets '
+                    f'of columns.'
+                )
+                return None
+            if not self._distinct_dims(name, call, f'{written} lands on', into_roles):
+                return None
         joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in into_roles)
-        walk = Walk(shape, from_roles, into_roles, joined)
-        if walk.is_function_read:
-            self.errors.append(
-                f'{context}: {call}: this sum walks to the key {list(shape.key)}, so each coordinate has one '
-                f"term and nothing is added up — that is a read, which is at()'s. Write "
-                f'at(..., by={name}, over={shown(from_roles)}), or sum toward a value column.'
-            )
+        return Walk(shape, from_roles, into_roles, joined)
+
+    def _key_columns_over(self, name: str, call: str, written: str, dims: tuple[str, ...]) -> tuple[str, ...] | None:
+        """The key column of relation *name* over each of *dims*, in order; the refusal where a dim has none or two.
+
+        A bare relation has no key, so every column is one a sum may consume,
+        and two over one dimension leave the consumed end nothing to name.
+        """
+        ns, context = self.ns, self.context
+        shape = ns.shape_of(name)
+        side = shape.key or shape.roles
+        if len(set(dims)) < len(dims):
+            self.errors.append(f'{context}: {call}: {written} names a dimension twice.')
             return None
-        return walk
+        columns: list[str] = []
+        for dim in dims:
+            over = [r for r in side if shape.dim(r) == dim]
+            if not over:
+                covered = sorted({shape.dim(r) for r in side})
+                if dim in ns.dimensions and any(shape.dim(r) == dim for r in shape.values):
+                    hint = (
+                        f"a sum consumes key columns, and '{name}' holds '{dim}' as a value column. To read "
+                        f'it, write at(..., by={name}, over={shown(tuple(r for r in shape.values if shape.dim(r) == dim))}).'
+                    )
+                elif dim in ns.dimensions:
+                    hint = f'the consumed end names a dimension the key is over, one of {covered}.'
+                else:
+                    hint = f"'{dim}' is not a dimension. The consumed end names one the key is over, among {covered}."
+                self.errors.append(f'{context}: {call}: {written}: {hint}')
+                return None
+            if len(over) > 1:
+                self.errors.append(
+                    f"{context}: {call}: {written}: '{name}' has two columns over '{dim}' ({over}) and no key, "
+                    f'so nothing says which one leaves. Declare key: on the relation, or give it one column '
+                    f'per dimension.'
+                )
+                return None
+            columns.extend(over)
+        return tuple(columns)
 
     def _read(self, name: str, from_roles: tuple[str, ...] | None) -> Walk | None:
         """How ``at`` reads relation *name*: value columns consumed, and the whole key landed on.
@@ -859,7 +893,7 @@ class _Resolver:
         if not shape.key:
             self.errors.append(
                 f"{self.context}: {call}: '{name}' declares no key, so nothing says which columns sum walks. Name "
-                f'both ends, over=<column> -> <column> among {list(shape.roles)}, or declare key: on the relation.'
+                f'both ends, over=<dimension> -> <column> among {list(shape.roles)}, or declare key: on the relation.'
             )
             return None
         self.errors.append(

@@ -614,18 +614,28 @@ class TestRulesDecidedWithoutData:
                     'variables.q.dims': ['g', 'h', 'z'],
                     'objective': {'expression': 'sum(sum(q, by=lk))'},
                 },
-                ("'lk' has 2 key columns (['g', 'z']), and the call has to say which over= consumes",),
-                id='by-a-two-key-relation-without-from',
+                ("'lk' has 2 key columns (['g', 'z']), and the call has to say the direction: over=<dimension> -> h",),
+                id='by-a-two-key-relation-without-a-direction',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, over=z))'}},
-                ("over=z names 'z', and 'lk' has no such column; its columns are ['g', 'h']",),
+                {'objective': {'expression': 'sum(sum(p, by=lk, over=g))'}},
+                ('beside a by=, over= names the whole direction. Write over=g -> h', 'or drop over='),
+                id='a-bare-over-beside-by',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=lk, over=z -> h))'}},
+                ("over=z -> h: 'z' is not a dimension. The consumed end names one the key is over, among ['g']",),
+                id='a-dimension-the-key-is-not-over',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=lk, over=g -> z))'}},
+                ("over=g -> z names 'z', and 'lk' has no such column; its columns are ['g', 'h']",),
                 id='a-column-the-relation-lacks',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, over=h -> h))'}},
-                ("over=h -> h names ['h'] at both ends",),
-                id='a-walk-from-a-column-to-itself',
+                {'objective': {'expression': 'sum(sum(p, by=lk, over=g -> g))'}},
+                ("over=g -> g names ['g'] at both ends",),
+                id='a-walk-from-a-key-column-to-itself',
             ),
             pytest.param(
                 {
@@ -638,23 +648,13 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {
-                    'dimensions.z': {},
-                    'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=[g, h] -> h))'},
-                },
-                ("over=[g, h] -> h names ['h'] at both ends",),
-                id='a-walk-whose-ends-overlap',
-            ),
-            pytest.param(
-                {
-                    'relations.lz': {'columns': {'g': 'g', 'h0': 'h', 'h1': 'h'}, 'key': 'g'},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=[h0, h1] -> g))'},
+                    'relations.lz': {'columns': {'g': 'g', 'h0': 'h', 'h1': 'h'}},
+                    'objective': {'expression': 'sum(sum(p, by=lz, over=h -> g))'},
                 },
                 (
-                    "over=[h0, h1] -> g consumes ['h0', 'h1'], two columns over ['h'], and the operand carries each "
-                    'dimension once',
+                    "over=h -> g: 'lz' has two columns over 'h' (['h0', 'h1']) and no key, so nothing says which one leaves",
                 ),
-                id='a-walk-consuming-two-columns-over-one-dimension',
+                id='a-bare-relation-with-two-columns-over-the-dimension-consumed',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk, over=g))'}},
@@ -718,7 +718,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'relations.rel': {'columns': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
-                ("'rel' declares no key, so nothing says which columns sum walks", 'over=<column> -> <column>'),
+                ("'rel' declares no key, so nothing says which columns sum walks", 'over=<dimension> -> <column>'),
                 id='a-bare-relation-needs-both-ends-named',
             ),
             pytest.param(
@@ -741,7 +741,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h -> g))'}},
-                ("this sum walks to the key ['g']", 'that is a read, which is', 'at(..., by=lk, over=h)'),
+                ("a sum consumes key columns, and 'lk' holds 'h' as a value column", 'at(..., by=lk, over=h)'),
                 id='a-sum-that-walks-to-the-key-is-a-read',
             ),
             pytest.param(

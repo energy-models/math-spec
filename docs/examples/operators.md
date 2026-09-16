@@ -154,8 +154,8 @@ $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tec
 ```yaml
 description: >-
   A walk that names its direction — `sum(array, by=relation, over=a -> b)`
-  consumes column `a` and lands on column `b`, and the other key column is
-  joined on, so each zone's total is taken per period.
+  consumes the key column over dimension `a` and lands on column `b`, and the
+  other key column is joined on, so each zone's total is taken per period.
 
 dimensions:
   generator: { dtype: str }

@@ -502,7 +502,7 @@ a grouping through a two-key map, walked along one key: the condition reads the 
 ```yaml
 zonal:
   dims: [snapshot, zone]
-  expression: sum(p, by=gen_zone, over=generator) <= zone_cap
+  expression: sum(p, by=gen_zone, over=generator -> zone) <= zone_cap
 ```
 
 ```math
@@ -516,7 +516,7 @@ the same table walked along its other key
 ```yaml
 zonal_history:
   dims: [generator, zone]
-  expression: sum(p, by=gen_zone, over=snapshot) <= zone_cap
+  expression: sum(p, by=gen_zone, over=snapshot -> zone) <= zone_cap
 ```
 
 ```math

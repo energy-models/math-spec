@@ -17,8 +17,8 @@ model can never depend on what a caller registered. A composition of them goes i
 | `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
 | `sum(array, by=relation)`                            | The relation's key column collapses onto its value column                                                                                          |
 | `sum(array, by=[relation, …])`                       | The same, onto every relation's value column. All the relations must consume the same dimension                                                       |
-| `sum(array, by=relation, over=a -> b)`               | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them. Walked to the key, where each coordinate finds one row, it is a read — that is `at`'s |
-| `sum(array, by=relation, over=[a, …] -> [b, …])`     | The same with several columns at either end: consumed together, landed on a product                                                                |
+| `sum(array, by=relation, over=a -> b)`               | Dimension `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them. The key column over `a` leaves, so a value column cannot: reading one is `at`'s |
+| `sum(array, by=relation, over=[a, …] -> [b, …])`     | The same with several dimensions and columns at either end: consumed together, landed on a product                                                 |
 | `at(array, by=relation)`                             | The relation's value column is replaced by its key column                                                                                          |
 | `at(array, by=relation, over=a)`                     | Column `a` is replaced by the key, one value per coordinate. A key column whose dimension `array` carries is read at the array's own coordinate. `a` may be a list |
 | `shift(array, along=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
@@ -78,9 +78,11 @@ constraints:
 The same `f` is summed twice through two relations, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
-`sum(by=)` consumes a key column and produces a value column. `over=a -> b`
-names them where the relation offers two ([walks](dimensions.md#walks)),
-and every other key column is joined on, so each group is one coordinate of it.
+`sum(by=)` consumes a key column and produces a value column. Beside `by=`,
+`over=a -> b` names the direction where the relation offers a choice: the
+dimension `a` leaves and the column `b` arrives ([walks](dimensions.md#walks)).
+Every other key column is joined on, so each group is one coordinate of it.
+`over=` on its own is a reduction over a dimension.
 A bare relation, one with no `key:`, is summed with both ends named, and a row
 it holds twice counts twice.
 

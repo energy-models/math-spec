@@ -90,8 +90,8 @@ fixed at load:
 | Position                                  | Legal kinds                                                                                                  |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | expression (`p * cost`)                   | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
-| dimension argument (`over=`, `along=`)    | a dimension                                                                                                  |
-| relation argument (`by=` on `sum` / `at`) | a relation, and never a dimension. `over=a -> b` names its columns                                           |
+| dimension argument (`over=`, `along=`)    | a dimension. Beside a `by=`, `over=` is a direction, `a -> b`: a dimension out, a column in                  |
+| relation argument (`by=` on `sum` / `at`) | a relation, and never a dimension                                                                            |
 | `where` string                            | a parameter, variable, dimension or relation ([where strings](#where-strings))                               |
 | `bounds.lower` / `bounds.upper`           | a parameter name, or a number                                                                                |
 | the `edge` key of `shift`                 | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |

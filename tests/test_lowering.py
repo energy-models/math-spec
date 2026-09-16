@@ -498,7 +498,10 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
                 'first': {'dims': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
             },
             'constraints': {
-                'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, over=generator) <= 1'},
+                'zonal': {
+                    'dims': ['snapshot', 'zone'],
+                    'expression': 'sum(p, by=zone_of, over=generator -> zone) <= 1',
+                },
                 'priced': {
                     'dims': ['snapshot', 'generator'],
                     'expression': 'p <= at(price, by=zone_of)',
@@ -509,7 +512,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=snapshot) <= 1',
+                    'expression': 'sum(p, by=zone_of, over=snapshot -> zone) <= 1',
                 },
             },
         }
