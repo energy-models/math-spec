@@ -14,10 +14,12 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CaseArm,
     CasesNode,
+    ColumnRefNode,
     ComparisonNode,
     DefinitionNode,
     DualNode,
     FunctionCallNode,
+    IndexNode,
     KeywordNode,
     KwargNode,
     NameListNode,
@@ -43,7 +45,6 @@ from math_spec.resolution import (
     Resolved,
     ResolvedConstraint,
     mask_of,
-    names_in,
     resolve_expression,
     resolve_where_text,
 )
@@ -53,6 +54,15 @@ if TYPE_CHECKING:
 
     from math_spec.model import ExpressionBlock
     from math_spec.program import WhereNode
+
+
+def _relation_names(value: ArithmeticNode) -> tuple[str, ...]:
+    """The relation names a ``by=`` value or an index carries: bare, dotted, or a bracketed list."""
+    if isinstance(value, ColumnRefNode):
+        return (value.name,)
+    if isinstance(value, NameNode):
+        return (value.name,)
+    return value.names if isinstance(value, NameListNode) else ()
 
 
 def to_spec(model: str | Path | dict[str, Any] | Spec) -> Spec:
@@ -316,12 +326,24 @@ def _check_template_names(
 
     A case arm's value only: its ``when`` is the declaration's, checked there.
     """
-    if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
+    if isinstance(
+        node,
+        NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode | ColumnRefNode,
+    ):
         return
 
     if isinstance(node, NameNode):
         if node.name not in formals and ns.kind(node.name) is None:
             errors.append(ns.unknown(node.name, context, allow_dims=False, formals=formals))
+        return
+
+    if isinstance(node, IndexNode):
+        _check_template_names(node.operand, context, ns, formals, errors)
+        errors.extend(
+            f'{context}: [{ref.name}] does not name a relation or a formal of this macro.'
+            for ref in node.relations
+            if ref.name not in formals and ns.kind(ref.name) != 'relation'
+        )
         return
 
     if isinstance(node, UnaryOperatorNode | BinaryOperatorNode | CasesNode | DefinitionNode):
@@ -343,18 +365,27 @@ def _check_template_names(
         for arg in node.args:
             _check_template_names(arg, context, ns, formals, errors)
         for kwarg, value in node.kwargs.items():
-            with_relation = builtin is not None and any(k in node.kwargs for k in builtin.relation_kwargs)
-            match builtin.kind_of(kwarg, with_relation=with_relation) if builtin else 'value':
+            match builtin.kind_of(kwarg) if builtin else 'value':
                 case 'dimension':
-                    if isinstance(value, NameNode) and value.name not in ns.dimensions | formals:
+                    if isinstance(value, ColumnRefNode):
+                        if value.name not in formals and ns.kind(value.name) != 'relation':
+                            errors.append(
+                                f'{context}: {node.name}({kwarg}={value.shown}) does not name a relation or a '
+                                f'formal of this macro.'
+                            )
+                    elif (
+                        isinstance(value, NameNode)
+                        and value.name not in formals
+                        and ns.kind(value.name) not in ('dimension', 'relation')
+                    ):
                         errors.append(
                             f'{context}: {node.name}({kwarg}={value.name}) does not name a '
-                            f'declared dimension or a formal of this macro.'
+                            f'declared dimension, a relation, or a formal of this macro.'
                         )
                 case 'relation':
                     errors.extend(
                         f'{context}: {node.name}({kwarg}={one}) does not name a relation or a formal of this macro.'
-                        for one in names_in(value)
+                        for one in _relation_names(value)
                         if one not in formals and ns.kind(one) != 'relation'
                     )
                 case 'value':

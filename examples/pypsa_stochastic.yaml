@@ -200,7 +200,7 @@ constraints:
     expression: >-
       sum(Generator_p, by=Generator_bus)
       - sum(Link_p, by=Link_bus0)
-      + sum(at(Link_p, by=Link_output_link) * Link_efficiency, by=Link_output_bus)
+      + sum(Link_p[Link_output_link] * Link_efficiency, by=Link_output_bus)
       == sum(Load_p_set, by=Load_bus)
   CVaR_excess:
     description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"

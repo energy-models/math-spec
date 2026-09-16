@@ -161,7 +161,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
         'constraints': {
             'held': {
                 'dims': ['snapshot'],
-                'expression': 'p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of)',
+                'expression': 'p <= shift(p, along=season_of.snapshot, offset=1, edge=0)',
             }
         },
         'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
@@ -177,12 +177,11 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
 
 @EVERY_FORMAT
 def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Format):
-    """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.
+    """Indexing and ``shift`` both re-index at the leaf, and the leaf has one subscript.
 
-    Whoever wrote it last used to win: ``at(shift(cap, along=period, offset=1,
-    edge=0), by=period_of)`` printed `cap_{period_of(t)}`, dropping a
-    translation the plan builds. The subscript is a composition, so it renders
-    as one.
+    Whoever wrote it last used to win: ``shift(cap, along=period, offset=1,
+    edge=0)[period_of]`` printed `cap_{period_of(t)}`, dropping a translation the
+    plan builds. The subscript is a composition, so it renders as one.
     """
     model = {
         'dimensions': {
@@ -195,7 +194,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
         'constraints': {
             'within': {
                 'dims': ['snapshot'],
-                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of)',
+                'expression': 'p <= (shift(cap, along=period, offset=1, edge=0))[period_of]',
             }
         },
     }
@@ -298,7 +297,7 @@ def test_a_grouped_position_rides_a_subscript_rather_than_a_second_argument(name
     As ``pos(t, season_of(t))`` the second argument sits where a reader of the
     first one expects an integer, and nothing says it means "within".
     """
-    text = typeset(_selected('position(snapshot, by=season_of) == 0'), name)
+    text = typeset(_selected('position(season_of.snapshot) == 0'), name)
     applied = fmt.apply(fmt.upright('season_of'), 't')
     assert fmt.apply(fmt.subscript(fmt.operators['position'], [applied]), 't') in text
 
@@ -323,7 +322,7 @@ def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(nam
         pytest.param('against positions', _selected('position(snapshot) == 0'), DISPATCH_MODEL, id='a-position'),
         pytest.param(
             'counts within the group',
-            _selected('position(snapshot, by=season_of) == 0'),
+            _selected('position(season_of.snapshot) == 0'),
             _selected('position(snapshot) == 0'),
             id='a-grouped-position',
         ),
@@ -659,7 +658,7 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
     ('expression', 'expected'),
     [
         pytest.param(
-            'p == at(sum(q, by=bus_of), by=bus_of)',
+            'p == (sum(q, by=bus_of))[bus_of]',
             r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}",
             id='grouped-by-a-relation',
         ),

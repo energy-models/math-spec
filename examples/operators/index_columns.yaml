@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A read that names its ends — `at(array, by=relation, over=a, into=b)`
-  reads column `a` where a table has two columns over one dimension, here the
-  sending end of a line.
+  Indexing that names its column — `array[relation.v]` reads value column `v`
+  where a table has two columns over one dimension, here the sending end of a
+  line.
 
 dimensions:
   line: { dtype: str }
@@ -25,6 +25,6 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends, over=bus0, into=line)
+    expression: f <= cap[ends.bus0]
 
 objective: { sense: minimize, expression: sum(f) }

@@ -426,9 +426,9 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='two-coordinates-are-one-grouping-with-paired-tuples',
         ),
         pytest.param(
-            'at(r, by=lk)',
+            'r[lk]',
             At(Variable('r'), walks=(Walk(LK, ('h',), ('g',), ()),)),
-            id='a-pullback-walks-the-same-table-back',
+            id='an-index-reads-the-same-table-back',
         ),
         pytest.param(
             "shift(p, along=g, offset=1, edge='wrap')",
@@ -446,7 +446,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-offset-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'shift(p, along=g, offset=1, by=lk, edge=0)',
+            'shift(p, along=lk.g, offset=1, edge=0)',
             Translate(
                 Variable('p'),
                 'g',
@@ -468,7 +468,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'sum_back(p, along=g, window=2, by=lk)',
+            'sum_back(p, along=lk.g, window=2)',
             Window(
                 Variable('p'),
                 'g',
@@ -495,17 +495,17 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
             'parameters': {'price': {'dims': ['snapshot', 'zone']}},
             'variables': {
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
-                'first': {'dims': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
+                'first': {'dims': ['snapshot', 'generator'], 'where': 'position(zone_of.generator) == 0'},
             },
             'constraints': {
-                'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, over=generator) <= 1'},
+                'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, over=zone_of.generator) <= 1'},
                 'priced': {
                     'dims': ['snapshot', 'generator'],
-                    'expression': 'p <= at(price, by=zone_of, into=generator)',
+                    'expression': 'p <= price[zone_of]',
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=snapshot) <= 1',
+                    'expression': 'sum(p, over=zone_of.snapshot) <= 1',
                 },
             },
         }
@@ -531,12 +531,12 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
         Variable('p'), walks=(Walk(declared, ('snapshot',), ('zone',), ('generator',)),)
     ), 'the same table walked from its other key column'
     priced = program.constraints['priced'].rhs
-    assert priced == At(Parameter('price'), walks=(Walk(declared, ('zone',), ('generator',), ('snapshot',)),)), (
-        'and its adjoint consumes the value column and produces the key column'
+    assert priced == At(Parameter('price'), walks=(Walk(declared, ('zone',), ('generator', 'snapshot'), ()),)), (
+        'an index consumes the value column and produces the whole key'
     )
     assert isinstance(priced, At)
-    assert (priced.over, priced.into, priced.joined) == (('generator',), ('zone',), ('snapshot',)), (
-        'an at produces the fine dims, consumes the coarse, and joins on the rest of the key'
+    assert (priced.over, priced.into, priced.joined) == (('generator', 'snapshot'), ('zone',), ()), (
+        'an index produces the key dims and consumes the coarse value'
     )
     p_where = program.variable('p').where
     assert p_where is not None

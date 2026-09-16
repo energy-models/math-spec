@@ -25,6 +25,7 @@ from math_spec._expression_parser import (
     DualNode,
     EdgeNode,
     FunctionCallNode,
+    IndexNode,
     KwargNode,
     NumberNode,
     ParameterNode,
@@ -108,6 +109,14 @@ def _amount(node: ArithmeticNode) -> int | str:
         return node.name
     assert isinstance(node, NumberNode), 'resolution folds a literal offset to one signed number'
     return int(node.value)
+
+
+def _slid_dimension(along: ArithmeticNode) -> str:
+    """The dimension a translation slides along — a bare ``along=`` or the key column a partition slides."""
+    if isinstance(along, RelationNode):
+        return along.walks[0].consumed_dims[0]
+    assert isinstance(along, DimensionNode), 'resolution refuses an along= that is neither a dimension nor a relation'
+    return along.name
 
 
 @dataclass(frozen=True)
@@ -371,7 +380,7 @@ class Walk:
         if isinstance(node, DualNode):
             return self._dual(node, ctx), _ATOM
 
-        if isinstance(node, UnresolvedNode | KwargNode):
+        if isinstance(node, UnresolvedNode | IndexNode | KwargNode):
             msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'
             raise AssertionError(msg)
 
@@ -422,20 +431,21 @@ class Walk:
         which, since the call does not.
         """
         if node.name == 'shift':
-            dim = node.kwargs['along']
-            assert isinstance(dim, DimensionNode)
+            along = node.kwargs['along']
+            slid = _slid_dimension(along)
             step = self._step(_amount(node.kwargs['offset']), node.kwargs.get('edge'))
             self.noticed.policies.add(step.policy)
-            step = replace(step, within=self._group(node.kwargs.get('by'), dim.name))
-            return self._arithmetic(node.args[0], ctx.translated(dim.name, step))
+            step = replace(step, within=self._group(along, slid))
+            return self._arithmetic(node.args[0], ctx.translated(slid, step))
 
         if node.name == 'sum_back':
-            over = node.kwargs['along']
-            assert isinstance(over, DimensionNode)
+            along = node.kwargs['along']
+            slid = _slid_dimension(along)
             policy = 'wrap' if isinstance(node.kwargs.get('edge'), EdgeNode) else 'plain'
-            step = _Step(1, policy, within=self._group(node.kwargs.get('by'), over.name))
+            step = _Step(1, policy, within=self._group(along, slid))
             self.noticed.policies.add(step.policy)
-            source, inner = ctx.reducing(over.name)
+            source, inner = ctx.reducing(slid)
+            over = DimensionNode(slid)
             lag = f'{ctx.subscript(over.name)} {self._translation(step)} {source}'
             domain = (
                 f'{source} {self._op("in")} {self.symbols.set[over.name]} {self._op("such_that")} '
@@ -444,7 +454,7 @@ class Walk:
             body = self._reduction_body(node.args[0], inner)
             return self.format.summation(domain, body), _PRECEDENCE['+']
 
-        if node.name == 'at':
+        if node.name == 'index':
             by = node.kwargs['by']
             assert isinstance(by, RelationNode)
             outer = ctx
@@ -454,21 +464,22 @@ class Walk:
                     ctx = ctx.pulled_back(walk.dim(read), self._relation_read(walk, at, read))
             return self._arithmetic(node.args[0], ctx)
 
-        if (by := node.kwargs.get('by')) is not None:
-            assert isinstance(by, RelationNode)
+        over = node.kwargs.get('over')
+        by = node.kwargs.get('by')
+        relation = over if isinstance(over, RelationNode) else by
+        if isinstance(relation, RelationNode):
             dummies: dict[str, str] = {}
             inner = ctx
-            for d in by.dimensions:
+            for d in relation.dimensions:
                 dummies[d], inner = inner.reducing(d)
-            conditions = [c for walk in by.walks for c in self._grouping(walk, dummies, ctx)]
+            conditions = [c for walk in relation.walks for c in self._grouping(walk, dummies, ctx)]
             domain = (
-                f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
+                f'{self.format.joined([self._membership(d, dummies[d]) for d in relation.dimensions], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
             )
-        elif (consumed := node.kwargs.get('over')) is not None:
-            assert isinstance(consumed, DimensionNode)
-            dummy, inner = ctx.reducing(consumed.name)
-            domain = self._membership(consumed.name, dummy)
+        elif isinstance(over, DimensionNode):
+            dummy, inner = ctx.reducing(over.name)
+            domain = self._membership(over.name, dummy)
         else:
             memberships = []
             inner = ctx
@@ -494,17 +505,17 @@ class Walk:
             return [f'{self._relation_read(walk, at, r)} {self._op("equal")} {targets[r]}' for r in walk.produced]
         return [self._relation_member(walk, {**at, **targets})]
 
-    def _group(self, by: ArithmeticNode | None, dim: str) -> str:
-        """A ``by=`` as the superscript its translation operator carries.
+    def _group(self, along: ArithmeticNode | None, dim: str) -> str:
+        """A partition ``along=rel.d`` as the superscript its translation operator carries.
 
         The bare index, not the subscript in force: the group is a property of
         the row being written, and a window whose operand is itself translated
-        still asks which group *that row* is in.
+        still asks which group *that row* is in. A bare ``along=`` names no
+        relation and carries no superscript.
         """
-        if by is None:
+        if not isinstance(along, RelationNode):
             return ''
-        assert isinstance(by, RelationNode)
-        walk = by.walks[0]
+        walk = along.walks[0]
         at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
         return self._tuple([self._relation_read(walk, at, r) for r in walk.produced])
 
@@ -954,7 +965,7 @@ class Walk:
             counted = self.format.math(f't {self.format.superscript(self._op("cyclic_minus"), applied)} k')
             note = (
                 f'{counted} denotes a translation counted inside the group a relation puts {self.format.math("t")} '
-                f'in ({self.format.mono("shift(by=relation)")}), so a term never crosses out of its own group.'
+                f'in ({self.format.mono("shift(along=relation.d)")}), so a term never crosses out of its own group.'
             )
             if 'edge' in noticed.policies:
                 both = self.format.superscript(self.format.subscript(self._op('edge_minus'), ['v']), applied)

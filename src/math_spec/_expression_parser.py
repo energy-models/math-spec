@@ -158,15 +158,16 @@ class ColumnRefNode:
 
 @dataclass(frozen=True)
 class IndexNode:
-    """An unresolved ``x[rel]`` or ``x[rel.col]`` — reading a value at a relation's key.
+    """An unresolved ``x[rel]``, ``x[rel.col]`` or ``x[a, b]`` — reading a value at a relation's key.
 
-    ``name`` is the parameter or variable indexed, and ``relation`` the relation
-    read, with any dotted value-column selection. Resolution rewrites this into
-    the resolved index over a :class:`RelationNode`.
+    ``operand`` is the expression indexed — a name or a parenthesized
+    expression — and ``relations`` the one or more relations read, each with any
+    dotted value-column selection. A list mirrors ``sum(x, by=[a, b])``.
+    Resolution rewrites this into the resolved index over a :class:`RelationNode`.
     """
 
-    name: str
-    relation: NameNode | ColumnRefNode
+    operand: ArithmeticNode
+    relations: tuple[NameNode | ColumnRefNode, ...]
 
 
 @dataclass(frozen=True)
@@ -319,7 +320,7 @@ KwargNode = DimensionNode | RelationNode | EdgeNode
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
 #: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
-UnresolvedNode = NameNode | NameListNode | ColumnRefNode | IndexNode | KeywordNode
+UnresolvedNode = NameNode | NameListNode | ColumnRefNode | KeywordNode
 
 #: Every leaf — nothing below it to descend into.
 LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
@@ -338,6 +339,8 @@ def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
         return (node.operand,)
     if isinstance(node, (BinaryOperatorNode, ComparisonNode)):
         return (node.left, node.right)
+    if isinstance(node, IndexNode):
+        return (node.operand,)
     if isinstance(node, FunctionCallNode):
         return (*node.args, *node.kwargs.values())
     if isinstance(node, CasesNode):
@@ -366,6 +369,8 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
     """
     if isinstance(node, LeafNode):
         return node
+    if isinstance(node, IndexNode):
+        return IndexNode(recurse(node.operand), node.relations)
     if isinstance(node, UnaryOperatorNode):
         return UnaryOperatorNode(node.op, recurse(node.operand))
     if isinstance(node, BinaryOperatorNode):
@@ -406,7 +411,11 @@ def _build_grammar() -> pp.ParserElement:
     )
     column_list = pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')
     column_ref = (name + pp.Suppress('.') + (column_list | name)).set_parse_action(_make_column_ref)
-    index = (name + pp.Suppress('[') + (column_ref | name_node) + pp.Suppress(']')).set_parse_action(_make_index)
+    relation_ref = column_ref | name_node
+    index_operand = name_node | pp.Group(pp.Suppress('(') + arith + pp.Suppress(')'))
+    index = (index_operand + pp.Suppress('[') + pp.DelimitedList(relation_ref) + pp.Suppress(']')).set_parse_action(
+        _make_index
+    )
     kwarg = (name + pp.Suppress('=') + (quoted | column_ref | name_list | arith)).set_parse_action(
         lambda t: (t[0], t[1])
     )
@@ -441,9 +450,10 @@ def _make_column_ref(tokens: pp.ParseResults) -> ColumnRefNode:
 
 
 def _make_index(tokens: pp.ParseResults) -> IndexNode:
-    """An ``x[rel]``: the indexed name, and the relation read, bare or with a dotted column."""
-    relation = cast('NameNode | ColumnRefNode', tokens[1])
-    return IndexNode(str(tokens[0]), relation)
+    """An ``x[rel, …]``: the indexed operand, and the one or more relations read, each bare or with a dotted column."""
+    operand = tokens[0][0] if isinstance(tokens[0], pp.ParseResults) else tokens[0]
+    relations = tuple(cast('NameNode | ColumnRefNode', t) for t in tokens[1:])
+    return IndexNode(cast('ArithmeticNode', operand), relations)
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:

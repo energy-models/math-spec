@@ -77,11 +77,22 @@ class _Quoted(str):
 
 
 def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
-    """``position(dim[, by=relation[, within=columns]]) <op> i`` off the tokens the grammar captured."""
-    dimension, *call, op, at = tokens
-    by = str(call[0]) if call else None
-    into = tuple(str(token) for token in call[1]) if len(call) > 1 else None
-    return UnresolvedPositionNode(str(dimension), op, at, by, into)
+    """``position(dim | relation.dim[, within=columns]) <op> i`` off the tokens the grammar captured.
+
+    A bare ``position(dim)`` carries the dimension and no relation. A dotted
+    ``position(rel.d)`` carries the relation and its key column, so the relation
+    partitions the count; ``within=`` narrows the group.
+    """
+    axis, *rest, op, at = tokens
+    relation, _, column = str(axis).partition('.')
+    if column:
+        by: str | None = relation
+        dimension = column
+    else:
+        by = None
+        dimension = str(axis)
+    into = tuple(str(token) for token in rest[0]) if rest else None
+    return UnresolvedPositionNode(dimension, op, at, by, into)
 
 
 def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
@@ -117,13 +128,11 @@ def _build_where_grammar() -> pp.ParserElement:
     column = pp.Regex(rf'{NAME}(\.{NAME})?')
     columns = name | (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']'))
     grouped_within = pp.Group(pp.Suppress(',') + pp.Suppress(pp.Keyword('within')) + pp.Suppress('=') + columns)
-    grouped_by = (
-        pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name + pp.Optional(grouped_within)
-    )
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
+    axis = pp.Regex(rf'{NAME}(\.{NAME})?')
     position_call = (
-        pp.Suppress(pp.Keyword('position')) + pp.Suppress('(') + name + pp.Optional(grouped_by) + pp.Suppress(')')
+        pp.Suppress(pp.Keyword('position')) + pp.Suppress('(') + axis + pp.Optional(grouped_within) + pp.Suppress(')')
     )
     position_comparison = (position_call + comparator + position).set_parse_action(_position_comparison)
 

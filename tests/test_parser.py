@@ -320,7 +320,7 @@ def test_a_quoted_right_hand_side_is_a_label(text, value, quoted):
         ('position(snapshot) > 0', '>', 0, None),
         ('position(snapshot) <= -2', '<=', -2, None),
         ('position(snapshot) == -1', '==', -1, None),
-        ('position(snapshot, by=period_of) == 0', '==', 0, 'period_of'),
+        ('position(period_of.snapshot) == 0', '==', 0, 'period_of'),
     ],
     ids=['first', 'not first', 'after the first', 'band from the back', 'last', 'grouped'],
 )

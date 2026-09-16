@@ -130,7 +130,7 @@ $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size 
 
 $`t \boxminus_{v} k`$ denotes translation with $`v`$ standing where index $`t-k`$ leaves the dimension (`shift(edge=v)`), so the row at that boundary is built and carries $`v`$ rather than being dropped.
 
-$`t \ominus^{\mathrm{relation}(t)} k`$ denotes a translation counted inside the group a relation puts $`t`$ in (`shift(by=relation)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $`t \boxminus_{v}^{\mathrm{relation}(t)} k`$ is both at once.
+$`t \ominus^{\mathrm{relation}(t)} k`$ denotes a translation counted inside the group a relation puts $`t`$ in (`shift(along=relation.d)`), so a term never crosses out of its own group. The two modifiers take different slots — the group above, the fill below — so $`t \boxminus_{v}^{\mathrm{relation}(t)} k`$ is both at once.
 
 $`\mathrm{pos}(t)`$ denotes where index $`t`$ sits along its dimension's own order — the order `shift` walks, not the order labels sort in — counted from $`0`$. The index itself stays the coordinate, so $`t`$ compares against labels and $`\mathrm{pos}(t)`$ against positions.
 
@@ -304,7 +304,7 @@ a translation partitioned by a relation: the group rides on the operator
 ```yaml
 in_season:
   dims: [snapshot, generator]
-  expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of)
+  expression: p <= shift(p, along=season_of.snapshot, offset=1, edge='wrap')
 ```
 
 ```math
@@ -318,7 +318,7 @@ the same group, with a fill: each season's opening row is kept and given a zero
 ```yaml
 held_in_season:
   dims: [snapshot, generator]
-  expression: p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of)
+  expression: p <= shift(p, along=season_of.snapshot, offset=1, edge=0)
 ```
 
 ```math
@@ -360,7 +360,7 @@ a window partitioned by a relation: the group rides on the operator
 ```yaml
 seasonal_window:
   dims: [snapshot, generator]
-  expression: sum_back(on, along=snapshot, window=3, by=season_of) <= units
+  expression: sum_back(on, along=season_of.snapshot, window=3) <= units
 ```
 
 ```math
@@ -369,12 +369,12 @@ seasonal_window:
 
 #### `pullback`
 
-at(), which re-indexes through a relation instead of an offset
+indexing, which re-indexes through a relation instead of an offset
 
 ```yaml
 pullback:
   dims: [snapshot, bus]
-  expression: spill <= at(zone_cap, by=zone_of)
+  expression: spill <= zone_cap[zone_of]
 ```
 
 ```math
@@ -383,12 +383,12 @@ pullback:
 
 #### `grouped_once`
 
-one table walked to two value columns: the domain carries a condition per column
+one table landed on two value columns: the domain carries a condition per column
 
 ```yaml
 grouped_once:
   dims: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
+  expression: sum(p, by=gen_bt.[bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -402,7 +402,7 @@ its adjoint, reading one slot through two columns of one table
 ```yaml
 pulled_back_once:
   dims: [generator]
-  expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
+  expression: units <= tech_cap[gen_bt.[bus, technology]]
 ```
 
 ```math
@@ -416,8 +416,8 @@ a partition grouped by one named value column of a two-value table, and a positi
 ```yaml
 within_bus:
   dims: [generator]
-  where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
-  expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt, within=bus)
+  where: "position(gen_bt.generator, within=[bus, technology]) == 0"
+  expression: units <= shift(units, along=gen_bt.generator, offset=1, edge=0, within=bus)
 ```
 
 ```math
@@ -431,7 +431,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 ```yaml
 relational:
   dims: [snapshot, bus]
-  expression: sum(p, by=connection, over=generator, into=bus) <= load
+  expression: sum(p, over=connection.generator) <= load
 ```
 
 ```math
@@ -455,12 +455,12 @@ p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ g \in \math
 
 #### `representative`
 
-a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
+a map into its own dimension, summed and indexed: the frame is unchanged and the index is primed
 
 ```yaml
 representative:
   dims: [snapshot]
-  expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
+  expression: sum(spill, by=rep_of.rep) <= spill[rep_of]
 ```
 
 ```math
@@ -488,7 +488,7 @@ its adjoint, reading one slot through a pair of labels
 ```yaml
 pulled_back_twice:
   dims: [generator]
-  expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
+  expression: units <= tech_cap[gen_bus, gen_tech]
 ```
 
 ```math
@@ -497,12 +497,12 @@ pulled_back_twice:
 
 #### `zonal`
 
-a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
+a grouping through a two-key map, summing one key away: the condition reads the other, and the row keeps it
 
 ```yaml
 zonal:
   dims: [snapshot, zone]
-  expression: sum(p, by=gen_zone, over=generator) <= zone_cap
+  expression: sum(p, over=gen_zone.generator) <= zone_cap
 ```
 
 ```math
@@ -511,12 +511,12 @@ zonal:
 
 #### `zonal_history`
 
-the same table walked along its other key
+the same table summing its other key away
 
 ```yaml
 zonal_history:
   dims: [generator, zone]
-  expression: sum(p, by=gen_zone, over=snapshot) <= zone_cap
+  expression: sum(p, over=gen_zone.snapshot) <= zone_cap
 ```
 
 ```math
@@ -530,8 +530,8 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 ```yaml
 zonal_pullback:
   dims: [snapshot, generator]
-  where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
-  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
+  where: "gen_zone == 'north' AND position(gen_zone.generator) == 0"
+  expression: p <= (spill * zone_cap)[gen_zone]
 ```
 
 ```math
@@ -605,7 +605,7 @@ a position in a dimension, and the same position within a group
 ```yaml
 first:
   dims: [snapshot, generator]
-  where: "position(snapshot) == 0 OR position(snapshot, by=season_of) == 0"
+  where: "position(snapshot) == 0 OR position(season_of.snapshot) == 0"
   expression: on == 1
 ```
 
@@ -620,7 +620,7 @@ the same two counted from the end, which print against a size rather than as the
 ```yaml
 last:
   dims: [snapshot, generator]
-  where: "position(snapshot) == -1 OR position(snapshot, by=season_of) == -1"
+  where: "position(snapshot) == -1 OR position(season_of.snapshot) == -1"
   expression: on == 0
 ```
 

@@ -36,22 +36,22 @@ class Builtin:
     """
 
     usage: str
+    #: Kwargs whose value is a dimension, or a relation's key column written
+    #: ``rel.k`` — ``over=`` and ``along=``. Resolution branches on the value:
+    #: a bare name is the dimension it reduces or slides; a dotted name is the
+    #: key column summed away, and the relation joins in its other columns.
     dimension_kwargs: tuple[str, ...] = ()
+    #: Kwargs whose value is a relation, bare or with a dotted value column —
+    #: ``by=``. The dot picks the value column the sum lands on.
     relation_kwargs: tuple[str, ...] = ()
-    #: Kwargs naming a column of the relation ``by=`` names — ``over=`` and
-    #: ``into=`` — which resolution folds into the relation's walk.
+    #: Kwargs naming value columns of the relation another kwarg names —
+    #: ``within=`` names the columns a partition groups by.
     role_kwargs: tuple[str, ...] = ()
-    #: Kwargs naming a dimension on their own and a column of the relation where
-    #: ``by=`` names one. ``sum(x, over=generator)`` reduces the dimension
-    #: away; ``sum(x, by=l, over=c)`` names the column the walk consumes.
-    #: One meaning — what leaves the frame — read in the namespace ``by=``
-    #: decides.
-    dimension_or_role_kwargs: tuple[str, ...] = ()
-    #: Kwargs of which the call carries at most one. Members are excluded from
-    #: the required set; their kind still comes from the tuples above.
-    at_most_one_of: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
+    #: Kwargs of which the call carries at most one — ``over=`` and ``by=`` on
+    #: ``sum``, which are the two forms of one grouping and contradict each other.
+    at_most_one_of: tuple[str, ...] = ()
     #: Kwargs the call may omit. Their *kind* still comes from the tuples
     #: above — this says only that the operator has an answer without them.
     optional_kwargs: tuple[str, ...] = ()
@@ -60,22 +60,15 @@ class Builtin:
     def required(self) -> frozenset[str]:
         """Every keyword the call must carry."""
         return (
-            (frozenset(self.dimension_kwargs) | frozenset(self.relation_kwargs) | frozenset(self.required_value_kwargs))
-            - frozenset(self.at_most_one_of)
-            - frozenset(self.optional_kwargs)
-        )
+            frozenset(self.dimension_kwargs) | frozenset(self.relation_kwargs) | frozenset(self.required_value_kwargs)
+        ) - frozenset(self.optional_kwargs)
 
-    def kind_of(
-        self, kwarg: str, *, with_relation: bool = False
-    ) -> Literal['dimension', 'relation', 'role', 'edge', 'value']:
+    def kind_of(self, kwarg: str) -> Literal['dimension', 'relation', 'role', 'edge', 'value']:
         """What resolution turns the value of *kwarg* into.
 
-        A dimension, a relation, a column of it, an edge policy, or a plain value.
-        *with_relation* says whether the call carries a ``by=``, which is what
-        decides the kind of a :attr:`dimension_or_role_kwargs` member.
+        A dimension (or a relation's key column), a relation, a value column of
+        one, an edge policy, or a plain value.
         """
-        if kwarg in self.dimension_or_role_kwargs:
-            return 'role' if with_relation else 'dimension'
         if kwarg in self.dimension_kwargs:
             return 'dimension'
         if kwarg in self.relation_kwargs:
@@ -87,42 +80,40 @@ class Builtin:
         return 'value'
 
 
-#: The closed operator set. ``by=`` is the one keyword that addresses a relation,
-#: and a relation carries its own dimensions, so no sibling kwarg restates them.
-#: On ``shift`` and ``sum_back`` it partitions the axis the operator walks: it
-#: says which rows are neighbours, not which group a term lands in, and
-#: ``within=`` names the columns whose values that group is read from.
+#: The closed operator set. ``over=`` sums a key column away, ``by=`` groups
+#: onto a value column, and both name the relation through the dot. ``index`` is
+#: the internal operator ``x[rel]`` resolves to — it has no surface call form, so
+#: its ``by=`` arrives from the index node rather than a written keyword. On
+#: ``shift`` and ``sum_back`` a dotted ``along=`` partitions the axis: it says
+#: which rows are neighbours, and ``within=`` names the value columns that group
+#: is made of.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>[, over=<column>, into=<column>])',
+        'sum(<expr>), sum(<expr>, over=<dim|relation.key>) or sum(<expr>, by=<relation[.value]>)',
+        dimension_kwargs=('over',),
         relation_kwargs=('by',),
-        role_kwargs=('into',),
-        dimension_or_role_kwargs=('over',),
-        optional_kwargs=('by', 'over', 'into'),
+        at_most_one_of=('over', 'by'),
+        optional_kwargs=('by', 'over'),
     ),
-    'at': Builtin(
-        'at(<expr>, by=<relation>[, over=<column>, into=<column>])',
+    'index': Builtin(
+        'x[<relation[.value]>]',
         relation_kwargs=('by',),
-        role_kwargs=('over', 'into'),
-        optional_kwargs=('over', 'into'),
     ),
     'sum_back': Builtin(
-        "sum_back(<expr>, along=<dim>, window=<n|parameter>[, edge='wrap'][, by=<relation>[, within=<column>]])",
+        "sum_back(<expr>, along=<dim|relation.key>, window=<n|parameter>[, edge='wrap'][, within=<column>])",
         dimension_kwargs=('along',),
-        relation_kwargs=('by',),
         role_kwargs=('within',),
         required_value_kwargs=('window',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by', 'within'),
+        optional_kwargs=('within',),
     ),
     'shift': Builtin(
-        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>[, within=<column>]])",
+        "shift(<expr>, along=<dim|relation.key>, offset=<n>[, edge='wrap'|<number>][, within=<column>])",
         dimension_kwargs=('along',),
-        relation_kwargs=('by',),
         role_kwargs=('within',),
         required_value_kwargs=('offset',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by', 'within'),
+        optional_kwargs=('within',),
     ),
     'dual': Builtin('dual(<constraint>)'),
 }
@@ -151,8 +142,8 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     if len(keys & set(builtin.at_most_one_of)) > 1:
         alternatives = ' or '.join(f'{k}=' for k in builtin.at_most_one_of)
         return (
-            f'{name}() takes at most one of {alternatives} — a relation carries '
-            f'its own dimensions, so by= leaves over= nothing to add.\n'
+            f'{name}() takes at most one of {alternatives} — over= sums a key column away and by= '
+            f'groups onto a value column, and one call does one of the two.\n'
             f'Write: {builtin.usage}'
         )
     optional = {*builtin.edge_kwargs, *builtin.at_most_one_of, *builtin.optional_kwargs}

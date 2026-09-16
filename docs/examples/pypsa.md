@@ -3274,8 +3274,8 @@ Link_output_arrival:
   cases:
     wrapping:
       when: Link_output_cyclic_delay
-      expression: shift(at(Link_p, by=Link_output_link) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
-  otherwise: shift(at(Link_p, by=Link_output_link) * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
+      expression: shift(Link_p[Link_output_link] * Link_efficiency, along=snapshot, offset=Link_output_delay, edge='wrap')
+  otherwise: shift(Link_p[Link_output_link] * Link_efficiency, along=snapshot, offset=Link_output_delay, edge=0)
 ```
 
 ```math

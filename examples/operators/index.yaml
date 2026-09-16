@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  The adjoint of the membership reduction — `at(array, by=relation)` reads one
-  coarse value once per fine label pointing at it.
+  Indexing through a relation — `array[relation]` reads one coarse value once
+  per fine label pointing at it.
 
 dimensions:
   snapshot: { dtype: int }
@@ -24,6 +24,6 @@ variables:
 constraints:
   within_cap:
     dims: [snapshot]
-    expression: p <= at(cap, by=period_of)
+    expression: p <= cap[period_of]
 
 objective: { sense: minimize, expression: sum(p) }

@@ -192,7 +192,7 @@ def test_the_golden_model_calls_every_operator_in_the_language():
 #: *different* model takes — a file declares at most one — and
 #: `test_a_model_with_no_objective_prints_the_rest` covers it.
 UNREACHABLE = {
-    'if isinstance(node, UnresolvedNode | KwargNode):',
+    'if isinstance(node, UnresolvedNode | IndexNode | KwargNode):',
     "msg = f'{type(node).__name__} reached the typesetter; resolve the expression first.'",
     'if not isinstance(node, ComparisonNode):',
     "msg = f'{context}: expected a comparison, got {type(node).__name__}'",

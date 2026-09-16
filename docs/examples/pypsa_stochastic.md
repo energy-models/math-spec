@@ -271,7 +271,7 @@ Bus_nodal_balance:
   expression: >-
     sum(Generator_p, by=Generator_bus)
     - sum(Link_p, by=Link_bus0)
-    + sum(at(Link_p, by=Link_output_link) * Link_efficiency, by=Link_output_bus)
+    + sum(Link_p[Link_output_link] * Link_efficiency, by=Link_output_bus)
     == sum(Load_p_set, by=Load_bus)
 ```
 

@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  The membership reduction — `sum(array, by=relation)` lands the result on the
-  column the relation is walked to, which is what makes topology data rather than
-  structure.
+  The membership reduction — `sum(array, by=relation.v)` sums the key away and
+  lands the result on the value column, which is what makes topology data rather
+  than structure.
 
 dimensions:
   snapshot: { dtype: int }

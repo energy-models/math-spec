@@ -82,7 +82,7 @@ def test_a_model_the_axis_ties_together_names_what_ties_it(patch, fragment):
     ('patch', 'reach'),
     [
         pytest.param(
-            _rows('p >= shift(p, along=h, offset=1, by=day_of, edge=0)'),
+            _rows('p >= shift(p, along=day_of.h, offset=1, edge=0)'),
             Reach("constraint 'k'", 'day_of', 'partition'),
             id='a-shift-inside-groups',
         ),
@@ -131,7 +131,7 @@ def test_resolving_keeps_the_static_reach_and_what_a_relation_decides():
         constraints={
             'fixed': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=-2, edge=0)'},
             'named': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=width, edge=0)'},
-            'grouped': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=1, by=day_of, edge=0)'},
+            'grouped': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=day_of.h, offset=1, edge=0)'},
         }
     ).resolved({'width': -1})
     assert verdict.ahead == 2, 'a folded value never narrows what the model reads on its own'
@@ -147,9 +147,9 @@ def test_resolving_a_name_nothing_waits_on_is_refused():
 
 
 def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
-    """`at(cap, by=zone_of)` reads `zone` at whatever coordinate the relation
+    """`cap[zone_of]` reads `zone` at whatever coordinate the relation
     chooses, so how far that reaches along `zone` is the relation's data to say."""
-    verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of) <= 0'))
+    verdict = _verdict('zone', **_rows('p - cap[zone_of] <= 0'))
     assert not verdict.windowable and not verdict.coupled, 'undecided until the relation binds'
     assert verdict.undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
         'the report names the relation a driver has to read'

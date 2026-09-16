@@ -40,7 +40,7 @@ constraints:
     expression: "sum(p, by=zone_of) - q <= load"
   pulled_back:
     dims: [t, g]
-    expression: "p - at(q, by=zone_of) <= 0"
+    expression: "p - q[zone_of] <= 0"
   translated:
     dims: [t, g]
     expression: "p - shift(p, along=t, offset=lead, edge='wrap') <= 0"

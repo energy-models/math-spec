@@ -167,8 +167,8 @@ objective:
   sense: minimize
   description: operating cost by weighted snapshot and weighted period, and capacity once per period it stands in
   expression: >-
-    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period))
-    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * at(period_weight_objective, by=snapshot_period))
+    sum(Generator_p * Generator_marginal_cost * snapshot_weightings_objective * period_weight_objective[snapshot_period])
+    + sum(Link_p * Link_marginal_cost * snapshot_weightings_objective * period_weight_objective[snapshot_period])
     + sum(Generator_p_nom_ext * Generator_capital_cost * Generator_capital_weight)
 ```
 
@@ -316,7 +316,7 @@ Bus_nodal_balance:
   expression: >-
     sum(Generator_p, by=Generator_bus)
     - sum(Link_p, by=Link_bus0)
-    + sum(at(Link_p, by=Link_output_link) * Link_efficiency, by=Link_output_bus)
+    + sum(Link_p[Link_output_link] * Link_efficiency, by=Link_output_bus)
     == sum(Load_p_set, by=Load_bus)
 ```
 
