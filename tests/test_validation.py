@@ -196,7 +196,7 @@ def _kwarg_model(expression: str, dims: list[str] | None = None) -> dict[str, An
             'bus': {'dtype': 'str'},
             'generator': {'dtype': 'str'},
         },
-        'relations': {'zone': {'columns': ['generator', 'bus'], 'key': 'generator'}},
+        'relations': {'zone': {'key': 'generator', 'value': 'bus'}},
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'dims': ['snapshot', 'generator']}},
         'constraints': {'c': {'dims': ['snapshot'] if dims is None else dims, 'expression': expression}},
@@ -432,8 +432,8 @@ POSITION_SCHEMA = to_spec(
     {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'period': {'dtype': 'int'}},
         'relations': {
-            'period_of': {'columns': ['snapshot', 'period'], 'key': 'snapshot'},
-            'starts_at': {'columns': ['period', 'snapshot'], 'key': 'period'},
+            'period_of': {'key': 'snapshot', 'value': 'period'},
+            'starts_at': {'key': 'period', 'value': 'snapshot'},
         },
         'parameters': {'load': {'dims': ['snapshot']}},
         'variables': {'p': {'dims': ['snapshot']}},
@@ -570,47 +570,54 @@ class TestRulesDecidedWithoutData:
                 id='sos-big-m-infinite',
             ),
             pytest.param(
-                {'relations.tag': {'columns': 'g', 'dtype': 'str'}},
-                ("unknown key 'dtype' in a relation declaration. Valid keys: columns, description, key.",),
+                {'relations.tag': {'key': 'g', 'dtype': 'str'}},
+                ("unknown key 'dtype' in a relation declaration. Valid keys: description, key, value.",),
                 id='relation-with-a-dtype-of-its-own',
             ),
-            pytest.param({'relations.tag': {'columns': 'g'}}, ('has 1 column(s)',), id='relation-with-one-column'),
+            pytest.param({'relations.tag': {'key': 'g'}}, ('has 1 column(s)',), id='relation-with-one-column'),
             pytest.param(
-                {'relations.lk.columns': 'z'}, ("references undeclared dimension 'z'",), id='relation-over-undeclared'
+                {'relations.lk.value': 'z'}, ("references undeclared dimension 'z'",), id='relation-over-undeclared'
             ),
             pytest.param(
-                {'relations.lk.key': 'z'},
-                ("has key column 'z', which is not one of its columns",),
-                id='relation-key-not-a-column',
+                {'relations.lk.key': ['g', 'h']},
+                ("names column 'h' under both 'key:' and 'value:'", 'value: {<name>: h}'),
+                id='relation-naming-one-column-on-both-sides',
             ),
             pytest.param(
-                {'relations.lk.key': ['g', 'h']}, ('has every column in its key',), id='relation-keyed-by-every-column'
+                {'relations.lk': {'key': [], 'value': ['g', 'h']}},
+                ('names no key column', "name them under 'key:'"),
+                id='relation-with-an-empty-key',
             ),
             pytest.param(
-                {'relations.pair': {'columns': {'g0': 'g', 'g1': 'g', 'h': 'h'}, 'key': ['g0', 'g1']}},
+                {'relations.pair': {'key': {'g0': 'g', 'g1': 'g'}, 'value': 'h'}},
                 ("has two key columns over 'g' (['g0', 'g1'])", 'no frame carries a dimension twice'),
                 id='relation-keyed-twice-over-one-dimension',
             ),
             pytest.param(
-                {'relations.odd': {'columns': {'h': 'g', 'x': 'h'}, 'key': 'h'}},
+                {'relations.odd': {'key': {'h': 'g'}, 'value': {'x': 'h'}}},
                 ("names column 'h' after dimension 'h', but the column is over 'g'",),
                 id='relation-column-named-after-a-dimension-it-is-not-over',
             ),
             pytest.param(
-                {'relations.lk.columns': ['g', 'z']},
+                {'relations.lk.key': ['g', 'z']},
                 ("references undeclared dimension 'z'",),
                 id='relation-key-undeclared',
             ),
             pytest.param(
-                {'relations.lk.columns': ['g', 'g']},
-                ("names dimension 'g' twice under 'columns:'", 'columns: {g0: g, g1: g}'),
-                id='relation-naming-a-dim-twice-without-roles',
+                {'relations.lk': {'key': ['g', 'g']}},
+                ("names dimension 'g' twice under 'key:'", 'key: {g0: g, g1: g}'),
+                id='relation-keying-a-dim-twice-without-roles',
             ),
-            pytest.param({'relations.lk.columns': []}, ('has 0 column(s)',), id='relation-with-no-columns'),
+            pytest.param(
+                {'relations.lk.value': ['h', 'h']},
+                ("names dimension 'h' twice under 'value:'", 'value: {h0: h, h1: h}'),
+                id='relation-valuing-a-dim-twice-without-roles',
+            ),
+            pytest.param({'relations.lk': {'key': []}}, ('has 0 column(s)',), id='relation-with-no-columns'),
             pytest.param(
                 {
                     'dimensions.z': {},
-                    'relations.lk': {'columns': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'relations.lk': {'key': ['g', 'z'], 'value': 'h'},
                     'variables.q.dims': ['g', 'h', 'z'],
                     'objective': {'expression': 'sum(sum(q, by=lk))'},
                 },
@@ -630,7 +637,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'dimensions.z': {},
-                    'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
+                    'relations.lz': {'key': 'g', 'value': ['h', 'z']},
                     'objective': {'expression': 'sum(sum(p, by=lz, into=[h, h]))'},
                 },
                 ("into=['h', 'h'] names a column twice",),
@@ -639,7 +646,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'dimensions.z': {},
-                    'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
+                    'relations.lz': {'key': 'g', 'value': ['h', 'z']},
                     'objective': {'expression': 'sum(sum(p, by=lz, over=[g, h], into=h))'},
                 },
                 ("over= and into= both name ['h']",),
@@ -647,7 +654,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {
-                    'relations.lz': {'columns': {'g': 'g', 'h0': 'h', 'h1': 'h'}, 'key': 'g'},
+                    'relations.lz': {'key': 'g', 'value': {'h0': 'h', 'h1': 'h'}},
                     'objective': {'expression': 'sum(sum(p, by=lz, over=[h0, h1], into=g))'},
                 },
                 ("over=['h0', 'h1'] names two columns over ['h'], and the operand carries each dimension once",),
@@ -664,7 +671,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'dimensions.z': {},
-                    'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
+                    'relations.lz': {'key': 'g', 'value': ['h', 'z']},
                     'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lz, within=g))'},
                 },
                 ("within=['g'] names a key column of 'lz', and a partition groups by value columns",),
@@ -681,13 +688,13 @@ class TestRulesDecidedWithoutData:
                 id='into-without-by',
             ),
             pytest.param(
-                {'relations.rel': {'columns': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
-                ("'rel' declares no key, so nothing says which column sum walks",),
+                {'relations.rel': {'key': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
+                ("'rel' is a bare relation — every column is in its key — so nothing says which column sum walks",),
                 id='a-bare-relation-needs-both-ends-named',
             ),
             pytest.param(
                 {
-                    'relations.rel': {'columns': ['g', 'h']},
+                    'relations.rel': {'key': ['g', 'h']},
                     'objective': {'expression': 'sum(at(r, by=rel, over=h, into=g))'},
                 },
                 ("at reads one value per coordinate, and 'rel' is not single-valued",),
@@ -700,15 +707,15 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {
-                    'relations.rel': {'columns': ['g', 'h']},
+                    'relations.rel': {'key': ['g', 'h']},
                     'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=rel))'},
                 },
-                ("'rel' declares no key, so no coordinate is in exactly one group",),
+                ("'rel' is a bare relation", 'it makes no groups and no coordinate is in exactly one'),
                 id='a-partition-through-a-bare-relation',
             ),
             pytest.param(
-                {'relations.rel': {'columns': ['g', 'h']}, 'variables.q.where': "rel == 'x'"},
-                ("compares a column of 'rel', which declares no key",),
+                {'relations.rel': {'key': ['g', 'h']}, 'variables.q.where': "rel == 'x'"},
+                ("compares a column of 'rel', a bare relation", 'no one value per coordinate to compare'),
                 id='where-compares-a-bare-relation',
             ),
             pytest.param(
@@ -721,20 +728,20 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {
-                    'relations.pair': {'columns': {'g0': 'g', 'g1': 'g'}},
+                    'relations.pair': {'key': {'g0': 'g', 'g1': 'g'}},
                     'variables.q.where': 'pair',
                 },
                 ('has two columns over one dimension', 'Compare a column'),
                 id='where-bare-name-of-a-relation-with-two-columns-over-one-dim',
             ),
             pytest.param(
-                {'relations.g': {'columns': ['h', 'g'], 'key': 'h'}},
+                {'relations.g': {'key': 'h', 'value': 'g'}},
                 ("Relation 'g' collides with the dimension",),
                 id='relation-named-after-a-dimension',
             ),
             pytest.param(
                 {'relations.lk.values': {'a': 'x'}},
-                ("unknown key 'values' in a relation declaration", 'Valid keys'),
+                ("unknown key 'values' in a relation declaration", "Did you mean 'value'?"),
                 id='a-relation-declaring-its-map',
             ),
             pytest.param(
@@ -854,7 +861,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {
-                    'relations.hk': {'columns': ['h', 'g'], 'key': 'h'},
+                    'relations.hk': {'key': 'h', 'value': 'g'},
                     'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'},
                 },
                 ('groups through relations along different dimensions',),
@@ -868,7 +875,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'dimensions.z': {},
-                    'relations.lz': {'columns': ['h', 'z'], 'key': 'h'},
+                    'relations.lz': {'key': 'h', 'value': 'z'},
                     'objective': {'expression': 'sum(sum(q, by=[lk, lz]))'},
                 },
                 ('groups through relations along different dimensions',),
@@ -877,7 +884,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'dimensions.z': {},
-                    'relations.lz': {'columns': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'relations.lz': {'key': ['g', 'z'], 'value': 'h'},
                     'objective': {'expression': 'sum(sum(q, by=[lk, lz], over=g))'},
                 },
                 ('a list walks each relation by its declared key and value, so a column keyword has nothing to name',),
@@ -886,7 +893,7 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'dimensions.z': {},
-                    'relations.lz': {'columns': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'relations.lz': {'key': ['g', 'z'], 'value': 'h'},
                     'variables.q.where': 'lk != lz',
                 },
                 ('compares relations keyed over different dimensions',),
@@ -1262,7 +1269,7 @@ class TestADeclarationIsNamed:
     def test_a_name_no_expression_could_write_is_refused(self, section: str, name: str):
         declarations: dict[str, Any] = {
             'dimensions': {'dtype': 'str'},
-            'relations': {'columns': ['g', 'h'], 'key': 'g'},
+            'relations': {'key': 'g', 'value': 'h'},
             'parameters': {'dims': ['g']},
             'variables': {'dims': ['g']},
             'expressions': {'expression': 'c'},
