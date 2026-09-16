@@ -137,6 +137,39 @@ class RelationNode:
 
 
 @dataclass(frozen=True)
+class ColumnRefNode:
+    """A relation with a dotted column selection — ``over=zone_of.generator``, ``by=ends.[bus0, bus1]``.
+
+    Unresolved: the relation name and the columns it names are the author's
+    text. Resolution reads the schema to say which relation, and which of its
+    columns, and which kind of walk the operator makes through it. A bare
+    ``NAME`` with no dot is a :class:`NameNode`, not this — the dot is what a
+    column selection is written with.
+    """
+
+    name: str
+    columns: tuple[str, ...]
+
+    @property
+    def shown(self) -> str:
+        """The value as the author wrote it, for an error message."""
+        return f'{self.name}.{shown(self.columns)}'
+
+
+@dataclass(frozen=True)
+class IndexNode:
+    """An unresolved ``x[rel]`` or ``x[rel.col]`` — reading a value at a relation's key.
+
+    ``name`` is the parameter or variable indexed, and ``relation`` the relation
+    read, with any dotted value-column selection. Resolution rewrites this into
+    the resolved index over a :class:`RelationNode`.
+    """
+
+    name: str
+    relation: NameNode | ColumnRefNode
+
+
+@dataclass(frozen=True)
 class KeywordNode:
     """A quoted closed keyword in a kwarg value — ``shift(..., edge='wrap')``.
 
@@ -240,6 +273,8 @@ ArithmeticNode = (
     NumberNode
     | NameNode
     | NameListNode
+    | ColumnRefNode
+    | IndexNode
     | VariableNode
     | ParameterNode
     | DualNode
@@ -284,7 +319,7 @@ KwargNode = DimensionNode | RelationNode | EdgeNode
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
 #: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
-UnresolvedNode = NameNode | NameListNode | KeywordNode
+UnresolvedNode = NameNode | NameListNode | ColumnRefNode | IndexNode | KeywordNode
 
 #: Every leaf — nothing below it to descend into.
 LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
@@ -362,19 +397,24 @@ def _build_grammar() -> pp.ParserElement:
     number = inf_literal | pp.Regex(rf'{REAL}|\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
 
     name = pp.Regex(NAME)
+    # pyrefly: ignore[implicit-any-lambda]
+    name_node = name.copy().set_parse_action(lambda t: NameNode(t[0]))
 
     quoted = (pp.QuotedString("'") | pp.QuotedString('"')).set_parse_action(lambda t: KeywordNode(str(t[0])))
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
+    column_list = pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')
+    column_ref = (name + pp.Suppress('.') + (column_list | name)).set_parse_action(_make_column_ref)
+    index = (name + pp.Suppress('[') + (column_ref | name_node) + pp.Suppress(']')).set_parse_action(_make_index)
+    kwarg = (name + pp.Suppress('=') + (quoted | column_ref | name_list | arith)).set_parse_action(
+        lambda t: (t[0], t[1])
+    )
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)
 
-    # pyrefly: ignore[implicit-any-lambda]
-    name_node = name.copy().set_parse_action(lambda t: NameNode(t[0]))
-    atom = func_call | number | name_node | (pp.Suppress('(') + arith + pp.Suppress(')'))
+    atom = func_call | index | number | name_node | (pp.Suppress('(') + arith + pp.Suppress(')'))
 
     unary = pp.Forward()
     power = (atom + pp.Optional(pp.Literal('**') + unary)).set_parse_action(_make_power)
@@ -393,6 +433,17 @@ def _build_grammar() -> pp.ParserElement:
     return (arith + pp.Optional(comparator + arith)).set_parse_action(
         lambda t: ComparisonNode(t[1], t[0], t[2]) if len(t) == 3 else t[0]
     )
+
+
+def _make_column_ref(tokens: pp.ParseResults) -> ColumnRefNode:
+    """A relation name and the one or more columns written after its dot."""
+    return ColumnRefNode(str(tokens[0]), tuple(str(x) for x in tokens[1:]))
+
+
+def _make_index(tokens: pp.ParseResults) -> IndexNode:
+    """An ``x[rel]``: the indexed name, and the relation read, bare or with a dotted column."""
+    relation = cast('NameNode | ColumnRefNode', tokens[1])
+    return IndexNode(str(tokens[0]), relation)
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:

@@ -142,6 +142,8 @@ UNRESOLVED = {
     'UnresolvedPositionNode',
     'NameNode',
     'NameListNode',
+    'ColumnRefNode',
+    'IndexNode',
     'KeywordNode',
 }
 
