@@ -38,8 +38,9 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     relation_kwargs: tuple[str, ...] = ()
-    #: Kwargs naming a column of the relation ``by=`` names — ``over=`` and
-    #: ``into=`` — which resolution folds into the relation's walk.
+    #: Kwargs naming a column of the relation ``by=`` names — ``over=``,
+    #: ``into=`` and ``within=`` — which resolution folds into the relation's
+    #: walk.
     role_kwargs: tuple[str, ...] = ()
     #: Kwargs naming a dimension on their own and a column of the relation where
     #: ``by=`` names one. ``sum(x, over=generator)`` reduces the dimension
@@ -101,10 +102,10 @@ BUILTINS: dict[str, Builtin] = {
         optional_kwargs=('by', 'over', 'into'),
     ),
     'at': Builtin(
-        'at(<expr>, by=<relation>[, over=<column>, into=<column>])',
+        'at(<expr>, by=<relation>[, over=<column>])',
         relation_kwargs=('by',),
-        role_kwargs=('over', 'into'),
-        optional_kwargs=('over', 'into'),
+        role_kwargs=('over',),
+        optional_kwargs=('over',),
     ),
     'sum_back': Builtin(
         "sum_back(<expr>, along=<dim>, window=<n|parameter>[, edge='wrap'][, by=<relation>[, within=<column>]])",

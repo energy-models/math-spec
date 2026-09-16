@@ -492,7 +492,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
         {
             'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
             'relations': {'zone_of': {'columns': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']}},
-            'parameters': {'price': {'dims': ['snapshot', 'zone']}},
+            'parameters': {'price': {'dims': ['snapshot', 'zone']}, 'cap': {'dims': ['zone']}},
             'variables': {
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
                 'first': {'dims': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
@@ -501,7 +501,11 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
                 'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, over=generator) <= 1'},
                 'priced': {
                     'dims': ['snapshot', 'generator'],
-                    'expression': 'p <= at(price, by=zone_of, into=generator)',
+                    'expression': 'p <= at(price, by=zone_of)',
+                },
+                'capped': {
+                    'dims': ['snapshot', 'generator'],
+                    'expression': 'p <= at(cap, by=zone_of)',
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
@@ -537,6 +541,10 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     assert isinstance(priced, At)
     assert (priced.over, priced.into, priced.joined) == (('generator',), ('zone',), ('snapshot',)), (
         'an at produces the fine dims, consumes the coarse, and joins on the rest of the key'
+    )
+    capped = program.constraints['capped'].rhs
+    assert capped == At(Parameter('cap'), walks=(Walk(declared, ('zone',), ('generator', 'snapshot'), ()),)), (
+        'the same read of an operand without snapshot joins on nothing and produces the whole key'
     )
     p_where = program.variable('p').where
     assert p_where is not None

@@ -168,7 +168,7 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
 
 
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``at`` is the adjoint of ``sum(by=)``: it consumes the dims the walks produce and produces the one they consume."""
+    """``at`` consumes the value dims the walks read and lands on the key: a key dim the operand keeps is joined on, and the frame has it once."""
     by = node.kwargs['by']
     assert isinstance(by, RelationNode)
     absent = sorted(set(by.into) - inner)
@@ -179,7 +179,6 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
             f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
             f'sum is the direction that produces them.'
         )
-    _check_joined(f'at(by={by.shown})', by, inner, context)
     return (inner - set(by.into)) | set(by.dimensions)
 
 

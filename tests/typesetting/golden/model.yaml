@@ -185,7 +185,7 @@ constraints:
   zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
     dims: [snapshot, generator]
     where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
-    expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
+    expression: p <= at(spill * zone_cap, by=gen_zone)
   arithmetic: # division, both unary signs, a sign beside a sign, floats with and without an exponent, bracketing
     dims: [snapshot]
     expression: >-

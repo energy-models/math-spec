@@ -20,7 +20,7 @@ model can never depend on what a caller registered. A composition of them goes i
 | `sum(array, by=relation, over=a, into=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them. Walked to the key, where each coordinate finds one row, it is a read — that is `at`'s |
 | `sum(array, by=relation, over=[a, …], into=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                             |
 | `at(array, by=relation)`                             | The relation's value column is replaced by its key column                                                                                          |
-| `at(array, by=relation, over=a, into=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns. Either may be a list               |
+| `at(array, by=relation, over=a)`                     | Column `a` is replaced by the key, one value per coordinate. A key column whose dimension `array` carries is read at the array's own coordinate. `a` may be a list |
 | `shift(array, along=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
 | `shift(array, along=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, along=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
@@ -93,10 +93,11 @@ coordinate the data never covered is refused. See [absence](absence.md).
 ## `at`
 
 `at(x, by=l)` walks the same relation the other way. It consumes a value column
-and produces the key, so it reads one coarse value once for each fine label that
-points at it, and a bare relation is never read by `at`. `over=` and `into=`
-name the columns where the relation offers two, and every other key column is
-read at the row's own coordinate ([walks](dimensions.md#walks)).
+and lands on the key, so it reads one coarse value once for each fine label that
+points at it, and a bare relation is never read by `at`. `over=` names the value
+column where the relation offers two. The key needs no naming: a key column
+whose dimension `x` carries is read at the row's own coordinate, and the rest
+are produced ([walks](dimensions.md#walks)).
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus)`.

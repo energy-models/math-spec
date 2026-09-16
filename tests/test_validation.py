@@ -688,14 +688,24 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'relations.rel': {'columns': ['g', 'h']},
-                    'objective': {'expression': 'sum(at(r, by=rel, over=h, into=g))'},
+                    'objective': {'expression': 'sum(at(r, by=rel, over=h))'},
                 },
-                ("at reads one value per coordinate, and 'rel' is not single-valued",),
+                ("at reads one value per coordinate, and 'rel' declares no key", 'Declare key: on the relation'),
                 id='at-through-a-bare-relation',
             ),
             pytest.param(
+                {'objective': {'expression': 'sum(at(q, by=lk, over=g))'}},
+                ("over=g names the key column(s) ['g'], and at reads value columns at the key", "among ['h']"),
+                id='at-consuming-a-key-column',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(at(r, by=lk, over=h, into=g))'}},
+                ('at() expects at(<expr>, by=<relation>[, over=<column>])',),
+                id='at-takes-no-into',
+            ),
+            pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
-                ("this sum walks to the key ['g']", 'that is a read, which is', 'at(..., by=lk'),
+                ("this sum walks to the key ['g']", 'that is a read, which is', 'at(..., by=lk, over=h)'),
                 id='a-sum-that-walks-to-the-key-is-a-read',
             ),
             pytest.param(

@@ -531,7 +531,7 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 zonal_pullback:
   dims: [snapshot, generator]
   where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
-  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
+  expression: p <= at(spill * zone_cap, by=gen_zone)
 ```
 
 ```math
