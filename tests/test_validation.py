@@ -684,7 +684,7 @@ class TestRulesDecidedWithoutData:
                     'sum(over=h -> g) walks a relation between two of its columns, and no by= names the relation',
                     'Write sum(<expr>, by=<relation>, over=h -> g)',
                 ),
-                id='an-arrow-without-by',
+                id='a-direction-without-by',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=lk, into=g))'}},
@@ -696,8 +696,8 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(at(r, by=lk, over=h -> g))'}},
-                ('at(over=h -> g) names columns to read, and only a sum walks an arrow', 'Write over=h'),
-                id='at-takes-no-arrow',
+                ('at(over=h -> g) names columns to read, and only a sum names a direction', 'Write over=h'),
+                id='at-takes-no-direction',
             ),
             pytest.param(
                 {
@@ -705,16 +705,16 @@ class TestRulesDecidedWithoutData:
                     'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
                     'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lz, within=g -> z))'},
                 },
-                ('shift(within=g -> z) names columns to read, and only a sum walks an arrow', 'Write within=z'),
-                id='a-partition-takes-no-arrow',
+                ('shift(within=g -> z) names columns to read, and only a sum names a direction', 'Write within=z'),
+                id='a-partition-takes-no-direction',
             ),
             pytest.param(
                 {
                     'macros': {'m': {'args': ['x'], 'kwargs': ['w'], 'template': 'x + w'}},
                     'objective': {'expression': 'sum(m(p, w=g -> h))'},
                 },
-                ('g -> h is an arrow between column names, which is only legal as the over= value of a sum',),
-                id='an-arrow-bound-to-a-formal-in-arithmetic',
+                ('g -> h names a direction between columns, which is only legal as the over= value of a sum',),
+                id='a-direction-bound-to-a-formal-in-arithmetic',
             ),
             pytest.param(
                 {'relations.rel': {'columns': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},

@@ -111,7 +111,7 @@ def test_a_call_expands_to_core_ast(expressions, macros, call, want):
     assert _bodies(expanded) == parse_expression(want)
 
 
-def test_a_macro_formal_may_stand_at_either_end_of_an_arrow():
+def test_a_macro_formal_may_stand_at_either_end_of_a_direction():
     """`over=a -> b` holds its ends as nodes, so a caller's name for either end is bound like any formal."""
     spec = schema(
         **{

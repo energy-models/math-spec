@@ -19,13 +19,13 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
 from math_spec._expression_parser import (
     ArithmeticNode,
-    ArrowNode,
     BinaryOperatorNode,
     CaseArm,
     CasesNode,
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
+    DirectionNode,
     DualNode,
     EdgeNode,
     FunctionCallNode,
@@ -417,9 +417,9 @@ class _Resolver:
                 f'terms out and add them.'
             )
             return node
-        if isinstance(node, ArrowNode):
+        if isinstance(node, DirectionNode):
             self.errors.append(
-                f'{self.context}: {node.shown} is an arrow between column names, which is only legal as the '
+                f'{self.context}: {node.shown} names a direction between columns, which is only legal as the '
                 f'over= value of a sum through a relation, such as sum(x, by=gen_bt, over=generator -> bus). '
                 f'In an expression, name a variable or a parameter.'
             )
@@ -545,7 +545,7 @@ class _Resolver:
 
     def _dim_ref(self, value: ArithmeticNode, operator: str, key: str) -> ArithmeticNode:
         """An operator kwarg whose *value* must name a declared dimension."""
-        if isinstance(value, ArrowNode):
+        if isinstance(value, DirectionNode):
             self.errors.append(
                 f'{self.context}: {operator}({key}={value.shown}) walks a relation between two of its columns, '
                 f'and no by= names the relation. Write {operator}(<expr>, by=<relation>, {key}={value.shown}).'
@@ -667,8 +667,8 @@ class _Resolver:
         return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
 
     def _ends(self, value: ArithmeticNode) -> tuple[tuple[str, ...], tuple[str, ...] | None] | None:
-        """A sum's ``over=``: the columns consumed, and the columns produced where an arrow names them."""
-        if not isinstance(value, ArrowNode):
+        """A sum's ``over=``: the columns consumed, and the columns produced where a direction names them."""
+        if not isinstance(value, DirectionNode):
             consumed = self._role_name(value, 'sum', 'over')
             return None if consumed is None else (consumed, None)
         consumed = self._role_name(value.consumed, 'sum', 'over')
@@ -676,16 +676,16 @@ class _Resolver:
         return None if consumed is None or produced is None else (consumed, produced)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
-        """A column kwarg, or one end of an arrow, as the column names it must be — one bare name, or a bracketed list."""
+        """A column kwarg, or one end of a direction, as the column names it must be — one bare name, or a bracketed list."""
         if isinstance(value, NameNode):
             return (value.name,)
         if isinstance(value, NameListNode):
             return value.names
-        if isinstance(value, ArrowNode):
+        if isinstance(value, DirectionNode):
             end = value.consumed if operator == 'at' else value.produced
             self.errors.append(
-                f'{self.context}: {operator}({key}={value.shown}) names columns to read, and only a sum walks an '
-                f'arrow: at lands on the key and a partition on its groups. Write {key}={shown(names_in(end))}.'
+                f'{self.context}: {operator}({key}={value.shown}) names columns to read, and only a sum names a '
+                f'direction: at lands on the key and a partition on its groups. Write {key}={shown(names_in(end))}.'
             )
             return None
         self.errors.append(

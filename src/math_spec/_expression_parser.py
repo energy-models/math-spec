@@ -114,8 +114,8 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
-class ArrowNode:
-    """A walk's two ends in a kwarg value — ``sum(x, by=l, over=a -> b)``.
+class DirectionNode:
+    """A walk's direction in a kwarg value — ``sum(x, by=l, over=a -> b)``.
 
     Each end is a bare name or a bracketed list, and each is a child rather
     than a string so that a macro formal standing at either end is bound.
@@ -262,7 +262,7 @@ ArithmeticNode = (
     NumberNode
     | NameNode
     | NameListNode
-    | ArrowNode
+    | DirectionNode
     | VariableNode
     | ParameterNode
     | DualNode
@@ -305,12 +305,12 @@ def shown(names: tuple[str, ...]) -> str:
 KwargNode = DimensionNode | RelationNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
-#: knows, the two kwarg-only literals its kwarg consumes, and the arrow whose
+#: knows, the two kwarg-only literals its kwarg consumes, and the direction whose
 #: ends are names. Meeting one downstream means the expression skipped
 #: :func:`~math_spec.resolution.expression_of`.
-UnresolvedNode = NameNode | NameListNode | KeywordNode | ArrowNode
+UnresolvedNode = NameNode | NameListNode | KeywordNode | DirectionNode
 
-#: Every leaf — nothing below it to descend into. An arrow is unresolved but
+#: Every leaf — nothing below it to descend into. A direction is unresolved but
 #: not a leaf: its ends are names a macro formal may stand at.
 LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | NameNode | NameListNode | KeywordNode
 
@@ -330,7 +330,7 @@ def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
         return (node.left, node.right)
     if isinstance(node, FunctionCallNode):
         return (*node.args, *node.kwargs.values())
-    if isinstance(node, ArrowNode):
+    if isinstance(node, DirectionNode):
         return (node.consumed, node.produced)
     if isinstance(node, CasesNode):
         return tuple(arm.value for arm in node.arms)
@@ -368,8 +368,8 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
             tuple(recurse(a) for a in node.args),
             {k: recurse(v) for k, v in node.kwargs.items()},
         )
-    if isinstance(node, ArrowNode):
-        return ArrowNode(recurse(node.consumed), recurse(node.produced))
+    if isinstance(node, DirectionNode):
+        return DirectionNode(recurse(node.consumed), recurse(node.produced))
     if isinstance(node, CasesNode):
         return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
     if isinstance(node, DefinitionNode):
@@ -399,8 +399,10 @@ def _build_grammar() -> pp.ParserElement:
     # pyrefly: ignore[implicit-any-lambda]
     end = name_list | name.copy().set_parse_action(lambda t: NameNode(t[0]))
     # pyrefly: ignore[implicit-any-lambda]
-    arrow = (end + pp.Suppress('->') + end).set_parse_action(lambda t: ArrowNode(t[0], t[1]))
-    kwarg = (name + pp.Suppress('=') + (quoted | arrow | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
+    direction = (end + pp.Suppress('->') + end).set_parse_action(lambda t: DirectionNode(t[0], t[1]))
+    kwarg = (name + pp.Suppress('=') + (quoted | direction | name_list | arith)).set_parse_action(
+        lambda t: (t[0], t[1])
+    )
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)

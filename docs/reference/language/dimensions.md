@@ -200,10 +200,10 @@ and the joined `period` is the second subscript.
   `sum(f, by=ends, over=line -> bus1)` reads `bus1` and ignores `bus0`
   ([roles](#roles)).
 - **`by=[a, b]` is one grouping onto what `a` and `b` produce together.** Each
-  relation is walked from its key to its value, so an arrow has nothing to
+  relation is walked from its key to its value, so a direction has nothing to
   name. The relations consume the same dimension, and no two produce
   the same one.
-- **An arrow needs a `by=`**, because a column belongs to a table. `over=`
+- **A direction needs a `by=`**, because a column belongs to a table. `over=`
   without a `by=` names a dimension, as in `sum(p, over=period)`.
 
 Three refusals draw the line, and each message names the rewrite:

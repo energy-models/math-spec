@@ -11,12 +11,12 @@ from typing import TYPE_CHECKING, Any, Literal, assert_never, overload
 import math_spec.degree as degree
 from math_spec._expression_parser import (
     ArithmeticNode,
-    ArrowNode,
     BinaryOperatorNode,
     CaseArm,
     CasesNode,
     ComparisonNode,
     DefinitionNode,
+    DirectionNode,
     DualNode,
     FunctionCallNode,
     KeywordNode,
@@ -320,7 +320,7 @@ def _check_template_names(
     if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
         return
 
-    if isinstance(node, ArrowNode):
+    if isinstance(node, DirectionNode):
         return  # its ends are columns of the relation by= names, checked when a call site binds them
 
     if isinstance(node, NameNode):

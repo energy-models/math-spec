@@ -16,9 +16,9 @@ import pytest
 
 import math_spec.program as program_module
 from math_spec._expression_parser import (
-    ArrowNode,
     BinaryOperatorNode,
     ComparisonNode,
+    DirectionNode,
     FunctionCallNode,
     NameListNode,
     NameNode,
@@ -221,10 +221,10 @@ def test_a_list_the_grammar_cannot_read_is_refused_at_load(text):
         pytest.param('sum(p,by=l,over=a->b)', NameNode('a'), NameNode('b'), id='no-spaces'),
     ],
 )
-def test_an_arrow_is_a_kwarg_value_with_a_name_at_each_end(text, consumed, produced):
+def test_a_direction_is_a_kwarg_value_with_a_name_at_each_end(text, consumed, produced):
     """`over=a -> b` is one value whose ends are nodes, so a macro formal at either end is bound."""
     node = parse_expression(text)
-    assert node.kwargs['over'] == ArrowNode(consumed, produced)
+    assert node.kwargs['over'] == DirectionNode(consumed, produced)
 
 
 @pytest.mark.parametrize(
@@ -238,7 +238,7 @@ def test_an_arrow_is_a_kwarg_value_with_a_name_at_each_end(text, consumed, produ
         pytest.param('p -> q', id='the-whole-expression'),
     ],
 )
-def test_an_arrow_the_grammar_cannot_read_is_refused_at_load(text):
+def test_a_direction_the_grammar_cannot_read_is_refused_at_load(text):
     """A comma inside a call separates arguments, so two names at one end go in brackets."""
     with pytest.raises(SchemaError, match='Failed to parse expression'):
         parse_expression(text)

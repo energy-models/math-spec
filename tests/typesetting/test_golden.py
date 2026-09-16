@@ -142,7 +142,7 @@ UNRESOLVED = {
     'UnresolvedPositionNode',
     'NameNode',
     'NameListNode',
-    'ArrowNode',
+    'DirectionNode',
     'KeywordNode',
 }
 
