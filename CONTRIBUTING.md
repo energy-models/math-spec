@@ -87,9 +87,9 @@ fix(parser): where clauses with a trailing comma
 docs: describe the two expression tiers
 ```
 
-Types are `feat`, `fix`, `perf`, `refactor`, `docs`, `chore`, `test`, `ci`,
-`build`, `style` and `revert`; the first five appear in the changelog and the
-rest are hidden. A subject the parser cannot read is not an error — the entry
+Types are `feat`, `fix`, `perf`, `refactor`, `docs` and `revert`, which appear
+in the changelog, and `chore`, `test`, `ci`, `build` and `style`, which are
+hidden. A subject the parser cannot read is not an error — the entry
 simply never appears — so the `Conventional commit subject` check enforces the
 format on every pull request.
 

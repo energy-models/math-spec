@@ -337,8 +337,8 @@ vocabulary. So the title names the problem solved. It names an outcome, not an
 activity, and not a mechanism.
 
 **The file list of the diff decides the type, before you write a word of the
-subject.** `feat`, `fix`, `perf`, `refactor` and `docs` publish to the
-changelog. `chore`, `test`, `ci`, `build` and `style` hide.
+subject.** `feat`, `fix`, `perf`, `refactor`, `docs` and `revert` publish to
+the changelog. `chore`, `test`, `ci`, `build` and `style` hide.
 
 | The diff touches                                                       | Type                           |
 | ---------------------------------------------------------------------- | ------------------------------ |
