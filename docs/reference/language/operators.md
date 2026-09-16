@@ -81,8 +81,7 @@ outflow, with no adjacency matrix and no join written by hand.
 `sum(by=)` consumes a key column and produces a value column. `over=` and
 `into=` name them where the relation offers two ([walks](dimensions.md#walks)),
 and every other key column is joined on, so each group is one coordinate of it.
-A bare relation, one with no `value:`, is summed with both ends named, and a
-row it holds twice counts twice.
+A bare relation, one with no `value:`, is summed with both ends named.
 
 The relation's values are the group labels, checked against their own dimension
 when the data binds. A group with no members contributes nothing, and a member

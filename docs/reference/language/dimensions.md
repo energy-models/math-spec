@@ -66,9 +66,9 @@ A relation is a **table with one column per dimension it relates**: a
 generator's bus, a snapshot's period, or the buses a generator may connect to.
 It is what makes topology data, so no adjacency matrix and no hand-written join
 appears anywhere. `key:` names the columns that identify a row, and `value:`
-the columns that key determines. The declaration fixes no direction. The
-operator that walks the table says which column it consumes and which it
-produces.
+the columns that key determines. Every relation is keyed: with no `value:`, the
+key is every column. The declaration fixes no direction. The operator that
+walks the table says which column it consumes and which it produces.
 
 ```yaml
 dimensions:
@@ -130,10 +130,9 @@ Each cardinality is one declaration:
 | many-to-many, a generator on several buses | `{key: [generator, bus]}`, no `value:`                                                                            | no row twice          |
 | one-to-one                                 | not a claim the language has: a key is one set of columns, and nothing checks the other side                      |                       |
 
-A bare relation, one with no `value:`, is walked by `sum` alone, with both ends
-named, and tested by a bare `where`. Its key is every column it has, so the
-table claims no row twice and nothing more. That is what a many-to-many
-relation can say, and all it can say.
+A bare relation is a set of rows: no row twice, and nothing else claimed.
+`sum` walks it with both ends named, and a bare `where` tests it. That is what
+a many-to-many relation can say, and all it can say.
 
 ### Walks
 
