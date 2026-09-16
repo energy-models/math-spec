@@ -182,8 +182,8 @@ class RelationBlock(_StrictBlock):
           ends: {key: line, value: {bus0: bus, bus1: bus}}
           connection: {key: [generator, bus]}
 
-    An operator walks the table in the direction the call names
-    (``over=``, ``into=``), joining on the other key columns; the
+    An operator sums or indexes the table in the direction the call names
+    (``over=``, ``by=``, ``x[rel]``), joining on the other key columns; the
     declaration fixes no direction. The map itself is data, and arrives at bind
     time under the relation's name, one column per role.
     """

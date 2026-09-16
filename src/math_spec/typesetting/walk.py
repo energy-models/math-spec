@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from math_spec.model import RelationBlock, SosBlock, _ExpandedSpec
-    from math_spec.program import Walk as RelationWalk
+    from math_spec.program import Join
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -114,7 +114,7 @@ def _amount(node: ArithmeticNode) -> int | str:
 def _slid_dimension(along: ArithmeticNode) -> str:
     """The dimension a translation slides along — a bare ``along=`` or the key column a partition slides."""
     if isinstance(along, RelationNode):
-        return along.walks[0].consumed_dims[0]
+        return along.joins[0].consumed_dims[0]
     assert isinstance(along, DimensionNode), 'resolution refuses an along= that is neither a dimension nor a relation'
     return along.name
 
@@ -283,7 +283,7 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _relation_read(self, walk: RelationWalk, at: Mapping[str, str], read: str) -> str:
+    def _relation_read(self, walk: Join, at: Mapping[str, str], read: str) -> str:
         """A relation's column *read* as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
 
         *at* maps each key role to the index it is read at. The function is
@@ -293,7 +293,7 @@ class Walk:
         name = walk.name if len(walk.values) == 1 else f'{walk.name}.{read}'
         return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in walk.key], ''))
 
-    def _relation_member(self, walk: RelationWalk, at: Mapping[str, str]) -> str:
+    def _relation_member(self, walk: Join, at: Mapping[str, str]) -> str:
         """A relation read as a relation: ``(g, b) ∈ gen_bus``, every column in declared order at the index *at* gives it."""
         row = self.format.parenthesise(self.format.joined([at[r] for r in walk.roles], ''))
         return f'{row} {self._op("in")} {self.format.upright(walk.name)}'
@@ -458,7 +458,7 @@ class Walk:
             by = node.kwargs['by']
             assert isinstance(by, RelationNode)
             outer = ctx
-            for walk in by.walks:
+            for walk in by.joins:
                 at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
                 for read in walk.consumed:
                     ctx = ctx.pulled_back(walk.dim(read), self._relation_read(walk, at, read))
@@ -472,7 +472,7 @@ class Walk:
             inner = ctx
             for d in relation.dimensions:
                 dummies[d], inner = inner.reducing(d)
-            conditions = [c for walk in relation.walks for c in self._grouping(walk, dummies, ctx)]
+            conditions = [c for walk in relation.joins for c in self._grouping(walk, dummies, ctx)]
             domain = (
                 f'{self.format.joined([self._membership(d, dummies[d]) for d in relation.dimensions], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
@@ -489,7 +489,7 @@ class Walk:
             domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
-    def _grouping(self, walk: RelationWalk, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
+    def _grouping(self, walk: Join, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
         """The conditions a grouped sum's domain carries for one walk: each produced column as a function equal to its target, or one row in the relation.
 
         The function form holds where the key lies inside the consumed and
@@ -515,7 +515,7 @@ class Walk:
         """
         if not isinstance(along, RelationNode):
             return ''
-        walk = along.walks[0]
+        walk = along.joins[0]
         at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
         return self._tuple([self._relation_read(walk, at, r) for r in walk.produced])
 

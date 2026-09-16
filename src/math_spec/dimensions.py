@@ -160,7 +160,7 @@ def _index_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, con
     """``x[rel]`` reads a value at a key: the value dims it consumes go, the key it produces arrives, the joined stay."""
     by = node.kwargs['by']
     assert isinstance(by, RelationNode)
-    return _relation_dims(f'{by.walks[0].name}[…]', by, inner, context)
+    return _relation_dims(f'{by.joins[0].name}[…]', by, inner, context)
 
 
 def _relation_dims(call: str, relation: RelationNode, inner: frozenset[str], context: str) -> frozenset[str]:
@@ -178,7 +178,7 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     along = node.kwargs['along']
     assert isinstance(along, DimensionNode | RelationNode), 'resolution refuses an along= that is neither'
     partition = along if isinstance(along, RelationNode) else None
-    walked = along.walks[0].consumed_dims[0] if isinstance(along, RelationNode) else along.name
+    walked = along.joins[0].consumed_dims[0] if isinstance(along, RelationNode) else along.name
     if walked not in inner:
         raise DimensionError(
             _not_carried(
@@ -198,7 +198,7 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
 
 def _check_joined(call: str, by: RelationNode, inner: frozenset[str], context: str) -> None:
     """The columns a join reads are read at their dimensions, so the operand carries every one, each once."""
-    for walk in by.walks:
+    for walk in by.joins:
         dims = walk.joined_dims
         if missing := sorted(set(dims) - inner):
             raise DimensionError(
@@ -393,7 +393,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
         )
     partition = node.kwargs.get('along')
     groups = (
-        frozenset(partition.walks[0].dim(v) for v in partition.walks[0].produced)
+        frozenset(partition.joins[0].dim(v) for v in partition.joins[0].produced)
         if isinstance(partition, RelationNode)
         else frozenset()
     )

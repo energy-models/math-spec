@@ -275,13 +275,13 @@ class _Lowering:
             return program.Sum(operand, (over_node.name,))
         relation = over_node if over_node is not None else by_node
         assert isinstance(relation, RelationNode), 'resolution refuses a relation kwarg that is not a relation'
-        return program.GroupSum(operand, walks=relation.walks)
+        return program.GroupSum(operand, joins=relation.joins)
 
     def index(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``x[relation]`` — reading a value at a key, the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
         assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.At(self.expr(node.args[0]), walks=by_node.walks)
+        return program.At(self.expr(node.args[0]), joins=by_node.joins)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
@@ -343,12 +343,12 @@ def _slid_dim(node: FunctionCallNode) -> str:
     """The dimension a translation slides along — a bare ``along=`` or the key column a partition slides."""
     along = node.kwargs['along']
     if isinstance(along, RelationNode):
-        return along.walks[0].consumed_dims[0]
+        return along.joins[0].consumed_dims[0]
     assert isinstance(along, DimensionNode), 'resolution refuses an along= that is neither a dimension nor a relation'
     return along.name
 
 
-def _partition_of(node: FunctionCallNode) -> program.Walk | None:
+def _partition_of(node: FunctionCallNode) -> program.Join | None:
     """The join a translation partitions by, if ``along=`` names a relation.
 
     That it is a *single* relation, sliding *the translated dimension*, is
@@ -358,7 +358,7 @@ def _partition_of(node: FunctionCallNode) -> program.Walk | None:
     along = node.kwargs.get('along')
     if not isinstance(along, RelationNode):
         return None
-    return along.walks[0]
+    return along.joins[0]
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:

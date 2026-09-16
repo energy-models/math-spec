@@ -66,6 +66,7 @@ from math_spec.program import (
     BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
+    Join,
     Mask,
     NotNode,
     OrNode,
@@ -78,7 +79,6 @@ from math_spec.program import (
     RelationPairComparisonNode,
     TypedPredicateNode,
     VariableDefinedNode,
-    Walk,
     WhereNode,
 )
 
@@ -309,7 +309,7 @@ def _shown(refs: tuple[ColumnRefNode | NameNode, ...]) -> str:
     return parts[0] if len(parts) == 1 else f'[{", ".join(parts)}]'
 
 
-def _relation_node(walks: tuple[Walk, ...], landed: tuple[str, ...]) -> RelationNode:
+def _relation_node(joins: tuple[Join, ...], landed: tuple[str, ...]) -> RelationNode:
     """A resolved relation reference: the joins, the dims they consume from the operand, and the dims landed on.
 
     ``dimensions`` is the consumed side — the dims that leave the operand's
@@ -317,11 +317,11 @@ def _relation_node(walks: tuple[Walk, ...], landed: tuple[str, ...]) -> Relation
     gains, so the dim rule is uniformly ``(inner - dimensions) | into`` for a
     sum and an index alike.
     """
-    consumed = tuple(dict.fromkeys(d for w in walks for d in w.consumed_dims))
-    return RelationNode(tuple(w.name for w in walks), dimensions=consumed, into=landed, walks=walks)
+    consumed = tuple(dict.fromkeys(d for w in joins for d in w.consumed_dims))
+    return RelationNode(tuple(w.name for w in joins), dimensions=consumed, into=landed, joins=joins)
 
 
-def _landed_dims(walk: Walk) -> tuple[str, ...]:
+def _landed_dims(walk: Join) -> tuple[str, ...]:
     """The dims a join lands on — the dims it produces, whether a sum's value or an index's key."""
     return walk.produced_dims
 
@@ -690,7 +690,7 @@ class _Resolver:
             return value
         return _relation_node(tuple(resolved), landed)
 
-    def _value_join(self, ref: ColumnRefNode | NameNode, operator: str, key: str) -> Walk | None:
+    def _value_join(self, ref: ColumnRefNode | NameNode, operator: str, key: str) -> Join | None:
         """The join ``sum(by=)`` or ``index`` makes: the value columns named or all of them, the whole key elsewhere.
 
         For ``sum`` the key is summed away and the result groups onto the value
@@ -718,7 +718,7 @@ class _Resolver:
             )
             return None
         if operator == 'index':
-            walk = Walk(shape, values, shape.key, ())
+            walk = Join(shape, values, shape.key, ())
             if not walk.is_function_read:
                 self.errors.append(
                     f"{self.context}: {call}: an index reads one value per coordinate, and '{name}' is not "
@@ -727,9 +727,9 @@ class _Resolver:
                 )
                 return None
             return walk
-        return Walk(shape, shape.key, values, ())
+        return Join(shape, shape.key, values, ())
 
-    def _key_join(self, ref: ColumnRefNode, operator: str, key: str) -> Walk | None:
+    def _key_join(self, ref: ColumnRefNode, operator: str, key: str) -> Join | None:
         """The join ``sum(over=rel.k)`` makes: sum key column ``k`` away, the value and other keys ride in.
 
         Refused where the columns named are the whole key — then every group is
@@ -749,12 +749,12 @@ class _Resolver:
             return None
         rest = tuple(r for r in shape.key if r not in keys)
         if shape.values:
-            return Walk(shape, keys, shape.values, rest)
-        return Walk(shape, keys, rest, ())
+            return Join(shape, keys, shape.values, rest)
+        return Join(shape, keys, rest, ())
 
     def _partition_join(
         self, ref: ColumnRefNode, operator: str, key: str, within: ArithmeticNode | None
-    ) -> Walk | None:
+    ) -> Join | None:
         """The join a partition (``shift``, ``sum_back``) makes: slide the named key column, group by the values.
 
         ``ref`` names the relation and the one key column slid over its
@@ -784,7 +784,7 @@ class _Resolver:
             return None
         (slid,) = keys
         joined = tuple(r for r in shape.key if r != slid)
-        return Walk(shape, (slid,), group, joined)
+        return Join(shape, (slid,), group, joined)
 
     def _within(self, within: ArithmeticNode, shape: RelationDeclaration, call: str) -> tuple[str, ...] | None:
         """The value columns ``within=`` names, each a value column of the relation; the refusal otherwise."""

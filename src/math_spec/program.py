@@ -65,6 +65,7 @@ __all__ = [
     'Footprint',
     'GroupSum',
     'Increasing',
+    'Join',
     'LastOf',
     'Mask',
     'MaskOf',
@@ -100,7 +101,6 @@ __all__ = [
     'VariableDeclaration',
     'VariableDefinedNode',
     'VariableDomain',
-    'Walk',
     'WhereNode',
     'Window',
     'carries_variable',
@@ -265,10 +265,10 @@ class Sum(Expression):
 class GroupSum(Expression):
     """Sum ``operand`` through relations, consuming the dims ``over`` and producing ``into``.
 
-    ``walks`` says, per relation, which columns are consumed, which produced
+    ``joins`` says, per relation, which columns are consumed, which produced
     and which joined on, and is the one fact the node holds: ``coordinate``
-    names the relations, ``over`` is the dims every walk consumes, ``into``
-    the dims they produce, in walk order, and ``joined`` the dims they join
+    names the relations, ``over`` is the dims every join consumes, ``into``
+    the dims they produce, in join order, and ``joined`` the dims they join
     on, so that several coordinates are one grouping into a product of
     targets, consumed in a single join. The result replaces every dim in
     ``over`` with every dim in ``into`` and keeps every dim in ``joined``. The
@@ -277,63 +277,63 @@ class GroupSum(Expression):
     """
 
     operand: ExpressionNode
-    walks: tuple[Walk, ...]
+    joins: tuple[Join, ...]
 
     @property
     def coordinate(self) -> tuple[str, ...]:
-        return tuple(walk.name for walk in self.walks)
+        return tuple(join.name for join in self.joins)
 
     @property
     def over(self) -> tuple[str, ...]:
-        return self.walks[0].consumed_dims
+        return self.joins[0].consumed_dims
 
     @property
     def into(self) -> tuple[str, ...]:
-        return tuple(dim for walk in self.walks for dim in walk.produced_dims)
+        return tuple(dim for join in self.joins for dim in join.produced_dims)
 
     @property
     def joined(self) -> tuple[str, ...]:
-        """The dims the walks join on, each once — the key columns neither consumed nor produced, which the operand carries."""
-        return _joined_dims(self.walks)
+        """The dims the joins land on, each once — the key columns neither consumed nor produced, which the operand carries."""
+        return _joined_dims(self.joins)
 
 
 @dataclass(frozen=True)
 class At(Expression):
     """Read ``operand`` through relations — the adjoint of :class:`GroupSum`.
 
-    Same tables, walked the other way: this consumes the dims in ``into`` and
+    Same tables, read the other way: this consumes the dims in ``into`` and
     produces the dims in ``over``, one value per coordinate because every
-    walk reads value columns at a key the operand fixes
-    (``Walk.is_function_read``). The join fans out, many ``over`` tuples
+    join reads value columns at a key the operand fixes
+    (``Join.is_function_read``). The join fans out, many ``over`` tuples
     sharing one ``into`` tuple — at each coordinate of the joined columns,
     which the operand carries and the result keeps. As on
-    :class:`GroupSum`, ``walks`` is the fact and the four are read off it.
+    :class:`GroupSum`, ``joins`` is the fact and the four are read off it.
     """
 
     operand: ExpressionNode
-    walks: tuple[Walk, ...]
+    joins: tuple[Join, ...]
 
     @property
     def coordinate(self) -> tuple[str, ...]:
-        return tuple(walk.name for walk in self.walks)
+        return tuple(join.name for join in self.joins)
 
     @property
     def over(self) -> tuple[str, ...]:
-        return self.walks[0].produced_dims
+        return self.joins[0].produced_dims
 
     @property
     def into(self) -> tuple[str, ...]:
-        return tuple(dim for walk in self.walks for dim in walk.consumed_dims)
+        return tuple(dim for join in self.joins for dim in join.consumed_dims)
 
     @property
     def joined(self) -> tuple[str, ...]:
-        """The dims the walks join on, each once — the key columns neither consumed nor produced, which the operand carries."""
-        return _joined_dims(self.walks)
+        """The dims the joins land on, each once — the key columns neither consumed nor produced, which the operand carries."""
+        return _joined_dims(self.joins)
 
 
-def _joined_dims(walks: tuple[Walk, ...]) -> tuple[str, ...]:
-    """The dims *walks* join on, each once, in walk order — the rule :attr:`GroupSum.joined` and :attr:`At.joined` share."""
-    return tuple(dict.fromkeys(dim for walk in walks for dim in walk.joined_dims))
+def _joined_dims(joins: tuple[Join, ...]) -> tuple[str, ...]:
+    """The dims *joins* join on, each once, in join order — the rule :attr:`GroupSum.joined` and :attr:`At.joined` share."""
+    return tuple(dict.fromkeys(dim for join in joins for dim in join.joined_dims))
 
 
 @dataclass(frozen=True)
@@ -348,7 +348,7 @@ class Translate(Expression):
     ``offset`` is an integer, or the name of an integer parameter that does
     not depend on ``dimension`` and carries its sign in the values.
 
-    ``partition`` is a relation walked along ``dimension`` — its consumed
+    ``partition`` is a relation slid along ``dimension`` — its consumed
     column is a key over that dimension, its produced columns are the group —
     and the translation then happens inside each group: the neighbour is the
     one before in the same group, the edge is the group's, and a wrap closes
@@ -361,7 +361,7 @@ class Translate(Expression):
     offset: int | str
     wrap: bool
     fill: float | None = None
-    partition: Walk | None = None
+    partition: Join | None = None
 
 
 @dataclass(frozen=True)
@@ -389,7 +389,7 @@ class Window(Expression):
     dimension: str
     width: int | str
     wrap: bool
-    partition: Walk | None = None
+    partition: Join | None = None
 
 
 @dataclass(frozen=True)
@@ -517,16 +517,16 @@ class RelationDeclaration(NamedTuple):
         return dict(self.columns)[role]
 
 
-class Walk(NamedTuple):
-    """One relation as an operator walks it — which columns are consumed, which produced, which joined on.
+class Join(NamedTuple):
+    """One relation as an operator joins it — which columns are consumed, which produced, which joined on.
 
     ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
     ``relation``, which binds every role to its dimension and names the key.
-    ``joined`` is the key roles not walked (every role, for a bare relation):
-    the join keys on them, and a value role not walked is not read. For a
-    partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
-    role over the dimension walked and ``produced`` the value roles that make
-    the group — every value role unless the call named some with ``within=``.
+    ``joined`` is the key roles neither consumed nor produced (every role, for a
+    bare relation): the join keys on them, and a value role not named is not
+    read. For a partition (``shift``, ``sum_back``, ``position``) ``consumed`` is
+    the key role over the dimension slid and ``produced`` the value roles that
+    make the group — every value role unless the call named some with ``within=``.
     """
 
     relation: RelationDeclaration
@@ -1169,7 +1169,7 @@ class DimensionPositionNode:
 
     Both sides are integers, negative counting from the end. With a
     ``partition`` the position is counted within each group the relation makes,
-    walked as :class:`Translate` walks one: its consumed column is the key
+    slid as :class:`Translate` slides one: its consumed column is the key
     column over ``name``, the group is its produced columns, and its joined
     columns are the other key columns, whose dimensions the frame carries.
     """
@@ -1177,7 +1177,7 @@ class DimensionPositionNode:
     name: str
     op: PredicateOperator
     position: int
-    partition: Walk | None = None
+    partition: Join | None = None
 
 
 @dataclass(frozen=True)

@@ -22,7 +22,7 @@ from math_spec.errors import SchemaError
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Walk, WhereNode
+    from math_spec.program import Join, WhereNode
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -115,20 +115,19 @@ class NameListNode:
 
 @dataclass(frozen=True)
 class RelationNode:
-    """A resolved ``by=`` — one or more relations, each with the walk the call takes through it.
+    """A resolved relation reference — one or more relations, each with the join the call makes through it.
 
-    ``dimensions`` is the fine side every walk shares — what ``sum`` consumes
-    and ``at`` produces — and ``into`` the coarse dims, in the order the
-    names and their columns are written, which ``sum`` produces and ``at``
-    consumes; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
-    The roles joined on are the operand's to carry, and the operator passes
-    them through.
+    ``dimensions`` is the consumed side every join shares — the dims that leave
+    the operand's frame — and ``into`` the dims landed on, in the order the
+    names and their columns are written; ``sum(x, by=[gen_bus, gen_tech])`` is
+    one grouping, not two. The roles joined on are the operand's to carry, and
+    the operator passes them through.
     """
 
     names: tuple[str, ...]
     dimensions: tuple[str, ...]
     into: tuple[str, ...]
-    walks: tuple[Walk, ...] = ()
+    joins: tuple[Join, ...] = ()
 
     @property
     def shown(self) -> str:
