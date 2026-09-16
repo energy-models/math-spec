@@ -28,6 +28,12 @@ costs to add.
   constraints before the model is built. `piecewise:` is the only one. It costs
   as much as a primitive to build, but composes as freely as a macro, because
   the rest of the model only sees the variables and constraints it emitted.
+- **A declaration section** is a block of declarations of one kind, such as
+  `variables:` or `given_variables:`. One enters where it says something no
+  section already says, where a file decides it without data, and where the
+  typesetter prints it. `given_variables:` entered on all three: nothing else
+  states that a column belongs to another file, which is what lets a template
+  load and print on its own.
 
 A request that is none of the three is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
@@ -182,10 +188,19 @@ a path, so a model assembled in Python is checked exactly as a file is, and
 `Spec.to_yaml()` writes the file a reviewer reads. A `dict` may hold only what a
 file may hold. There is no Python API that builds models any other way.
 
-`override` is the verb for the layered case, where a framework ships a base
-and a project extends it. It lays each patch over the base a field at a time,
-so a patch says only what it changes.
-[Compose a model from a base and patches](../howto/compose.md) is the recipe.
+Two verbs do this, and they answer different questions. `merge` composes
+peers, so a name two templates declare is a collision and the order they are
+given in means nothing. `override` lays patches over a base, which is what a
+framework ships and a project extends, a field at a time.
+[Compose a model from several files](../howto/compose.md) is the recipe for
+both.
+
+A template reads the coupling surface it is written against, and declares that
+column under `given_variables:`. So a template loads on its own, and prints as
+math on its own, which is what it could not do while a fragment was a file the
+loader had to refuse. `merge` folds each given declaration into the one that
+introduces it, and a program carries none of them: a build makes every column it
+holds.
 
 The verb is built to collide, so every collision the caller did not ask for is
 refused. An entry naming some fields of a declaration the base does not have is

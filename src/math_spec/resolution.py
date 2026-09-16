@@ -132,7 +132,7 @@ class Namespace:
     def of(cls, schema: Spec) -> Namespace:
         """Build the namespace of *schema*, the whole of what a file may name."""
         return cls(
-            schema.variables,
+            {**schema.variables, **schema.given_variables},
             schema.parameters,
             schema.dimensions,
             {n: RelationDeclaration(n, lk.pairs, lk.keys) for n, lk in schema.relations.items()},
@@ -142,7 +142,7 @@ class Namespace:
             },
             {
                 **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
-                **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
+                **{v: tuple(vd.dims) for v, vd in {**schema.variables, **schema.given_variables}.items()},
             },
             schema.constraints,
         )

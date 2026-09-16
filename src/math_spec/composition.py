@@ -70,14 +70,24 @@ SHARED_SECTIONS = ('dimensions', 'relations')
 #: The declarations a patch edits, creates or removes.
 OWNED_SECTIONS = ('parameters', 'variables', 'constraints', 'expressions', 'macros', 'piecewise', 'sos')
 
+#: The declarations a file reads and does not introduce. Peers must agree
+#: about one, and :func:`merge` folds it into the declaration that introduces
+#: it, so a composed library carries none.
+GIVEN_SECTIONS = ('given_variables',)
+
 #: Every section keyed by declaration name. ``objective`` is one declaration
 #: rather than a mapping of them, and is laid over field by field beside these.
-SECTIONS = (*SHARED_SECTIONS, *OWNED_SECTIONS)
+SECTIONS = (*SHARED_SECTIONS, *OWNED_SECTIONS, *GIVEN_SECTIONS)
 
 #: What one entry is called where dropping the key's last letter does not say
 #: it: two sections that are not plurals, and the objective, which is one
 #: declaration rather than a mapping of them.
-IRREGULAR = {'piecewise': 'piecewise curve', 'sos': 'special-ordered set', 'objective': 'objective'}
+IRREGULAR = {
+    'piecewise': 'piecewise curve',
+    'sos': 'special-ordered set',
+    'objective': 'objective',
+    'given_variables': 'given variable',
+}
 
 
 class _Change(NamedTuple):
@@ -129,6 +139,9 @@ def merge(
     for section in OWNED_SECTIONS:
         if claimed := _claimed(read, section):
             merged[section] = claimed
+    for section in GIVEN_SECTIONS:
+        if unintroduced := _folded(read, section, merged):
+            merged[section] = unintroduced
     if (objective := _summed_objective(read)) is not None:
         merged['objective'] = objective
     return merged
@@ -162,17 +175,26 @@ def _agreed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]:
     author: dict[str, str] = {}
     for name, sections in read.items():
         for key, block in (sections.get(section) or {}).items():
-            if key in merged and merged[key] != block:
+            if key in merged and _claims(merged[key]) != _claims(block):
                 raise LanguageError(
                     f"fragments '{author[key]}' and '{name}' say different things about "
-                    f'{_singular(section)} {key!r}: {merged[key]!r} against {block!r}. A shared axis is '
-                    f'shared because both fragments say the same thing about it — make the two '
-                    f'declarations identical, or give one of them an axis of its own under a name of '
-                    f'its own.'
+                    f'{_singular(section)} {key!r}: {merged[key]!r} against {block!r}. A declaration two '
+                    f'fragments share is one both of them say the same thing about — make the two '
+                    f'identical, or give one of them a name of its own.'
                 )
             merged.setdefault(key, block)
             author.setdefault(key, name)
     return merged
+
+
+def _claims(block: Any) -> Any:
+    """*block* without its prose, which is what the declaration says rather than a claim about it.
+
+    Two fragments describing one shared declaration in their own words agree
+    about the declaration, so the first one's wording is carried and neither is
+    the disagreement this refuses.
+    """
+    return {key: value for key, value in block.items() if key != 'description'} if isinstance(block, dict) else block
 
 
 def _claimed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]:
@@ -191,6 +213,36 @@ def _claimed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]
             merged[key] = block
             author[key] = name
     return merged
+
+
+def _folded(read: Mapping[str, dict[str, Any]], section: str, merged: Mapping[str, Any]) -> dict[str, Any]:
+    """The given declarations no fragment introduces, the rest folded into the ones that do.
+
+    A fragment's given declaration is what it expects of a column a sibling
+    owns, so where the sibling is in the composition the expectation is checked
+    and then spent: the composed model declares the column once, and a name
+    that is both given and introduced would otherwise read as a collision.
+    """
+    given = _agreed(read, section)
+    introduced = merged.get(section.removeprefix('given_'), {})
+    for key, block in list(given.items()):
+        if key not in introduced:
+            continue
+        if not _agrees(_claims(introduced[key]), _claims(block)):
+            reader, owner = _author_of(read, section, key), _author_of(read, section.removeprefix('given_'), key)
+            raise LanguageError(
+                f"fragment '{reader}' reads {_singular(section)} {key!r} as {block!r}, where '{owner}' "
+                f'introduces it as {introduced[key]!r}. A given declaration is what the file expects of '
+                f'a column somebody else owns, so it says the same as the declaration it is folded '
+                f'into, or less.'
+            )
+        del given[key]
+    return given
+
+
+def _author_of(read: Mapping[str, dict[str, Any]], section: str, key: str) -> str:
+    """The first fragment declaring *key* in *section*, for a message that names both sides."""
+    return next(name for name, sections in read.items() if key in (sections.get(section) or {}))
 
 
 def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | None:
