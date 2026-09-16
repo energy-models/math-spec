@@ -39,8 +39,8 @@ class Builtin:
     dimension_kwargs: tuple[str, ...] = ()
     relation_kwargs: tuple[str, ...] = ()
     #: Kwargs that say how the relation ``by=`` names is walked, which resolution
-    #: folds into its walk: ``direction=`` on a sum, ``over=`` on a read, and
-    #: ``within=`` on a partition.
+    #: folds into its walk: ``direction=`` on a sum and a read, ``within=`` on a
+    #: partition.
     role_kwargs: tuple[str, ...] = ()
     #: Kwargs of which the call carries at most one. Members are excluded from
     #: the required set; their kind still comes from the tuples above.
@@ -88,10 +88,10 @@ BUILTINS: dict[str, Builtin] = {
         optional_kwargs=('by', 'over', 'direction'),
     ),
     'at': Builtin(
-        'at(<expr>, by=<relation>[, over=<column>])',
+        'at(<expr>, by=<relation>[, direction=<column> -> <key>])',
         relation_kwargs=('by',),
-        role_kwargs=('over',),
-        optional_kwargs=('over',),
+        role_kwargs=('direction',),
+        optional_kwargs=('direction',),
     ),
     'sum_back': Builtin(
         "sum_back(<expr>, along=<dim>, window=<n|parameter>[, edge='wrap'][, by=<relation>[, within=<column>]])",

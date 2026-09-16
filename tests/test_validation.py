@@ -710,12 +710,22 @@ class TestRulesDecidedWithoutData:
                 id='into-is-not-a-keyword',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(at(r, by=lk, over=h -> g))'}},
+                {'objective': {'expression': 'sum(at(r, by=lk, direction=h))'}},
+                ('direction= names both ends, the value column read and the key it lands on', 'Write direction=h -> g'),
+                id='a-read-with-one-end-written',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'relations.lk': {'columns': ['g', 'z', 'h'], 'key': ['g', 'z']},
+                    'variables.r.dims': ['h'],
+                    'objective': {'expression': 'sum(at(r, by=lk, direction=h -> g))'},
+                },
                 (
-                    'at(over=h -> g) names columns to read, and only a sum names a direction, in direction=',
-                    'Write over=h',
+                    "direction=h -> g lands on ['g'], and a read lands on the whole key, ['g', 'z']",
+                    'Write direction=h -> [g, z]',
                 ),
-                id='at-takes-no-direction',
+                id='a-read-landing-short-of-the-key',
             ),
             pytest.param(
                 {
@@ -723,7 +733,10 @@ class TestRulesDecidedWithoutData:
                     'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
                     'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lz, within=g -> z))'},
                 },
-                ('shift(within=g -> z) names columns to read, and only a sum names a direction', 'Write within=z'),
+                (
+                    'shift(within=g -> z) names the columns a group is read from, and a partition has no direction',
+                    'Write within=z',
+                ),
                 id='a-partition-takes-no-direction',
             ),
             pytest.param(
@@ -742,24 +755,30 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'relations.rel': {'columns': ['g', 'h']},
-                    'objective': {'expression': 'sum(at(r, by=rel, over=h))'},
+                    'objective': {'expression': 'sum(at(r, by=rel, direction=h -> g))'},
                 },
                 ("at reads one value per coordinate, and 'rel' declares no key", 'Declare key: on the relation'),
                 id='at-through-a-bare-relation',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(at(q, by=lk, over=g))'}},
-                ("over=g names the key column(s) ['g'], and at reads value columns at the key", "among ['h']"),
-                id='at-consuming-a-key-column',
+                {'objective': {'expression': 'sum(at(q, by=lk, direction=g -> g))'}},
+                (
+                    "direction=g -> g reads the key column(s) ['g'], and at reads value columns at the key",
+                    "among ['h']",
+                ),
+                id='at-reading-a-key-column',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(at(r, by=lk, over=h, into=g))'}},
-                ('at() expects at(<expr>, by=<relation>[, over=<column>])',),
-                id='at-takes-no-into',
+                ('at() expects at(<expr>, by=<relation>[, direction=<column> -> <key>])',),
+                id='at-takes-no-over-and-no-into',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, direction=h -> g))'}},
-                ("a sum consumes key columns, and 'lk' holds 'h' as a value column", 'at(..., by=lk, over=h)'),
+                (
+                    "a sum consumes key columns, and 'lk' holds 'h' as a value column",
+                    'at(..., by=lk, direction=h -> g)',
+                ),
                 id='a-sum-that-walks-to-the-key-is-a-read',
             ),
             pytest.param(

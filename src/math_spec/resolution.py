@@ -617,19 +617,21 @@ class _Resolver:
             )
             return value
         if operator == 'sum':
-            ends = None if 'direction' not in roles else self._ends(names[0], roles['direction'])
+            ends = None if 'direction' not in roles else self._ends(names[0], roles['direction'], operator)
             if 'direction' in roles and ends is None:
                 return value
             walks = [self._walk(n, ends) for n in names]
+        elif operator == 'at':
+            ends = None if 'direction' not in roles else self._ends(names[0], roles['direction'], operator)
+            if 'direction' in roles and ends is None:
+                return value
+            walks = [self._read(n, ends) for n in names]
         else:
             named = {k: self._role_name(v, operator, k) for k, v in roles.items()}
             if any(r is None for r in named.values()):
                 return value
-            if operator == 'at':
-                walks = [self._read(n, named.get('over')) for n in names]
-            else:
-                over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-                walks = [self._partition_walk(n, operator, over_dim, named.get('within')) for n in names]
+            over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
+            walks = [self._partition_walk(n, operator, over_dim, named.get('within')) for n in names]
         if any(w is None for w in walks):
             return value
         resolved = [w for w in walks if w is not None]
@@ -665,25 +667,31 @@ class _Resolver:
             return value
         return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
 
-    def _ends(self, name: str, value: ArithmeticNode) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
-        """A sum's ``direction=``: the dimensions that leave and the columns that arrive, or the refusal.
+    def _ends(self, name: str, value: ArithmeticNode, operator: str) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+        """A ``direction=``: what leaves and what arrives, or the refusal.
 
         The value is the whole direction, both ends, so a bare name is refused
         toward the arrow; a call that leaves the direction to the declaration
-        writes no ``direction=`` at all.
+        writes no ``direction=`` at all. A sum lands on a value column, a read
+        on the whole key.
         """
         if not isinstance(value, DirectionNode):
             shape = self.ns.shape_of(name)
             written = shown(names_in(value)) if names_in(value) else '...'
-            landing = shape.values[0] if len(shape.values) == 1 else '<column>'
+            if operator == 'at':
+                ends, landing = 'the value column read and the key it lands on', shown(shape.key) or '<key>'
+            else:
+                ends, landing = (
+                    'what leaves and what arrives',
+                    shape.values[0] if len(shape.values) == 1 else '<column>',
+                )
             self.errors.append(
-                f'{self.context}: sum(by={name}, direction={written}): direction= names both ends, what leaves '
-                f'and what arrives. Write direction={written} -> {landing}, or drop direction= where the '
-                f'declaration decides both ends.'
+                f'{self.context}: {operator}(by={name}, direction={written}): direction= names both ends, {ends}. '
+                f'Write direction={written} -> {landing}, or drop direction= where the declaration decides both ends.'
             )
             return None
-        consumed = self._role_name(value.consumed, 'sum', 'direction')
-        produced = self._role_name(value.produced, 'sum', 'direction')
+        consumed = self._role_name(value.consumed, operator, 'direction')
+        produced = self._role_name(value.produced, operator, 'direction')
         return None if consumed is None or produced is None else (consumed, produced)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
@@ -693,11 +701,10 @@ class _Resolver:
         if isinstance(value, NameListNode):
             return value.names
         if isinstance(value, DirectionNode):
-            end = value.consumed if operator == 'at' else value.produced
             self.errors.append(
-                f'{self.context}: {operator}({key}={value.shown}) names columns to read, and only a sum names a '
-                f'direction, in direction=: at lands on the key and a partition on its groups. Write '
-                f'{key}={shown(names_in(end))}.'
+                f'{self.context}: {operator}({key}={value.shown}) names the columns a group is read from, and a '
+                f'partition has no direction: it walks the axis along= names. Write '
+                f'{key}={shown(names_in(value.produced))}.'
             )
             return None
         self.errors.append(
@@ -762,7 +769,8 @@ class _Resolver:
                 if dim in ns.dimensions and any(shape.dim(r) == dim for r in shape.values):
                     hint = (
                         f"a sum consumes key columns, and '{name}' holds '{dim}' as a value column. To read "
-                        f'it, write at(..., by={name}, over={shown(tuple(r for r in shape.values if shape.dim(r) == dim))}).'
+                        f'it, write at(..., by={name}, direction='
+                        f'{shown(tuple(r for r in shape.values if shape.dim(r) == dim))} -> {shown(shape.key)}).'
                     )
                 elif dim in ns.dimensions:
                     hint = f'the consumed end names a dimension the key is over, one of {covered}.'
@@ -780,39 +788,49 @@ class _Resolver:
             columns.extend(over)
         return tuple(columns)
 
-    def _read(self, name: str, from_roles: tuple[str, ...] | None) -> Walk | None:
+    def _read(self, name: str, ends: tuple[tuple[str, ...], tuple[str, ...]] | None) -> Walk | None:
         """How ``at`` reads relation *name*: value columns consumed, and the whole key landed on.
 
         A read is one value per coordinate, so it lands on the key and nothing
-        else, and the call names only what it consumes — one value column
-        where the declaration offers several. Which key columns the operand
-        joins on, and which the read produces, is the operand's to decide, and
-        lowering splits the key once the operand's dims are known.
+        else; written, the direction says so, with the key as its right end.
+        Which key columns the operand joins on, and which the read produces,
+        is the operand's to decide, and lowering splits the key once the
+        operand's dims are known.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
         call = f'at(by={name})'
-        if not self._known_roles(name, call, from_roles or (), f'over={shown(from_roles or ())}'):
-            return None
         if not shape.key:
             self.errors.append(
                 f"{context}: {call}: at reads one value per coordinate, and '{name}' declares no key, so no "
                 f'coordinate fixes one row. Declare key: on the relation, or sum through it.'
             )
             return None
-        if from_roles is None:
-            default = self._default_role(name, call, shape.values, 'value', 'which over= consumes')
+        if ends is None:
+            ask = f'the direction: direction=<column> -> {shown(shape.key)}'
+            default = self._default_role(name, call, shape.values, 'value', ask)
             if default is None:
                 return None
-            from_roles = (default,)
+            return Walk(shape, (default,), shape.key, ())
+        from_roles, into_roles = ends
+        written = f'direction={shown(from_roles)} -> {shown(into_roles)}'
+        if not (
+            self._known_roles(name, call, from_roles, written) and self._known_roles(name, call, into_roles, written)
+        ):
+            return None
         if keyed := [r for r in from_roles if r in shape.key]:
             self.errors.append(
-                f'{context}: {call}: over={shown(from_roles)} names the key column(s) {keyed}, and at reads value '
-                f'columns at the key. Consume a value column, among {list(shape.values)}, or walk the other way '
-                f'with sum.'
+                f'{context}: {call}: {written} reads the key column(s) {keyed}, and at reads value columns at the '
+                f'key. Read a value column, among {list(shape.values)}, or walk the other way with sum.'
             )
             return None
-        if not self._distinct_dims(name, call, f'over={shown(from_roles)} consumes', from_roles):
+        if set(into_roles) != set(shape.key):
+            self.errors.append(
+                f'{context}: {call}: {written} lands on {list(into_roles)}, and a read lands on the whole key, '
+                f'{list(shape.key)}. Write direction={shown(from_roles)} -> {shown(shape.key)}.'
+            )
+            return None
+        if not self._distinct_dims(name, call, f'{written} reads', from_roles):
             return None
         return Walk(shape, from_roles, shape.key, ())
 

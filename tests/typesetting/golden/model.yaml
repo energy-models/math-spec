@@ -155,7 +155,7 @@ constraints:
     expression: sum(p, by=gen_bt, direction=generator -> [bus, technology]) <= tech_cap
   pulled_back_once: # its adjoint, reading one slot through two columns of one table
     dims: [generator]
-    expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
+    expression: units <= at(tech_cap, by=gen_bt, direction=[bus, technology] -> generator)
   within_bus: # a partition grouped by one named value column of a two-value table, and a position within both
     dims: [generator]
     where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"

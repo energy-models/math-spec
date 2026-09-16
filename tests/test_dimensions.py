@@ -170,7 +170,7 @@ def namespace() -> Namespace:
             id='a-walk-landing-on-two-columns-lands-on-a-product-from-one-table',
         ),
         pytest.param(
-            'at(bz, by=gen_bz, over=[bus, zone])',
+            'at(bz, by=gen_bz, direction=[bus, zone] -> generator)',
             {'generator'},
             id='a-read-consuming-two-value-columns-reads-them-at-once',
         ),

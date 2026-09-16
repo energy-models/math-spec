@@ -143,8 +143,12 @@ the column `b` arrives. A call writes the whole direction or nothing:
 `sum(p, by=gen_bus)` where the declaration decides both ends, and
 `sum(p, by=zone_of, direction=generator -> zone)` where it does not. `over=` is
 a reduction over a dimension, and a sum with a `by=` takes none. `at` lands on
-the whole key, so it names nothing there: a key column whose dimension the
-operand carries is joined on, and the rest are produced.
+the whole key, so its direction ends there, written out: a key column whose
+dimension the operand carries is joined on, and the rest are produced. A read's
+direction runs from value to key, `at(cap, by=ends, direction=bus0 -> line)`,
+which is the opposite way round from the function the math prints,
+`ends.bus0(l)`. The arrow says what leaves the operand and what arrives, for a
+read as for a sum.
 
 ```yaml
 dimensions:
@@ -192,7 +196,7 @@ and the joined `period` is the second subscript.
 - **Either end takes a list.** `sum(p, by=gen_bt, direction=generator -> [bus, technology])`
   lands on the product `bus × technology` in one join.
   `sum(p, by=zone_of, direction=[generator, period] -> zone)` consumes both key
-  columns at once. `at(tech_cap, by=gen_bt, over=[bus, technology])` reads `tech_cap` at
+  columns at once. `at(tech_cap, by=gen_bt, direction=[bus, technology] -> generator)` reads `tech_cap` at
   each generator's bus and technology together.
 - **A produced dimension the operand already carries is joined on.** In
   `sum(load * p, by=gen_bus)` with `load[snapshot, bus]`, the walk produces
@@ -218,7 +222,7 @@ Three refusals draw the line, and each message names the rewrite:
 | refused                               | message                                                                                                                                                                                                                                                                   |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `at` on a bare relation               | `at(by=connection): at reads one value per coordinate, and 'connection' declares no key, so no coordinate fixes one row. Declare key: on the relation, or sum through it.`                                                                                                |
-| a `sum` that consumes no key column   | `sum(by=zone_of): direction=zone -> generator: a sum consumes key columns, and 'zone_of' holds 'zone' as a value column. To read it, write at(..., by=zone_of, over=zone).`                                                                                               |
+| a `sum` that consumes no key column   | `sum(by=zone_of): direction=zone -> generator: a sum consumes key columns, and 'zone_of' holds 'zone' as a value column. To read it, write at(..., by=zone_of, direction=zone -> [generator, period]).`                                                                   |
 | an operand missing a joined dimension | `sum(by=zone_of) joins on ['period'] (columns ['period'] of 'zone_of'), which the expression does not carry (dims ['generator']). A relation is walked between two of its columns and read at the others — index the operand by them, or walk between different columns.` |
 
 ### Partitions

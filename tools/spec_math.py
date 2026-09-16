@@ -34,7 +34,7 @@ OPERATORS = {
     'sum(array, by=relation, direction=a -> b)': 'sum_by_columns',
     'sum(array, by=relation, direction=[a, …] -> [b, …])': 'sum_by_column_lists',
     'at(array, by=relation)': 'at',
-    'at(array, by=relation, over=a)': 'at_columns',
+    'at(array, by=relation, direction=a -> key)': 'at_columns',
     'shift(array, along=dim, offset=n)': 'shift',
     "shift(array, along=dim, offset=n, edge='wrap')": 'shift_wrap',
     'shift(array, along=dim, offset=n, edge=v)': 'shift_edge',

@@ -402,7 +402,7 @@ its adjoint, reading one slot through two columns of one table
 ```yaml
 pulled_back_once:
   dims: [generator]
-  expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
+  expression: units <= at(tech_cap, by=gen_bt, direction=[bus, technology] -> generator)
 ```
 
 ```math
