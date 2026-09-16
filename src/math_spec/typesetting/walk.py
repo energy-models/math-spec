@@ -604,7 +604,7 @@ class Walk:
 
         if isinstance(node, RelationDefinedNode):
             lk = self.schema.relations[node.name]
-            if lk.keys:
+            if lk.values:
                 keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
                 applied = self.format.apply(self.format.upright(node.name), keyed)
                 return f'{applied} {self.format.prose(" is defined")}', comparison
@@ -891,7 +891,7 @@ class Walk:
         def product(roles: Iterable[str]) -> str:
             return self.format.joined([self.symbols.set[columns[r]] for r in roles], self._op('times'))
 
-        if lk.keys:
+        if lk.values:
             return f'{self.format.upright(name)}: {product(lk.keys)} {self._op("maps_to")} {product(lk.values)}'
         return f'{self.format.upright(name)} {self._op("subset_of")} {product(lk.roles)}'
 

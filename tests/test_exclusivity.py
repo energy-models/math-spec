@@ -35,7 +35,7 @@ STORAGE: dict[str, Any] = {
         'storage': {},
         'period': {'dtype': 'int'},
     },
-    'relations': {'period_of': {'columns': ['snapshot', 'period'], 'key': 'snapshot'}},
+    'relations': {'period_of': {'key': 'snapshot', 'value': 'period'}},
     'parameters': {
         'cyclic': {'dims': ['storage'], 'dtype': 'bool'},
         'committable': {'dims': ['storage'], 'dtype': 'bool'},

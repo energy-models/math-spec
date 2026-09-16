@@ -116,7 +116,7 @@ def test_a_macro_formal_may_stand_at_any_position_of_a_direction():
     spec = schema(
         **{
             'dimensions.bus': {},
-            'relations.gen_bus': {'columns': ['generator', 'bus'], 'key': 'generator'},
+            'relations.gen_bus': {'key': 'generator', 'value': 'bus'},
             'macros': {'grouped': {'args': ['x'], 'kwargs': ['l', 'a', 'b'], 'template': 'sum(x, by=l(a -> b))'}},
         }
     )

@@ -13,7 +13,7 @@ dimensions:
   week: { dtype: int }
 
 relations:
-  cal: { columns: [snapshot, day, week], key: snapshot }
+  cal: { key: snapshot, value: [day, week] }
 
 parameters:
   inflow: { dims: [snapshot] }

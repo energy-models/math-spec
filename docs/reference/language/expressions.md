@@ -130,7 +130,7 @@ before any data binds**:
 | `sum(x, over=d)`                 | `dims(x) − {d}`                           | error if `d ∉ dims(x)`                                                                                                                                                                                    |
 | `sum(x, by=l)`                   | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not in `dims(x)`, or if `l`'s key lies inside the columns the walk lands on and the joined columns — that walk is a read, which is `at`'s |
 | `sum(x, by=[l, m])`              | `(dims(x) − from(l)) ∪ into(l) ∪ into(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one                                                                                               |
-| `at(x, by=l)`                    | `(dims(x) − from(l)) ∪ key(l)`            | error if `from(l) ⊄ dims(x)`, or if `l` declares no key                                                                                                                                                   |
+| `at(x, by=l)`                    | `(dims(x) − from(l)) ∪ key(l)`            | error if `from(l) ⊄ dims(x)`, or if `l` has no value column                                                                                                                                               |
 | `shift(x, along=d, offset=n)`    | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                                                                                                    |
 | `sum_back(x, along=d, window=n)` | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                                                                                                    |
 
@@ -254,7 +254,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 relations:
-  period_of: { columns: [snapshot, period], key: snapshot }
+  period_of: { key: snapshot, value: period }
 parameters:
   soc_initial: { dims: [period] }
 variables:

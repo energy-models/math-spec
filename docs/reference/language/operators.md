@@ -58,9 +58,9 @@ dimensions:
   generator: { dtype: str }
   line: { dtype: str }
 relations:
-  gen_bus: { columns: [generator, bus], key: generator }
-  line_from: { columns: [line, bus], key: line }
-  line_to: { columns: [line, bus], key: line }
+  gen_bus: { key: generator, value: bus }
+  line_from: { key: line, value: bus }
+  line_to: { key: line, value: bus }
 parameters:
   load: { dims: [bus] }
 variables:
@@ -85,7 +85,7 @@ relation offers a choice, the direction is written inside `by=`:
 column `zone` arrives ([walks](dimensions.md#walks)). Every other key column is
 joined on, so each group is one coordinate of it. A sum with a `by=` takes no
 `over=`, which on its own is a reduction over a dimension.
-A bare relation, one with no `key:`, is summed with both ends named, and a row
+A bare relation, one with no `value:`, is summed with both ends named, and a row
 it holds twice counts twice.
 
 The relation's values are the group labels, checked against their own dimension
@@ -231,7 +231,7 @@ dimensions:
   snapshot: { dtype: int }
   season: { dtype: str }
 relations:
-  season_of: { columns: [snapshot, season], key: snapshot }
+  season_of: { key: snapshot, value: season }
 parameters:
   inflow: { dims: [snapshot] }
 variables:
@@ -315,7 +315,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 relations:
-  period_of: { columns: [snapshot, period], key: snapshot }
+  period_of: { key: snapshot, value: period }
 parameters:
   lead: { dims: [period], dtype: int }
   demand: { dims: [snapshot] }
