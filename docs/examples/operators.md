@@ -89,7 +89,7 @@ dimensions:
   bus: { dtype: str }
 
 relations:
-  gen_bus: { columns: [generator, bus], key: generator }
+  gen_bus: { key: generator, value: bus }
 
 parameters:
   limit: { dims: [snapshot, bus] }
@@ -126,8 +126,8 @@ dimensions:
   technology: { dtype: str }
 
 relations:
-  gen_bus: { columns: [generator, bus], key: generator }
-  gen_tech: { columns: [generator, technology], key: generator }
+  gen_bus: { key: generator, value: bus }
+  gen_tech: { key: generator, value: technology }
 
 parameters:
   limit: { dims: [snapshot, bus, technology] }
@@ -163,7 +163,7 @@ dimensions:
   zone: { dtype: str }
 
 relations:
-  zone_of: { columns: [generator, period, zone], key: [generator, period] }
+  zone_of: { key: [generator, period], value: zone }
 
 parameters:
   demand: { dims: [zone, period] }
@@ -200,7 +200,7 @@ dimensions:
   technology: { dtype: str }
 
 relations:
-  slot_of: { columns: [generator, period, bus, technology], key: [generator, period] }
+  slot_of: { key: [generator, period], value: [bus, technology] }
 
 parameters:
   cap: { dims: [bus, technology] }
@@ -234,7 +234,7 @@ dimensions:
   period: { dtype: int }
 
 relations:
-  period_of: { columns: [snapshot, period], key: snapshot }
+  period_of: { key: snapshot, value: period }
 
 parameters:
   cap: { dims: [period] }
@@ -269,7 +269,7 @@ dimensions:
   bus: { dtype: str }
 
 relations:
-  ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }
+  ends: { key: line, value: { bus0: bus, bus1: bus } }
 
 parameters:
   cap: { dims: [bus] }
@@ -417,7 +417,7 @@ dimensions:
   season: { dtype: str }
 
 relations:
-  season_of: { columns: [snapshot, season], key: snapshot }
+  season_of: { key: snapshot, value: season }
 
 variables:
   p:
@@ -552,7 +552,7 @@ dimensions:
   day: { dtype: str }
 
 relations:
-  day_of: { columns: [hour, day], key: hour }
+  day_of: { key: hour, value: day }
 
 variables:
   started:

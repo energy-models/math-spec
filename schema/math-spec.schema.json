@@ -450,28 +450,8 @@
     },
     "RelationBlock": {
       "additionalProperties": false,
-      "description": "A named relation between dimensions, and the key it is single-valued per.\n\n``columns:`` is the table's columns \u2014 a list of dimensions, or a mapping\nof column name to dimension where two columns share one. ``key:`` names the\ncolumns each row is identified by, and is the claim the language checks\nat bind: one row per key tuple, so the other columns are a function of\nit. Without a key the table is a bare relation::\n\n    relations:\n      gen_bus: {columns: [generator, bus], key: generator}\n      zone_of: {columns: [generator, period, zone], key: [generator, period]}\n      rep_of: {columns: {snapshot: snapshot, rep: snapshot}, key: snapshot}\n      connection: {columns: [entity, bus]}\n\nAn operator walks the table in the direction the call names\n(``direction=<consumed> -> <produced>``), joining on the other key columns;\nthe declaration fixes no direction. The map itself is data, and arrives at bind\ntime under the relation's name, one column per role.",
+      "description": "A named relation between dimensions: the columns a row is keyed by, and the columns that key determines.\n\nEach side is a dimension, a list of them, or a mapping of column name to\ndimension where two columns share one. ``key:`` is the claim the language\nchecks at bind: one row per key tuple, so every ``value:`` column is a\nfunction of it. A relation with no ``value:`` is **bare** \u2014 every column is\nin its key, a row is its own identity, and nothing reads it::\n\n    relations:\n      gen_bus: {key: generator, value: bus}\n      gen_bt: {key: [generator], value: [bus, technology]}\n      zone_of: {key: [generator, period], value: zone}\n      ends: {key: line, value: {bus0: bus, bus1: bus}}\n      connection: {key: [generator, bus]}\n\nAn operator walks the table in the direction the call names\n(``direction=<consumed> -> <produced>``), joining on the other key columns;\nthe declaration fixes no direction. The map itself is data, and arrives at bind\ntime under the relation's name, one column per role.",
       "properties": {
-        "columns": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            }
-          ],
-          "title": "Columns"
-        },
         "description": {
           "anyOf": [
             {
@@ -496,15 +476,41 @@
               "type": "array"
             },
             {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          ],
+          "title": "Key"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Key"
+          "title": "Value"
         }
       },
       "required": [
-        "columns"
+        "key"
       ],
       "title": "RelationBlock",
       "type": "object"

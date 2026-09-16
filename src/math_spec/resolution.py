@@ -746,18 +746,18 @@ class _Resolver:
                 return None
             if not self._distinct_dims(name, call, f'{written} lands on', into_roles):
                 return None
-        joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in into_roles)
+        joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
         return Walk(shape, from_roles, into_roles, joined)
 
     def _key_columns_over(self, name: str, call: str, written: str, dims: tuple[str, ...]) -> tuple[str, ...] | None:
         """The key column of relation *name* over each of *dims*, in order; the refusal where a dim has none or two.
 
-        A bare relation has no key, so every column is one a sum may consume,
+        A bare relation's key is every column, so each is one a sum may consume,
         and two over one dimension leave the consumed end nothing to name.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
-        side = shape.key or shape.roles
+        side = shape.key
         if len(set(dims)) < len(dims):
             self.errors.append(f'{context}: {call}: {written} names a dimension twice.')
             return None
@@ -780,9 +780,9 @@ class _Resolver:
                 return None
             if len(over) > 1:
                 self.errors.append(
-                    f"{context}: {call}: {written}: '{name}' has two columns over '{dim}' ({over}) and no key, "
-                    f'so nothing says which one leaves. Declare key: on the relation, or give it one column '
-                    f'per dimension.'
+                    f"{context}: {call}: {written}: '{name}' has two key columns over '{dim}' ({over}), so "
+                    f'nothing says which one leaves. Move one under value:, or give the key one column per '
+                    f'dimension.'
                 )
                 return None
             columns.extend(over)
@@ -800,10 +800,11 @@ class _Resolver:
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
         call = f'at(by={name})'
-        if not shape.key:
+        if not shape.values:
             self.errors.append(
-                f"{context}: {call}: at reads one value per coordinate, and '{name}' declares no key, so no "
-                f'coordinate fixes one row. Declare key: on the relation, or sum through it.'
+                f"{context}: {call}: at reads a value column at the key, and '{name}' is a bare relation — every "
+                f'column is in its key — so there is no value column to read. Declare value: on the relation, or '
+                f'sum through it.'
             )
             return None
         if ends is None:
@@ -880,10 +881,11 @@ class _Resolver:
             name, call, within_roles or (), f'within={shown(within_roles or ())}'
         ):
             return None
-        if not shape.key:
+        if not shape.values:
             self.errors.append(
-                f"{context}: {call}: '{name}' declares no key, so no coordinate is in exactly one group. "
-                f'Declare key: on the relation, naming the column {operator} walks.'
+                f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so it makes no "
+                f'groups and no coordinate is in exactly one. Move the columns the group is made of under '
+                f'value:, leaving key: the column {operator} walks.'
             )
             return None
         over_keys = [r for r in shape.key if shape.dim(r) == walked_dim]
@@ -908,10 +910,11 @@ class _Resolver:
         if len(side) == 1:
             return side[0]
         shape = self.ns.shape_of(name)
-        if not shape.key:
+        if not shape.values:
             self.errors.append(
-                f"{self.context}: {call}: '{name}' declares no key, so nothing says which columns sum walks. Name "
-                f'both ends, direction=<dimension> -> <column> among {list(shape.roles)}, or declare key: on the relation.'
+                f"{self.context}: {call}: '{name}' is a bare relation — every column is in its key — so nothing "
+                f'says which columns sum walks. Name both ends, direction=<dimension> -> <column> among '
+                f'{list(shape.roles)}, or declare the column it walks to under value:.'
             )
             return None
         self.errors.append(
@@ -939,8 +942,8 @@ class _Resolver:
         return (
             f'{context}: {operator}({key}={name}) does not name a relation. '
             f'{did_you_mean(name, ns.relations, label="Relations")}\n'
-            f"Declare it under 'relations:' — {name}: {{over: [<its columns>], key: <the column a row is "
-            f'identified by>}}.'
+            f"Declare it under 'relations:' — {name}: {{key: <the columns a row is identified by>, "
+            f'value: <the columns they determine>}}.'
         )
 
     # -- where strings -----------------------------------------------------
@@ -985,7 +988,7 @@ class _Resolver:
                 )
             case 'relation':
                 shape = ns.shape_of(node.name)
-                dims = tuple(shape.dim(k) for k in shape.key) if shape.key else tuple(dim for _, dim in shape.columns)
+                dims = tuple(shape.dim(k) for k in shape.key)
                 if len(set(dims)) < len(dims):
                     self.errors.append(
                         f"{context}: '{node.name}' has two columns over one dimension ({list(shape.roles)}), so a "
@@ -1103,11 +1106,11 @@ class _Resolver:
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
-        if not shape.key:
+        if not shape.values:
             self.errors.append(
-                f"{context}: '{spelling}' compares a column of '{name}', which declares no key, so it has no one "
-                f'value per coordinate to compare. Declare key: on the relation, or test the bare name — '
-                f"'{name}' — for whether a row exists."
+                f"{context}: '{spelling}' compares a column of '{name}', a bare relation — every column is in its "
+                f'key — so it has no one value per coordinate to compare. Declare that column under value:, or '
+                f"test the bare name — '{name}' — for whether a row exists."
             )
             return None
         if column is None:
