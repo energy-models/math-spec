@@ -521,7 +521,9 @@ class Walk(NamedTuple):
     ``consumed``, ``produced`` and ``joined`` are *roles* — column names of
     ``relation``, which binds every role to its dimension and names the key.
     ``joined`` is the key roles not walked (every role, for a bare relation):
-    the join keys on them, and a value role not walked is not read. For a
+    the join keys on them, and a value role not walked is not read. A read
+    (``at``) lands on the whole key, and the key role whose dimension the
+    operand keeps is the one joined on. For a
     partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
     role over the dimension walked and ``produced`` the value roles that make
     the group — every value role unless the call named some with ``within=``.

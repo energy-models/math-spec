@@ -138,8 +138,10 @@ result keeps it, and keeps every dimension the relation does not name.
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
 
-`over=` names the column consumed and `into=` the column produced. Name a column
-only where the relation offers two.
+`over=` names the column consumed and `into=` the column `sum` produces. Name a
+column only where the relation offers two. `at` lands on the whole key, so it
+names nothing there: a key column whose dimension the operand carries is joined
+on, and the rest are produced.
 
 ```yaml
 dimensions:
@@ -162,18 +164,19 @@ constraints:
     expression: sum(p, by=zone_of, over=period) <= 100
   capped_revenue: # consumes zone, joins on period, produces generator: [zone, period] → [generator, period]
     dims: [generator, period]
-    expression: at(price, by=zone_of, over=zone, into=generator) * p <= 1000
+    expression: at(price, by=zone_of) * p <= 1000
 ```
 
 `zone_of` has one value column, `zone`. It is the only column `sum` can produce,
 so `sum` leaves `into=zone` unsaid. It is the only column `at` can consume, so
-`at` may leave `over=zone` unsaid too. `zone_of` has two key columns, and there
-the call chooses: `sum` names the one it consumes, because `over=generator` and
-`over=period` are different constraints, and `at` names the one it produces.
-`period` is joined on either way. With one key column and one value column,
-`sum(p, by=gen_bus)` and `at(price, by=gen_bus)` need neither keyword. A column
-left out where the relation offers two is refused, and the message lists the
-candidates:
+`at` leaves `over=zone` unsaid too. `zone_of` has two key columns, and there
+`sum` chooses: it names the one it consumes, because `over=generator` and
+`over=period` are different constraints. `at` lands on both, and `price` decides
+the split: it carries `period`, so `period` is joined on, and `generator` is
+produced. Read `zone_cap[zone]` through the same table and both are produced.
+With one key column and one value column, `sum(p, by=gen_bus)` and
+`at(price, by=gen_bus)` need neither keyword. A column left out where the
+relation offers two is refused, and the message lists the candidates:
 
 ```
 sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which over= names.
@@ -191,7 +194,8 @@ and the joined `period` is the second subscript.
 - **A produced dimension the operand already carries is joined on.** In
   `sum(load * p, by=gen_bus)` with `load[snapshot, bus]`, the walk produces
   `bus` and `load` already carries it. So each generator's term is read at the
-  bus the generator sits on, and the sum lands there.
+  bus the generator sits on, and the sum lands there. The same rule splits the
+  key `at` lands on, which is why `at` never names it.
 - **A value column that is not walked is not read.**
   `sum(f, by=ends, over=line, into=bus1)` reads `bus1` and ignores `bus0`
   ([roles](#roles)).
@@ -204,11 +208,11 @@ and the joined `period` is the second subscript.
 
 Three refusals draw the line, and each message names the rewrite:
 
-| refused                               | message                                                                                                                                                                                                                                                             |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `at` on a bare relation               | `at(by=connection): at reads one value per coordinate, and 'connection' is not single-valued in ['bus'] at the columns the operand fixes (['generator']) — its key is []. Declare a key those columns contain, or read the other way.`                              |
-| a `sum` that consumes no key column   | `sum(by=zone_of): this sum walks to the key ['generator', 'period'], so each coordinate has one term and nothing is added up — that is a read, which is at()'s. Write at(..., by=zone_of, over=['zone'], into=['generator']), or sum toward a value column.`        |
-| an operand missing a joined dimension | `at(by=zone_of) joins on ['period'] (columns ['period'] of 'zone_of'), which the expression does not carry (dims ['zone']). A relation is walked between two of its columns and read at the others — index the operand by them, or walk between different columns.` |
+| refused                               | message                                                                                                                                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `at` on a bare relation               | `at(by=connection): at reads one value per coordinate, and 'connection' declares no key, so no coordinate fixes one row. Declare key: on the relation, or sum through it.`                                                                                                |
+| a `sum` that consumes no key column   | `sum(by=zone_of): this sum walks to the key ['generator', 'period'], so each coordinate has one term and nothing is added up — that is a read, which is at()'s. Write at(..., by=zone_of, over=zone), or sum toward a value column.`                                      |
+| an operand missing a joined dimension | `sum(by=zone_of) joins on ['period'] (columns ['period'] of 'zone_of'), which the expression does not carry (dims ['generator']). A relation is walked between two of its columns and read at the others — index the operand by them, or walk between different columns.` |
 
 ### Partitions
 

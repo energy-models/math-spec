@@ -124,9 +124,14 @@ def namespace() -> Namespace:
             id='the-same-table-walked-along-its-other-key',
         ),
         pytest.param(
-            'at(zone_load, by=gen_zone, into=generator)',
+            'at(zone_load, by=gen_zone)',
             {'snapshot', 'generator'},
-            id='its-pullback-keeps-the-joined-key-too',
+            id='its-pullback-joins-on-the-key-column-the-operand-carries',
+        ),
+        pytest.param(
+            'at(zone_cap, by=gen_zone)',
+            {'snapshot', 'generator'},
+            id='and-produces-every-key-column-the-operand-lacks',
         ),
         pytest.param(
             "shift(p, along=generator, offset=1, edge='wrap', by=gen_zone)",
@@ -269,11 +274,6 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             'sum(cost, by=gen_zone, over=generator)',
             r"sum\(by=gen_zone\) joins on \['snapshot'\]",
             id='a-grouped-sum-needs-the-keys-it-joins-on',
-        ),
-        pytest.param(
-            'at(zone_cap, by=gen_zone, into=generator)',
-            r"at\(by=gen_zone\) joins on \['snapshot'\]",
-            id='a-pullback-needs-the-keys-it-joins-on',
         ),
         pytest.param(
             "shift(cost, along=generator, offset=1, edge='wrap', by=gen_zone)",
