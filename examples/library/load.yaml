@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: Fixed demands, each wired to one port, withdrawing what the data says.
+dimensions:
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  demand: { dtype: str }
+relations:
+  dem_port: { key: demand, value: port }
+given_variables:
+  flow:
+    dims: [snapshot, port]
+    description: the surface introduces this column, and this file only writes into it
+parameters:
+  dem_load: { dims: [snapshot, demand], description: what a demand takes in a snapshot }
+constraints:
+  dem_withdraws:
+    description: a demand's port withdraws what the demand takes
+    dims: [snapshot, demand]
+    expression: at(flow, by=dem_port) == -dem_load

@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  The coupling surface every component in this library is written against: one
+  flow per port, and one balance per bus. A flow is positive where the port
+  injects into its bus. A bus carries one energy carrier, so the carrier is
+  which bus a port is wired to rather than a dimension of its own.
+dimensions:
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  bus: { dtype: str }
+relations:
+  port_bus: { key: port, value: bus }
+variables:
+  flow:
+    dims: [snapshot, port]
+    description: what a port puts into its bus in a snapshot, negative for a withdrawal
+constraints:
+  balance:
+    description: every bus clears in every snapshot
+    dims: [snapshot, bus]
+    expression: sum(flow, by=port_bus) == 0

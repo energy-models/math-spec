@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: A fleet of generators, each wired to one port, priced by what it produces.
+dimensions:
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  generator: { dtype: str }
+relations:
+  gen_port: { key: generator, value: port }
+given_variables:
+  flow:
+    dims: [snapshot, port]
+    description: the surface introduces this column, and this file only writes into it
+parameters:
+  gen_cost: { dims: [generator], description: what one unit of output costs }
+  gen_p_max: { dims: [generator], description: installed capacity }
+variables:
+  gen_p:
+    dims: [snapshot, generator]
+    bounds: { lower: 0, upper: gen_p_max }
+    description: what a generator produces in a snapshot
+constraints:
+  gen_injects:
+    description: a generator's output is what its port injects
+    dims: [snapshot, generator]
+    expression: at(flow, by=gen_port) == gen_p
+objective:
+  sense: minimize
+  expression: sum(gen_p * gen_cost)

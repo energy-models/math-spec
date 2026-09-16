@@ -19,7 +19,7 @@ import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
-from math_spec import to_spec
+from math_spec import merge, to_spec
 from math_spec.typesetting import to_markdown
 from tools._page import ROOT, sidecar_for, splice, without_header
 from tools._page import main as page_main
@@ -37,6 +37,18 @@ BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
 MODELS = {
     'dispatch.md': ROOT / 'examples' / 'dispatch.yaml',
     'commitment.md': ROOT / 'examples' / 'commitment.yaml',
+    'library/surface.md': ROOT / 'examples' / 'library' / 'surface.yaml',
+    'library/generator.md': ROOT / 'examples' / 'library' / 'generator.yaml',
+    'library/load.md': ROOT / 'examples' / 'library' / 'load.yaml',
+}
+
+#: Page -> the fragments whose composition it shows. The model is what `merge`
+#: returns, so it is a file nothing in the tree holds: the page carries the
+#: composed YAML, written from here beside the math it prints.
+COMPOSED = {
+    'library/composed.md': [
+        ROOT / 'examples' / 'library' / name for name in ('surface.yaml', 'generator.yaml', 'load.yaml')
+    ],
 }
 
 #: Page -> the model it shows one declaration at a time — its YAML, then the
@@ -61,6 +73,16 @@ RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 def model_block(path: Path) -> str:
     """One model, then the whole document the typesetter prints from it."""
     return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
+
+
+def composed_block(fragments: list[Path]) -> str:
+    """The model several fragments make: the file `merge` composes, then its whole document.
+
+    The composed YAML is generated rather than committed, so the page cannot
+    show a composition the fragments beside it no longer make.
+    """
+    model = to_spec(merge({path.stem: path for path in fragments}))
+    return f'```yaml\n{model.to_yaml().strip()}\n```\n\n{to_markdown(model, numbered=False).strip()}'
 
 
 def probe_block() -> str:
@@ -183,6 +205,8 @@ def block(page: str) -> str:
         return probe_block()
     if page in DECLARED:
         return declared_block(DECLARED[page])
+    if page in COMPOSED:
+        return composed_block(COMPOSED[page])
     return model_block(MODELS[page])
 
 
@@ -194,7 +218,7 @@ def rendered(page: str, text: str) -> str:
 
 
 def pages() -> list[str]:
-    return [*MODELS, *DECLARED, 'operators.md']
+    return [*MODELS, *COMPOSED, *DECLARED, 'operators.md']
 
 
 def main(argv: list[str] | None = None) -> int:
