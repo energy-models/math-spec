@@ -131,12 +131,12 @@ say, and all it can say.
 
 ### Walks
 
-A walk consumes one column of a relation, produces another, and joins on every
-other key column. The operand carries each joined dimension. The result keeps
-it, and keeps every dimension the relation does not name.
+A walk consumes one or more columns of a relation, produces one or more, and
+joins on every other key column. The operand carries each joined dimension. The
+result keeps it, and keeps every dimension the relation does not name.
 
-`sum` consumes a key column and produces a value column. `at` consumes a value
-column and produces the key.
+`sum` consumes key columns and produces value columns. `at` consumes value
+columns and produces the key.
 
 `over=` names the column consumed and `into=` the column produced. Name a column
 only where the relation offers two.
