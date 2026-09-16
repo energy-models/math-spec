@@ -279,17 +279,14 @@ class _Lowering:
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form.
 
-        Resolution lands each walk on the whole key. Which key columns the read
-        joins on is the operand's to decide — the ones whose dimension it still
-        carries — and the rest are produced. That split is made here, once,
-        where the operand's dims are known, so a consumer reads it off
-        :attr:`program.At.joined` rather than deriving it.
+        Resolution names the value columns the call may consume and lands each
+        walk on the whole key; :meth:`program.Walk.read_by` makes the read the
+        operand's dims decide, here, once, so a consumer reads it off the node.
         """
         by_node = node.kwargs['by']
         assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
         carried = dims_of(node.args[0], self.schema, self.context)
-        walks = tuple(_split_key(walk, carried) for walk in by_node.walks)
-        return program.At(self.expr(node.args[0]), walks=walks)
+        return program.At(self.expr(node.args[0]), walks=tuple(walk.read_by(carried) for walk in by_node.walks))
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
@@ -349,14 +346,6 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
     'sum_back': _Lowering.sum_back,
     'shift': _Lowering.shift,
 }
-
-
-def _split_key(walk: program.Walk, carried: frozenset[str]) -> program.Walk:
-    """*walk* with its key split: a key column whose dimension the operand keeps after the read is joined on, the rest produced."""
-    kept = carried - set(walk.consumed_dims)
-    joined = tuple(r for r in walk.key if walk.dim(r) in kept)
-    produced = tuple(r for r in walk.key if walk.dim(r) not in kept)
-    return walk._replace(produced=produced, joined=joined)
 
 
 def _partition_of(node: FunctionCallNode) -> program.Walk | None:

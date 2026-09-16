@@ -55,7 +55,11 @@ class NumberNode:
 
 @dataclass(frozen=True)
 class NameNode:
-    """A bare name whose kind only the schema knows; resolution rewrites every one into a typed node."""
+    """A bare name whose kind only the schema knows; resolution rewrites every one into a typed node.
+
+    In a ``by=`` value it may be a relation's column, ``gen_bt.bus``, which the
+    resolver splits at the dot.
+    """
 
     name: str
 
@@ -103,6 +107,7 @@ class NameListNode:
     """A bracketed list of names in a kwarg value — ``sum(x, by=[a, b])``.
 
     Unresolved: which kind of name the kwarg admits is the operator's business.
+    A name may be a relation's column, ``gen_bt.bus``, as a bare name may.
     """
 
     names: tuple[str, ...]
@@ -362,12 +367,15 @@ def _build_grammar() -> pp.ParserElement:
     number = inf_literal | pp.Regex(rf'{REAL}|\d+').set_parse_action(lambda t: NumberNode(float(t[0])))
 
     name = pp.Regex(NAME)
+    column = pp.Regex(rf'{NAME}(\.{NAME})?')
 
     quoted = (pp.QuotedString("'") | pp.QuotedString('"')).set_parse_action(lambda t: KeywordNode(str(t[0])))
-    name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
+    name_list = (pp.Suppress('[') + pp.DelimitedList(column) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
+    # pyrefly: ignore[implicit-any-lambda]
+    dotted = pp.Regex(rf'{NAME}\.{NAME}').set_parse_action(lambda t: NameNode(t[0]))
+    kwarg = (name + pp.Suppress('=') + (quoted | name_list | dotted | arith)).set_parse_action(lambda t: (t[0], t[1]))
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)
