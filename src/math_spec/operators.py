@@ -38,15 +38,14 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     relation_kwargs: tuple[str, ...] = ()
-    #: Kwargs naming a column of the relation ``by=`` names — ``over=``,
-    #: ``into=`` and ``within=`` — which resolution folds into the relation's
-    #: walk.
+    #: Kwargs naming columns of the relation ``by=`` names — ``over=`` and
+    #: ``within=`` — which resolution folds into the relation's walk.
     role_kwargs: tuple[str, ...] = ()
     #: Kwargs naming a dimension on their own and a column of the relation where
     #: ``by=`` names one. ``sum(x, over=generator)`` reduces the dimension
-    #: away; ``sum(x, by=l, over=c)`` names the column the walk consumes.
-    #: One meaning — what leaves the frame — read in the namespace ``by=``
-    #: decides.
+    #: away; ``sum(x, by=l, over=c)`` names the column the walk consumes, and
+    #: ``sum(x, by=l, over=c -> d)`` the column it lands on too. One meaning —
+    #: what leaves the frame — read in the namespace ``by=`` decides.
     dimension_or_role_kwargs: tuple[str, ...] = ()
     #: Kwargs of which the call carries at most one. Members are excluded from
     #: the required set; their kind still comes from the tuples above.
@@ -95,11 +94,10 @@ class Builtin:
 #: ``within=`` names the columns whose values that group is read from.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>[, over=<column>, into=<column>])',
+        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>[, over=<column> -> <column>])',
         relation_kwargs=('by',),
-        role_kwargs=('into',),
         dimension_or_role_kwargs=('over',),
-        optional_kwargs=('by', 'over', 'into'),
+        optional_kwargs=('by', 'over'),
     ),
     'at': Builtin(
         'at(<expr>, by=<relation>[, over=<column>])',

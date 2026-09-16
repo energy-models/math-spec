@@ -16,6 +16,7 @@ import pytest
 
 import math_spec.program as program_module
 from math_spec._expression_parser import (
+    ArrowNode,
     BinaryOperatorNode,
     ComparisonNode,
     FunctionCallNode,
@@ -207,6 +208,38 @@ def test_a_list_of_names_is_a_kwarg_value():
 )
 def test_a_list_the_grammar_cannot_read_is_refused_at_load(text):
     """A list is a kwarg value and nothing else, and the last three say so."""
+    with pytest.raises(SchemaError, match='Failed to parse expression'):
+        parse_expression(text)
+
+
+@pytest.mark.parametrize(
+    ('text', 'consumed', 'produced'),
+    [
+        pytest.param('sum(p, by=l, over=a -> b)', NameNode('a'), NameNode('b'), id='one-name-at-each-end'),
+        pytest.param('sum(p, by=l, over=[a, b] -> c)', NameListNode(('a', 'b')), NameNode('c'), id='a-list-consumed'),
+        pytest.param('sum(p, by=l, over=a -> [b, c])', NameNode('a'), NameListNode(('b', 'c')), id='a-list-produced'),
+        pytest.param('sum(p,by=l,over=a->b)', NameNode('a'), NameNode('b'), id='no-spaces'),
+    ],
+)
+def test_an_arrow_is_a_kwarg_value_with_a_name_at_each_end(text, consumed, produced):
+    """`over=a -> b` is one value whose ends are nodes, so a macro formal at either end is bound."""
+    node = parse_expression(text)
+    assert node.kwargs['over'] == ArrowNode(consumed, produced)
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        pytest.param('sum(p, by=l, over=a, b -> c)', id='two-names-without-brackets'),
+        pytest.param('sum(p, by=l, over=a -> b -> c)', id='a-chain'),
+        pytest.param('sum(p, by=l, over=-> b)', id='no-consumed-end'),
+        pytest.param('sum(p, by=l, over=a ->)', id='no-produced-end'),
+        pytest.param('sum(p -> q, by=l)', id='a-positional-argument'),
+        pytest.param('p -> q', id='the-whole-expression'),
+    ],
+)
+def test_an_arrow_the_grammar_cannot_read_is_refused_at_load(text):
+    """A comma inside a call separates arguments, so two names at one end go in brackets."""
     with pytest.raises(SchemaError, match='Failed to parse expression'):
         parse_expression(text)
 

@@ -152,7 +152,7 @@ constraints:
     expression: spill <= at(zone_cap, by=zone_of)
   grouped_once: # one table walked to two value columns: the domain carries a condition per column
     dims: [snapshot, bus, technology]
-    expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
+    expression: sum(p, by=gen_bt, over=generator -> [bus, technology]) <= tech_cap
   pulled_back_once: # its adjoint, reading one slot through two columns of one table
     dims: [generator]
     expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
@@ -162,7 +162,7 @@ constraints:
     expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt, within=bus)
   relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
     dims: [snapshot, bus]
-    expression: sum(p, by=connection, over=generator, into=bus) <= load
+    expression: sum(p, by=connection, over=generator -> bus) <= load
   connected: # a bare relation as a where: the row of the frame has to be a member of the relation
     dims: [snapshot, generator, bus]
     where: "connection"

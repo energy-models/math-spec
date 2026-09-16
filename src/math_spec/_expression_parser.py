@@ -114,6 +114,28 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
+class ArrowNode:
+    """A walk's two ends in a kwarg value — ``sum(x, by=l, over=a -> b)``.
+
+    Each end is a bare name or a bracketed list, and each is a child rather
+    than a string so that a macro formal standing at either end is bound.
+    Unresolved: the relation ``by=`` names says which columns the ends are.
+    """
+
+    consumed: ArithmeticNode
+    produced: ArithmeticNode
+
+    @property
+    def shown(self) -> str:
+        """The kwarg value as the author wrote it, for an error message."""
+        return f'{_end_shown(self.consumed)} -> {_end_shown(self.produced)}'
+
+
+def _end_shown(end: ArithmeticNode) -> str:
+    return end.shown if isinstance(end, NameListNode) else end.name if isinstance(end, NameNode) else repr(end)
+
+
+@dataclass(frozen=True)
 class RelationNode:
     """A resolved ``by=`` — one or more relations, each with the walk the call takes through it.
 
@@ -240,6 +262,7 @@ ArithmeticNode = (
     NumberNode
     | NameNode
     | NameListNode
+    | ArrowNode
     | VariableNode
     | ParameterNode
     | DualNode
@@ -282,12 +305,14 @@ def shown(names: tuple[str, ...]) -> str:
 KwargNode = DimensionNode | RelationNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
-#: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
-#: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
-UnresolvedNode = NameNode | NameListNode | KeywordNode
+#: knows, the two kwarg-only literals its kwarg consumes, and the arrow whose
+#: ends are names. Meeting one downstream means the expression skipped
+#: :func:`~math_spec.resolution.expression_of`.
+UnresolvedNode = NameNode | NameListNode | KeywordNode | ArrowNode
 
-#: Every leaf — nothing below it to descend into.
-LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
+#: Every leaf — nothing below it to descend into. An arrow is unresolved but
+#: not a leaf: its ends are names a macro formal may stand at.
+LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | NameNode | NameListNode | KeywordNode
 
 
 def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
@@ -305,6 +330,8 @@ def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
         return (node.left, node.right)
     if isinstance(node, FunctionCallNode):
         return (*node.args, *node.kwargs.values())
+    if isinstance(node, ArrowNode):
+        return (node.consumed, node.produced)
     if isinstance(node, CasesNode):
         return tuple(arm.value for arm in node.arms)
     if isinstance(node, DefinitionNode):
@@ -341,6 +368,8 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
             tuple(recurse(a) for a in node.args),
             {k: recurse(v) for k, v in node.kwargs.items()},
         )
+    if isinstance(node, ArrowNode):
+        return ArrowNode(recurse(node.consumed), recurse(node.produced))
     if isinstance(node, CasesNode):
         return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
     if isinstance(node, DefinitionNode):
@@ -367,7 +396,11 @@ def _build_grammar() -> pp.ParserElement:
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
+    # pyrefly: ignore[implicit-any-lambda]
+    end = name_list | name.copy().set_parse_action(lambda t: NameNode(t[0]))
+    # pyrefly: ignore[implicit-any-lambda]
+    arrow = (end + pp.Suppress('->') + end).set_parse_action(lambda t: ArrowNode(t[0], t[1]))
+    kwarg = (name + pp.Suppress('=') + (quoted | arrow | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)

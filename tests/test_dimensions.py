@@ -157,29 +157,24 @@ def namespace() -> Namespace:
             'sum(p, by=gen_bus, over=generator)', {'snapshot', 'bus'}, id='the-dot-is-legal-on-a-one-key-relation'
         ),
         pytest.param(
-            'sum(p, by=gen_bz, into=[bus, zone])',
+            'sum(p, by=gen_bz, over=generator -> [bus, zone])',
             {'snapshot', 'bus', 'zone'},
-            id='a-to-list-lands-on-a-product-from-one-table',
+            id='a-walk-landing-on-two-columns-lands-on-a-product-from-one-table',
         ),
         pytest.param(
             'at(bz, by=gen_bz, over=[bus, zone])',
             {'generator'},
-            id='a-from-list-reads-two-value-columns-at-once',
+            id='a-read-consuming-two-value-columns-reads-them-at-once',
         ),
         pytest.param(
             'sum(p, by=gen_zone, over=[generator, snapshot])',
             {'zone'},
-            id='a-from-list-consumes-two-key-columns-at-once',
+            id='a-walk-consuming-two-key-columns-consumes-them-at-once',
         ),
         pytest.param(
-            'sum(p, by=gen_bz, into=bus)',
+            'sum(p, by=gen_bz, over=generator -> bus)',
             {'snapshot', 'bus'},
             id='a-value-column-not-walked-is-not-read',
-        ),
-        pytest.param(
-            'sum(p, by=gen_bz, over=generator, into=bus)',
-            {'snapshot', 'bus'},
-            id='by-and-over-compose',
         ),
         pytest.param('sum(p, by=rep_of)', {'snapshot', 'generator'}, id='a-map-into-its-own-dimension-keeps-the-frame'),
         pytest.param('at(p, by=rep_of)', {'snapshot', 'generator'}, id='and-so-does-its-pullback'),

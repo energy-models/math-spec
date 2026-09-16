@@ -138,10 +138,10 @@ result keeps it, and keeps every dimension the relation does not name.
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
 
-`over=` names the column consumed and `into=` the column `sum` produces. Name a
-column only where the relation offers two. `at` lands on the whole key, so it
-names nothing there: a key column whose dimension the operand carries is joined
-on, and the rest are produced.
+`over=a` names the column consumed, and `over=a -> b` the column `sum` lands on
+too. Name a column only where the relation offers two. `at` lands on the whole
+key, so it names nothing there: a key column whose dimension the operand
+carries is joined on, and the rest are produced.
 
 ```yaml
 dimensions:
@@ -168,7 +168,7 @@ constraints:
 ```
 
 `zone_of` has one value column, `zone`. It is the only column `sum` can produce,
-so `sum` leaves `into=zone` unsaid. It is the only column `at` can consume, so
+so `sum` leaves the `-> zone` unsaid. It is the only column `at` can consume, so
 `at` leaves `over=zone` unsaid too. `zone_of` has two key columns, and there
 `sum` chooses: it names the one it consumes, because `over=generator` and
 `over=period` are different constraints. `at` lands on both, and `price` decides
@@ -179,14 +179,14 @@ With one key column and one value column, `sum(p, by=gen_bus)` and
 relation offers two is refused, and the message lists the candidates:
 
 ```
-sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which over= names.
+sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which over= consumes.
 ```
 
 `capped_revenue` reads the price of the zone this generator sat in that period.
 The typesetter prints it as $`\mathrm{price}_{\mathrm{zone\_of}(g,\ e),e}`$,
 and the joined `period` is the second subscript.
 
-- **Either keyword takes a list.** `sum(p, by=gen_bt, into=[bus, technology])`
+- **Either end takes a list.** `sum(p, by=gen_bt, over=generator -> [bus, technology])`
   lands on the product `bus × technology` in one join.
   `sum(p, by=zone_of, over=[generator, period])` consumes both key columns at
   once. `at(tech_cap, by=gen_bt, over=[bus, technology])` reads `tech_cap` at
@@ -197,13 +197,13 @@ and the joined `period` is the second subscript.
   bus the generator sits on, and the sum lands there. The same rule splits the
   key `at` lands on, which is why `at` never names it.
 - **A value column that is not walked is not read.**
-  `sum(f, by=ends, over=line, into=bus1)` reads `bus1` and ignores `bus0`
+  `sum(f, by=ends, over=line -> bus1)` reads `bus1` and ignores `bus0`
   ([roles](#roles)).
 - **`by=[a, b]` is one grouping onto what `a` and `b` produce together.** Each
-  relation is walked from its key to its value, so `over=` and `into=` have
-  nothing to name. The relations consume the same dimension, and no two produce
+  relation is walked from its key to its value, so an arrow has nothing to
+  name. The relations consume the same dimension, and no two produce
   the same one.
-- **`into=` needs a `by=`**, because a column belongs to a table. `over=`
+- **An arrow needs a `by=`**, because a column belongs to a table. `over=`
   without a `by=` names a dimension, as in `sum(p, over=period)`.
 
 Three refusals draw the line, and each message names the rewrite:
@@ -243,7 +243,7 @@ relations:
   rep_of: { columns: { snapshot: snapshot, rep: snapshot }, key: snapshot } # the representative snapshot
 ```
 
-`sum(f, by=ends, over=line, into=bus1) - sum(f, by=ends, over=line, into=bus0)`
+`sum(f, by=ends, over=line -> bus1) - sum(f, by=ends, over=line -> bus0)`
 is a nodal balance through one table: flow arriving at `bus1` less flow leaving
 `bus0`. `where: "ends.bus0 != ends.bus1"` excludes a line whose two ends are
 one bus.

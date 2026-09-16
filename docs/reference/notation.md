@@ -388,7 +388,7 @@ one table walked to two value columns: the domain carries a condition per column
 ```yaml
 grouped_once:
   dims: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
+  expression: sum(p, by=gen_bt, over=generator -> [bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -431,7 +431,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 ```yaml
 relational:
   dims: [snapshot, bus]
-  expression: sum(p, by=connection, over=generator, into=bus) <= load
+  expression: sum(p, by=connection, over=generator -> bus) <= load
 ```
 
 ```math

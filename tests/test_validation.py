@@ -614,44 +614,47 @@ class TestRulesDecidedWithoutData:
                     'variables.q.dims': ['g', 'h', 'z'],
                     'objective': {'expression': 'sum(sum(q, by=lk))'},
                 },
-                ("'lk' has 2 key columns (['g', 'z']), and the call has to say which over= names",),
+                ("'lk' has 2 key columns (['g', 'z']), and the call has to say which over= consumes",),
                 id='by-a-two-key-relation-without-from',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=lk, over=z))'}},
-                ("over=z names no column of 'lk', whose columns are ['g', 'h']",),
-                id='from-a-column-the-relation-lacks',
+                ("over=z names 'z', and 'lk' has no such column; its columns are ['g', 'h']",),
+                id='a-column-the-relation-lacks',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, over=h, into=h))'}},
-                ("over= and into= both name ['h']",),
-                id='from-and-to-the-same-column',
-            ),
-            pytest.param(
-                {
-                    'dimensions.z': {},
-                    'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
-                    'objective': {'expression': 'sum(sum(p, by=lz, into=[h, h]))'},
-                },
-                ("into=['h', 'h'] names a column twice",),
-                id='a-to-list-naming-a-column-twice',
+                {'objective': {'expression': 'sum(sum(p, by=lk, over=h -> h))'}},
+                ("over=h -> h names ['h'] at both ends",),
+                id='a-walk-from-a-column-to-itself',
             ),
             pytest.param(
                 {
                     'dimensions.z': {},
                     'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=[g, h], into=h))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, over=g -> [h, h]))'},
                 },
-                ("over= and into= both name ['h']",),
-                id='a-from-list-overlapping-to',
+                ('over=g -> [h, h] names a column twice',),
+                id='a-walk-landing-on-a-column-twice',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, over=[g, h] -> h))'},
+                },
+                ("over=[g, h] -> h names ['h'] at both ends",),
+                id='a-walk-whose-ends-overlap',
             ),
             pytest.param(
                 {
                     'relations.lz': {'columns': {'g': 'g', 'h0': 'h', 'h1': 'h'}, 'key': 'g'},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=[h0, h1], into=g))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, over=[h0, h1] -> g))'},
                 },
-                ("over=['h0', 'h1'] names two columns over ['h'], and the operand carries each dimension once",),
-                id='a-from-list-naming-two-columns-over-one-dimension',
+                (
+                    "over=[h0, h1] -> g consumes ['h0', 'h1'], two columns over ['h'], and the operand carries each "
+                    'dimension once',
+                ),
+                id='a-walk-consuming-two-columns-over-one-dimension',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk, over=g))'}},
@@ -672,17 +675,50 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'variables.q.where': 'position(g, by=lk, within=z) == 0'},
-                ("within=z names no column of 'lk', whose columns are ['g', 'h']",),
+                ("within=z names 'z', and 'lk' has no such column; its columns are ['g', 'h']",),
                 id='position-within-a-column-the-relation-lacks',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, into=g))'}},
-                ('names a column of a relation, and no by= names the relation',),
-                id='into-without-by',
+                {'objective': {'expression': 'sum(sum(p, over=h -> g))'}},
+                (
+                    'sum(over=h -> g) walks a relation between two of its columns, and no by= names the relation',
+                    'Write sum(<expr>, by=<relation>, over=h -> g)',
+                ),
+                id='an-arrow-without-by',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(sum(p, by=lk, into=g))'}},
+                (
+                    'sum() expects sum(<expr>), sum(<expr>, over=<dim>) or '
+                    'sum(<expr>, by=<relation>[, over=<column> -> <column>])',
+                ),
+                id='into-is-not-a-keyword',
+            ),
+            pytest.param(
+                {'objective': {'expression': 'sum(at(r, by=lk, over=h -> g))'}},
+                ('at(over=h -> g) names columns to read, and only a sum walks an arrow', 'Write over=h'),
+                id='at-takes-no-arrow',
+            ),
+            pytest.param(
+                {
+                    'dimensions.z': {},
+                    'relations.lz': {'columns': ['g', 'h', 'z'], 'key': 'g'},
+                    'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lz, within=g -> z))'},
+                },
+                ('shift(within=g -> z) names columns to read, and only a sum walks an arrow', 'Write within=z'),
+                id='a-partition-takes-no-arrow',
+            ),
+            pytest.param(
+                {
+                    'macros': {'m': {'args': ['x'], 'kwargs': ['w'], 'template': 'x + w'}},
+                    'objective': {'expression': 'sum(m(p, w=g -> h))'},
+                },
+                ('g -> h is an arrow between column names, which is only legal as the over= value of a sum',),
+                id='an-arrow-bound-to-a-formal-in-arithmetic',
             ),
             pytest.param(
                 {'relations.rel': {'columns': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
-                ("'rel' declares no key, so nothing says which column sum walks",),
+                ("'rel' declares no key, so nothing says which columns sum walks", 'over=<column> -> <column>'),
                 id='a-bare-relation-needs-both-ends-named',
             ),
             pytest.param(
@@ -704,7 +740,7 @@ class TestRulesDecidedWithoutData:
                 id='at-takes-no-into',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
+                {'objective': {'expression': 'sum(sum(q, by=lk, over=h -> g))'}},
                 ("this sum walks to the key ['g']", 'that is a read, which is', 'at(..., by=lk, over=h)'),
                 id='a-sum-that-walks-to-the-key-is-a-read',
             ),
