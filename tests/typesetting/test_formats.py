@@ -14,7 +14,7 @@ import pytest
 from math_spec import to_spec, typeset_declaration
 from math_spec.typesetting import FORMATS, to_latex, to_markdown, to_typst, typeset
 from math_spec.typesetting.format import OPERATOR_NAMES
-from tests.fixtures import DISPATCH_MODEL, override
+from tests.fixtures import DISPATCH_MODEL, varied
 from tests.typesetting import golden
 from tests.typesetting.fixtures import EVERY_FORMAT, TYPST_SYMBOLS
 
@@ -116,7 +116,7 @@ def test_every_typst_operator_compiles(typst, tmp_path: Path):
 def test_the_model_description_opens_the_document(name: FormatName, fmt: Format, options: dict):
     """What the file says it is, printed before anything it declares — and
     printed with `legend=False` too, since it is not a symbol table."""
-    described = override(DISPATCH_MODEL, description='least-cost dispatch of a generator fleet')
+    described = varied(DISPATCH_MODEL, description='least-cost dispatch of a generator fleet')
     out = typeset(described, name, **options)
     assert 'least-cost dispatch of a generator fleet' in out
     assert out.index('least-cost dispatch') < out.index(fmt.operators['minimize']), 'it opens the document'
@@ -171,7 +171,7 @@ def test_a_description_sets_as_text_rather_than_as_markup(notation: str, positio
     one.
     """
     where = 'description' if position == 'file' else 'parameters.load.description'
-    out = typeset(override(DISPATCH_MODEL, **{where: SPECIALS}), notation)
+    out = typeset(varied(DISPATCH_MODEL, **{where: SPECIALS}), notation)
     for expected in ESCAPED[notation]:
         assert expected in out, 'each special is escaped, and a character the notation reads as text is left alone'
     assert SPECIALS not in out, 'the raw prose reached the document unescaped'
@@ -197,7 +197,7 @@ def test_a_backticked_name_in_a_description_sets_in_monospace(notation: str):
     span is part of the language's reading of prose rather than a Markdown
     habit that two formats printed as characters (#401).
     """
-    out = typeset(override(DISPATCH_MODEL, **{'parameters.load.description': SPANNED}), notation)
+    out = typeset(varied(DISPATCH_MODEL, **{'parameters.load.description': SPANNED}), notation)
     assert SPANNED_AS[notation] in out, (
         'the span is monospace, its underscore escaped where the format needs it, and the lone backtick a character'
     )
@@ -207,7 +207,7 @@ def test_a_backticked_name_in_a_description_sets_in_monospace(notation: str):
     'model',
     [
         pytest.param(golden.MODEL, id='the-golden-model'),
-        pytest.param(override(DISPATCH_MODEL, description=SPECIALS), id='every-special'),
+        pytest.param(varied(DISPATCH_MODEL, description=SPECIALS), id='every-special'),
     ],
 )
 def test_a_description_of_every_special_compiles(typst, tmp_path: Path, model):
@@ -223,7 +223,7 @@ def test_a_description_of_every_special_compiles(typst, tmp_path: Path, model):
 
 
 def test_typst_prose_escapes_what_typst_reads_as_markup(typst, tmp_path: Path):
-    described = override(DISPATCH_MODEL, description='- a list? a // comment [a link] and = a heading')
+    described = varied(DISPATCH_MODEL, description='- a list? a // comment [a link] and = a heading')
     typ = to_typst(described, standalone=True)
     assert r'\- a list? a \/\/ comment \[a link\] and = a heading' in typ, (
         'a leading list marker, a comment and a link are escaped, and an inline `=` is no heading'
@@ -234,7 +234,7 @@ def test_typst_prose_escapes_what_typst_reads_as_markup(typst, tmp_path: Path):
 
 
 def test_markdown_glossary_cells_survive_a_pipe_and_a_newline():
-    described = override(DISPATCH_MODEL, **{'parameters.load.description': 'a | b\nc'})
+    described = varied(DISPATCH_MODEL, **{'parameters.load.description': 'a | b\nc'})
     md = to_markdown(described)
     assert r'| `load` over $`\mathcal{T}`$ — a \| b c |' in md, (
         'the pipe is escaped and the newline folded, so the cell stays one cell'

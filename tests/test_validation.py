@@ -19,20 +19,20 @@ from math_spec.program import DimensionPositionNode
 from math_spec.resolution import Namespace, where_of
 from math_spec.typesetting import to_markdown
 from math_spec.validation import to_spec
-from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, override
+from tests.fixtures import DISPATCH_MODEL, OPERATOR_PROBES, SMALL_MODEL, varied
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
 
 
 def _schema(**patch) -> Spec:
-    return to_spec(override(SMALL_MODEL, **patch))
+    return to_spec(varied(SMALL_MODEL, **patch))
 
 
 def _refusal(model: dict[str, Any] = SMALL_MODEL, **patch: Any) -> str:
     """The message `to_spec` refuses *model* patched with — and it has to refuse."""
     with pytest.raises(LanguageError) as caught:
-        to_spec(override(model, **patch))
+        to_spec(varied(model, **patch))
     return str(caught.value)
 
 
@@ -175,7 +175,7 @@ class TestValidateExpressions:
         definition like any other — rather than degree-checking a declaration
         nothing consumes.
         """
-        model = override(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
+        model = varied(SMALL_MODEL, expressions={'lcoe': 'c / sum(p)'})
         assert to_program(model).named_expressions['lcoe'].in_math is False, (
             'the unread nonlinear body loads rather than being refused, and nothing in the math reads it'
         )
@@ -206,7 +206,7 @@ def _kwarg_model(expression: str, dims: list[str] | None = None) -> dict[str, An
 class TestDual:
     """`dual(c)`: a primitive legal only in an entry the math never reads, its argument a constraint name resolved against constraints alone."""
 
-    BASE = override(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
+    BASE = varied(SMALL_MODEL, **{'constraints.lim': {'dims': ['g'], 'expression': 'p <= c'}})
 
     @pytest.mark.parametrize(
         ('patch', 'fragments'),
@@ -266,13 +266,13 @@ class TestDual:
     )
     def test_a_dual_out_of_place_is_refused(self, patch, fragments):
         with pytest.raises(LanguageError) as exc:
-            to_spec(override(self.BASE, **patch))
+            to_spec(varied(self.BASE, **patch))
         for fragment in fragments:
             assert fragment in str(exc.value)
 
     def test_a_dual_loads_in_an_expressions_entry(self):
         """The one place it is legal: an ``expressions:`` entry naming a declared constraint, which nothing in the math reads."""
-        assert to_spec(override(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
+        assert to_spec(varied(self.BASE, expressions={'price': 'dual(lim)'})).expressions['price']
 
 
 class TestDimensionKwargs:
@@ -1314,15 +1314,13 @@ def test_an_expression_too_deep_to_walk_fails_as_a_language_error(patch, nests):
     nothing naming the file, the declaration, or what to write instead.
     """
     with pytest.raises(LanguageError, match='past the 100 levels'):
-        to_spec(override(DISPATCH_MODEL, **patch))
+        to_spec(varied(DISPATCH_MODEL, **patch))
 
 
 def test_a_name_may_open_with_an_underscore():
     """`expressions.md` said a name opens with a letter while the schema and the grammar both admitted `_`, so the page refused what the language accepts."""
     schema = to_spec(
-        override(
-            DISPATCH_MODEL, **{'parameters._reserve': {'dims': ['generator']}, 'variables.p.where': '_reserve > 0'}
-        )
+        varied(DISPATCH_MODEL, **{'parameters._reserve': {'dims': ['generator']}, 'variables.p.where': '_reserve > 0'})
     )
 
     assert '_reserve' in schema.parameters, 'a leading underscore is a name, as NAME and the schema both say'
@@ -1353,7 +1351,7 @@ def test_each_declaration_is_resolved_once_however_many_readers(monkeypatch):
             monkeypatch.setattr(module, door.__name__, recorded(door))
 
     spec = to_spec(
-        override(
+        varied(
             DISPATCH_MODEL,
             **{
                 'variables.p.where': 'p_max > 0',
