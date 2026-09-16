@@ -138,9 +138,9 @@ result keeps it, and keeps every dimension the relation does not name.
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
 
-`by=` names the relation, and the walk through it is written after the name,
+`by=` names the relation, and the direction of the walk through it is written after the name,
 `by=zone_of(generator -> zone)`: the dimension `generator` leaves, and the
-column `zone` arrives. A call writes the whole walk or nothing:
+column `zone` arrives. A call writes the whole direction or nothing:
 `sum(p, by=gen_bus)` where the declaration decides both ends, and
 `sum(p, by=zone_of(generator -> zone))` where it does not. `at` lands on the
 whole key, and the operand decides the rest: a value column is read where the
@@ -172,25 +172,25 @@ constraints:
 ```
 
 `zone_of` has one value column, `zone`, so `at(price, by=zone_of)` reads it
-without a walk written. `zone_of` has two key columns, and there `sum` chooses:
+without a direction written. `zone_of` has two key columns, and there `sum` chooses:
 `zone_of(generator -> zone)` and `zone_of(period -> zone)` are different
-constraints. The whole walk is written, `-> zone` included, so the line reads
+constraints. The whole direction is written, `-> zone` included, so the line reads
 without the declaration. `at` lands on both key columns, and `price` decides
 the split: it carries `period`, so `period` is joined on, and `generator` is
 produced. Read `zone_cap[zone]` through the same table and both are produced.
 With one key column and one value column, `sum(p, by=gen_bus)` and
-`at(price, by=gen_bus)` say everything. A walk left out where the declaration
+`at(price, by=gen_bus)` say everything. A direction left out where the declaration
 does not decide it is refused, and the message names the rewrite:
 
 ```
-sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say the walk: by=zone_of(<dimension> -> zone).
+sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say the direction: by=zone_of(<dimension> -> zone).
 ```
 
 `capped_revenue` reads the price of the zone this generator sat in that period.
 The typesetter prints it as $`\mathrm{price}_{\mathrm{zone\_of}(g,\ e),e}`$,
 and the joined `period` is the second subscript.
 
-- **Either end takes a list, and a bare walk takes every value column.**
+- **Either end takes a list, and a bare `by=` takes every value column.**
   `sum(p, by=gen_bt)` and `sum(p, by=gen_bt(generator -> [bus, technology]))`
   both land on the product `bus × technology` in one join, and
   `sum(p, by=gen_bt(generator -> bus))` lands on `bus` alone.
@@ -208,12 +208,12 @@ and the joined `period` is the second subscript.
   `sum(f, by=ends(line -> bus1))` reads `bus1` and ignores `bus0`
   ([roles](#roles)).
 - **`by=[a, b]` is one grouping onto what `a` and `b` produce together.** Each
-  relation is walked as its declaration decides, so no walk is written. The
+  relation is walked as its declaration decides, so no direction is written. The
   relations consume the same dimension, and no two produce the same one.
-- **The left end of a sum's walk names a dimension, the right end columns.**
+- **The left end of a sum's direction names a dimension, the right end columns.**
   A key has one column per dimension, so `generator` names the key column over
   it, and a renamed key column is written by its dimension. Two value columns
-  may share a dimension, so the right end names them by column, `bus1`. A walk
+  may share a dimension, so the right end names them by column, `bus1`. A direction
   belongs in `by=`; `over=` is a reduction over a dimension, and a sum with a
   `by=` takes none.
 
@@ -232,13 +232,13 @@ walk the one key column over `d`, join on the other key columns, and group by
 the value columns. The frame does not change: the group says which rows are
 neighbours, and nothing lands anywhere.
 
-The walk names the value columns the group is made of where the table has
+The direction names the value columns the group is made of where the table has
 several. `shift(x, along=snapshot, by=cal(week))` walks within weeks of a
 calendar declared once over `[snapshot, day, week]`, and a value column not
-named is not read. A partition's walk has one end, the group, because its
+named is not read. A partition's direction has one end, the group, because its
 other end is the axis `along=` names. The group may be two columns over one
 dimension, such as a line's two buses, because a partition produces no
-dimension. A walk naming a key column is refused, and a bare relation
+dimension. A direction naming a key column is refused, and a bare relation
 partitions nothing.
 
 A `where` string reads a relation too: a value column at its key, two columns

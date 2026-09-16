@@ -115,7 +115,7 @@ class NameListNode:
 
 @dataclass(frozen=True)
 class DirectionNode:
-    """A walk through a relation in a kwarg value — ``by=zone_of(generator -> zone)``, or ``by=cal(week)`` on a partition.
+    """A walk's direction in a kwarg value — ``by=zone_of(generator -> zone)``, or ``by=cal(week)`` on a partition.
 
     The relation and each end are children rather than strings, so a macro
     formal standing at any of the three positions is bound. Unresolved: the

@@ -222,7 +222,7 @@ def test_a_list_the_grammar_cannot_read_is_refused_at_load(text):
         pytest.param('shift(p, along=t, offset=1, by=l(b))', None, NameNode('b'), id='the-right-end-alone'),
     ],
 )
-def test_a_walk_is_a_kwarg_value_with_the_relation_and_its_ends_as_nodes(text, consumed, produced):
+def test_a_direction_is_a_kwarg_value_with_the_relation_and_its_ends_as_nodes(text, consumed, produced):
     """`by=l(a -> b)` is one value whose relation and ends are nodes, so a macro formal at any of the three is bound."""
     node = parse_expression(text)
     assert node.kwargs['by'] == DirectionNode(NameNode('l'), consumed, produced)
@@ -236,13 +236,13 @@ def test_a_walk_is_a_kwarg_value_with_the_relation_and_its_ends_as_nodes(text, c
         pytest.param('sum(p, by=l(-> b))', id='no-consumed-end'),
         pytest.param('sum(p, by=l(a ->))', id='no-produced-end'),
         pytest.param('sum(p, by=(a -> b))', id='no-relation'),
-        pytest.param('sum(p, by=l, over=a -> b)', id='a-walk-outside-a-parenthesis'),
+        pytest.param('sum(p, by=l, over=a -> b)', id='a-direction-outside-a-parenthesis'),
         pytest.param('sum(p -> q, by=l)', id='a-positional-argument'),
         pytest.param('p -> q', id='the-whole-expression'),
     ],
 )
-def test_a_walk_the_grammar_cannot_read_is_refused_at_load(text):
-    """A comma inside a call separates arguments, so two names at one end go in brackets, and a walk is written after its relation."""
+def test_a_direction_the_grammar_cannot_read_is_refused_at_load(text):
+    """A comma inside a call separates arguments, so two names at one end go in brackets, and a direction is written after its relation."""
     with pytest.raises(SchemaError, match='Failed to parse expression'):
         parse_expression(text)
 

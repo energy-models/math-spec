@@ -614,12 +614,14 @@ class TestRulesDecidedWithoutData:
                     'variables.q.dims': ['g', 'h', 'z'],
                     'objective': {'expression': 'sum(sum(q, by=lk))'},
                 },
-                ("'lk' has 2 key columns (['g', 'z']), and the call has to say the walk: by=lk(<dimension> -> h)",),
-                id='by-a-two-key-relation-without-a-walk',
+                (
+                    "'lk' has 2 key columns (['g', 'z']), and the call has to say the direction: by=lk(<dimension> -> h)",
+                ),
+                id='by-a-two-key-relation-without-a-direction',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=lk(g -> h), over=g))'}},
-                ('sum() takes at most one of by= or over=', 'a walk names what leaves inside by='),
+                ('sum() takes at most one of by= or over=', 'a direction names what leaves inside by='),
                 id='over-beside-by',
             ),
             pytest.param(
@@ -695,10 +697,10 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, over=lk(h -> g)))'}},
                 (
-                    'sum(over=lk(h -> g)) walks a relation, and a walk belongs in by=',
+                    'sum(over=lk(h -> g)) names a direction through a relation, and a direction belongs in by=',
                     'Write sum(<expr>, by=lk(h -> g))',
                 ),
-                id='a-walk-in-over',
+                id='a-direction-in-over',
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(p, by=lk, over=g, into=h))'}},
@@ -747,8 +749,8 @@ class TestRulesDecidedWithoutData:
                     'macros': {'m': {'args': ['x'], 'kwargs': ['w'], 'template': 'x + w'}},
                     'objective': {'expression': 'sum(m(p, w=lk(g -> h)))'},
                 },
-                ('lk(g -> h) is a walk through a relation, which is only legal as a by= value',),
-                id='a-walk-bound-to-a-formal-in-arithmetic',
+                ('lk(g -> h) is a direction through a relation, which is only legal as a by= value',),
+                id='a-direction-bound-to-a-formal-in-arithmetic',
             ),
             pytest.param(
                 {'relations.rel': {'columns': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
@@ -956,9 +958,9 @@ class TestRulesDecidedWithoutData:
                     'objective': {'expression': 'sum(sum(q, by=[lk, lz]))'},
                 },
                 (
-                    "sum(by=lz): 'lz' has 2 key columns (['g', 'z']), and the call has to say the walk: by=lz(<dimension> -> h)",
+                    "sum(by=lz): 'lz' has 2 key columns (['g', 'z']), and the call has to say the direction: by=lz(<dimension> -> h)",
                 ),
-                id='by-a-list-whose-member-needs-a-walk',
+                id='by-a-list-whose-member-needs-a-direction',
             ),
             pytest.param(
                 {

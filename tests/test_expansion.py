@@ -111,7 +111,7 @@ def test_a_call_expands_to_core_ast(expressions, macros, call, want):
     assert _bodies(expanded) == parse_expression(want)
 
 
-def test_a_macro_formal_may_stand_at_any_position_of_a_walk():
+def test_a_macro_formal_may_stand_at_any_position_of_a_direction():
     """`by=l(a -> b)` holds the relation and both ends as nodes, so a caller's name for each is bound like any formal."""
     spec = schema(
         **{

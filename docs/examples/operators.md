@@ -260,7 +260,7 @@ $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathca
 
 ```yaml
 description: >-
-  A read that writes its walk — `at(array, by=relation(a -> key))` reads
+  A read that writes its direction — `at(array, by=relation(a -> key))` reads
   column `a` and lands on the key, where a table has two columns over one
   dimension, here the sending end of a line.
 

@@ -91,7 +91,7 @@ fixed at load:
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | expression (`p * cost`)                | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
 | dimension argument (`over=`, `along=`) | a dimension                                                                                                  |
-| relation argument (`by=`)              | a relation, bare or with its walk written, `zone_of(generator -> zone)`, and never a dimension               |
+| relation argument (`by=`)              | a relation, bare or with its direction written, `zone_of(generator -> zone)`, and never a dimension          |
 | `where` string                         | a parameter, variable, dimension or relation ([where strings](#where-strings))                               |
 | `bounds.lower` / `bounds.upper`        | a parameter name, or a number                                                                                |
 | the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |

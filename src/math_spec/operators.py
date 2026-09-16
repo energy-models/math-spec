@@ -24,7 +24,7 @@ class Builtin:
     Keyword arguments come in four kinds, and the kind decides what resolution
     turns the value into: ``dimension_kwargs`` name a dimension
     (``sum(x, over=generator)``); ``relation_kwargs`` name a relation, bare or
-    with the walk through it, ``by=zone_of(generator -> zone)``, which carries
+    with the direction of the walk through it, ``by=zone_of(generator -> zone)``, which carries
     its own dimensions, so it needs no sibling kwarg; ``edge_kwargs`` take a
     closed keyword or a number; ``required_value_kwargs`` are ordinary values
     that must be present — a number, never a name to resolve
@@ -131,7 +131,7 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
         alternatives = ' or '.join(f'{k}=' for k in builtin.at_most_one_of)
         return (
             f'{name}() takes at most one of {alternatives} — a relation carries '
-            f'its own dimensions, and a walk names what leaves inside by=, so over= has nothing to add.\n'
+            f'its own dimensions, and a direction names what leaves inside by=, so over= has nothing to add.\n'
             f'Write: {builtin.usage}'
         )
     optional = {*builtin.edge_kwargs, *builtin.at_most_one_of, *builtin.optional_kwargs}

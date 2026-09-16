@@ -80,7 +80,7 @@ The same `f` is summed twice through two relations, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
 `sum(by=)` consumes a key column and produces a value column. Where the
-relation offers a choice, the walk is written inside `by=`:
+relation offers a choice, the direction is written inside `by=`:
 `by=zone_of(generator -> zone)` says the dimension `generator` leaves and the
 column `zone` arrives ([walks](dimensions.md#walks)). Every other key column is
 joined on, so each group is one coordinate of it. A sum with a `by=` takes no
@@ -243,7 +243,7 @@ group onto its own last coordinate, which a store that returns to its starting
 level every period asks for. `edge=v` puts `v` at the edge of each group.
 
 `by=` takes a relation with a key column over the dimension being walked, and the
-group is the value columns: all of them, or the ones the walk names, so one
+group is the value columns: all of them, or the ones the direction names, so one
 calendar table serves `by=cal(day)` and `by=cal(week)` alike. The group columns
 are what a named `offset=` may vary over, so each group is reached by its own
 offset.

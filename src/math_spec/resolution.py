@@ -286,7 +286,7 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
 
 
 def names_in(value: ArithmeticNode) -> tuple[str, ...]:
-    """The relation names a ``by=`` carries: one bare, several bracketed, the one a walk is written through, none otherwise."""
+    """The relation names a ``by=`` carries: one bare, several bracketed, the one a direction is written through, none otherwise."""
     if isinstance(value, NameNode):
         return (value.name,)
     if isinstance(value, DirectionNode):
@@ -421,7 +421,7 @@ class _Resolver:
             return node
         if isinstance(node, DirectionNode):
             self.errors.append(
-                f'{self.context}: {node.shown} is a walk through a relation, which is only legal as a by= '
+                f'{self.context}: {node.shown} is a direction through a relation, which is only legal as a by= '
                 f'value, such as sum(x, by={node.shown}). In an expression, name a variable or a parameter.'
             )
             return node
@@ -539,7 +539,7 @@ class _Resolver:
         """An operator kwarg whose *value* must name a declared dimension."""
         if isinstance(value, DirectionNode):
             self.errors.append(
-                f'{self.context}: {operator}({key}={value.shown}) walks a relation, and a walk belongs in by=. '
+                f'{self.context}: {operator}({key}={value.shown}) names a direction through a relation, and a direction belongs in by=. '
                 f'Write {operator}(<expr>, by={value.shown}).'
             )
             return value
@@ -574,12 +574,12 @@ class _Resolver:
     def _relation_ref(
         self, value: ArithmeticNode, operator: str, key: str, along: ArithmeticNode | None
     ) -> ArithmeticNode:
-        """An operator's ``by=``: a relation, or the walk through one written as ``relation(a -> b)``.
+        """An operator's ``by=``: a relation, or its direction written as ``relation(a -> b)``.
 
         A relation carries its own dimensions, so the call names nothing
-        beside it. Bare, the declaration decides the walk, and it has to
+        beside it. Bare, the declaration decides the direction, and it has to
         decide it wholly: one key column and one value column. Written, the
-        walk names every end the operator has — both for a sum and a read,
+        direction names every end the operator has — both for a sum and a read,
         the group alone for a partition, whose other end is ``along=``. Every
         key column not walked is joined on, a value column not walked is not
         read, and a bare relation's columns are all key. A bracketed list is
@@ -651,7 +651,7 @@ class _Resolver:
     def _path(
         self, node: DirectionNode, operator: str, key: str
     ) -> tuple[tuple[str, ...] | None, tuple[str, ...]] | None:
-        """The names at each end of a written walk, the left end ``None`` where the call wrote only the right."""
+        """The names at each end of a written direction, the left end ``None`` where the call wrote only the right."""
         consumed = None if node.consumed is None else self._end_names(node.consumed, operator, key)
         produced = self._end_names(node.produced, operator, key)
         if (node.consumed is not None and consumed is None) or produced is None:
@@ -659,13 +659,13 @@ class _Resolver:
         return consumed, produced
 
     def _end_names(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
-        """One end of a walk as the names it must be — one bare name, or a bracketed list of them."""
+        """One end of a direction as the names it must be — one bare name, or a bracketed list of them."""
         if isinstance(value, NameNode):
             return (value.name,)
         if isinstance(value, NameListNode):
             return value.names
         self.errors.append(
-            f'{self.context}: {operator}({key}=...) names columns at each end of the walk — a bare name, or a '
+            f'{self.context}: {operator}({key}=...) names columns at each end of the direction — a bare name, or a '
             f'list of them.'
         )
         return None
@@ -675,7 +675,7 @@ class _Resolver:
 
         The consumed end names dimensions, and a key has one column per
         dimension, so each names one key column; the produced end names value
-        columns, which may share a dimension. With no walk written the key has
+        columns, which may share a dimension. With no direction written the key has
         to be one column, and the refusal lists the candidates otherwise, and
         the sum lands on every value column — as ``sum(x)`` takes every dim.
         """
@@ -684,7 +684,7 @@ class _Resolver:
         call = f'sum(by={name})'
         landing = shape.values[0] if len(shape.values) == 1 else '<column>'
         if path is None:
-            ask = f'the walk: by={name}(<dimension> -> {landing})'
+            ask = f'the direction: by={name}(<dimension> -> {landing})'
             consumed = self._default_role(name, call, shape.key, 'key', ask)
             if consumed is None:
                 return None
@@ -758,11 +758,11 @@ class _Resolver:
         """How ``at`` reads relation *name*: value columns consumed, and the whole key landed on.
 
         A read is one value per coordinate, so it lands on the key and nothing
-        else; written, the walk says so. Bare, every value column may be read,
+        else; written, the direction says so. Bare, every value column may be read,
         and which are is the operand's to decide — lowering splits the walk
         once the operand's dims are known (:meth:`program.Walk.read_by`). Two
         value columns over one dimension leave a bare read nothing to choose
-        by, so there the walk is written.
+        by, so there the direction is written.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
@@ -849,9 +849,9 @@ class _Resolver:
 
         It walks the one key column over that dimension (a key has one column
         per dimension), joins on the other key columns and groups by the value
-        columns the walk names, ``by=cal(week)`` — every value column where it
+        columns the direction names, ``by=cal(week)`` — every value column where it
         names none. ``None`` where the dimension is not one (already refused),
-        the relation has no key column over it, the walk wrote a left end, or
+        the relation has no key column over it, the direction wrote a left end, or
         it names a column that is not a value column.
         """
         context = self.context
@@ -900,7 +900,7 @@ class _Resolver:
         if not shape.key:
             self.errors.append(
                 f"{self.context}: {call}: '{name}' declares no key, so nothing says which columns sum walks. Write "
-                f'the walk, by={name}(<dimension> -> <column>) among {list(shape.roles)}, or declare key: on the '
+                f'the direction, by={name}(<dimension> -> <column>) among {list(shape.roles)}, or declare key: on the '
                 f'relation.'
             )
             return None
