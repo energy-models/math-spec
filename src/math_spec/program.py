@@ -522,11 +522,10 @@ class Walk(NamedTuple):
     ``relation``, which binds every role to its dimension and names the key.
     ``joined`` is the key roles not walked (every role, for a bare relation):
     the join keys on them, and a value role not walked is not read. A read
-    (``at``) lands on the whole key, and the key role whose dimension the
-    operand keeps is the one joined on. For a
-    partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
+    (``at``) is what :meth:`read_by` makes of it for the operand it reads. For
+    a partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
     role over the dimension walked and ``produced`` the value roles that make
-    the group — every value role unless the call named some with ``within=``.
+    the group — every value role unless the call named some.
     """
 
     relation: RelationDeclaration
@@ -570,6 +569,21 @@ class Walk(NamedTuple):
     def is_function_read(self) -> bool:
         """Whether the walk reads one value per coordinate: the key lies inside what is fixed."""
         return bool(self.key) and set(self.key) <= {*self.joined, *self.produced}
+
+    def read_by(self, carried: frozenset[str]) -> Walk:
+        """This read as an operand over the dims *carried* makes it.
+
+        A read lands on the whole key, and the operand decides the rest: a
+        value column is consumed where the operand carries its dimension, a
+        key column is joined on where the operand still carries its dimension
+        after that, and the other key columns are produced. One rule, so the
+        dim check and the lowering agree by construction.
+        """
+        consumed = tuple(r for r in self.consumed if self.dim(r) in carried)
+        kept = carried - {self.dim(r) for r in consumed}
+        joined = tuple(r for r in self.key if self.dim(r) in kept)
+        produced = tuple(r for r in self.key if self.dim(r) not in kept)
+        return self._replace(consumed=consumed, produced=produced, joined=joined)
 
 
 @dataclass(frozen=True)

@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A read that names the column it consumes — `at(array, by=relation, over=a)`
-  reads column `a` where a table has two columns over one dimension, here the
-  sending end of a line.
+  A read that writes its walk — `at(array, by=relation(a -> key))` reads
+  column `a` and lands on the key, where a table has two columns over one
+  dimension, here the sending end of a line.
 
 dimensions:
   line: { dtype: str }
@@ -25,6 +25,6 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends, over=bus0)
+    expression: f <= at(cap, by=ends(bus0 -> line))
 
 objective: { sense: minimize, expression: sum(f) }

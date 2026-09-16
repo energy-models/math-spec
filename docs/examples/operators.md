@@ -147,15 +147,15 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=a -> b)`
+### `sum(array, by=relation(a -> b))`
 
 `examples/operators/sum_by_columns.yaml`
 
 ```yaml
 description: >-
-  A walk that names its direction — `sum(array, by=relation, over=a -> b)`
-  consumes the key column over dimension `a` and lands on column `b`, and the
-  other key column is joined on, so each zone's total is taken per period.
+  A walk that writes its direction — `sum(array, by=relation(a -> b))` consumes
+  the key column over dimension `a` and lands on column `b`, and the other key
+  column is joined on, so each zone's total is taken per period.
 
 dimensions:
   generator: { dtype: str }
@@ -176,20 +176,20 @@ variables:
 constraints:
   zone_balance:
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator -> zone) >= demand
+    expression: sum(p, by=zone_of(generator -> zone)) >= demand
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=[a, …] -> [b, …])`
+### `sum(array, by=relation([a, …] -> [b, …]))`
 
 `examples/operators/sum_by_column_lists.yaml`
 
 ```yaml
 description: >-
-  A walk with several columns at each end — `sum(array, by=relation, over=[a, …] -> [b, …])`
+  A walk with several columns at each end — `sum(array, by=relation([a, …] -> [b, …]))`
   consumes both key columns at once and lands on the product of both value
   columns in one join.
 
@@ -213,7 +213,7 @@ variables:
 constraints:
   slot_cap:
     dims: [bus, technology]
-    expression: sum(p, by=slot_of, over=[generator, period] -> [bus, technology]) <= cap
+    expression: sum(p, by=slot_of([generator, period] -> [bus, technology])) <= cap
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -254,15 +254,15 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$
 
-### `at(array, by=relation, over=a)`
+### `at(array, by=relation(a -> key))`
 
 `examples/operators/at_columns.yaml`
 
 ```yaml
 description: >-
-  A read that names the column it consumes — `at(array, by=relation, over=a)`
-  reads column `a` where a table has two columns over one dimension, here the
-  sending end of a line.
+  A read that writes its walk — `at(array, by=relation(a -> key))` reads
+  column `a` and lands on the key, where a table has two columns over one
+  dimension, here the sending end of a line.
 
 dimensions:
   line: { dtype: str }
@@ -282,7 +282,7 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends, over=bus0)
+    expression: f <= at(cap, by=ends(bus0 -> line))
 
 objective: { sense: minimize, expression: sum(f) }
 ```
@@ -433,6 +433,42 @@ objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\, t \in \mathcal{T}`$
+
+### `shift(array, along=dim, offset=n, by=relation(c))`
+
+`examples/operators/shift_grouped.yaml`
+
+```yaml
+description: >-
+  A partition grouped by one named column — `shift(array, along=dim, offset=n, by=relation(column))`
+  walks within the weeks of a calendar declared once over days and weeks, and
+  the day column is not read.
+
+dimensions:
+  snapshot: { dtype: int }
+  day: { dtype: int }
+  week: { dtype: int }
+
+relations:
+  cal: { columns: [snapshot, day, week], key: snapshot }
+
+parameters:
+  inflow: { dims: [snapshot] }
+
+variables:
+  soc:
+    dims: [snapshot]
+    bounds: { lower: 0 }
+
+constraints:
+  weekly_balance:
+    dims: [snapshot]
+    expression: soc == shift(soc, along=snapshot, offset=1, edge='wrap', by=cal(week)) + inflow
+
+objective: { sense: minimize, expression: sum(soc) }
+```
+
+$`\mathit{soc}_{t} = \mathit{soc}_{t \ominus^{\mathrm{cal.week}(t)} 1} + \mathrm{inflow}_{t} \qquad \forall\, t \in \mathcal{T}`$
 
 ### `sum_back(array, along=dim, window=n)`
 

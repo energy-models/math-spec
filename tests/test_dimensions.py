@@ -115,17 +115,17 @@ def namespace() -> Namespace:
             id='a-produced-dim-the-operand-already-carries-is-joined-on-so-the-walk-is-a-masked-sum',
         ),
         pytest.param(
-            'sum(p, by=gen_zone, over=generator -> zone)',
+            'sum(p, by=gen_zone(generator -> zone))',
             {'snapshot', 'zone'},
             id='a-two-key-relation-consumes-the-key-it-walks-and-keeps-the-other',
         ),
         pytest.param(
-            'sum(p, by=gen_zone, over=snapshot -> zone)',
+            'sum(p, by=gen_zone(snapshot -> zone))',
             {'generator', 'zone'},
             id='the-same-table-walked-along-its-other-key',
         ),
         pytest.param(
-            'sum(p, by=named, over=generator -> b)',
+            'sum(p, by=named(generator -> b))',
             {'snapshot', 'bus'},
             id='a-renamed-key-column-is-named-by-its-dimension',
         ),
@@ -145,12 +145,12 @@ def namespace() -> Namespace:
             id='a-partition-along-one-key-joined-on-the-other',
         ),
         pytest.param(
-            "shift(p, along=generator, offset=1, edge='wrap', by=gen_bz, within=bus)",
+            "shift(p, along=generator, offset=1, edge='wrap', by=gen_bz(bus))",
             {'snapshot', 'generator'},
             id='a-partition-grouped-by-one-value-column-of-a-two-value-table',
         ),
         pytest.param(
-            'sum_back(p, along=generator, window=2, by=gen_bz, within=[bus, zone])',
+            'sum_back(p, along=generator, window=2, by=gen_bz([bus, zone]))',
             {'snapshot', 'generator'},
             id='a-window-grouped-by-both-value-columns-named',
         ),
@@ -160,27 +160,42 @@ def namespace() -> Namespace:
             id='a-partition-grouped-by-two-columns-over-one-dimension-lands-nothing',
         ),
         pytest.param(
-            'sum(p, by=gen_bus, over=generator -> bus)',
+            'sum(p, by=gen_bus(generator -> bus))',
             {'snapshot', 'bus'},
             id='the-direction-is-legal-where-the-declaration-decides-it',
         ),
         pytest.param(
-            'sum(p, by=gen_bz, over=generator -> [bus, zone])',
+            'sum(p, by=gen_bz(generator -> [bus, zone]))',
             {'snapshot', 'bus', 'zone'},
             id='a-walk-landing-on-two-columns-lands-on-a-product-from-one-table',
         ),
         pytest.param(
-            'at(bz, by=gen_bz, over=[bus, zone])',
+            'sum(p, by=gen_bz)',
+            {'snapshot', 'bus', 'zone'},
+            id='a-bare-sum-lands-on-every-value-column',
+        ),
+        pytest.param(
+            'at(bz, by=gen_bz([bus, zone] -> generator))',
             {'generator'},
             id='a-read-consuming-two-value-columns-reads-them-at-once',
         ),
         pytest.param(
-            'sum(p, by=gen_zone, over=[generator, snapshot] -> zone)',
+            'at(bz, by=gen_bz)',
+            {'generator'},
+            id='a-bare-read-consumes-every-value-column-the-operand-carries',
+        ),
+        pytest.param(
+            'at(zone_cap, by=gen_bz)',
+            {'generator'},
+            id='and-only-those-it-carries',
+        ),
+        pytest.param(
+            'sum(p, by=gen_zone([generator, snapshot] -> zone))',
             {'zone'},
             id='a-walk-consuming-two-key-columns-consumes-them-at-once',
         ),
         pytest.param(
-            'sum(p, by=gen_bz, over=generator -> bus)',
+            'sum(p, by=gen_bz(generator -> bus))',
             {'snapshot', 'bus'},
             id='a-value-column-not-walked-is-not-read',
         ),
@@ -274,7 +289,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             id='a-named-offset-is-read-where-the-expression-has-a-coordinate',
         ),
         pytest.param(
-            'sum(cost, by=gen_zone, over=generator -> zone)',
+            'sum(cost, by=gen_zone(generator -> zone))',
             r"sum\(by=gen_zone\) joins on \['snapshot'\]",
             id='a-grouped-sum-needs-the-keys-it-joins-on',
         ),
@@ -434,7 +449,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
             id='a-position-within-a-group-of-a-two-key-relation-reads-both-keys',
         ),
         pytest.param(
-            'position(generator, by=gen_bz, within=zone) == 0',
+            'position(generator, by=gen_bz(zone)) == 0',
             {'generator'},
             id='a-position-within-one-named-value-column-reads-the-key',
         ),
