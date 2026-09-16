@@ -68,7 +68,7 @@ It is what makes topology data, so no adjacency matrix and no hand-written join
 appears anywhere. `key:` names the columns that identify a row, and `value:`
 the columns that key determines. Every relation is keyed: with no `value:`, the
 key is every column. The declaration fixes no direction. The operator that
-walks the table says which column it consumes and which it produces.
+reads the table says which column it sums away and which it lands on.
 
 ```yaml
 dimensions:
@@ -123,28 +123,34 @@ key two columns over one dimension, because nothing reads it.
 
 Each cardinality is one declaration:
 
-| to say                                     | write                                                                                                             | checked at bind       |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------- |
-| many-to-one, each generator on one bus     | `{key: generator, value: bus}`                                                                                    | one row per generator |
-| one-to-many, a bus and its generators      | the same table: `sum(p, by=gen_bus)` collects a bus's generators, `at(price, by=gen_bus)` reads a generator's bus | the same              |
-| many-to-many, a generator on several buses | `{key: [generator, bus]}`, no `value:`                                                                            | no row twice          |
-| one-to-one                                 | not a claim the language has: a key is one set of columns, and nothing checks the other side                      |                       |
+| to say                                     | write                                                                                                      | checked at bind       |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | --------------------- |
+| many-to-one, each generator on one bus     | `{key: generator, value: bus}`                                                                             | one row per generator |
+| one-to-many, a bus and its generators      | the same table: `sum(p, by=gen_bus)` collects a bus's generators, `price[gen_bus]` reads a generator's bus | the same              |
+| many-to-many, a generator on several buses | `{key: [generator, bus]}`, no `value:`                                                                     | no row twice          |
+| one-to-one                                 | not a claim the language has: a key is one set of columns, and nothing checks the other side               |                       |
 
 A bare relation is a set of rows: no row twice, and nothing else claimed.
-`sum` walks it with both ends named, and a bare `where` tests it. That is what
-a many-to-many relation can say, and all it can say.
+`sum` groups through it with both ends named, and a bare `where` tests it. It
+is never indexed, because there is no one value to read. That is what a
+many-to-many relation can say, and all it can say.
 
-### Walks
+### Summing and indexing through a relation
 
-A walk consumes one or more columns of a relation, produces one or more, and
-joins on every other key column. The operand carries each joined dimension. The
-result keeps it, and keeps every dimension the relation does not name.
+Every operator over a relation joins the operand to the relation on the
+dimensions they share, then drops columns. Three forms differ only in which
+columns they drop and whether they sum.
 
-`sum` consumes key columns and produces value columns. `at` consumes value
-columns and produces the key.
+- **`sum(x, over=rel.k)`** sums the key column `k` away. The relation's other
+  key columns and its value columns ride in on the join.
+- **`sum(x, by=rel.v)`** groups onto the value column `v`. The whole key is
+  summed away.
+- **`x[rel.v]`** indexes: it reads the value at `v` and drops that value's
+  dimension, landing on the key.
 
-`over=` names the column consumed and `into=` the column produced. Name a column
-only where the relation offers two.
+The column after the dot picks which columns of the relation take part. A bare
+`rel` names all of them; the dot is needed only where two columns share a
+dimension ([roles](#roles)), and is otherwise optional.
 
 ```yaml
 dimensions:
@@ -159,75 +165,71 @@ parameters:
 variables:
   p: { dims: [generator, period] }
 constraints:
-  zone_balance: # consumes generator, joins on period, produces zone: [generator, period] → [zone, period]
+  zone_balance: # sum generator away, zone rides in: [generator, period] → [zone, period]
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator) >= demand
-  history: # consumes period, joins on generator, produces zone: [generator, period] → [generator, zone]
+    expression: sum(p, over=zone_of.generator) >= demand
+  history: # sum period away, zone rides in: [generator, period] → [generator, zone]
     dims: [generator, zone]
-    expression: sum(p, by=zone_of, over=period) <= 100
-  capped_revenue: # consumes zone, joins on period, produces generator: [zone, period] → [generator, period]
+    expression: sum(p, over=zone_of.period) <= 100
+  capped_revenue: # index price at each generator's zone: [zone, period] → [generator, period]
     dims: [generator, period]
-    expression: at(price, by=zone_of, over=zone, into=generator) * p <= 1000
+    expression: price[zone_of] * p <= 1000
 ```
 
-`zone_of` has one value column, `zone`. It is the only column `sum` can produce,
-so `sum` leaves `into=zone` unsaid. It is the only column `at` can consume, so
-`at` may leave `over=zone` unsaid too. `zone_of` has two key columns, and there
-the call chooses: `sum` names the one it consumes, because `over=generator` and
-`over=period` are different constraints, and `at` names the one it produces.
-`period` is joined on either way. With one key column and one value column,
-`sum(p, by=gen_bus)` and `at(price, by=gen_bus)` need neither keyword. A column
-left out where the relation offers two is refused, and the message lists the
-candidates:
-
-```
-sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which over= names.
-```
+`zone_of` has one value column, `zone`. So `zone_of.zone` and a bare `zone_of`
+name the same value, and `price[zone_of]` needs no dot. It has two key columns,
+so `sum(p, over=zone_of.generator)` and `sum(p, over=zone_of.period)` are
+different constraints, and the dot says which key is summed away. `period` is
+joined on in every form.
 
 `capped_revenue` reads the price of the zone this generator sat in that period.
-The typesetter prints it as $`\mathrm{price}_{\mathrm{zone\_of}(g,\ e),e}`$,
-and the joined `period` is the second subscript.
+It matches the coordinate map $`(g, e) \mapsto \mathrm{price}(e,\
+\mathrm{zone\_of}(g, e))`$. The typesetter prints it as
+$`\mathrm{price}_{\mathrm{zone\_of}(g,\ e),e}`$, and the joined `period` is the
+second subscript.
 
-- **Either keyword takes a list.** `sum(p, by=gen_bt, into=[bus, technology])`
-  lands on the product `bus × technology` in one join.
-  `sum(p, by=zone_of, over=[generator, period])` consumes both key columns at
-  once. `at(tech_cap, by=gen_bt, over=[bus, technology])` reads `tech_cap` at
-  each generator's bus and technology together.
-- **A produced dimension the operand already carries is joined on.** In
-  `sum(load * p, by=gen_bus)` with `load[snapshot, bus]`, the walk produces
-  `bus` and `load` already carries it. So each generator's term is read at the
-  bus the generator sits on, and the sum lands there.
-- **A value column that is not walked is not read.**
-  `sum(f, by=ends, over=line, into=bus1)` reads `bus1` and ignores `bus0`
-  ([roles](#roles)).
-- **`by=[a, b]` is one grouping onto what `a` and `b` produce together.** Each
-  relation is walked from its key to its value, so `over=` and `into=` have
-  nothing to name. The relations consume the same dimension, and no two produce
-  the same one.
-- **`into=` needs a `by=`**, because a column belongs to a table. `over=`
-  without a `by=` names a dimension, as in `sum(p, over=period)`.
+- **`over=` sums away the key; `by=` groups onto the value.** They give the same
+  result for a relation with one key column and one value column:
+  `sum(p, over=gen_bus.generator)` and `sum(p, by=gen_bus.bus)` both collapse a
+  bus's generators onto the bus. They differ when the key has more than one
+  column — `over=zone_of.generator` keeps `period`, `by=zone_of.zone` sums it
+  away — or when the value has more than one column, where only `by=` can pick
+  one.
+- **A dim the join produces and the operand already carries is joined on.** In
+  `sum(load * p, over=gen_bus.generator)` with `load[snapshot, bus]`, the result
+  lands on `bus` and `load` already carries it. So each generator's term is read
+  at the bus the generator sits on, and the sum lands there.
+- **A value column not named is not read.** `sum(f, by=ends.bus1)` groups onto
+  `bus1` and ignores `bus0` ([roles](#roles)).
+- **Either side takes a list.** `sum(p, by=gen_bt.[bus, technology])` groups onto
+  the product `bus × technology` in one join. `sum(p, over=zone_of.[generator,
+period])` sums both key columns away at once. `tech_cap[gen_bt]` reads
+  `tech_cap` at each generator's bus and technology together.
+- **`sum(x, by=[rel, rel2])` is one grouping onto what both values produce.** The
+  relations sum away the same key dimension, and no two land on the same one.
 
-Three refusals draw the line, and each message names the rewrite:
+Two refusals draw the line, and each message names the rewrite:
 
-| refused                               | message                                                                                                                                                                                                                                                             |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `at` on a bare relation               | `at(by=connection): at reads one value per coordinate, and 'connection' is not single-valued in ['bus'] at the columns the operand fixes (['generator']) — its key is ['generator', 'bus']. Key the table by columns the read fixes, or read the other way.`        |
-| a `sum` that consumes no key column   | `sum(by=zone_of): this sum walks to the key ['generator', 'period'], so each coordinate has one term and nothing is added up — that is a read, which is at()'s. Write at(..., by=zone_of, over=['zone'], into=['generator']), or sum toward a value column.`        |
-| an operand missing a joined dimension | `at(by=zone_of) joins on ['period'] (columns ['period'] of 'zone_of'), which the expression does not carry (dims ['zone']). A relation is walked between two of its columns and read at the others — index the operand by them, or walk between different columns.` |
+| refused                                | message                                                                                                                                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a `sum` that sums the whole key away   | `sum(over=zone_of): this sums away the whole key ['generator', 'period'], so each group has one row and nothing is added up — that is a read. Write price[zone_of] to index, or sum(x, over=zone_of.generator) toward a value.` |
+| an index missing the value's dimension | `price[zone_of] reads the value ['zone'], which the expression does not carry (dims ['generator', 'period']). Indexing reads a value at a key — index an expression that carries ['zone'], or sum toward the value instead.`    |
 
 ### Partitions
 
-`shift(x, along=d, by=l)`, `sum_back(x, along=d, by=l)` and `position(d, by=l)`
-walk the one key column over `d`, join on the other key columns, and group by
-the value columns. The frame does not change: the group says which rows are
-neighbours, and nothing lands anywhere.
+`shift(x, along=cal.snapshot)`, `sum_back(x, along=cal.snapshot)` and
+`position(cal.snapshot)` slide along the key column named after the dot, join on
+the other key columns, and group by the value columns. The frame does not
+change: the group says which rows are neighbours, and nothing lands anywhere.
 
 `within=` names the value columns the group is made of where the table has
-several. `shift(x, along=snapshot, by=cal, within=week)` walks within weeks of a
+several. `shift(x, along=cal.snapshot, within=week)` slides within weeks of a
 calendar declared once over `[snapshot, day, week]`, and a value column not
 named is not read. The group may be two columns over one dimension, such as a
 line's two buses, because a partition produces no dimension. `within=` naming a
-key column is refused, and a bare relation partitions nothing.
+key column is refused, and a bare relation partitions nothing. `position` reads
+each row's index within its group, so it takes only the dotted key and has no
+bare form.
 
 A `where` string reads a relation too: a value column at its key, two columns
 of one table compared, or a bare name that tests a row exists
@@ -244,36 +246,34 @@ relations:
   rep_of: { key: snapshot, value: { rep: snapshot } } # the representative snapshot
 ```
 
-`sum(f, by=ends, over=line, into=bus1) - sum(f, by=ends, over=line, into=bus0)`
-is a nodal balance through one table: flow arriving at `bus1` less flow leaving
-`bus0`. `where: "ends.bus0 != ends.bus1"` excludes a line whose two ends are
-one bus.
+`sum(f, by=ends.bus1) - sum(f, by=ends.bus0)` is a nodal balance through one
+table: flow arriving at `bus1` less flow leaving `bus0`.
+`where: "ends.bus0 != ends.bus1"` excludes a line whose two ends are one bus.
 
 `rep_of` relates a dimension to itself. That is how a clustered year runs on a
 few typical days: every snapshot names the snapshot that stands for it. The
-rules are the same. `sum` consumes `snapshot` and produces `rep`, both over
-`snapshot`, so the frame is `[snapshot]` before the walk and after it:
+rules are the same. `sum` sums `snapshot` away and lands on `rep`, both over
+`snapshot`, so the frame is `[snapshot]` before and after:
 
 ```yaml
 constraints:
   representative: # every snapshot takes its representative's value
     dims: [snapshot]
-    expression: p == at(p, by=rep_of)
+    expression: p == p[rep_of]
   weighted: # the snapshots a representative stands for, summed onto it
     dims: [snapshot]
-    expression: sum(p, by=rep_of) <= 100
+    expression: sum(p, by=rep_of.rep) <= 100
 ```
 
 **The key directs a self-map.** `key: snapshot` makes `rep` a function of
-`snapshot`. `at` reads each snapshot's representative, and `sum` collects onto
-a representative the snapshots it stands for. Two steps along the map are two
-nested calls. Put both columns under `key:`, as
+`snapshot`. `p[rep_of]` reads each snapshot's representative, and `sum` collects
+onto a representative the snapshots it stands for. Two steps along the map are
+two nested calls. Put both columns under `key:`, as
 `{key: {from: snapshot, to: snapshot}}`, and the table is a neighbour table
-instead, which `sum` walks either way and nothing reads. The rows where a
-snapshot is its own
-representative cannot be selected with a `where`, because a value column is
-never compared to the frame's own coordinate. Declare a `bool` parameter for
-them.
+instead, which `sum` groups either way and nothing indexes. The rows where a
+snapshot is its own representative cannot be selected with a `where`, because a
+value column is never compared to the frame's own coordinate. Declare a `bool`
+parameter for them.
 
 ### How the map is supplied
 
@@ -303,16 +303,16 @@ other extra columns, but this one would be a map read by accident.
 Every column of data is one of the three. What decides which is what the math
 does with the column, not what the column holds:
 
-| The column…                                                                                                                           | is declared as                          | because                                                                                                                   |
-| ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| is an axis: something is indexed by it, or an aggregation lands terms on it                                                           | a `dimension`                           | its members are the coordinate set every table over it is reindexed onto                                                  |
-| has one value per member of a dimension, or per tuple of several — a generator's bus, a line's two ends, a generator's zone by period | a `relation` with that `key`            | it is a map every operator walks, and its values are checked against the dimensions they name                             |
-| relates members of two dimensions many-to-many, with nothing to weigh — which buses a generator may connect to                        | a bare `relation`, with no `value:`     | `sum` walks it with both ends named, and a bare `where` tests it. Nothing reads it, because there is no one value to read |
-| relates members of two dimensions many-to-many, with a weight per pair — a link's efficiency to each bus, a cycle's lines             | a `parameter` over both                 | the weight is the data, its row set is the relation, and the aggregation is `sum(w * x, over=a)`                          |
-| is a label set the model only selects on or counts within — a period, a season, a zone                                                | a `dimension`, and a `relation` onto it | its labels are checked, at the cost of one line and one table                                                             |
-| scales terms — a coefficient, a bound, an offset                                                                                      | a `parameter` (`float` or `int`)        | arithmetic is over numbers ([dtype](declarations.md#parameters))                                                          |
-| is a per-row attribute the math only selects on — a fuel, a constraint's sense                                                        | a `str` parameter                       | it names rows rather than scaling them, and no set is declared to check its values against                                |
-| is a mask                                                                                                                             | a `bool` parameter                      | a bare name in a `where` is its own answer                                                                                |
+| The column…                                                                                                                           | is declared as                          | because                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| is an axis: something is indexed by it, or an aggregation lands terms on it                                                           | a `dimension`                           | its members are the coordinate set every table over it is reindexed onto                                                             |
+| has one value per member of a dimension, or per tuple of several — a generator's bus, a line's two ends, a generator's zone by period | a `relation` with that `key`            | it is a map every operator sums or indexes through, and its values are checked against the dimensions they name                      |
+| relates members of two dimensions many-to-many, with nothing to weigh — which buses a generator may connect to                        | a bare `relation`, with no `value:`     | `sum` groups through it with both ends named, and a bare `where` tests it. Nothing indexes it, because there is no one value to read |
+| relates members of two dimensions many-to-many, with a weight per pair — a link's efficiency to each bus, a cycle's lines             | a `parameter` over both                 | the weight is the data, its row set is the relation, and the aggregation is `sum(w * x, over=a)`                                     |
+| is a label set the model only selects on or counts within — a period, a season, a zone                                                | a `dimension`, and a `relation` onto it | its labels are checked, at the cost of one line and one table                                                                        |
+| scales terms — a coefficient, a bound, an offset                                                                                      | a `parameter` (`float` or `int`)        | arithmetic is over numbers ([dtype](declarations.md#parameters))                                                                     |
+| is a per-row attribute the math only selects on — a fuel, a constraint's sense                                                        | a `str` parameter                       | it names rows rather than scaling them, and no set is declared to check its values against                                           |
+| is a mask                                                                                                                             | a `bool` parameter                      | a bare name in a `where` is its own answer                                                                                           |
 
 Two rules follow. If `b` has one value per `a`, declare `b` as a **relation**
 keyed by `a`, not as a dimension. Two dimensions that depend on each other,
