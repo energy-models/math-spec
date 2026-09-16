@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: >-
+  A read that names its ends — `at(array, by=relation, over=a, into=b)`
+  reads column `a` where a table has two columns over one dimension, here the
+  sending end of a line.
+
+dimensions:
+  line: { dtype: str }
+  bus: { dtype: str }
+
+relations:
+  ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }
+
+parameters:
+  cap: { dims: [bus] }
+
+variables:
+  f:
+    dims: [line]
+    bounds: { lower: 0 }
+
+constraints:
+  sending_cap:
+    dims: [line]
+    expression: f <= at(cap, by=ends, over=bus0, into=line)
+
+objective: { sense: minimize, expression: sum(f) }
