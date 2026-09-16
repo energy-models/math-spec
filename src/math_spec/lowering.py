@@ -143,7 +143,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     dimensions = {
         dname: program.DimensionDeclaration(
             tuple(
-                program.RelationDeclaration(lname, lk.pairs, lk.keys)
+                program.RelationDeclaration(lname, lk.pairs, lk.key_roles)
                 for lname, lk in expanded.relations.items()
                 if dname in lk.dims
             ),

@@ -254,7 +254,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 relations:
-  period_of: { key: snapshot, value: period }
+  period_of: { key: snapshot, values: period }
 parameters:
   soc_initial: { dims: [period] }
 variables:

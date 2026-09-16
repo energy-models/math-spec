@@ -14,8 +14,8 @@ dimensions:
   technology: { dtype: str }
 
 relations:
-  gen_bus: { key: generator, value: bus }
-  gen_tech: { key: generator, value: technology }
+  gen_bus: { key: generator, values: bus }
+  gen_tech: { key: generator, values: technology }
 
 parameters:
   limit: { dims: [snapshot, bus, technology] }

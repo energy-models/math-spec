@@ -57,9 +57,9 @@ dimensions:
   generator: { dtype: str }
   line: { dtype: str }
 relations:
-  gen_bus: { key: generator, value: bus }
-  line_from: { key: line, value: bus }
-  line_to: { key: line, value: bus }
+  gen_bus: { key: generator, values: bus }
+  line_from: { key: line, values: bus }
+  line_to: { key: line, values: bus }
 parameters:
   load: { dims: [bus] }
 variables:
@@ -81,7 +81,7 @@ outflow, with no adjacency matrix and no join written by hand.
 `sum(by=)` consumes a key column and produces a value column. `over=` and
 `into=` name them where the relation offers two ([walks](dimensions.md#walks)),
 and every other key column is joined on, so each group is one coordinate of it.
-A bare relation, one with no `value:`, is summed with both ends named.
+A bare relation, one with no `values:`, is summed with both ends named.
 
 The relation's values are the group labels, checked against their own dimension
 when the data binds. A group with no members contributes nothing, and a member
@@ -219,7 +219,7 @@ dimensions:
   snapshot: { dtype: int }
   season: { dtype: str }
 relations:
-  season_of: { key: snapshot, value: season }
+  season_of: { key: snapshot, values: season }
 parameters:
   inflow: { dims: [snapshot] }
 variables:
@@ -302,7 +302,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 relations:
-  period_of: { key: snapshot, value: period }
+  period_of: { key: snapshot, values: period }
 parameters:
   lead: { dims: [period], dtype: int }
   demand: { dims: [snapshot] }

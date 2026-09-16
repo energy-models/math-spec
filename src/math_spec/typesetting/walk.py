@@ -292,8 +292,8 @@ class Walk:
     def _value_read(self, name: str, column: str, ctx: _Context) -> str:
         """A keyed relation's value *column* read at the frame's own indices of its key: ``period_of(t)``."""
         lk = self.schema.relations[name]
-        keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
-        return self.format.apply(self._column(name, column, len(lk.values) == 1), keyed)
+        keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.key_roles], '')
+        return self.format.apply(self._column(name, column, len(lk.value_roles) == 1), keyed)
 
     def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
         """The group a grouped position counts within: the relation's group columns read at the row's key."""
@@ -604,8 +604,8 @@ class Walk:
 
         if isinstance(node, RelationDefinedNode):
             lk = self.schema.relations[node.name]
-            if lk.values:
-                keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
+            if lk.value_roles:
+                keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.key_roles], '')
                 applied = self.format.apply(self.format.upright(node.name), keyed)
                 return f'{applied} {self.format.prose(" is defined")}', comparison
             row = self.format.parenthesise(self.format.joined([ctx.subscript(d) for d in lk.dims], ''))
@@ -891,8 +891,10 @@ class Walk:
         def product(roles: Iterable[str]) -> str:
             return self.format.joined([self.symbols.set[columns[r]] for r in roles], self._op('times'))
 
-        if lk.values:
-            return f'{self.format.upright(name)}: {product(lk.keys)} {self._op("maps_to")} {product(lk.values)}'
+        if lk.value_roles:
+            return (
+                f'{self.format.upright(name)}: {product(lk.key_roles)} {self._op("maps_to")} {product(lk.value_roles)}'
+            )
         return f'{self.format.upright(name)} {self._op("subset_of")} {product(lk.roles)}'
 
     def _coords(self, dim: str, noticed: Noticed) -> str:
