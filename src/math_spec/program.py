@@ -487,11 +487,13 @@ class RelationDeclaration(NamedTuple):
     """One declared relation: a relation over its ``columns``, single-valued per ``key``.
 
     ``columns`` binds each role to its dimension in the order the table
-    carries them; ``key`` is the roles a row is identified by, empty for a
-    bare relation. Every value is checked at bind to be a label of its
-    column's dimension, and a keyed table to have one row per key tuple —
-    which keeps a mistyped label from silently dropping its terms in the join
-    that places them, and is what lets ``at`` read one value.
+    carries them, the key's roles first; ``key`` is the roles a row is
+    identified by, and :attr:`values` the rest — every role is a key role for
+    a bare relation, which is one with no value columns. Every value is
+    checked at bind to be a label of its column's dimension, and the table to
+    have one row per key tuple — which keeps a mistyped label from silently
+    dropping its terms in the join that places them, and is what lets ``at``
+    read one value.
     """
 
     name: str
@@ -1215,9 +1217,9 @@ class RelationPairComparisonNode:
 class RelationDefinedNode:
     """True where the relation has a row at the frame's coordinates.
 
-    ``dims`` is what the frame supplies: the key's dimensions for a keyed
-    relation, whose row is then the one the key finds; every column's for a
-    bare relation, where a row is the whole tuple.
+    ``dims`` is what the frame supplies: the key's dimensions, whose row is
+    then the one the key finds — every column's for a bare relation, where a
+    row is the whole tuple.
     """
 
     name: str

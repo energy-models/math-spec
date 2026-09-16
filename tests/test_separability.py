@@ -25,7 +25,7 @@ FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yam
 
 BASE: dict[str, Any] = {
     'dimensions': {'h': {'dtype': 'int'}, 'u': {'dtype': 'str'}, 'zone': {'dtype': 'str'}, 'day': {'dtype': 'int'}},
-    'relations': {'zone_of': {'columns': ['u', 'zone'], 'key': 'u'}, 'day_of': {'columns': ['h', 'day'], 'key': 'h'}},
+    'relations': {'zone_of': {'key': 'u', 'value': 'zone'}, 'day_of': {'key': 'h', 'value': 'day'}},
     'parameters': {
         'cost': {'dims': ['u']},
         'budget': {'dims': []},

@@ -97,7 +97,7 @@ SHAPES_MODEL = override(
     SMALL_MODEL,
     **{
         'dimensions.z': {'dtype': 'str'},
-        'relations.lk2': {'columns': ['g', 'z'], 'key': 'g'},
+        'relations.lk2': {'key': 'g', 'value': 'z'},
         'parameters.lead': {'dims': ['g'], 'dtype': 'int'},
     },
 )
@@ -491,7 +491,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     program = to_program(
         {
             'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {}, 'zone': {}},
-            'relations': {'zone_of': {'columns': ['generator', 'snapshot', 'zone'], 'key': ['generator', 'snapshot']}},
+            'relations': {'zone_of': {'key': ['generator', 'snapshot'], 'value': 'zone'}},
             'parameters': {'price': {'dims': ['snapshot', 'zone']}, 'cap': {'dims': ['zone']}},
             'variables': {
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
