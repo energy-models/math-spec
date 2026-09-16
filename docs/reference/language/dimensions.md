@@ -165,13 +165,14 @@ constraints:
     expression: at(price, by=zone_of, over=zone, into=generator) * p <= 1000
 ```
 
-`zone_of` has one value column, so `into=zone` on `sum` and `over=zone` on `at`
-may be left out. It has two key columns, so `sum` names the one it consumes,
-because `over=generator` and `over=period` are different constraints, and `at`
-names the one it produces. `period` is joined on either way. With one key column
-and one value column, `sum(p, by=gen_bus)` and `at(price, by=gen_bus)` are
-complete. A column left out where the relation offers two is refused, and the
-message lists the candidates:
+`zone_of` has one value column, `zone`. It is the only column `sum` can produce,
+so `sum` leaves `into=zone` unsaid. It is the only column `at` can consume, so
+`at` may leave `over=zone` unsaid too. `zone_of` has two key columns, and there
+the call chooses: `sum` names the one it consumes, because `over=generator` and
+`over=period` are different constraints, and `at` names the one it produces.
+`period` is joined on either way. With one key column and one value column,
+`sum(p, by=gen_bus)` and `at(price, by=gen_bus)` are complete. A column left out
+where the relation offers two is refused, and the message lists the candidates:
 
 ```
 sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which over= names.
