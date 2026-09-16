@@ -267,10 +267,11 @@ class GroupSum(Expression):
 
     ``walks`` says, per relation, which columns are consumed, which produced
     and which joined on, and is the one fact the node holds: ``coordinate``
-    names the relations, ``over`` is the dims every walk consumes and ``into``
-    the dims they produce, in walk order, so that several coordinates are
-    one grouping into a product of targets, consumed in a single join. The
-    result replaces every dim in ``over`` with every dim in ``into``. The
+    names the relations, ``over`` is the dims every walk consumes, ``into``
+    the dims they produce, in walk order, and ``joined`` the dims they join
+    on, so that several coordinates are one grouping into a product of
+    targets, consumed in a single join. The result replaces every dim in
+    ``over`` with every dim in ``into`` and keeps every dim in ``joined``. The
     join keys on the consumed columns and every joined column, and on a
     produced column too where the operand already carries its dimension.
     """
@@ -290,6 +291,11 @@ class GroupSum(Expression):
     def into(self) -> tuple[str, ...]:
         return tuple(dim for walk in self.walks for dim in walk.produced_dims)
 
+    @property
+    def joined(self) -> tuple[str, ...]:
+        """The dims the walks join on, each once — the key columns neither consumed nor produced, which the operand carries."""
+        return _joined_dims(self.walks)
+
 
 @dataclass(frozen=True)
 class At(Expression):
@@ -301,7 +307,7 @@ class At(Expression):
     (``Walk.is_function_read``). The join fans out, many ``over`` tuples
     sharing one ``into`` tuple — at each coordinate of the joined columns,
     which the operand carries and the result keeps. As on
-    :class:`GroupSum`, ``walks`` is the fact and the three are read off it.
+    :class:`GroupSum`, ``walks`` is the fact and the four are read off it.
     """
 
     operand: ExpressionNode
@@ -318,6 +324,16 @@ class At(Expression):
     @property
     def into(self) -> tuple[str, ...]:
         return tuple(dim for walk in self.walks for dim in walk.consumed_dims)
+
+    @property
+    def joined(self) -> tuple[str, ...]:
+        """The dims the walks join on, each once — the key columns neither consumed nor produced, which the operand carries."""
+        return _joined_dims(self.walks)
+
+
+def _joined_dims(walks: tuple[Walk, ...]) -> tuple[str, ...]:
+    """The dims *walks* join on, each once, in walk order — the rule :attr:`GroupSum.joined` and :attr:`At.joined` share."""
+    return tuple(dict.fromkeys(dim for walk in walks for dim in walk.joined_dims))
 
 
 @dataclass(frozen=True)
