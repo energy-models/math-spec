@@ -388,7 +388,7 @@ one table walked to two value columns: the domain carries a condition per column
 ```yaml
 grouped_once:
   dims: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt(generator -> [bus, technology])) <= tech_cap
+  expression: sum(p, by=gen_bt, over=generator -> [bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -402,7 +402,7 @@ its adjoint, reading one slot through two columns of one table
 ```yaml
 pulled_back_once:
   dims: [generator]
-  expression: units <= at(tech_cap, by=gen_bt)
+  expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
 ```
 
 ```math
@@ -416,8 +416,8 @@ a partition grouped by one named value column of a two-value table, and a positi
 ```yaml
 within_bus:
   dims: [generator]
-  where: "position(generator, by=gen_bt([bus, technology])) == 0"
-  expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt(bus))
+  where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
+  expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt, within=bus)
 ```
 
 ```math
@@ -431,7 +431,7 @@ a sum through a bare relation: the domain is a row of the relation rather than a
 ```yaml
 relational:
   dims: [snapshot, bus]
-  expression: sum(p, by=connection(generator -> bus)) <= load
+  expression: sum(p, by=connection, over=generator -> bus) <= load
 ```
 
 ```math
@@ -502,7 +502,7 @@ a grouping through a two-key map, walked along one key: the condition reads the 
 ```yaml
 zonal:
   dims: [snapshot, zone]
-  expression: sum(p, by=gen_zone(generator -> zone)) <= zone_cap
+  expression: sum(p, by=gen_zone, over=generator -> zone) <= zone_cap
 ```
 
 ```math
@@ -516,7 +516,7 @@ the same table walked along its other key
 ```yaml
 zonal_history:
   dims: [generator, zone]
-  expression: sum(p, by=gen_zone(snapshot -> zone)) <= zone_cap
+  expression: sum(p, by=gen_zone, over=snapshot -> zone) <= zone_cap
 ```
 
 ```math

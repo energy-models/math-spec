@@ -152,17 +152,17 @@ constraints:
     expression: spill <= at(zone_cap, by=zone_of)
   grouped_once: # one table walked to two value columns: the domain carries a condition per column
     dims: [snapshot, bus, technology]
-    expression: sum(p, by=gen_bt(generator -> [bus, technology])) <= tech_cap
+    expression: sum(p, by=gen_bt, over=generator -> [bus, technology]) <= tech_cap
   pulled_back_once: # its adjoint, reading one slot through two columns of one table
     dims: [generator]
-    expression: units <= at(tech_cap, by=gen_bt)
+    expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
   within_bus: # a partition grouped by one named value column of a two-value table, and a position within both
     dims: [generator]
-    where: "position(generator, by=gen_bt([bus, technology])) == 0"
-    expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt(bus))
+    where: "position(generator, by=gen_bt, within=[bus, technology]) == 0"
+    expression: units <= shift(units, along=generator, offset=1, edge=0, by=gen_bt, within=bus)
   relational: # a sum through a bare relation: the domain is a row of the relation rather than a function's value
     dims: [snapshot, bus]
-    expression: sum(p, by=connection(generator -> bus)) <= load
+    expression: sum(p, by=connection, over=generator -> bus) <= load
   connected: # a bare relation as a where: the row of the frame has to be a member of the relation
     dims: [snapshot, generator, bus]
     where: "connection"
@@ -178,10 +178,10 @@ constraints:
     expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
   zonal: # a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
     dims: [snapshot, zone]
-    expression: sum(p, by=gen_zone(generator -> zone)) <= zone_cap
+    expression: sum(p, by=gen_zone, over=generator -> zone) <= zone_cap
   zonal_history: # the same table walked along its other key
     dims: [generator, zone]
-    expression: sum(p, by=gen_zone(snapshot -> zone)) <= zone_cap
+    expression: sum(p, by=gen_zone, over=snapshot -> zone) <= zone_cap
   zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
     dims: [snapshot, generator]
     where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"

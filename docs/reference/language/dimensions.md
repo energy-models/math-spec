@@ -138,14 +138,12 @@ result keeps it, and keeps every dimension the relation does not name.
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
 
-`by=` names the relation, and the walk through it is written after the name,
-`by=zone_of(generator -> zone)`: the dimension `generator` leaves, and the
-column `zone` arrives. A call writes the whole walk or nothing:
-`sum(p, by=gen_bus)` where the declaration decides both ends, and
-`sum(p, by=zone_of(generator -> zone))` where it does not. `at` lands on the
-whole key, and the operand decides the rest: a value column is read where the
-operand carries its dimension, a key column whose dimension it still carries is
-joined on, and the other key columns are produced.
+`over=a -> b` names the direction a `sum` walks: the dimension `a` leaves, and
+the column `b` arrives. Beside a `by=`, `over=` names the whole direction or
+nothing: `sum(p, by=gen_bus)` where the declaration decides both ends, and
+`sum(p, by=zone_of, over=generator -> zone)` where it does not. `at` lands on
+the whole key, so it names nothing there: a key column whose dimension the
+operand carries is joined on, and the rest are produced.
 
 ```yaml
 dimensions:
@@ -162,67 +160,64 @@ variables:
 constraints:
   zone_balance: # consumes generator, joins on period, produces zone: [generator, period] → [zone, period]
     dims: [zone, period]
-    expression: sum(p, by=zone_of(generator -> zone)) >= demand
+    expression: sum(p, by=zone_of, over=generator -> zone) >= demand
   history: # consumes period, joins on generator, produces zone: [generator, period] → [generator, zone]
     dims: [generator, zone]
-    expression: sum(p, by=zone_of(period -> zone)) <= 100
+    expression: sum(p, by=zone_of, over=period -> zone) <= 100
   capped_revenue: # consumes zone, joins on period, produces generator: [zone, period] → [generator, period]
     dims: [generator, period]
     expression: at(price, by=zone_of) * p <= 1000
 ```
 
-`zone_of` has one value column, `zone`, so `at(price, by=zone_of)` reads it
-without a walk written. `zone_of` has two key columns, and there `sum` chooses:
-`zone_of(generator -> zone)` and `zone_of(period -> zone)` are different
-constraints. The whole walk is written, `-> zone` included, so the line reads
-without the declaration. `at` lands on both key columns, and `price` decides
-the split: it carries `period`, so `period` is joined on, and `generator` is
-produced. Read `zone_cap[zone]` through the same table and both are produced.
-With one key column and one value column, `sum(p, by=gen_bus)` and
-`at(price, by=gen_bus)` say everything. A walk left out where the declaration
-does not decide it is refused, and the message names the rewrite:
+`zone_of` has one value column, `zone`, the only one `at` can consume, so `at`
+leaves `over=zone` unsaid. `zone_of` has two key columns, and there `sum`
+chooses: `over=generator -> zone` and `over=period -> zone` are different
+constraints. The whole direction is written, `-> zone` included, so the line
+reads without the declaration. `at` lands on both key columns, and `price`
+decides the split: it carries `period`, so `period` is joined on, and
+`generator` is produced. Read `zone_cap[zone]` through the same table and both
+are produced. With one key column and one value column, `sum(p, by=gen_bus)`
+and `at(price, by=gen_bus)` need no keyword. A direction left out where the
+declaration does not decide it is refused, and the message names the rewrite:
 
 ```
-sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say the walk: by=zone_of(<dimension> -> zone).
+sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say the direction: over=<dimension> -> zone.
 ```
 
 `capped_revenue` reads the price of the zone this generator sat in that period.
 The typesetter prints it as $`\mathrm{price}_{\mathrm{zone\_of}(g,\ e),e}`$,
 and the joined `period` is the second subscript.
 
-- **Either end takes a list, and a bare walk takes every value column.**
-  `sum(p, by=gen_bt)` and `sum(p, by=gen_bt(generator -> [bus, technology]))`
-  both land on the product `bus × technology` in one join, and
-  `sum(p, by=gen_bt(generator -> bus))` lands on `bus` alone.
-  `sum(p, by=zone_of([generator, period] -> zone))` consumes both key columns
-  at once. `at(tech_cap, by=gen_bt)` reads `tech_cap` at each generator's bus
-  and technology together, because `tech_cap` carries both, and
-  `at(tech_cap, by=gen_bt(bus -> generator))` reads the bus alone and keeps
-  `technology` free.
+- **Either end takes a list.** `sum(p, by=gen_bt, over=generator -> [bus, technology])`
+  lands on the product `bus × technology` in one join.
+  `sum(p, by=zone_of, over=[generator, period] -> zone)` consumes both key
+  columns at once. `at(tech_cap, by=gen_bt, over=[bus, technology])` reads `tech_cap` at
+  each generator's bus and technology together.
 - **A produced dimension the operand already carries is joined on.** In
   `sum(load * p, by=gen_bus)` with `load[snapshot, bus]`, the walk produces
   `bus` and `load` already carries it. So each generator's term is read at the
   bus the generator sits on, and the sum lands there. The same rule splits the
   key `at` lands on, which is why `at` never names it.
 - **A value column that is not walked is not read.**
-  `sum(f, by=ends(line -> bus1))` reads `bus1` and ignores `bus0`
+  `sum(f, by=ends, over=line -> bus1)` reads `bus1` and ignores `bus0`
   ([roles](#roles)).
 - **`by=[a, b]` is one grouping onto what `a` and `b` produce together.** Each
-  relation is walked as its declaration decides, so no walk is written. The
-  relations consume the same dimension, and no two produce the same one.
-- **The left end of a sum's walk names a dimension, the right end columns.**
-  A key has one column per dimension, so `generator` names the key column over
-  it, and a renamed key column is written by its dimension. Two value columns
-  may share a dimension, so the right end names them by column, `bus1`. A walk
-  belongs in `by=`; `over=` is a reduction over a dimension, and a sum with a
-  `by=` takes none.
+  relation is walked from its key to its value, so a direction has nothing to
+  name. The relations consume the same dimension, and no two produce
+  the same one.
+- **A direction needs a `by=`**, because a column belongs to a table, and a
+  `by=` with an `over=` needs the direction: `over=generator` beside
+  `by=zone_of` is refused toward `over=generator -> zone`. `over=` without a
+  `by=` names a dimension, as in `sum(p, over=period)`, and the left end of a
+  direction names one too, the dimension its key column is over. A key has one
+  column per dimension, so a renamed key column is written by its dimension.
 
 Three refusals draw the line, and each message names the rewrite:
 
 | refused                               | message                                                                                                                                                                                                                                                                   |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `at` on a bare relation               | `at(by=connection): at reads one value per coordinate, and 'connection' declares no key, so no coordinate fixes one row. Declare key: on the relation, or sum through it.`                                                                                                |
-| a `sum` that consumes no key column   | `sum(by=zone_of): by=zone_of(zone -> generator): a sum consumes key columns, and 'zone_of' holds 'zone' as a value column. To read it, write at(..., by=zone_of(zone -> [generator, period])).`                                                                           |
+| a `sum` that consumes no key column   | `sum(by=zone_of): over=zone -> generator: a sum consumes key columns, and 'zone_of' holds 'zone' as a value column. To read it, write at(..., by=zone_of, over=zone).`                                                                                                    |
 | an operand missing a joined dimension | `sum(by=zone_of) joins on ['period'] (columns ['period'] of 'zone_of'), which the expression does not carry (dims ['generator']). A relation is walked between two of its columns and read at the others — index the operand by them, or walk between different columns.` |
 
 ### Partitions
@@ -232,14 +227,12 @@ walk the one key column over `d`, join on the other key columns, and group by
 the value columns. The frame does not change: the group says which rows are
 neighbours, and nothing lands anywhere.
 
-The walk names the value columns the group is made of where the table has
-several. `shift(x, along=snapshot, by=cal(week))` walks within weeks of a
+`within=` names the value columns the group is made of where the table has
+several. `shift(x, along=snapshot, by=cal, within=week)` walks within weeks of a
 calendar declared once over `[snapshot, day, week]`, and a value column not
-named is not read. A partition's walk has one end, the group, because its
-other end is the axis `along=` names. The group may be two columns over one
-dimension, such as a line's two buses, because a partition produces no
-dimension. A walk naming a key column is refused, and a bare relation
-partitions nothing.
+named is not read. The group may be two columns over one dimension, such as a
+line's two buses, because a partition produces no dimension. `within=` naming a
+key column is refused, and a bare relation partitions nothing.
 
 A `where` string reads a relation too: a value column at its key, two columns
 of one table compared, or a bare name that tests a row exists
@@ -256,7 +249,7 @@ relations:
   rep_of: { columns: { snapshot: snapshot, rep: snapshot }, key: snapshot } # the representative snapshot
 ```
 
-`sum(f, by=ends(line -> bus1)) - sum(f, by=ends(line -> bus0))`
+`sum(f, by=ends, over=line -> bus1) - sum(f, by=ends, over=line -> bus0)`
 is a nodal balance through one table: flow arriving at `bus1` less flow leaving
 `bus0`. `where: "ends.bus0 != ends.bus1"` excludes a line whose two ends are
 one bus.

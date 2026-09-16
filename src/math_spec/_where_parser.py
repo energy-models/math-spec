@@ -51,13 +51,13 @@ class UnresolvedComparisonNode:
 
 @dataclass(frozen=True)
 class UnresolvedPositionNode:
-    """``position(dim[, by=relation[(columns)]]) <op> i`` before the names are checked; ``resolution.py`` types it."""
+    """``position(dim[, by=relation[, within=columns]]) <op> i`` before the names are checked; ``resolution.py`` types it."""
 
     dimension: str
     op: PredicateOperator
     position: int
     by: str | None = None
-    group: tuple[str, ...] | None = None
+    into: tuple[str, ...] | None = None
 
 
 #: What resolution rewrites away on the where side — the three nodes whose
@@ -77,11 +77,11 @@ class _Quoted(str):
 
 
 def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
-    """``position(dim[, by=relation[(columns)]]) <op> i`` off the tokens the grammar captured."""
+    """``position(dim[, by=relation[, within=columns]]) <op> i`` off the tokens the grammar captured."""
     dimension, *call, op, at = tokens
     by = str(call[0]) if call else None
-    group = tuple(str(token) for token in call[1]) if len(call) > 1 else None
-    return UnresolvedPositionNode(str(dimension), op, at, by, group)
+    into = tuple(str(token) for token in call[1]) if len(call) > 1 else None
+    return UnresolvedPositionNode(str(dimension), op, at, by, into)
 
 
 def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
@@ -116,8 +116,10 @@ def _build_where_grammar() -> pp.ParserElement:
 
     column = pp.Regex(rf'{NAME}(\.{NAME})?')
     columns = name | (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']'))
-    grouped = pp.Group(pp.Suppress('(') + columns + pp.Suppress(')'))
-    grouped_by = pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name + pp.Optional(grouped)
+    grouped_within = pp.Group(pp.Suppress(',') + pp.Suppress(pp.Keyword('within')) + pp.Suppress('=') + columns)
+    grouped_by = (
+        pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name + pp.Optional(grouped_within)
+    )
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
     position_call = (

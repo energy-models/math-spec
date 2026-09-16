@@ -168,20 +168,18 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
 
 
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``at`` reads by :meth:`Walk.read_by`: the value dims the operand carries leave, the key arrives, and a key dim the operand keeps is there once."""
+    """``at`` consumes the value dims the walks read and lands on the key: a key dim the operand keeps is joined on, and the frame has it once."""
     by = node.kwargs['by']
     assert isinstance(by, RelationNode)
-    consumed: set[str] = set()
-    for walk in by.walks:
-        read = walk.read_by(inner)
-        if not read.consumed:
-            raise DimensionError(
-                f"{context}: at(by={by.shown}) reads '{walk.name}' through {list(walk.consumed)}, and the "
-                f'expression carries none of their dims {sorted(set(walk.consumed_dims))} (dims {sorted(inner)}). '
-                f'A read needs the coarse dims to read *from* — sum is the direction that produces them.'
-            )
-        consumed |= set(read.consumed_dims)
-    return (inner - consumed) | set(by.dimensions)
+    absent = sorted(set(by.into) - inner)
+    if absent:
+        raise DimensionError(
+            f'{context}: at(by={by.shown}) reads through '
+            f'{absent}, which the expression does not carry (dims '
+            f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
+            f'sum is the direction that produces them.'
+        )
+    return (inner - set(by.into)) | set(by.dimensions)
 
 
 def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
