@@ -156,7 +156,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
     """
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'relations': {'season_of': {'columns': ['snapshot', 'season'], 'key': 'snapshot'}},
+        'relations': {'season_of': {'key': 'snapshot', 'value': 'season'}},
         'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'held': {
@@ -189,7 +189,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
             'snapshot': {'dtype': 'int'},
             'period': {'dtype': 'int'},
         },
-        'relations': {'period_of': {'columns': ['snapshot', 'period'], 'key': 'snapshot'}},
+        'relations': {'period_of': {'key': 'snapshot', 'value': 'period'}},
         'parameters': {'cap': {'dims': ['period']}},
         'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
@@ -274,7 +274,7 @@ def _selected(mask: str) -> dict[str, Any]:
     """One constraint carrying *mask*, over a dimension a relation groups."""
     return {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'relations': {'season_of': {'columns': ['snapshot', 'season'], 'key': 'snapshot'}},
+        'relations': {'season_of': {'key': 'snapshot', 'value': 'season'}},
         'variables': {'soc': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {'seed': {'dims': ['snapshot'], 'where': mask, 'expression': 'soc == 0'}},
     }
@@ -640,7 +640,7 @@ def test_every_operator_probe_renders(path, name: FormatName, fmt: Format):
 #: scope and bracketing cases are written against.
 BUSES = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
-    'relations': {'bus_of': {'columns': ['generator', 'bus'], 'key': 'generator'}},
+    'relations': {'bus_of': {'key': 'generator', 'value': 'bus'}},
     'parameters': {'load': {'dims': ['snapshot']}, 'k': {'dims': []}, 'flag': {'dims': ['snapshot'], 'dtype': 'bool'}},
     'variables': {'p': {'dims': ['snapshot', 'generator']}, 'q': {'dims': ['snapshot', 'generator']}},
 }
