@@ -210,10 +210,10 @@ period])` sums both key columns away at once. `tech_cap[gen_bt]` reads
 
 Two refusals draw the line, and each message names the rewrite:
 
-| refused                                | message                                                                                                                                                                                                                         |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a `sum` that sums the whole key away   | `sum(over=zone_of): this sums away the whole key ['generator', 'period'], so each group has one row and nothing is added up — that is a read. Write price[zone_of] to index, or sum(x, over=zone_of.generator) toward a value.` |
-| an index missing the value's dimension | `price[zone_of] reads the value ['zone'], which the expression does not carry (dims ['generator', 'period']). Indexing reads a value at a key — index an expression that carries ['zone'], or sum toward the value instead.`    |
+| refused                                | message                                                                                                                                                                                                                      |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| indexing a bare relation               | `index(by=connection): 'connection' is a bare relation — every column is in its key — so it has no value to read. Declare the column under value:, or key the table by the columns the read fixes.`                          |
+| an index missing the value's dimension | `price[zone_of] reads the value ['zone'], which the expression does not carry (dims ['generator', 'period']). Indexing reads a value at a key — index an expression that carries ['zone'], or sum toward the value instead.` |
 
 ### Partitions
 
