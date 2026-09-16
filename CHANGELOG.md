@@ -19,6 +19,13 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.92](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.91...v0.0.0-alpha.92) (2026-09-16)
+
+
+### Features
+
+* **program:** a grouped sum and a pullback say which dimensions their walks join on ([#488](https://github.com/energy-models/math-spec/issues/488)) ([dd05088](https://github.com/energy-models/math-spec/commit/dd050883cd4aa79701bef1b175210526fd15b0ca))
+
 ## [0.0.0-alpha.91](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.90...v0.0.0-alpha.91) (2026-09-15)
 
 Corrected: this release carries no change. [#474](https://github.com/energy-models/math-spec/pull/474)
