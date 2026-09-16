@@ -44,7 +44,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, NamedTuple, get_args
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from math_spec._yaml import read_model
 from math_spec.errors import LanguageError, did_you_mean
@@ -146,7 +146,7 @@ def _singular(section: str) -> str:
     return IRREGULAR.get(section, section[:-1])
 
 
-def _block(section: str) -> type[Any]:
+def _block(section: str) -> type[BaseModel]:
     """The schema's own class for one entry in *section*.
 
     Read off :class:`~math_spec.model.Spec`'s annotations rather than listed
@@ -284,7 +284,7 @@ def _agrees(under: Any, over: Any) -> bool:
         return isinstance(under, dict) and all(
             key in under and _agrees(under[key], value) for key, value in over.items()
         )
-    return under == over
+    return bool(under == over)
 
 
 def _owned(
