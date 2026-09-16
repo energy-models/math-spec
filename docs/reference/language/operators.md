@@ -98,10 +98,16 @@ coordinate the data never covered is refused. See [absence](absence.md).
 
 `at(x, by=l)` walks the same relation the other way. It consumes a value column
 and lands on the key, so it reads one coarse value once for each fine label that
-points at it, and a bare relation is never read by `at`. `over=` names the value
-column where the relation offers two. The key needs no naming: a key column
-whose dimension `x` carries is read at the row's own coordinate, and the rest
-are produced ([walks](dimensions.md#walks)).
+points at it, and a bare relation is never read by `at`. Where the relation
+offers two value columns over one dimension, the direction names the one read
+and the key it lands on: `at(cap, by=ends(bus0 -> line))`. Read that arrow as
+every direction is read, what leaves the operand on the left and what arrives on
+the right, and not as the function the math prints. The math writes
+`cap_{ends.bus0(l)}`, a bus looked up from a line, while the direction runs from
+`bus0` to `line`, because `bus` is what `cap` carries and `line` is what the
+result gains. Otherwise the key needs no naming: a key column whose dimension
+`x` carries is read at the row's own coordinate, and the rest are produced
+([walks](dimensions.md#walks)).
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus)`.

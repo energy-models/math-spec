@@ -145,7 +145,10 @@ column `zone` arrives. A call writes the whole direction or nothing:
 `sum(p, by=zone_of(generator -> zone))` where it does not. `at` lands on the
 whole key, and the operand decides the rest: a value column is read where the
 operand carries its dimension, a key column whose dimension it still carries is
-joined on, and the other key columns are produced.
+joined on, and the other key columns are produced. Written out, a read's
+direction runs from value to key, `at(cap, by=ends(bus0 -> line))`, which is
+the opposite way round from the function the math prints, `ends.bus0(l)`. The
+arrow says what leaves the operand and what arrives, for a read as for a sum.
 
 ```yaml
 dimensions:
