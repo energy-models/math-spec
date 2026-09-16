@@ -129,7 +129,7 @@ class Symbols:
         #: overrides it.
         self.constraint: dict[str, str] = {
             name: table.names[name] if name in table.names else _derive_name_symbol(name, declared, fmt, given=True)
-            for name in schema.constraints
+            for name in (*schema.constraints, *schema.given_constraints)
         }
 
         self.index: dict[str, str] = {}
@@ -245,6 +245,7 @@ class SymbolTable:
             | set(schema.given_variables)
             | set(schema.expressions)
             | set(schema.constraints)
+            | set(schema.given_constraints)
         )
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),

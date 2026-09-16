@@ -144,7 +144,7 @@ class Namespace:
                 **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
                 **{v: tuple(vd.dims) for v, vd in {**schema.variables, **schema.given_variables}.items()},
             },
-            schema.constraints,
+            {**schema.constraints, **schema.given_constraints},
         )
 
     def kind(self, name: str) -> DeclarationKind | None:
@@ -190,7 +190,8 @@ class Namespace:
         return (
             f"{context}: dual({name}): '{name}' is not a declared constraint{also}.\n"
             f'  Constraints: {sorted(self.constraints)}\n'
-            f"Check for typos, or declare '{name}' under 'constraints:'."
+            f"Check for typos, or declare '{name}' — under 'constraints:' if this file builds the row, "
+            f"or under 'given_constraints:' if it reads the dual of one somebody else built."
         )
 
 

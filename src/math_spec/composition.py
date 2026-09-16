@@ -73,7 +73,7 @@ OWNED_SECTIONS = ('parameters', 'variables', 'constraints', 'expressions', 'macr
 #: The declarations a file reads and does not introduce. Peers must agree
 #: about one, and :func:`merge` folds it into the declaration that introduces
 #: it, so a composed library carries none.
-GIVEN_SECTIONS = ('given_variables',)
+GIVEN_SECTIONS = ('given_variables', 'given_constraints')
 
 #: Every section keyed by declaration name. ``objective`` is one declaration
 #: rather than a mapping of them, and is laid over field by field beside these.

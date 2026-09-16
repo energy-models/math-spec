@@ -62,9 +62,9 @@ compose: `override(merge({…}), {…})`.
      expression: sum(gen_p * gen_cost)
    ```
 
-   The template loads on its own, and it prints as math on its own. What it
-   cannot do is lower: a program builds every column it carries, and this file
-   says the opposite about `flow`.
+   The template loads on its own, and it prints as math on its own. Lowering
+   it gives a program that names `flow` as a column to bind rather than build,
+   which is what a layer over another model wants; a library merges instead.
 
 3. **Merge the templates you need.** Each fragment is given a name, and that
    name is what a refusal calls it.

@@ -5,8 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # File shape
 
-A model file is a YAML mapping with **eleven declaration keys**, plus
-`version` and `description`. Any subset of the eleven is accepted.
+A model file is a YAML mapping with **twelve declaration keys**, plus
+`version` and `description`. Any subset of the twelve is accepted.
 
 | Key               |                                                                                                                     |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------- |

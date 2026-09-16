@@ -199,8 +199,15 @@ A template reads the coupling surface it is written against, and declares that
 column under `given_variables:`. So a template loads on its own, and prints as
 math on its own, which is what it could not do while a fragment was a file the
 loader had to refuse. `merge` folds each given declaration into the one that
-introduces it, and a program carries none of them: a build makes every column it
-holds.
+introduces it, so a composed library carries none.
+
+A layer over a model this language never sees — one built through linopy, say —
+has nothing to fold into. There the declaration stays, and the program carries
+the name and the frame for a consumer to bind, under
+[what a program does not build](../reference/language/reading.md#what-a-program-does-not-build).
+`given_constraints:` is the same fact about a row family: `dual(balance)` prices
+what the base model settles, and the file says how many duals there are and what
+indexes them.
 
 The verb is built to collide, so every collision the caller did not ask for is
 refused. An entry naming some fields of a declaration the base does not have is

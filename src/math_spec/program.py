@@ -63,6 +63,7 @@ __all__ = [
     'FanIn',
     'FirstOf',
     'Footprint',
+    'GivenDeclaration',
     'GroupSum',
     'Increasing',
     'LastOf',
@@ -753,6 +754,21 @@ class VariableDeclaration:
 
 
 @dataclass(frozen=True)
+class GivenDeclaration:
+    """A column or a row family this program reads and does not build.
+
+    The frame is the whole declaration, because it is the whole of what the
+    file knows: whoever introduces the column owns its bounds, and whoever
+    builds the row owns its body. A consumer looks the name up in the model it
+    is layering onto, checks the frame against what it finds, and refuses what
+    it cannot bind — building a column of its own here would silently be a
+    second column nothing else names.
+    """
+
+    dims: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ConstraintDeclaration:
     """``lhs sense rhs`` for each coord combination of ``dims``.
 
@@ -968,6 +984,13 @@ class Program:
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     named_expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
+    #: The columns this program reads and does not build. A consumer binds each
+    #: to a column the model it is layered onto already holds; nothing here
+    #: emits one, so a build reads :attr:`variables` and never this.
+    given_variables: Mapping[str, GivenDeclaration] = Sealed({})
+    #: The row families this program reads the dual of and does not build,
+    #: bound the same way and read back after the solve.
+    given_constraints: Mapping[str, GivenDeclaration] = Sealed({})
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""
