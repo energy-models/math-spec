@@ -147,6 +147,79 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$
 
+### `sum(array, by=relation, over=a, into=b)`
+
+`examples/operators/sum_by_columns.yaml`
+
+```yaml
+description: >-
+  A walk that names its ends — `sum(array, by=relation, over=a, into=b)`
+  consumes column `a` and lands on column `b`, and the other key column is
+  joined on, so each zone's total is taken per period.
+
+dimensions:
+  generator: { dtype: str }
+  period: { dtype: int }
+  zone: { dtype: str }
+
+relations:
+  zone_of: { columns: [generator, period, zone], key: [generator, period] }
+
+parameters:
+  demand: { dims: [zone, period] }
+
+variables:
+  p:
+    dims: [generator, period]
+    bounds: { lower: 0 }
+
+constraints:
+  zone_balance:
+    dims: [zone, period]
+    expression: sum(p, by=zone_of, over=generator, into=zone) >= demand
+
+objective: { sense: minimize, expression: sum(p) }
+```
+
+$`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$
+
+### `sum(array, by=relation, over=[a, …], into=[b, …])`
+
+`examples/operators/sum_by_column_lists.yaml`
+
+```yaml
+description: >-
+  A walk with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
+  consumes both key columns at once and lands on the product of both value
+  columns in one join.
+
+dimensions:
+  generator: { dtype: str }
+  period: { dtype: int }
+  bus: { dtype: str }
+  technology: { dtype: str }
+
+relations:
+  slot_of: { columns: [generator, period, bus, technology], key: [generator, period] }
+
+parameters:
+  cap: { dims: [bus, technology] }
+
+variables:
+  p:
+    dims: [generator, period]
+    bounds: { lower: 0 }
+
+constraints:
+  slot_cap:
+    dims: [bus, technology]
+    expression: sum(p, by=slot_of, over=[generator, period], into=[bus, technology]) <= cap
+
+objective: { sense: minimize, expression: sum(p) }
+```
+
+$`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$
+
 ### `at(array, by=relation)`
 
 `examples/operators/at.yaml`
@@ -180,6 +253,41 @@ objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$
+
+### `at(array, by=relation, over=a, into=b)`
+
+`examples/operators/at_columns.yaml`
+
+```yaml
+description: >-
+  A read that names its ends — `at(array, by=relation, over=a, into=b)`
+  reads column `a` where a table has two columns over one dimension, here the
+  sending end of a line.
+
+dimensions:
+  line: { dtype: str }
+  bus: { dtype: str }
+
+relations:
+  ends: { columns: { line: line, bus0: bus, bus1: bus }, key: line }
+
+parameters:
+  cap: { dims: [bus] }
+
+variables:
+  f:
+    dims: [line]
+    bounds: { lower: 0 }
+
+constraints:
+  sending_cap:
+    dims: [line]
+    expression: f <= at(cap, by=ends, over=bus0, into=line)
+
+objective: { sense: minimize, expression: sum(f) }
+```
+
+$`f_{l} \le \mathrm{cap}_{\mathrm{ends.bus0}(l)} \qquad \forall\, l \in \mathcal{L}`$
 
 ### `shift(array, along=dim, offset=n)`
 
