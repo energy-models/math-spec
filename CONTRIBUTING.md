@@ -89,10 +89,9 @@ docs: describe the two expression tiers
 
 Types are `feat`, `fix`, `perf`, `refactor`, `docs` and `revert`, which appear
 in the changelog, and `chore`, `test`, `ci`, `build` and `style`, which are
-hidden. A subject the parser cannot read is not an error — the entry simply
-never appears — so the `Conventional commit subject` check enforces the format
-on every pull request, and `tests/test_release_config.py` holds the types that
-check accepts to the sections `.release-please-config.json` gives them.
+hidden. A subject the parser cannot read is not an error — the entry
+simply never appears — so the `Conventional commit subject` check enforces the
+format on every pull request.
 
 While the version is pinned to the alpha stream, a breaking marker (`!`, or a
 `BREAKING CHANGE:` footer) is refused, because it moves the base version rather

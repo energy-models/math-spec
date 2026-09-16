@@ -88,27 +88,6 @@ Two consequences worth knowing:
   break in the PR body instead. The alpha stream carries no compatibility
   promise, so there is nothing for the version to announce.
 
-## A revert does not cancel what it reverts
-
-conventional-changelog drops both halves of a revert when the message carries
-the `Revert "…"` subject and the `This reverts commit <sha>.` body. That never
-fires here: release-please hands the writer every commit with its `revert`
-field set to `null` (`src/changelog-notes/default.ts`), so no message makes one
-commit cancel another.
-
-So a revert is an entry of its own, under `Reverts`. Revert something released
-earlier and that is the whole story. Revert something merged but **not yet
-released** and the release announces both: the original entry, and the revert
-that cancelled it. Read the pair, not the first line.
-
-What made 0.0.0-alpha.91 worse than that is that the pair was never printed.
-`revert` had no entry in `changelog-sections`, and release-please drops a commit
-whose type has no section, so the revert went missing and the feature it
-cancelled was announced alone — in a release whose tree is 0.0.0-alpha.90's.
-The two lists are now held together by `tests/test_release_config.py`: a type
-`pr-title.yml` accepts and the config gives no section is a hole in the
-changelog, which is the one thing that check exists to prevent.
-
 ## Leaving the alpha stream
 
 When the project is ready for a real version:

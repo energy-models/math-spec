@@ -351,10 +351,6 @@ the changelog. `chore`, `test`, `ci`, `build` and `style` hide.
 A diff that crosses several rows takes the topmost row it touches. So a
 construct that lands with its docs and its tests is still a `feat`.
 
-`revert` is the one type the table does not decide. A change that undoes a
-merged commit takes it whatever the diff touches, because it is the only thing
-that tells a changelog reader the release took something back.
-
 A reshuffle inside `src/` that no consumer can tell apart is a `chore`. Moving a
 module and changing a private name are both that. `refactor` publishes, so
 `refactor` is for the reshuffles a changelog reader would want to know about.
