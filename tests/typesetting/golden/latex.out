@@ -61,7 +61,7 @@
 
 \noindent $t \boxminus_{v} k$ denotes translation with $v$ standing where index $t-k$ leaves the dimension (\texttt{shift(edge=v)}), so the row at that boundary is built and carries $v$ rather than being dropped.
 
-\noindent $t \ominus^{\mathrm{relation}(t)} k$ denotes a translation counted inside the group a relation puts $t$ in (\texttt{shift(by=relation)}), so a term never crosses out of its own group. The two modifiers take different slots --- the group above, the fill below --- so $t \boxminus_{v}^{\mathrm{relation}(t)} k$ is both at once.
+\noindent $t \ominus^{\mathrm{relation}(t)} k$ denotes a translation counted inside the group a relation puts $t$ in (\texttt{shift(along=relation.d)}), so a term never crosses out of its own group. The two modifiers take different slots --- the group above, the fill below --- so $t \boxminus_{v}^{\mathrm{relation}(t)} k$ is both at once.
 
 \noindent $\mathrm{pos}(t)$ denotes where index $t$ sits along its dimension's own order --- the order \texttt{shift} walks, not the order labels sort in --- counted from $0$. The index itself stays the coordinate, so $t$ compares against labels and $\mathrm{pos}(t)$ against positions.
 

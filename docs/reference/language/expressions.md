@@ -90,8 +90,8 @@ fixed at load:
 | Position                                  | Legal kinds                                                                                                  |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | expression (`p * cost`)                   | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
-| dimension argument (`over=`, `along=`)    | a dimension                                                                                                  |
-| relation argument (`by=` on `sum` / `at`) | a relation, and never a dimension. `over=` and `into=` name its columns                                      |
+| dimension argument (`over=`, `along=`)    | a dimension, or a key column of a relation written after its name, `over=rel.k`                              |
+| relation argument (`by=` on `sum` / `at`) | a relation, and never a dimension, bare or with value columns after its name, `by=rel.v`                     |
 | `where` string                            | a parameter, variable, dimension or relation ([where strings](#where-strings))                               |
 | `bounds.lower` / `bounds.upper`           | a parameter name, or a number                                                                                |
 | the `edge` key of `shift`                 | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |
@@ -120,19 +120,19 @@ A parameter and a variable both declare `dims`, and every dimension
 argument is name-checked. So **the dimension set of every expression is known
 before any data binds**:
 
-| Node                             | Dim set                                   | Error                                                                                                                                                                                                 |
-| -------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| number                           | `{}`                                      |                                                                                                                                                                                                       |
-| parameter / variable             | its `dims`                                |                                                                                                                                                                                                       |
-| `-x`, `+x`                       | `dims(x)`                                 |                                                                                                                                                                                                       |
-| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`                       |                                                                                                                                                                                                       |
-| `sum(x)`                         | `{}`                                      | error if `dims(x)` is already empty                                                                                                                                                                   |
-| `sum(x, over=d)`                 | `dims(x) − {d}`                           | error if `d ∉ dims(x)`                                                                                                                                                                                |
-| `sum(x, by=l)`                   | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not in `dims(x)`, or if `l`'s key lies inside the columns `into=` names and the joined columns — that walk is a read, which is `at`'s |
-| `sum(x, by=[l, m])`              | `(dims(x) − from(l)) ∪ into(l) ∪ into(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one                                                                                           |
-| `at(x, by=l)`                    | `(dims(x) − from(l)) ∪ key(l)`            | error if `from(l) ⊄ dims(x)`, or if `l` has no value column                                                                                                                                           |
-| `shift(x, along=d, offset=n)`    | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                                                                                                |
-| `sum_back(x, along=d, window=n)` | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                                                                                                |
+| Node                             | Dim set                                   | Error                                                                                                                                                                                          |
+| -------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| number                           | `{}`                                      |                                                                                                                                                                                                |
+| parameter / variable             | its `dims`                                |                                                                                                                                                                                                |
+| `-x`, `+x`                       | `dims(x)`                                 |                                                                                                                                                                                                |
+| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`                       |                                                                                                                                                                                                |
+| `sum(x)`                         | `{}`                                      | error if `dims(x)` is already empty                                                                                                                                                            |
+| `sum(x, over=d)`                 | `dims(x) − {d}`                           | error if `d ∉ dims(x)`                                                                                                                                                                         |
+| `sum(x, by=l)`                   | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, or if a joined column's dimension is not in `dims(x)`. `from(l)` is the key, or the columns `over=l.k` names; `into(l)` the value, or the columns `by=l.v` names |
+| `sum(x, by=[l, m])`              | `(dims(x) − from(l)) ∪ into(l) ∪ into(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one                                                                                    |
+| `at(x, by=l)`                    | `(dims(x) − from(l)) ∪ key(l)`            | error if `from(l) ⊄ dims(x)`, or if `l` has no value column                                                                                                                                    |
+| `shift(x, along=d, offset=n)`    | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                                                                                         |
+| `sum_back(x, along=d, window=n)` | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                                                                                         |
 
 A binary operator takes the **union** of the two dimension sets, so an outer
 product is allowed wherever the declaration's own dimensions cover the result.
@@ -161,24 +161,24 @@ atom       ::= NAME | NAME COMPARATOR value | POSITION COMPARATOR INTEGER
             |  "True" | "False"
 COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
 value      ::= NUMBER | QUOTED | NAME_OR_STRING
-POSITION   ::= "position" "(" NAME [ "," "by" "=" NAME ] ")"
+POSITION   ::= "position" "(" NAME [ "." NAME [ "," "within" "=" columns ] ] ")"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
 
-| Written as                                | Names a…                                 | Meaning                                                                                                                                                                                                                                                                                             |
-| ----------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name` (bare)                             | parameter                                | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not                                                                                                                |
-| `name` (bare)                             | variable                                 | The variable exists at this coordinate                                                                                                                                                                                                                                                              |
-| `name` (bare)                             | relation                                 | A row exists, read at the relation's key — every column, for a bare one. A relation may be [partial](dimensions.md#relations), and this selects the labels that do map                                                                                                                              |
-| `name` (bare)                             | dimension                                | A load error. It would be true everywhere. Compare it against something instead                                                                                                                                                                                                                     |
-| `name OP value`                           | parameter                                | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                    |
-| `name OP value`                           | dimension                                | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                       |
-| `name OP value`, `name.col OP value`      | relation                                 | A filter on a value column, read at the relation's key, so the key's dimensions have to be in the frame. Name the column where the key determines several. A null compares false                                                                                                                    |
-| `name OP name`, `name.a OP name.b`        | two relation columns                     | Legal only where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                                                                                                                           |
-| `position(name) OP i`                     | dimension                                | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
-| `position(name, by=relation[, within=c])` | a dimension and a relation keyed over it | The same, counted within each group the relation's value columns make                                                                                                                                                                                                                               |
-| `AND` `OR` `NOT`                          | —                                        | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                                                                                                                                       |
-| `True` / `False`                          | —                                        | Literals, folded at load wherever they stand. `True` is the same as no `where`; `False` gives a declaration with no rows. `x AND False` folds to `False`, and `NOT NOT x` to `x`. A [case `when:`](#the-rules-that-keep-the-cases-apart) is the one place a mask that folds to a literal is refused |
+| Written as                           | Names a…                          | Meaning                                                                                                                                                                                                                                                                                             |
+| ------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name` (bare)                        | parameter                         | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not                                                                                                                |
+| `name` (bare)                        | variable                          | The variable exists at this coordinate                                                                                                                                                                                                                                                              |
+| `name` (bare)                        | relation                          | A row exists, read at the relation's key — every column, for a bare one. A relation may be [partial](dimensions.md#relations), and this selects the labels that do map                                                                                                                              |
+| `name` (bare)                        | dimension                         | A load error. It would be true everywhere. Compare it against something instead                                                                                                                                                                                                                     |
+| `name OP value`                      | parameter                         | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                    |
+| `name OP value`                      | dimension                         | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                       |
+| `name OP value`, `name.col OP value` | relation                          | A filter on a value column, read at the relation's key, so the key's dimensions have to be in the frame. Name the column where the key determines several. A null compares false                                                                                                                    |
+| `name OP name`, `name.a OP name.b`   | two relation columns              | Legal only where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                                                                                                                           |
+| `position(name) OP i`                | dimension                         | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
+| `position(relation.k[, within=c])`   | a relation and its key column `k` | The same along `k`'s dimension, counted within each group the relation's value columns make                                                                                                                                                                                                         |
+| `AND` `OR` `NOT`                     | —                                 | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                                                                                                                                       |
+| `True` / `False`                     | —                                 | Literals, folded at load wherever they stand. `True` is the same as no `where`; `False` gives a declaration with no rows. `x AND False` folds to `False`, and `NOT NOT x` to `x`. A [case `when:`](#the-rules-that-keep-the-cases-apart) is the one place a mask that folds to a literal is refused |
 
 The dimensions of the mask must not exceed the frame it sits in. A bare name
 that is not declared is a load error.
@@ -246,8 +246,9 @@ row.
 coordinate occupies is an error when the data binds, not an empty mask, because
 seeding no row is the failure the clause was written to prevent.
 
-`by=` counts inside each group that a relation makes. That gives one seeded row per
-period, however long each period is:
+`position(relation.k)` counts inside each group that the relation makes, along
+the key column `k`. That gives one seeded row per period, however long each
+period is:
 
 ```yaml
 dimensions:
@@ -262,12 +263,12 @@ variables:
 constraints:
   soc_start:
     dims: [snapshot]
-    where: "position(snapshot, by=period_of) == 0"
+    where: "position(period_of.snapshot) == 0"
     expression: soc == at(soc_initial, by=period_of)
 ```
 
-The relation must have a key column over the dimension being counted, and its
-value columns are the groups. A coordinate the relation sends nowhere is in no
+The column after the dot is a key column of the relation, and its value
+columns are the groups. A coordinate the relation sends nowhere is in no
 group. A group shorter than the position is an error when
 the data binds, for the same reason as above.
 

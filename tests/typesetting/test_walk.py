@@ -161,7 +161,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
         'constraints': {
             'held': {
                 'dims': ['snapshot'],
-                'expression': 'p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of)',
+                'expression': 'p <= shift(p, along=season_of.snapshot, offset=1, edge=0)',
             }
         },
         'objective': {'sense': 'minimize', 'expression': 'sum(p)'},
@@ -298,7 +298,7 @@ def test_a_grouped_position_rides_a_subscript_rather_than_a_second_argument(name
     As ``pos(t, season_of(t))`` the second argument sits where a reader of the
     first one expects an integer, and nothing says it means "within".
     """
-    text = typeset(_selected('position(snapshot, by=season_of) == 0'), name)
+    text = typeset(_selected('position(season_of.snapshot) == 0'), name)
     applied = fmt.apply(fmt.upright('season_of'), 't')
     assert fmt.apply(fmt.subscript(fmt.operators['position'], [applied]), 't') in text
 
@@ -323,7 +323,7 @@ def test_a_dimension_compared_against_a_number_says_what_its_coordinates_are(nam
         pytest.param('against positions', _selected('position(snapshot) == 0'), DISPATCH_MODEL, id='a-position'),
         pytest.param(
             'counts within the group',
-            _selected('position(snapshot, by=season_of) == 0'),
+            _selected('position(season_of.snapshot) == 0'),
             _selected('position(snapshot) == 0'),
             id='a-grouped-position',
         ),

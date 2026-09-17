@@ -13,6 +13,7 @@ import pytest
 from math_spec._expression_parser import ComparisonNode, DefinitionNode, parse_expression, with_children
 from math_spec.errors import LanguageError
 from math_spec.expansion import parse_and_expand
+from math_spec.validation import to_spec
 from tests.fixtures import DISPATCH_MODEL, schema_of
 
 WEIGHTED_SUM = {
@@ -239,3 +240,39 @@ def test_an_unknown_operator_is_refused_at_load_with_the_rewrite(fragment):
     with pytest.raises(LanguageError) as exc:
         schema(constraints={'c': {'dims': ['snapshot'], 'expression': 'my_python_helper(p) <= load'}})
     assert fragment in str(exc.value)
+
+
+RELATIONAL_MODEL = {
+    'dimensions': {'generator': {}, 'bus': {}, 'period': {'dtype': 'int'}, 'snapshot': {'dtype': 'int'}},
+    'relations': {
+        'slot_of': {'key': ['generator', 'period'], 'value': 'bus'},
+        'cal': {'key': 'snapshot', 'value': 'period'},
+    },
+    'parameters': {'price': {'dims': ['bus']}},
+    'variables': {'p': {'dims': ['generator', 'period']}, 'soc': {'dims': ['snapshot']}},
+}
+
+
+@pytest.mark.parametrize(
+    ('template', 'call', 'want'),
+    [
+        pytest.param(
+            'sum(x, over=r.generator, by=r.bus)',
+            'm(p, r=slot_of)',
+            'sum(p, over=slot_of.generator, by=slot_of.bus)',
+            id='a-sum-with-both-sides-named',
+        ),
+        pytest.param('at(x, by=r.bus)', 'm(price, r=slot_of)', 'at(price, by=slot_of.bus)', id='a-read'),
+        pytest.param(
+            'shift(x, along=r.snapshot, offset=1, edge=0)',
+            'm(soc, r=cal)',
+            'shift(soc, along=cal.snapshot, offset=1, edge=0)',
+            id='a-partition',
+        ),
+    ],
+)
+def test_a_formal_binds_as_the_relation_before_a_dot(template, call, want):
+    """The relation before a dot is a child node, so a formal bound at the call site lands there, and the call is the written form."""
+    macros = {'m': {'args': ['x'], 'kwargs': ['r'], 'template': template}}
+    spec = to_spec({**RELATIONAL_MODEL, 'macros': macros})
+    assert parse_and_expand(call, spec, 'c') == parse_expression(want)

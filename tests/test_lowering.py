@@ -446,7 +446,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-offset-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'shift(p, along=g, offset=1, by=lk, edge=0)',
+            'shift(p, along=lk.g, offset=1, edge=0)',
             Translate(
                 Variable('p'),
                 'g',
@@ -468,7 +468,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'sum_back(p, along=g, window=2, by=lk)',
+            'sum_back(p, along=lk.g, window=2)',
             Window(
                 Variable('p'),
                 'g',
@@ -495,10 +495,10 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
             'parameters': {'price': {'dims': ['snapshot', 'zone']}, 'cap': {'dims': ['zone']}},
             'variables': {
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
-                'first': {'dims': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
+                'first': {'dims': ['snapshot', 'generator'], 'where': 'position(zone_of.generator) == 0'},
             },
             'constraints': {
-                'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, by=zone_of, over=generator) <= 1'},
+                'zonal': {'dims': ['snapshot', 'zone'], 'expression': 'sum(p, over=zone_of.generator) <= 1'},
                 'priced': {
                     'dims': ['snapshot', 'generator'],
                     'expression': 'p <= at(price, by=zone_of)',
@@ -509,7 +509,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
                 },
                 'history': {
                     'dims': ['generator', 'zone'],
-                    'expression': 'sum(p, by=zone_of, over=snapshot) <= 1',
+                    'expression': 'sum(p, over=zone_of.snapshot) <= 1',
                 },
             },
         }

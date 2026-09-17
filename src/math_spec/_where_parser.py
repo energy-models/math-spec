@@ -51,13 +51,17 @@ class UnresolvedComparisonNode:
 
 @dataclass(frozen=True)
 class UnresolvedPositionNode:
-    """``position(dim[, by=relation[, within=columns]]) <op> i`` before the names are checked; ``resolution.py`` types it."""
+    """``position(dim | relation.column[, within=columns]) <op> i`` before the names are checked; ``resolution.py`` types it.
 
-    dimension: str
+    ``subject`` is the one name before any dot: a dimension where ``column``
+    is ``None``, a relation otherwise, and ``resolution.py`` says which it is.
+    """
+
+    subject: str
     op: PredicateOperator
     position: int
-    by: str | None = None
-    into: tuple[str, ...] | None = None
+    column: str | None = None
+    within: tuple[str, ...] | None = None
 
 
 #: What resolution rewrites away on the where side — the three nodes whose
@@ -77,11 +81,11 @@ class _Quoted(str):
 
 
 def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
-    """``position(dim[, by=relation[, within=columns]]) <op> i`` off the tokens the grammar captured."""
-    dimension, *call, op, at = tokens
-    by = str(call[0]) if call else None
-    into = tuple(str(token) for token in call[1]) if len(call) > 1 else None
-    return UnresolvedPositionNode(str(dimension), op, at, by, into)
+    """``position(dim | relation.column[, within=columns]) <op> i`` off the tokens the grammar captured."""
+    subject, *call, op, at = tokens
+    column = str(call[0][0]) if call else None
+    within = tuple(str(token) for token in call[1][0]) if len(call) > 1 else None
+    return UnresolvedPositionNode(str(subject), op, at, column, within)
 
 
 def _comparison(tokens: pp.ParseResults) -> UnresolvedComparisonNode:
@@ -115,15 +119,17 @@ def _build_where_grammar() -> pp.ParserElement:
     )
 
     column = pp.Regex(rf'{NAME}(\.{NAME})?')
-    columns = name | (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']'))
+    columns = pp.Group(name | (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')))
     grouped_within = pp.Group(pp.Suppress(',') + pp.Suppress(pp.Keyword('within')) + pp.Suppress('=') + columns)
-    grouped_by = (
-        pp.Suppress(',') + pp.Suppress(pp.Keyword('by')) + pp.Suppress('=') + name + pp.Optional(grouped_within)
-    )
+    key_column = pp.Group(pp.Suppress('.') + name)
     comparator = pp.one_of(list(get_args(PredicateOperator)))
 
     position_call = (
-        pp.Suppress(pp.Keyword('position')) + pp.Suppress('(') + name + pp.Optional(grouped_by) + pp.Suppress(')')
+        pp.Suppress(pp.Keyword('position'))
+        + pp.Suppress('(')
+        + name
+        + pp.Optional(key_column + pp.Optional(grouped_within))
+        + pp.Suppress(')')
     )
     position_comparison = (position_call + comparator + position).set_parse_action(_position_comparison)
 

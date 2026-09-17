@@ -303,8 +303,7 @@ class At(Expression):
 
     Same tables, walked the other way: this consumes the dims in ``into`` and
     produces the dims in ``over``, one value per coordinate because every
-    walk reads value columns at a key the operand fixes
-    (``Walk.is_function_read``). The join fans out, many ``over`` tuples
+    walk reads value columns at the whole key. The join fans out, many ``over`` tuples
     sharing one ``into`` tuple — at each coordinate of the joined columns,
     which the operand carries and the result keeps. As on
     :class:`GroupSum`, ``walks`` is the fact and the four are read off it.
@@ -567,11 +566,6 @@ class Walk(NamedTuple):
     @property
     def joined_dims(self) -> tuple[str, ...]:
         return tuple(self.dim(role) for role in self.joined)
-
-    @property
-    def is_function_read(self) -> bool:
-        """Whether the walk reads one value per coordinate: the key lies inside what is fixed."""
-        return bool(self.key) and set(self.key) <= {*self.joined, *self.produced}
 
 
 @dataclass(frozen=True)

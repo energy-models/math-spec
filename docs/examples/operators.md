@@ -147,13 +147,13 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=a, into=b)`
+### `sum(array, over=relation.a, by=relation.b)`
 
 `examples/operators/sum_by_columns.yaml`
 
 ```yaml
 description: >-
-  A walk that names its ends — `sum(array, by=relation, over=a, into=b)`
+  A walk that names its ends — `sum(array, over=relation.a, by=relation.b)`
   consumes column `a` and lands on column `b`, and the other key column is
   joined on, so each zone's total is taken per period.
 
@@ -176,20 +176,20 @@ variables:
 constraints:
   zone_balance:
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator, into=zone) >= demand
+    expression: sum(p, over=zone_of.generator, by=zone_of.zone) >= demand
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=[a, …], into=[b, …])`
+### `sum(array, over=relation.[a, …], by=relation.[b, …])`
 
 `examples/operators/sum_by_column_lists.yaml`
 
 ```yaml
 description: >-
-  A walk with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
+  A walk with several columns at each end — `sum(array, over=relation.[a, …], by=relation.[b, …])`
   consumes both key columns at once and lands on the product of both value
   columns in one join.
 
@@ -213,7 +213,7 @@ variables:
 constraints:
   slot_cap:
     dims: [bus, technology]
-    expression: sum(p, by=slot_of, over=[generator, period], into=[bus, technology]) <= cap
+    expression: sum(p, over=slot_of.[generator, period], by=slot_of.[bus, technology]) <= cap
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -254,13 +254,13 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$
 
-### `at(array, by=relation, over=a)`
+### `at(array, by=relation.a)`
 
 `examples/operators/at_columns.yaml`
 
 ```yaml
 description: >-
-  A read that names the column it consumes — `at(array, by=relation, over=a)`
+  A read that names the column it consumes — `at(array, by=relation.a)`
   reads column `a` where a table has two columns over one dimension, here the
   sending end of a line.
 
@@ -282,7 +282,7 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends, over=bus0)
+    expression: f <= at(cap, by=ends.bus0)
 
 objective: { sense: minimize, expression: sum(f) }
 ```
@@ -403,7 +403,7 @@ objective: { sense: minimize, expression: sum(order) }
 
 $`\mathit{order}_{t,m \boxminus_{0} \mathrm{lead}} \ge \mathrm{demand}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}`$
 
-### `shift(array, along=dim, offset=n, by=relation)`
+### `shift(array, along=relation.k, offset=n)`
 
 `examples/operators/shift_partitioned.yaml`
 
@@ -427,7 +427,7 @@ variables:
 constraints:
   no_faster_than_before_in_season:
     dims: [snapshot]
-    expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of)
+    expression: p <= shift(p, along=season_of.snapshot, offset=1, edge='wrap')
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -536,7 +536,7 @@ objective: { sense: minimize, expression: sum(on) }
 
 $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$
 
-### `sum_back(array, along=dim, window=n, by=relation)`
+### `sum_back(array, along=relation.k, window=n)`
 
 `examples/operators/sum_back_partitioned.yaml`
 
@@ -565,7 +565,7 @@ variables:
 constraints:
   stays_up_inside_its_day:
     dims: [unit, hour]
-    expression: sum_back(started, along=hour, window=3, by=day_of) <= on
+    expression: sum_back(started, along=day_of.hour, window=3) <= on
 
 objective: { sense: minimize, expression: sum(on) }
 ```

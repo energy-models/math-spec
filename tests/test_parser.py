@@ -320,7 +320,7 @@ def test_a_quoted_right_hand_side_is_a_label(text, value, quoted):
         ('position(snapshot) > 0', '>', 0, None),
         ('position(snapshot) <= -2', '<=', -2, None),
         ('position(snapshot) == -1', '==', -1, None),
-        ('position(snapshot, by=period_of) == 0', '==', 0, 'period_of'),
+        ('position(period_of.snapshot) == 0', '==', 0, 'period_of'),
     ],
     ids=['first', 'not first', 'after the first', 'band from the back', 'last', 'grouped'],
 )
@@ -328,10 +328,11 @@ def test_position_converts_a_dimension_to_where_a_row_sits(text, op, position, b
     """`position(dim)` is the left-hand side, so every comparator reads one way (#32)."""
     node = parse_where(text)
     assert isinstance(node, UnresolvedPositionNode)
-    assert node.dimension == 'snapshot'
+    assert (node.subject, node.column) == (('snapshot', None) if by is None else (by, 'snapshot')), (
+        'the name before the dot is the subject, and the key column follows it'
+    )
     assert node.op == op
     assert node.position == position
-    assert node.by == by
 
 
 def test_a_position_is_not_confused_with_a_name():

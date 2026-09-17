@@ -22,6 +22,7 @@ from math_spec._expression_parser import (
     BinaryOperatorNode,
     CaseArm,
     CasesNode,
+    ColumnRefNode,
     ComparisonNode,
     DefinitionNode,
     DimensionNode,
@@ -285,9 +286,11 @@ def where_of(text: str | None, ns: Namespace, context: str, self_variable: str |
 
 
 def names_in(value: ArithmeticNode) -> tuple[str, ...]:
-    """The names a relation kwarg carries: one bare, several bracketed, none otherwise."""
+    """The relation names a kwarg carries: one bare or before a dot, several bracketed, none otherwise."""
     if isinstance(value, NameNode):
         return (value.name,)
+    if isinstance(value, ColumnRefNode):
+        return (value.name,) if value.name else ()
     return value.names if isinstance(value, NameListNode) else ()
 
 
@@ -416,6 +419,13 @@ class _Resolver:
                 f'terms out and add them.'
             )
             return node
+        if isinstance(node, ColumnRefNode):
+            self.errors.append(
+                f'{self.context}: {node.shown} names columns of a relation, which is only legal as an operator '
+                f'kwarg value such as sum(x, over={node.shown}). In an expression, a relation is structure '
+                f'rather than data.'
+            )
+            return node
         if isinstance(node, CasesNode):
             return self._cases(node)
         assert_never(node)
@@ -453,7 +463,12 @@ class _Resolver:
                 return node
 
     def _call(self, node: FunctionCallNode) -> ArithmeticNode:
-        """An operator call: its shape checked, and each kwarg typed by the kind the operator declares for it."""
+        """An operator call: its shape checked, each plain kwarg typed by its kind, and the relational kwargs typed together.
+
+        The relational kwargs are typed as one, because what ``over=`` means
+        depends on whether ``by=`` is beside it, and a partition's ``within=``
+        belongs to the relation ``along=`` names.
+        """
         if node.name not in BUILTINS:
             self.errors.append(f'{self.context}: {unknown_operator_message(node.name)}')
             return node
@@ -465,26 +480,34 @@ class _Resolver:
             return node if shape_error is not None else self._dual(node)
         args = tuple(self._arith(a) for a in node.args)
         kwargs: dict[str, ArithmeticNode] = {}
-        with_relation = any(k in node.kwargs for k in builtin.relation_kwargs)
-        roles = {k: v for k, v in node.kwargs.items() if builtin.kind_of(k, with_relation=with_relation) == 'role'}
-        if roles and 'by' not in node.kwargs:
-            self.errors.append(
-                f'{self.context}: {node.name}({", ".join(f"{k}=" for k in roles)}) names a column of a relation, '
-                f'and no by= names the relation. Write {builtin.usage}'
-            )
         for key, value in node.kwargs.items():
-            match builtin.kind_of(key, with_relation=with_relation):
+            match builtin.kind_of(key):
                 case 'edge':
                     kwargs[key] = self._edge(value, node.name)
-                case 'dimension':
-                    kwargs[key] = self._dim_ref(value, node.name, key)
-                case 'relation':
-                    kwargs[key] = self._relation_ref(value, node.name, key, roles, node.kwargs.get('along'))
-                case 'role':
-                    pass
-                case 'value':
+                case 'value' if key in builtin.required_value_kwargs:
                     kwargs[key] = self._amount(value, node.name, key)
+                case _:
+                    pass
+        kwargs.update(self._relational(node))
         return FunctionCallNode(node.name, args, kwargs)
+
+    def _relational(self, node: FunctionCallNode) -> dict[str, ArithmeticNode]:
+        """The dimension and relation kwargs of *node* typed together, as the kwargs the program reads.
+
+        A sum comes back with ``over=`` a dimension or ``by=`` the relation it
+        walks; a read with ``by=``; a partition with ``along=`` the dimension
+        slid along and, through a relation, ``by=`` the relation grouping it.
+        An untypeable value comes back as written, its refusal appended.
+        """
+        given = node.kwargs
+        match node.name:
+            case 'sum':
+                return self._sum_axis(given.get('over'), given.get('by'))
+            case 'at':
+                return {} if 'by' not in given else {'by': self._read_ref(given['by'])}
+            case 'shift' | 'sum_back':
+                return {} if 'along' not in given else self._axis(node.name, given['along'], given.get('within'))
+        return {}
 
     def _cases(self, node: CasesNode) -> CasesNode:
         """Each arm's value and ``when`` typed under the arm's own context."""
@@ -565,91 +588,188 @@ class _Resolver:
             return node
         return DualNode(value.name)
 
-    def _relation_ref(
-        self,
-        value: ArithmeticNode,
-        operator: str,
-        key: str,
-        roles: Mapping[str, ArithmeticNode],
-        over: ArithmeticNode | None,
-    ) -> ArithmeticNode:
-        """An operator's ``by=``, with the ``over=`` and ``into=`` that say how each relation is walked.
+    def _sum_axis(self, over: ArithmeticNode | None, by: ArithmeticNode | None) -> dict[str, ArithmeticNode]:
+        """``sum``'s ``over=`` and ``by=`` typed: a dimension reduced away, or one walk through a relation.
 
-        A relation carries its own dimensions, so the call names columns rather
-        than dims: ``over=`` the column consumed, ``into=`` the column a sum
-        produces, every other key column joined on — a value column not walked
-        is not read, and a bare relation's columns are all key. A read lands on
-        the whole key, so ``at`` names only what it consumes. Where the
-        declaration leaves one choice
-        — a key of one column, a value of one column — the call may leave it
-        unsaid. A bracketed list is one grouping through several tables at
-        once rather than a composition of groupings, so its members walk the
-        same dimension, take their defaults, and must not produce the same
-        dim twice.
+        ``over=`` names a dimension on its own. Written with a dot it names
+        the key columns the sum consumes, and ``by=`` the value columns it
+        lands on; a side left unsaid is the whole side. Both name one
+        relation. A bracketed ``by=`` is one grouping through several
+        relations, each walked whole, so ``over=`` has nothing to name there.
         """
-        names = names_in(value)
-        if not names:
-            self.errors.append(f'{self.context}: {operator}({key}=...) must name a relation.')
-            return value
+        if by is None and not isinstance(over, ColumnRefNode):
+            return {} if over is None else {'over': self._dim_ref(over, 'sum', 'over')}
+        raw = {k: v for k, v in (('over', over), ('by', by)) if v is not None}
+        if isinstance(by, NameListNode):
+            if over is not None:
+                self.errors.append(
+                    f'{self.context}: sum(by={by.shown}, over=…): a list walks each relation from its whole key to '
+                    f'its whole value, so over= has nothing to name. Name one relation, or declare one table with '
+                    f'the columns of both.'
+                )
+                return raw
+            return self._grouping_list(by)
+        name, produced = None, None
+        if by is not None:
+            selected = self._selection(by, 'sum', 'by')
+            if selected is None:
+                return raw
+            name, produced = selected
+        consumed = None
+        if over is not None:
+            if not isinstance(over, ColumnRefNode):
+                written = over.name if isinstance(over, NameNode) else '…'
+                self.errors.append(
+                    f'{self.context}: sum(by={name}, over={written}): beside by=, over= names the key columns the '
+                    f'sum consumes, written after the relation: over={name}.<key column>. To reduce a dimension '
+                    f'as well, sum twice: sum(sum(…, by={name}), over={written}).'
+                )
+                return raw
+            selected = self._selection(over, 'sum', 'over')
+            if selected is None:
+                return raw
+            if name is not None and selected[0] != name:
+                self.errors.append(
+                    f'{self.context}: sum(over={over.shown}, by={name}…) names two relations, and one sum walks '
+                    f'one relation. Name the same relation on both sides, or group through several with '
+                    f'by=[{selected[0]}, {name}].'
+                )
+                return raw
+            name, consumed = selected
+        assert name is not None
+        walk = self._walk(name, consumed, produced)
+        if walk is None:
+            return raw
+        return {'by': RelationNode((name,), dimensions=walk.consumed_dims, into=walk.produced_dims, walks=(walk,))}
 
-        problems = [p for p in (self._not_a_relation(n, operator, key) for n in names) if p is not None]
+    def _grouping_list(self, by: NameListNode) -> dict[str, ArithmeticNode]:
+        """``sum(x, by=[a, b])``: one grouping through several relations, each walked whole, onto what they produce together."""
+        problems = [p for p in (self._not_a_relation(n, 'sum', 'by') for n in by.names) if p is not None]
         if problems:
             self.errors.extend(problems)
-            return value
-        if len(names) > 1 and roles:
-            self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}, {", ".join(f"{k}=" for k in roles)}): a list '
-                f'walks each relation by its declared key and value, so a column keyword has nothing to name. '
-                f'Name one relation, or declare one table with the columns of both.'
-            )
-            return value
-        named = {k: self._role_name(v, operator, k) for k, v in roles.items()}
-        if any(r is None for r in named.values()):
-            return value
-        if operator in ('shift', 'sum_back'):
-            over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            walks = [self._partition_walk(n, operator, over_dim, named.get('within')) for n in names]
-        elif operator == 'at':
-            walks = [self._read(n, named.get('over')) for n in names]
-        else:
-            walks = [self._walk(n, named.get('over'), named.get('into')) for n in names]
+            return {'by': by}
+        walks = [self._walk(n, None, None) for n in by.names]
         if any(w is None for w in walks):
-            return value
-        resolved = [w for w in walks if w is not None]
+            return {'by': by}
+        node = self._combined('sum', by.names, [w for w in walks if w is not None])
+        return {'by': by if node is None else node}
 
-        partition = operator in ('shift', 'sum_back')
+    def _read_ref(self, by: ArithmeticNode) -> ArithmeticNode:
+        """``at``'s ``by=``: the value columns read, bare for all of them or named after the dot, landed on the whole key."""
+        if isinstance(by, NameListNode):
+            problems = [p for p in (self._not_a_relation(n, 'at', 'by') for n in by.names) if p is not None]
+            if problems:
+                self.errors.extend(problems)
+                return by
+            walks = [self._read(n, None) for n in by.names]
+            if any(w is None for w in walks):
+                return by
+            node = self._combined('at', by.names, [w for w in walks if w is not None])
+            return by if node is None else node
+        selected = self._selection(by, 'at', 'by')
+        if selected is None:
+            return by
+        name, consumed = selected
+        walk = self._read(name, consumed)
+        if walk is None:
+            return by
+        return RelationNode((name,), dimensions=walk.produced_dims, into=walk.consumed_dims, walks=(walk,))
+
+    def _axis(self, operator: str, along: ArithmeticNode, within: ArithmeticNode | None) -> dict[str, ArithmeticNode]:
+        """A partition's ``along=``: a dimension, or a key column of a relation whose groups the slide stays inside.
+
+        Through a relation the program reads the dimension under ``along=``
+        and the relation under ``by=``, as the walk that partitions the axis.
+        """
+        if not isinstance(along, ColumnRefNode):
+            if within is not None:
+                written = along.name if isinstance(along, NameNode) else '…'
+                self.errors.append(
+                    f'{self.context}: {operator}(along={written}, within=…) names the columns a group is made of, '
+                    f'and along= names a dimension, not a relation. Write along=<relation>.<key column> to slide '
+                    f'inside its groups, or drop within=.'
+                )
+                return {'along': along}
+            return {'along': self._dim_ref(along, operator, 'along')}
+        selected = self._selection(along, operator, 'along')
+        if selected is None:
+            return {'along': along}
+        name, columns = selected
+        assert columns is not None
+        if len(columns) != 1:
+            self.errors.append(
+                f'{self.context}: {operator}(along={along.shown}) names {len(columns)} columns, and a translation '
+                f'slides along one key column. Write along={name}.<key column>.'
+            )
+            return {'along': along}
+        within_roles = None if within is None else self._role_name(within, operator, 'within')
+        if within is not None and within_roles is None:
+            return {'along': along}
+        walk = self._partition_walk(name, operator, columns[0], within_roles)
+        if walk is None:
+            return {'along': along}
+        return {
+            'along': DimensionNode(walk.dim(columns[0])),
+            'by': RelationNode((name,), dimensions=walk.consumed_dims, into=(), walks=(walk,)),
+        }
+
+    def _selection(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, tuple[str, ...] | None] | None:
+        """The one relation a kwarg names, and the columns after its dot where it has one; ``None`` with the refusal otherwise."""
+        if isinstance(value, ColumnRefNode):
+            if not isinstance(value.relation, NameNode):
+                self.errors.append(
+                    f'{self.context}: {operator}({key}=….{shown(value.columns)}) names columns of an expression, '
+                    f'and columns belong to a relation. Bind the formal before the dot to a relation.'
+                )
+                return None
+            name, columns = value.relation.name, value.columns
+        elif isinstance(value, NameNode):
+            name, columns = value.name, None
+        else:
+            self.errors.append(f'{self.context}: {operator}({key}=...) must name a relation.')
+            return None
+        problem = self._not_a_relation(name, operator, key)
+        if problem is not None:
+            self.errors.append(problem)
+            return None
+        return name, columns
+
+    def _combined(self, operator: str, names: tuple[str, ...], walks: list[Walk]) -> RelationNode | None:
+        """One grouping or read through several relations: they walk the same dimensions, and no two land on one.
+
+        ``dimensions`` is the fine side every walk shares — what ``sum``
+        consumes and ``at`` produces — and ``into`` the coarse dims in the
+        order written, which ``sum`` produces and ``at`` consumes.
+        """
 
         def fine_of(w: Walk) -> tuple[str, ...]:
             return w.produced_dims if operator == 'at' else w.consumed_dims
 
         def coarse_of(w: Walk) -> tuple[str, ...]:
-            """The dims the call lands on — none for a partition, whose produced columns are a group, not a frame."""
-            if partition:
-                return ()
             return w.consumed_dims if operator == 'at' else w.produced_dims
 
-        fine = {frozenset(fine_of(w)) for w in resolved}
+        fine = {frozenset(fine_of(w)) for w in walks}
         if len(fine) > 1:
             self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}) groups through relations along different '
-                f'dimensions ({", ".join(f"{w.name} along {sorted(fine_of(w))}" for w in resolved)}). One grouping '
+                f'{self.context}: {operator}(by={shown(names)}) groups through relations along different '
+                f'dimensions ({", ".join(f"{w.name} along {sorted(fine_of(w))}" for w in walks)}). One grouping '
                 f'consumes one set of dimensions, so every relation in the list must walk the same — group through '
                 f'them in turn instead, one call each.'
             )
-            return value
-        coarse = tuple(dim for w in resolved for dim in coarse_of(w))
+            return None
+        coarse = tuple(dim for w in walks for dim in coarse_of(w))
         repeated = sorted({t for t in coarse if coarse.count(t) > 1})
         if repeated:
             self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}) produces {repeated} more than once. '
+                f'{self.context}: {operator}(by={shown(names)}) produces {repeated} more than once. '
                 f'Each column walked to produces its own dimension, so two that land on the '
                 f'same one would need it twice — drop one.'
             )
-            return value
-        return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
+            return None
+        return RelationNode(names, dimensions=fine_of(walks[0]), into=coarse, walks=tuple(walks))
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
-        """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
+        """``within=`` as the column names it must be — one bare name, or a bracketed list of them."""
         if isinstance(value, NameNode):
             return (value.name,)
         if isinstance(value, NameListNode):
@@ -659,67 +779,58 @@ class _Resolver:
         )
         return None
 
-    def _walk(self, name: str, from_roles: tuple[str, ...] | None, into_roles: tuple[str, ...] | None) -> Walk | None:
-        """How ``sum`` walks relation *name*, from the columns the call named and the declaration's defaults.
+    def _walk(self, name: str, consumed: tuple[str, ...] | None, produced: tuple[str, ...] | None) -> Walk | None:
+        """How ``sum`` walks relation *name*: the key columns consumed, the value columns landed on, the rest of the key joined.
 
-        The call consumes one or more columns and produces one or more; a
-        side it leaves unsaid is taken from the declaration where it has
-        exactly one candidate, and refused with the candidates otherwise. A
-        sum that walks to the key has one term per coordinate and adds up
-        nothing, which is a read, so it is refused toward ``at``.
+        A side the call leaves unsaid is the whole side. A bare relation has
+        no value side, so there the key columns not consumed are what the sum
+        lands on, and the call has to say which are consumed.
         """
-        ns, context = self.ns, self.context
-        shape = ns.shape_of(name)
-        call = f'sum(by={name})'
-        if not (
-            self._known_roles(name, call, from_roles, 'over') and self._known_roles(name, call, into_roles, 'into')
-        ):
+        context = self.context
+        shape = self.ns.shape_of(name)
+        call = _written('sum', name, consumed, produced)
+        if consumed is None:
+            consumed = shape.key
+        elif not self._on_side(name, call, 'over', consumed, shape.key, 'key', f'by={name}.<value column>'):
             return None
-
-        if from_roles is None:
-            default = self._default_role(name, call, 'over', shape.key, 'key')
-            if default is None:
+        if produced is None:
+            if not shape.values and len(consumed) == len(shape.key):
+                self.errors.append(
+                    f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so nothing says "
+                    f'which columns the sum consumes and which it lands on. Write over={name}.<column> among '
+                    f'{list(shape.roles)} to consume some, or declare the columns it lands on under value:.'
+                )
                 return None
-            from_roles = (default,)
-        if into_roles is None:
-            default = self._default_role(name, call, 'into', shape.values, 'value')
-            if default is None:
-                return None
-            into_roles = (default,)
-        if both := sorted(set(from_roles) & set(into_roles)):
+            produced = shape.values or tuple(r for r in shape.key if r not in consumed)
+        elif not shape.values:
             self.errors.append(
-                f'{context}: {call}: over= and into= both name {both}, and a walk goes between two sets of columns.'
+                f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so it has no value "
+                f'column to land on. Write over={name}.<column>, and the sum lands on the other key columns, or '
+                f'declare the columns it lands on under value:.'
             )
             return None
+        elif not self._on_side(name, call, 'by', produced, shape.values, 'value', f'over={name}.<key column>'):
+            return None
         if not (
-            self._distinct_dims(name, call, 'over', from_roles) and self._distinct_dims(name, call, 'into', into_roles)
+            self._distinct_dims(name, call, 'consumes', consumed, f'over={name}')
+            and self._distinct_dims(name, call, 'lands on', produced, f'by={name}')
         ):
             return None
-        joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
-        walk = Walk(shape, from_roles, into_roles, joined)
-        if walk.is_function_read:
-            self.errors.append(
-                f'{context}: {call}: this sum walks to the key {list(shape.key)}, so each coordinate has one '
-                f"term and nothing is added up — that is a read, which is at()'s. Write "
-                f'at(..., by={name}, over={shown(from_roles)}), or sum toward a value column.'
-            )
-            return None
-        return walk
+        joined = tuple(r for r in shape.key if r not in consumed and r not in produced)
+        return Walk(shape, consumed, produced, joined)
 
-    def _read(self, name: str, from_roles: tuple[str, ...] | None) -> Walk | None:
+    def _read(self, name: str, consumed: tuple[str, ...] | None) -> Walk | None:
         """How ``at`` reads relation *name*: value columns consumed, and the whole key landed on.
 
         A read is one value per coordinate, so it lands on the key and nothing
-        else, and the call names only what it consumes — one value column
-        where the declaration offers several. Which key columns the operand
-        joins on, and which the read produces, is the operand's to decide, and
-        lowering splits the key once the operand's dims are known.
+        else, and the call names only what it consumes — every value column
+        where it names none. Which key columns the operand joins on, and
+        which the read produces, is the operand's to decide, and lowering
+        splits the key once the operand's dims are known.
         """
-        ns, context = self.ns, self.context
-        shape = ns.shape_of(name)
-        call = f'at(by={name})'
-        if not self._known_roles(name, call, from_roles, 'over'):
-            return None
+        context = self.context
+        shape = self.ns.shape_of(name)
+        call = f'at(by={name})' if consumed is None else f'at(by={name}.{shown(consumed)})'
         if not shape.values:
             self.errors.append(
                 f"{context}: {call}: at reads a value column at the key, and '{name}' is a bare relation — every "
@@ -727,107 +838,97 @@ class _Resolver:
                 f'sum through it.'
             )
             return None
-        if from_roles is None:
-            default = self._default_role(name, call, 'over', shape.values, 'value')
-            if default is None:
-                return None
-            from_roles = (default,)
-        if keyed := [r for r in from_roles if r in shape.key]:
-            self.errors.append(
-                f'{context}: {call}: over={shown(from_roles)} names the key column(s) {keyed}, and at reads value '
-                f'columns at the key. Consume a value column, among {list(shape.values)}, or walk the other way '
-                f'with sum.'
-            )
+        if consumed is None:
+            consumed = shape.values
+        elif not self._on_side(name, call, 'by', consumed, shape.values, 'value', 'sum(…, over=…)'):
             return None
-        if not self._distinct_dims(name, call, 'over', from_roles):
+        if not self._distinct_dims(name, call, 'reads', consumed, f'by={name}'):
             return None
-        return Walk(shape, from_roles, shape.key, ())
+        return Walk(shape, consumed, shape.key, ())
 
-    def _distinct_dims(self, name: str, call: str, kwarg: str, roles: tuple[str, ...]) -> bool:
-        """Whether *roles* of relation *name* are over distinct dimensions, so one coordinate can be read at them."""
-        dims = [self.ns.shape_of(name).dim(r) for r in roles]
-        if shared := sorted({d for d in dims if dims.count(d) > 1}):
+    def _on_side(
+        self, name: str, call: str, kwarg: str, roles: tuple[str, ...], side: tuple[str, ...], what: str, other: str
+    ) -> bool:
+        """Whether every column *kwarg* names is on *side* of relation *name*, each once; the refusal names *other* for the rest."""
+        shape = self.ns.shape_of(name)
+        if unknown := [r for r in roles if r not in shape.roles]:
             self.errors.append(
-                f'{self.context}: {call}: {kwarg}={list(roles)} names two columns over {shared}, and the operand '
-                f'carries each dimension once, so nothing says which column its coordinate is read at. Walk '
-                f'between columns over distinct dimensions.'
+                f"{self.context}: {call}: {kwarg}={name}.{shown(roles)} names {unknown}, and '{name}' has no such "
+                f'column — its columns are {list(shape.roles)}.'
             )
+            return False
+        if off := [r for r in roles if r not in side]:
+            self.errors.append(
+                f'{self.context}: {call}: {kwarg}={name}.{shown(roles)} names {off}, which is not a {what} column '
+                f"of '{name}' — its {what} columns are {list(side)}. Name {what} columns here, and the other side "
+                f'with {other}.'
+            )
+            return False
+        if len(set(roles)) < len(roles):
+            self.errors.append(f'{self.context}: {call}: {kwarg}={name}.{shown(roles)} names a column twice.')
             return False
         return True
 
-    def _known_roles(self, name: str, call: str, roles: tuple[str, ...] | None, kwarg: str) -> bool:
-        """Whether every role *kwarg* names is a column of relation *name*, each once; the refusal otherwise."""
+    def _distinct_dims(self, name: str, call: str, verb: str, roles: tuple[str, ...], rewrite: str) -> bool:
+        """Whether *roles* of relation *name* are over distinct dimensions, so a frame can carry each once; the refusal names *rewrite*."""
         shape = self.ns.shape_of(name)
-        for role in roles or ():
-            if role not in shape.roles:
-                self.errors.append(
-                    f"{self.context}: {call}: {kwarg}={role} names no column of '{name}', whose columns are "
-                    f'{list(shape.roles)}.'
-                )
-                return False
-        if roles is not None and len(set(roles)) < len(roles):
-            self.errors.append(f'{self.context}: {call}: {kwarg}={list(roles)} names a column twice.')
+        dims = [shape.dim(r) for r in roles]
+        if shared := sorted({d for d in dims if dims.count(d) > 1}):
+            twins = [r for r in roles if shape.dim(r) in shared]
+            self.errors.append(
+                f'{self.context}: {call} {verb} {twins}, two columns over {shared}, and a frame carries each '
+                f'dimension once, so nothing says which column its coordinate is read at. Name one: '
+                f'{rewrite}.{twins[0]}.'
+            )
             return False
         return True
 
     def _partition_walk(
-        self, name: str, operator: str, walked_dim: str | None, within_roles: tuple[str, ...] | None
+        self, name: str, operator: str, column: str, within_roles: tuple[str, ...] | None
     ) -> Walk | None:
-        """How a partition (``shift``, ``sum_back``, ``position``) walks relation *name* along *walked_dim*.
+        """How a partition (``shift``, ``sum_back``, ``position``) walks relation *name* along key column *column*.
 
-        It walks the one key column over that dimension (a key has one column
-        per dimension), joins on the other key columns and groups by the value
-        columns *within_roles* names — every value column where the call names
-        none. ``None`` where the dimension is not one (already refused), the
-        relation has no key column over it, or ``within=`` names a column that is
-        not a value column.
+        It slides along that column, joins on the other key columns and groups
+        by the value columns *within_roles* names — every value column where
+        the call names none. ``None`` where the column is not a key column,
+        the relation is bare, or ``within=`` names a column that is not a
+        value column.
         """
         context = self.context
         shape = self.ns.shape_of(name)
-        call = f'{operator}(by={name})'
-        if walked_dim is None or not self._known_roles(name, call, within_roles, 'within'):
-            return None
+        call = f'{operator}({"" if operator == "position" else "along="}{name}.{column})'
         if not shape.values:
             self.errors.append(
                 f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so it makes no "
                 f'groups and no coordinate is in exactly one. Move the columns the group is made of under '
-                f'value:, leaving key: the column {operator} walks.'
+                f'value:, leaving key: the column {operator} slides along.'
             )
             return None
-        over_keys = [r for r in shape.key if shape.dim(r) == walked_dim]
-        if not over_keys:
+        if column not in shape.key:
+            where = 'a value column' if column in shape.values else 'no column'
             self.errors.append(
-                f"{context}: {call}: '{name}' has no key column over '{walked_dim}' — its key is "
-                f'{list(shape.key)} — and a partition walks a key column over the dimension it groups.'
+                f"{context}: {call}: '{column}' is {where} of '{name}', and a partition slides along a key column, "
+                f'grouping by the value columns — its key is {list(shape.key)}.'
             )
             return None
-        if keyed := [r for r in within_roles or () if r in shape.key]:
-            self.errors.append(
-                f"{context}: {call}: within={keyed} names a key column of '{name}', and a partition groups by "
-                f'value columns — its value columns are {list(shape.values)}.'
-            )
-            return None
-        (walked,) = over_keys
-        joined = tuple(r for r in shape.key if r != walked)
-        return Walk(shape, (walked,), shape.values if within_roles is None else within_roles, joined)
-
-    def _default_role(self, name: str, call: str, kwarg: str, side: tuple[str, ...], what: str) -> str | None:
-        """The one column *side* offers, or the refusal naming what the call has to choose from."""
-        if len(side) == 1:
-            return side[0]
-        shape = self.ns.shape_of(name)
-        if not shape.values:
-            self.errors.append(
-                f"{self.context}: {call}: '{name}' is a bare relation — every column is in its key — so nothing "
-                f'says which column {call.split("(", maxsplit=1)[0]} walks. Name both: {kwarg}= among '
-                f'{list(shape.roles)} — or declare the column it walks to under value:.'
-            )
-            return None
-        self.errors.append(
-            f"{self.context}: {call}: '{name}' has {len(side)} {what} columns ({list(side)}), and the call has to say "
-            f'which {kwarg}= names.'
-        )
-        return None
+        if within_roles is not None:
+            if unknown := [r for r in within_roles if r not in shape.roles]:
+                self.errors.append(
+                    f"{context}: {call}: within={shown(within_roles)} names {unknown}, and '{name}' has no such "
+                    f'column — its columns are {list(shape.roles)}.'
+                )
+                return None
+            if len(set(within_roles)) < len(within_roles):
+                self.errors.append(f'{context}: {call}: within={shown(within_roles)} names a column twice.')
+                return None
+            if keyed := [r for r in within_roles if r in shape.key]:
+                self.errors.append(
+                    f"{context}: {call}: within={shown(within_roles)} names the key column(s) {keyed} of '{name}', "
+                    f'and a partition groups by value columns — its value columns are {list(shape.values)}.'
+                )
+                return None
+        joined = tuple(r for r in shape.key if r != column)
+        return Walk(shape, (column,), shape.values if within_roles is None else within_roles, joined)
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""
@@ -915,29 +1016,32 @@ class _Resolver:
         return node
 
     def _position(self, node: UnresolvedPositionNode) -> DimensionPositionNode | UnresolvedPositionNode:
-        """``position(dim[, by=relation[, within=columns]]) <op> i``: the name a dimension, ``by=`` a relation keyed over it."""
+        """``position(dim) <op> i``, or ``position(relation.column[, within=columns]) <op> i`` counted inside the relation's groups."""
         ns, context = self.ns, self.context
-        if node.dimension not in ns.dimensions:
+        if node.column is None:
+            if node.subject not in ns.dimensions:
+                hint = (
+                    f'To count inside the groups of a relation, write position({node.subject}.<key column>).'
+                    if ns.kind(node.subject) == 'relation'
+                    else did_you_mean(node.subject, ns.dimensions, label='Dimensions')
+                )
+                self.errors.append(
+                    f"{context}: position() counts along a dimension's coordinates, and "
+                    f"'{node.subject}' is {_declared_as(ns, node.subject)}. {hint}"
+                )
+                return node
+            return DimensionPositionNode(node.subject, node.op, node.position)
+        if ns.kind(node.subject) != 'relation':
             self.errors.append(
-                f"{context}: position() counts along a dimension's coordinates, and "
-                f"'{node.dimension}' is {_declared_as(ns, node.dimension)}. "
-                f'{did_you_mean(node.dimension, ns.dimensions, label="Dimensions")}'
+                f'{context}: position({node.subject}.{node.column}) counts inside the groups a relation makes, and '
+                f"'{node.subject}' is {_declared_as(ns, node.subject)}. "
+                f'{did_you_mean(node.subject, ns.relations, label="Relations")}'
             )
             return node
-        if node.by is None:
-            return DimensionPositionNode(node.dimension, node.op, node.position)
-        call = f'position({node.dimension}, by={node.by})'
-        if ns.kind(node.by) != 'relation':
-            self.errors.append(
-                f"{context}: '{call}' groups by '{node.by}', which is {_declared_as(ns, node.by)}. "
-                f'``by=`` takes a relation with a key column over that dimension. '
-                f'{did_you_mean(node.by, ns.relations, label="Relations")}'
-            )
-            return node
-        walk = self._partition_walk(node.by, 'position', node.dimension, node.into)
+        walk = self._partition_walk(node.subject, 'position', node.column, node.within)
         if walk is None:
             return node
-        return DimensionPositionNode(node.dimension, node.op, node.position, walk)
+        return DimensionPositionNode(walk.dim(node.column), node.op, node.position, walk)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``relation <op> relation``."""
@@ -1094,6 +1198,14 @@ class _Resolver:
 
 #: An ISO literal carrying a time-of-day, which decides date vs datetime.
 _HAS_TIME = re.compile(r'[T ]\d')
+
+
+def _written(operator: str, name: str, consumed: tuple[str, ...] | None, produced: tuple[str, ...] | None) -> str:
+    """The relational call as the author wrote it, for an error message."""
+    parts = [f'over={name}.{shown(consumed)}' if consumed is not None else '']
+    parts.append(f'by={name}.{shown(produced)}' if produced is not None else '')
+    written = ', '.join(p for p in parts if p) or f'by={name}'
+    return f'{operator}({written})'
 
 
 def _not_a_number(name: str, dtype: str, context: str) -> str:

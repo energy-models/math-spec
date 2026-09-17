@@ -201,14 +201,8 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     partition = node.kwargs.get('by')
     if partition is not None:
         assert isinstance(partition, RelationNode)
-        if len(partition.names) > 1:
-            raise DimensionError(
-                f'{context}: {node.name}(along={over.name}, by={partition.shown}) partitions by '
-                f'several relations at once. A partition says which rows are neighbours rather than '
-                f'which group a term lands in, so it names one relation — partition by a relation whose '
-                f'values already distinguish them.'
-            )
-        _check_joined(f'{node.name}(along={over.name}, by={partition.shown})', partition, inner, context)
+        walked = partition.walks[0]
+        _check_joined(f'{node.name}(along={walked.name}.{walked.consumed[0]})', partition, inner, context)
     return inner
 
 

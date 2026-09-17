@@ -114,6 +114,29 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
+class ColumnRefNode:
+    """A relation with columns named after a dot in a kwarg value — ``over=zone_of.generator``, ``by=ends.[bus0, bus1]``.
+
+    Unresolved: which side of the relation the columns must be on is the
+    operator's business. ``relation`` is a node rather than a name so that a
+    macro formal binds there.
+    """
+
+    relation: ArithmeticNode
+    columns: tuple[str, ...]
+
+    @property
+    def name(self) -> str:
+        """The relation's name as written; the empty string where a formal was bound to an expression."""
+        return self.relation.name if isinstance(self.relation, NameNode) else ''
+
+    @property
+    def shown(self) -> str:
+        """The kwarg value as the author wrote it, for an error message."""
+        return f'{self.name}.{shown(self.columns)}'
+
+
+@dataclass(frozen=True)
 class RelationNode:
     """A resolved ``by=`` — one or more relations, each with the walk the call takes through it.
 
@@ -240,6 +263,7 @@ ArithmeticNode = (
     NumberNode
     | NameNode
     | NameListNode
+    | ColumnRefNode
     | VariableNode
     | ParameterNode
     | DualNode
@@ -284,10 +308,11 @@ KwargNode = DimensionNode | RelationNode | EdgeNode
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one
 #: downstream means the expression skipped :func:`~math_spec.resolution.expression_of`.
-UnresolvedNode = NameNode | NameListNode | KeywordNode
+UnresolvedNode = NameNode | NameListNode | ColumnRefNode | KeywordNode
 
-#: Every leaf — nothing below it to descend into.
-LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | UnresolvedNode
+#: Every leaf — nothing below it to descend into. A dotted reference is not
+#: one: the relation before its dot is a child, so a macro formal binds there.
+LeafNode = NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | NameNode | NameListNode | KeywordNode
 
 
 def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
@@ -309,6 +334,8 @@ def children(node: ParsedNode) -> tuple[ArithmeticNode, ...]:
         return tuple(arm.value for arm in node.arms)
     if isinstance(node, DefinitionNode):
         return (node.body,)
+    if isinstance(node, ColumnRefNode):
+        return (node.relation,)
     return ()
 
 
@@ -345,6 +372,8 @@ def with_children(node: ArithmeticNode, recurse: Callable[[ArithmeticNode], Arit
         return CasesNode(node.name, tuple(CaseArm(a.label, a.when, recurse(a.value)) for a in node.arms))
     if isinstance(node, DefinitionNode):
         return DefinitionNode(node.name, recurse(node.body))
+    if isinstance(node, ColumnRefNode):
+        return ColumnRefNode(recurse(node.relation), node.columns)
     assert_never(node)
 
 
@@ -367,7 +396,11 @@ def _build_grammar() -> pp.ParserElement:
     name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
         lambda t: NameListNode(tuple(str(x) for x in t))
     )
-    kwarg = (name + pp.Suppress('=') + (quoted | name_list | arith)).set_parse_action(lambda t: (t[0], t[1]))
+    column_list = pp.Group(pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']'))
+    column_ref = (name + pp.Suppress('.') + (column_list | name)).set_parse_action(_make_column_ref)
+    kwarg = (name + pp.Suppress('=') + (quoted | column_ref | name_list | arith)).set_parse_action(
+        lambda t: (t[0], t[1])
+    )
     pos_arg = arith
     arg_list = pp.Optional(pp.DelimitedList(kwarg | pos_arg))
     func_call = (name + pp.Suppress('(') + arg_list + pp.Suppress(')')).set_parse_action(_make_func_call)
@@ -393,6 +426,13 @@ def _build_grammar() -> pp.ParserElement:
     return (arith + pp.Optional(comparator + arith)).set_parse_action(
         lambda t: ComparisonNode(t[1], t[0], t[2]) if len(t) == 3 else t[0]
     )
+
+
+def _make_column_ref(tokens: pp.ParseResults) -> ColumnRefNode:
+    """``rel.col`` or ``rel.[a, b]`` — the relation as a name node, the columns as strings."""
+    relation, columns = tokens
+    names = tuple(str(c) for c in columns) if isinstance(columns, pp.ParseResults) else (str(columns),)
+    return ColumnRefNode(NameNode(str(relation)), names)
 
 
 def _make_func_call(tokens: pp.ParseResults) -> FunctionCallNode:
