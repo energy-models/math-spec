@@ -110,7 +110,8 @@ answer here is the mistake.
 
 ## Renaming and deleting
 
-The project is below 1.0.0, and it holds no compatibility promise.
+The project is on the `0.0.1-alphaN` stream, and it holds no compatibility
+promise.
 
 So when you are asked to change something, change it. Rename it, move it, or
 delete it. Add no alias, no deprecation cycle, and no `legacy_` path. Write **no
@@ -120,10 +121,10 @@ the valid keys, and that is the whole migration story.
 **A test that asserts the old behaviour is not a blocker.** Say in the PR what
 coverage moved where.
 
-This costs one thing. A breaking marker in the PR title bumps the minor, and
-the minor is what says a consumer has to change something. A breaking marker is
-a `!`, or a `BREAKING CHANGE:` footer. Use one where the break is real, and say
-what broke in the PR body.
+This costs one thing. A breaking marker in the PR title moves the minor, so
+the stream goes from `0.0.1-alphaN` to `0.1.0-alphaN`. A breaking marker is a
+`!`, or a `BREAKING CHANGE:` footer. Use one where a consumer has to change
+something, and say what broke in the PR body.
 
 ## Numbers and claims
 

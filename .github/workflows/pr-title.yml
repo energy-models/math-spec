@@ -5,7 +5,7 @@
 name: PR title
 
 # The squash subject becomes a commit on main, and release-please parses it to
-# decide the changelog section and the version.
+# decide the changelog section (and, once we leave the alpha stream, the version).
 # A subject it cannot parse is silently dropped from the changelog — nothing fails,
 # the entry just never appears. This check is the only thing standing between a
 # sloppy title and a hole in CHANGELOG.md. See RELEASING.md.
@@ -76,9 +76,8 @@ jobs:
           }
 
           # Every subject GitHub could squash with. A one-commit PR is squashed
-          # with that commit's own title, so $PR_TITLE alone is not what lands
-          # on main: specsolve withdrew 0.1.0-alpha.226 and .227 over a marker
-          # in a single commit's title that no check had read.
+          # with that commit's own title, so $PR_TITLE alone is not the subject
+          # that lands on main.
           titles=("PR title|${PR_TITLE}")
           if [[ "$COMMIT_COUNT" == "1" ]]; then
             only=$(gh api "repos/${REPO}/pulls/${NUMBER}/commits" --jq '.[0].commit.message')
@@ -99,9 +98,9 @@ jobs:
                      fix(parser): where clauses with a trailing comma
                      docs: describe the two expression tiers
 
-          A '!' (or a 'BREAKING CHANGE:' footer) bumps the minor, and the version
-          stays below 1.0.0. Use one where a consumer has to change something,
-          and say what in the PR body.
+          A '!' (or a 'BREAKING CHANGE:' footer) moves the base version: the
+          stream goes from 0.0.1-alpha.N to 0.1.0-alpha.N. Use one where a
+          consumer has to change something, and say what in the PR body.
 
           Fix the PR title — no need to rewrite the branch. Edits re-run this check.
           MSG
