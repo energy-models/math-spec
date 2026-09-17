@@ -315,6 +315,18 @@ def test_an_objective_a_base_does_not_declare_is_refused(base, patch, says):
     assert says in str(raised.value)
 
 
+def test_a_patch_over_one_kind_of_given_leaves_the_other_alone():
+    """`given:` is laid over a kind at a time, so patching the columns cannot drop the row families."""
+    base = {
+        'dimensions': {'g': {'dtype': 'str'}},
+        'given': {'variables': {'p': {'dims': ['g']}}, 'constraints': {'cap': {'dims': ['g']}}},
+        'expressions': {'price': {'expression': 'dual(cap)'}},
+    }
+    laid = override(base, {'wider': {'given': {'variables': {'p': {'dims': ['g'], 'domain': 'binary'}}}}})
+    assert laid['given']['variables']['p']['domain'] == 'binary'
+    assert sorted(laid['given']['constraints']) == ['cap'], 'the kind the patch did not name is still there'
+
+
 def test_a_patch_is_a_path_as_readily_as_a_mapping(tmp_path):
     """Whatever every other verb takes, so a patch travels as a file rather than as a script."""
     patch = tmp_path / 'carbon.yaml'

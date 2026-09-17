@@ -339,6 +339,26 @@ class GivenVariableBlock(_StrictBlock):
     description: str | None = None
 
 
+class GivenBlock(_StrictBlock):
+    """What this file reads and does not build, by kind.
+
+    One key per kind of declaration, and the section is closed at the two:
+    a third kind enters the day something reads one, and the schema's own
+    error names what is valid until then.
+    """
+
+    _label: ClassVar[str] = 'a given block'
+
+    #: Columns another file introduces (:class:`GivenVariableBlock`).
+    variables: dict[str, GivenVariableBlock] = {}
+    #: Row families another file builds (:class:`GivenConstraintBlock`).
+    constraints: dict[str, GivenConstraintBlock] = {}
+
+    def __bool__(self) -> bool:
+        """Whether the file reads anything it does not build, so a caller can ask in one word."""
+        return bool(self.variables or self.constraints)
+
+
 class ConstraintBlock(_StrictBlock):
     """A declared constraint: one rule, over one frame."""
 
@@ -755,14 +775,12 @@ class Spec(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
-    #: The variables this file reads and does not introduce
-    #: (:class:`GivenVariableBlock`). Empty in a file that stands alone, and
-    #: empty again once :func:`~math_spec.composition.merge` has folded each one
-    #: into the declaration that introduces it.
-    given_variables: dict[str, GivenVariableBlock] = {}
-    #: The row families this file reads the dual of and does not build
-    #: (:class:`GivenConstraintBlock`). Empty in a file that stands alone.
-    given_constraints: dict[str, GivenConstraintBlock] = {}
+    #: What this file reads and does not build (:class:`GivenBlock`): columns
+    #: under ``variables:``, row families under ``constraints:``. Empty in a
+    #: file that stands alone, and empty again once
+    #: :func:`~math_spec.composition.merge` has folded each declaration into
+    #: the one that introduces it.
+    given: GivenBlock = GivenBlock()
 
     def relations_of(self, dimension: str) -> dict[str, RelationBlock]:
         """The relations with a column over *dimension*, by name."""
@@ -860,7 +878,7 @@ class Spec(_StrictBlock):
         walks — ``dual()``'s argument is the only position that reads them — so
         this is the one place the two constraint sections meet.
         """
-        for name in self.given_constraints:
+        for name in self.given.constraints:
             if name in self.constraints:
                 yield (
                     f"Given constraint '{name}' is also declared under 'constraints:'. A row family is "
@@ -874,7 +892,7 @@ class Spec(_StrictBlock):
             ('relation', self.relations),
             ('parameter', self.parameters),
             ('variable', self.variables),
-            ('given variable', self.given_variables),
+            ('given variable', self.given.variables),
             ('named expression', self.expressions),
             ('macro', self.macros),
         ]
@@ -900,8 +918,8 @@ class Spec(_StrictBlock):
         frames = [
             *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
             *(('Variable', name, v.dims) for name, v in self.variables.items()),
-            *(('Given variable', name, g.dims) for name, g in self.given_variables.items()),
-            *(('Given constraint', name, g.dims) for name, g in self.given_constraints.items()),
+            *(('Given variable', name, g.dims) for name, g in self.given.variables.items()),
+            *(('Given constraint', name, g.dims) for name, g in self.given.constraints.items()),
             *(('Constraint', name, c.dims) for name, c in self.constraints.items()),
             *(('Named expression', name, e.dims or []) for name, e in self.expressions.items()),
         ]

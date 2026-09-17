@@ -132,7 +132,7 @@ class Namespace:
     def of(cls, schema: Spec) -> Namespace:
         """Build the namespace of *schema*, the whole of what a file may name."""
         return cls(
-            {**schema.variables, **schema.given_variables},
+            {**schema.variables, **schema.given.variables},
             schema.parameters,
             schema.dimensions,
             {n: RelationDeclaration(n, lk.pairs, lk.keys) for n, lk in schema.relations.items()},
@@ -142,9 +142,9 @@ class Namespace:
             },
             {
                 **{p: tuple(pd.dims) for p, pd in schema.parameters.items()},
-                **{v: tuple(vd.dims) for v, vd in {**schema.variables, **schema.given_variables}.items()},
+                **{v: tuple(vd.dims) for v, vd in {**schema.variables, **schema.given.variables}.items()},
             },
-            {**schema.constraints, **schema.given_constraints},
+            {**schema.constraints, **schema.given.constraints},
         )
 
     def kind(self, name: str) -> DeclarationKind | None:
@@ -191,7 +191,7 @@ class Namespace:
             f"{context}: dual({name}): '{name}' is not a declared constraint{also}.\n"
             f'  Constraints: {sorted(self.constraints)}\n'
             f"Check for typos, or declare '{name}' — under 'constraints:' if this file builds the row, "
-            f"or under 'given_constraints:' if it reads the dual of one somebody else built."
+            f"or under 'given: constraints:' if it reads the dual of one somebody else built."
         )
 
 

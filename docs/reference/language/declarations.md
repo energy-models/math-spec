@@ -114,7 +114,13 @@ equation whether `size` is chosen or given. A pinned variable is still a
 variable, so `size * on` is `variable * variable`, and a pinned variable cannot
 stand in another variable's `bounds`.
 
-## `given_variables`
+## `given`
+
+`given:` holds what this file reads and does not build: columns under
+`variables:`, row families under `constraints:`. It takes those two keys and
+nothing else.
+
+### `given: variables`
 
 A given variable is a column this file reads and another file introduces. It is
 what lets a fragment stand on its own: the file loads, and it prints as math,
@@ -127,10 +133,11 @@ dimensions:
   generator: { dtype: str }
 relations:
   gen_port: { key: generator, value: port }
-given_variables:
-  flow:
-    dims: [snapshot, port]
-    description: what a port puts into its bus
+given:
+  variables:
+    flow:
+      dims: [snapshot, port]
+      description: what a port puts into its bus
 variables:
   gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
 constraints:
@@ -162,16 +169,17 @@ built in Python — the declaration stays, and the program carries it for a
 consumer to bind. See
 [what a program does not build](reading.md#what-a-program-does-not-build).
 
-## `given_constraints`
+### `given: constraints`
 
 A given constraint is a row family this file reads the dual of and another
 model builds. It is what lets a layer price something the base model settles.
 
 ```yaml
-given_constraints:
-  balance:
-    dims: [snapshot, bus]
-    description: the host model clears each bus
+given:
+  constraints:
+    balance:
+      dims: [snapshot, bus]
+      description: the host model clears each bus
 expressions:
   price:
     expression: dual(balance)

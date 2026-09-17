@@ -58,7 +58,7 @@ def _given(program: Program) -> list[Advice]:
             f'one is layered onto, and refuses where it cannot. A fragment is composed instead, and '
             f'merge() folds it into the file that introduces it.',
         )
-        for kind, group in (('variable', program.given_variables), ('row family', program.given_constraints))
+        for kind, group in (('variable', program.given.variables), ('row family', program.given.constraints))
         for name in group
     ]
 
@@ -73,8 +73,8 @@ def _never_an_axis(program: Program) -> list[Advice]:
     reached: set[str] = set()
     for declaration in (*program.parameters.values(), *program.variables.values(), *program.constraints.values()):
         reached.update(declaration.dims)
-    reached.update(dim for given in program.given_variables.values() for dim in given.dims)
-    reached.update(dim for given in program.given_constraints.values() for dim in given.dims)
+    for group in (program.given.variables, program.given.constraints):
+        reached.update(dim for declaration in group.values() for dim in declaration.dims)
     reached |= _produced_axes(program)
     reached |= {dim for lk in program.relations.values() for dim in lk.dims}
 

@@ -37,7 +37,7 @@ compose: `override(merge({…}), {…})`.
 2. **Write each component file against that surface.** It declares its own
    entities, its own math, and one relation into `port`. It names `Port_p`
    under
-   [`given_variables`](../reference/language/declarations.md#given_variables),
+   [`given`](../reference/language/declarations.md#given),
    because the surface introduces that column and this file only reads it.
 
    ```yaml title="generator.yaml"
@@ -47,8 +47,9 @@ compose: `override(merge({…}), {…})`.
      generator: { dtype: str }
    relations:
      Generator_port: { key: generator, value: port }
-   given_variables:
-     Port_p: { dims: [snapshot, port] }
+   given:
+     variables:
+       Port_p: { dims: [snapshot, port] }
    parameters:
      Generator_p_nom: { dims: [generator] }
      Generator_marginal_cost: { dims: [generator] }
@@ -78,7 +79,7 @@ compose: `override(merge({…}), {…})`.
    ```
 
    `merge` folds each given declaration into the one that introduces it, so the
-   composed model declares `Port_p` once and carries no `given_variables`. It
+   composed model declares `Port_p` once and carries no `given:`. It
    lowers and solves like any model.
 
 4. **Add a component type without touching the balance.** A component file pins

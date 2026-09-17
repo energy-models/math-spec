@@ -5,22 +5,22 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # File shape
 
-A model file is a YAML mapping with **twelve declaration keys**, plus
-`version` and `description`. Any subset of the twelve is accepted.
+A model file is a YAML mapping with **eleven declaration keys**, plus
+`version` and `description`. Any subset of the eleven is accepted.
 
-| Key               |                                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `dimensions`      | the axes ([dimensions](dimensions.md))                                                                              |
-| `relations`       | named relations between dimensions ([relations](dimensions.md#relations))                                           |
-| `parameters`      | the data the model expects ([declarations](declarations.md))                                                        |
-| `variables`       | what the solver decides                                                                                             |
-| `given_variables` | columns this file reads and another introduces ([given variables](declarations.md#given_variables))                 |
-| `constraints`     | the rules those decisions obey                                                                                      |
-| `objective`       | what is minimised or maximised                                                                                      |
-| `expressions`     | named quantities, reusable in the math and readable after a solve ([expressions](expressions.md#named-expressions)) |
-| `macros`          | templates that take arguments ([macros](expressions.md#macros))                                                     |
-| `piecewise`       | piecewise-linear curves ([piecewise](piecewise.md))                                                                 |
-| `sos`             | special-ordered sets ([sos](piecewise.md#sos))                                                                      |
+| Key           |                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `dimensions`  | the axes ([dimensions](dimensions.md))                                                                              |
+| `relations`   | named relations between dimensions ([relations](dimensions.md#relations))                                           |
+| `parameters`  | the data the model expects ([declarations](declarations.md))                                                        |
+| `variables`   | what the solver decides                                                                                             |
+| `given`       | what this file reads and another file builds ([given](declarations.md#given))                                       |
+| `constraints` | the rules those decisions obey                                                                                      |
+| `objective`   | what is minimised or maximised                                                                                      |
+| `expressions` | named quantities, reusable in the math and readable after a solve ([expressions](expressions.md#named-expressions)) |
+| `macros`      | templates that take arguments ([macros](expressions.md#macros))                                                     |
+| `piecewise`   | piecewise-linear curves ([piecewise](piecewise.md))                                                                 |
+| `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                                      |
 
 A file with no `objective` is a **feasibility problem**: it asks whether the
 constraints can all be met. It loads and solves like any other model, and the

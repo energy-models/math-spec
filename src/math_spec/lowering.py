@@ -165,10 +165,10 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         expressions[name] = program.ExpressionDeclaration(
             _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in resolved.read_by_the_math
         )
-    given_variables = {name: program.GivenDeclaration(tuple(g.dims)) for name, g in expanded.given_variables.items()}
-    given_constraints = {
-        name: program.GivenDeclaration(tuple(g.dims)) for name, g in expanded.given_constraints.items()
-    }
+    given = program.GivenTargets(
+        variables={name: program.GivenDeclaration(tuple(g.dims)) for name, g in expanded.given.variables.items()},
+        constraints={name: program.GivenDeclaration(tuple(g.dims)) for name, g in expanded.given.constraints.items()},
+    )
     return program.Program(
         parameters=parameters,
         variables=variables,
@@ -178,8 +178,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
         named_expressions=expressions,
-        given_variables=given_variables,
-        given_constraints=given_constraints,
+        given=given,
     )
 
 

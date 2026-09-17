@@ -118,7 +118,7 @@ classes live in `math_spec.program`.
 
 ## What a program does not build
 
-`program.given_variables` and `program.given_constraints` name what the model
+`program.given.variables` and `program.given.constraints` name what the model
 reads and does not build. Every other group is a build instruction — a column
 for each entry of `variables`, a row family for each entry of `constraints`.
 These two are the opposite: a name to look up in the model this one is layered
@@ -128,8 +128,10 @@ onto.
 layer = to_program(
     {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}},
-        'given_variables': {'p': {'dims': ['snapshot', 'bus']}},
-        'given_constraints': {'balance': {'dims': ['snapshot', 'bus']}},
+        'given': {
+            'variables': {'p': {'dims': ['snapshot', 'bus']}},
+            'constraints': {'balance': {'dims': ['snapshot', 'bus']}},
+        },
         'parameters': {'rate': {'dims': ['bus']}},
         'constraints': {'cap': {'dims': [], 'expression': 'sum(p * rate) <= 100'}},
         'expressions': {'price': {'expression': 'dual(balance)'}},
@@ -137,8 +139,8 @@ layer = to_program(
 )
 
 sorted(layer.variables)  # []
-sorted(layer.given_variables)  # ['p']
-layer.given_constraints['balance'].dims  # ('snapshot', 'bus')
+sorted(layer.given.variables)  # ['p']
+layer.given.constraints['balance'].dims  # ('snapshot', 'bus')
 ```
 
 A consumer that builds a program does three things with them:

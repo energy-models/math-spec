@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 PyPSA's `Generator`, as one fragment. It owns its dimension, its relation into
 `port`, its parameters, its column and its cost, and it reads `Port_p` from
 [the surface](surface.md) under
-[`given_variables`](../../reference/language/declarations.md#given_variables).
+[`given`](../../reference/language/declarations.md#given).
 `Generator_port` stands where PyPSA writes `Generator_bus`.
 
 The constraint is what makes the library composable:
@@ -35,10 +35,11 @@ dimensions:
   generator: { dtype: str, description: "generating units, each on one port" }
 relations:
   Generator_port: { key: generator, value: port }
-given_variables:
-  Port_p:
-    dims: [snapshot, port]
-    description: the surface introduces this column, and this file only writes into it
+given:
+  variables:
+    Port_p:
+      dims: [snapshot, port]
+      description: the surface introduces this column, and this file only writes into it
 parameters:
   Generator_p_nom: { dims: [generator], description: nominal power }
   Generator_marginal_cost: { dims: [generator], description: cost of one unit of output }

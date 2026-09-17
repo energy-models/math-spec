@@ -73,7 +73,7 @@ def test_both_kinds_of_note_come_through_the_one_door():
 #: and every dimension is indexed, so neither other pass has anything to say.
 READS_A_COLUMN = {
     'dimensions': {'g': {'dtype': 'str'}},
-    'given_variables': {'flow': {'dims': ['g']}},
+    'given': {'variables': {'flow': {'dims': ['g']}}},
     'variables': {'p': {'dims': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
     'constraints': {'tie': {'dims': ['g'], 'expression': 'p == flow'}},
 }
