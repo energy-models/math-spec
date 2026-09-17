@@ -4,8 +4,8 @@
 
 """``python -m math_spec <verb> model.yaml`` — the shell front.
 
-``check`` loads the file and prints the language's advice; one further verb
-per typeset format, read off :data:`math_spec.typesetting.FORMATS`.
+``check`` loads the file and prints the language's advice, and there is one
+further verb per typeset format, read off :data:`math_spec.typesetting.FORMATS`.
 """
 
 from __future__ import annotations

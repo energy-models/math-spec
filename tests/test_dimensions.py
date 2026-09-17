@@ -14,7 +14,7 @@ from math_spec.dimensions import DimensionError, _check_where_dims, dims_of
 from math_spec.program import Mask, RelationPairComparisonNode
 from math_spec.resolution import Namespace, expression_of, where_of
 from math_spec.validation import to_spec
-from tests.fixtures import override, schema_of
+from tests.fixtures import schema_of, varied
 
 if TYPE_CHECKING:
     from math_spec.model import Spec
@@ -352,7 +352,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
     }
 
     def _refused(self, expression: str) -> str:
-        raw = override(self.BASE, **{'constraints.k.expression': expression})
+        raw = varied(self.BASE, **{'constraints.k.expression': expression})
         with pytest.raises(DimensionError) as caught:
             to_spec(raw)
         return str(caught.value)
@@ -406,7 +406,7 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         literal zero vacates none, so there is nothing for an `edge=` to answer
         for. A *named* offset may be zero in the data and is not known here.
         """
-        to_spec(override(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, along=g, offset=0)'}))
+        to_spec(varied(self.BASE, **{'constraints.k.expression': 'p <= shift(cap, along=g, offset=0)'}))
 
 
 # ---------------------------------------------------------------------------

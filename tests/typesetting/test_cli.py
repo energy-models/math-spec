@@ -39,7 +39,7 @@ def _verbs() -> dict[str, argparse.ArgumentParser]:
     raise AssertionError('the front registered no subcommands at all')
 
 
-def test_the_verbs_are_check_and_the_formats_and_nothing_else():
+def test_the_verbs_are_the_formats_and_the_one_that_reads_a_model():
     """The one claim the module makes about itself, in both directions.
 
     The typeset verbs are built by looping over `FORMATS`, so a new format

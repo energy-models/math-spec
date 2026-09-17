@@ -25,6 +25,8 @@ SURFACE = frozenset(
     {
         # the two public states, and the conversion to each
         'Spec', 'to_spec', 'program', 'to_program',
+        # the file-level verb that makes one model out of several
+        'override',
         # the error tree
         'MathSpecError', 'LanguageError', 'SchemaError', 'DimensionError',
         'PiecewiseExpansionError', 'did_you_mean', 'schema_error',

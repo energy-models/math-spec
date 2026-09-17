@@ -182,6 +182,20 @@ a path, so a model assembled in Python is checked exactly as a file is, and
 `Spec.to_yaml()` writes the file a reviewer reads. A `dict` may hold only what a
 file may hold. There is no Python API that builds models any other way.
 
+`override` is the verb for the layered case, where a framework ships a base
+and a project extends it. It lays each patch over the base a field at a time,
+so a patch says only what it changes.
+[Compose a model from a base and patches](../howto/compose.md) is the recipe.
+
+The verb is built to collide, so every collision the caller did not ask for is
+refused. An entry naming some fields of a declaration the base does not have is
+a typo rather than a new declaration, and the refusal names the near miss. Two
+patches writing one field are refused, which is what stops the order they are
+given in from deciding a model; a patch meant to refine another is laid on that
+other patch's result. A dimension or a relation may be added or restated
+exactly, never changed, because the expressions written over an axis are
+already in the base.
+
 Two requests were closed against this design. A built-in merge (#30) and
 namespaces so that two templates can each declare a `p` (#29) are both things a
 library does before it hands over a `dict`. Arithmetic in `bounds:`, which signed

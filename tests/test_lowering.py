@@ -62,7 +62,7 @@ from math_spec.program import (
     where_children,
 )
 from math_spec.resolution import Namespace, expression_of, where_of
-from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, override, schema_of
+from tests.fixtures import DISPATCH_MODEL, EXAMPLES, SMALL_MODEL, schema_of, varied
 
 if TYPE_CHECKING:
     from math_spec._expression_parser import ArithmeticNode
@@ -74,7 +74,7 @@ CAPACITY_POSITIVE = ParameterComparisonNode('capacity', '>', 0.0, ('generator',)
 
 #: One dimension, one parameter, one bounded variable and a scalar constraint:
 #: the smallest model that loads, for a claim about the plan's record rather
-#: than about the math in it. A test adds what it judges with :func:`override`.
+#: than about the math in it. A test adds what it judges with :func:`varied`.
 TINY = {
     'dimensions': {'g': {}},
     'parameters': {'cost': {'dims': ['g']}},
@@ -93,7 +93,7 @@ AT_BUS = RelationDeclaration('at_bus', (('g', 'g'), ('bus', 'bus')), ('g',))
 #: offset. Which node a construct becomes is mostly a claim about the dim it
 #: consumes and the dim it lands on, and stating that needs a third dimension
 #: and two relations over one of them.
-SHAPES_MODEL = override(
+SHAPES_MODEL = varied(
     SMALL_MODEL,
     **{
         'dimensions.z': {'dtype': 'str'},
@@ -157,7 +157,7 @@ def test_lower_program_structure(dispatch_program):
 @pytest.mark.parametrize('sense', [pytest.param('minimize', id='minimize'), pytest.param('maximize', id='maximize')])
 def test_the_objective_sense_crosses_untranslated(sense: str):
     """One spelling from the file to the program, in both directions — each sink translates at its own edge."""
-    program = to_program(override(TINY, objective={'sense': sense, 'expression': 'sum(p * cost, over=g)'}))
+    program = to_program(varied(TINY, objective={'sense': sense, 'expression': 'sum(p * cost, over=g)'}))
     assert program.objective is not None
     assert program.objective.sense == sense, "the file's own word for the direction, unchanged"
 
@@ -298,7 +298,7 @@ def test_a_lowered_where_is_a_mask_that_answers_from_its_root(dispatch_program):
 def test_a_lowered_mask_answers_its_dims_conjuncts_and_atoms(variable, where, dims, conjuncts, atoms):
     """`Mask.dims` is read off the leaves, which carry their declarations' dims;
     `atoms` crosses the `OR` that `conjuncts` stops at."""
-    mask = to_program(override(SMALL_MODEL, **{f'variables.{variable}.where': where})).variables[variable].where
+    mask = to_program(varied(SMALL_MODEL, **{f'variables.{variable}.where': where})).variables[variable].where
 
     assert mask.dims == frozenset(dims)
     assert len(mask.conjuncts) == conjuncts, 'an OR is one conjunct, a leaf is one conjunct'
@@ -394,7 +394,7 @@ def test_an_unwritten_where_lowers_to_none_not_an_empty_mask():
 
 
 def test_a_constraint_where_is_a_mask_like_a_variable_s():
-    lowered = to_program(override(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'}))
+    lowered = to_program(varied(DISPATCH_MODEL, **{'constraints.balance.where': 'load > 0'}))
     (c,) = lowered.constraints.values()
 
     assert c.where == Mask(ParameterComparisonNode('load', '>', 0.0, ('snapshot',)))
@@ -648,7 +648,7 @@ def test_a_relation_names_the_dimension_its_values_label():
 
 def test_an_unknown_dimension_is_a_near_miss_rather_than_an_empty_declaration():
     """A typo used to return an empty declaration, silently dropping every join."""
-    program = to_program(override(TINY, **{'dimensions.snapshot': {}}))
+    program = to_program(varied(TINY, **{'dimensions.snapshot': {}}))
 
     assert program.dimension('snapshot').dtype == 'str', 'a declared dimension still comes back'
     with pytest.raises(KeyError, match='snapshto') as excinfo:
@@ -672,7 +672,7 @@ def test_a_program_seals_its_declaration_groups(dispatch_program, group):
 def test_expressions_are_the_ones_a_row_is_built_from():
     """`expressions` named the *declared* ones, which build no row at all."""
     program = to_program(
-        override(
+        varied(
             TINY,
             expressions={'spend': 'sum(cost, over=g)'},
             objective={'sense': 'minimize', 'expression': 'sum(p * cost, over=g)'},
@@ -693,7 +693,7 @@ def test_expressions_are_the_ones_a_row_is_built_from():
 
 def _footprint_of(constraint: str, objective: str) -> Footprint:
     return to_program(
-        override(
+        varied(
             TINY,
             constraints={'k': {'dims': ['g'], 'expression': constraint}},
             objective={'sense': 'minimize', 'expression': objective},
@@ -743,7 +743,7 @@ def test_the_footprint_is_walked_once_and_held(dispatch_program):
 
 def test_a_named_expression_is_not_in_the_footprint():
     """It builds no row, so counting it would answer wrongly about what is solved."""
-    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}))
+    program = to_program(varied(TINY, expressions={'spend': 'sum(p * cost, over=g)'}))
 
     assert Parameter not in program.footprint.shapes, "the named expression's parameter reaches no row"
     assert Parameter in {type(n) for n in walk(program.named_expressions['spend'].expression)}, (
@@ -757,7 +757,7 @@ def test_a_dimension_carries_the_dtype_its_labels_are_checked_against():
     A dimension is read from whatever table carries it, so nothing downstream
     can infer what the column should have been.
     """
-    program = to_program(override(TINY, **{'dimensions.t': {'dtype': 'int'}}))
+    program = to_program(varied(TINY, **{'dimensions.t': {'dtype': 'int'}}))
 
     assert program.dimension('t').dtype == 'int', 'a declared dtype reaches the plan'
     assert program.dimension('g').dtype == 'str', "and the schema's default does too, rather than nothing"
@@ -883,14 +883,14 @@ def test_a_cased_expression_is_readable_by_the_name_the_file_wrote():
 )
 def test_an_entry_is_in_the_math_where_the_objective_or_a_constraint_inlines_it(patch, in_math):
     """`in_math` is usage, not shape: one affine body is in the math when a row inlines it, however indirectly, and a reported quantity when none does."""
-    program = to_program(override(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch))
+    program = to_program(varied(TINY, expressions={'spend': 'sum(p * cost, over=g)'}, **patch))
     assert program.named_expressions['spend'].in_math is in_math
 
 
 def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
     """The whole chain is in the math, not only the entry a row names: the constraint inlines `twice`, and `twice` inlines `spend`."""
     program = to_program(
-        override(
+        varied(
             TINY,
             expressions={'spend': 'sum(p * cost, over=g)', 'twice': 'spend * 2'},
             **{'constraints.c.expression': 'twice >= 1'},
@@ -905,7 +905,7 @@ def test_an_entry_reached_only_through_another_is_in_the_math_with_it():
 def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
     """A formal shadows the entry inside the template, so the row inlines the argument, not the same-named entry."""
     program = to_program(
-        override(
+        varied(
             TINY,
             expressions={'spend': 'sum(p * cost, over=g)'},
             macros={'scaled': {'args': ['spend'], 'template': 'spend * 2'}},
@@ -919,7 +919,7 @@ def test_a_macro_formal_named_like_an_entry_keeps_the_entry_out_of_the_math():
 
 def test_an_entry_that_reads_a_dual_is_a_reported_quantity():
     """A dual is read after the solve, so an entry calling one is never in the math: it lowers to a Dual leaf and stays reported."""
-    program = to_program(override(TINY, expressions={'shadow_price': 'dual(c)'}))
+    program = to_program(varied(TINY, expressions={'shadow_price': 'dual(c)'}))
     declaration = program.named_expressions['shadow_price']
     assert declaration.in_math is False, 'the entry reading a dual is reported, never in the math'
     assert isinstance(declaration.expression, Dual), 'and it lowers to a Dual leaf'
