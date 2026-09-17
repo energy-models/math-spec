@@ -23,6 +23,19 @@ The objective is the generator's, carried as it was written, because it is the
 only fragment that priced anything. A second priced fragment would have its
 term summed with this one.
 
+The math under the file has a tab per formulation. **As composed** is the model
+above. **With commitment** lays `variants/commitment.yaml` over it with
+[`override`](../../howto/compose.md), which makes the generator a committed
+unit:
+
+```python
+spec = ms.to_spec(ms.override(model, {'commitment': 'variants/commitment.yaml'}))
+```
+
+A patch is refused on its own, because it edits declarations it does not
+declare. So the model it lands on is the only place its math exists, and the
+tab prints the patch beside that math.
+
 <!-- gallery:begin -->
 ```yaml
 version: 0
@@ -106,70 +119,178 @@ objective:
   expression: sum(gen_p * gen_cost)
 ```
 
-#### Sets
+=== "As composed"
 
-| Symbol | Meaning |
-|---|---|
-| $`\mathcal{T}`$ | index $`t`$ — `snapshot` |
-| $`\mathcal{P}`$ | index $`p`$ — `port` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B},\ \mathrm{gen\_port}: \mathcal{G} \to \mathcal{P},\ \mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
-| $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B}`$ |
-| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_port}: \mathcal{G} \to \mathcal{P}`$ |
-| $`\mathcal{D}`$ | index $`d`$ — `demand` with $`\mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
+    #### Sets
 
-#### Parameters
+    | Symbol | Meaning |
+    |---|---|
+    | $`\mathcal{T}`$ | index $`t`$ — `snapshot` |
+    | $`\mathcal{P}`$ | index $`p`$ — `port` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B},\ \mathrm{gen\_port}: \mathcal{G} \to \mathcal{P},\ \mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
+    | $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B}`$ |
+    | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_port}: \mathcal{G} \to \mathcal{P}`$ |
+    | $`\mathcal{D}`$ | index $`d`$ — `demand` with $`\mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
 
-| Symbol | Meaning |
-|---|---|
-| $`\mathrm{gen\_cost}`$ | `gen_cost` over $`\mathcal{G}`$ — what one unit of output costs |
-| $`\mathrm{gen\_p\_max}`$ | `gen_p_max` over $`\mathcal{G}`$ — installed capacity |
-| $`\mathrm{dem\_load}`$ | `dem_load` over $`\mathcal{T} \times \mathcal{D}`$ — what a demand takes in a snapshot |
+    #### Parameters
 
-#### Variables
+    | Symbol | Meaning |
+    |---|---|
+    | $`\mathrm{gen\_cost}`$ | `gen_cost` over $`\mathcal{G}`$ — what one unit of output costs |
+    | $`\mathrm{gen\_p\_max}`$ | `gen_p_max` over $`\mathcal{G}`$ — installed capacity |
+    | $`\mathrm{dem\_load}`$ | `dem_load` over $`\mathcal{T} \times \mathcal{D}`$ — what a demand takes in a snapshot |
 
-| Symbol | Meaning |
-|---|---|
-| $`\mathit{flow}`$ | `flow` over $`\mathcal{T} \times \mathcal{P}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
-| $`\mathit{gen\_p}`$ | `gen_p` over $`\mathcal{T} \times \mathcal{G}`$ — what a generator produces in a snapshot |
+    #### Variables
 
-Upright is what the model is given — a parameter such as $`\mathrm{gen\_cost}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{flow}`$. An index is italic too, being what a quantifier chooses, and a set is script.
+    | Symbol | Meaning |
+    |---|---|
+    | $`\mathit{flow}`$ | `flow` over $`\mathcal{T} \times \mathcal{P}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
+    | $`\mathit{gen\_p}`$ | `gen_p` over $`\mathcal{T} \times \mathcal{G}`$ — what a generator produces in a snapshot |
 
-#### Objective
+    Upright is what the model is given — a parameter such as $`\mathrm{gen\_cost}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{flow}`$. An index is italic too, being what a quantifier chooses, and a set is script.
 
-```math
-\min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{gen\_p}_{t,g} \cdot \mathrm{gen\_cost}_{g}
-```
+    #### Objective
 
-#### Subject to
+    ```math
+    \min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{gen\_p}_{t,g} \cdot \mathrm{gen\_cost}_{g}
+    ```
 
-**`balance`**
+    #### Subject to
 
-```math
-\sum_{p \in \mathcal{P} \,:\, \mathrm{port\_bus}(p) = b} \mathit{flow}_{t,p} = 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
-```
+    **`balance`**
 
-**`gen_injects`**
+    ```math
+    \sum_{p \in \mathcal{P} \,:\, \mathrm{port\_bus}(p) = b} \mathit{flow}_{t,p} = 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    ```
 
-```math
-\mathit{flow}_{t,\mathrm{gen\_port}(g)} = \mathit{gen\_p}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
+    **`gen_injects`**
 
-**`dem_withdraws`**
+    ```math
+    \mathit{flow}_{t,\mathrm{gen\_port}(g)} = \mathit{gen\_p}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
 
-```math
-\mathit{flow}_{t,\mathrm{dem\_port}(d)} = -\mathrm{dem\_load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
-```
+    **`dem_withdraws`**
 
-#### Variable domains
+    ```math
+    \mathit{flow}_{t,\mathrm{dem\_port}(d)} = -\mathrm{dem\_load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
+    ```
 
-**`flow`**
+    #### Variable domains
 
-```math
-\mathit{flow}_{t,p} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ p \in \mathcal{P}
-```
+    **`flow`**
 
-**`gen_p`**
+    ```math
+    \mathit{flow}_{t,p} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ p \in \mathcal{P}
+    ```
 
-```math
-0 \le \mathit{gen\_p}_{t,g} \le \mathrm{gen\_p\_max}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
-```
+    **`gen_p`**
+
+    ```math
+    0 \le \mathit{gen\_p}_{t,g} \le \mathrm{gen\_p\_max}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
+
+=== "With commitment"
+
+    ```yaml title="variants/commitment.yaml"
+    parameters:
+      gen_p_min: { dims: [generator], description: what a running generator produces at least }
+    variables:
+      gen_on: { dims: [snapshot, generator], domain: binary, description: whether a generator runs in a snapshot }
+      gen_p: { bounds: { upper: .inf } }
+    constraints:
+      gen_below_capacity:
+        description: a generator produces up to its capacity, and nothing when it is off
+        dims: [snapshot, generator]
+        expression: gen_p <= gen_p_max * gen_on
+      gen_above_minimum:
+        description: a running generator produces at least its minimum
+        dims: [snapshot, generator]
+        expression: gen_p >= gen_p_min * gen_on
+    ```
+
+    #### Sets
+
+    | Symbol | Meaning |
+    |---|---|
+    | $`\mathcal{T}`$ | index $`t`$ — `snapshot` |
+    | $`\mathcal{P}`$ | index $`p`$ — `port` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B},\ \mathrm{gen\_port}: \mathcal{G} \to \mathcal{P},\ \mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
+    | $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B}`$ |
+    | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_port}: \mathcal{G} \to \mathcal{P}`$ |
+    | $`\mathcal{D}`$ | index $`d`$ — `demand` with $`\mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
+
+    #### Parameters
+
+    | Symbol | Meaning |
+    |---|---|
+    | $`\mathrm{gen\_cost}`$ | `gen_cost` over $`\mathcal{G}`$ — what one unit of output costs |
+    | $`\mathrm{gen\_p\_max}`$ | `gen_p_max` over $`\mathcal{G}`$ — installed capacity |
+    | $`\mathrm{dem\_load}`$ | `dem_load` over $`\mathcal{T} \times \mathcal{D}`$ — what a demand takes in a snapshot |
+    | $`\mathrm{gen\_p\_min}`$ | `gen_p_min` over $`\mathcal{G}`$ — what a running generator produces at least |
+
+    #### Variables
+
+    | Symbol | Meaning |
+    |---|---|
+    | $`\mathit{flow}`$ | `flow` over $`\mathcal{T} \times \mathcal{P}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
+    | $`\mathit{gen\_p}`$ | `gen_p` over $`\mathcal{T} \times \mathcal{G}`$ — what a generator produces in a snapshot |
+    | $`\mathit{gen\_on}`$ | `gen_on` over $`\mathcal{T} \times \mathcal{G}`$ — whether a generator runs in a snapshot |
+
+    Upright is what the model is given — a parameter such as $`\mathrm{gen\_cost}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{flow}`$. An index is italic too, being what a quantifier chooses, and a set is script.
+
+    #### Objective
+
+    ```math
+    \min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{gen\_p}_{t,g} \cdot \mathrm{gen\_cost}_{g}
+    ```
+
+    #### Subject to
+
+    **`balance`**
+
+    ```math
+    \sum_{p \in \mathcal{P} \,:\, \mathrm{port\_bus}(p) = b} \mathit{flow}_{t,p} = 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    ```
+
+    **`gen_injects`**
+
+    ```math
+    \mathit{flow}_{t,\mathrm{gen\_port}(g)} = \mathit{gen\_p}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
+
+    **`dem_withdraws`**
+
+    ```math
+    \mathit{flow}_{t,\mathrm{dem\_port}(d)} = -\mathrm{dem\_load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
+    ```
+
+    **`gen_below_capacity`**
+
+    ```math
+    \mathit{gen\_p}_{t,g} \le \mathrm{gen\_p\_max}_{g} \cdot \mathit{gen\_on}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
+
+    **`gen_above_minimum`**
+
+    ```math
+    \mathit{gen\_p}_{t,g} \ge \mathrm{gen\_p\_min}_{g} \cdot \mathit{gen\_on}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
+
+    #### Variable domains
+
+    **`flow`**
+
+    ```math
+    \mathit{flow}_{t,p} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ p \in \mathcal{P}
+    ```
+
+    **`gen_p`**
+
+    ```math
+    \mathit{gen\_p}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
+
+    **`gen_on`**
+
+    ```math
+    \mathit{gen\_on}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    ```
 <!-- gallery:end -->

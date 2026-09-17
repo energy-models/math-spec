@@ -19,9 +19,9 @@ import textwrap
 from functools import partial
 from typing import TYPE_CHECKING
 
-from math_spec import merge, to_spec
+from math_spec import merge, override, to_spec
 from math_spec.typesetting import to_markdown
-from tools._page import ROOT, sidecar_for, splice, without_header
+from tools._page import ROOT, sidecar_for, splice, tab, without_header
 from tools._page import main as page_main
 from tools.notation import equations
 from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
@@ -42,13 +42,16 @@ MODELS = {
     'library/load.md': ROOT / 'examples' / 'library' / 'load.yaml',
 }
 
-#: Page -> the fragments whose composition it shows. The model is what `merge`
-#: returns, so it is a file nothing in the tree holds: the page carries the
-#: composed YAML, written from here beside the math it prints.
+#: Page -> the fragments whose composition it shows, and the patches that
+#: rewrite it. The model is what `merge` returns, so it is a file nothing in
+#: the tree holds: the page carries the composed YAML, written from here beside
+#: the math it prints. A patch has no math of its own, so each one prints as
+#: the model it lands on, in a tab of its own.
 COMPOSED = {
-    'library/composed.md': [
-        ROOT / 'examples' / 'library' / name for name in ('surface.yaml', 'generator.yaml', 'load.yaml')
-    ],
+    'library/composed.md': (
+        [ROOT / 'examples' / 'library' / name for name in ('surface.yaml', 'generator.yaml', 'load.yaml')],
+        {'commitment': ROOT / 'examples' / 'library' / 'variants' / 'commitment.yaml'},
+    ),
 }
 
 #: Page -> the model it shows one declaration at a time — its YAML, then the
@@ -75,14 +78,26 @@ def model_block(path: Path) -> str:
     return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
 
 
-def composed_block(fragments: list[Path]) -> str:
-    """The model several fragments make: the file `merge` composes, then its whole document.
+def composed_block(fragments: list[Path], patches: dict[str, Path]) -> str:
+    """The model several fragments make, then its document as composed and under each patch.
 
     The composed YAML is generated rather than committed, so the page cannot
-    show a composition the fragments beside it no longer make.
+    show a composition the fragments beside it no longer make. A patch is
+    refused on its own, so the only place its math exists is the model it is
+    laid over: its tab carries the file, then that model's whole document.
     """
-    model = to_spec(merge({path.stem: path for path in fragments}))
-    return f'```yaml\n{model.to_yaml().strip()}\n```\n\n{to_markdown(model, numbered=False).strip()}'
+    composed = merge({path.stem: path for path in fragments})
+    tabs = [tab('As composed', to_markdown(to_spec(composed), numbered=False).strip())]
+    for name, path in patches.items():
+        patched = to_spec(override(composed, {name: path}))
+        tabs.append(
+            tab(
+                f'With {name}',
+                f'```yaml title="variants/{path.name}"\n{without_header(path)}\n```\n\n'
+                f'{to_markdown(patched, numbered=False).strip()}',
+            )
+        )
+    return f'```yaml\n{to_spec(composed).to_yaml().strip()}\n```\n\n' + '\n\n'.join(tabs)
 
 
 def probe_block() -> str:
@@ -206,7 +221,7 @@ def block(page: str) -> str:
     if page in DECLARED:
         return declared_block(DECLARED[page])
     if page in COMPOSED:
-        return composed_block(COMPOSED[page])
+        return composed_block(*COMPOSED[page])
     return model_block(MODELS[page])
 
 

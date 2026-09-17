@@ -18,12 +18,11 @@ import pytest
 from math_spec import LanguageError, merge, override, to_markdown, to_spec
 from math_spec.typesetting import FORMATS, typeset
 from tests.fixtures import EXAMPLES
-from tools._page import without_header
+from tools import gallery
 
 LIBRARY = EXAMPLES / 'library'
 FRAGMENTS = {name: LIBRARY / f'{name}.yaml' for name in ('surface', 'generator', 'load')}
 PATCH = LIBRARY / 'variants' / 'commitment.yaml'
-PAGE = EXAMPLES.parent / 'docs' / 'examples' / 'library' / 'index.md'
 
 
 @pytest.mark.parametrize('name', sorted(FRAGMENTS))
@@ -96,7 +95,9 @@ def test_the_variant_needs_the_fragment_it_patches():
         to_spec(override(without_generator, {'commitment': PATCH}))
 
 
-def test_the_patch_the_page_shows_is_the_file_it_names():
-    """A fenced patch is read by nothing, so the one on the page is compared to the file."""
-    fenced = PAGE.read_text().split('```yaml title="variants/commitment.yaml"\n')[1].split('```')[0].strip()
-    assert fenced == without_header(PATCH), 'the page shows the patch verbatim, its licence header aside'
+def test_every_variant_in_the_library_is_typeset_on_the_composed_page():
+    """A patch prints only as the model it lands on, so one with no tab is a patch nothing prints."""
+    _, patches = gallery.COMPOSED['library/composed.md']
+    assert patches == {path.stem: path for path in (LIBRARY / 'variants').glob('*.yaml')}, (
+        'every file under variants/ takes a tab on the composed page, under its own name'
+    )

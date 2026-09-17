@@ -22,12 +22,12 @@ examples/library/
     commitment.yaml          a patch over generator.yaml, not a peer
 ```
 
-| Page                               | What it shows                                      |
-| ---------------------------------- | -------------------------------------------------- |
-| [The coupling surface](surface.md) | the spine, and the sign convention                 |
-| [Generators](generator.md)         | a template that reads `flow` and prices its output |
-| [Loads](load.md)                   | a template with no variable of its own             |
-| [The composed model](composed.md)  | what `merge` returns, and the math it prints       |
+| Page                               | What it shows                                                  |
+| ---------------------------------- | -------------------------------------------------------------- |
+| [The coupling surface](surface.md) | the spine, and the sign convention                             |
+| [Generators](generator.md)         | a template that reads `flow` and prices its output             |
+| [Loads](load.md)                   | a template with no variable of its own                         |
+| [The composed model](composed.md)  | what `merge` returns, and the math it prints with each variant |
 
 ## Four rules the layout follows
 
@@ -49,24 +49,7 @@ examples/library/
 
 `variants/commitment.yaml` makes the generator a committed unit. It adds a
 binary, relaxes the bound the capacity used to give, and caps output with a
-constraint instead:
-
-```yaml title="variants/commitment.yaml"
-parameters:
-  gen_p_min: { dims: [generator], description: what a running generator produces at least }
-variables:
-  gen_on: { dims: [snapshot, generator], domain: binary, description: whether a generator runs in a snapshot }
-  gen_p: { bounds: { upper: .inf } }
-constraints:
-  gen_below_capacity:
-    description: a generator produces up to its capacity, and nothing when it is off
-    dims: [snapshot, generator]
-    expression: gen_p <= gen_p_max * gen_on
-  gen_above_minimum:
-    description: a running generator produces at least its minimum
-    dims: [snapshot, generator]
-    expression: gen_p >= gen_p_min * gen_on
-```
+constraint instead.
 
 It names `gen_p_max`, which `generator.yaml` declares, and edits `gen_p`, which
 `generator.yaml` introduced. So it is not a model and does not load on its own.
@@ -76,5 +59,6 @@ It is laid over the composition:
 ms.override(ms.merge(fragments), {'commitment': 'variants/commitment.yaml'})
 ```
 
-The test suite applies it and checks the result loads, because a fenced patch
-nothing runs is a patch that rots.
+The [composed model](composed.md) carries the file and the math it makes, in a
+tab of its own. A patch has no math until it lands on something, so that is the
+only place it can be read as math.
