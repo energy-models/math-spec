@@ -368,7 +368,8 @@ pixi run test
 
 <!--- --8<-- [end:docs-install-dev] -->
 
-Releases are on the alpha stream, and **nothing is on PyPI yet**. `build.yml`
+The version is below 1.0.0, where a breaking change bumps the minor, and
+**nothing is on PyPI yet**. `build.yml`
 publishes every tag, so the first upload is the first tag cut after the
 project's trusted publisher is registered; see [RELEASING.md](RELEASING.md).
 Until it appears there, install from a checkout or a git reference.

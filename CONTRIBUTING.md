@@ -93,9 +93,9 @@ hidden. A subject the parser cannot read is not an error — the entry
 simply never appears — so the `Conventional commit subject` check enforces the
 format on every pull request.
 
-While the version is pinned to the alpha stream, a breaking marker (`!`, or a
-`BREAKING CHANGE:` footer) is refused, because it moves the base version rather
-than the alpha counter. Describe the break in the PR body instead. See
+A breaking marker (`!`, or a `BREAKING CHANGE:` footer) bumps the minor, and
+the version stays below 1.0.0. Use one where a consumer has to change
+something, and say what in the PR body. See
 [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
 
 Beyond the subject line, write whatever body the change deserves — a paragraph
@@ -120,15 +120,14 @@ When adding docstrings, we request you use the [Google docstring style](https://
 
 Nothing here is done by hand. release-please opens a release PR from the
 conventional-commit subjects on `main`; merging it tags the release, and the tag
-is what builds and publishes the package. While the project is on the alpha
-stream that release PR is merged automatically, so every merge to `main` cuts a
-version.
+is what builds and publishes the package. Merging that release PR is yours to
+decide, so a release is a decision rather than a side effect of merging.
 
 The version is never written down in the source tree — it comes from the git
 tag at build time, and `math_spec.__version__` reads it back from the installed
 package metadata.
 
-See [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md) for the full pipeline, the alpha-stream rules,
+See [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md) for the full pipeline, the version scheme,
 and the one-time repository setup it still needs.
 
 <!--- --8<-- [end:docs] -->

@@ -5,7 +5,7 @@
 name: PR title
 
 # The squash subject becomes a commit on main, and release-please parses it to
-# decide the changelog section (and, once we leave the alpha stream, the version).
+# decide the changelog section and the version.
 # A subject it cannot parse is silently dropped from the changelog — nothing fails,
 # the entry just never appears. This check is the only thing standing between a
 # sloppy title and a hole in CHANGELOG.md. See RELEASING.md.
@@ -45,23 +45,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # Only the manifest, because only the manifest is read: the base-version
-      # guard below needs it, and a full checkout would fetch the tree to run a
-      # regex over one line of JSON.
-      - name: Fetch the version manifest
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: .release-please-manifest.json
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-
       - name: Validate the subject that will land on main
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
           COMMIT_COUNT: ${{ github.event.pull_request.commits }}
         run: |
           set -euo pipefail
@@ -86,65 +75,19 @@ jobs:
             echo "ok: ${what} — ${subject}"
           }
 
-          # Every subject GitHub could squash with, and every message a footer
-          # can hide in. A one-commit PR is squashed with that commit's own
-          # title, so both must reach both checks below — and the commit's whole
-          # message is kept, not just its first line, because a 'BREAKING
-          # CHANGE:' footer lives in the body.
-          #
-          # Checking only $PR_TITLE and $PR_BODY is how lpspec shipped
-          # 0.1.0-alpha.226 and .227 and had to withdraw them: the '!' was in
-          # the single commit's title, which the guard never read.
+          # Every subject GitHub could squash with. A one-commit PR is squashed
+          # with that commit's own title, so $PR_TITLE alone is not what lands
+          # on main: specsolve withdrew 0.1.0-alpha.226 and .227 over a marker
+          # in a single commit's title that no check had read.
           titles=("PR title|${PR_TITLE}")
-          messages=("the PR body|${PR_BODY:-}")
           if [[ "$COMMIT_COUNT" == "1" ]]; then
             only=$(gh api "repos/${REPO}/pulls/${NUMBER}/commits" --jq '.[0].commit.message')
             titles+=("the single commit's title|$(head -1 <<<"$only")")
-            messages+=("the single commit's message|${only}")
           fi
 
           for entry in "${titles[@]}"; do
             check "${entry%%|*}" "${entry#*|}"
           done
-
-          # A breaking marker moves the *base* version, not the alpha counter.
-          # While the base is 0.0.0 that is harmless — under `versioning:
-          # prerelease` a zero patch is an absorbing state, so every bump only
-          # increments the counter — but the immunity goes away the moment the
-          # stream leaves 0.0.0, and then `feat!:` on 0.0.1-alpha.12 yields
-          # 0.1.0-alpha.12 and the project has jumped a minor by accident. The
-          # marker is refused here rather than discovered in a release PR.
-          #
-          # Both ways this can go wrong are named, because either one leaves the
-          # guard below not running: a missing file aborts the step under `set
-          # -e` with only sed's own message, and a manifest whose shape changed
-          # yields an empty $base, which fails *open* — every '!' would sail
-          # through and the version would move off the stream unannounced.
-          manifest=.release-please-manifest.json
-          if [[ ! -f "$manifest" ]]; then
-            echo "::error::${manifest} not found — the base-version guard cannot run."
-            exit 1
-          fi
-          base=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' "$manifest")
-          if [[ -z "$base" ]]; then
-            echo "::error::no \".\" version in ${manifest} — the base-version guard cannot run."
-            exit 1
-          fi
-
-          if [[ "$base" == 0.* ]]; then
-            for entry in "${titles[@]}"; do
-              if [[ "${entry#*|}" =~ ^[a-z]+(\([a-z0-9._/-]+\))?!: ]]; then
-                echo "::error::'!' in ${entry%%|*} bumps the base version off the pinned alpha stream (currently ${base})."
-                fail=1
-              fi
-            done
-            for entry in "${messages[@]}"; do
-              if grep -qE '^BREAKING[ -]CHANGE:' <<<"${entry#*|}"; then
-                echo "::error::a 'BREAKING CHANGE:' footer in ${entry%%|*} bumps the base version off the pinned alpha stream (currently ${base})."
-                fail=1
-              fi
-            done
-          fi
 
           if (( fail )); then
             cat <<'MSG'
@@ -156,10 +99,9 @@ jobs:
                      fix(parser): where clauses with a trailing comma
                      docs: describe the two expression tiers
 
-          A '!' (or a 'BREAKING CHANGE:' footer) is refused while the version is
-          pinned to an alpha stream: it moves the *base* version, not the counter.
-          Describe the break in the PR body instead — the alpha stream carries no
-          compatibility promise, so there is nothing for the version to announce.
+          A '!' (or a 'BREAKING CHANGE:' footer) bumps the minor, and the version
+          stays below 1.0.0. Use one where a consumer has to change something,
+          and say what in the PR body.
 
           Fix the PR title — no need to rewrite the branch. Edits re-run this check.
           MSG

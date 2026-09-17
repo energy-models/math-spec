@@ -7,8 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 [release-please](https://github.com/googleapis/release-please) cuts the
 releases. It works from the conventional-commit subjects that land on `main`.
-While the project is on the alpha stream, no part of a release is done by
-hand.
+Merging the release PR is the one part done by hand.
 
 ## The pipeline
 
@@ -17,10 +16,10 @@ PR title (conventional)  ──►  squash onto main
                                    │
                        release.yml │ release-please opens/updates a release PR
                                    ▼
-                         "chore(main): release 0.0.0-alpha.N"
-                                   │  auto-merged while on the alpha stream
+                            "chore(main): release 0.0.1"
+                                   │  you merge it
                                    ▼
-                              tag v0.0.0-alpha.N   +   GitHub release
+                                tag v0.0.1   +   GitHub release
                                    │
                         build.yml  ▼  builds the wheel, checks it against the tag
                                        and publishes it to PyPI
@@ -28,11 +27,11 @@ PR title (conventional)  ──►  squash onto main
 
 Three files own it:
 
-| File                            | Role                                                           |
-| ------------------------------- | -------------------------------------------------------------- |
-| `.release-please-config.json`   | the release type, the changelog sections, and the alpha stream |
-| `.release-please-manifest.json` | the last released version. release-please rewrites this file   |
-| `.github/workflows/release.yml` | runs release-please on every push to `main`                    |
+| File                            | Role                                                            |
+| ------------------------------- | --------------------------------------------------------------- |
+| `.release-please-config.json`   | the release type, the changelog sections and the version scheme |
+| `.release-please-manifest.json` | the last released version. release-please rewrites this file    |
+| `.github/workflows/release.yml` | runs release-please on every push to `main`                     |
 
 `.github/workflows/pr-title.yml` guards the input.
 `.github/workflows/build.yml` consumes the output.
@@ -52,54 +51,38 @@ Note that `simple` also declares a `version.txt` updater, but with
 `createIfMissing: false`. There is no `version.txt` in this repository, and none
 will be created.
 
-## The alpha stream
+## The version scheme
 
-The manifest is seeded at `0.0.0-alpha.0`, and the config is in sticky
-`prerelease` mode. So every release is `0.0.0-alpha.N`, which is the
-distribution version `0.0.0aN`.
+The version is below 1.0.0, and two keys in the config keep it there:
 
-The seed is what pins the `0.0.0`. release-please increments the counter only
-when the version it starts from already carries a prerelease. From a plain
-`0.0.0` it would bump the patch first, and the stream would be
-`0.0.1-alpha.N`.
+- `bump-minor-pre-major` — a breaking change bumps the **minor**, so a `feat!:`
+  on `0.1.4` gives `0.2.0` and not `1.0.0`.
+- `bump-patch-for-minor-pre-major` — a feature bumps the **patch**, so a
+  feature and a fix both give `0.1.5`.
 
-None of these versions carries a semantic promise. The point of them is that an
-early user always has a number to quote in a bug report, instead of a commit
-SHA.
+So below 1.0.0 the minor means _a consumer has to change something_, and the
+patch means everything else. A breaking marker is how you ask for it: a `!` in
+the subject, or a `BREAKING CHANGE:` footer.
+
+The releases before this scheme are the `0.0.0-alpha.N` stream, which the
+config pinned with `versioning: prerelease`. Those numbers promised nothing at
+all, and they stay in the changelog as they are. The manifest names `0.0.0` as
+the version to bump from, so the first release under the scheme is `0.0.1`, or
+`0.1.0` if a breaking marker lands first.
 
 **Nothing is on PyPI yet.** The publish job in `build.yml` runs on every tag,
-and waits on the trusted publisher in the PyPI note below. Until that exists,
-the alpha stream produces tags, changelog entries and GitHub releases, and
-nothing more.
+and waits on the trusted publisher in the PyPI note below.
 
-Two consequences worth knowing:
+**`main` does not release on its own.** release-please opens the release PR and
+it waits for you. The alpha stream auto-merged those PRs, and that step is gone
+with the stream.
 
-- **`main` releases on every merge.** The last step of `release.yml` enables
-  auto-merge on the release PR. That step is explicitly temporary, and it
-  expires by itself. It reads the version off the PR title and refuses anything
-  that is not a prerelease. So the first official version stops the automation,
-  and nobody has to remember to do it. To pause it earlier, set the repository
-  variable `AUTO_RELEASE` to `false`, and merge the release PRs by hand.
-- **Breaking markers are refused.** A `!` in the subject, or a
-  `BREAKING CHANGE:` footer, moves the _base_ version rather than the counter.
-  Under `versioning: prerelease`, a zero patch is an absorbing state. So at
-  `0.0.0` a breaking marker is currently harmless. But that immunity disappears
-  the moment the stream moves, and then one `feat!:` turns `0.0.1-alpha.12`
-  into `0.1.0-alpha.12`. So `pr-title.yml` refuses the marker. Describe the
-  break in the PR body instead. The alpha stream carries no compatibility
-  promise, so there is nothing for the version to announce.
+## Reaching 1.0.0
 
-## Leaving the alpha stream
-
-When the project is ready for a real version:
-
-1. Delete the auto-merge step from `release.yml` (it is fenced by a comment
-   banner).
-2. Remove `versioning`, `prerelease` and `prerelease-type` from
-   `.release-please-config.json`.
-3. Set the manifest to the last version you want release-please to bump _from_.
-4. Drop the base-version guard from `pr-title.yml`, so `!` works again.
-5. Merge the next release PR by hand.
+Remove `bump-minor-pre-major` and `bump-patch-for-minor-pre-major` from
+`.release-please-config.json`. A breaking change then bumps the major and a
+feature the minor, which is ordinary semver. Do it in the pull request that
+argues the API is stable, because the promise cannot be withdrawn afterwards.
 
 ## One-time setup
 

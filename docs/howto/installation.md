@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 !!! warning "Not on PyPI yet"
 
-    math-spec is on the alpha stream. Every tag is published from `build.yml`,
+    math-spec is below 1.0.0. Every tag is published from `build.yml`,
     so the first upload is the first tag cut after the project's trusted
     publisher is registered — see
     [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
