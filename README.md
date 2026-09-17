@@ -368,10 +368,10 @@ pixi run test
 
 <!--- --8<-- [end:docs-install-dev] -->
 
-Releases are on the alpha stream, and **nothing is published yet**. The publish
-job is off until the project leaves it, so `pip install math-spec` is what the
-first release will look like, not what today does. Install from a checkout or a
-git reference until then; see [RELEASING.md](RELEASING.md).
+Releases are on the alpha stream, and **nothing is on PyPI yet**. `build.yml`
+publishes every tag, so the first upload is the first tag cut after the
+project's trusted publisher is registered; see [RELEASING.md](RELEASING.md).
+Until it appears there, install from a checkout or a git reference.
 
 ## Prior art
 

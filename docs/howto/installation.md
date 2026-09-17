@@ -7,11 +7,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Installing a user environment
 
-!!! warning "Not published yet"
+!!! warning "Not on PyPI yet"
 
-    math-spec is on the alpha stream, and the publish job is off until it leaves
-    it. See [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
-    The commands below are what the first release will look like. Until then,
+    math-spec is on the alpha stream. Every tag is published from `build.yml`,
+    so the first upload is the first tag cut after the project's trusted
+    publisher is registered — see
+    [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
+    The commands below are what that release will look like. Until it appears,
     install from a checkout or a git reference.
 
 `math-spec` installs with any of the common package managers. Use a dedicated

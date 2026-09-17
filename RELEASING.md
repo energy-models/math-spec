@@ -23,7 +23,7 @@ PR title (conventional)  ──►  squash onto main
                               tag v0.0.0-alpha.N   +   GitHub release
                                    │
                         build.yml  ▼  builds the wheel, checks it against the tag
-                                       and (when enabled) publishes to PyPI
+                                       and publishes it to PyPI
 ```
 
 Three files own it:
@@ -102,8 +102,9 @@ When the project is ready for a real version:
 
 ## One-time setup
 
-These steps are not done yet. Until they are, the workflows are either inert or
-degraded.
+The app is in place: release PRs are authored by
+`energy-models-release-please[bot]`, so CI runs on them and a tag it pushes
+builds. What is left is the branch rules and PyPI, below.
 
 **Do them in this order.** The app has to exist before `main` requires any
 status check, and the two are not independent.
@@ -178,22 +179,19 @@ Note that `15368` is the app id of GitHub Actions. It makes each context
 resolve to a workflow in this repository, rather than to any check that happens
 to share the name.
 
-**PyPI.** The publish job in `build.yml` is `if: false`. To enable publishing,
-register `math-spec` on PyPI, configure a trusted publisher that points at
-`build.yml` and the `pypi` environment, then restore the tag condition,
-`startsWith(github.ref, 'refs/tags/')`, in the same pull request that explains
-why.
+**PyPI.** The publish job in `build.yml` runs on every tag. What it needs on
+PyPI's side is a project named `math-spec` and a trusted publisher pointing at
+`build.yml` and the `pypi` environment, plus that environment on the
+repository. **Do this before the next tag.** A tag reaches the job either way,
+and without the publisher the upload fails on a rejected OIDC token.
 
-This is deliberately not a repository variable. Anyone with write access can set
-a repository variable, with no review, and this switch publishes under the
-project's name. Turning it on should cost a pull request.
+The switch is deliberately not a repository variable. Anyone with write access
+can set a repository variable, with no review, and this switch publishes under
+the project's name. Turning it on, or off again, should cost a pull request.
 
-Until then, nothing reaches PyPI. The rest of the pipeline still runs, so
-release-please cuts the tag, the changelog and the GitHub release.
-
-`build.yml` also produces the wheel as an artifact, but only once the
-release-please app above exists. A tag pushed by `GITHUB_TOKEN` starts no
-workflow, so until the app exists, a release has no artifact attached to it.
+`build.yml` also produces the wheel as an artifact, which needs the
+release-please app above: a tag pushed by `GITHUB_TOKEN` starts no workflow, so
+without the app a release has no artifact attached to it.
 
 ## What CI proves, and what it does not
 
