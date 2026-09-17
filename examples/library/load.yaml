@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+description: PyPSA's `Load`, wired to a port rather than straight to a bus. What it takes is data, so it decides nothing.
+dimensions:
+  snapshot: { dtype: datetime, description: dispatch periods }
+  port: { dtype: str, description: "the connections components make, one label per connection" }
+  load: { dtype: str, description: "demands, each on one port" }
+relations:
+  Load_port: { key: load, value: port }
+given_variables:
+  Port_p:
+    dims: [snapshot, port]
+    description: the surface introduces this column, and this file only writes into it
+parameters:
+  Load_p_set: { dims: [snapshot, load], description: "`Load-p_set` — what a load takes in a snapshot" }
+constraints:
+  Load_withdrawal:
+    description: >-
+      what a load takes is what its port withdraws. No PyPSA row stands for
+      this: PyPSA writes the load into the balance instead
+    dims: [snapshot, load]
+    expression: at(Port_p, by=Load_port) == -Load_p_set

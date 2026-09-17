@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,11 @@ def splice(text: str, begin: str, end: str, block: str) -> str:
     """*text* with everything between the *begin* and *end* markers replaced by *block*, on its own lines."""
     i, j = text.index(begin) + len(begin), text.index(end)
     return text[:i] + '\n' + block + '\n' + text[j:]
+
+
+def tab(title: str, body: str) -> str:
+    """One tab of a tabbed block: its title, and its body indented into it."""
+    return f'=== "{title}"\n\n{textwrap.indent(body, "    ")}'
 
 
 def without_header(path: Path) -> str:

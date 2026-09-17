@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: math-spec Contributors
+#
+# SPDX-License-Identifier: MIT
+
+parameters:
+  Generator_p_min_pu: { dims: [generator], description: "least output, per unit of nominal power" }
+variables:
+  Generator_status:
+    dims: [snapshot, generator]
+    domain: binary
+    description: "`Generator-status` — whether a unit is on in a snapshot"
+  Generator_p: { bounds: { upper: .inf } }
+constraints:
+  Generator_com_p_upper:
+    description: "`Generator-com-p-upper` — a committed unit outputs at most its nominal power; off, at most nothing"
+    dims: [snapshot, generator]
+    expression: Generator_p <= Generator_p_nom * Generator_status
+  Generator_com_p_lower:
+    description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
+    dims: [snapshot, generator]
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
