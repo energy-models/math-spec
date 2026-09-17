@@ -157,10 +157,11 @@ A `where:` is a boolean mask, and true means "this coordinate exists".
 ```text
 where_expr ::= atom | "NOT" where_expr | where_expr ("AND"|"OR") where_expr
             |  "(" where_expr ")"
-atom       ::= NAME | NAME COMPARATOR value | POSITION COMPARATOR INTEGER
-            |  "True" | "False"
+atom       ::= NAME | NAME COMPARATOR value | expression COMPARATOR expression
+            |  POSITION COMPARATOR INTEGER | "True" | "False"
 COMPARATOR ::= "<=" | ">=" | "==" | "!=" | "<" | ">"
 value      ::= NUMBER | QUOTED | NAME_OR_STRING
+expression ::= the arithmetic grammar above, with no variable and no dual in it
 POSITION   ::= "position" "(" NAME [ "," "by" "=" NAME ] ")"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
@@ -175,6 +176,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | `name OP value`                           | dimension                                | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                       |
 | `name OP value`, `name.col OP value`      | relation                                 | A filter on a value column, read at the relation's key, so the key's dimensions have to be in the frame. Name the column where the key determines several. A null compares false                                                                                                                    |
 | `name OP name`, `name.a OP name.b`        | two relation columns                     | Legal only where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                                                                                                                           |
+| `expression OP expression`                | arithmetic over parameters               | Coordinate by coordinate, over every dimension either side carries. A macro and a named expression expand as in an expression, and every operator keeps its rule, so a `shift` names its `edge=`. A side with no value at a coordinate compares false                                               |
 | `position(name) OP i`                     | dimension                                | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
 | `position(name, by=relation[, within=c])` | a dimension and a relation keyed over it | The same, counted within each group the relation's value columns make                                                                                                                                                                                                                               |
 | `AND` `OR` `NOT`                          | —                                        | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                                                                                                                                       |
@@ -217,6 +219,53 @@ relations are keyed over the same dimensions and the two columns are over one
 dimension. Keyed alike, they are two columns of one key table, so the comparison
 filters that table rather than joining two. Over one dimension they draw from one
 label set, so a match is possible at all.
+
+### Arithmetic in a comparison
+
+Either side of a comparison may be an expression: `p_min <= 0.5 * p_max`,
+`sum(p_max, over=generator) >= peak`, `p_max <= at(bus_cap, by=bus_of)`. The
+side is read exactly as an [expression](#expressions) is, so a macro and a
+named expression expand into it and every operator keeps its own rule. Two
+things an expression may carry are refused here, because a mask is built before
+either exists: a variable, and a `dual()`.
+
+A comparison of expressions is checked over every dimension either side
+carries. A side whose value is absent at a coordinate compares false there, as
+a null does in every other comparison; under a summing operator the absent
+term is one fewer. A `shift` says what its vacated positions hold, as it does
+everywhere, so a comparison against the previous row names an `edge=` and a
+`position()` term keeps the first row out:
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+parameters:
+  load: { dims: [snapshot] }
+  ramp: { dims: [] }
+variables:
+  shed: { dims: [snapshot], bounds: { lower: 0 } }
+constraints:
+  shed_when_load_jumps:
+    dims: [snapshot]
+    where: "load - shift(load, along=snapshot, offset=1, edge=0) > ramp AND position(snapshot) > 0"
+    expression: shed >= load - ramp
+```
+
+A case `when:` may not compare expressions. The loader proves the cases of a
+[`cases:` block](#the-rules-that-keep-the-cases-apart) apart at load: no two of
+them may claim one coordinate. It proves that by trying every value the masks
+name. A comparison of expressions names no value, because only the data decides
+whether `c > 2 * k` holds. There is nothing to try, so the loader refuses the
+block:
+
+> `Named expression 'e'`: cases `wide` and `narrow` cannot be told apart before
+> the data arrives: it compares expressions, whose values only the data decides
+> — compare one parameter against a literal, or precompute the test as a boolean
+> parameter and test that. Two cases claiming one coordinate would give it two
+> values, so this is refused the way a proven overlap is.
+
+A variable's `where` and a constraint's `where` are not held to this, because
+neither is proved apart from anything.
 
 ### `position()`
 

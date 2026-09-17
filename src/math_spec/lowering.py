@@ -113,7 +113,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             lower, upper = _bound_expression(vdef.bounds.lower), _bound_expression(vdef.bounds.upper)
         variables[vname] = program.VariableDeclaration(
             tuple(vdef.dims),
-            where=resolved.variables[vname],
+            where=_Lowering(expanded, f"variable '{vname}'").mask(resolved.variables[vname]),
             lower=lower,
             upper=upper,
             domain=domain,
@@ -129,7 +129,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
             lhs=lowering.expr(expression.left),
             sense=expression.op,
             rhs=lowering.expr(expression.right),
-            where=where,
+            where=lowering.mask(where),
         )
 
     objective = None
@@ -251,12 +251,34 @@ class _Lowering:
         Every ``when`` arrives folded from resolution, and an arm that folded
         to a literal was refused at load — so no literal reaches a region.
         """
-        stated = [program.Mask(arm.when) for arm in node.arms if arm.when is not None]
+        stated = [self._where(arm.when) for arm in node.arms if arm.when is not None]
         regions = []
         for arm in node.arms:
-            when = program.Mask(arm.when) if arm.when is not None else _none_of(stated)
+            when = self._where(arm.when) if arm.when is not None else _none_of(stated)
             regions.append(program.Region(when, self.expr(arm.value)))
         return program.Cases(tuple(regions))
+
+    def mask(self, mask: program.Mask | None) -> program.Mask | None:
+        """*mask* with every comparison of expressions lowered, so a program's masks are program vocabulary throughout.
+
+        Every other predicate node is already the program's own and passes
+        through; a mask holding none comes back equal to the one handed in.
+        """
+        return None if mask is None else self._where(mask.root)
+
+    def _where(self, node: program.WhereNode) -> program.Mask:
+        return program.Mask(self._predicate(node))
+
+    def _predicate(self, node: program.WhereNode) -> program.WhereNode:
+        if isinstance(node, program.ArithmeticComparisonNode):
+            return program.ExpressionComparisonNode(self.expr(node.left), node.op, self.expr(node.right), node.dims)
+        if isinstance(node, program.NotNode):
+            return program.NotNode(self._predicate(node.operand))
+        if isinstance(node, program.AndNode):
+            return program.AndNode(self._predicate(node.left), self._predicate(node.right))
+        if isinstance(node, program.OrNode):
+            return program.OrNode(self._predicate(node.left), self._predicate(node.right))
+        return node
 
     def sum(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum(x)``, ``sum(x, over=d)`` or ``sum(x, by=relation)``.
