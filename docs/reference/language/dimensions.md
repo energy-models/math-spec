@@ -219,7 +219,10 @@ and the joined `period` is the second subscript.
 - **`by=[a, b]` is one grouping onto what `a` and `b` produce together.** Each
   relation is walked from its whole key to its whole value, so `over=` has
   nothing to name. The relations consume the same dimension, and no two produce
-  the same one.
+  the same one. The brackets list relations, and the members are bare names.
+  Columns of one relation are listed after its dot instead,
+  `by=slot_of.[bus, technology]`, and `by=[slot_of.bus, slot_of.technology]`
+  does not parse.
 - **A bare relation is walked between its key columns.** With no `value:`,
   `over=rel.k` consumes `k` and the sum lands on the other key columns, and the
   call has to name `k`.
