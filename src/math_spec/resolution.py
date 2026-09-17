@@ -578,9 +578,10 @@ class _Resolver:
 
         A relation carries its own dimensions, so the call names nothing
         beside it. Bare, the declaration decides the direction, and it has to
-        decide it wholly: one key column and one value column. Written, the
-        direction names every end the operator has — both for a sum and a read,
-        the group alone for a partition, whose other end is ``along=``. Every
+        decide it wholly: one key column and one value column. Written, a sum
+        names both its ends, since either can vary; a read and a partition name
+        one, the columns read or grouped by, and the declaration decides the
+        other — the whole key for a read, and ``along=`` for a partition. Every
         key column not walked is joined on, a value column not walked is not
         read, and a bare relation's columns are all key. A bracketed list is
         one grouping through several tables at once rather than a composition
@@ -736,7 +737,7 @@ class _Resolver:
                 if held:
                     hint = (
                         f"a sum consumes key columns, and '{name}' holds '{dim}' as a value column. To read "
-                        f'it, write at(..., by={name}({shown(held)} -> {shown(shape.key)})).'
+                        f'it, write at(..., by={name}({shown(held)})).'
                     )
                 elif dim in ns.dimensions:
                     hint = f'the consumed end names a dimension the key is over, one of {covered}.'
@@ -758,11 +759,12 @@ class _Resolver:
         """How ``at`` reads relation *name*: value columns consumed, and the whole key landed on.
 
         A read is one value per coordinate, so it lands on the key and nothing
-        else; written, the direction says so. Bare, every value column may be read,
-        and which are is the operand's to decide — lowering splits the walk
-        once the operand's dims are known (:meth:`program.Walk.read_by`). Two
-        value columns over one dimension leave a bare read nothing to choose
-        by, so there the direction is written.
+        else — which is why one end written names the columns read and the key
+        needs no naming, as a partition's one end names its group. Bare, every
+        value column may be read, and which are is the operand's to decide —
+        lowering splits the walk once the operand's dims are known
+        (:meth:`program.Walk.read_by`). Two value columns over one dimension
+        leave a bare read nothing to choose by, so there a column is named.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
@@ -780,18 +782,16 @@ class _Resolver:
                 twins = [r for r in shape.values if shape.dim(r) in shared]
                 self.errors.append(
                     f"{context}: {call}: '{name}' has two value columns over {shared} ({twins}), so nothing says "
-                    f'which one is read. Name it: by={name}({twins[0]} -> {shown(shape.key)}).'
+                    f'which one is read. Name it: by={name}({twins[0]}).'
                 )
                 return None
             return Walk(shape, shape.values, shape.key, ())
         from_roles, into_roles = path
         if from_roles is None:
-            self.errors.append(
-                f'{context}: {call}: by={name}({shown(into_roles)}) names one end, and a read names both: the '
-                f'value column read and the key it lands on. Write by={name}(<column> -> {shown(shape.key)}).'
-            )
-            return None
-        written = f'by={name}({shown(from_roles)} -> {shown(into_roles)})'
+            written = f'by={name}({shown(into_roles)})'
+            from_roles, into_roles = into_roles, shape.key
+        else:
+            written = f'by={name}({shown(from_roles)} -> {shown(into_roles)})'
         if not (
             self._known_roles(name, call, from_roles, written) and self._known_roles(name, call, into_roles, written)
         ):
@@ -805,7 +805,8 @@ class _Resolver:
         if set(into_roles) != set(shape.key):
             self.errors.append(
                 f'{context}: {call}: {written} lands on {list(into_roles)}, and a read lands on the whole key, '
-                f'{list(shape.key)}. Write by={name}({shown(from_roles)} -> {shown(shape.key)}).'
+                f'{list(shape.key)}. Write by={name}({shown(from_roles)}), which names the columns read and lands '
+                f'on the key, or write that key out.'
             )
             return None
         if not self._distinct_dims(name, call, f'{written} reads', from_roles):

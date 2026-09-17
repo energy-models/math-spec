@@ -84,7 +84,7 @@ BUILTINS: dict[str, Builtin] = {
         optional_kwargs=('by', 'over'),
     ),
     'at': Builtin(
-        'at(<expr>, by=<relation | relation(<column> -> <key>)>)',
+        'at(<expr>, by=<relation | relation(<column>) | relation(<column> -> <key>)>)',
         relation_kwargs=('by',),
     ),
     'sum_back': Builtin(

@@ -20,7 +20,7 @@ model can never depend on what a caller registered. A composition of them goes i
 | `sum(array, by=relation(a -> b))`                    | Dimension `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them. The key column over `a` leaves, so a value column cannot: reading one is `at`'s |
 | `sum(array, by=relation([a, …] -> [b, …]))`          | The same with several dimensions and columns at either end: consumed together, landed on a product                                                 |
 | `at(array, by=relation)`                             | Every value column the array carries is replaced by the key, one value per coordinate. A key column whose dimension `array` carries is read at the array's own coordinate |
-| `at(array, by=relation(a -> key))`                   | The same, reading the columns `a` names where the table offers a choice, and landing on the key written out                                        |
+| `at(array, by=relation(a))`                          | The same, reading the columns `a` names where the table offers a choice. The landing is the whole key, so the call does not write it               |
 | `shift(array, along=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
 | `shift(array, along=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, along=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
@@ -99,15 +99,20 @@ coordinate the data never covered is refused. See [absence](absence.md).
 `at(x, by=l)` walks the same relation the other way. It consumes a value column
 and lands on the key, so it reads one coarse value once for each fine label that
 points at it, and a bare relation is never read by `at`. Where the relation
-offers two value columns over one dimension, the direction names the one read
-and the key it lands on: `at(cap, by=ends(bus0 -> line))`. Read that arrow as
-every direction is read, what leaves the operand on the left and what arrives on
-the right, and not as the function the math prints. The math writes
+offers two value columns over one dimension, the parenthesis names the one read:
+`at(cap, by=ends(bus0))`. A read lands on the whole key, and the declaration
+says what that key is, so one end is the whole direction — as a partition names
+its group alone and takes its other end from `along=`. Otherwise the column
+needs no naming either: a key column whose dimension `x` carries is read at the
+row's own coordinate, and the rest are produced ([walks](dimensions.md#walks)).
+
+The key may be written out, `at(cap, by=ends(bus0 -> line))`, where the reader
+of the file gains by seeing what the result is over. Read that arrow as every
+direction is read, what leaves the operand on the left and what arrives on the
+right, and not as the function the math prints. The math writes
 `cap_{ends.bus0(l)}`, a bus looked up from a line, while the direction runs from
 `bus0` to `line`, because `bus` is what `cap` carries and `line` is what the
-result gains. Otherwise the key needs no naming: a key column whose dimension
-`x` carries is read at the row's own coordinate, and the rest are produced
-([walks](dimensions.md#walks)).
+result gains.
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus)`.
@@ -354,7 +359,7 @@ language prints on [Every construct, as math](../notation.md).
 | `sum(array, by=relation(a -> b))` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$ |
 | `sum(array, by=relation([a, …] -> [b, …]))` | $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$ |
 | `at(array, by=relation)` | $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$ |
-| `at(array, by=relation(a -> key))` | $`f_{l} \le \mathrm{cap}_{\mathrm{ends.bus0}(l)} \qquad \forall\, l \in \mathcal{L}`$ |
+| `at(array, by=relation(a))` | $`f_{l} \le \mathrm{cap}_{\mathrm{ends.bus0}(l)} \qquad \forall\, l \in \mathcal{L}`$ |
 | `shift(array, along=dim, offset=n)` | $`p_{t} \le p_{t - 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=n, edge='wrap')` | $`p_{t} \le p_{t \ominus 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=n, edge=v)` | $`p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T}`$ |

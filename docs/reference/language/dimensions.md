@@ -145,13 +145,15 @@ columns and produces the key.
 
 `by=` names the relation, and the direction of the walk through it is written after the name,
 `by=zone_of(generator -> zone)`: the dimension `generator` leaves, and the
-column `zone` arrives. A call writes the whole direction or nothing:
-`sum(p, by=gen_bus)` where the declaration decides both ends, and
-`sum(p, by=zone_of(generator -> zone))` where it does not. `at` lands on the
-whole key, and the operand decides the rest: a value column is read where the
-operand carries its dimension, a key column whose dimension it still carries is
-joined on, and the other key columns are produced. Written out, a read's
-direction runs from value to key, `at(cap, by=ends(bus0 -> line))`, which is
+column `zone` arrives. A call writes what the declaration does not decide, and
+nothing more: `sum(p, by=gen_bus)` where the declaration decides both ends, and
+`sum(p, by=zone_of(generator -> zone))` where it does not. A sum names both its
+ends because either can vary. A read names one, because it lands on the whole
+key and the declaration says what that key is: `at(cap, by=ends(bus0))` names
+the column read and nothing else. `at` takes the rest from the operand: a value
+column is read where the operand carries its dimension, a key column whose
+dimension it still carries is joined on, and the other key columns are produced.
+The key may still be written out, `at(cap, by=ends(bus0 -> line))`, which runs
 the opposite way round from the function the math prints, `ends.bus0(l)`. The
 arrow says what leaves the operand and what arrives, for a read as for a sum.
 
@@ -205,8 +207,8 @@ and the joined `period` is the second subscript.
   `sum(p, by=zone_of([generator, period] -> zone))` consumes both key columns
   at once. `at(tech_cap, by=gen_bt)` reads `tech_cap` at each generator's bus
   and technology together, because `tech_cap` carries both, and
-  `at(tech_cap, by=gen_bt(bus -> generator))` reads the bus alone and keeps
-  `technology` free.
+  `at(tech_cap, by=gen_bt(bus))` reads the bus alone and keeps `technology`
+  free.
 - **A produced dimension the operand already carries is joined on.** In
   `sum(load * p, by=gen_bus)` with `load[snapshot, bus]`, the walk produces
   `bus` and `load` already carries it. So each generator's term is read at the
@@ -230,7 +232,7 @@ Three refusals draw the line, and each message names the rewrite:
 | refused                               | message                                                                                                                                                                                                                                                                   |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `at` on a bare relation               | `at(by=connection): at reads a value column at the key, and 'connection' is a bare relation — every column is in its key — so there is no value column to read. Declare value: on the relation, or sum through it.`                                                       |
-| a `sum` that consumes no key column   | `sum(by=zone_of): by=zone_of(zone -> generator): a sum consumes key columns, and 'zone_of' holds 'zone' as a value column. To read it, write at(..., by=zone_of(zone -> [generator, period])).`                                                                           |
+| a `sum` that consumes no key column   | `sum(by=zone_of): by=zone_of(zone -> generator): a sum consumes key columns, and 'zone_of' holds 'zone' as a value column. To read it, write at(..., by=zone_of(zone)).`                                                                                                  |
 | an operand missing a joined dimension | `sum(by=zone_of) joins on ['period'] (columns ['period'] of 'zone_of'), which the expression does not carry (dims ['generator']). A relation is walked between two of its columns and read at the others — index the operand by them, or walk between different columns.` |
 
 ### Partitions

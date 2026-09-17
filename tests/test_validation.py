@@ -721,9 +721,12 @@ class TestRulesDecidedWithoutData:
                 id='within-is-not-a-keyword',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(at(r, by=lk(h)))'}},
-                ('by=lk(h) names one end, and a read names both', 'Write by=lk(<column> -> g)'),
-                id='a-read-with-one-end-written',
+                {'objective': {'expression': 'sum(at(r, by=lk(g)))'}},
+                (
+                    "by=lk(g) reads the key column(s) ['g'], and at reads value columns at the key",
+                    "among ['h']",
+                ),
+                id='a-read-naming-a-key-column-as-the-column-it-reads',
             ),
             pytest.param(
                 {
@@ -734,7 +737,7 @@ class TestRulesDecidedWithoutData:
                 },
                 (
                     "by=lk(h -> g) lands on ['g'], and a read lands on the whole key, ['g', 'z']",
-                    'Write by=lk(h -> [g, z])',
+                    'Write by=lk(h), which names the columns read and lands on the key',
                 ),
                 id='a-read-landing-short-of-the-key',
             ),
@@ -745,7 +748,7 @@ class TestRulesDecidedWithoutData:
                 },
                 (
                     "'lz' has two value columns over ['h'] (['h0', 'h1']), so nothing says which one is read",
-                    'by=lz(h0 -> g)',
+                    'by=lz(h0)',
                 ),
                 id='a-bare-read-through-two-value-columns-over-one-dimension',
             ),
@@ -783,7 +786,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk(h -> g)))'}},
-                ("a sum consumes key columns, and 'lk' holds 'h' as a value column", 'at(..., by=lk(h -> g))'),
+                ("a sum consumes key columns, and 'lk' holds 'h' as a value column", 'at(..., by=lk(h))'),
                 id='a-sum-that-walks-to-the-key-is-a-read',
             ),
             pytest.param(

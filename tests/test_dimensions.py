@@ -180,6 +180,16 @@ def namespace() -> Namespace:
             id='a-read-consuming-two-value-columns-reads-them-at-once',
         ),
         pytest.param(
+            'at(bz, by=gen_bz([bus, zone]))',
+            {'generator'},
+            id='a-read-naming-one-end-names-the-columns-read-and-lands-on-the-whole-key',
+        ),
+        pytest.param(
+            'at(load, by=pair(b0))',
+            {'snapshot', 'generator'},
+            id='and-that-is-how-one-of-two-columns-over-one-dimension-is-read',
+        ),
+        pytest.param(
             'at(bz, by=gen_bz)',
             {'generator'},
             id='a-bare-read-consumes-every-value-column-the-operand-carries',

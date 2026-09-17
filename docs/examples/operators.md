@@ -254,14 +254,14 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$
 
-### `at(array, by=relation(a -> key))`
+### `at(array, by=relation(a))`
 
 `examples/operators/at_columns.yaml`
 
 ```yaml
 description: >-
-  A read that writes its direction — `at(array, by=relation(a -> key))` reads
-  column `a` and lands on the key, where a table has two columns over one
+  A read that names the column it reads — `at(array, by=relation(a))` reads
+  column `a` and lands on the whole key, where a table has two columns over one
   dimension, here the sending end of a line.
 
 dimensions:
@@ -282,7 +282,7 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends(bus0 -> line))
+    expression: f <= at(cap, by=ends(bus0))
 
 objective: { sense: minimize, expression: sum(f) }
 ```

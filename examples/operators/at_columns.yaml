@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A read that writes its direction — `at(array, by=relation(a -> key))` reads
-  column `a` and lands on the key, where a table has two columns over one
+  A read that names the column it reads — `at(array, by=relation(a))` reads
+  column `a` and lands on the whole key, where a table has two columns over one
   dimension, here the sending end of a line.
 
 dimensions:
@@ -25,6 +25,6 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends(bus0 -> line))
+    expression: f <= at(cap, by=ends(bus0))
 
 objective: { sense: minimize, expression: sum(f) }
