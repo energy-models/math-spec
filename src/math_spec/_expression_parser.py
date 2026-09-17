@@ -22,7 +22,7 @@ from math_spec.errors import SchemaError
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Join, WhereNode
+    from math_spec.program import RelationDeclaration, WhereNode
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -114,25 +114,157 @@ class NameListNode:
 
 
 @dataclass(frozen=True)
-class RelationNode:
-    """A resolved relation reference — one or more relations, each with the join the call makes through it.
+class SumRelationNode:
+    """A grouping ``sum`` makes through one or more relations — the columns each keeps, paired by index.
 
-    ``dimensions`` is the consumed side every join shares — the dims that leave
-    the operand's frame — and ``into`` the dims landed on, in the order the
-    names and their columns are written; ``sum(x, by=[gen_bus, gen_tech])`` is
-    one grouping, not two. The roles joined on are the operand's to carry, and
-    the operator passes them through.
+    ``decls`` are the relations, ``by`` the columns each keeps, aligned by
+    ``zip``: ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two. A
+    column kept is a column the result lands on; a key column not kept is summed
+    away. An empty tuple keeps every value column, which is what a bare relation
+    name means. ``over=X`` is desugared to ``by=(the roles X leaves)`` at
+    resolution, so a grouping is only ever a set of kept columns.
     """
 
-    names: tuple[str, ...]
-    dimensions: tuple[str, ...]
-    into: tuple[str, ...]
-    joins: tuple[Join, ...] = ()
+    decls: tuple[RelationDeclaration, ...]
+    by: tuple[tuple[str, ...], ...]
+
+    def summed_dims(self) -> tuple[str, ...]:
+        """The dims summed away, in walk order: each relation's key columns not kept.
+
+        Order-preserving and deduped, so a consumer emitting one message per
+        summed dim reports them in the order the grouping is written.
+        """
+        return tuple(
+            dict.fromkeys(
+                d.dim(k)
+                for d, cols in zip(self.decls, self.by, strict=True)
+                for k in d.key
+                if k not in (cols or d.values)
+            )
+        )
+
+    def kept_value_dims(self) -> tuple[str, ...]:
+        """The dims of the value columns the grouping keeps — the value axes the result is indexed by.
+
+        Key columns are excluded because they are carried/joined-on (see
+        :meth:`carried_dims`), not value axes. Order-preserving and deduped,
+        so a consumer names them in the order the grouping is written.
+        """
+        return tuple(
+            dict.fromkeys(
+                d.dim(c)
+                for d, cols in zip(self.decls, self.by, strict=True)
+                for c in (cols or d.values)
+                if c not in d.key
+            )
+        )
+
+    def carried_dims(self) -> tuple[str, ...]:
+        """The dims joined on: every kept key column's dim, across all relations, order-preserving and deduped.
+
+        A valued relation is joined at the kept key columns; a bare relation
+        lands its key and joins on nothing.
+        """
+        return tuple(
+            dict.fromkeys(
+                d.dim(c)
+                for d, cols in zip(self.decls, self.by, strict=True)
+                for c in (tuple(c for c in (cols or d.values) if c in d.key) if d.values else ())
+            )
+        )
+
+    def frame(self, inner: frozenset[str]) -> frozenset[str]:
+        """The dims a grouped sum lands on: subtract the key dims not kept, union the kept-column dims."""
+        return (inner - set(self.summed_dims())) | {
+            d.dim(c) for d, cols in zip(self.decls, self.by, strict=True) for c in (cols or d.values)
+        }
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(d.name for d in self.decls)
 
     @property
     def shown(self) -> str:
         """The kwarg value as the author wrote it, for an error message."""
         return shown(self.names)
+
+
+@dataclass(frozen=True)
+class IndexRelationNode:
+    """A read ``x[rel]`` makes through one or more relations — the value columns each reads, paired by index.
+
+    ``decls`` are the relations, ``value`` the value columns each reads, aligned
+    by ``zip``. An empty tuple reads every value column, which is what a bare
+    relation name means. Each relation spreads its key dims onto the result and
+    consumes the value dims it reads, so the read is the adjoint of a grouping.
+    """
+
+    decls: tuple[RelationDeclaration, ...]
+    value: tuple[tuple[str, ...], ...]
+
+    def read_dims(self) -> tuple[str, ...]:
+        """The value dims the read consumes, in walk order: each relation's read value columns.
+
+        Order-preserving and deduped, so a consumer emitting one reach per read
+        dim visits them in the order the index is written.
+        """
+        return tuple(
+            dict.fromkeys(d.dim(c) for d, cols in zip(self.decls, self.value, strict=True) for c in (cols or d.values))
+        )
+
+    def frame(self, inner: frozenset[str]) -> frozenset[str]:
+        """The dims a read lands on: subtract the value dims read, union the key dims spread on."""
+        return (
+            inner - {d.dim(c) for d, cols in zip(self.decls, self.value, strict=True) for c in (cols or d.values)}
+        ) | {d.dim(k) for d in self.decls for k in d.key}
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(d.name for d in self.decls)
+
+    @property
+    def shown(self) -> str:
+        """The kwarg value as the author wrote it, for an error message."""
+        return shown(self.names)
+
+
+@dataclass(frozen=True)
+class PartitionRelationNode:
+    """A single relation a translation slides along — the key column slid, and the value columns the group is made of.
+
+    ``along`` is the key column slid over its dimension; the other key columns
+    are joined on, and ``within`` names the value columns the group is; an empty
+    tuple is every value column. A partition is always one relation, so the
+    fields are scalar and the frame is unchanged.
+    """
+
+    decl: RelationDeclaration
+    along: str
+    within: tuple[str, ...]
+
+    def group(self) -> tuple[str, ...]:
+        """The value columns the group is made of: those named, or every value column where none is."""
+        return self.within or self.decl.values
+
+    def joined(self) -> tuple[str, ...]:
+        """The key columns joined on — every key column but the one slid."""
+        return tuple(r for r in self.decl.key if r != self.along)
+
+    def carried_dims(self) -> tuple[str, ...]:
+        """The dims joined on: every joined-on key column's dim, order-preserving and deduped."""
+        return tuple(dict.fromkeys(self.decl.dim(c) for c in self.joined()))
+
+    def frame(self, inner: frozenset[str]) -> frozenset[str]:
+        return inner
+
+    @property
+    def name(self) -> str:
+        return self.decl.name
+
+    @property
+    def shown(self) -> str:
+        """The kwarg value as the author wrote it, for an error message."""
+        return f'{self.name}.{self.along}'
 
 
 @dataclass(frozen=True)
@@ -162,7 +294,7 @@ class IndexNode:
     ``operand`` is the expression indexed — a name or a parenthesized
     expression — and ``relations`` the one or more relations read, each with any
     dotted value-column selection. A list mirrors ``sum(x, by=[a, b])``.
-    Resolution rewrites this into the resolved index over a :class:`RelationNode`.
+    Resolution rewrites this into the resolved index over an :class:`IndexRelationNode`.
     """
 
     operand: ArithmeticNode
@@ -279,7 +411,9 @@ ArithmeticNode = (
     | ParameterNode
     | DualNode
     | DimensionNode
-    | RelationNode
+    | SumRelationNode
+    | IndexRelationNode
+    | PartitionRelationNode
     | EdgeNode
     | KeywordNode
     | UnaryOperatorNode
@@ -314,7 +448,7 @@ def shown(names: tuple[str, ...]) -> str:
 #: ``sum(x, along=d)``, ``sum(x, by=l)``, ``shift(..., edge='wrap')``. None of
 #: the three is data, so none may stand in arithmetic — which is why the passes
 #: that walk a value position refuse them together.
-KwargNode = DimensionNode | RelationNode | EdgeNode
+KwargNode = DimensionNode | SumRelationNode | IndexRelationNode | PartitionRelationNode | EdgeNode
 
 #: What resolution rewrites away: a bare name, whose kind only the schema
 #: knows, and the two kwarg-only literals its kwarg consumes. Meeting one

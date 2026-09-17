@@ -69,12 +69,20 @@ def _never_an_axis(program: Program) -> list[Advice]:
 def _produced_axes(program: Program) -> set[str]:
     """The axes the expressions create beyond what any declaration indexes.
 
-    ``sum(by=)`` lands on its target and ``at()`` spreads onto its fine dimension.
+    A grouped ``sum`` lands on the value columns it keeps, and an index spreads
+    onto the key columns it reads — each op naming the axes it makes in its own
+    terms.
     """
     axes: set[str] = set()
     for node in walk(*program.expressions):
         if isinstance(node, GroupSum):
-            axes.update(node.into)
+            group = node.relation
+            axes.update(
+                decl.dim(c)
+                for decl, cols in zip(group.decls, group.by, strict=True)
+                for c in (cols or decl.values)
+                if c not in decl.key
+            )
         elif isinstance(node, At):
-            axes.update(node.over)
+            axes.update(decl.dim(k) for decl in node.relation.decls for k in decl.key)
     return axes

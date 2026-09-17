@@ -27,11 +27,13 @@ from math_spec._expression_parser import (
     EdgeNode,
     FunctionCallNode,
     IndexNode,
+    IndexRelationNode,
     KwargNode,
     NumberNode,
     ParameterNode,
     ParsedNode,
-    RelationNode,
+    PartitionRelationNode,
+    SumRelationNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -54,6 +56,7 @@ from math_spec.program import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Set as AbstractSet
 
     from math_spec.model import Spec
     from math_spec.resolution import Resolved
@@ -135,7 +138,7 @@ def _dims_call(node: FunctionCallNode, schema: Spec, context: str) -> frozenset[
 
 
 def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``sum`` reduces a dim away, or joins a relation: the consumed dims go, the landed dims arrive, the joined stay."""
+    """``sum`` reduces a dim away, or groups through a relation: the summed dims go, the kept-column dims arrive."""
     over = node.kwargs.get('over')
     by = node.kwargs.get('by')
     if over is None and by is None:
@@ -151,39 +154,47 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
             raise DimensionError(_not_carried(context, f'sum(over={over.name})', inner, 'drop the sum, or fix the dim'))
         return inner - {over.name}
     relation = over if over is not None else by
-    assert isinstance(relation, RelationNode)
+    assert isinstance(relation, SumRelationNode)
     kwarg = 'over' if over is not None else 'by'
-    return _relation_dims(f'sum({kwarg}={relation.shown})', relation, inner, context)
+    return _summed_dims(f'sum({kwarg}={relation.shown})', relation, inner, context)
 
 
-def _index_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
-    """``x[rel]`` reads a value at a key: the value dims it consumes go, the key it produces arrives, the joined stay."""
-    by = node.kwargs['by']
-    assert isinstance(by, RelationNode)
-    return _relation_dims(f'{by.joins[0].name}[…]', by, inner, context)
-
-
-def _relation_dims(call: str, relation: RelationNode, inner: frozenset[str], context: str) -> frozenset[str]:
-    """The frame a sum or index lands on: ``(inner - consumed) | landed``, once the operand carries what the join needs."""
-    if missing := sorted(set(relation.dimensions) - inner):
+def _summed_dims(call: str, relation: SumRelationNode, inner: frozenset[str], context: str) -> frozenset[str]:
+    """The frame a grouped sum lands on, once the operand carries the dims summed away and each joined-on dim once."""
+    summed = set(relation.summed_dims())
+    if missing := sorted(summed - inner):
         raise DimensionError(
             _not_carried(context, f'{call} reads {missing}, the dims it consumes,', inner, 'fix the dim')
         )
-    _check_joined(call, relation, inner, context)
-    return (inner - set(relation.dimensions)) | set(relation.into)
+    _check_carried(call, relation.carried_dims(), summed, inner, context)
+    return relation.frame(inner)
+
+
+def _index_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
+    """``x[rel]`` reads a value at a key: the value dims it consumes go, the key dims spread on arrive, the joined stay."""
+    by = node.kwargs['by']
+    assert isinstance(by, IndexRelationNode)
+    read = set(by.read_dims())
+    if missing := sorted(read - inner):
+        call = f'{by.decls[0].name}[…]'
+        raise DimensionError(
+            _not_carried(context, f'{call} reads {missing}, the dims it consumes,', inner, 'fix the dim')
+        )
+    return by.frame(inner)
 
 
 def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
     """``shift`` and ``sum_back`` keep every dim, and their amount, edge and partition are checked here."""
     along = node.kwargs['along']
-    assert isinstance(along, DimensionNode | RelationNode), 'resolution refuses an along= that is neither'
-    partition = along if isinstance(along, RelationNode) else None
-    walked = along.joins[0].consumed_dims[0] if isinstance(along, RelationNode) else along.name
+    assert isinstance(along, DimensionNode | PartitionRelationNode), 'resolution refuses an along= that is neither'
+    partition = along if isinstance(along, PartitionRelationNode) else None
+    walked = along.decl.dim(along.along) if isinstance(along, PartitionRelationNode) else along.name
+    named = partition.name if partition is not None else along.name
     if walked not in inner:
         raise DimensionError(
             _not_carried(
                 context,
-                f'{node.name}(along={along.shown if isinstance(along, RelationNode) else along.name})',
+                f'{node.name}(along={named})',
                 inner,
                 f'slide a dim the operand carries, or drop the {node.name}',
             )
@@ -192,28 +203,43 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     _check_amount_form(node, context)
     _check_edge(node, context)
     if partition is not None:
-        _check_joined(f'{node.name}(along={partition.shown})', partition, inner, context)
+        _check_carried(
+            f'{node.name}(along={partition.name})',
+            partition.carried_dims(),
+            {walked},
+            inner,
+            context,
+        )
     return inner
 
 
-def _check_joined(call: str, by: RelationNode, inner: frozenset[str], context: str) -> None:
-    """The columns a join reads are read at their dimensions, so the operand carries every one, each once."""
-    for walk in by.joins:
-        dims = walk.joined_dims
-        if missing := sorted(set(dims) - inner):
-            raise DimensionError(
-                f'{context}: {call} joins on {missing} (columns {[r for r in walk.joined if walk.dim(r) in missing]} '
-                f"of '{walk.name}'), which the expression does not carry (dims {sorted(inner)}). A relation is "
-                f'summed or indexed between two of its columns and joined at the others — index the operand by '
-                f'them, or name different columns.'
-            )
-        twice = sorted({d for d in dims if dims.count(d) > 1 or d in by.dimensions})
-        if twice:
-            raise DimensionError(
-                f"{context}: {call} joins '{walk.name}' on {twice} through more than one column, and the operand "
-                f'carries each dimension once. Name different columns, or a relation whose joined '
-                f'columns are over distinct dimensions.'
-            )
+def _check_carried(
+    call: str,
+    carried: tuple[str, ...],
+    consumed: AbstractSet[str],
+    inner: frozenset[str],
+    context: str,
+) -> None:
+    """The columns a join is made at are read at their dimensions, so the operand carries every one, each once.
+
+    *carried* are the dims joined on across every relation of the node — a
+    grouped sum's kept key columns, or a partition's other key columns — and
+    *consumed* the dims the node reduces away, which no carried dim may repeat.
+    """
+    dims = tuple(carried)
+    if missing := sorted(set(dims) - inner):
+        raise DimensionError(
+            f'{context}: {call} joins on {missing}, which the expression does not carry '
+            f'(dims {sorted(inner)}). A relation is summed or indexed between two of its columns and joined '
+            f'at the others — index the operand by them, or name different columns.'
+        )
+    twice = sorted({d for d in dims if dims.count(d) > 1 or d in consumed})
+    if twice:
+        raise DimensionError(
+            f'{context}: {call} joins on {twice} through more than one column, and the '
+            f'operand carries each dimension once. Name different columns, or a relation whose joined '
+            f'columns are over distinct dimensions.'
+        )
 
 
 #: The dim rule of each built-in, by name.
@@ -393,8 +419,8 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
         )
     partition = node.kwargs.get('along')
     groups = (
-        frozenset(partition.joins[0].dim(v) for v in partition.joins[0].produced)
-        if isinstance(partition, RelationNode)
+        frozenset(partition.decl.dim(v) for v in partition.group())
+        if isinstance(partition, PartitionRelationNode)
         else frozenset()
     )
     if stray := sorted(frozenset(declared.dims) - inner - groups):

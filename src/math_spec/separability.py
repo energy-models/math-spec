@@ -84,16 +84,20 @@ def separabilities(program: Program) -> dict[str, Separability]:
                             f'sums over {dimension} — a rolling sum_back(window=n) windows, a total over the horizon does not',
                         )
             elif isinstance(node, GroupSum):
-                for dimension in node.over:
+                group = node.relation
+                summed = group.summed_dims()
+                kept_value_dims = group.kept_value_dims()
+                for dimension in summed:
                     report(
                         'coupled',
                         dimension,
                         label,
-                        f'groups {dimension} into {", ".join(node.into)} — window that dimension instead, or cut only at the group edges',
+                        f'sums {dimension} away, keeping {", ".join(kept_value_dims)} — window that dimension instead, or cut only at the group edges',
                     )
             elif isinstance(node, At):
-                for dimension in node.into:
-                    for relation in node.coordinate:
+                read = node.relation.read_dims()
+                for dimension in read:
+                    for relation in node.relation.names:
                         waits_on(dimension, label, relation, 'coordinate')
             elif isinstance(node, (Translate, Window)):
                 dimension = node.dimension

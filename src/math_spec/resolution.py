@@ -30,6 +30,7 @@ from math_spec._expression_parser import (
     EdgeNode,
     FunctionCallNode,
     IndexNode,
+    IndexRelationNode,
     KeywordNode,
     KwargNode,
     NameListNode,
@@ -37,7 +38,8 @@ from math_spec._expression_parser import (
     NumberNode,
     ParameterNode,
     ParsedNode,
-    RelationNode,
+    PartitionRelationNode,
+    SumRelationNode,
     UnaryOperatorNode,
     VariableNode,
     case_context,
@@ -66,7 +68,6 @@ from math_spec.program import (
     BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
-    Join,
     Mask,
     NotNode,
     OrNode,
@@ -307,23 +308,6 @@ def _shown(refs: tuple[ColumnRefNode | NameNode, ...]) -> str:
     """The ``by=`` value as written, for an error message: one reference bare, several bracketed."""
     parts = [r.shown if isinstance(r, ColumnRefNode) else r.name for r in refs]
     return parts[0] if len(parts) == 1 else f'[{", ".join(parts)}]'
-
-
-def _relation_node(joins: tuple[Join, ...], landed: tuple[str, ...]) -> RelationNode:
-    """A resolved relation reference: the joins, the dims they consume from the operand, and the dims landed on.
-
-    ``dimensions`` is the consumed side — the dims that leave the operand's
-    frame, unioned across the joins in order — and ``into`` the dims the result
-    gains, so the dim rule is uniformly ``(inner - dimensions) | into`` for a
-    sum and an index alike.
-    """
-    consumed = tuple(dict.fromkeys(d for w in joins for d in w.consumed_dims))
-    return RelationNode(tuple(w.name for w in joins), dimensions=consumed, into=landed, joins=joins)
-
-
-def _landed_dims(walk: Join) -> tuple[str, ...]:
-    """The dims a join lands on — the dims it produces, whether a sum's value or an index's key."""
-    return walk.produced_dims
 
 
 def mask_of(node: WhereNode | None) -> Mask | None:
@@ -618,12 +602,11 @@ class _Resolver:
             self.errors.append(_undeclared_dim(self.context, operator, f'{key}={value.name}', value.name, self.ns))
             return value
         if isinstance(value, ColumnRefNode):
-            partition = operator in ('shift', 'sum_back')
-            if partition:
-                walk = self._partition_join(value, operator, key, within)
-                return value if walk is None else _relation_node((walk,), ())
-            walk = self._key_join(value, operator, key)
-            return value if walk is None else _relation_node((walk,), _landed_dims(walk))
+            if operator in ('shift', 'sum_back'):
+                partition = self._partition(value, operator, key, within)
+                return value if partition is None else partition
+            grouping = self._over_grouping(value, operator, key)
+            return value if grouping is None else grouping
         self.errors.append(f'{self.context}: {operator}({key}=…) names a dimension, or a relation key column.')
         return value
 
@@ -665,43 +648,45 @@ class _Resolver:
         if problems:
             self.errors.extend(problems)
             return value
-        joins = [self._value_join(r, operator, key) for r in refs]
-        if any(j is None for j in joins):
+        selected = [self._value_columns(r, operator, key) for r in refs]
+        if any(s is None for s in selected):
             return value
-        resolved = [j for j in joins if j is not None]
-        index = operator == 'index'
-        landed = _landed_dims(resolved[0]) if index else tuple(d for j in resolved for d in _landed_dims(j))
-        if index:
-            return _relation_node(tuple(resolved), landed)
-        summed = {frozenset(j.consumed_dims) for j in resolved}
+        decls = tuple(self.ns.shape_of(r.name) for r in refs)
+        cols = tuple(s for s in selected if s is not None)
+        if operator == 'index':
+            return IndexRelationNode(decls, cols)
+        summed = {frozenset(d.dim(k) for k in d.key) for d in decls}
         if len(summed) > 1:
             self.errors.append(
                 f'{self.context}: {operator}({key}={_shown(refs)}) groups through relations that sum away '
-                f'different dimensions ({", ".join(f"{j.name} sums {sorted(j.consumed_dims)}" for j in resolved)}). '
+                f'different dimensions ({", ".join(f"{d.name} sums {sorted(d.dim(k) for k in d.key)}" for d in decls)}). '
                 f'One grouping sums one key away, so every relation in the list must sum the same — group through '
                 f'them one call each instead.'
             )
             return value
-        if repeated := sorted({d for d in landed if landed.count(d) > 1}):
+        landed = tuple(d.dim(c) for d, s in zip(decls, cols, strict=True) for c in (s or d.values))
+        if repeated := sorted({dim for dim in landed if landed.count(dim) > 1}):
             self.errors.append(
                 f'{self.context}: {operator}({key}={_shown(refs)}) lands on {repeated} more than once. Each value '
                 f'column lands on its own dimension, so two on the same one would need it twice — drop one.'
             )
             return value
-        return _relation_node(tuple(resolved), landed)
+        return SumRelationNode(decls, cols)
 
-    def _value_join(self, ref: ColumnRefNode | NameNode, operator: str, key: str) -> Join | None:
-        """The join ``sum(by=)`` or ``index`` makes: the value columns named or all of them, the whole key elsewhere.
+    def _value_columns(self, ref: ColumnRefNode | NameNode, operator: str, key: str) -> tuple[str, ...] | None:
+        """The value columns a ``by=`` or ``index`` reads from one relation: those named or every one.
 
         For ``sum`` the key is summed away and the result groups onto the value
         columns; for ``index`` the value columns are read at the key. A bare
         relation has no value to land on or read, and an index must be
-        single-valued at the columns the operand fixes.
+        single-valued at the columns the operand fixes. Returns the selection —
+        empty where the author named no column, which means every value column —
+        or ``None`` once a refusal is recorded.
         """
         name = ref.name
         shape = self.ns.shape_of(name)
         call = f'{operator}({key}={ref.shown if isinstance(ref, ColumnRefNode) else name})'
-        values = self._columns(ref, shape, call) if isinstance(ref, ColumnRefNode) else shape.values
+        values = self._columns(ref, shape, call) if isinstance(ref, ColumnRefNode) else ()
         if values is None:
             return None
         if not shape.values:
@@ -717,24 +702,22 @@ class _Resolver:
                 f'column — its value columns are {list(shape.values)}.'
             )
             return None
-        if operator == 'index':
-            walk = Join(shape, values, shape.key, ())
-            if not walk.is_function_read:
-                self.errors.append(
-                    f"{self.context}: {call}: an index reads one value per coordinate, and '{name}' is not "
-                    f'single-valued at {list(values)} — its key is {list(shape.key)}. Read a value column the '
-                    f'key determines, or sum toward it instead.'
-                )
-                return None
-            return walk
-        return Join(shape, shape.key, values, ())
+        read = values or shape.values
+        if operator == 'index' and not (shape.key and set(shape.key) <= set(shape.roles) - set(read)):
+            self.errors.append(
+                f"{self.context}: {call}: an index reads one value per coordinate, and '{name}' is not "
+                f'single-valued at {list(read)} — its key is {list(shape.key)}. Read a value column the '
+                f'key determines, or sum toward it instead.'
+            )
+            return None
+        return values
 
-    def _key_join(self, ref: ColumnRefNode, operator: str, key: str) -> Join | None:
-        """The join ``sum(over=rel.k)`` makes: sum key column ``k`` away, the value and other keys ride in.
+    def _over_grouping(self, ref: ColumnRefNode, operator: str, key: str) -> SumRelationNode | None:
+        """``sum(over=rel.k)`` as the grouping that keeps everything ``k`` leaves — ``over=`` desugared to ``by=``.
 
-        Refused where the columns named are the whole key — then every group is
-        one row and nothing is added, which is a read the index does — and the
-        message names the rewrite.
+        ``over=rel.k`` sums key column ``k`` away, so the grouping keeps every
+        other column of the relation. Refused where a named column is not a key
+        column, since ``over=`` sums a key column away.
         """
         shape = self.ns.shape_of(ref.name)
         call = f'{operator}({key}={ref.shown})'
@@ -747,15 +730,13 @@ class _Resolver:
                 f'column away — its key columns are {list(shape.key)}.'
             )
             return None
-        rest = tuple(r for r in shape.key if r not in keys)
-        if shape.values:
-            return Join(shape, keys, shape.values, rest)
-        return Join(shape, keys, rest, ())
+        kept = tuple(r for r in shape.roles if r not in keys)
+        return SumRelationNode((shape,), (kept,))
 
-    def _partition_join(
+    def _partition(
         self, ref: ColumnRefNode, operator: str, key: str, within: ArithmeticNode | None
-    ) -> Join | None:
-        """The join a partition (``shift``, ``sum_back``) makes: slide the named key column, group by the values.
+    ) -> PartitionRelationNode | None:
+        """The partition a translation (``shift``, ``sum_back``) slides along.
 
         ``ref`` names the relation and the one key column slid over its
         dimension; the other key columns are joined on, and the group is the
@@ -779,12 +760,11 @@ class _Resolver:
                 f'makes no groups. Move the group columns under value:, leaving key: the column slid.'
             )
             return None
-        group = self._within(within, shape, call) if within is not None else shape.values
+        group = self._within(within, shape, call) if within is not None else ()
         if group is None:
             return None
         (slid,) = keys
-        joined = tuple(r for r in shape.key if r != slid)
-        return Join(shape, (slid,), group, joined)
+        return PartitionRelationNode(shape, slid, group)
 
     def _within(self, within: ArithmeticNode, shape: RelationDeclaration, call: str) -> tuple[str, ...] | None:
         """The value columns ``within=`` names, each a value column of the relation; the refusal otherwise."""
@@ -936,10 +916,10 @@ class _Resolver:
         within = (
             None if node.into is None else (NameNode(node.into[0]) if len(node.into) == 1 else NameListNode(node.into))
         )
-        walk = self._partition_join(ref, 'position', 'along', within)
-        if walk is None:
+        partition = self._partition(ref, 'position', 'along', within)
+        if partition is None:
             return node
-        return DimensionPositionNode(walk.dim(walk.consumed[0]), node.op, node.position, walk)
+        return DimensionPositionNode(partition.decl.dim(partition.along), node.op, node.position, partition)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``relation <op> relation``."""

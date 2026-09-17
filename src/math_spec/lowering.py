@@ -26,10 +26,12 @@ from math_spec._expression_parser import (
     EdgeNode,
     FunctionCallNode,
     IndexNode,
+    IndexRelationNode,
     KwargNode,
     NumberNode,
     ParameterNode,
-    RelationNode,
+    PartitionRelationNode,
+    SumRelationNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -274,14 +276,14 @@ class _Lowering:
         if isinstance(over_node, DimensionNode):
             return program.Sum(operand, (over_node.name,))
         relation = over_node if over_node is not None else by_node
-        assert isinstance(relation, RelationNode), 'resolution refuses a relation kwarg that is not a relation'
-        return program.GroupSum(operand, joins=relation.joins)
+        assert isinstance(relation, SumRelationNode), 'resolution refuses a relation kwarg that is not a grouping'
+        return program.GroupSum(operand, relation=relation)
 
     def index(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``x[relation]`` — reading a value at a key, the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
-        assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.At(self.expr(node.args[0]), joins=by_node.joins)
+        assert isinstance(by_node, IndexRelationNode), 'resolution refuses a by= that is not a read'
+        return program.At(self.expr(node.args[0]), relation=by_node)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
@@ -342,23 +344,21 @@ _CALLS: dict[str, Callable[[_Lowering, FunctionCallNode], program.ExpressionNode
 def _slid_dim(node: FunctionCallNode) -> str:
     """The dimension a translation slides along — a bare ``along=`` or the key column a partition slides."""
     along = node.kwargs['along']
-    if isinstance(along, RelationNode):
-        return along.joins[0].consumed_dims[0]
+    if isinstance(along, PartitionRelationNode):
+        return along.decl.dim(along.along)
     assert isinstance(along, DimensionNode), 'resolution refuses an along= that is neither a dimension nor a relation'
     return along.name
 
 
-def _partition_of(node: FunctionCallNode) -> program.Join | None:
-    """The join a translation partitions by, if ``along=`` names a relation.
+def _partition_of(node: FunctionCallNode) -> PartitionRelationNode | None:
+    """The partition a translation slides along, if ``along=`` names a relation.
 
     That it is a *single* relation, sliding *the translated dimension*, is
     checked with the other dim rules (``math_spec.dimensions``), where a model
     is refused before any data is read.
     """
     along = node.kwargs.get('along')
-    if not isinstance(along, RelationNode):
-        return None
-    return along.joins[0]
+    return along if isinstance(along, PartitionRelationNode) else None
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:

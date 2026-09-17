@@ -16,7 +16,13 @@ from typing import TYPE_CHECKING, get_args
 import pytest
 
 from math_spec import LanguageError, Spec, to_program
-from math_spec._expression_parser import FunctionCallNode, NumberNode
+from math_spec._expression_parser import (
+    FunctionCallNode,
+    IndexRelationNode,
+    NumberNode,
+    PartitionRelationNode,
+    SumRelationNode,
+)
 from math_spec._where_parser import parse_where
 from math_spec.exclusivity import overlapping
 from math_spec.lowering import _Lowering, lower_program
@@ -36,7 +42,6 @@ from math_spec.program import (
     ExpressionNode,
     Footprint,
     GroupSum,
-    Join,
     Mask,
     Multiply,
     Negate,
@@ -82,11 +87,9 @@ TINY = {
     'constraints': {'c': {'dims': [], 'expression': 'sum(p, over=g) >= 1'}},
 }
 
-#: `lk` and `lk2` as `sum` walks them: key consumed, value produced, nothing joined.
+#: `lk` and `lk2` as a bare `sum(by=)` groups through them: every value column kept, the key summed away.
 LK = RelationDeclaration('lk', (('g', 'g'), ('h', 'h')), ('g',))
 LK2 = RelationDeclaration('lk2', (('g', 'g'), ('z', 'z')), ('g',))
-LK_WALK = Join(LK, ('g',), ('h',), ())
-LK2_WALK = Join(LK2, ('g',), ('z',), ())
 AT_BUS = RelationDeclaration('at_bus', (('g', 'g'), ('bus', 'bus')), ('g',))
 
 #: `fixtures.SMALL_MODEL` plus a second relation and a per-entity
@@ -412,22 +415,22 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk)',
-            GroupSum(Variable('p'), joins=(LK_WALK,)),
-            id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
+            GroupSum(Variable('p'), relation=SumRelationNode((LK,), ((),))),
+            id='a-grouped-sum-keeps-every-value-column-and-sums-the-key-away',
         ),
         pytest.param(
             'sum(p, by=[lk])',
-            GroupSum(Variable('p'), joins=(LK_WALK,)),
+            GroupSum(Variable('p'), relation=SumRelationNode((LK,), ((),))),
             id='a-one-element-list-is-the-plain-form',
         ),
         pytest.param(
             'sum(p, by=[lk, lk2])',
-            GroupSum(Variable('p'), joins=(LK_WALK, LK2_WALK)),
+            GroupSum(Variable('p'), relation=SumRelationNode((LK, LK2), ((), ()))),
             id='two-coordinates-are-one-grouping-with-paired-tuples',
         ),
         pytest.param(
             'r[lk]',
-            At(Variable('r'), joins=(Join(LK, ('h',), ('g',), ()),)),
+            At(Variable('r'), relation=IndexRelationNode((LK,), ((),))),
             id='an-index-reads-the-same-table-back',
         ),
         pytest.param(
@@ -453,7 +456,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 offset=1,
                 wrap=False,
                 fill=0.0,
-                partition=Join(LK, ('g',), ('h',), ()),
+                partition=PartitionRelationNode(LK, 'g', ()),
             ),
             id='a-translation-stops-at-the-edges-of-the-relation-it-names',
         ),
@@ -474,7 +477,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 'g',
                 width=2,
                 wrap=False,
-                partition=Join(LK, ('g',), ('h',), ()),
+                partition=PartitionRelationNode(LK, 'g', ()),
             ),
             id='a-window-stops-at-the-edges-of-the-relation-it-names',
         ),
@@ -517,26 +520,23 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     assert program.dimension('zone').relations == (declared,), 'and under its last'
     assert program.relations == {'zone_of': declared}, 'and once in the program'
     zonal = program.constraints['zonal'].lhs
-    assert zonal == GroupSum(Variable('p'), joins=(Join(declared, ('generator',), ('zone',), ('snapshot',)),)), (
-        'a grouped sum names the column it consumes, the one it produces and the one it joins on'
+    assert zonal == GroupSum(Variable('p'), relation=SumRelationNode((declared,), (('snapshot', 'zone'),))), (
+        'over=zone_of.generator desugars to keeping every column the summed key leaves'
     )
     assert isinstance(zonal, GroupSum)
-    assert (zonal.over, zonal.into, zonal.joined, zonal.coordinate) == (
-        ('generator',),
-        ('zone',),
-        ('snapshot',),
-        ('zone_of',),
-    ), 'the dims a consumer reads are read off the walk'
+    assert zonal.relation.frame(frozenset({'snapshot', 'generator'})) == {'snapshot', 'zone'}, (
+        'summing generator away and landing on zone, with snapshot carried'
+    )
     assert program.constraints['history'].lhs == GroupSum(
-        Variable('p'), joins=(Join(declared, ('snapshot',), ('zone',), ('generator',)),)
+        Variable('p'), relation=SumRelationNode((declared,), (('generator', 'zone'),))
     ), 'the same table walked from its other key column'
     priced = program.constraints['priced'].rhs
-    assert priced == At(Parameter('price'), joins=(Join(declared, ('zone',), ('generator', 'snapshot'), ()),)), (
-        'an index consumes the value column and produces the whole key'
+    assert priced == At(Parameter('price'), relation=IndexRelationNode((declared,), ((),))), (
+        'a bare index reads every value column at the key'
     )
     assert isinstance(priced, At)
-    assert (priced.over, priced.into, priced.joined) == (('generator', 'snapshot'), ('zone',), ()), (
-        'an index produces the key dims and consumes the coarse value'
+    assert priced.relation.frame(frozenset({'snapshot', 'zone'})) == {'snapshot', 'generator'}, (
+        'an index spreads the key dims on and consumes the coarse value'
     )
     p_where = program.variable('p').where
     assert p_where is not None
@@ -560,7 +560,7 @@ def test_a_divisor_under_a_pullback_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
     component_of = RelationDeclaration('component_of', (('flow', 'flow'), ('component', 'component')), ('flow',))
-    pulled = At(quotient, joins=(Join(component_of, ('component',), ('flow',), ()),))
+    pulled = At(quotient, relation=IndexRelationNode((component_of,), (('component',),)))
 
     assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `At`'
     assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
@@ -600,8 +600,8 @@ FAN_IN = {
     Power(Parameter('c'), Constant(2.0)): 'one-to-one',
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
-    GroupSum(Variable('p'), joins=(Join(AT_BUS, ('g',), ('bus',), ()),)): 'many-to-one',
-    At(Variable('p'), joins=(Join(AT_BUS, ('bus',), ('g',), ()),)): 'one-to-one',
+    GroupSum(Variable('p'), relation=SumRelationNode((AT_BUS,), ((),))): 'many-to-one',
+    At(Variable('p'), relation=IndexRelationNode((AT_BUS,), ((),))): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',

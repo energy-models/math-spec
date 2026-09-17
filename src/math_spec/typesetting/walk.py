@@ -26,10 +26,12 @@ from math_spec._expression_parser import (
     EdgeNode,
     FunctionCallNode,
     IndexNode,
+    IndexRelationNode,
     KwargNode,
     NumberNode,
     ParameterNode,
-    RelationNode,
+    PartitionRelationNode,
+    SumRelationNode,
     UnaryOperatorNode,
     UnresolvedNode,
     VariableNode,
@@ -59,7 +61,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from math_spec.model import RelationBlock, SosBlock, _ExpandedSpec
-    from math_spec.program import Join
+    from math_spec.program import RelationDeclaration
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -113,8 +115,8 @@ def _amount(node: ArithmeticNode) -> int | str:
 
 def _slid_dimension(along: ArithmeticNode) -> str:
     """The dimension a translation slides along — a bare ``along=`` or the key column a partition slides."""
-    if isinstance(along, RelationNode):
-        return along.joins[0].consumed_dims[0]
+    if isinstance(along, PartitionRelationNode):
+        return along.decl.dim(along.along)
     assert isinstance(along, DimensionNode), 'resolution refuses an along= that is neither a dimension nor a relation'
     return along.name
 
@@ -283,20 +285,20 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _relation_read(self, walk: Join, at: Mapping[str, str], read: str) -> str:
+    def _relation_read(self, decl: RelationDeclaration, at: Mapping[str, str], read: str) -> str:
         """A relation's column *read* as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
 
         *at* maps each key role to the index it is read at. The function is
         named after the relation alone where the key determines one column, and
         after the column read otherwise.
         """
-        name = walk.name if len(walk.values) == 1 else f'{walk.name}.{read}'
-        return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in walk.key], ''))
+        name = decl.name if len(decl.values) == 1 else f'{decl.name}.{read}'
+        return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in decl.key], ''))
 
-    def _relation_member(self, walk: Join, at: Mapping[str, str]) -> str:
+    def _relation_member(self, decl: RelationDeclaration, at: Mapping[str, str]) -> str:
         """A relation read as a relation: ``(g, b) ∈ gen_bus``, every column in declared order at the index *at* gives it."""
-        row = self.format.parenthesise(self.format.joined([at[r] for r in walk.roles], ''))
-        return f'{row} {self._op("in")} {self.format.upright(walk.name)}'
+        row = self.format.parenthesise(self.format.joined([at[r] for r in decl.roles], ''))
+        return f'{row} {self._op("in")} {self.format.upright(decl.name)}'
 
     def _value_read(self, name: str, column: str, ctx: _Context) -> str:
         """A keyed relation's value *column* read at the frame's own indices of its key: ``period_of(t)``."""
@@ -307,10 +309,11 @@ class Walk:
     def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
         """The group a grouped position counts within: the relation's group columns read at the row's key."""
         assert node.partition is not None
-        walk = node.partition
-        keyed = self.format.joined([ctx.subscript(walk.dim(k)) for k in walk.key], '')
-        single = len(walk.values) == 1
-        reads = [self.format.apply(self._column(walk.name, column, single), keyed) for column in walk.produced]
+        partition = node.partition
+        decl = partition.decl
+        keyed = self.format.joined([ctx.subscript(decl.dim(k)) for k in decl.key], '')
+        single = len(decl.values) == 1
+        reads = [self.format.apply(self._column(decl.name, column, single), keyed) for column in partition.group()]
         return self._tuple(reads)
 
     def _tuple(self, reads: list[str]) -> str:
@@ -456,25 +459,30 @@ class Walk:
 
         if node.name == 'index':
             by = node.kwargs['by']
-            assert isinstance(by, RelationNode)
+            assert isinstance(by, IndexRelationNode)
             outer = ctx
-            for walk in by.joins:
-                at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
-                for read in walk.consumed:
-                    ctx = ctx.pulled_back(walk.dim(read), self._relation_read(walk, at, read))
+            for decl, cols in zip(by.decls, by.value, strict=True):
+                at = {r: outer.subscript(decl.dim(r)) for r in decl.key}
+                for read in cols or decl.values:
+                    ctx = ctx.pulled_back(decl.dim(read), self._relation_read(decl, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         over = node.kwargs.get('over')
         by = node.kwargs.get('by')
-        relation = over if isinstance(over, RelationNode) else by
-        if isinstance(relation, RelationNode):
+        relation = over if isinstance(over, SumRelationNode) else by
+        if isinstance(relation, SumRelationNode):
+            summed = relation.summed_dims()
             dummies: dict[str, str] = {}
             inner = ctx
-            for d in relation.dimensions:
+            for d in summed:
                 dummies[d], inner = inner.reducing(d)
-            conditions = [c for walk in relation.joins for c in self._grouping(walk, dummies, ctx)]
+            conditions = [
+                c
+                for decl, cols in zip(relation.decls, relation.by, strict=True)
+                for c in self._grouping(relation, decl, cols, dummies, ctx)
+            ]
             domain = (
-                f'{self.format.joined([self._membership(d, dummies[d]) for d in relation.dimensions], "")} '
+                f'{self.format.joined([self._membership(d, dummies[d]) for d in summed], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
             )
         elif isinstance(over, DimensionNode):
@@ -489,21 +497,37 @@ class Walk:
             domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
-    def _grouping(self, walk: Join, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
-        """The conditions a grouped sum's domain carries for one walk: each produced column as a function equal to its target, or one row in the relation.
+    def _grouping(
+        self,
+        relation: SumRelationNode,
+        decl: RelationDeclaration,
+        cols: tuple[str, ...],
+        dummies: Mapping[str, str],
+        ctx: _Context,
+    ) -> list[str]:
+        """The conditions a grouped sum's domain carries for one relation: each landed column as a function equal to its target, or one row in the relation.
 
-        The function form holds where the key lies inside the consumed and
-        joined columns — one value per summand — and the relation form is the
-        reading that is always right.
+        The function form holds where the key lies inside the summed and carried
+        columns — one value per summand — and the relation form is the reading
+        that is always right.
         """
+        kept = cols or decl.values
+        summed = [k for k in decl.key if k not in kept]
+        carried: list[str]
+        if decl.values:
+            carried = [k for k in decl.key if k in kept]
+            landed = [c for c in kept if c not in decl.key]
+        else:
+            carried = []
+            landed = [k for k in decl.key if k in kept]
         at = {
-            **{r: dummies[walk.dim(r)] for r in walk.consumed},
-            **{r: ctx.subscript(walk.dim(r)) for r in walk.joined},
+            **{r: dummies[decl.dim(r)] for r in summed},
+            **{r: ctx.subscript(decl.dim(r)) for r in carried},
         }
-        targets = {r: ctx.subscript(walk.dim(r)) for r in walk.produced}
-        if walk.key and set(walk.key) <= set(at) and not set(walk.produced) & set(walk.key):
-            return [f'{self._relation_read(walk, at, r)} {self._op("equal")} {targets[r]}' for r in walk.produced]
-        return [self._relation_member(walk, {**at, **targets})]
+        targets = {r: ctx.subscript(decl.dim(r)) for r in landed}
+        if decl.key and set(decl.key) <= set(at) and not set(landed) & set(decl.key):
+            return [f'{self._relation_read(decl, at, r)} {self._op("equal")} {targets[r]}' for r in landed]
+        return [self._relation_member(decl, {**at, **targets})]
 
     def _group(self, along: ArithmeticNode | None, dim: str) -> str:
         """A partition ``along=rel.d`` as the superscript its translation operator carries.
@@ -513,11 +537,11 @@ class Walk:
         still asks which group *that row* is in. A bare ``along=`` names no
         relation and carries no superscript.
         """
-        if not isinstance(along, RelationNode):
+        if not isinstance(along, PartitionRelationNode):
             return ''
-        walk = along.joins[0]
-        at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
-        return self._tuple([self._relation_read(walk, at, r) for r in walk.produced])
+        decl = along.decl
+        at = {r: self.symbols.index[decl.dim(r)] for r in (along.along, *along.joined())}
+        return self._tuple([self._relation_read(decl, at, r) for r in along.group()])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``window=``: a number, or a parameter's own symbol.
