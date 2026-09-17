@@ -39,14 +39,14 @@ def _verbs() -> dict[str, argparse.ArgumentParser]:
     raise AssertionError('the front registered no subcommands at all')
 
 
-def test_the_verbs_are_the_formats_and_the_two_that_read_a_model():
+def test_the_verbs_are_the_formats_and_the_one_that_reads_a_model():
     """The one claim the module makes about itself, in both directions.
 
     The typeset verbs are built by looping over `FORMATS`, so a new format
     arrives with its verb already written and there is no second list to
     forget. A verb hand-added here, or a format quietly dropped, breaks this.
     """
-    assert set(_verbs()) == set(FORMATS) | {'check', 'compose'}
+    assert set(_verbs()) == set(FORMATS) | {'check'}
 
 
 UNUSED_DIMENSION = """

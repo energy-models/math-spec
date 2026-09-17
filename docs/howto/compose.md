@@ -116,27 +116,6 @@ compose: `override(merge({…}), {…})`.
    schema already takes: `gen_p: { where: null }` gives that variable no mask,
    and leaves the variable in place.
 
-## From the shell
-
-```bash
-python -m math_spec compose surface.yaml generator.yaml load.yaml -o library.yaml
-python -m math_spec compose base.yaml -p carbon.yaml -p operate.yaml -o composed.yaml
-```
-
-Several models are merged as peers. `-p` lays a patch over what they compose
-to. The model goes to the file, and the account of how it got there goes to
-stderr:
-
-```text
-merged 3 fragments
-  added  parameters.emission_rate  (carbon)
- edited  variables.gen_p  (operate)
-1 added, 1 edited
-```
-
-Without `-o` the model goes to stdout. Diff it against the base to read what
-the patches did to the math.
-
 ## What a patch may say
 
 | The entry                            | What happens                                               |
