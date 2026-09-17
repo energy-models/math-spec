@@ -6,13 +6,13 @@ SPDX-License-Identifier: CC-BY-4.0
 # Compose a model from several files
 
 Build one model out of files that each say part of it. `merge` composes
-**peers** — the templates of a component library, where a name two of them
-declare is a collision. `override` lays **patches** over a base — what a
+**peers** — the files of a component library, where a name two of them declare
+is a collision. `override` lays **patches** over a base — what a
 framework ships and a project extends. Both hand back one mapping, which
 [`to_spec`](../reference/language/reading.md) loads like any file, and they
 compose: `override(merge({…}), {…})`.
 
-## A library of templates
+## A library of components
 
 1. **Write the coupling surface as a model.** One flow per port, one balance
    per bus. Nothing in it knows which components exist.
@@ -152,12 +152,12 @@ the patches did to the math.
 Fragments own their math, so a name two of them declare is refused, both named. Here two files each say what a generator fleet is:
 
 ```text
-fragments 'gas' and 'coal' both declare the parameter 'Generator_p_nom'. Two of the same kind of thing are two rows of a dimension rather than two fragments: merge the template once, and let the data carry both. Different math under one spelling is a rename — call one of them something else.
+fragments 'gas' and 'coal' both declare the parameter 'Generator_p_nom'. Two of the same kind of thing are two rows of a dimension rather than two fragments: merge the fragment once, and let the data carry both. Different math under one spelling is a rename — call one of them something else.
 ```
 
 ## A column read one way and introduced another
 
-What a template states about a column it reads has to agree with the file that
+What a fragment states about a column it reads has to agree with the file that
 owns it:
 
 ```text

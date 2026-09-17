@@ -32,7 +32,7 @@ def test_every_fragment_loads_and_prints_on_its_own(name):
 
 
 @pytest.mark.parametrize('name', ['generator', 'load'])
-def test_a_component_template_reads_the_surface_and_introduces_no_flow(name):
+def test_a_component_file_reads_the_surface_and_introduces_no_flow(name):
     spec = to_spec(FRAGMENTS[name])
     assert sorted(spec.given_variables) == ['Port_p']
     assert 'Port_p' not in spec.variables, 'the surface introduces the column, and a component file only writes into it'
@@ -48,7 +48,7 @@ def test_the_library_composes_into_one_model():
     )
 
 
-def test_the_balance_is_written_once_however_many_templates_are_merged():
+def test_the_balance_is_written_once_however_many_fragments_are_merged():
     one = to_spec(merge({'surface': FRAGMENTS['surface'], 'load': FRAGMENTS['load']}))
     both = to_spec(merge(FRAGMENTS))
     assert one.constraints['Bus_nodal_balance'].expression == both.constraints['Bus_nodal_balance'].expression

@@ -4,7 +4,7 @@
 
 """What a file reads and does not build: a column, and a row family.
 
-Two readings, and each is a model somebody meant. A **template** reads a column
+Two readings, and each is a model somebody meant. A **fragment** reads a column
 the file beside it introduces, and `merge` folds the two together, so the
 composed model carries neither the declaration nor any trace of it. A **layer**
 reads a column, or the dual of a row family, that a model outside the language
@@ -21,7 +21,7 @@ import pytest
 
 from math_spec import FORMATS, LanguageError, advice, merge, to_markdown, to_program, to_spec, typeset
 
-#: One component template: it pins the flow at its own port, and the column it
+#: One component file: it pins the flow at its own port, and the column it
 #: pins belongs to the surface fragment below.
 SUPPLY = {
     'description': 'A fleet of generators, each on one port.',

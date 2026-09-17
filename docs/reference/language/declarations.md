@@ -117,7 +117,7 @@ stand in another variable's `bounds`.
 ## `given_variables`
 
 A given variable is a column this file reads and another file introduces. It is
-what lets a template stand on its own: the file loads, and it prints as math,
+what lets a fragment stand on its own: the file loads, and it prints as math,
 without the file that owns the column.
 
 ```yaml

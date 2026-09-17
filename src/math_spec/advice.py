@@ -45,7 +45,7 @@ def _given(program: Program) -> list[Advice]:
     """One note per declaration the program reads and does not build.
 
     A note rather than a refusal, because both readings are a model somebody
-    meant: a template is composed with the file that introduces the column, and
+    meant: a fragment is composed with the file that introduces the column, and
     a layer is bound to the model it is laid onto. What neither is, is a model
     a consumer can build alone, and the consumer is the one that can tell which
     it is holding.
@@ -55,7 +55,7 @@ def _given(program: Program) -> list[Advice]:
             'given',
             name,
             f"{kind} '{name}' is read here and built elsewhere: a consumer binds it to the model this "
-            f'one is layered onto, and refuses where it cannot. A template is composed instead, and '
+            f'one is layered onto, and refuses where it cannot. A fragment is composed instead, and '
             f'merge() folds it into the file that introduces it.',
         )
         for kind, group in (('variable', program.given_variables), ('row family', program.given_constraints))
