@@ -104,7 +104,7 @@ variables:
 A bound is a name or a number, never arithmetic. `upper: capacity` is accepted, and
 `upper: -rating` is refused with a message that says so. Ship the negated column
 as data. Arithmetic in a bound is
-[#31](https://github.com/fluxopt/lpspec/issues/31). The dimensions of a bound
+[#31](https://github.com/fluxopt/specsolve/issues/31). The dimensions of a bound
 parameter must not exceed its `dims`.
 
 Equal bounds pin a variable. That is how one declaration covers a quantity that
@@ -153,7 +153,7 @@ See [absence](absence.md#rows-with-no-variable-terms).
 empty dimension list means one value for a parameter, one column for a variable
 and one row for a constraint, so a scalar is never written as a dummy dimension
 of size 1. A scalar _variable_ may not carry a `where`
-([#340](https://github.com/fluxopt/lpspec/issues/340)); put the condition on the
+([#340](https://github.com/fluxopt/specsolve/issues/340)); put the condition on the
 constraints that use it.
 
 Two regimes of one rule are two blocks, each with a name a reader chose:

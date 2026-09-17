@@ -170,7 +170,7 @@ cost_curve:
 place of one weight column per breakpoint. On a dispatch model with 20
 generators, 48 snapshots and 6 breakpoints, that is 7680 columns down to 1920
 and 2928 rows up to 6768, at the same optimum
-([#926](https://github.com/fluxopt/lpspec/pull/926)). Two things follow from
+([#926](https://github.com/fluxopt/specsolve/pull/926)). Two things follow from
 stating lines rather than weights:
 
 - **The curvature has to match the sign.** Lines that envelope a convex curve
@@ -214,7 +214,7 @@ Making the tie a row turns the count into data: a converter with a fourth flow i
 a row in a table, not an edit to the model. `sos: type: 2` states the same
 restriction that `method: sos2` emits. The block would only have saved the
 weights and the convexity row, so no block is offered for this case
-([#1101](https://github.com/fluxopt/lpspec/issues/1101)).
+([#1101](https://github.com/fluxopt/specsolve/issues/1101)).
 
 ## `sos`
 

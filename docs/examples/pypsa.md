@@ -31,7 +31,7 @@ emitted only under the keyword, scope or version the note names. A name carrying
 Each rung's banner below states what PyPSA solved its reference network
 to. What an engine makes of the same rung — the objective and prices across
 the fence, and the two linopy models label for label — is that engine's own
-record: lpspec certifies itself against these rungs under
+record: specsolve certifies itself against these rungs under
 `differential/pypsa/` in its own tree.
 
 <!-- reference:spine:begin -->
@@ -1210,7 +1210,7 @@ data prep, or harness — is one open question. Line numbers are pinned pypsa
 | `NotImplementedError`, `global_constraints.py:457` | depletion with period weightings `!= 1`     | out                     |      |
 | `ValueError`/`RuntimeError`, losses          | `s_nom_max = inf`; secant cap                     | out                     |      |
 
-Duals and solutions are read back by the harness on the lpspec side:
+Duals and solutions are read back by the harness on the specsolve side:
 `marginal_price` is the balance dual over `w_objective`, `mu_upper` the
 concatenation of the regime blocks, `p0`/`p1` derived from `Link-p`.
 

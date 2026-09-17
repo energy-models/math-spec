@@ -60,7 +60,7 @@ variable declared before the constraint that will use it. `advice` is silent
 where the objective coefficient is a parameter, because its sign is data, and
 where a `where:` leaves one slice of a variable with no constraint row, because
 that too depends on the data
-([#229](https://github.com/fluxopt/lpspec/issues/229)).
+([#229](https://github.com/fluxopt/specsolve/issues/229)).
 
 ## Which error you get
 
@@ -87,9 +87,9 @@ and [the limits](../../about/limits.md) gives the reasons.
 | `sum(x, over=d) * sum(y, over=d)`                                              | Multiply before you reduce, or constrain a variable to equal the reduction. A product of two sums pairs every term against every term                               |
 | degree 3 (`x * y * z`)                                                         | A variable constrained to equal one product, multiplied by the third                                                                                                |
 | `**` with a variable in it                                                     | `x * x` for a square. Over variable-free operands `**` is in the language ([expressions](expressions.md#where-a-product-of-two-variables-is-allowed))               |
-| arithmetic in `bounds:`                                                        | A name or a number. Ship the derived column as data ([#31](https://github.com/fluxopt/lpspec/issues/31))                                                            |
+| arithmetic in `bounds:`                                                        | A name or a number. Ship the derived column as data ([#31](https://github.com/fluxopt/specsolve/issues/31))                                                         |
 | time-series processing (resample, cluster, interpolate, align), file IO, units | Data preparation. Pass a parameter                                                                                                                                  |
-| indicator constraints                                                          | What a solver can take is a question of its own, and `sos:` is where it landed ([#220](https://github.com/fluxopt/lpspec/issues/220))                               |
+| indicator constraints                                                          | What a solver can take is a question of its own, and `sos:` is where it landed ([#220](https://github.com/fluxopt/specsolve/issues/220))                            |
 | multi-objective                                                                | There is one `objective:` block. Weight the goals into one expression                                                                                               |
 | arbitrary array operations (`merge`, `reindex`, `apply_ufunc`)                 | Data preparation. The operator set is closed so that every tool reads the file the same way                                                                         |
 | filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if the coordinate should not exist. Inside the language, only `shift(..., edge=)` fills ([absence](absence.md))                      |
