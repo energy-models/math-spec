@@ -67,9 +67,10 @@ None of these versions carries a semantic promise. The point of them is that an
 early user always has a number to quote in a bug report, instead of a commit
 SHA.
 
-**Nothing is published.** The publish job in `build.yml` is `if: false`. See the
-PyPI note below. The alpha stream produces tags, changelog entries and GitHub
-releases, and nothing more.
+**Nothing is on PyPI yet.** The publish job in `build.yml` runs on every tag,
+and waits on the trusted publisher in the PyPI note below. Until that exists,
+the alpha stream produces tags, changelog entries and GitHub releases, and
+nothing more.
 
 Two consequences worth knowing:
 
