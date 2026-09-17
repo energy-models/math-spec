@@ -50,7 +50,7 @@ that variable's mask to none, which is a value the schema already takes.
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, NamedTuple, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 from pydantic import BaseModel, ValidationError
 
@@ -88,15 +88,6 @@ IRREGULAR = {
     'objective': 'objective',
     'given_variables': 'given variable',
 }
-
-
-class _Change(NamedTuple):
-    """One declaration a patch added, edited or removed, for the shell front's summary."""
-
-    action: str
-    section: str
-    name: str
-    patch: str
 
 
 def merge(
@@ -293,26 +284,13 @@ def override(
             one field.
         FileNotFoundError: A ``str`` with no newline that names no file.
     """
-    return _compose(base, patches)[0]
-
-
-def _compose(
-    base: str | Path | dict[str, Any] | Spec,
-    patches: Mapping[str, str | Path | dict[str, Any] | Spec],
-) -> tuple[dict[str, Any], list[_Change]]:
-    """:func:`override`, and what it did — the shell front prints the second half.
-
-    Kept apart from the public verb so that the return type a caller composes
-    with stays the mapping every other verb takes.
-    """
     read = {name: _declarations(patch) for name, patch in patches.items()}
     _disjoint(read)
 
     result = deepcopy(_declarations(base))
-    log: list[_Change] = []
     for name, patch in read.items():
-        result = _lay_over(result, deepcopy(patch), name, log)
-    return result, log
+        result = _lay_over(result, deepcopy(patch), name)
+    return result
 
 
 def _declarations(source: str | Path | dict[str, Any] | Spec) -> dict[str, Any]:
@@ -430,32 +408,29 @@ def _overlap_message(owner: str, claimed: tuple[str, ...], name: str, path: tupl
     )
 
 
-def _lay_over(base: dict[str, Any], patch: dict[str, Any], name: str, log: list[_Change]) -> dict[str, Any]:
+def _lay_over(base: dict[str, Any], patch: dict[str, Any], name: str) -> dict[str, Any]:
     """One patch over one base, a section at a time, the base left as it was."""
     laid = dict(base)
     for key, value in patch.items():
         if key in SHARED_SECTIONS:
-            laid[key] = _shared(laid.get(key) or {}, value or {}, key, name, log)
+            laid[key] = _shared(laid.get(key) or {}, value or {}, key, name)
         elif key in OWNED_SECTIONS:
-            laid[key] = _owned(laid.get(key) or {}, value or {}, key, name, log)
+            laid[key] = _owned(laid.get(key) or {}, value or {}, key, name)
         elif key == 'objective':
-            laid = _objective(laid, value, name, log)
+            laid = _objective(laid, value, name)
         else:
             laid[key] = value
     return laid
 
 
-def _shared(
-    declared: dict[str, Any], patch: dict[str, Any], section: str, name: str, log: list[_Change]
-) -> dict[str, Any]:
+def _shared(declared: dict[str, Any], patch: dict[str, Any], section: str, name: str) -> dict[str, Any]:
     """One ``dimensions`` or ``relations`` block: a patch adds an axis or restates one, never changes it."""
     out = dict(declared)
     for key, block in patch.items():
         if block is None:
-            _removed(out, key, section, name, log)
+            _removed(out, key, section, name)
         elif key not in out:
             out[key] = block
-            log.append(_Change('added', section, key, name))
         elif not _agrees(out[key], block):
             raise LanguageError(
                 f"patch '{name}' declares the {_singular(section)} '{key}' as {block!r}, where its base "
@@ -475,20 +450,16 @@ def _agrees(under: Any, over: Any) -> bool:
     return bool(under == over)
 
 
-def _owned(
-    declared: dict[str, Any], patch: dict[str, Any], section: str, name: str, log: list[_Change]
-) -> dict[str, Any]:
+def _owned(declared: dict[str, Any], patch: dict[str, Any], section: str, name: str) -> dict[str, Any]:
     """One section of the math, each entry editing what is there or creating what is whole."""
     out = dict(declared)
     for key, block in patch.items():
         if block is None:
-            _removed(out, key, section, name, log)
+            _removed(out, key, section, name)
         elif key in out:
             out[key] = _field_by_field(out[key], block)
-            log.append(_Change('edited', section, key, name))
         elif _whole(section, block):
             out[key] = block
-            log.append(_Change('added', section, key, name))
         else:
             raise LanguageError(
                 f"patch '{name}' edits the {_singular(section)} '{key}', which its base does not declare. "
@@ -498,7 +469,7 @@ def _owned(
     return out
 
 
-def _removed(out: dict[str, Any], key: str, section: str, name: str, log: list[_Change]) -> None:
+def _removed(out: dict[str, Any], key: str, section: str, name: str) -> None:
     """Delete what the patch nulled, refusing a removal its base cannot satisfy."""
     if key not in out:
         raise LanguageError(
@@ -507,10 +478,9 @@ def _removed(out: dict[str, Any], key: str, section: str, name: str, log: list[_
             f'the model it lands on. ' + did_you_mean(key, list(out))
         )
     del out[key]
-    log.append(_Change('removed', section, key, name))
 
 
-def _objective(laid: dict[str, Any], patch: Any, name: str, log: list[_Change]) -> dict[str, Any]:
+def _objective(laid: dict[str, Any], patch: Any, name: str) -> dict[str, Any]:
     """The one declaration that is not keyed by a name, laid over by the same three rules."""
     out = dict(laid)
     standing = out.get('objective')
@@ -522,13 +492,10 @@ def _objective(laid: dict[str, Any], patch: Any, name: str, log: list[_Change]) 
                 f'problem this patch is asking for.'
             )
         del out['objective']
-        log.append(_Change('removed', 'objective', 'objective', name))
     elif standing is not None:
         out['objective'] = _field_by_field(standing, patch)
-        log.append(_Change('edited', 'objective', 'objective', name))
     elif _whole('objective', patch):
         out['objective'] = patch
-        log.append(_Change('added', 'objective', 'objective', name))
     else:
         raise LanguageError(
             f"patch '{name}' edits the objective, which its base does not declare. A patch creates the "

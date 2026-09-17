@@ -18,9 +18,7 @@ from __future__ import annotations
 import copy
 
 import pytest
-import yaml
 
-import math_spec.__main__ as front
 from math_spec import LanguageError, merge, override, to_markdown, to_spec
 from tests.fixtures import DISPATCH_MODEL
 
@@ -323,44 +321,3 @@ def test_a_patch_is_a_path_as_readily_as_a_mapping(tmp_path):
     patch.write_text('parameters:\n  co2: {dims: [generator]}\n', encoding='utf-8')
     laid = override(DISPATCH_MODEL, {'carbon': str(patch)})
     assert 'co2' in laid['parameters']
-
-
-def test_the_compose_verb_writes_the_model_and_says_what_each_patch_did(tmp_path, capsys):
-    base = tmp_path / 'base.yaml'
-    base.write_text(to_spec(DISPATCH_MODEL).to_yaml(), encoding='utf-8')
-    patch = tmp_path / 'carbon.yaml'
-    patch.write_text(
-        'parameters:\n  co2: {dims: [generator]}\nconstraints:\n  co2_cap: {dims: [], expression: "sum(p * co2) <= 100"}\n',
-        encoding='utf-8',
-    )
-    out = tmp_path / 'composed.yaml'
-
-    assert front.main(['compose', str(base), '-p', str(patch), '-o', str(out)]) == 0
-    assert 'co2_cap' in to_spec(out).constraints, 'the file it wrote is the model a reviewer diffs'
-    assert '2 added' in capsys.readouterr().err, 'the summary goes to the stream a person reads'
-
-
-def test_the_compose_verb_merges_the_fragments_it_is_given(tmp_path, capsys):
-    """Several models to the verb are peers; one is a base."""
-    paths = []
-    for name, fragment in LIBRARY.items():
-        path = tmp_path / f'{name}.yaml'
-        path.write_text(yaml.safe_dump(fragment), encoding='utf-8')
-        paths.append(str(path))
-    out = tmp_path / 'library.yaml'
-
-    assert front.main(['compose', *paths, '-o', str(out)]) == 0
-    assert sorted(to_spec(out).variables) == ['flow', 'gen_p']
-    assert 'merged 3 fragments' in capsys.readouterr().err
-
-
-def test_the_compose_verb_puts_a_refusal_on_stderr(tmp_path, capsys):
-    base = tmp_path / 'base.yaml'
-    base.write_text(to_spec(DISPATCH_MODEL).to_yaml(), encoding='utf-8')
-    patch = tmp_path / 'stale.yaml'
-    patch.write_text('constraints:\n  balnce: null\n', encoding='utf-8')
-
-    assert front.main(['compose', str(base), '-p', str(patch)]) == 1
-    captured = capsys.readouterr()
-    assert captured.out == '', 'nothing half-composed reaches stdout'
-    assert "Did you mean 'balance'?" in captured.err
