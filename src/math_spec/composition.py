@@ -5,7 +5,7 @@
 """Several files into one model, before any of them is validated.
 
 Two verbs, and they answer different questions. :func:`merge` composes
-**peers**: templates that each own part of the math, where a name two of them
+**peers**: fragments that each own part of the math, where a name two of them
 declare is a collision and the order they are given in means nothing.
 :func:`override` layers a **base and its patches**: what a framework ships and a
 project extends, where a name the patch declares is the point. Neither is a
@@ -95,14 +95,14 @@ def merge(
 ) -> dict[str, Any]:
     """*fragments* composed as peers, each owning the math it declares.
 
-    A component library is a set of templates that agree on a coupling
-    surface — one flow per port, one balance per bus — and wiring a system is
-    rows in a table rather than generated YAML. This is what takes the
-    templates and hands back one model.
+    A component library is a set of files that agree on a coupling surface —
+    one flow per port, one balance per bus — and wiring a system is rows in a
+    table rather than generated YAML. This is what takes those files and hands
+    back one model.
 
     Args:
         fragments: What each fragment is called, to the fragment. The name is
-            what an error calls it, so it is the template's name rather than a
+            what an error calls it, so it is the fragment's name rather than a
             path. The order they are given in does not reach the result.
         description: What the *composed* model is. A fragment's own
             ``description`` is about the fragment, so it is neither carried nor
@@ -142,7 +142,7 @@ def _one_version(read: Mapping[str, dict[str, Any]]) -> int:
     """The language version every fragment is written against.
 
     A fragment saying nothing is version 0 like any file, so a library pinning
-    one and a template pinning none is the disagreement it looks like rather
+    one and a fragment pinning none is the disagreement it looks like rather
     than a default quietly winning.
     """
     declared = {name: sections.get('version', 0) for name, sections in read.items()}
@@ -198,7 +198,7 @@ def _claimed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]
                 raise LanguageError(
                     f"fragments '{author[key]}' and '{name}' both declare the {_singular(section)} "
                     f'{key!r}. Two of the same kind of thing are two rows of a dimension rather than '
-                    f'two fragments: merge the template once, and let the data carry both. Different '
+                    f'two fragments: merge the fragment once, and let the data carry both. Different '
                     f'math under one spelling is a rename — call one of them something else.'
                 )
             merged[key] = block
@@ -239,7 +239,7 @@ def _author_of(read: Mapping[str, dict[str, Any]], section: str, key: str) -> st
 def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | None:
     """Every fragment's objective, summed, or ``None`` where none declares one.
 
-    Summing is what composing costs: each template prices what it owns, and the
+    Summing is what composing costs: each fragment prices what it owns, and the
     system pays for all of it. The senses must agree, because a sum of two
     objectives has one sense and nothing in the files says which — negating the
     minority would be this function deciding what a model means.

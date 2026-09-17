@@ -32,8 +32,8 @@ costs to add.
   `variables:` or `given_variables:`. One enters where it says something no
   section already says, where a file decides it without data, and where the
   typesetter prints it. `given_variables:` entered on all three: nothing else
-  states that a column belongs to another file, which is what lets a template
-  load and print on its own.
+  states that a column belongs to another file, which is what lets a component
+  file load and print on its own.
 
 A request that is none of the three is refused, and the
 [table of refusals](#deliberate-non-primitives) records it with what to write
@@ -174,10 +174,10 @@ That another tool has a feature is not by itself a reason to add it.
 
 ## Composition (component libraries)
 
-A component library is a set of templates, such as a boiler, a battery and a
-line, that agree on how ports and flows are named. You merge the templates you
-need into one file, wire the components together with a connectivity table in
-the data, and close the system with one `sum(by=)` balance.
+A component library is a set of files, one per component type — a boiler, a
+battery, a line — that agree on how ports and flows are named. You merge the
+files you need into one, wire the components together with a connectivity table
+in the data, and close the system with one `sum(by=)` balance.
 
 The topology is data. Adding a second battery is a row in a table, not a second
 block of YAML, so the file grows with the number of component _types_ and not
@@ -189,16 +189,16 @@ a path, so a model assembled in Python is checked exactly as a file is, and
 file may hold. There is no Python API that builds models any other way.
 
 Two verbs do this, and they answer different questions. `merge` composes
-peers, so a name two templates declare is a collision and the order they are
+peers, so a name two fragments declare is a collision and the order they are
 given in means nothing. `override` lays patches over a base, which is what a
 framework ships and a project extends, a field at a time.
 [Compose a model from several files](../howto/compose.md) is the recipe for
 both.
 
-A template reads the coupling surface it is written against, and declares that
-column under `given_variables:`. So a template loads on its own, and prints as
-math on its own, which is what it could not do while a fragment was a file the
-loader had to refuse. `merge` folds each given declaration into the one that
+A component file reads the coupling surface it is written against, and declares
+that column under `given_variables:`. So it loads on its own, and prints as math
+on its own, which is what it could not do while a fragment was a file the loader
+had to refuse. `merge` folds each given declaration into the one that
 introduces it, so a composed library carries none.
 
 A layer over a model this language never sees — one built through linopy, say —
@@ -219,8 +219,8 @@ exactly, never changed, because the expressions written over an axis are
 already in the base.
 
 Two requests were closed against this design. A built-in merge (#30) and
-namespaces so that two templates can each declare a `p` (#29) are both things a
+namespaces so that two fragments can each declare a `p` (#29) are both things a
 library does before it hands over a `dict`. Arithmetic in `bounds:`, which signed
 and bidirectional flows need, is still open as #31. A component whose number of
 ports is only known at run time belongs in the library, which emits more rows or
-more templates, and never one block of YAML per component.
+more files, and never one block of YAML per component.
