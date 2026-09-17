@@ -108,8 +108,8 @@ class Symbols:
                 f'and nothing translates between notations — write a {fmt.notation} table.'
             )
             raise SchemaError(msg)
-        chosen = frozenset(schema.variables) | chosen_expressions(schema)
-        names = (*schema.parameters, *schema.variables, *schema.expressions)
+        chosen = frozenset(schema.variables) | frozenset(schema.given_variables) | chosen_expressions(schema)
+        names = (*schema.parameters, *schema.variables, *schema.given_variables, *schema.expressions)
         declared = frozenset(names)
 
         #: Names the table spelled; the convention note quotes only derived symbols.
@@ -239,7 +239,12 @@ class SymbolTable:
         """Reject entries naming nothing in *schema*, with the near miss."""
         dims = set(schema.dimensions)
         everything = (
-            dims | set(schema.parameters) | set(schema.variables) | set(schema.expressions) | set(schema.constraints)
+            dims
+            | set(schema.parameters)
+            | set(schema.variables)
+            | set(schema.given_variables)
+            | set(schema.expressions)
+            | set(schema.constraints)
         )
         errors = [
             *(_unknown_entry(d, 'dimensions', dims) for d in {*self.indices, *self.sets} - dims),

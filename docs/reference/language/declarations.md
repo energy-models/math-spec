@@ -114,6 +114,56 @@ equation whether `size` is chosen or given. A pinned variable is still a
 variable, so `size * on` is `variable * variable`, and a pinned variable cannot
 stand in another variable's `bounds`.
 
+## `given_variables`
+
+A given variable is a column this file reads and another file introduces. It is
+what lets a template stand on its own: the file loads, and it prints as math,
+without the file that owns the column.
+
+```yaml
+dimensions:
+  snapshot: { dtype: int }
+  port: { dtype: str }
+  generator: { dtype: str }
+relations:
+  gen_port: { key: generator, value: port }
+given_variables:
+  flow:
+    dims: [snapshot, port]
+    description: what a port puts into its bus
+variables:
+  gen_p: { dims: [snapshot, generator], bounds: { lower: 0 } }
+constraints:
+  gen_injects:
+    dims: [snapshot, generator]
+    expression: at(flow, by=gen_port) == gen_p
+```
+
+| Field         |                                                   |                      |
+| ------------- | ------------------------------------------------- | -------------------- |
+| `dims`        | required. The dimensions the column is indexed by |                      |
+| `domain`      | `continuous`, `integer` or `binary`               | default `continuous` |
+| `description` | free text                                         | default `null`       |
+
+There is no `bounds` and no `where`. The file that introduces the column owns
+both, and a second spelling here would be a second home for one fact.
+
+An expression reads a given variable as it reads any other, so
+`at(flow, by=gen_port)` lands on the generator frame and the dim algebra
+checks it at load.
+
+**A file with a `given_variables` block does not lower.** A program builds
+every column it carries, and this file says the opposite about one of its own:
+
+```text
+this file reads a variable it does not introduce: 'flow'. A program builds every column it carries, so compose the file with the ones that declare them first — to_program(merge({...})). The file loads and prints on its own either way.
+```
+
+[`merge`](../../howto/compose.md) folds each given declaration into the
+declaration that introduces it, so a composed model carries none of them. The
+folded declaration is the introducer's, and what the reader stated has to agree
+with it.
+
 ## `constraints`
 
 One block is one rule. The name of the block is the name of the constraint, and

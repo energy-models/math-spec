@@ -38,7 +38,7 @@ nav:
       - Check a model without data: howto/check.md
       - Print a model as math: howto/print.md
       - State a rule that differs by regime: howto/regimes.md
-      - Compose a model from a base and patches: howto/compose.md
+      - Compose a model from several files: howto/compose.md
   - Reference:
       - Language:
           - reference/language/index.md

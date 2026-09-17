@@ -308,6 +308,23 @@ class VariableBlock(_StrictBlock):
         return self
 
 
+class GivenVariableBlock(_StrictBlock):
+    """A variable this file reads and does not introduce.
+
+    The frame is what every load-time pass asks of a variable, and it is all
+    this file can answer: whoever introduces the column owns its bounds and its
+    mask, and a second spelling of either here would be a second home for one
+    fact. :func:`~math_spec.composition.merge` folds the declaration into the
+    one that introduces it, so a composed model carries none of these.
+    """
+
+    _label: ClassVar[str] = 'a given variable declaration'
+
+    dims: list[str]
+    domain: VariableDomain = 'continuous'
+    description: str | None = None
+
+
 class ConstraintBlock(_StrictBlock):
     """A declared constraint: one rule, over one frame."""
 
@@ -693,7 +710,7 @@ class Spec(_StrictBlock):
     :class:`~math_spec.errors.LanguageError` on a model the language refuses.
     Holding one is the proof, so nothing downstream checks it again.
 
-    The API is the ten declaration sections plus ``version`` and
+    The API is the eleven declaration sections plus ``version`` and
     ``description``, and two ways back out: :meth:`to_dict` for the model as
     data, :meth:`to_yaml` for the file a reviewer reads. Everything else on
     this class is pydantic's, not a contract this package keeps.
@@ -724,6 +741,11 @@ class Spec(_StrictBlock):
     macros: dict[str, MacroBlock] = {}
     piecewise: dict[str, PiecewiseBlock] = {}
     sos: dict[str, SosBlock] = {}
+    #: The variables this file reads and does not introduce
+    #: (:class:`GivenVariableBlock`). Empty in a file that stands alone, and
+    #: empty again once :func:`~math_spec.composition.merge` has folded each one
+    #: into the declaration that introduces it.
+    given_variables: dict[str, GivenVariableBlock] = {}
 
     def relations_of(self, dimension: str) -> dict[str, RelationBlock]:
         """The relations with a column over *dimension*, by name."""
@@ -820,6 +842,7 @@ class Spec(_StrictBlock):
             ('relation', self.relations),
             ('parameter', self.parameters),
             ('variable', self.variables),
+            ('given variable', self.given_variables),
             ('named expression', self.expressions),
             ('macro', self.macros),
         ]
@@ -845,6 +868,7 @@ class Spec(_StrictBlock):
         frames = [
             *(('Parameter', name, p.dims) for name, p in self.parameters.items()),
             *(('Variable', name, v.dims) for name, v in self.variables.items()),
+            *(('Given variable', name, g.dims) for name, g in self.given_variables.items()),
             *(('Constraint', name, c.dims) for name, c in self.constraints.items()),
             *(('Named expression', name, e.dims or []) for name, e in self.expressions.items()),
         ]

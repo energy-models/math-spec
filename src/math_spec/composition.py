@@ -2,10 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""A base and its patches into one model, before any of them is validated.
+"""Several files into one model, before any of them is validated.
 
-What a framework ships and a project extends. The patch says only what it
-changes, because declarations are laid over a field at a time::
+Two verbs, and they answer different questions. :func:`merge` composes
+**peers**: templates that each own part of the math, where a name two of them
+declare is a collision and the order they are given in means nothing.
+:func:`override` layers a **base and its patches**: what a framework ships and a
+project extends, where a name the patch declares is the point. Neither is a
+mode of the other, and they compose —
+``override(merge({...}), {...})`` builds the model and then configures the run.
+
+A patch says only what it changes, because declarations are laid over a field
+at a time::
 
     constraints:
       ramp: {dims: [snapshot, generator, investment_period]}
@@ -62,14 +70,194 @@ SHARED_SECTIONS = ('dimensions', 'relations')
 #: The declarations a patch edits, creates or removes.
 OWNED_SECTIONS = ('parameters', 'variables', 'constraints', 'expressions', 'macros', 'piecewise', 'sos')
 
+#: The declarations a file reads and does not introduce. Peers must agree
+#: about one, and :func:`merge` folds it into the declaration that introduces
+#: it, so a composed library carries none.
+GIVEN_SECTIONS = ('given_variables',)
+
 #: Every section keyed by declaration name. ``objective`` is one declaration
 #: rather than a mapping of them, and is laid over field by field beside these.
-SECTIONS = (*SHARED_SECTIONS, *OWNED_SECTIONS)
+SECTIONS = (*SHARED_SECTIONS, *OWNED_SECTIONS, *GIVEN_SECTIONS)
 
 #: What one entry is called where dropping the key's last letter does not say
 #: it: two sections that are not plurals, and the objective, which is one
 #: declaration rather than a mapping of them.
-IRREGULAR = {'piecewise': 'piecewise curve', 'sos': 'special-ordered set', 'objective': 'objective'}
+IRREGULAR = {
+    'piecewise': 'piecewise curve',
+    'sos': 'special-ordered set',
+    'objective': 'objective',
+    'given_variables': 'given variable',
+}
+
+
+def merge(
+    fragments: Mapping[str, str | Path | dict[str, Any] | Spec], description: str | None = None
+) -> dict[str, Any]:
+    """*fragments* composed as peers, each owning the math it declares.
+
+    A component library is a set of templates that agree on a coupling
+    surface — one flow per port, one balance per bus — and wiring a system is
+    rows in a table rather than generated YAML. This is what takes the
+    templates and hands back one model.
+
+    Args:
+        fragments: What each fragment is called, to the fragment. The name is
+            what an error calls it, so it is the template's name rather than a
+            path. The order they are given in does not reach the result.
+        description: What the *composed* model is. A fragment's own
+            ``description`` is about the fragment, so it is neither carried nor
+            joined.
+
+    Returns:
+        One mapping, ready for :func:`~math_spec.validation.to_spec`. Nothing
+        in it has been resolved, name-checked or lowered.
+
+    Raises:
+        LanguageError: Two fragments declare one name; two fragments say
+            different things about one dimension or relation; two fragments
+            pin different language versions; or their objectives run opposite
+            ways.
+        FileNotFoundError: A ``str`` with no newline that names no file.
+    """
+    read = {name: _declarations(fragment) for name, fragment in fragments.items()}
+    merged: dict[str, Any] = {'version': _one_version(read)}
+    if description is not None:
+        merged['description'] = description
+
+    for section in SHARED_SECTIONS:
+        if agreed := _agreed(read, section):
+            merged[section] = agreed
+    for section in OWNED_SECTIONS:
+        if claimed := _claimed(read, section):
+            merged[section] = claimed
+    for section in GIVEN_SECTIONS:
+        if unintroduced := _folded(read, section, merged):
+            merged[section] = unintroduced
+    if (objective := _summed_objective(read)) is not None:
+        merged['objective'] = objective
+    return merged
+
+
+def _one_version(read: Mapping[str, dict[str, Any]]) -> int:
+    """The language version every fragment is written against.
+
+    A fragment saying nothing is version 0 like any file, so a library pinning
+    one and a template pinning none is the disagreement it looks like rather
+    than a default quietly winning.
+    """
+    declared = {name: sections.get('version', 0) for name, sections in read.items()}
+    if len(set(declared.values())) > 1:
+        spelled = ', '.join(f"'{name}' says {version}" for name, version in sorted(declared.items()))
+        raise LanguageError(
+            f'the fragments are written against different language versions: {spelled}. One model has '
+            f'one version, so write the same one in each — a fragment that declares none is version 0.'
+        )
+    return next(iter(declared.values()), 0)
+
+
+def _agreed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]:
+    """One ``dimensions`` or ``relations`` block, peers that say the same thing folded together.
+
+    Equality rather than :func:`_agrees`: between peers neither declaration is
+    the one being restated, so a field only one of them writes is a difference
+    nothing settles.
+    """
+    merged: dict[str, Any] = {}
+    author: dict[str, str] = {}
+    for name, sections in read.items():
+        for key, block in (sections.get(section) or {}).items():
+            if key in merged and _claims(merged[key]) != _claims(block):
+                raise LanguageError(
+                    f"fragments '{author[key]}' and '{name}' say different things about "
+                    f'{_singular(section)} {key!r}: {merged[key]!r} against {block!r}. A declaration two '
+                    f'fragments share is one both of them say the same thing about — make the two '
+                    f'identical, or give one of them a name of its own.'
+                )
+            merged.setdefault(key, block)
+            author.setdefault(key, name)
+    return merged
+
+
+def _claims(block: Any) -> Any:
+    """*block* without its prose, which is what the declaration says rather than a claim about it.
+
+    Two fragments describing one shared declaration in their own words agree
+    about the declaration, so the first one's wording is carried and neither is
+    the disagreement this refuses.
+    """
+    return {key: value for key, value in block.items() if key != 'description'} if isinstance(block, dict) else block
+
+
+def _claimed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]:
+    """One block of owned declarations, a name claimed twice being the error."""
+    merged: dict[str, Any] = {}
+    author: dict[str, str] = {}
+    for name, sections in read.items():
+        for key, block in (sections.get(section) or {}).items():
+            if key in merged:
+                raise LanguageError(
+                    f"fragments '{author[key]}' and '{name}' both declare the {_singular(section)} "
+                    f'{key!r}. Two of the same kind of thing are two rows of a dimension rather than '
+                    f'two fragments: merge the template once, and let the data carry both. Different '
+                    f'math under one spelling is a rename — call one of them something else.'
+                )
+            merged[key] = block
+            author[key] = name
+    return merged
+
+
+def _folded(read: Mapping[str, dict[str, Any]], section: str, merged: Mapping[str, Any]) -> dict[str, Any]:
+    """The given declarations no fragment introduces, the rest folded into the ones that do.
+
+    A fragment's given declaration is what it expects of a column a sibling
+    owns, so where the sibling is in the composition the expectation is checked
+    and then spent: the composed model declares the column once, and a name
+    that is both given and introduced would otherwise read as a collision.
+    """
+    given = _agreed(read, section)
+    introduced = merged.get(section.removeprefix('given_'), {})
+    for key, block in list(given.items()):
+        if key not in introduced:
+            continue
+        if not _agrees(_claims(introduced[key]), _claims(block)):
+            reader, owner = _author_of(read, section, key), _author_of(read, section.removeprefix('given_'), key)
+            raise LanguageError(
+                f"fragment '{reader}' reads {_singular(section)} {key!r} as {block!r}, where '{owner}' "
+                f'introduces it as {introduced[key]!r}. A given declaration is what the file expects of '
+                f'a column somebody else owns, so it says the same as the declaration it is folded '
+                f'into, or less.'
+            )
+        del given[key]
+    return given
+
+
+def _author_of(read: Mapping[str, dict[str, Any]], section: str, key: str) -> str:
+    """The first fragment declaring *key* in *section*, for a message that names both sides."""
+    return next(name for name, sections in read.items() if key in (sections.get(section) or {}))
+
+
+def _summed_objective(read: Mapping[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """Every fragment's objective, summed, or ``None`` where none declares one.
+
+    Summing is what composing costs: each template prices what it owns, and the
+    system pays for all of it. The senses must agree, because a sum of two
+    objectives has one sense and nothing in the files says which — negating the
+    minority would be this function deciding what a model means.
+    """
+    declared = {name: sections['objective'] for name, sections in read.items() if sections.get('objective')}
+    if not declared:
+        return None
+    senses = {name: objective.get('sense', 'minimize') for name, objective in declared.items()}
+    if len(set(senses.values())) > 1:
+        spelled = ', '.join(f"'{name}' {sense}s" for name, sense in sorted(senses.items()))
+        raise LanguageError(
+            f'the fragments disagree about which way the objective runs: {spelled}. A composed model '
+            f'has one objective and one sense, so write every fragment against the same one — negate '
+            f'the terms of the odd one out rather than its sense.'
+        )
+    terms = [objective['expression'] for objective in declared.values()]
+    joined = terms[0] if len(terms) == 1 else ' + '.join(f'({term})' for term in terms)
+    return {'sense': next(iter(senses.values())), 'expression': joined}
 
 
 def override(
