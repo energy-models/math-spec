@@ -58,10 +58,10 @@ constraints:
     expression: x + y >= 1 # rows at wind and gas; no row at old
   total:
     dims: []
-    expression: sum(x + y, over=g) >= 1 # x[wind] + y[wind] + x[gas] + y[gas] >= 1
+    expression: sum(x + y, consume=g) >= 1 # x[wind] + y[wind] + x[gas] + y[gas] >= 1
   split:
     dims: []
-    expression: sum(x, over=g) + sum(y, over=g) >= 1 # x[old] is back in
+    expression: sum(x, consume=g) + sum(y, consume=g) >= 1 # x[old] is back in
 ```
 
 `each` has no row at `old`, so there is no `x[old] >= 1`. `total` sums the
@@ -88,7 +88,7 @@ does an output slot stand for several input slots, or for one?
 
 | Operator                         | An output slot reads            | An absent input                      |
 | -------------------------------- | ------------------------------- | ------------------------------------ |
-| `sum(x, over=d)`                 | every position along `d`        | is one summand fewer; the row stands |
+| `sum(x, consume=d)`              | every position along `d`        | is one summand fewer; the row stands |
 | `sum(x, by=relation)`            | every member of the group       | is one summand fewer; the row stands |
 | `sum_back(x, along=d, window=w)` | the positions the window covers | is one summand fewer; the row stands |
 | `shift(x, along=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
@@ -148,7 +148,7 @@ them, and that is the start of the recurrence rather than a bug.
 A [reported expression](reported.md) is arithmetic over solved numbers, so it
 inherits their absence by the same rule as above. Through pointwise arithmetic,
 a null spreads: `cost / delivered` has no value wherever either operand is
-masked. Out of a summing operator, it does not: `sum(dispatch, over=g)` is one
+masked. Out of a summing operator, it does not: `sum(dispatch, consume=g)` is one
 summand shorter where a `dispatch[g]` is masked, and stands as long as one slot
 does.
 

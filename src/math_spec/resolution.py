@@ -435,7 +435,7 @@ class _Resolver:
                 self.errors.append(
                     f"{self.context}: '{node.name}' is a dimension, and a dimension is "
                     f'not a value in an expression. Dimensions appear in '
-                    f"'dims:', in operator arguments (sum(x, over={node.name})), "
+                    f"'dims:', in operator arguments (sum(x, consume={node.name})), "
                     f'and in where-comparisons — to use its coordinates as data, '
                     f'declare a parameter over it.'
                 )
@@ -575,10 +575,10 @@ class _Resolver:
         roles: Mapping[str, ArithmeticNode],
         over: ArithmeticNode | None,
     ) -> ArithmeticNode:
-        """An operator's ``by=``, with the ``over=`` and ``into=`` that say how each relation is walked.
+        """An operator's ``by=``, with the ``consume=`` and ``produce=`` that say how each relation is walked.
 
         A relation carries its own dimensions, so the call names columns rather
-        than dims: ``over=`` the column consumed, ``into=`` the column produced,
+        than dims: ``consume=`` the column consumed, ``produce=`` the column produced,
         every other key column joined on — a value column not walked is not
         read, and a bare relation's columns are all key. Where the declaration
         leaves one choice
@@ -611,7 +611,7 @@ class _Resolver:
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
             walks = [self._partition_walk(n, operator, over_dim, named.get('within')) for n in names]
         else:
-            walks = [self._walk(n, operator, named.get('over'), named.get('into')) for n in names]
+            walks = [self._walk(n, operator, named.get('consume'), named.get('produce')) for n in names]
         if any(w is None for w in walks):
             return value
         resolved = [w for w in walks if w is not None]
@@ -648,7 +648,7 @@ class _Resolver:
         return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
-        """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
+        """``consume=`` or ``produce=`` as the column names it must be — one bare name, or a bracketed list of them."""
         if isinstance(value, NameNode):
             return (value.name,)
         if isinstance(value, NameListNode):
@@ -678,29 +678,30 @@ class _Resolver:
         shape = ns.shape_of(name)
         call = f'{operator}(by={name})'
         if not (
-            self._known_roles(name, call, from_roles, 'over') and self._known_roles(name, call, into_roles, 'into')
+            self._known_roles(name, call, from_roles, 'consume')
+            and self._known_roles(name, call, into_roles, 'produce')
         ):
             return None
 
         forward = operator == 'sum'
         if from_roles is None:
             side = shape.key if forward else shape.values
-            default = self._default_role(name, call, 'over', side, 'key' if forward else 'value')
+            default = self._default_role(name, call, 'consume', side, 'key' if forward else 'value')
             if default is None:
                 return None
             from_roles = (default,)
         if into_roles is None:
             side = shape.values if forward else shape.key
-            default = self._default_role(name, call, 'into', side, 'value' if forward else 'key')
+            default = self._default_role(name, call, 'produce', side, 'value' if forward else 'key')
             if default is None:
                 return None
             into_roles = (default,)
         if both := sorted(set(from_roles) & set(into_roles)):
             self.errors.append(
-                f'{context}: {call}: over= and into= both name {both}, and a walk goes between two sets of columns.'
+                f'{context}: {call}: consume= and produce= both name {both}, and a walk goes between two sets of columns.'
             )
             return None
-        for kwarg, roles in (('over', from_roles), ('into', into_roles)):
+        for kwarg, roles in (('consume', from_roles), ('produce', into_roles)):
             dims = [shape.dim(r) for r in roles]
             if shared := sorted({d for d in dims if dims.count(d) > 1}):
                 self.errors.append(
@@ -722,7 +723,7 @@ class _Resolver:
             self.errors.append(
                 f'{context}: {call}: this sum walks to the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
-                f'at(..., by={name}, over={list(from_roles)}, into={list(into_roles)}), or sum toward '
+                f'at(..., by={name}, consume={list(from_roles)}, produce={list(into_roles)}), or sum toward '
                 f'a value column.'
             )
             return None

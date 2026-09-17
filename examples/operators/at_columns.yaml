@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  A read that names its ends — `at(array, by=relation, over=a, into=b)`
+  A read that names its ends — `at(array, by=relation, consume=a, produce=b)`
   reads column `a` where a table has two columns over one dimension, here the
   sending end of a line.
 
@@ -25,6 +25,6 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends, over=bus0, into=line)
+    expression: f <= at(cap, by=ends, consume=bus0, produce=line)
 
 objective: { sense: minimize, expression: sum(f) }

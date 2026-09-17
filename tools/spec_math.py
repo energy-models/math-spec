@@ -28,13 +28,13 @@ BEGIN, END = '<!-- operator-math:begin -->', '<!-- operator-math:end -->'
 #: table's first cell verbatim.
 OPERATORS = {
     'sum(array)': 'sum_all',
-    'sum(array, over=dim)': 'sum',
+    'sum(array, consume=dim)': 'sum',
     'sum(array, by=relation)': 'sum_by',
     'sum(array, by=[relation, …])': 'sum_by_relations',
-    'sum(array, by=relation, over=a, into=b)': 'sum_by_columns',
-    'sum(array, by=relation, over=[a, …], into=[b, …])': 'sum_by_column_lists',
+    'sum(array, by=relation, consume=a, produce=b)': 'sum_by_columns',
+    'sum(array, by=relation, consume=[a, …], produce=[b, …])': 'sum_by_column_lists',
     'at(array, by=relation)': 'at',
-    'at(array, by=relation, over=a, into=b)': 'at_columns',
+    'at(array, by=relation, consume=a, produce=b)': 'at_columns',
     'shift(array, along=dim, offset=n)': 'shift',
     "shift(array, along=dim, offset=n, edge='wrap')": 'shift_wrap',
     'shift(array, along=dim, offset=n, edge=v)': 'shift_edge',

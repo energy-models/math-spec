@@ -51,7 +51,7 @@ piecewise:
 constraints:
   target:
     dims: []
-    expression: sum(p, over=generator) >= 100
+    expression: sum(p, consume=generator) >= 100
 objective:
   sense: minimize
   expression: sum(cost)

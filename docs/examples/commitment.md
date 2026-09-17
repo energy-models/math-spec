@@ -65,7 +65,7 @@ expressions:
 constraints:
   power_balance:
     dims: [snapshot]
-    expression: sum(dispatch, over=generator) == load
+    expression: sum(dispatch, consume=generator) == load
   upper:
     description: a unit that is not running produces nothing
     dims: [snapshot, generator]

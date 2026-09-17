@@ -54,7 +54,7 @@ class TestValidateExpressions:
                 id='a-constraint-without-a-comparison',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p, over=g) <= 5'}},
+                {'objective': {'expression': 'sum(p, consume=g) <= 5'}},
                 ('must not contain a comparison',),
                 id='an-objective-with-a-comparison',
             ),
@@ -69,7 +69,7 @@ class TestValidateExpressions:
                 id='a-cubic-constraint',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p ** 2, over=g)'}},
+                {'objective': {'expression': 'sum(p ** 2, consume=g)'}},
                 ('The objective', '`**` is not in the language over variables'),
                 id='a-variable-under-a-power',
             ),
@@ -99,7 +99,7 @@ class TestValidateExpressions:
     def test_the_objective_and_a_constraint_take_degree_two(self):
         _schema(
             constraints={'floor': {'dims': ['g'], 'expression': 'p * p >= 1'}},
-            objective={'expression': 'sum(p * p * c, over=g)'},
+            objective={'expression': 'sum(p * p * c, consume=g)'},
         )
 
     def test_multiple_errors_collected(self):
@@ -276,12 +276,14 @@ class TestDual:
 
 
 class TestDimensionKwargs:
-    """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, over=snapshto)` used to load."""
+    """A dim kwarg that names nothing is a silent no-op, not an error — `sum(p, consume=snapshto)` used to load."""
 
     @pytest.mark.parametrize(
         ('expression', 'fragments'),
         [
-            pytest.param('sum(p, over=snapshto) == load', ('silent no-op', 'sum(over=snapshto)'), id='sum-over-typo'),
+            pytest.param(
+                'sum(p, consume=snapshto) == load', ('silent no-op', 'sum(consume=snapshto)'), id='sum-over-typo'
+            ),
             pytest.param(
                 'sum(p, by=bus) == load',
                 ("'bus' is a dimension, and by= takes a relation",),
@@ -307,7 +309,7 @@ class TestDimensionKwargs:
     @pytest.mark.parametrize(
         ('expression', 'dims'),
         [
-            pytest.param('sum(p, over=generator) == load', ['snapshot'], id='a-sum'),
+            pytest.param('sum(p, consume=generator) == load', ['snapshot'], id='a-sum'),
             pytest.param('sum(p, by=zone) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
             pytest.param(
                 "shift(p, along=snapshot, offset=1, edge='wrap') == load",
@@ -327,7 +329,7 @@ class TestDimensionKwargs:
                 'ws': {
                     'args': ['array', 'weights'],
                     'kwargs': ['over'],
-                    'template': 'sum(array * weights, over=over)',
+                    'template': 'sum(array * weights, consume=over)',
                 }
             },
             objective={'sense': 'minimize', 'expression': 'ws(p, c, over=g)'},
@@ -439,7 +441,7 @@ class TestArithmeticDtype:
             pytest.param('p / a <= c', id='a-divisor'),
             pytest.param('p + a <= c', id='a-term'),
             pytest.param('-a * p <= c', id='a-negated-factor'),
-            pytest.param('sum(a * p, over=g) <= 1', id='under-an-operator'),
+            pytest.param('sum(a * p, consume=g) <= 1', id='under-an-operator'),
         ],
     )
     def test_a_label_or_a_flag_is_not_a_value(self, dtype, expression):
@@ -564,7 +566,7 @@ class TestRulesDecidedWithoutData:
                 id='a-constraint-without-a-comparison',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p, over=g) <= 5'}},
+                {'objective': {'expression': 'sum(p, consume=g) <= 5'}},
                 ('must not contain a comparison',),
                 id='an-objective-with-a-comparison',
             ),
@@ -579,7 +581,7 @@ class TestRulesDecidedWithoutData:
                 id='a-cubic-constraint',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(p ** 2, over=g)'}},
+                {'objective': {'expression': 'sum(p ** 2, consume=g)'}},
                 ('The objective', '`**` is not in the language over variables'),
                 id='a-variable-under-a-power',
             ),
@@ -685,47 +687,47 @@ class TestRulesDecidedWithoutData:
                     'variables.q.dims': ['g', 'h', 'z'],
                     'objective': {'expression': 'sum(sum(q, by=lk))'},
                 },
-                ("'lk' has 2 key columns (['g', 'z']), and the call has to say which over= names",),
+                ("'lk' has 2 key columns (['g', 'z']), and the call has to say which consume= names",),
                 id='by-a-two-key-relation-without-from',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, over=z))'}},
-                ("over=z names no column of 'lk', whose columns are ['g', 'h']",),
+                {'objective': {'expression': 'sum(sum(p, by=lk, consume=z))'}},
+                ("consume=z names no column of 'lk', whose columns are ['g', 'h']",),
                 id='from-a-column-the-relation-lacks',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, over=h, into=h))'}},
-                ("over= and into= both name ['h']",),
+                {'objective': {'expression': 'sum(sum(p, by=lk, consume=h, produce=h))'}},
+                ("consume= and produce= both name ['h']",),
                 id='from-and-to-the-same-column',
             ),
             pytest.param(
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': 'g', 'value': ['h', 'z']},
-                    'objective': {'expression': 'sum(sum(p, by=lz, into=[h, h]))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, produce=[h, h]))'},
                 },
-                ("into=['h', 'h'] names a column twice",),
+                ("produce=['h', 'h'] names a column twice",),
                 id='a-to-list-naming-a-column-twice',
             ),
             pytest.param(
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': 'g', 'value': ['h', 'z']},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=[g, h], into=h))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, consume=[g, h], produce=h))'},
                 },
-                ("over= and into= both name ['h']",),
+                ("consume= and produce= both name ['h']",),
                 id='a-from-list-overlapping-to',
             ),
             pytest.param(
                 {
                     'relations.lz': {'key': 'g', 'value': {'h0': 'h', 'h1': 'h'}},
-                    'objective': {'expression': 'sum(sum(p, by=lz, over=[h0, h1], into=g))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, consume=[h0, h1], produce=g))'},
                 },
-                ("over=['h0', 'h1'] names two columns over ['h'], and the operand carries each dimension once",),
+                ("consume=['h0', 'h1'] names two columns over ['h'], and the operand carries each dimension once",),
                 id='a-from-list-naming-two-columns-over-one-dimension',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk, over=g))'}},
+                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=0, by=lk, consume=g))'}},
                 (
                     "shift() expects shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>]"
                     '[, by=<relation>[, within=<column>]])',
@@ -747,9 +749,9 @@ class TestRulesDecidedWithoutData:
                 id='position-within-a-column-the-relation-lacks',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, into=g))'}},
+                {'objective': {'expression': 'sum(sum(p, produce=g))'}},
                 ('names a column of a relation, and no by= names the relation',),
-                id='into-without-by',
+                id='produce-without-by',
             ),
             pytest.param(
                 {'relations.rel': {'key': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
@@ -759,13 +761,13 @@ class TestRulesDecidedWithoutData:
             pytest.param(
                 {
                     'relations.rel': {'key': ['g', 'h']},
-                    'objective': {'expression': 'sum(at(r, by=rel, over=h, into=g))'},
+                    'objective': {'expression': 'sum(at(r, by=rel, consume=h, produce=g))'},
                 },
                 ("at reads one value per coordinate, and 'rel' is not single-valued",),
                 id='at-through-a-bare-relation',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
+                {'objective': {'expression': 'sum(sum(q, by=lk, consume=h, produce=g))'}},
                 ("this sum walks to the key ['g']", 'that is a read, which is', 'at(..., by=lk'),
                 id='a-sum-that-walks-to-the-key-is-a-read',
             ),
@@ -886,40 +888,40 @@ class TestRulesDecidedWithoutData:
                 id='one-name-two-kinds',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(g + p, over=g)'}},
+                {'objective': {'expression': 'sum(g + p, consume=g)'}},
                 ("'g' is a dimension, and a dimension is not a value",),
                 id='a-dimension-as-a-value',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(lk + p, over=g)'}},
+                {'objective': {'expression': 'sum(lk + p, consume=g)'}},
                 ("'lk' is a relation, and a relation is structure",),
                 id='a-relation-as-a-value',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=wrap), over=g)'}},
+                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=wrap), consume=g)'}},
                 ('is a bare name where a keyword belongs',),
                 id='a-bare-edge-keyword',
             ),
             pytest.param(
-                {'objective': {'expression': "sum(shift(p, along=g, offset=1, edge='foo'), over=g)"}},
+                {'objective': {'expression': "sum(shift(p, along=g, offset=1, edge='foo'), consume=g)"}},
                 ("edge='foo') is not an edge policy",),
                 id='an-edge-policy-that-is-not-one',
             ),
             pytest.param(
                 {
                     'parameters.off': {'dims': [], 'dtype': 'int'},
-                    'objective': {'expression': 'sum(shift(p, along=g, offset=off + 0), over=g)'},
+                    'objective': {'expression': 'sum(shift(p, along=g, offset=off + 0), consume=g)'},
                 },
                 ('shift(offset=) takes a number or the name of an integer parameter', 'Precompute it as a parameter'),
                 id='an-amount-that-is-an-expression',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum_back(p, along=g, window=2 * 1), over=g)'}},
+                {'objective': {'expression': 'sum(sum_back(p, along=g, window=2 * 1), consume=g)'}},
                 ('sum_back(window=) takes a number or the name of an integer parameter',),
                 id='a-width-that-is-an-expression',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=1 + 1), over=g)'}},
+                {'objective': {'expression': 'sum(shift(p, along=g, offset=1, edge=1 + 1), consume=g)'}},
                 ('shift(edge=) is an expression, and an edge is the keyword',),
                 id='an-edge-that-is-an-expression',
             ),
@@ -949,7 +951,7 @@ class TestRulesDecidedWithoutData:
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': ['g', 'z'], 'value': 'h'},
-                    'objective': {'expression': 'sum(sum(q, by=[lk, lz], over=g))'},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, lz], consume=g))'},
                 },
                 ('a list walks each relation by its declared key and value, so a column keyword has nothing to name',),
                 id='by-a-list-with-from',

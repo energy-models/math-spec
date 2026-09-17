@@ -34,7 +34,7 @@ DISPATCH_MODEL: dict[str, Any] = {
         'load': {'dims': ['snapshot']},
     },
     'variables': {'p': {'dims': ['snapshot', 'generator'], 'bounds': {'lower': 0, 'upper': 'p_max'}}},
-    'constraints': {'balance': {'dims': ['snapshot'], 'expression': 'sum(p, over=generator) == load'}},
+    'constraints': {'balance': {'dims': ['snapshot'], 'expression': 'sum(p, consume=generator) == load'}},
     'objective': {'sense': 'minimize', 'expression': 'sum(p * cost)'},
 }
 

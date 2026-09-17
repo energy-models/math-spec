@@ -67,7 +67,7 @@ def test_a_separable_model_reports_the_lookahead_a_window_needs(patch, ahead):
 @pytest.mark.parametrize(
     ('patch', 'fragment'),
     [
-        pytest.param(_rows('sum(p, over=h) <= budget', dims=['u']), 'sums over h', id='a-budget-over-the-horizon'),
+        pytest.param(_rows('sum(p, consume=h) <= budget', dims=['u']), 'sums over h', id='a-budget-over-the-horizon'),
         pytest.param(_rows("p >= shift(p, along=h, offset=1, edge='wrap')"), 'wraps around h', id='a-cyclic-shift'),
     ],
 )
@@ -157,7 +157,7 @@ def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
 
 
 def test_a_coupling_names_the_change_that_would_lift_it():
-    coupled = _verdict(**_rows('sum(p, over=h) <= budget', dims=['u'])).coupled["constraint 'k'"]
+    coupled = _verdict(**_rows('sum(p, consume=h) <= budget', dims=['u'])).coupled["constraint 'k'"]
     assert 'sum_back(window=n)' in coupled, 'a horizon total becomes a rolling one'
     wrapped = _verdict(**_rows("p >= shift(p, along=h, offset=1, edge='wrap')")).coupled["constraint 'k'"]
     assert 'position(h) == 0' in wrapped, 'a wrap becomes an opening-state seed'
@@ -178,7 +178,7 @@ def test_a_sum_over_the_axis_couples_a_constraint_and_leaves_the_objective_alone
     every other. A verdict treating the two alike would refuse every windowable
     model there is — and `BASE`'s objective sums over `h` in every case above."""
     assert _verdict(**_rows('p >= 0')).windowable, 'the objective sums over h and that is not a coupling'
-    coupled = _verdict(**_rows('sum(p, over=h) <= budget', dims=['u']))
+    coupled = _verdict(**_rows('sum(p, consume=h) <= budget', dims=['u']))
     assert not coupled.windowable, 'the same sum in a constraint is one'
 
 
@@ -237,7 +237,7 @@ def test_every_node_a_program_can_carry_is_judged_without_raising(dimension):
 
 
 def test_a_reduction_over_several_axes_couples_every_one_of_them():
-    """`sum(p)` with no `over=` collapses every dimension its operand carries,
+    """`sum(p)` with no `consume=` collapses every dimension its operand carries,
     so the verdict for each of them has to say so — a walk that read only the
     first would call the rest windowable."""
     program = ms.to_program({**BASE, 'constraints': {'all': {'dims': [], 'expression': 'sum(p) <= budget'}}})

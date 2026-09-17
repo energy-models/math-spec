@@ -14,13 +14,13 @@ model can never depend on what a caller registered. A composition of them goes i
 | Operator                                           | Result                                                                                                                                            |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sum(array)`                                       | Every dimension that `array` carries collapses. The result is a scalar                                                                            |
-| `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
+| `sum(array, consume=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
 | `sum(array, by=relation)`                            | The relation's key column collapses onto its value column                                                                                          |
 | `sum(array, by=[relation, …])`                       | The same, onto every relation's value column. All the relations must consume the same dimension                                                       |
-| `sum(array, by=relation, over=a, into=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them. Walked to the key, where each coordinate finds one row, it is a read — that is `at`'s |
-| `sum(array, by=relation, over=[a, …], into=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                             |
+| `sum(array, by=relation, consume=a, produce=b)`              | Column `a` collapses onto column `b`. The other key columns are joined on, so the array carries them and the result keeps them. Walked to the key, where each coordinate finds one row, it is a read — that is `at`'s |
+| `sum(array, by=relation, consume=[a, …], produce=[b, …])`    | The same with several columns on either side: consumed together, landed on a product                                                             |
 | `at(array, by=relation)`                             | The relation's value column is replaced by its key column                                                                                          |
-| `at(array, by=relation, over=a, into=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns. Either may be a list               |
+| `at(array, by=relation, consume=a, produce=b)`               | Column `a` is replaced by column `b`, one value per coordinate, so the key lies in `b` and the joined columns. Either may be a list               |
 | `shift(array, along=dim, offset=n)`                 | The value `n` positions earlier along `dim`. The vacated edge is **absent**                                                                       |
 | `shift(array, along=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, along=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
@@ -33,22 +33,22 @@ model can never depend on what a caller registered. A composition of them goes i
 
 `array` is any expression with the right dimension set, so each operator reads a
 parameter as readily as a variable. Dimension arguments are name-checked at load,
-so `sum(p, over=snapshto)` is an error rather than a silent no-op.
+so `sum(p, consume=snapshto)` is an error rather than a silent no-op.
 [Every operator as math](#every-operator-as-math) shows how each row prints.
 
 ## `sum`
 
-`sum(x, over=d)` adds up `x` along `d`, and `d` is gone from the result.
+`sum(x, consume=d)` adds up `x` along `d`, and `d` is gone from the result.
 
 `sum(x)` names no dimension and reduces every dimension `x` carries, so its
-result is a scalar. It is `sum(sum(x, over=a), over=b)` written once.
+result is a scalar. It is `sum(sum(x, consume=a), consume=b)` written once.
 
-An operand that is already scalar, and a `over=` naming a dimension the
+An operand that is already scalar, and a `consume=` naming a dimension the
 operand does not carry, are both errors rather than no-ops.
 
 `sum(x, by=l)` sums through a [relation](dimensions.md#relations) and lands the result
 on the column it walks to: the value column, where the key draws the arrow, or
-the one `into=` names. A nodal balance is one `sum(by=)` per kind of component,
+the one `produce=` names. A nodal balance is one `sum(by=)` per kind of component,
 and the network's wiring stays in the relations:
 
 ```yaml
@@ -78,8 +78,8 @@ constraints:
 The same `f` is summed twice through two relations, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
-`sum(by=)` consumes a key column and produces a value column. `over=` and
-`into=` name them where the relation offers two ([walks](dimensions.md#walks)),
+`sum(by=)` consumes a key column and produces a value column. `consume=` and
+`produce=` name them where the relation offers two ([walks](dimensions.md#walks)),
 and every other key column is joined on, so each group is one coordinate of it.
 A bare relation, one with no `value:`, is summed with both ends named.
 
@@ -93,7 +93,7 @@ coordinate the data never covered is refused. See [absence](absence.md).
 
 `at(x, by=l)` walks the same relation the other way. It consumes a value column
 and produces the key, so it reads one coarse value once for each fine label that
-points at it, and a bare relation is never read by `at`. `over=` and `into=`
+points at it, and a bare relation is never read by `at`. `consume=` and `produce=`
 name the columns where the relation offers two, and every other key column is
 read at the row's own coordinate ([walks](dimensions.md#walks)).
 
@@ -335,13 +335,13 @@ language prints on [Every construct, as math](../notation.md).
 | Operator | Renders as |
 |---|---|
 | `sum(array)` | $`\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}`$ |
-| `sum(array, over=dim)` | $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$ |
+| `sum(array, consume=dim)` | $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$ |
 | `sum(array, by=relation)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$ |
 | `sum(array, by=[relation, …])` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$ |
-| `sum(array, by=relation, over=a, into=b)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$ |
-| `sum(array, by=relation, over=[a, …], into=[b, …])` | $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$ |
+| `sum(array, by=relation, consume=a, produce=b)` | $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$ |
+| `sum(array, by=relation, consume=[a, …], produce=[b, …])` | $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$ |
 | `at(array, by=relation)` | $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$ |
-| `at(array, by=relation, over=a, into=b)` | $`f_{l} \le \mathrm{cap}_{\mathrm{ends.bus0}(l)} \qquad \forall\, l \in \mathcal{L}`$ |
+| `at(array, by=relation, consume=a, produce=b)` | $`f_{l} \le \mathrm{cap}_{\mathrm{ends.bus0}(l)} \qquad \forall\, l \in \mathcal{L}`$ |
 | `shift(array, along=dim, offset=n)` | $`p_{t} \le p_{t - 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=n, edge='wrap')` | $`p_{t} \le p_{t \ominus 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=n, edge=v)` | $`p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T}`$ |

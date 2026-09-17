@@ -465,7 +465,7 @@ class Walk:
                 f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
             )
-        elif (consumed := node.kwargs.get('over')) is not None:
+        elif (consumed := node.kwargs.get('consume')) is not None:
             assert isinstance(consumed, DimensionNode)
             dummy, inner = ctx.reducing(consumed.name)
             domain = self._membership(consumed.name, dummy)

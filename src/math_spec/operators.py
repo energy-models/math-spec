@@ -23,7 +23,7 @@ class Builtin:
 
     Keyword arguments come in four kinds, and the kind decides what resolution
     turns the value into: ``dimension_kwargs`` name a dimension
-    (``sum(x, over=generator)``); ``relation_kwargs`` name a relation, which
+    (``sum(x, consume=generator)``); ``relation_kwargs`` name a relation, which
     carries its own dimensions, so it needs no sibling kwarg;
     ``edge_kwargs`` take a closed keyword or a number;
     ``required_value_kwargs`` are ordinary values that must be present — a
@@ -38,12 +38,12 @@ class Builtin:
     usage: str
     dimension_kwargs: tuple[str, ...] = ()
     relation_kwargs: tuple[str, ...] = ()
-    #: Kwargs naming a column of the relation ``by=`` names — ``over=`` and
-    #: ``into=`` — which resolution folds into the relation's walk.
+    #: Kwargs naming a column of the relation ``by=`` names — ``consume=`` and
+    #: ``produce=`` — which resolution folds into the relation's walk.
     role_kwargs: tuple[str, ...] = ()
     #: Kwargs naming a dimension on their own and a column of the relation where
-    #: ``by=`` names one. ``sum(x, over=generator)`` reduces the dimension
-    #: away; ``sum(x, by=l, over=c)`` names the column the walk consumes.
+    #: ``by=`` names one. ``sum(x, consume=generator)`` reduces the dimension
+    #: away; ``sum(x, by=l, consume=c)`` names the column the walk consumes.
     #: One meaning — what leaves the frame — read in the namespace ``by=``
     #: decides.
     dimension_or_role_kwargs: tuple[str, ...] = ()
@@ -96,17 +96,17 @@ class Builtin:
 #: ``within=`` names the columns whose values that group is read from.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>[, over=<column>, into=<column>])',
+        'sum(<expr>), sum(<expr>, consume=<dim>) or sum(<expr>, by=<relation>[, consume=<column>, produce=<column>])',
         relation_kwargs=('by',),
-        role_kwargs=('into',),
-        dimension_or_role_kwargs=('over',),
-        optional_kwargs=('by', 'over', 'into'),
+        role_kwargs=('produce',),
+        dimension_or_role_kwargs=('consume',),
+        optional_kwargs=('by', 'consume', 'produce'),
     ),
     'at': Builtin(
-        'at(<expr>, by=<relation>[, over=<column>, into=<column>])',
+        'at(<expr>, by=<relation>[, consume=<column>, produce=<column>])',
         relation_kwargs=('by',),
-        role_kwargs=('over', 'into'),
-        optional_kwargs=('over', 'into'),
+        role_kwargs=('consume', 'produce'),
+        optional_kwargs=('consume', 'produce'),
     ),
     'sum_back': Builtin(
         "sum_back(<expr>, along=<dim>, window=<n|parameter>[, edge='wrap'][, by=<relation>[, within=<column>]])",
@@ -154,7 +154,7 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
         alternatives = ' or '.join(f'{k}=' for k in builtin.at_most_one_of)
         return (
             f'{name}() takes at most one of {alternatives} — a relation carries '
-            f'its own dimensions, so by= leaves over= nothing to add.\n'
+            f'its own dimensions, so by= leaves consume= nothing to add.\n'
             f'Write: {builtin.usage}'
         )
     optional = {*builtin.edge_kwargs, *builtin.at_most_one_of, *builtin.optional_kwargs}

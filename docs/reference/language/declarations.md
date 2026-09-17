@@ -130,7 +130,7 @@ variables:
 constraints:
   power_balance:
     dims: [snapshot]
-    expression: sum(dispatch, over=generator) == load
+    expression: sum(dispatch, consume=generator) == load
 ```
 
 | Field         |                                                     |                |

@@ -12,7 +12,7 @@ varies when it needs a base to change one thing in.
 
 The `where:` on `dispatch` deletes the rows where a generator has no capacity, so
 [absence](../reference/language/absence.md) is declared in the file rather than
-checked at run time. `sum(dispatch, over=generator)` names the dimension it reduces, so
+checked at run time. `sum(dispatch, consume=generator)` names the dimension it reduces, so
 the constraint's `dims` is what remains.
 
 <!-- gallery:begin -->
@@ -38,7 +38,7 @@ variables:
 constraints:
   power_balance:
     dims: [snapshot]
-    expression: sum(dispatch, over=generator) == load
+    expression: sum(dispatch, consume=generator) == load
 
 objective:
   sense: minimize

@@ -61,7 +61,7 @@ DESCRIBED = override(
         'dimensions.generator.description': 'dispatchable units',
         'parameters.p_max.description': 'installed capacity',
         'variables.p.description': 'output of a generator in a snapshot',
-        'expressions.spend': {'expression': 'sum(p * cost, over=generator)', 'description': 'what a snapshot costs'},
+        'expressions.spend': {'expression': 'sum(p * cost, consume=generator)', 'description': 'what a snapshot costs'},
         'objective.expression': 'sum(spend)',
     },
 )

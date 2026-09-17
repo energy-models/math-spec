@@ -106,7 +106,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     - where strings parse *and* resolve — an unknown name there is an error,
       not a silently-empty mask;
     - macro formals may shadow model names but not a declared dimension, since
-      ``over=snapshot`` under a formal ``snapshot`` cannot say which it means;
+      ``consume=snapshot`` under a formal ``snapshot`` cannot say which it means;
     - every dim rule (``dimensions.check_schema``), once names resolve.
 
     Returns:

@@ -143,8 +143,7 @@ result keeps it, and keeps every dimension the relation does not name.
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
 
-`over=` names the column consumed and `into=` the column produced. Name a column
-only where the relation offers two.
+Name a column only where the relation offers two.
 
 ```yaml
 dimensions:
@@ -161,58 +160,58 @@ variables:
 constraints:
   zone_balance: # consumes generator, joins on period, produces zone: [generator, period] → [zone, period]
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator) >= demand
+    expression: sum(p, by=zone_of, consume=generator) >= demand
   history: # consumes period, joins on generator, produces zone: [generator, period] → [generator, zone]
     dims: [generator, zone]
-    expression: sum(p, by=zone_of, over=period) <= 100
+    expression: sum(p, by=zone_of, consume=period) <= 100
   capped_revenue: # consumes zone, joins on period, produces generator: [zone, period] → [generator, period]
     dims: [generator, period]
-    expression: at(price, by=zone_of, over=zone, into=generator) * p <= 1000
+    expression: at(price, by=zone_of, consume=zone, produce=generator) * p <= 1000
 ```
 
 `zone_of` has one value column, `zone`. It is the only column `sum` can produce,
-so `sum` leaves `into=zone` unsaid. It is the only column `at` can consume, so
-`at` may leave `over=zone` unsaid too. `zone_of` has two key columns, and there
-the call chooses: `sum` names the one it consumes, because `over=generator` and
-`over=period` are different constraints, and `at` names the one it produces.
+so `sum` leaves `produce=zone` unsaid. It is the only column `at` can consume, so
+`at` may leave `consume=zone` unsaid too. `zone_of` has two key columns, and there
+the call chooses: `sum` names the one it consumes, because `consume=generator` and
+`consume=period` are different constraints, and `at` names the one it produces.
 `period` is joined on either way. With one key column and one value column,
 `sum(p, by=gen_bus)` and `at(price, by=gen_bus)` need neither keyword. A column
 left out where the relation offers two is refused, and the message lists the
 candidates:
 
 ```
-sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which over= names.
+sum(by=zone_of): 'zone_of' has 2 key columns (['generator', 'period']), and the call has to say which consume= names.
 ```
 
 `capped_revenue` reads the price of the zone this generator sat in that period.
 The typesetter prints it as $`\mathrm{price}_{\mathrm{zone\_of}(g,\ e),e}`$,
 and the joined `period` is the second subscript.
 
-- **Either keyword takes a list.** `sum(p, by=gen_bt, into=[bus, technology])`
+- **Either keyword takes a list.** `sum(p, by=gen_bt, produce=[bus, technology])`
   lands on the product `bus × technology` in one join.
-  `sum(p, by=zone_of, over=[generator, period])` consumes both key columns at
-  once. `at(tech_cap, by=gen_bt, over=[bus, technology])` reads `tech_cap` at
+  `sum(p, by=zone_of, consume=[generator, period])` consumes both key columns at
+  once. `at(tech_cap, by=gen_bt, consume=[bus, technology])` reads `tech_cap` at
   each generator's bus and technology together.
 - **A produced dimension the operand already carries is joined on.** In
   `sum(load * p, by=gen_bus)` with `load[snapshot, bus]`, the walk produces
   `bus` and `load` already carries it. So each generator's term is read at the
   bus the generator sits on, and the sum lands there.
 - **A value column that is not walked is not read.**
-  `sum(f, by=ends, over=line, into=bus1)` reads `bus1` and ignores `bus0`
+  `sum(f, by=ends, consume=line, produce=bus1)` reads `bus1` and ignores `bus0`
   ([roles](#roles)).
 - **`by=[a, b]` is one grouping onto what `a` and `b` produce together.** Each
-  relation is walked from its key to its value, so `over=` and `into=` have
+  relation is walked from its key to its value, so `consume=` and `produce=` have
   nothing to name. The relations consume the same dimension, and no two produce
   the same one.
-- **`into=` needs a `by=`**, because a column belongs to a table. `over=`
-  without a `by=` names a dimension, as in `sum(p, over=period)`.
+- **`produce=` needs a `by=`**, because a column belongs to a table. `consume=`
+  without a `by=` names a dimension, as in `sum(p, consume=period)`.
 
 Three refusals draw the line, and each message names the rewrite:
 
 | refused                               | message                                                                                                                                                                                                                                                             |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `at` on a bare relation               | `at(by=connection): at reads one value per coordinate, and 'connection' is not single-valued in ['bus'] at the columns the operand fixes (['generator']) — its key is ['generator', 'bus']. Key the table by columns the read fixes, or read the other way.`        |
-| a `sum` that consumes no key column   | `sum(by=zone_of): this sum walks to the key ['generator', 'period'], so each coordinate has one term and nothing is added up — that is a read, which is at()'s. Write at(..., by=zone_of, over=['zone'], into=['generator']), or sum toward a value column.`        |
+| a `sum` that consumes no key column   | `sum(by=zone_of): this sum walks to the key ['generator', 'period'], so each coordinate has one term and nothing is added up — that is a read, which is at()'s. Write at(..., by=zone_of, consume=['zone'], produce=['generator']), or sum toward a value column.`  |
 | an operand missing a joined dimension | `at(by=zone_of) joins on ['period'] (columns ['period'] of 'zone_of'), which the expression does not carry (dims ['zone']). A relation is walked between two of its columns and read at the others — index the operand by them, or walk between different columns.` |
 
 ### Partitions
@@ -244,7 +243,7 @@ relations:
   rep_of: { key: snapshot, value: { rep: snapshot } } # the representative snapshot
 ```
 
-`sum(f, by=ends, over=line, into=bus1) - sum(f, by=ends, over=line, into=bus0)`
+`sum(f, by=ends, consume=line, produce=bus1) - sum(f, by=ends, consume=line, produce=bus0)`
 is a nodal balance through one table: flow arriving at `bus1` less flow leaving
 `bus0`. `where: "ends.bus0 != ends.bus1"` excludes a line whose two ends are
 one bus.
@@ -308,7 +307,7 @@ does with the column, not what the column holds:
 | is an axis: something is indexed by it, or an aggregation lands terms on it                                                           | a `dimension`                           | its members are the coordinate set every table over it is reindexed onto                                                  |
 | has one value per member of a dimension, or per tuple of several — a generator's bus, a line's two ends, a generator's zone by period | a `relation` with that `key`            | it is a map every operator walks, and its values are checked against the dimensions they name                             |
 | relates members of two dimensions many-to-many, with nothing to weigh — which buses a generator may connect to                        | a bare `relation`, with no `value:`     | `sum` walks it with both ends named, and a bare `where` tests it. Nothing reads it, because there is no one value to read |
-| relates members of two dimensions many-to-many, with a weight per pair — a link's efficiency to each bus, a cycle's lines             | a `parameter` over both                 | the weight is the data, its row set is the relation, and the aggregation is `sum(w * x, over=a)`                          |
+| relates members of two dimensions many-to-many, with a weight per pair — a link's efficiency to each bus, a cycle's lines             | a `parameter` over both                 | the weight is the data, its row set is the relation, and the aggregation is `sum(w * x, consume=a)`                       |
 | is a label set the model only selects on or counts within — a period, a season, a zone                                                | a `dimension`, and a `relation` onto it | its labels are checked, at the cost of one line and one table                                                             |
 | scales terms — a coefficient, a bound, an offset                                                                                      | a `parameter` (`float` or `int`)        | arithmetic is over numbers ([dtype](declarations.md#parameters))                                                          |
 | is a per-row attribute the math only selects on — a fuel, a constraint's sense                                                        | a `str` parameter                       | it names rows rather than scaling them, and no set is declared to check its values against                                |

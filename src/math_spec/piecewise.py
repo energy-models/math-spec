@@ -190,19 +190,19 @@ class _Block:
         )
         gated = self._gate_rows()
         for suffix, where, rhs in gated:
-            self._constraint(self.convexity + suffix, list(self.frame), f'sum({self.lam}, over={d}) == {rhs}', where)
+            self._constraint(self.convexity + suffix, list(self.frame), f'sum({self.lam}, consume={d}) == {rhs}', where)
         for cname, link in zip(self.links, self.pw.links, strict=True):
             self._constraint(
                 cname,
                 list(self.frame),
-                f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, over={d})',
+                f'({link.expression}) {link.sign} sum({self.lam} * {link.values}, consume={d})',
             )
         if self.pw.method == 'sos2':
             self.raw.setdefault('sos', {})[self.name] = {'variable': self.lam, 'over': d, 'type': 2}
         elif self.pw.method == 'adjacency':
             self._weight(self.seg, domain='binary', bounds={})
             for suffix, where, rhs in gated:
-                self._constraint(self.pick + suffix, list(self.frame), f'sum({self.seg}, over={d}) == {rhs}', where)
+                self._constraint(self.pick + suffix, list(self.frame), f'sum({self.seg}, consume={d}) == {rhs}', where)
             self._constraint(
                 self.adjacency,
                 [*self.frame, d],

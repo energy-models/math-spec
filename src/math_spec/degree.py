@@ -12,7 +12,7 @@ reads, at that position's own ceiling, and an entry the math never reads
 (``ExpressionDeclaration.in_math``) is held to no degree.
 
 A degree-2 product has a second rule: **at most one factor may be a sum of
-terms**. ``sum(x, over=i) * sum(y, over=j)`` is a cross join whose size the
+terms**. ``sum(x, consume=i) * sum(y, consume=j)`` is a cross join whose size the
 file states nowhere. Factors carrying *different dims* are not that: ``x[i] *
 y[j]`` broadcasts.
 
@@ -165,8 +165,8 @@ def _check_single_term_factor(node: BinaryOperatorNode, where: str) -> None:
         f'{where}both factors of this product are sums of more than one term, so it is an outer '
         f'product — every term of one against every term of the other, and nothing in the file '
         f'says how many that is.\n'
-        f'Multiply *before* reducing (``sum(x * y, over=d)`` rather than '
-        f'``sum(x, over=d) * sum(y, over=d)``).'
+        f'Multiply *before* reducing (``sum(x * y, consume=d)`` rather than '
+        f'``sum(x, consume=d) * sum(y, consume=d)``).'
     )
 
 

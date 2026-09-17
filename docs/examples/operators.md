@@ -44,12 +44,12 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \le \mathrm{budget}`$
 
-### `sum(array, over=dim)`
+### `sum(array, consume=dim)`
 
 `examples/operators/sum.yaml`
 
 ```yaml
-description: The plain reduction — `sum(array, over=dim)` collapses one dimension.
+description: The plain reduction — `sum(array, consume=dim)` collapses one dimension.
 
 dimensions:
   snapshot: { dtype: int }
@@ -66,7 +66,7 @@ variables:
 constraints:
   fleet_total:
     dims: [snapshot]
-    expression: sum(p, over=generator) <= limit
+    expression: sum(p, consume=generator) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -147,13 +147,13 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=a, into=b)`
+### `sum(array, by=relation, consume=a, produce=b)`
 
 `examples/operators/sum_by_columns.yaml`
 
 ```yaml
 description: >-
-  A walk that names its ends — `sum(array, by=relation, over=a, into=b)`
+  A walk that names its ends — `sum(array, by=relation, consume=a, produce=b)`
   consumes column `a` and lands on column `b`, and the other key column is
   joined on, so each zone's total is taken per period.
 
@@ -176,20 +176,20 @@ variables:
 constraints:
   zone_balance:
     dims: [zone, period]
-    expression: sum(p, by=zone_of, over=generator, into=zone) >= demand
+    expression: sum(p, by=zone_of, consume=generator, produce=zone) >= demand
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{zone\_of}(g,\ e) = z} p_{g,e} \ge \mathrm{demand}_{z,e} \qquad \forall\, z \in \mathcal{Z},\ e \in \mathcal{E}`$
 
-### `sum(array, by=relation, over=[a, …], into=[b, …])`
+### `sum(array, by=relation, consume=[a, …], produce=[b, …])`
 
 `examples/operators/sum_by_column_lists.yaml`
 
 ```yaml
 description: >-
-  A walk with several columns at each end — `sum(array, by=relation, over=[a, …], into=[b, …])`
+  A walk with several columns at each end — `sum(array, by=relation, consume=[a, …], produce=[b, …])`
   consumes both key columns at once and lands on the product of both value
   columns in one join.
 
@@ -213,7 +213,7 @@ variables:
 constraints:
   slot_cap:
     dims: [bus, technology]
-    expression: sum(p, by=slot_of, over=[generator, period], into=[bus, technology]) <= cap
+    expression: sum(p, by=slot_of, consume=[generator, period], produce=[bus, technology]) <= cap
 
 objective: { sense: minimize, expression: sum(p) }
 ```
@@ -254,13 +254,13 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$
 
-### `at(array, by=relation, over=a, into=b)`
+### `at(array, by=relation, consume=a, produce=b)`
 
 `examples/operators/at_columns.yaml`
 
 ```yaml
 description: >-
-  A read that names its ends — `at(array, by=relation, over=a, into=b)`
+  A read that names its ends — `at(array, by=relation, consume=a, produce=b)`
   reads column `a` where a table has two columns over one dimension, here the
   sending end of a line.
 
@@ -282,7 +282,7 @@ variables:
 constraints:
   sending_cap:
     dims: [line]
-    expression: f <= at(cap, by=ends, over=bus0, into=line)
+    expression: f <= at(cap, by=ends, consume=bus0, produce=line)
 
 objective: { sense: minimize, expression: sum(f) }
 ```

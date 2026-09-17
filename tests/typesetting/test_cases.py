@@ -145,7 +145,7 @@ def test_the_table_may_rename_a_named_expression_cased_or_plain():
     tex = to_latex(CASED, symbols={'notation': 'latex', 'names': {'headroom': r'\bar h'}}, legend=False)
     assert r'\bar h_{t,g}' in tex
 
-    plain = override(DISPATCH, **{'expressions.supply': 'sum(p, over=generator)'})
+    plain = override(DISPATCH, **{'expressions.supply': 'sum(p, consume=generator)'})
     tex = to_latex(plain, symbols={'notation': 'latex', 'names': {'supply': 's'}}, legend=False)
     assert 's_{t} & =' in tex, 'the definition prints under the spelling the table gave'
 
