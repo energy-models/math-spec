@@ -89,7 +89,7 @@ def symbols_for(model: Spec) -> dict[str, Any]:
     named = {
         *model.parameters,
         *model.variables,
-        *model.given_variables,
+        *model.given.variables,
         *model.expressions,
         *model.constraints,
     }

@@ -70,14 +70,15 @@ SHARED_SECTIONS = ('dimensions', 'relations')
 #: The declarations a patch edits, creates or removes.
 OWNED_SECTIONS = ('parameters', 'variables', 'constraints', 'expressions', 'macros', 'piecewise', 'sos')
 
-#: The declarations a file reads and does not introduce. Peers must agree
-#: about one, and :func:`merge` folds it into the declaration that introduces
-#: it, so a composed library carries none.
-GIVEN_SECTIONS = ('given_variables', 'given_constraints')
+#: What ``given:`` holds, by the key each kind sits under and what one entry
+#: of it is called. The key is the owning section's name too, because what a
+#: file reads is folded into the declaration of the same kind that introduces
+#: it, and after that a composed library carries none.
+GIVEN_KINDS = {'variables': 'given variable', 'constraints': 'given constraint'}
 
 #: Every section keyed by declaration name. ``objective`` is one declaration
 #: rather than a mapping of them, and is laid over field by field beside these.
-SECTIONS = (*SHARED_SECTIONS, *OWNED_SECTIONS, *GIVEN_SECTIONS)
+SECTIONS = (*SHARED_SECTIONS, *OWNED_SECTIONS, 'given')
 
 #: What one entry is called where dropping the key's last letter does not say
 #: it: two sections that are not plurals, and the objective, which is one
@@ -86,7 +87,6 @@ IRREGULAR = {
     'piecewise': 'piecewise curve',
     'sos': 'special-ordered set',
     'objective': 'objective',
-    'given_variables': 'given variable',
 }
 
 
@@ -125,14 +125,13 @@ def merge(
         merged['description'] = description
 
     for section in SHARED_SECTIONS:
-        if agreed := _agreed(read, section):
+        if agreed := _agreed(read, section, _singular(section)):
             merged[section] = agreed
     for section in OWNED_SECTIONS:
         if claimed := _claimed(read, section):
             merged[section] = claimed
-    for section in GIVEN_SECTIONS:
-        if unintroduced := _folded(read, section, merged):
-            merged[section] = unintroduced
+    if given := {kind: left for kind in GIVEN_KINDS if (left := _folded(read, kind, merged))}:
+        merged['given'] = given
     if (objective := _summed_objective(read)) is not None:
         merged['objective'] = objective
     return merged
@@ -155,8 +154,11 @@ def _one_version(read: Mapping[str, dict[str, Any]]) -> int:
     return next(iter(declared.values()), 0)
 
 
-def _agreed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]:
-    """One ``dimensions`` or ``relations`` block, peers that say the same thing folded together.
+def _agreed(read: Mapping[str, dict[str, Any]], section: str, label: str) -> dict[str, Any]:
+    """One block every fragment may declare, peers that say the same thing folded together.
+
+    *label* is what one entry is called, because the caller knows whether the
+    block is the coordinate space or what a file reads.
 
     Equality rather than :func:`_agrees`: between peers neither declaration is
     the one being restated, so a field only one of them writes is a difference
@@ -169,7 +171,7 @@ def _agreed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]:
             if key in merged and _claims(merged[key]) != _claims(block):
                 raise LanguageError(
                     f"fragments '{author[key]}' and '{name}' say different things about "
-                    f'{_singular(section)} {key!r}: {merged[key]!r} against {block!r}. A declaration two '
+                    f'{label} {key!r}: {merged[key]!r} against {block!r}. A declaration two '
                     f'fragments share is one both of them say the same thing about — make the two '
                     f'identical, or give one of them a name of its own.'
                 )
@@ -206,29 +208,30 @@ def _claimed(read: Mapping[str, dict[str, Any]], section: str) -> dict[str, Any]
     return merged
 
 
-def _folded(read: Mapping[str, dict[str, Any]], section: str, merged: Mapping[str, Any]) -> dict[str, Any]:
-    """The given declarations no fragment introduces, the rest folded into the ones that do.
+def _folded(read: Mapping[str, dict[str, Any]], kind: str, merged: Mapping[str, Any]) -> dict[str, Any]:
+    """One kind of given declaration, the ones a fragment introduces folded away.
 
     A fragment's given declaration is what it expects of a column a sibling
     owns, so where the sibling is in the composition the expectation is checked
     and then spent: the composed model declares the column once, and a name
     that is both given and introduced would otherwise read as a collision.
     """
-    given = _agreed(read, section)
-    introduced = merged.get(section.removeprefix('given_'), {})
-    for key, block in list(given.items()):
+    asked = _agreed({name: sections.get('given') or {} for name, sections in read.items()}, kind, GIVEN_KINDS[kind])
+    introduced = merged.get(kind, {})
+    for key, block in list(asked.items()):
         if key not in introduced:
             continue
         if not _agrees(_claims(introduced[key]), _claims(block)):
-            reader, owner = _author_of(read, section, key), _author_of(read, section.removeprefix('given_'), key)
+            reader = _author_of({name: sections.get('given') or {} for name, sections in read.items()}, kind, key)
+            owner = _author_of(read, kind, key)
             raise LanguageError(
-                f"fragment '{reader}' reads {_singular(section)} {key!r} as {block!r}, where '{owner}' "
+                f"fragment '{reader}' reads {GIVEN_KINDS[kind]} {key!r} as {block!r}, where '{owner}' "
                 f'introduces it as {introduced[key]!r}. A given declaration is what the file expects of '
                 f'a column somebody else owns, so it says the same as the declaration it is folded '
                 f'into, or less.'
             )
-        del given[key]
-    return given
+        del asked[key]
+    return asked
 
 
 def _author_of(read: Mapping[str, dict[str, Any]], section: str, key: str) -> str:
@@ -409,10 +412,16 @@ def _overlap_message(owner: str, claimed: tuple[str, ...], name: str, path: tupl
 
 
 def _lay_over(base: dict[str, Any], patch: dict[str, Any], name: str) -> dict[str, Any]:
-    """One patch over one base, a section at a time, the base left as it was."""
+    """One patch over one base, a section at a time, the base left as it was.
+
+    ``given:`` is laid over one kind at a time rather than whole, so a patch
+    that names the columns it reads does not drop the row families beside them.
+    """
     laid = dict(base)
     for key, value in patch.items():
-        if key in SHARED_SECTIONS:
+        if key == 'given':
+            laid[key] = {**(laid.get(key) or {}), **(value or {})}
+        elif key in SHARED_SECTIONS:
             laid[key] = _shared(laid.get(key) or {}, value or {}, key, name)
         elif key in OWNED_SECTIONS:
             laid[key] = _owned(laid.get(key) or {}, value or {}, key, name)

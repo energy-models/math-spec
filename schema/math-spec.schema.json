@@ -216,6 +216,30 @@
       "title": "ExpressionCase",
       "type": "object"
     },
+    "GivenBlock": {
+      "additionalProperties": false,
+      "description": "What this file reads and does not build, by kind.\n\nOne key per kind of declaration, and the section is closed at the two:\na third kind enters the day something reads one, and the schema's own\nerror names what is valid until then.",
+      "properties": {
+        "constraints": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenConstraintBlock"
+          },
+          "default": {},
+          "title": "Constraints",
+          "type": "object"
+        },
+        "variables": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GivenVariableBlock"
+          },
+          "default": {},
+          "title": "Variables",
+          "type": "object"
+        }
+      },
+      "title": "GivenBlock",
+      "type": "object"
+    },
     "GivenConstraintBlock": {
       "additionalProperties": false,
       "description": "A row family this file reads the dual of and does not build.\n\nThe frame says how many duals there are and what indexes them, which is\nwhat ``dual()`` needs and all this file can answer. There is no\n``expression:``: the body is the owner's, and nothing here builds a row.",
@@ -744,21 +768,12 @@
       "title": "Expressions",
       "type": "object"
     },
-    "given_constraints": {
-      "additionalProperties": {
-        "$ref": "#/$defs/GivenConstraintBlock"
-      },
-      "default": {},
-      "title": "Given Constraints",
-      "type": "object"
-    },
-    "given_variables": {
-      "additionalProperties": {
-        "$ref": "#/$defs/GivenVariableBlock"
-      },
-      "default": {},
-      "title": "Given Variables",
-      "type": "object"
+    "given": {
+      "$ref": "#/$defs/GivenBlock",
+      "default": {
+        "constraints": {},
+        "variables": {}
+      }
     },
     "macros": {
       "additionalProperties": {

@@ -17,7 +17,7 @@ spec = ms.to_spec(model)
 
 The file below is `spec.to_yaml()` — no fragment holds it, and nothing in the
 repository commits it. `Port_p` is one declaration here: each fragment read it
-under `given_variables`, and merging folded those into the surface's own.
+under `given:`, and merging folded those into the surface's own.
 
 The objective is the generator's, carried as it was written, because it is the
 only fragment that priced anything. A second priced fragment would have its

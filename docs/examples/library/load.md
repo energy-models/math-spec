@@ -21,10 +21,11 @@ dimensions:
   load: { dtype: str, description: "demands, each on one port" }
 relations:
   Load_port: { key: load, value: port }
-given_variables:
-  Port_p:
-    dims: [snapshot, port]
-    description: the surface introduces this column, and this file only writes into it
+given:
+  variables:
+    Port_p:
+      dims: [snapshot, port]
+      description: the surface introduces this column, and this file only writes into it
 parameters:
   Load_p_set: { dims: [snapshot, load], description: "`Load-p_set` — what a load takes in a snapshot" }
 constraints:

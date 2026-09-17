@@ -29,9 +29,9 @@ costs to add.
   as much as a primitive to build, but composes as freely as a macro, because
   the rest of the model only sees the variables and constraints it emitted.
 - **A declaration section** is a block of declarations of one kind, such as
-  `variables:` or `given_variables:`. One enters where it says something no
+  `variables:` or `given:`. One enters where it says something no
   section already says, where a file decides it without data, and where the
-  typesetter prints it. `given_variables:` entered on all three: nothing else
+  typesetter prints it. `given:` entered on all three: nothing else
   states that a column belongs to another file, which is what lets a component
   file load and print on its own.
 
@@ -196,7 +196,7 @@ framework ships and a project extends, a field at a time.
 both.
 
 A component file reads the coupling surface it is written against, and declares
-that column under `given_variables:`. So it loads on its own, and prints as math
+that column under `given: variables:`. So it loads on its own, and prints as math
 on its own, which is what it could not do while a fragment was a file the loader
 had to refuse. `merge` folds each given declaration into the one that
 introduces it, so a composed library carries none.
@@ -205,7 +205,7 @@ A layer over a model this language never sees — one built through linopy, say 
 has nothing to fold into. There the declaration stays, and the program carries
 the name and the frame for a consumer to bind, under
 [what a program does not build](../reference/language/reading.md#what-a-program-does-not-build).
-`given_constraints:` is the same fact about a row family: `dual(balance)` prices
+`given: constraints:` is the same fact about a row family: `dual(balance)` prices
 what the base model settles, and the file says how many duals there are and what
 indexes them.
 

@@ -12,10 +12,11 @@ dimensions:
   generator: { dtype: str, description: "generating units, each on one port" }
 relations:
   Generator_port: { key: generator, value: port }
-given_variables:
-  Port_p:
-    dims: [snapshot, port]
-    description: the surface introduces this column, and this file only writes into it
+given:
+  variables:
+    Port_p:
+      dims: [snapshot, port]
+      description: the surface introduces this column, and this file only writes into it
 parameters:
   Generator_p_nom: { dims: [generator], description: nominal power }
   Generator_marginal_cost: { dims: [generator], description: cost of one unit of output }

@@ -64,6 +64,7 @@ __all__ = [
     'FirstOf',
     'Footprint',
     'GivenDeclaration',
+    'GivenTargets',
     'GroupSum',
     'Increasing',
     'LastOf',
@@ -769,6 +770,30 @@ class GivenDeclaration:
 
 
 @dataclass(frozen=True)
+class GivenTargets:
+    """What a program reads and does not build, by kind, as the file declares it.
+
+    Both groups are empty in a program built from one whole model. A consumer
+    that layers this program onto another model binds every name here before
+    it builds anything, and refuses what it cannot find.
+    """
+
+    #: Columns to bind, by name.
+    variables: Mapping[str, GivenDeclaration] = Sealed({})
+    #: Row families to bind, by name, read back after the solve.
+    constraints: Mapping[str, GivenDeclaration] = Sealed({})
+
+    def __post_init__(self) -> None:
+        """Seal both groups, so a program handed out cannot be written to."""
+        for f in fields(self):
+            object.__setattr__(self, f.name, Sealed(getattr(self, f.name)))
+
+    def __bool__(self) -> bool:
+        """Whether the program reads anything it does not build, so a caller can ask in one word."""
+        return bool(self.variables or self.constraints)
+
+
+@dataclass(frozen=True)
 class ConstraintDeclaration:
     """``lhs sense rhs`` for each coord combination of ``dims``.
 
@@ -984,13 +1009,11 @@ class Program:
     #: named expression is outside the language is refused by every verb that
     #: reads the file rather than only by the one that reads the expression.
     named_expressions: Mapping[str, ExpressionDeclaration] = Sealed({})
-    #: The columns this program reads and does not build. A consumer binds each
-    #: to a column the model it is layered onto already holds; nothing here
-    #: emits one, so a build reads :attr:`variables` and never this.
-    given_variables: Mapping[str, GivenDeclaration] = Sealed({})
-    #: The row families this program reads the dual of and does not build,
-    #: bound the same way and read back after the solve.
-    given_constraints: Mapping[str, GivenDeclaration] = Sealed({})
+    #: What this program reads and does not build (:class:`GivenTargets`). A
+    #: consumer binds each name to what the model it is layered onto already
+    #: holds; nothing here emits a column, so a build reads :attr:`variables`
+    #: and never this.
+    given: GivenTargets = GivenTargets()
 
     def __post_init__(self) -> None:
         """Seal every group, so a program handed out cannot be written to."""

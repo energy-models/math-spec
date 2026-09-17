@@ -34,7 +34,7 @@ def test_every_fragment_loads_and_prints_on_its_own(name):
 @pytest.mark.parametrize('name', ['generator', 'load'])
 def test_a_component_file_reads_the_surface_and_introduces_no_flow(name):
     spec = to_spec(FRAGMENTS[name])
-    assert sorted(spec.given_variables) == ['Port_p']
+    assert sorted(spec.given.variables) == ['Port_p']
     assert 'Port_p' not in spec.variables, 'the surface introduces the column, and a component file only writes into it'
 
 
@@ -42,7 +42,7 @@ def test_the_library_composes_into_one_model():
     spec = to_spec(merge(FRAGMENTS))
     assert sorted(spec.variables) == ['Generator_p', 'Port_p']
     assert sorted(spec.constraints) == ['Bus_nodal_balance', 'Generator_injection', 'Load_withdrawal']
-    assert not spec.given_variables, 'each read is folded into the declaration that introduces it'
+    assert not spec.given.variables, 'each read is folded into the declaration that introduces it'
     assert spec.objective is not None and spec.objective.expression == 'sum(Generator_p * Generator_marginal_cost)', (
         "the one fragment that priced anything carries the composed model's objective, as it wrote it"
     )
