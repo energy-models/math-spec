@@ -19,6 +19,14 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.96](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.95...v0.0.0-alpha.96) (2026-09-17)
+
+
+### Bug Fixes
+
+* **language:** an unknown keyword in an uncalled macro is refused by its signature ([#462](https://github.com/energy-models/math-spec/issues/462)) ([a1659da](https://github.com/energy-models/math-spec/commit/a1659daf8a6f2a9137dd9110f9d49d2003f2bd9f))
+* **language:** an unknown keyword on an operator is refused once, by its signature ([#458](https://github.com/energy-models/math-spec/issues/458)) ([aa3e052](https://github.com/energy-models/math-spec/commit/aa3e05254844dc03bc8b655489ff371a18b1dfff))
+
 ## [0.0.0-alpha.95](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.94...v0.0.0-alpha.95) (2026-09-16)
 
 
