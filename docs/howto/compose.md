@@ -81,24 +81,12 @@ the patches on the base and hands back one mapping, which
    schema already takes: `dispatch: { where: null }` gives that variable no
    mask, and leaves the variable in place.
 
-5. **Compose from the shell** where the composed file is the thing you review.
+5. **Write the composed model out where the file is what you review.**
+   `Spec.to_yaml()` is what every other page here diffs.
 
-   ```bash
-   python -m math_spec compose base.yaml -p carbon.yaml -p operate.yaml -o composed.yaml
+   ```python
+   Path('composed.yaml').write_text(ms.to_spec(model).to_yaml())
    ```
-
-   The model goes to `composed.yaml`, and the account of how it got there goes
-   to stderr:
-
-   ```text
-     added  parameters.emission_rate  (carbon)
-     added  constraints.emission_cap  (carbon)
-    edited  variables.dispatch  (operate)
-   2 added, 1 edited
-   ```
-
-   Without `-o` the model goes to stdout. Diff `composed.yaml` against the base
-   to read what the patches did to the math.
 
 ## What a patch may say
 

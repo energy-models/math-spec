@@ -4,9 +4,8 @@
 
 """``python -m math_spec <verb> model.yaml`` — the shell front.
 
-``check`` loads the file and prints the language's advice, ``compose`` writes
-the model a base and its patches make, and one further verb per typeset
-format, read off :data:`math_spec.typesetting.FORMATS`.
+``check`` loads the file and prints the language's advice, and there is one
+further verb per typeset format, read off :data:`math_spec.typesetting.FORMATS`.
 """
 
 from __future__ import annotations
@@ -16,10 +15,8 @@ import sys
 from pathlib import Path
 
 from math_spec.advice import advice
-from math_spec.composition import _Change, _compose
 from math_spec.errors import MathSpecError
 from math_spec.typesetting import FORMATS, typeset
-from math_spec.validation import to_spec
 
 
 def parser() -> argparse.ArgumentParser:
@@ -29,13 +26,6 @@ def parser() -> argparse.ArgumentParser:
 
     check = verbs.add_parser('check', help='load a model, and print what the language advises')
     check.add_argument('model', help='path to a math_spec YAML model')
-
-    compose = verbs.add_parser('compose', help='lay patches over a base, and write the model they compose')
-    compose.add_argument('base', help='path to the model being extended')
-    compose.add_argument(
-        '-p', '--patch', action='append', default=[], metavar='PATH', help='a patch to lay over the base; repeatable'
-    )
-    compose.add_argument('-o', '--out', help='write here instead of stdout')
 
     for name in FORMATS:
         verb = verbs.add_parser(name, help=f'render a model as {name}')
@@ -57,8 +47,6 @@ def main(argv: list[str] | None = None) -> int:
     Advice is not a refusal: ``check`` prints it and exits 0.
     """
     args = parser().parse_args(argv)
-    if args.verb == 'compose':
-        return _composed(args.base, args.patch, args.out)
     if args.verb == 'check':
         try:
             notes = advice(args.model)
@@ -81,48 +69,6 @@ def main(argv: list[str] | None = None) -> int:
     else:
         sys.stdout.write(text)
     return 0
-
-
-def _composed(base: str, patches: list[str], out: str | None) -> int:
-    """The ``compose`` verb: the composed model to stdout, and what each patch did to stderr.
-
-    The model and the summary are split across the two streams so that a
-    redirected ``compose`` writes a file a reviewer diffs, with the account of
-    how it got that way still on the terminal.
-    """
-    try:
-        model, changes = _compose(base, _named(patches))
-        text = to_spec(model).to_yaml()
-    except (MathSpecError, FileNotFoundError) as e:
-        sys.stderr.write(f'{e}\n')
-        return 1
-    if out:
-        Path(out).write_text(text, encoding='utf-8')
-    else:
-        sys.stdout.write(text)
-    sys.stderr.write(_summary(changes))
-    return 0
-
-
-def _named(patches: list[str]) -> dict[str, str]:
-    """Each patch under its file's stem, and under its whole path where two files share one."""
-    named: dict[str, str] = {}
-    for patch in patches:
-        stem = Path(patch).stem
-        named[patch if stem in named else stem] = patch
-    return named
-
-
-def _summary(changes: list[_Change]) -> str:
-    """What the patches did, one line each and a count, for the stream a person reads."""
-    lines = [f'{change.action:>7}  {change.section}.{change.name}  ({change.patch})' for change in changes]
-    counted = [
-        f'{sum(change.action == action for change in changes)} {action}'
-        for action in ('added', 'edited', 'removed')
-        if any(change.action == action for change in changes)
-    ]
-    lines.append(', '.join(counted) or 'nothing to lay over')
-    return ''.join(f'{line}\n' for line in lines)
 
 
 if __name__ == '__main__':
