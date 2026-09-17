@@ -16,7 +16,7 @@ spec = ms.to_spec(model)
 ```
 
 The file below is `spec.to_yaml()` — no fragment holds it, and nothing in the
-repository commits it. `flow` is one declaration here: each template read it
+repository commits it. `Port_p` is one declaration here: each fragment read it
 under `given_variables`, and merging folded those into the surface's own.
 
 The objective is the generator's, carried as it was written, because it is the
@@ -41,82 +41,89 @@ tab prints the patch beside that math.
 version: 0
 dimensions:
   snapshot:
-    dtype: int
-  port:
-    dtype: str
+    dtype: datetime
+    description: dispatch periods
   bus:
     dtype: str
+    description: network nodes
+  port:
+    dtype: str
+    description: the connections components make, one label per connection
   generator:
     dtype: str
-  demand:
+    description: generating units, each on one port
+  load:
     dtype: str
+    description: demands, each on one port
 relations:
-  port_bus:
+  Port_bus:
     key: port
     value: bus
-  gen_port:
+  Generator_port:
     key: generator
     value: port
-  dem_port:
-    key: demand
+  Load_port:
+    key: load
     value: port
 parameters:
-  gen_cost:
+  Generator_p_nom:
     dims:
     - generator
     dtype: float
-    description: what one unit of output costs
-  gen_p_max:
+    description: nominal power
+  Generator_marginal_cost:
     dims:
     - generator
     dtype: float
-    description: installed capacity
-  dem_load:
+    description: cost of one unit of output
+  Load_p_set:
     dims:
     - snapshot
-    - demand
+    - load
     dtype: float
-    description: what a demand takes in a snapshot
+    description: '`Load-p_set` — what a load takes in a snapshot'
 variables:
-  flow:
+  Port_p:
     dims:
     - snapshot
     - port
     domain: continuous
     absence: undefined
     description: what a port puts into its bus in a snapshot, negative for a withdrawal
-  gen_p:
+  Generator_p:
     dims:
     - snapshot
     - generator
     bounds:
       lower: 0.0
-      upper: gen_p_max
+      upper: Generator_p_nom
     domain: continuous
     absence: undefined
-    description: what a generator produces in a snapshot
+    description: '`Generator-p` — what a generator produces in a snapshot'
 constraints:
-  balance:
+  Bus_nodal_balance:
     dims:
     - snapshot
     - bus
-    expression: sum(flow, by=port_bus) == 0
-    description: every bus clears in every snapshot
-  gen_injects:
+    expression: sum(Port_p, by=Port_bus) == 0
+    description: '`Bus-nodal_balance` — what the ports on a bus put in nets to nothing'
+  Generator_injection:
     dims:
     - snapshot
     - generator
-    expression: at(flow, by=gen_port) == gen_p
-    description: a generator's output is what its port injects
-  dem_withdraws:
+    expression: at(Port_p, by=Generator_port) == Generator_p
+    description: 'what a generator produces is what its port injects. No PyPSA row
+      stands for this: PyPSA writes the generator into the balance instead'
+  Load_withdrawal:
     dims:
     - snapshot
-    - demand
-    expression: at(flow, by=dem_port) == -dem_load
-    description: a demand's port withdraws what the demand takes
+    - load
+    expression: at(Port_p, by=Load_port) == -Load_p_set
+    description: 'what a load takes is what its port withdraws. No PyPSA row stands
+      for this: PyPSA writes the load into the balance instead'
 objective:
   sense: minimize
-  expression: sum(gen_p * gen_cost)
+  expression: sum(Generator_p * Generator_marginal_cost)
 ```
 
 === "As composed"
@@ -125,172 +132,171 @@ objective:
 
     | Symbol | Meaning |
     |---|---|
-    | $`\mathcal{T}`$ | index $`t`$ — `snapshot` |
-    | $`\mathcal{P}`$ | index $`p`$ — `port` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B},\ \mathrm{gen\_port}: \mathcal{G} \to \mathcal{P},\ \mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
-    | $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B}`$ |
-    | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_port}: \mathcal{G} \to \mathcal{P}`$ |
-    | $`\mathcal{D}`$ | index $`d`$ — `demand` with $`\mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
+    | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+    | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — network nodes |
+    | $`\mathcal{J}`$ | index $`j`$ — `port` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N},\ \mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J},\ \mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — the connections components make, one label per connection |
+    | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J}`$ — generating units, each on one port |
+    | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — demands, each on one port |
 
     #### Parameters
 
     | Symbol | Meaning |
     |---|---|
-    | $`\mathrm{gen\_cost}`$ | `gen_cost` over $`\mathcal{G}`$ — what one unit of output costs |
-    | $`\mathrm{gen\_p\_max}`$ | `gen_p_max` over $`\mathcal{G}`$ — installed capacity |
-    | $`\mathrm{dem\_load}`$ | `dem_load` over $`\mathcal{T} \times \mathcal{D}`$ — what a demand takes in a snapshot |
+    | $`\mathrm{p}^{\mathrm{nom}}`$ | `Generator_p_nom` over $`\mathcal{G}`$ — nominal power |
+    | $`\mathrm{c}`$ | `Generator_marginal_cost` over $`\mathcal{G}`$ — cost of one unit of output |
+    | $`\mathrm{load}`$ | `Load_p_set` over $`\mathcal{T} \times \mathcal{D}`$ — `Load-p_set` — what a load takes in a snapshot |
 
     #### Variables
 
     | Symbol | Meaning |
     |---|---|
-    | $`\mathit{flow}`$ | `flow` over $`\mathcal{T} \times \mathcal{P}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
-    | $`\mathit{gen\_p}`$ | `gen_p` over $`\mathcal{T} \times \mathcal{G}`$ — what a generator produces in a snapshot |
-
-    Upright is what the model is given — a parameter such as $`\mathrm{gen\_cost}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{flow}`$. An index is italic too, being what a quantifier chooses, and a set is script.
+    | $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
+    | $`p`$ | `Generator_p` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-p` — what a generator produces in a snapshot |
 
     #### Objective
 
     ```math
-    \min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{gen\_p}_{t,g} \cdot \mathrm{gen\_cost}_{g}
+    \min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{g}
     ```
 
     #### Subject to
 
-    **`balance`**
+    **`Bus_nodal_balance`**
 
     ```math
-    \sum_{p \in \mathcal{P} \,:\, \mathrm{port\_bus}(p) = b} \mathit{flow}_{t,p} = 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    \sum_{j \in \mathcal{J} \,:\, \mathrm{Port\_bus}(j) = n} f_{t,j} = 0 \qquad \forall\, t \in \mathcal{T},\ n \in \mathcal{N}
     ```
 
-    **`gen_injects`**
+    **`Generator_injection`**
 
     ```math
-    \mathit{flow}_{t,\mathrm{gen\_port}(g)} = \mathit{gen\_p}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    f_{t,\mathrm{Generator\_port}(g)} = p_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
     ```
 
-    **`dem_withdraws`**
+    **`Load_withdrawal`**
 
     ```math
-    \mathit{flow}_{t,\mathrm{dem\_port}(d)} = -\mathrm{dem\_load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
+    f_{t,\mathrm{Load\_port}(d)} = -\mathrm{load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
     ```
 
     #### Variable domains
 
-    **`flow`**
+    **`Port_p`**
 
     ```math
-    \mathit{flow}_{t,p} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ p \in \mathcal{P}
+    f_{t,j} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ j \in \mathcal{J}
     ```
 
-    **`gen_p`**
+    **`Generator_p`**
 
     ```math
-    0 \le \mathit{gen\_p}_{t,g} \le \mathrm{gen\_p\_max}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    0 \le p_{t,g} \le \mathrm{p}^{\mathrm{nom}}_{g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
     ```
 
 === "With commitment"
 
     ```yaml title="variants/commitment.yaml"
     parameters:
-      gen_p_min: { dims: [generator], description: what a running generator produces at least }
+      Generator_p_min_pu: { dims: [generator], description: "least output, per unit of nominal power" }
     variables:
-      gen_on: { dims: [snapshot, generator], domain: binary, description: whether a generator runs in a snapshot }
-      gen_p: { bounds: { upper: .inf } }
+      Generator_status:
+        dims: [snapshot, generator]
+        domain: binary
+        description: "`Generator-status` — whether a unit is on in a snapshot"
+      Generator_p: { bounds: { upper: .inf } }
     constraints:
-      gen_below_capacity:
-        description: a generator produces up to its capacity, and nothing when it is off
+      Generator_com_p_upper:
+        description: "`Generator-com-p-upper` — a committed unit outputs at most its nominal power; off, at most nothing"
         dims: [snapshot, generator]
-        expression: gen_p <= gen_p_max * gen_on
-      gen_above_minimum:
-        description: a running generator produces at least its minimum
+        expression: Generator_p <= Generator_p_nom * Generator_status
+      Generator_com_p_lower:
+        description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
         dims: [snapshot, generator]
-        expression: gen_p >= gen_p_min * gen_on
+        expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status
     ```
 
     #### Sets
 
     | Symbol | Meaning |
     |---|---|
-    | $`\mathcal{T}`$ | index $`t`$ — `snapshot` |
-    | $`\mathcal{P}`$ | index $`p`$ — `port` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B},\ \mathrm{gen\_port}: \mathcal{G} \to \mathcal{P},\ \mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
-    | $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B}`$ |
-    | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_port}: \mathcal{G} \to \mathcal{P}`$ |
-    | $`\mathcal{D}`$ | index $`d`$ — `demand` with $`\mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
+    | $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+    | $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — network nodes |
+    | $`\mathcal{J}`$ | index $`j`$ — `port` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N},\ \mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J},\ \mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — the connections components make, one label per connection |
+    | $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{Generator\_port}: \mathcal{G} \to \mathcal{J}`$ — generating units, each on one port |
+    | $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — demands, each on one port |
 
     #### Parameters
 
     | Symbol | Meaning |
     |---|---|
-    | $`\mathrm{gen\_cost}`$ | `gen_cost` over $`\mathcal{G}`$ — what one unit of output costs |
-    | $`\mathrm{gen\_p\_max}`$ | `gen_p_max` over $`\mathcal{G}`$ — installed capacity |
-    | $`\mathrm{dem\_load}`$ | `dem_load` over $`\mathcal{T} \times \mathcal{D}`$ — what a demand takes in a snapshot |
-    | $`\mathrm{gen\_p\_min}`$ | `gen_p_min` over $`\mathcal{G}`$ — what a running generator produces at least |
+    | $`\mathrm{p}^{\mathrm{nom}}`$ | `Generator_p_nom` over $`\mathcal{G}`$ — nominal power |
+    | $`\mathrm{c}`$ | `Generator_marginal_cost` over $`\mathcal{G}`$ — cost of one unit of output |
+    | $`\mathrm{load}`$ | `Load_p_set` over $`\mathcal{T} \times \mathcal{D}`$ — `Load-p_set` — what a load takes in a snapshot |
+    | $`\underline{\mathrm{p}}`$ | `Generator_p_min_pu` over $`\mathcal{G}`$ — least output, per unit of nominal power |
 
     #### Variables
 
     | Symbol | Meaning |
     |---|---|
-    | $`\mathit{flow}`$ | `flow` over $`\mathcal{T} \times \mathcal{P}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
-    | $`\mathit{gen\_p}`$ | `gen_p` over $`\mathcal{T} \times \mathcal{G}`$ — what a generator produces in a snapshot |
-    | $`\mathit{gen\_on}`$ | `gen_on` over $`\mathcal{T} \times \mathcal{G}`$ — whether a generator runs in a snapshot |
-
-    Upright is what the model is given — a parameter such as $`\mathrm{gen\_cost}`$, a coordinate map, a label — and italic is what the solver chooses, such as $`\mathit{flow}`$. An index is italic too, being what a quantifier chooses, and a set is script.
+    | $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
+    | $`p`$ | `Generator_p` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-p` — what a generator produces in a snapshot |
+    | $`u`$ | `Generator_status` over $`\mathcal{T} \times \mathcal{G}`$ — `Generator-status` — whether a unit is on in a snapshot |
 
     #### Objective
 
     ```math
-    \min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} \mathit{gen\_p}_{t,g} \cdot \mathrm{gen\_cost}_{g}
+    \min \sum_{t \in \mathcal{T},\ g \in \mathcal{G}} p_{t,g} \cdot \mathrm{c}_{g}
     ```
 
     #### Subject to
 
-    **`balance`**
+    **`Bus_nodal_balance`**
 
     ```math
-    \sum_{p \in \mathcal{P} \,:\, \mathrm{port\_bus}(p) = b} \mathit{flow}_{t,p} = 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+    \sum_{j \in \mathcal{J} \,:\, \mathrm{Port\_bus}(j) = n} f_{t,j} = 0 \qquad \forall\, t \in \mathcal{T},\ n \in \mathcal{N}
     ```
 
-    **`gen_injects`**
+    **`Generator_injection`**
 
     ```math
-    \mathit{flow}_{t,\mathrm{gen\_port}(g)} = \mathit{gen\_p}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    f_{t,\mathrm{Generator\_port}(g)} = p_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
     ```
 
-    **`dem_withdraws`**
+    **`Load_withdrawal`**
 
     ```math
-    \mathit{flow}_{t,\mathrm{dem\_port}(d)} = -\mathrm{dem\_load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
+    f_{t,\mathrm{Load\_port}(d)} = -\mathrm{load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
     ```
 
-    **`gen_below_capacity`**
+    **`Generator_com_p_upper`**
 
     ```math
-    \mathit{gen\_p}_{t,g} \le \mathrm{gen\_p\_max}_{g} \cdot \mathit{gen\_on}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    p_{t,g} \le \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
     ```
 
-    **`gen_above_minimum`**
+    **`Generator_com_p_lower`**
 
     ```math
-    \mathit{gen\_p}_{t,g} \ge \mathrm{gen\_p\_min}_{g} \cdot \mathit{gen\_on}_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    p_{t,g} \ge \underline{\mathrm{p}}_{g} \cdot \mathrm{p}^{\mathrm{nom}}_{g} \cdot u_{t,g} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
     ```
 
     #### Variable domains
 
-    **`flow`**
+    **`Port_p`**
 
     ```math
-    \mathit{flow}_{t,p} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ p \in \mathcal{P}
+    f_{t,j} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ j \in \mathcal{J}
     ```
 
-    **`gen_p`**
+    **`Generator_p`**
 
     ```math
-    \mathit{gen\_p}_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    p_{t,g} \ge 0 \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
     ```
 
-    **`gen_on`**
+    **`Generator_status`**
 
     ```math
-    \mathit{gen\_on}_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
+    u_{t,g} \in \{0, 1\} \qquad \forall\, t \in \mathcal{T},\ g \in \mathcal{G}
     ```
 <!-- gallery:end -->

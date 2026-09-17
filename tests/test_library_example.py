@@ -34,16 +34,16 @@ def test_every_fragment_loads_and_prints_on_its_own(name):
 @pytest.mark.parametrize('name', ['generator', 'load'])
 def test_a_component_template_reads_the_surface_and_introduces_no_flow(name):
     spec = to_spec(FRAGMENTS[name])
-    assert sorted(spec.given_variables) == ['flow']
-    assert 'flow' not in spec.variables, 'the surface introduces the column, and a template only writes into it'
+    assert sorted(spec.given_variables) == ['Port_p']
+    assert 'Port_p' not in spec.variables, 'the surface introduces the column, and a component file only writes into it'
 
 
 def test_the_library_composes_into_one_model():
     spec = to_spec(merge(FRAGMENTS))
-    assert sorted(spec.variables) == ['flow', 'gen_p']
-    assert sorted(spec.constraints) == ['balance', 'dem_withdraws', 'gen_injects']
+    assert sorted(spec.variables) == ['Generator_p', 'Port_p']
+    assert sorted(spec.constraints) == ['Bus_nodal_balance', 'Generator_injection', 'Load_withdrawal']
     assert not spec.given_variables, 'each read is folded into the declaration that introduces it'
-    assert spec.objective is not None and spec.objective.expression == 'sum(gen_p * gen_cost)', (
+    assert spec.objective is not None and spec.objective.expression == 'sum(Generator_p * Generator_marginal_cost)', (
         "the one fragment that priced anything carries the composed model's objective, as it wrote it"
     )
 
@@ -51,7 +51,7 @@ def test_the_library_composes_into_one_model():
 def test_the_balance_is_written_once_however_many_templates_are_merged():
     one = to_spec(merge({'surface': FRAGMENTS['surface'], 'load': FRAGMENTS['load']}))
     both = to_spec(merge(FRAGMENTS))
-    assert one.constraints['balance'].expression == both.constraints['balance'].expression
+    assert one.constraints['Bus_nodal_balance'].expression == both.constraints['Bus_nodal_balance'].expression
 
 
 def test_the_variant_is_a_patch_rather_than_a_model():
@@ -62,14 +62,14 @@ def test_the_variant_is_a_patch_rather_than_a_model():
 
 def test_the_variant_patch_applies_to_the_composition():
     spec = to_spec(override(merge(FRAGMENTS), {'commitment': PATCH}))
-    assert spec.variables['gen_on'].domain == 'binary'
-    assert spec.variables['gen_p'].bounds.upper == float('inf'), 'the cap moves from the bound to a constraint'
+    assert spec.variables['Generator_status'].domain == 'binary'
+    assert spec.variables['Generator_p'].bounds.upper == float('inf'), 'the cap moves from the bound to a constraint'
     assert sorted(spec.constraints) == [
-        'balance',
-        'dem_withdraws',
-        'gen_above_minimum',
-        'gen_below_capacity',
-        'gen_injects',
+        'Bus_nodal_balance',
+        'Generator_com_p_lower',
+        'Generator_com_p_upper',
+        'Generator_injection',
+        'Load_withdrawal',
     ]
 
 
@@ -83,7 +83,9 @@ def test_the_patched_model_prints_the_variant_math(fmt):
     """A patch is read by the loader through the model it lands on, so what it declares prints like the rest."""
     printed = _unescaped(typeset(to_spec(override(merge(FRAGMENTS), {'commitment': PATCH})), fmt))
     missing = [
-        name for name in ('gen_on', 'gen_p_min', 'gen_below_capacity', 'gen_above_minimum') if name not in printed
+        name
+        for name in ('Generator_status', 'Generator_p_min_pu', 'Generator_com_p_upper', 'Generator_com_p_lower')
+        if name not in printed
     ]
     assert not missing, f'the patch declares {missing}, and the typeset document does not name them'
 
@@ -91,7 +93,7 @@ def test_the_patched_model_prints_the_variant_math(fmt):
 def test_the_variant_needs_the_fragment_it_patches():
     """Picking commitment without the generator is a patch that lands on nothing, and it is refused at load."""
     without_generator = merge({name: FRAGMENTS[name] for name in ('surface', 'load')})
-    with pytest.raises(LanguageError, match="edits the variable 'gen_p', which its base does not declare"):
+    with pytest.raises(LanguageError, match="edits the variable 'Generator_p', which its base does not declare"):
         to_spec(override(without_generator, {'commitment': PATCH}))
 
 

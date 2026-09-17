@@ -5,62 +5,64 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Loads
 
-The second component template, and the one that shows what a fragment may
-leave out. It declares no variable and no objective: a fixed demand is a
-parameter, and the only thing it says is what its port withdraws.
+PyPSA's `Load`, and the fragment that shows what a file may leave out. It
+declares no variable and no objective: `Load_p_set` is data, and the only thing
+the file says is what the load's port withdraws.
 
 The minus sign is the whole of its relationship to the convention — a
 withdrawal is a negative injection.
 
 <!-- gallery:begin -->
 ```yaml
-description: Fixed demands, each wired to one port, withdrawing what the data says.
+description: PyPSA's `Load`, wired to a port rather than straight to a bus. What it takes is data, so it decides nothing.
 dimensions:
-  snapshot: { dtype: int }
-  port: { dtype: str }
-  demand: { dtype: str }
+  snapshot: { dtype: datetime, description: dispatch periods }
+  port: { dtype: str, description: "the connections components make, one label per connection" }
+  load: { dtype: str, description: "demands, each on one port" }
 relations:
-  dem_port: { key: demand, value: port }
+  Load_port: { key: load, value: port }
 given_variables:
-  flow:
+  Port_p:
     dims: [snapshot, port]
     description: the surface introduces this column, and this file only writes into it
 parameters:
-  dem_load: { dims: [snapshot, demand], description: what a demand takes in a snapshot }
+  Load_p_set: { dims: [snapshot, load], description: "`Load-p_set` — what a load takes in a snapshot" }
 constraints:
-  dem_withdraws:
-    description: a demand's port withdraws what the demand takes
-    dims: [snapshot, demand]
-    expression: at(flow, by=dem_port) == -dem_load
+  Load_withdrawal:
+    description: >-
+      what a load takes is what its port withdraws. No PyPSA row stands for
+      this: PyPSA writes the load into the balance instead
+    dims: [snapshot, load]
+    expression: at(Port_p, by=Load_port) == -Load_p_set
 ```
 
-Fixed demands, each wired to one port, withdrawing what the data says.
+PyPSA's `Load`, wired to a port rather than straight to a bus. What it takes is data, so it decides nothing.
 
 #### Sets
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathcal{T}`$ | index $`t`$ — `snapshot` |
-| $`\mathcal{P}`$ | index $`p`$ — `port` with $`\mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
-| $`\mathcal{D}`$ | index $`d`$ — `demand` with $`\mathrm{dem\_port}: \mathcal{D} \to \mathcal{P}`$ |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+| $`\mathcal{J}`$ | index $`j`$ — `port` with $`\mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — the connections components make, one label per connection |
+| $`\mathcal{D}`$ | index $`d`$ — `load` with $`\mathrm{Load\_port}: \mathcal{D} \to \mathcal{J}`$ — demands, each on one port |
 
 #### Parameters
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathrm{dem\_load}`$ | `dem_load` over $`\mathcal{T} \times \mathcal{D}`$ — what a demand takes in a snapshot |
+| $`\mathrm{load}`$ | `Load_p_set` over $`\mathcal{T} \times \mathcal{D}`$ — `Load-p_set` — what a load takes in a snapshot |
 
 #### Given
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathit{flow}`$ | `flow` over $`\mathcal{T} \times \mathcal{P}`$ — the surface introduces this column, and this file only writes into it |
+| $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — the surface introduces this column, and this file only writes into it |
 
 #### Subject to
 
-**`dem_withdraws`**
+**`Load_withdrawal`**
 
 ```math
-\mathit{flow}_{t,\mathrm{dem\_port}(d)} = -\mathrm{dem\_load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
+f_{t,\mathrm{Load\_port}(d)} = -\mathrm{load}_{t,d} \qquad \forall\, t \in \mathcal{T},\ d \in \mathcal{D}
 ```
 <!-- gallery:end -->

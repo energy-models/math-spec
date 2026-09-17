@@ -17,7 +17,9 @@ import json
 import re
 import textwrap
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import yaml
 
 from math_spec import merge, override, to_spec
 from math_spec.typesetting import to_markdown
@@ -28,6 +30,8 @@ from tools.spec_math import OPERATORS, PROBES, _section, rendered_probe
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from math_spec.model import Spec
 
 PAGES = ROOT / 'docs' / 'examples'
 BEGIN, END = '<!-- gallery:begin -->', '<!-- gallery:end -->'
@@ -73,6 +77,36 @@ REFERENCES = ROOT / 'examples' / 'references' / 'pypsa'
 RECORDED = json.loads((REFERENCES / 'references.json').read_text())
 
 
+#: How `examples/library/` prints. `merge` composes the fragments, so one
+#: table serves them all, and each page takes the cut of it that its own model
+#: declares: a table naming a declaration the model does not have is refused.
+LIBRARY_SYMBOLS = ROOT / 'examples' / 'symbols' / 'library.yaml'
+
+
+def symbols_for(model: Spec) -> dict[str, Any]:
+    """The library's symbol table, cut to what *model* declares."""
+    table = yaml.safe_load(LIBRARY_SYMBOLS.read_text())
+    named = {
+        *model.parameters,
+        *model.variables,
+        *model.given_variables,
+        *model.expressions,
+        *model.constraints,
+    }
+    return {
+        'notation': table['notation'],
+        'dimensions': {name: symbol for name, symbol in table['dimensions'].items() if name in model.dimensions},
+        'names': {name: symbol for name, symbol in table['names'].items() if name in named},
+    }
+
+
+def library_block(path: Path) -> str:
+    """One fragment of the library, then its math in the notation the whole library prints in."""
+    model = to_spec(path)
+    printed = to_markdown(model, symbols=symbols_for(model), numbered=False)
+    return f'```yaml\n{without_header(path)}\n```\n\n{printed.strip()}'
+
+
 def model_block(path: Path) -> str:
     """One model, then the whole document the typesetter prints from it."""
     return f'```yaml\n{without_header(path)}\n```\n\n{to_markdown(path, numbered=False).strip()}'
@@ -87,17 +121,18 @@ def composed_block(fragments: list[Path], patches: dict[str, Path]) -> str:
     laid over: its tab carries the file, then that model's whole document.
     """
     composed = merge({path.stem: path for path in fragments})
-    tabs = [tab('As composed', to_markdown(to_spec(composed), numbered=False).strip())]
+    model = to_spec(composed)
+    tabs = [tab('As composed', to_markdown(model, symbols=symbols_for(model), numbered=False).strip())]
     for name, path in patches.items():
         patched = to_spec(override(composed, {name: path}))
         tabs.append(
             tab(
                 f'With {name}',
                 f'```yaml title="variants/{path.name}"\n{without_header(path)}\n```\n\n'
-                f'{to_markdown(patched, numbered=False).strip()}',
+                f'{to_markdown(patched, symbols=symbols_for(patched), numbered=False).strip()}',
             )
         )
-    return f'```yaml\n{to_spec(composed).to_yaml().strip()}\n```\n\n' + '\n\n'.join(tabs)
+    return f'```yaml\n{model.to_yaml().strip()}\n```\n\n' + '\n\n'.join(tabs)
 
 
 def probe_block() -> str:
@@ -222,6 +257,8 @@ def block(page: str) -> str:
         return declared_block(DECLARED[page])
     if page in COMPOSED:
         return composed_block(*COMPOSED[page])
+    if page.startswith('library/'):
+        return library_block(MODELS[page])
     return model_block(MODELS[page])
 
 

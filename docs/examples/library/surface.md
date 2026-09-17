@@ -6,9 +6,15 @@ SPDX-License-Identifier: CC-BY-4.0
 # The coupling surface
 
 The spine every other file in the library is written against. It declares one
-`flow` per port, one balance per bus, and the relation that says which bus a
+`Port_p` per port, one balance per bus, and the relation that says which bus a
 port sits on. Nothing in it knows which components exist, so it is the one file
 that never changes when a component type is added.
+
+PyPSA gives each component class a bus column and sums the classes into
+`Bus-nodal_balance`. A library cannot do that, because a fragment may not edit
+a constraint another fragment owns. The port is what takes the component
+classes out of the balance: a component is wired to a port, and the port to a
+bus.
 
 A flow is positive where the port injects into its bus. Every component reads
 that convention and none of them restates it.
@@ -17,55 +23,57 @@ that convention and none of them restates it.
 ```yaml
 description: >-
   The coupling surface every component in this library is written against: one
-  flow per port, and one balance per bus. A flow is positive where the port
-  injects into its bus. A bus carries one energy carrier, so the carrier is
-  which bus a port is wired to rather than a dimension of its own.
+  flow per port, and one balance per bus. PyPSA gives each component class a
+  bus column and sums the classes into the balance; a library cannot, because
+  a fragment may not edit a constraint another fragment owns. So a component
+  is wired to a port, the port to a bus, and the balance names no component
+  class at all. A flow is positive where the port injects into its bus.
 dimensions:
-  snapshot: { dtype: int }
-  port: { dtype: str }
-  bus: { dtype: str }
+  snapshot: { dtype: datetime, description: dispatch periods }
+  bus: { dtype: str, description: network nodes }
+  port: { dtype: str, description: "the connections components make, one label per connection" }
 relations:
-  port_bus: { key: port, value: bus }
+  Port_bus: { key: port, value: bus }
 variables:
-  flow:
+  Port_p:
     dims: [snapshot, port]
     description: what a port puts into its bus in a snapshot, negative for a withdrawal
 constraints:
-  balance:
-    description: every bus clears in every snapshot
+  Bus_nodal_balance:
+    description: "`Bus-nodal_balance` — what the ports on a bus put in nets to nothing"
     dims: [snapshot, bus]
-    expression: sum(flow, by=port_bus) == 0
+    expression: sum(Port_p, by=Port_bus) == 0
 ```
 
-The coupling surface every component in this library is written against: one flow per port, and one balance per bus. A flow is positive where the port injects into its bus. A bus carries one energy carrier, so the carrier is which bus a port is wired to rather than a dimension of its own.
+The coupling surface every component in this library is written against: one flow per port, and one balance per bus. PyPSA gives each component class a bus column and sums the classes into the balance; a library cannot, because a fragment may not edit a constraint another fragment owns. So a component is wired to a port, the port to a bus, and the balance names no component class at all. A flow is positive where the port injects into its bus.
 
 #### Sets
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathcal{T}`$ | index $`t`$ — `snapshot` |
-| $`\mathcal{P}`$ | index $`p`$ — `port` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B}`$ |
-| $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{port\_bus}: \mathcal{P} \to \mathcal{B}`$ |
+| $`\mathcal{T}`$ | index $`t`$ — `snapshot` — dispatch periods |
+| $`\mathcal{N}`$ | index $`n`$ — `bus` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — network nodes |
+| $`\mathcal{J}`$ | index $`j`$ — `port` with $`\mathrm{Port\_bus}: \mathcal{J} \to \mathcal{N}`$ — the connections components make, one label per connection |
 
 #### Variables
 
 | Symbol | Meaning |
 |---|---|
-| $`\mathit{flow}`$ | `flow` over $`\mathcal{T} \times \mathcal{P}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
+| $`f`$ | `Port_p` over $`\mathcal{T} \times \mathcal{J}`$ — what a port puts into its bus in a snapshot, negative for a withdrawal |
 
 #### Subject to
 
-**`balance`**
+**`Bus_nodal_balance`**
 
 ```math
-\sum_{p \in \mathcal{P} \,:\, \mathrm{port\_bus}(p) = b} \mathit{flow}_{t,p} = 0 \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}
+\sum_{j \in \mathcal{J} \,:\, \mathrm{Port\_bus}(j) = n} f_{t,j} = 0 \qquad \forall\, t \in \mathcal{T},\ n \in \mathcal{N}
 ```
 
 #### Variable domains
 
-**`flow`**
+**`Port_p`**
 
 ```math
-\mathit{flow}_{t,p} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ p \in \mathcal{P}
+f_{t,j} \in \mathbb{R} \qquad \forall\, t \in \mathcal{T},\ j \in \mathcal{J}
 ```
 <!-- gallery:end -->

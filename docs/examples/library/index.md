@@ -6,18 +6,23 @@ SPDX-License-Identifier: CC-BY-4.0
 # A component library
 
 A set of files that each say part of a model, and compose into one. The
-surface declares what components share, each component template declares its
-own math against it, and [`merge`](../../howto/compose.md) makes the model.
-Every file here loads and prints on its own, so the unit you pick from is the
-unit you can read.
+surface declares what components share, each component file declares its own
+math against it, and [`merge`](../../howto/compose.md) makes the model. Every
+file here loads and prints on its own, so the unit you pick from is the unit
+you can read.
+
+The names are PyPSA's, spelled `Component_attribute` as
+[the PyPSA rungs](../pypsa.md) spell them, and the math prints in the symbols
+those pages use. What is modelled is cut to a dispatch model: one build, no
+availability profile, no ramp limits.
 
 ## The layout
 
 ```text
 examples/library/
   surface.yaml               one flow per port, one balance per bus
-  generator.yaml             a component type
-  load.yaml                  a component type
+  generator.yaml             PyPSA's Generator
+  load.yaml                  PyPSA's Load
   variants/
     commitment.yaml          a patch over generator.yaml, not a peer
 ```
@@ -25,8 +30,8 @@ examples/library/
 | Page                               | What it shows                                                  |
 | ---------------------------------- | -------------------------------------------------------------- |
 | [The coupling surface](surface.md) | the spine, and the sign convention                             |
-| [Generators](generator.md)         | a template that reads `flow` and prices its output             |
-| [Loads](load.md)                   | a template with no variable of its own                         |
+| [Generators](generator.md)         | a file that reads `Port_p` and prices its output               |
+| [Loads](load.md)                   | a file with no variable of its own                             |
 | [The composed model](composed.md)  | what `merge` returns, and the math it prints with each variant |
 
 ## Four rules the layout follows
@@ -36,10 +41,10 @@ examples/library/
   Splitting further is possible and pointless: take the relation out of
   `generator.yaml` and neither half means anything.
 - **One spine.** Two surface files would be two conventions, and nothing could
-  say which one a template meant.
-- **Every name carries its fragment's prefix.** `merge` does not rename, so
-  `gen_`, `dem_` and the rest keep the templates apart. The surface owns the
-  unprefixed shared names: `flow`, `port`, `bus`.
+  say which one a component file meant.
+- **Every name carries the component class it belongs to.** `merge` does not
+  rename, so `Generator_`, `Load_` and the rest keep the files apart. This is
+  PyPSA's own spelling, and the surface owns `Port_`, `port` and `bus`.
 - **A fragment is what a system has. A patch is how a component is
   formulated.** A second kind of thing is a peer, composed with `merge`. A
   different formulation of one thing edits declarations that already exist, so
@@ -51,8 +56,9 @@ examples/library/
 binary, relaxes the bound the capacity used to give, and caps output with a
 constraint instead.
 
-It names `gen_p_max`, which `generator.yaml` declares, and edits `gen_p`, which
-`generator.yaml` introduced. So it is not a model and does not load on its own.
+It names `Generator_p_nom`, which `generator.yaml` declares, and edits
+`Generator_p`, which `generator.yaml` introduced. So it is not a model and does
+not load on its own.
 It is laid over the composition:
 
 ```python

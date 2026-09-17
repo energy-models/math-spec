@@ -3,16 +3,19 @@
 # SPDX-License-Identifier: MIT
 
 parameters:
-  gen_p_min: { dims: [generator], description: what a running generator produces at least }
+  Generator_p_min_pu: { dims: [generator], description: "least output, per unit of nominal power" }
 variables:
-  gen_on: { dims: [snapshot, generator], domain: binary, description: whether a generator runs in a snapshot }
-  gen_p: { bounds: { upper: .inf } }
+  Generator_status:
+    dims: [snapshot, generator]
+    domain: binary
+    description: "`Generator-status` — whether a unit is on in a snapshot"
+  Generator_p: { bounds: { upper: .inf } }
 constraints:
-  gen_below_capacity:
-    description: a generator produces up to its capacity, and nothing when it is off
+  Generator_com_p_upper:
+    description: "`Generator-com-p-upper` — a committed unit outputs at most its nominal power; off, at most nothing"
     dims: [snapshot, generator]
-    expression: gen_p <= gen_p_max * gen_on
-  gen_above_minimum:
-    description: a running generator produces at least its minimum
+    expression: Generator_p <= Generator_p_nom * Generator_status
+  Generator_com_p_lower:
+    description: "`Generator-com-p-lower` — a committed unit outputs at least its minimum; off, at least nothing"
     dims: [snapshot, generator]
-    expression: gen_p >= gen_p_min * gen_on
+    expression: Generator_p >= Generator_p_min_pu * Generator_p_nom * Generator_status

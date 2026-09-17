@@ -4,21 +4,23 @@
 
 description: >-
   The coupling surface every component in this library is written against: one
-  flow per port, and one balance per bus. A flow is positive where the port
-  injects into its bus. A bus carries one energy carrier, so the carrier is
-  which bus a port is wired to rather than a dimension of its own.
+  flow per port, and one balance per bus. PyPSA gives each component class a
+  bus column and sums the classes into the balance; a library cannot, because
+  a fragment may not edit a constraint another fragment owns. So a component
+  is wired to a port, the port to a bus, and the balance names no component
+  class at all. A flow is positive where the port injects into its bus.
 dimensions:
-  snapshot: { dtype: int }
-  port: { dtype: str }
-  bus: { dtype: str }
+  snapshot: { dtype: datetime, description: dispatch periods }
+  bus: { dtype: str, description: network nodes }
+  port: { dtype: str, description: "the connections components make, one label per connection" }
 relations:
-  port_bus: { key: port, value: bus }
+  Port_bus: { key: port, value: bus }
 variables:
-  flow:
+  Port_p:
     dims: [snapshot, port]
     description: what a port puts into its bus in a snapshot, negative for a withdrawal
 constraints:
-  balance:
-    description: every bus clears in every snapshot
+  Bus_nodal_balance:
+    description: "`Bus-nodal_balance` — what the ports on a bus put in nets to nothing"
     dims: [snapshot, bus]
-    expression: sum(flow, by=port_bus) == 0
+    expression: sum(Port_p, by=Port_bus) == 0

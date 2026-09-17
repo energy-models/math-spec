@@ -19,71 +19,72 @@ compose: `override(merge({…}), {…})`.
 
    ```yaml title="surface.yaml"
    dimensions:
-     snapshot: { dtype: int }
-     port: { dtype: str }
+     snapshot: { dtype: datetime }
      bus: { dtype: str }
+     port: { dtype: str }
    relations:
-     port_bus: { key: port, value: bus }
+     Port_bus: { key: port, value: bus }
    variables:
-     flow:
+     Port_p:
        dims: [snapshot, port]
        description: what a port puts into its bus in a snapshot
    constraints:
-     balance:
+     Bus_nodal_balance:
        dims: [snapshot, bus]
-       expression: sum(flow, by=port_bus) == 0
+       expression: sum(Port_p, by=Port_bus) == 0
    ```
 
-2. **Write each component template against that surface.** It declares its own
-   entities, its own math, and one relation into `port`. It names `flow` under
+2. **Write each component file against that surface.** It declares its own
+   entities, its own math, and one relation into `port`. It names `Port_p`
+   under
    [`given_variables`](../reference/language/declarations.md#given_variables),
    because the surface introduces that column and this file only reads it.
 
    ```yaml title="generator.yaml"
    dimensions:
-     snapshot: { dtype: int }
+     snapshot: { dtype: datetime }
      port: { dtype: str }
      generator: { dtype: str }
    relations:
-     gen_port: { key: generator, value: port }
+     Generator_port: { key: generator, value: port }
    given_variables:
-     flow: { dims: [snapshot, port] }
+     Port_p: { dims: [snapshot, port] }
    parameters:
-     gen_cost: { dims: [generator] }
-     gen_p_max: { dims: [generator] }
+     Generator_p_nom: { dims: [generator] }
+     Generator_marginal_cost: { dims: [generator] }
    variables:
-     gen_p: { dims: [snapshot, generator], bounds: { lower: 0, upper: gen_p_max } }
+     Generator_p: { dims: [snapshot, generator], bounds: { lower: 0, upper: Generator_p_nom } }
    constraints:
-     gen_injects:
+     Generator_injection:
        dims: [snapshot, generator]
-       expression: at(flow, by=gen_port) == gen_p
+       expression: at(Port_p, by=Generator_port) == Generator_p
    objective:
      sense: minimize
-     expression: sum(gen_p * gen_cost)
+     expression: sum(Generator_p * Generator_marginal_cost)
    ```
 
-   The template loads on its own, and it prints as math on its own. Lowering
-   it gives a program that names `flow` as a column to bind rather than build,
+   The file loads on its own, and it prints as math on its own. Lowering it
+   gives a program that names `Port_p` as a column to bind rather than build,
    which is what a layer over another model wants; a library merges instead.
 
-3. **Merge the templates you need.** Each fragment is given a name, and that
-   name is what a refusal calls it.
+3. **Merge the files you need.** Each fragment is given a name, and that name
+   is what a refusal calls it.
 
    ```python
    import math_spec as ms
 
-   model = ms.merge({'surface': 'surface.yaml', 'generator': 'generator.yaml', 'demand': 'demand.yaml'})
+   model = ms.merge({'surface': 'surface.yaml', 'generator': 'generator.yaml', 'load': 'load.yaml'})
    spec = ms.to_spec(model)
    ```
 
    `merge` folds each given declaration into the one that introduces it, so the
-   composed model declares `flow` once and carries no `given_variables`. It
+   composed model declares `Port_p` once and carries no `given_variables`. It
    lowers and solves like any model.
 
-4. **Add a component type without touching the balance.** A template pins the
-   flow at its own port rather than adding a term, so `balance` is written once
-   and stays as it is however many templates are merged. What grows is the
-   data: which ports exist, and which bus each one sits on.
+4. **Add a component type without touching the balance.** A component file pins
+   the flow at its own port rather than adding a term, so `Bus_nodal_balance`
+   is written once and stays as it is however many files are merged. What grows
+   is the data: which ports exist, and which bus each one sits on.
 
 ## A base and its patches
 
@@ -118,7 +119,7 @@ compose: `override(merge({…}), {…})`.
 ## From the shell
 
 ```bash
-python -m math_spec compose surface.yaml generator.yaml demand.yaml -o library.yaml
+python -m math_spec compose surface.yaml generator.yaml load.yaml -o library.yaml
 python -m math_spec compose base.yaml -p carbon.yaml -p operate.yaml -o composed.yaml
 ```
 
@@ -148,10 +149,10 @@ the patches did to the math.
 
 ## A name two fragments declare
 
-Fragments own their math, so a name two of them declare is refused, both named:
+Fragments own their math, so a name two of them declare is refused, both named. Here two files each say what a generator fleet is:
 
 ```text
-fragments 'generator' and 'demand' both declare the parameter 'cost'. Two of the same kind of thing are two rows of a dimension rather than two fragments: merge the template once, and let the data carry both. Different math under one spelling is a rename — call one of them something else.
+fragments 'gas' and 'coal' both declare the parameter 'Generator_p_nom'. Two of the same kind of thing are two rows of a dimension rather than two fragments: merge the template once, and let the data carry both. Different math under one spelling is a rename — call one of them something else.
 ```
 
 ## A column read one way and introduced another
@@ -160,7 +161,7 @@ What a template states about a column it reads has to agree with the file that
 owns it:
 
 ```text
-fragment 'generator' reads given variable 'flow' as {'dims': ['snapshot', 'generator']}, where 'surface' introduces it as {'dims': ['snapshot', 'port'], 'description': 'what a port puts into its bus in a snapshot'}. A given declaration is what the file expects of a column somebody else owns, so it says the same as the declaration it is folded into, or less.
+fragment 'generator' reads given variable 'Port_p' as {'dims': ['snapshot', 'generator']}, where 'surface' introduces it as {'dims': ['snapshot', 'port'], 'description': 'what a port puts into its bus in a snapshot'}. A given declaration is what the file expects of a column somebody else owns, so it says the same as the declaration it is folded into, or less.
 ```
 
 ## A partial entry that lands on nothing

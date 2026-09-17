@@ -2,30 +2,35 @@
 #
 # SPDX-License-Identifier: MIT
 
-description: A fleet of generators, each wired to one port, priced by what it produces.
+description: >-
+  PyPSA's `Generator`, wired to a port rather than straight to a bus, and cut
+  to what a dispatch model needs: a fixed build, no availability profile, no
+  ramp limits.
 dimensions:
-  snapshot: { dtype: int }
-  port: { dtype: str }
-  generator: { dtype: str }
+  snapshot: { dtype: datetime, description: dispatch periods }
+  port: { dtype: str, description: "the connections components make, one label per connection" }
+  generator: { dtype: str, description: "generating units, each on one port" }
 relations:
-  gen_port: { key: generator, value: port }
+  Generator_port: { key: generator, value: port }
 given_variables:
-  flow:
+  Port_p:
     dims: [snapshot, port]
     description: the surface introduces this column, and this file only writes into it
 parameters:
-  gen_cost: { dims: [generator], description: what one unit of output costs }
-  gen_p_max: { dims: [generator], description: installed capacity }
+  Generator_p_nom: { dims: [generator], description: nominal power }
+  Generator_marginal_cost: { dims: [generator], description: cost of one unit of output }
 variables:
-  gen_p:
+  Generator_p:
     dims: [snapshot, generator]
-    bounds: { lower: 0, upper: gen_p_max }
-    description: what a generator produces in a snapshot
+    bounds: { lower: 0, upper: Generator_p_nom }
+    description: "`Generator-p` — what a generator produces in a snapshot"
 constraints:
-  gen_injects:
-    description: a generator's output is what its port injects
+  Generator_injection:
+    description: >-
+      what a generator produces is what its port injects. No PyPSA row stands
+      for this: PyPSA writes the generator into the balance instead
     dims: [snapshot, generator]
-    expression: at(flow, by=gen_port) == gen_p
+    expression: at(Port_p, by=Generator_port) == Generator_p
 objective:
   sense: minimize
-  expression: sum(gen_p * gen_cost)
+  expression: sum(Generator_p * Generator_marginal_cost)
