@@ -349,6 +349,43 @@ class TestDimensionKwargs:
             _schema(**{'dimensions.g': {'dtype': dtype}, 'variables.p.where': where})
 
 
+class TestAnUndeclaredKeywordIsRefusedOnce:
+    """A keyword an operator does not declare is refused by its signature, once (#441).
+
+    The second refusal this used to add was decided by the keyword's *value* — a
+    dimension, a list, an expression — and not by the mistake, and it named a
+    rewrite (precompute a parameter) for a keyword the operator has no such thing.
+    """
+
+    SIGNATURE = (
+        'The objective: shift() expects '
+        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>[, within=<column>]])"
+    )
+
+    @pytest.mark.parametrize(
+        'value',
+        [
+            pytest.param('g', id='a-dimension-name'),
+            pytest.param('[g, h]', id='a-list'),
+            pytest.param('2 * c', id='an-expression'),
+            pytest.param('3', id='a-number'),
+            pytest.param('k', id='a-parameter-name'),
+        ],
+    )
+    def test_the_refusal_is_the_signature_whatever_the_value(self, value):
+        message = _refusal(objective={'expression': f'sum(shift(p, along=g, offset=1, foo={value}))'})
+        assert message == self.SIGNATURE, (
+            'an undeclared keyword is refused once, by the signature, whatever its value looks like'
+        )
+
+    def test_a_typo_of_a_real_keyword_is_the_signature_not_advice_about_its_value(self):
+        """`egde=` for `edge=` used to be told to precompute a parameter for the value it carried."""
+        message = _refusal(objective={'expression': "sum(shift(p, along=g, offset=1, egde='wrap'))"})
+        assert message == self.SIGNATURE, (
+            'a misspelt keyword is the signature, not advice about the value it happens to carry'
+        )
+
+
 class TestArithmeticDtype:
     """A name in a value position has to be a number, which its `dtype` says.
 
