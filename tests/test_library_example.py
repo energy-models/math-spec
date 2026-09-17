@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from math_spec import LanguageError, merge, to_markdown, to_spec
+from math_spec import LanguageError, merge, override, to_markdown, to_spec
+from math_spec.typesetting import FORMATS, typeset
 from tests.fixtures import EXAMPLES
 from tools._page import without_header
 
@@ -61,8 +62,6 @@ def test_the_variant_is_a_patch_rather_than_a_model():
 
 
 def test_the_variant_patch_applies_to_the_composition():
-    from math_spec import override
-
     spec = to_spec(override(merge(FRAGMENTS), {'commitment': PATCH}))
     assert spec.variables['gen_on'].domain == 'binary'
     assert spec.variables['gen_p'].bounds.upper == float('inf'), 'the cap moves from the bound to a constraint'
@@ -73,6 +72,28 @@ def test_the_variant_patch_applies_to_the_composition():
         'gen_below_capacity',
         'gen_injects',
     ]
+
+
+def _unescaped(printed: str) -> str:
+    """The document with TeX's escaped underscore put back, so one assertion reads in all three formats."""
+    return printed.replace(r'\_', '_')
+
+
+@pytest.mark.parametrize('fmt', list(FORMATS), ids=list(FORMATS))
+def test_the_patched_model_prints_the_variant_math(fmt):
+    """A patch is read by the loader through the model it lands on, so what it declares prints like the rest."""
+    printed = _unescaped(typeset(to_spec(override(merge(FRAGMENTS), {'commitment': PATCH})), fmt))
+    missing = [
+        name for name in ('gen_on', 'gen_p_min', 'gen_below_capacity', 'gen_above_minimum') if name not in printed
+    ]
+    assert not missing, f'the patch declares {missing}, and the typeset document does not name them'
+
+
+def test_the_variant_needs_the_fragment_it_patches():
+    """Picking commitment without the generator is a patch that lands on nothing, and it is refused at load."""
+    without_generator = merge({name: FRAGMENTS[name] for name in ('surface', 'load')})
+    with pytest.raises(LanguageError, match="edits the variable 'gen_p', which its base does not declare"):
+        to_spec(override(without_generator, {'commitment': PATCH}))
 
 
 def test_the_patch_the_page_shows_is_the_file_it_names():
