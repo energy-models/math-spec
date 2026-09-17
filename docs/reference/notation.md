@@ -523,6 +523,20 @@ zonal_history:
 \sum_{t \in \mathcal{T} \,:\, \mathrm{gen\_zone}(g,\ t) = z} p_{t,g} \le \mathrm{zone\_cap}_{z} \qquad \forall\, g \in \mathcal{G},\ z \in \mathcal{Z}
 ```
 
+#### `zonal_membership`
+
+the same table walked between its two key columns: no value column is read, so the domain asks only that the row is there
+
+```yaml
+zonal_membership:
+  dims: [snapshot]
+  expression: sum(p, by=gen_zone, over=generator, into=snapshot) <= budget
+```
+
+```math
+\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} p_{t,g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
+```
+
 #### `zonal_pullback`
 
 its adjoint, reading the slot the row's own snapshot puts the generator in
