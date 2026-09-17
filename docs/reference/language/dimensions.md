@@ -211,10 +211,10 @@ and the joined `period` is the second subscript.
   `bus` and `load` already carries it. So each generator's term is read at the
   bus the generator sits on, and the sum lands there. The same rule splits the
   key `at` lands on, which is why `at` never names it.
-- **Two columns over one dimension are named, never both taken.** `ends` holds
-  `bus0` and `bus1`, both over `bus`, and a frame carries `bus` once. So
-  `sum(f, by=ends)` and `at(cap, by=ends)` are refused toward `by=ends.bus1`,
-  and `sum(f, by=ends.bus1)` reads `bus1` and ignores `bus0`
+- **A relation with two columns over one dimension needs the column named.**
+  `ends` holds `bus0` and `bus1`, both over `bus`, and a frame carries `bus`
+  once. So `sum(f, by=ends)` and `at(cap, by=ends)` are refused, and the call
+  names one: `sum(f, by=ends.bus1)` reads `bus1` and ignores `bus0`
   ([roles](#roles)).
 - **`by=[a, b]` is one grouping onto what `a` and `b` produce together.** Each
   relation is walked from its whole key to its whole value, so `over=` has
