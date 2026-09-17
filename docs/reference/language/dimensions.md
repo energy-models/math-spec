@@ -238,14 +238,14 @@ Four refusals draw the line, and each message names the rewrite:
 ### Partitions
 
 `shift(x, along=rel.k)`, `sum_back(x, along=rel.k)` and `position(rel.k)`
-slide along the key column `k`, join on the other key columns, and group by the
-value columns. The frame does not change: the group says which rows are
+slide along the key column `k`, join on the other key columns, and group by
+every value column. The frame does not change: the group says which rows are
 neighbours, and nothing lands anywhere.
 
-`within=` names the value columns the group is made of where the table has
-several. `shift(x, along=cal.snapshot, within=week)` slides within weeks of a
-calendar declared once over `[snapshot, day, week]`, and a value column not
-named is not read. The group may be two columns over one dimension, such as a
+`within=v` narrows the value columns the group is made of.
+`shift(x, along=cal.snapshot, within=week)` slides within weeks of a calendar
+declared once over `[snapshot, day, week]`, and a value column not named is
+not read. The group may be two columns over one dimension, such as a
 line's two buses, because a partition produces no dimension. `within=` naming a
 key column is refused, `within=` beside a plain dimension is refused, and a
 bare relation partitions nothing.
