@@ -116,6 +116,44 @@ tree, so a boolean literal stands at a mask's root or nowhere. A tree with an
 unresolved leaf is refused. A `Region`'s `when` arrives as a `Mask` too. The node
 classes live in `math_spec.program`.
 
+## What a program does not build
+
+`program.given_variables` and `program.given_constraints` name what the model
+reads and does not build. Every other group is a build instruction — a column
+for each entry of `variables`, a row family for each entry of `constraints`.
+These two are the opposite: a name to look up in the model this one is layered
+onto.
+
+```python
+layer = to_program(
+    {
+        'dimensions': {'snapshot': {'dtype': 'int'}, 'bus': {'dtype': 'str'}},
+        'given_variables': {'p': {'dims': ['snapshot', 'bus']}},
+        'given_constraints': {'balance': {'dims': ['snapshot', 'bus']}},
+        'parameters': {'rate': {'dims': ['bus']}},
+        'constraints': {'cap': {'dims': [], 'expression': 'sum(p * rate) <= 100'}},
+        'expressions': {'price': {'expression': 'dual(balance)'}},
+    }
+)
+
+sorted(layer.variables)  # []
+sorted(layer.given_variables)  # ['p']
+layer.given_constraints['balance'].dims  # ('snapshot', 'bus')
+```
+
+A consumer that builds a program does three things with them:
+
+1. **Bind each name** to a column or a row family the host model already holds.
+2. **Check the frame.** `dims` is what the file claims about the shape, and it
+   is the one claim a binder can settle.
+3. **Refuse what it cannot bind, and name it.** Building a column of its own
+   instead would be a second column nothing else refers to, and the model would
+   solve and be wrong.
+
+A consumer with no host to bind against refuses a program whose two groups are
+not both empty. [`merge`](../../howto/compose.md) is what empties them wherever
+a file in this language introduces the declaration.
+
 ## Asking what a program uses
 
 `program.footprint` says which of the language's constructs one model uses. It

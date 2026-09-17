@@ -865,6 +865,13 @@ class Walk:
         given = [
             self._entry(self.symbols.name[g], f'{fmt.mono(g)}{self._over(list(block.dims))}', block.description)
             for g, block in self.schema.given_variables.items()
+        ] + [
+            self._entry(
+                self.symbols.constraint[g],
+                f'{fmt.mono(g)}{self._over(list(block.dims))}, a row family this file reads the dual of',
+                block.description,
+            )
+            for g, block in self.schema.given_constraints.items()
         ]
         definitions = [
             self._entry(self.symbols.name[e], f'{fmt.mono(e)}{self._over(self.frames[e])}', block.description)

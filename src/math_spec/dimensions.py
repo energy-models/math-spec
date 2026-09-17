@@ -97,7 +97,7 @@ def _dims(
         raise AssertionError(msg)
 
     if isinstance(node, DualNode):
-        return frozenset(schema.constraints[node.constraint].dims)
+        return frozenset({**schema.constraints, **schema.given_constraints}[node.constraint].dims)
 
     if isinstance(node, FunctionCallNode):
         return _dims_call(node, schema, context)

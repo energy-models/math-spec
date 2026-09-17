@@ -34,12 +34,11 @@ from math_spec._expression_parser import (
     VariableNode,
 )
 from math_spec.dimensions import dims_of
-from math_spec.errors import LanguageError
 from math_spec.piecewise import declaration_of, derivations_of, expand_piecewise
 from math_spec.validation import to_spec
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable
     from pathlib import Path
     from typing import Any
 
@@ -78,32 +77,11 @@ def to_program(spec: str | Path | dict[str, Any] | Spec | program.Program) -> pr
     Raises:
         SchemaError: The file is not a valid model.
         LanguageError: A construct outside the language, named with its
-            rewrite, or a file that reads variables it does not introduce.
+            rewrite.
     """
     if isinstance(spec, program.Program):
         return spec
-    schema = to_spec(spec)
-    if schema.given_variables:
-        raise LanguageError(_unintroduced_message(schema.given_variables))
-    return lower_program(expand_piecewise(schema))
-
-
-def _unintroduced_message(given: Mapping[str, Any]) -> str:
-    """The refusal for lowering a fragment, which is a model no build can finish.
-
-    A program is what a consumer builds and solves, so every column in one is a
-    column something introduces. A fragment states the opposite about some of
-    its own, which is why it is composed before it is lowered — and why it
-    still loads and still prints, both of which read the model rather than
-    build it.
-    """
-    named = ', '.join(f"'{name}'" for name in sorted(given))
-    noun = 'a variable' if len(given) == 1 else 'variables'
-    return (
-        f'this file reads {noun} it does not introduce: {named}. A program builds every column it '
-        f'carries, so compose the file with the ones that declare them first — '
-        f'to_program(merge({{...}})). The file loads and prints on its own either way.'
-    )
+    return lower_program(expand_piecewise(to_spec(spec)))
 
 
 def lower_program(expanded: _ExpandedSpec) -> program.Program:
@@ -187,6 +165,10 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         expressions[name] = program.ExpressionDeclaration(
             _Lowering(expanded, f"named expression '{name}'").expr(ast), in_math=name in resolved.read_by_the_math
         )
+    given_variables = {name: program.GivenDeclaration(tuple(g.dims)) for name, g in expanded.given_variables.items()}
+    given_constraints = {
+        name: program.GivenDeclaration(tuple(g.dims)) for name, g in expanded.given_constraints.items()
+    }
     return program.Program(
         parameters=parameters,
         variables=variables,
@@ -196,6 +178,8 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
         sos=sos,
         piecewise={name: declaration_of(ex) for name, ex in expanded.expanded_piecewise.items()},
         named_expressions=expressions,
+        given_variables=given_variables,
+        given_constraints=given_constraints,
     )
 
 

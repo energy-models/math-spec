@@ -152,17 +152,42 @@ An expression reads a given variable as it reads any other, so
 `at(flow, by=gen_port)` lands on the generator frame and the dim algebra
 checks it at load.
 
-**A file with a `given_variables` block does not lower.** A program builds
-every column it carries, and this file says the opposite about one of its own:
-
-```text
-this file reads a variable it does not introduce: 'flow'. A program builds every column it carries, so compose the file with the ones that declare them first — to_program(merge({...})). The file loads and prints on its own either way.
-```
-
 [`merge`](../../howto/compose.md) folds each given declaration into the
-declaration that introduces it, so a composed model carries none of them. The
+declaration that introduces it, so a composed library carries none of them. The
 folded declaration is the introducer's, and what the reader stated has to agree
 with it.
+
+Where nothing in this language introduces the column — a layer over a model
+built in Python — the declaration stays, and the program carries it for a
+consumer to bind. See
+[what a program does not build](reading.md#what-a-program-does-not-build).
+
+## `given_constraints`
+
+A given constraint is a row family this file reads the dual of and another
+model builds. It is what lets a layer price something the base model settles.
+
+```yaml
+given_constraints:
+  balance:
+    dims: [snapshot, bus]
+    description: the host model clears each bus
+expressions:
+  price:
+    expression: dual(balance)
+```
+
+| Field         |                                                   |                |
+| ------------- | ------------------------------------------------- | -------------- |
+| `dims`        | required. The dimensions the row family runs over |                |
+| `description` | free text                                         | default `null` |
+
+There is no `expression`, because nothing here builds the row, and no `sense`.
+The dual comes back from whoever solved the model, under that model's own
+convention, and a sense written here would be a claim no file could check.
+
+`dual(name)` is the only place a given row family may be named, and the frame
+is what gives the reported expression its dimensions.
 
 ## `constraints`
 

@@ -66,7 +66,28 @@ def test_both_kinds_of_note_come_through_the_one_door():
     assert [(n.kind, n.subject) for n in notes] == [('never-an-axis', 'h'), ('unbounded', 'p')], (
         'the never-an-axis advice comes first, then the unboundedness advice'
     )
-    assert {n.kind for n in notes} == ADVICE_KINDS, 'every kind a consumer can pin against is one this file produces'
+
+
+#: A model whose only note is the third kind: `flow` is a column this file
+#: reads and whatever it is layered onto builds. `p` is bounded on both sides
+#: and every dimension is indexed, so neither other pass has anything to say.
+READS_A_COLUMN = {
+    'dimensions': {'g': {'dtype': 'str'}},
+    'given_variables': {'flow': {'dims': ['g']}},
+    'variables': {'p': {'dims': ['g'], 'bounds': {'lower': 0, 'upper': 1}}},
+    'constraints': {'tie': {'dims': ['g'], 'expression': 'p == flow'}},
+}
+
+
+def test_a_column_read_and_not_built_is_advised():
+    (note,) = advice(READS_A_COLUMN)
+    assert (note.kind, note.subject) == ('given', 'flow')
+    assert 'binds it to the model' in str(note), 'the note says whose job the column is'
+
+
+def test_every_kind_a_consumer_can_pin_against_is_produced_here():
+    kinds = {note.kind for note in (*advice(BOTH_KINDS), *advice(READS_A_COLUMN))}
+    assert kinds == ADVICE_KINDS, 'every kind a consumer can pin against is one these fixtures produce'
 
 
 def _written(model: dict, tmp_path: Path) -> Path:
