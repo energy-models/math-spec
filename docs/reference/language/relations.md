@@ -116,16 +116,16 @@ and either may be a list. With
 
 Two rules more hold for these:
 
-1. **The result is the operand, less the consumed dimensions, plus the
+5. **The result is the operand, less the consumed dimensions, plus the
    produced ones.** The operand carries every dimension consumed or joined on.
    Growing it into a dimension the call lands on is refused: write
    `load * sum(p, by=gen_bus, over=generator, into=bus)`, not
    `sum(load * p, ...)`. A relation onto its own dimension is not this case.
-2. **`sum` consumes a key column, and `at` consumes none.** Consume none and
+6. **`sum` consumes a key column, and `at` consumes none.** Consume none and
    each coordinate finds one row, which is a read. Consume one and it finds
    many, which is a sum. Each is refused in the other's case.
 
-The second is all that tells the two ends apart:
+Rule 6 is all that tells the two ends apart:
 
 | operator | `over=`, consumed                      | `into=`, produced |
 | -------- | -------------------------------------- | ----------------- |
