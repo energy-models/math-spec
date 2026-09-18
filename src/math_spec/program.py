@@ -901,16 +901,16 @@ class Separability:
             reported rather than refused.
         linking_rows: Each constraint no one window holds whole, in declaration
             order: one the axis does not index, whose row stands in every
-            window, and one :attr:`coupled` names. A constraint waiting on an
-            :attr:`undecided` reach is not among them, because how far it
-            reaches is the data's to say — the boundary :attr:`windowable`
-            already draws.
+            window, and one :attr:`coupled` names. A reach the data decides is
+            not one, so a row waiting on :attr:`undecided` may span two windows.
         linking_columns: Each variable the axis does not index, in declaration
             order, whose column every window reads. A decomposition calls a
             window a block, and with :attr:`linking_rows` this is the border of
-            a bordered block-diagonal form cut along the axis. The form is
-            exactly that where :attr:`ahead` is ``0``: a positive lookahead is
-            neighbouring blocks overlapping by that much.
+            a bordered block-diagonal form cut along the axis, whole where
+            nothing is :attr:`undecided` and no set runs through it. A set
+            couples the axis without building a row, so it stands in neither
+            field. The form is exactly that where :attr:`ahead` is ``0``: a
+            positive lookahead is neighbouring blocks overlapping by that much.
     """
 
     dimension: str
