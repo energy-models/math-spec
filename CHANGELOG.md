@@ -19,6 +19,15 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.99](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.98...v0.0.0-alpha.99) (2026-09-18)
+
+
+### Features
+
+* **language:** a call walks one relation, so by= names one rather than a list ([#533](https://github.com/energy-models/math-spec/issues/533)) ([b78135d](https://github.com/energy-models/math-spec/commit/b78135d7f55e8e5d5dad6eba1a37228283c4c635))
+* **language:** a relation names the columns its key determines under values: ([#504](https://github.com/energy-models/math-spec/issues/504)) ([d9b0371](https://github.com/energy-models/math-spec/commit/d9b03712a58e0eda8d78fabf79ddce9eb81d4ece))
+* **language:** a walk through a relation names both of its ends, and lands only on dimensions it brings ([#532](https://github.com/energy-models/math-spec/issues/532)) ([26f29b0](https://github.com/energy-models/math-spec/commit/26f29b00df45d6e18d4da4240af736d6a9c97999))
+
 ## [0.0.0-alpha.98](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.97...v0.0.0-alpha.98) (2026-09-18)
 
 
