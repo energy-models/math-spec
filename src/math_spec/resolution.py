@@ -611,17 +611,11 @@ class _Resolver:
                 return value  # the call shape refused it already, with the wording that names the rewrite
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
             partition = self._partition(name, operator, over_dim, named['within'])
-            if partition is None:
-                return value
-            return RelationNode(name, dimensions=(partition.along_dim,), into=(), use=partition)
+            return value if partition is None else RelationNode(partition)
         if not ({'over', 'into'} <= set(named)):
             return value  # the call shape refused it already, with the wording that names the rewrite
         direction = self._direction(name, operator, named['over'], named['into'])
-        if direction is None:
-            return value
-        fine = direction.produced_dims if operator == 'at' else direction.consumed_dims
-        coarse = direction.consumed_dims if operator == 'at' else direction.produced_dims
-        return RelationNode(name, dimensions=fine, into=coarse, use=direction)
+        return value if direction is None else RelationNode(direction)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
@@ -673,7 +667,7 @@ class _Resolver:
                     f'between columns over distinct dimensions.'
                 )
                 return None
-        joined = tuple(r for r in (shape.key or shape.roles) if r not in from_roles and r not in into_roles)
+        joined = tuple(r for r in shape.key if r not in from_roles and r not in into_roles)
         direction = Direction(shape, from_roles, into_roles, joined)
         if not forward and not direction.is_function_read:
             self.errors.append(
@@ -692,17 +686,17 @@ class _Resolver:
             return None
         return direction
 
-    def _known_roles(self, name: str, call: str, roles: tuple[str, ...] | None, kwarg: str) -> bool:
+    def _known_roles(self, name: str, call: str, roles: tuple[str, ...], kwarg: str) -> bool:
         """Whether every role *kwarg* names is a column of relation *name*, each once; the refusal otherwise."""
         shape = self.ns.shape_of(name)
-        for role in roles or ():
+        for role in roles:
             if role not in shape.roles:
                 self.errors.append(
                     f"{self.context}: {call}: {kwarg}={role} names no column of '{name}', whose columns are "
                     f'{list(shape.roles)}.'
                 )
                 return False
-        if roles is not None and len(set(roles)) < len(roles):
+        if len(set(roles)) < len(roles):
             self.errors.append(f'{self.context}: {call}: {kwarg}={list(roles)} names a column twice.')
             return False
         return True

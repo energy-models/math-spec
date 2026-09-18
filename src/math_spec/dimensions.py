@@ -42,6 +42,7 @@ from math_spec.operators import BUILTINS
 from math_spec.program import (
     DimensionComparisonNode,
     DimensionPositionNode,
+    Direction,
     Mask,
     ParameterComparisonNode,
     ParameterDefinedNode,
@@ -155,7 +156,9 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
         return inner - {consumed.name}
 
     assert isinstance(by, RelationNode)
-    if missing := sorted(set(by.dimensions) - inner):
+    direction = by.use
+    assert isinstance(direction, Direction), 'resolution reads sum(by=) in a direction'
+    if missing := sorted(set(direction.consumed_dims) - inner):
         raise DimensionError(
             _not_carried(
                 context,
@@ -164,26 +167,23 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
                 'drop the sum, or fix the dim',
             )
         )
-    _check_lands_clear(f'sum(by={by.shown})', set(by.into), set(by.dimensions), inner, context)
-    _check_joined(f'sum(by={by.shown})', by, inner, context)
-    return (inner - set(by.dimensions)) | set(by.into)
+    return _read_dims(f'sum(by={by.shown})', direction, inner, context)
 
 
 def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
     """``at`` is the adjoint of ``sum(by=)``: it consumes the dims a sum produces and produces the ones it consumes."""
     by = node.kwargs['by']
     assert isinstance(by, RelationNode)
-    absent = sorted(set(by.into) - inner)
-    if absent:
+    direction = by.use
+    assert isinstance(direction, Direction), 'resolution reads at(by=) in a direction'
+    if absent := sorted(set(direction.consumed_dims) - inner):
         raise DimensionError(
             f'{context}: at(by={by.shown}) reads through '
             f'{absent}, which the expression does not carry (dims '
             f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
             f'sum is the direction that produces them.'
         )
-    _check_lands_clear(f'at(by={by.shown})', set(by.dimensions), set(by.into), inner, context)
-    _check_joined(f'at(by={by.shown})', by, inner, context)
-    return (inner - set(by.into)) | set(by.dimensions)
+    return _read_dims(f'at(by={by.shown})', direction, inner, context)
 
 
 def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, context: str) -> frozenset[str]:
@@ -205,19 +205,21 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     partition = node.kwargs.get('by')
     if partition is not None:
         assert isinstance(partition, RelationNode)
-        _check_joined(f'{node.name}(along={over.name}, by={partition.shown})', partition, inner, context)
+        _check_joined(f'{node.name}(along={over.name}, by={partition.shown})', partition.use, inner, context)
     return inner
 
 
-def _check_lands_clear(call: str, produced: set[str], consumed: set[str], inner: frozenset[str], context: str) -> None:
-    """The dims a call lands on are its own to bring, so the operand does not already carry one.
+def _read_dims(call: str, direction: Direction, inner: frozenset[str], context: str) -> frozenset[str]:
+    """The dims after a relation is read in *direction*: the consumed go, the produced arrive, the joined stay.
 
-    Where it does, the call would tie the operand's axis to the one it
-    produces rather than adding it, and it reads the same either way.
-    A relation into its own dimension is not that case: there the dim landed
-    on is the dim just consumed, so every factor is read at the coordinate
-    the sum runs over, and nothing is tied.
+    The dims a call lands on are its own to bring, so the operand does not
+    already carry one. Where it does, the call would tie the operand's axis to
+    the one it produces rather than adding it, and it reads the same either
+    way. A relation into its own dimension is not that case: there the dim
+    landed on is the dim just consumed, so every factor is read at the
+    coordinate the sum runs over, and nothing is tied.
     """
+    consumed, produced = set(direction.consumed_dims), set(direction.produced_dims)
     if clash := sorted((produced & inner) - consumed):
         raise DimensionError(
             f'{context}: {call} lands on {clash}, which the expression already carries.\n'
@@ -225,11 +227,17 @@ def _check_lands_clear(call: str, produced: set[str], consumed: set[str], inner:
             f'adds. Move the factor carrying {clash} outside the operator, or read to a column '
             f'over another dimension.'
         )
+    _check_joined(call, direction, inner, context)
+    return (inner - consumed) | produced
 
 
-def _check_joined(call: str, by: RelationNode, inner: frozenset[str], context: str) -> None:
-    """The columns a call joins on are read at their dimensions, so the operand carries every one, each once."""
-    use = by.use
+def _check_joined(call: str, use: Direction | Partition, inner: frozenset[str], context: str) -> None:
+    """The columns a call joins on are read at their dimensions, so the operand carries every one, each once.
+
+    A joined dimension the call also consumes is the same ambiguity as two
+    joined columns over one dimension: the operand's one coordinate would
+    have to be read as both. A partition consumes nothing.
+    """
     dims = use.joined_dims
     if missing := sorted(set(dims) - inner):
         raise DimensionError(
@@ -238,7 +246,8 @@ def _check_joined(call: str, by: RelationNode, inner: frozenset[str], context: s
             f'read between two of its columns and joined at the others — index the operand by them, or '
             f'read it between different columns.'
         )
-    if twice := sorted({d for d in dims if dims.count(d) > 1 or d in by.dimensions}):
+    consumed = use.consumed_dims if isinstance(use, Direction) else ()
+    if twice := sorted({d for d in dims if dims.count(d) > 1 or d in consumed}):
         raise DimensionError(
             f"{context}: {call} joins '{use.name}' on {twice} through more than one column, and the operand "
             f'carries each dimension once. Read between different columns, or use a relation whose joined '

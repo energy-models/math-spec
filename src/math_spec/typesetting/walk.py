@@ -60,7 +60,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from math_spec.model import RelationBlock, SosBlock, _ExpandedSpec
-    from math_spec.program import RelationDeclaration
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -276,52 +275,43 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _relation_read(self, relation: RelationDeclaration, at: Mapping[str, str], read: str) -> str:
-        """A relation's column *read* as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
+    def _relation_read(self, name: str, at: Mapping[str, str], read: str) -> str:
+        """Relation *name*'s column *read* as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
 
         *at* maps each key role to the index it is read at. The function is
         named after the relation alone where the key determines one column, and
         after the column read otherwise.
         """
-        name = relation.name if len(relation.values) == 1 else f'{relation.name}.{read}'
-        return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in relation.key], ''))
+        lk = self.schema.relations[name]
+        function = name if len(lk.value_roles) == 1 else f'{name}.{read}'
+        return self.format.apply(self.format.upright(function), self.format.joined([at[k] for k in lk.key_roles], ''))
 
-    def _relation_row(self, name: str, key: list[str]) -> str:
-        """That relation *name* has a row at *key*, its key columns' indices in declared order.
+    def _relation_row(self, name: str, at: Mapping[str, str]) -> str:
+        """That relation *name* has a row at the key *at* fixes.
 
         A keyed table is a function, so the claim is that it is defined there:
         ``gen_zone(g, t) is defined``. A bare one is a set of rows, and every
         column of it is a key column, so the row is written out:
         ``(g, b) ∈ connection``.
         """
-        if self.schema.relations[name].value_roles:
-            applied = self.format.apply(self.format.upright(name), self.format.joined(key, ''))
-            return f'{applied} {self.format.prose(" is defined")}'
-        row = self.format.parenthesise(self.format.joined(key, ''))
-        return f'{row} {self._op("in")} {self.format.upright(name)}'
+        lk = self.schema.relations[name]
+        key = self.format.joined([at[k] for k in lk.key_roles], '')
+        if lk.value_roles:
+            return f'{self.format.apply(self.format.upright(name), key)} {self.format.prose(" is defined")}'
+        return f'{self.format.parenthesise(key)} {self._op("in")} {self.format.upright(name)}'
+
+    def _frame_key(self, name: str, ctx: _Context) -> dict[str, str]:
+        """Relation *name*'s key roles at the frame's own indices of their dimensions."""
+        lk = self.schema.relations[name]
+        return {k: ctx.subscript(dict(lk.pairs)[k]) for k in lk.key_roles}
 
     def _value_read(self, name: str, column: str, ctx: _Context) -> str:
         """A keyed relation's value *column* read at the frame's own indices of its key: ``period_of(t)``."""
-        lk = self.schema.relations[name]
-        keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.key_roles], '')
-        return self.format.apply(self._column(name, column, len(lk.value_roles) == 1), keyed)
-
-    def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
-        """The group a grouped position counts within: the relation's group columns read at the row's key."""
-        assert node.partition is not None
-        partition = node.partition
-        keyed = self.format.joined([ctx.subscript(partition.dim(k)) for k in partition.key], '')
-        single = len(partition.values) == 1
-        reads = [self.format.apply(self._column(partition.name, column, single), keyed) for column in partition.group]
-        return self._tuple(reads)
+        return self._relation_read(name, self._frame_key(name, ctx), column)
 
     def _tuple(self, reads: list[str]) -> str:
         """Several reads as one group label: the read alone where there is one, a bracketed tuple otherwise."""
         return reads[0] if len(reads) == 1 else self.format.parenthesise(self.format.joined(reads, ''))
-
-    def _column(self, name: str, column: str, single: bool) -> str:
-        """The function a keyed relation's value *column* is: the relation's own name where it has one value column."""
-        return self.format.upright(name if single else f'{name}.{column}')
 
     def _context(self, frame: Iterable[str] = ()) -> _Context:
         return _Context(self, bound=tuple(frame))
@@ -463,19 +453,20 @@ class Walk:
             assert isinstance(direction, Direction)
             at = {r: outer.subscript(direction.dim(r)) for r in (*direction.produced, *direction.joined)}
             for read in direction.consumed:
-                ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction.relation, at, read))
+                ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction.name, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
             assert isinstance(by, RelationNode)
+            direction = by.use
+            assert isinstance(direction, Direction)
             dummies: dict[str, str] = {}
             inner = ctx
-            for d in by.dimensions:
+            for d in direction.consumed_dims:
                 dummies[d], inner = inner.reducing(d)
-            assert isinstance(by.use, Direction)
-            conditions = list(self._grouping(by.use, dummies, ctx))
+            conditions = list(self._grouping(direction, dummies, ctx))
             domain = (
-                f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
+                f'{self.format.joined([self._membership(d, dummies[d]) for d in direction.consumed_dims], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
             )
         elif (consumed := node.kwargs.get('over')) is not None:
@@ -504,10 +495,10 @@ class Walk:
             **{r: dummies[direction.dim(r)] for r in direction.consumed},
             **{r: ctx.subscript(direction.dim(r)) for r in (*direction.joined, *direction.produced)},
         }
-        fixed = [r for r in direction.values if r in at]
+        fixed = [r for r in self.schema.relations[direction.name].value_roles if r in at]
         if not fixed:
-            return [self._relation_row(direction.name, [at[k] for k in direction.key])]
-        return [f'{self._relation_read(direction.relation, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
+            return [self._relation_row(direction.name, at)]
+        return [f'{self._relation_read(direction.name, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A ``by=`` as the superscript its translation operator carries.
@@ -522,7 +513,7 @@ class Walk:
         partition = by.use
         assert isinstance(partition, Partition)
         at = {r: self.symbols.index[partition.dim(r)] for r in (partition.along, *partition.joined)}
-        return self._tuple([self._relation_read(partition.relation, at, r) for r in partition.group])
+        return self._tuple([self._relation_read(partition.name, at, r) for r in partition.group])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``window=``: a number, or a parameter's own symbol.
@@ -604,7 +595,11 @@ class Walk:
             )
 
         if isinstance(node, DimensionPositionNode):
-            grouping = None if node.partition is None else self._position_group(node, ctx)
+            grouping = (
+                None
+                if node.partition is None
+                else self._tuple([self._value_read(node.partition.name, c, ctx) for c in node.partition.group])
+            )
             place = self._position(ctx.subscript(node.name), grouping)
             ordinal = self._ordinal(node.name, node.position, grouping)
             return f'{place} {self._op(_PREDICATES[node.op])} {ordinal}', comparison
@@ -619,8 +614,7 @@ class Walk:
             return f'{left} {self._op(_PREDICATES[node.op])} {right}', comparison
 
         if isinstance(node, RelationDefinedNode):
-            lk = self.schema.relations[node.name]
-            return self._relation_row(node.name, [ctx.subscript(dict(lk.pairs)[k]) for k in lk.key_roles]), comparison
+            return self._relation_row(node.name, self._frame_key(node.name, ctx)), comparison
 
         if isinstance(node, NotNode):
             return (
