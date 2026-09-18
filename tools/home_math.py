@@ -16,6 +16,7 @@ that produced the other two.
 
 from __future__ import annotations
 
+import re
 import textwrap
 
 from math_spec import to_spec
@@ -96,6 +97,28 @@ def block() -> str:
     )
 
 
+#: The body of one ``math`` fence, which is what :func:`to_markdown` prints a
+#: block of math as.
+FENCED = re.compile(r'```math\n(.*?)\n```', re.DOTALL)
+
+
+def unfenced(markdown: str) -> str:
+    """*markdown* with every math fence rewritten as ``$$…$$`` on one line.
+
+    GitHub turns a ``math`` fence into display math at the top level of a page
+    only. Inside a ``<details>`` the fence stays a code block, and the fold
+    prints the TeX instead of the equation. The dollar pair renders in both
+    places, so the fold takes that spelling. It has to be one line, because
+    GitHub reads the pair as an inline span, which a newline ends; TeX reads a
+    newline as a space, so joining the lines prints the same math.
+
+    The fences outside the folds keep their own spelling, which is what
+    :func:`~math_spec.typesetting.to_markdown` prints and what the README says
+    renders as-is.
+    """
+    return FENCED.sub(lambda m: f'$${" ".join(m[1].splitlines())}$$', markdown)
+
+
 def details(summary: str, body: str) -> str:
     """A folded block. GitHub reads what is inside as markdown only across a blank line."""
     return f'<details>\n<summary>{summary}</summary>\n\n{body}\n\n</details>'
@@ -119,7 +142,7 @@ def readme_block() -> str:
             to_markdown(spec, numbered=False, legend=False).strip(),
             details(
                 'The whole document: a symbol table, and the legend it prints',
-                to_markdown(spec, symbols=symbols, numbered=False).strip(),
+                unfenced(to_markdown(spec, symbols=symbols, numbered=False).strip()),
             ),
             details(
                 'The same document as LaTeX',
