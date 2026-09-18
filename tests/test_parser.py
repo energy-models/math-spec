@@ -364,7 +364,7 @@ def test_position_is_a_call_on_the_left_hand_side(text, op, right, kwargs):
 )
 def test_a_side_is_any_arithmetic_to_the_grammar(text):
     """The grammar hands both sides over bare; what the language admits on a side is decided in resolution,
-    where the schema is (`test_a_where_side_that_is_arithmetic_is_refused`)."""
+    where the schema is (`TestAWhereSideIsReadInResolution`)."""
     assert isinstance(parse_where(text), UnresolvedComparisonNode)
 
 
