@@ -28,12 +28,12 @@ This page says what the mask means for the rows that are built.
 
 ## What creates absence
 
-| Construct                                     | What is absent                                                       |
-| --------------------------------------------- | -------------------------------------------------------------------- |
-| `where:` on a variable                        | the variable, at the masked coordinates                              |
-| `where:` on a constraint                      | the row                                                              |
-| `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))            |
-| a label a relation does not map               | that label's group membership ([relations](dimensions.md#relations)) |
+| Construct                                     | What is absent                                                                    |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
+| `where:` on a variable                        | the variable, at the masked coordinates                                           |
+| `where:` on a constraint                      | the row                                                                           |
+| `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))                         |
+| a label a relation does not map               | that label's group membership ([relations](relations.md#how-the-map-is-supplied)) |
 
 Nothing else creates absence. **A missing parameter row is not absence.** A
 sparse table is a compressed dense table, and a missing row reads as the value
