@@ -27,8 +27,7 @@ between the two. The data does.
    one equation whether `size` is chosen or given.
 
 3. **Pin it in the data where it is given.** Bind `size_min` and `size_max` to
-   the same value for a plant whose size is fixed. Equal bounds pin a variable,
-   and a pinned variable is still a variable
+   the same value for a plant whose size is fixed. Equal bounds pin a variable
    ([variables](../reference/language/declarations.md#variables)).
 
 A pinned variable is still a variable: `size * on` is `variable * variable`,
