@@ -47,6 +47,7 @@ a column maps a dimension onto itself, the mapping form names them:
 | one-to-many, a bus and its generators                         | the same table, read the other way                                                                                  |
 | many-to-many, a generator on several buses                    | `{key: [generator, bus]}`, no `values:`                                                                             |
 | one value per pair, a generator's zone in each period         | `{key: [generator, period], values: zone}`                                                                          |
+| several values per key, a snapshot's month, week and weekday  | `{key: snapshot, values: [month, week, weekday]}`. A call names the column it reads: `into=month`, `within=week`    |
 | two columns over one dimension, a line's two ends             | `{key: line, values: {bus0: bus, bus1: bus}}`                                                                       |
 | a dimension onto itself, a snapshot's representative          | `{key: snapshot, values: {rep: snapshot}}`                                                                          |
 | pairs of one dimension, a snapshot and each of its neighbours | `{key: {from: snapshot, to: snapshot}}`, no `values:`. `sum` walks it either way, and nothing reads a value from it |
