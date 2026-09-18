@@ -90,4 +90,4 @@ the recipe needs no second model file.
 
 What a `where:` means is under [absence](../reference/language/absence.md);
 what a `cases:` block accepts is under
-[named expressions](../reference/language/expressions.md#cases--one-quantity-a-value-per-region).
+[named expressions](../reference/language/named.md#cases).

@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This model adds a commitment decision and a start-up ramp to least-cost
 dispatch. It is the model that
-[`cases:`](../reference/language/expressions.md#cases--one-quantity-a-value-per-region)
+[`cases:`](../reference/language/named.md#cases)
 exists for. Read `previous_status` first, then `ramp_up`.
 
 The cases carry no order. No two of them can claim one coordinate, and that is

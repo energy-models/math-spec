@@ -6,10 +6,10 @@ SPDX-License-Identifier: CC-BY-4.0
 # Operators
 
 An operator reduces an expression along a dimension, or moves its values along
-one. The set is **closed**: these four, and [`dual`](reported.md#reading-a-constraints-dual)
+one. The set is **closed**: these four, and [`dual`](named.md#reading-a-constraints-dual)
 in a reported expression, are all of them. There is no registry to add to, so a
 model can never depend on what a caller registered. A composition of them goes in
-[`macros:`](expressions.md#macros).
+[`macros:`](named.md#macros).
 
 | Operator                                           | Result                                                                                                                                            |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -19,7 +19,7 @@ costs to add.
   that is substituted into an expression before anything reads it. Adding one
   costs nothing: it uses only operators that exist, so no engine has to change.
   Most requests turn out to be a macro. See
-  [macros](../reference/language/expressions.md#macros).
+  [macros](../reference/language/named.md#macros).
 - **A primitive** is an operator built into the language: `sum`, `sum_back`,
   `at`, `shift`, and the `where` comparisons. A file cannot add one. Adding one
   here is the expensive kind: every engine that builds models has to implement

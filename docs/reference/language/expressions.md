@@ -47,10 +47,10 @@ bound it:
   column. A `piecewise:` link expands into declarations, and those must be
   affine.
 
-A named expression is held to the limit of the place that reads it: degree 2 in
-the objective or a constraint, affine in a `piecewise:` link. A named expression
-that nothing in the math reads is a [reported](reported.md) quantity, and no
-degree limit applies to it.
+A [named expression](named.md) is held to the limit of the place that reads
+it: degree 2 in the objective or a constraint, affine in a `piecewise:` link.
+One that nothing in the math reads is [reported](named.md#reported-expressions),
+and no degree limit applies to it.
 
 `/` needs a divisor that carries no variable and is a single factor, not a sum.
 A variable divisor is rational rather than polynomial, which is outside the
@@ -63,15 +63,6 @@ addition does not distribute over `**`; bind the factor itself as a parameter.
 A variable under `**` is refused because the exponent would decide the degree:
 `p ** n` is affine at `n = 1` and quadratic at `n = 2`, and `to_spec` reads no
 data. Write `x * x` for a square.
-
-### Solver support
-
-The language admits degree 2 in the objective and the constraints. Which solver
-or file format takes the result is decided by the tool that builds the model.
-See [the limits](../../about/limits.md#solver-capability).
-Whether a quadratic form is convex is a property of the data, so no tool can
-answer it from the file alone. A `piecewise:` block with `method: convex` spends
-a curve and keeps the linear program, with its duals.
 
 ## Name resolution
 
@@ -87,15 +78,15 @@ named `snapshot` would silently change what `where: "snapshot > 0"` means.
 Position decides which kinds of name are legal, and the kind of every name is
 fixed at load:
 
-| Position                               | Legal kinds                                                                                                  |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| expression (`p * cost`)                | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                    |
-| dimension argument (`over=`, `along=`) | a dimension                                                                                                  |
-| relation argument (`by=`)              | a relation, and never a dimension. `over=`, `into=` and `within=` name its columns                           |
-| `where` string                         | a parameter, variable, dimension or relation ([where strings](#where-strings))                               |
-| `bounds.lower` / `bounds.upper`        | a parameter name, or a number                                                                                |
-| the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number. Never a dimension                                                      |
-| `dual` argument (`dual(c)`)            | a constraint. It resolves against the constraints alone ([reported](reported.md#reading-a-constraints-dual)) |
+| Position                               | Legal kinds                                                                                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| expression (`p * cost`)                | a variable, or a parameter whose values are numbers ([dtype](declarations.md#parameters))                          |
+| dimension argument (`over=`, `along=`) | a dimension                                                                                                        |
+| relation argument (`by=`)              | a relation, and never a dimension. `over=`, `into=` and `within=` name its columns                                 |
+| `where` string                         | a parameter, variable, dimension or relation ([where strings](#where-strings))                                     |
+| `bounds.lower` / `bounds.upper`        | a parameter name, or a number                                                                                      |
+| the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number. Never a dimension                                                            |
+| `dual` argument (`dual(c)`)            | a constraint. It resolves against the constraints alone ([named expressions](named.md#reading-a-constraints-dual)) |
 
 A bare word in the value of a keyword argument is a name to resolve. That is why
 `wrap` is quoted: `shift(x, along=wrap, edge='wrap')` reads one way, even in a
@@ -110,7 +101,7 @@ selects rows and a flag masks rows, and both belong in a `where`. Only
 `dtype: float` and `dtype: int` stand as a coefficient, a term or a divisor.
 
 Constraints sit outside the flat namespace. The one position that names a
-constraint is [`dual`'s argument](reported.md#reading-a-constraints-dual), so a
+constraint is [`dual`'s argument](named.md#reading-a-constraints-dual), so a
 bare name never reaches a constraint, and a model may name a constraint after a
 variable. The objective has no name at all.
 
@@ -165,20 +156,20 @@ COLUMNS    ::= NAME | "[" NAME { "," NAME } "]"
 QUOTED     ::= "'" chars "'" | '"' chars '"'
 ```
 
-| Written as                              | Names a…                                 | Meaning                                                                                                                                                                                                                                                                                             |
-| --------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name` (bare)                           | parameter                                | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not                                                                                                                |
-| `name` (bare)                           | variable                                 | The variable exists at this coordinate                                                                                                                                                                                                                                                              |
-| `name` (bare)                           | relation                                 | A row exists, read at the relation's key — every column, for a bare one. A relation may be [partial](relations.md#how-the-map-is-supplied), and this selects the labels that do map                                                                                                                 |
-| `name` (bare)                           | dimension                                | A load error. It would be true everywhere. Compare it against something instead                                                                                                                                                                                                                     |
-| `name OP value`                         | parameter                                | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                    |
-| `name OP value`                         | dimension                                | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                       |
-| `name OP value`, `name.col OP value`    | relation                                 | A filter on a value column, read at the relation's key, so the key's dimensions have to be in the frame. Name the column where the key determines several. A null compares false                                                                                                                    |
-| `name OP name`, `name.a OP name.b`      | two relation columns                     | Legal only where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                                                                                                                           |
-| `position(name) OP i`                   | dimension                                | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                         |
-| `position(name, by=relation, within=c)` | a dimension and a relation keyed over it | The same, counted within each group the relation's value columns make                                                                                                                                                                                                                               |
-| `AND` `OR` `NOT`                        | —                                        | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                                                                                                                                       |
-| `True` / `False`                        | —                                        | Literals, folded at load wherever they stand. `True` is the same as no `where`; `False` gives a declaration with no rows. `x AND False` folds to `False`, and `NOT NOT x` to `x`. A [case `when:`](#the-rules-that-keep-the-cases-apart) is the one place a mask that folds to a literal is refused |
+| Written as                              | Names a…                                 | Meaning                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name` (bare)                           | parameter                                | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not                                                                                                                        |
+| `name` (bare)                           | variable                                 | The variable exists at this coordinate                                                                                                                                                                                                                                                                      |
+| `name` (bare)                           | relation                                 | A row exists, read at the relation's key — every column, for a bare one. A relation may be [partial](relations.md#how-the-map-is-supplied), and this selects the labels that do map                                                                                                                         |
+| `name` (bare)                           | dimension                                | A load error. It would be true everywhere. Compare it against something instead                                                                                                                                                                                                                             |
+| `name OP value`                         | parameter                                | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                            |
+| `name OP value`                         | dimension                                | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                               |
+| `name OP value`, `name.col OP value`    | relation                                 | A filter on a value column, read at the relation's key, so the key's dimensions have to be in the frame. Name the column where the key determines several. A null compares false                                                                                                                            |
+| `name OP name`, `name.a OP name.b`      | two relation columns                     | Legal only where both relations are keyed over the same dimensions and both columns are over one dimension. `ends.bus0 != ends.bus1` excludes a self-loop                                                                                                                                                   |
+| `position(name) OP i`                   | dimension                                | Where the row sits along the dimension's own order. `0` is first, and a negative number counts from the end                                                                                                                                                                                                 |
+| `position(name, by=relation, within=c)` | a dimension and a relation keyed over it | The same, counted within each group the relation's value columns make                                                                                                                                                                                                                                       |
+| `AND` `OR` `NOT`                        | —                                        | Case-insensitive. `NOT` binds tighter than `AND`, and `AND` tighter than `OR`                                                                                                                                                                                                                               |
+| `True` / `False`                        | —                                        | Literals, folded at load wherever they stand. `True` is the same as no `where`; `False` gives a declaration with no rows. `x AND False` folds to `False`, and `NOT NOT x` to `x`. A [case `when:`](named.md#the-rules-that-keep-the-cases-apart) is the one place a mask that folds to a literal is refused |
 
 The dimensions of the mask must not exceed the frame it sits in. A bare name
 that is not declared is a load error.
@@ -271,168 +262,3 @@ The relation must have a key column over the dimension being counted, and
 ([partitions](relations.md#partitions)). A coordinate the relation sends
 nowhere is in no group. A group shorter than the position is an error when the
 data binds, for the same reason as above.
-
-## Named expressions
-
-A named expression is a quantity the model names once. A constraint or the
-objective may use it, and the engine can report its value after a solve:
-
-```yaml
-dimensions:
-  generator: { dtype: str }
-parameters:
-  rate: { dims: [generator] }
-variables:
-  p: { dims: [generator] }
-expressions:
-  total_generation: sum(p, over=generator)
-  emissions:
-    expression: sum(p * rate, over=generator)
-    description: CO2 released, the quantity a cap would bound
-```
-
-Write it as a bare string, or as a mapping when it carries a `description:`. Its
-dimensions fall out of its body, so there is no `dims:`. The CO₂ that a
-constraint bounds and the CO₂ that a summary reports are then one definition,
-validated once.
-
-Where the objective or a constraint names it, the body is substituted before
-anything reads the model. So a named expression is one of two things, and the
-file never says which:
-
-- **In the math**, when the objective or a constraint inlines it, directly or
-  through another expression or a macro. It is held to the
-  [degree limit](#where-a-product-of-two-variables-is-allowed) at the place that
-  reads it.
-- **Reported**, when nothing in the math names it. It is arithmetic over numbers
-  a solve has produced, and the math's restrictions no longer apply. See
-  [reported expressions](reported.md).
-
-### `cases:` — one quantity, a value per region
-
-Some quantities have no single expression. The commitment state a unit carries
-into a snapshot has three regimes: `1` for a unit that is never switched off, an
-initial condition at the first snapshot, and the previous snapshot's status
-everywhere else. Written at the constraint, those regimes fork the inequality
-three ways. Named here, the inequality is written once:
-
-```yaml
-expressions:
-  previous_status:
-    description: the commitment state a unit carries into a snapshot
-    dims: [snapshot, generator]
-    cases:
-      always_on:
-        when: "not committable"
-        expression: 1
-      boundary:
-        when: "committable and position(snapshot) == 0"
-        expression: status_initial
-    otherwise: shift(status, along=snapshot, offset=1)
-constraints:
-  ramp_up:
-    dims: [snapshot, generator]
-    expression: >-
-      p - shift(p, along=snapshot, offset=1, edge=0)
-      <= ramp_limit * previous_status + start_up_limit * (1 - previous_status)
-```
-
-Each case prints as one row of the definition, and `otherwise:` as the last:
-
-$$\mathit{previous\_status}_{t,g} = \begin{cases} 1 & \text{if } \neg \mathrm{committable}_{g} \cr \mathrm{status}^{\mathrm{initial}}_{g} & \text{if } \mathrm{committable}_{g} \wedge \mathrm{pos}(t) = 0 \cr \mathit{status}_{t - 1,g} & \text{otherwise} \end{cases} \qquad \forall\thinspace t \in \mathcal{T},\enspace g \in \mathcal{G}$$
-
-A named expression carries **exactly one** of `expression:` and `cases:`. A
-`cases:` block is a map of named cases, each with a `when:` mask and an
-`expression:`. Beside it, `otherwise:` carries every coordinate the cases leave,
-and `dims:` declares the **frame**: the dimensions every case ranges over. A
-point of the frame is a **coordinate**, here one snapshot for one generator.
-
-#### The rules that keep the cases apart
-
-- **No two cases may claim one coordinate.** If two `when:` masks can hold at
-  once, the file is refused at load, and the message names the pair, a
-  coordinate both claim, and the rewrite:
-
-  > `Named expression 'previous_status'`: cases `always_on` and `boundary` both
-  > claim the value where committable is false, the position of snapshot is 0. A
-  > coordinate two cases claim has two values, so it has none — narrow one of the
-  > two `when:` strings by the negation of the other, or drop the wider one and
-  > let `otherwise:` carry that region.
-
-  That is why `boundary` above says `committable and`. The cases carry no order,
-  so a tool that re-sorts the keys of a file cannot change what it means.
-
-- **A `when:` must be a question the data answers.** `True`, `False`, and a mask
-  that folds to one of them, such as `committable OR True`, are refused. A mask
-  that admits every row leaves `otherwise:` nothing, and one that admits none
-  never applies. A declaration's `where:` is not held to this rule, because
-  there `False` means no rows and `True` means no mask.
-
-- **A pair the check cannot decide is refused.** `position(snapshot) == 0`
-  against `position(snapshot) == -1` pick the same row on an axis with one
-  member, and how many members an axis has is data. Count from one end only.
-
-- **`otherwise:` is required.** It carries no mask, so it has to hold at every
-  coordinate the cases leave. Without it a coordinate no `when` matched would
-  have no value, and absence [spreads](absence.md), so a constraint reading the
-  expression would lose rows it never masked.
-
-- **`dims:` is required with cases, and refused without them.** A case may be
-  a single number while its `when:` ranges over dimensions, as `always_on` does,
-  so the frame cannot fall out of the body. Each `when:` and each value must sit
-  inside the frame. The dimensions of a reference are the declared `dims`,
-  and a narrower case broadcasts as a parameter with fewer dimensions does.
-
-Claiming a coordinate is not the same as having a value there. The `otherwise:`
-above carries no `edge=`, so its `shift` has no value at the first snapshot, and
-`previous_status` is whole there only because `boundary` or `always_on` claims
-every unit at that snapshot. To close such a hole, widen a `when`, give the
-`shift` an `edge=`, or set `absence: zero` on the masked variable. Nothing
-catches a hole at load, because whether a case has a value depends on the data.
-
-`cases:` inside a `macros:` template is not supported, because `otherwise:`
-would have to cover a frame the macro does not have until it is called.
-
-### How a named expression prints
-
-A use prints the symbol. The body prints once, under a **Definitions** heading
-between _Subject to_ and _Variable domains_, in declaration order. The symbol is
-italic where a variable reaches the body and upright where none does, as every
-other name is. A named expression joins the symbol pool, so a
-[symbol table](../typeset.md#symbol-tables) can rename it.
-
-`inline_expressions`, which is `--inline-expressions` on the command line,
-substitutes each plain expression where it is used. A cased expression always
-prints as a definition, because a `cases` block is taller than the line it would
-sit in and would otherwise print once per use.
-
-[The unit commitment example](../../examples/commitment.md) is the model this
-section is drawn from.
-
-## Macros
-
-A macro is a template that takes arguments and is substituted into an expression
-before anything reads it. It has no dimensions until it is called, so it has no
-value that a solve could report:
-
-<!-- doctest: wrap=macros -->
-
-```yaml
-weighted_sum:
-  args: [array, weights] # positional formals, default []
-  kwargs: [over] # keyword formals, default []
-  template: sum(array * weights, over=over)
-```
-
-- A template holds arithmetic, and no comparison.
-- Arguments expand before substitution, so an argument may itself use macros and
-  named expressions.
-- Inside a template, the formal parameters shadow model names. A formal may not
-  collide with a declared dimension.
-- The number of arguments is checked at each call site. A cycle is reported with
-  its reference chain.
-- Every template is parsed and name-checked at load, whether or not it is called.
-
-Anything composed out of the [built-in operators](operators.md) belongs here.
-Math the language cannot express is out of scope; see
-[what the language will not express](errors.md#what-the-language-will-not-express).

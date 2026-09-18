@@ -145,7 +145,7 @@ them, and that is the start of the recurrence rather than a bug.
 
 ## Reported values
 
-A [reported expression](reported.md) is arithmetic over solved numbers, so it
+A [reported expression](named.md#reported-expressions) is arithmetic over solved numbers, so it
 inherits their absence by the same rule as above. Through pointwise arithmetic,
 a null spreads: `cost / delivered` has no value wherever either operand is
 masked. Out of a summing operator, it does not: `sum(dispatch, over=g)` is one
