@@ -37,9 +37,10 @@ from math_spec._expression_parser import (
     parse_expression,
 )
 from math_spec._where_parser import (
+    ColumnNode,
+    QuotedNode,
     UnresolvedComparisonNode,
     UnresolvedNameNode,
-    UnresolvedPositionNode,
     parse_where,
 )
 from math_spec.errors import SchemaError
@@ -242,13 +243,14 @@ def test_a_list_the_grammar_cannot_read_is_refused_at_load(text):
 )
 def test_scientific_notation_is_a_number(text, value):
     assert parse_expression(text) == NumberNode(value)
-    assert parse_where(f'p > {text}').value == value
+    assert parse_where(f'p > {text}').right == NumberNode(value), 'a where side is the expression grammar'
 
 
 @pytest.mark.parametrize('spelling', ['inf', '.inf'])
 def test_inf_is_a_literal(spelling):
     """Both spellings, since `bounds: {upper: .inf}` is how YAML writes it."""
     assert parse_expression(f'p <= {spelling}').right == NumberNode(float('inf'))
+    assert parse_where(f'p < {spelling}').right == NumberNode(float('inf')), 'and a where reads it as one too'
 
 
 @pytest.mark.parametrize('name', ['inflow', 'influx', 'infeed', 'infrastructure', 'inf_max'])
@@ -262,7 +264,7 @@ def test_a_name_may_begin_with_inf(name):
     [
         pytest.param('True', BooleanLiteralNode, {'value': True}, id='a-literal'),
         pytest.param('p_max', UnresolvedNameNode, {'name': 'p_max'}, id='a-bare-name'),
-        pytest.param('p_max > 0', UnresolvedComparisonNode, {'op': '>', 'value': 0}, id='a-comparison'),
+        pytest.param('p_max > 0', UnresolvedComparisonNode, {'op': '>', 'right': NumberNode(0)}, id='a-comparison'),
         pytest.param('a AND b', AndNode, {}, id='and'),
         pytest.param('a OR b', OrNode, {}, id='or'),
         pytest.param('NOT a', NotNode, {}, id='not'),
@@ -311,52 +313,89 @@ def test_conjuncts_does_not_split_or_or_not(text):
 
 
 @pytest.mark.parametrize(
-    ('text', 'value', 'quoted'),
+    ('text', 'right'),
     [
-        ("g == 'wind'", 'wind', True),
-        ('g == "wind"', 'wind', True),
-        ("g == 'combined-cycle'", 'combined-cycle', True),
-        ("g == 'CCGT 400MW'", 'CCGT 400MW', True),
-        ("t > '2030-01-01'", '2030-01-01', True),
-        ("g == 'it\\'s'", "it's", True),
-        ('g == wind', 'wind', False),
+        ("g == 'wind'", QuotedNode('wind')),
+        ('g == "wind"', QuotedNode('wind')),
+        ("g == 'combined-cycle'", QuotedNode('combined-cycle')),
+        ("g == 'CCGT 400MW'", QuotedNode('CCGT 400MW')),
+        ("t > '2030-01-01'", QuotedNode('2030-01-01')),
+        ("g == 'it\\'s'", QuotedNode("it's")),
+        ('g == wind', NameNode('wind')),
     ],
     ids=['single', 'double', 'hyphen', 'space', 'date', 'escaped quote', 'bare'],
 )
-def test_a_quoted_right_hand_side_is_a_label(text, value, quoted):
+def test_a_quoted_right_hand_side_is_a_label(text, right):
     """Quoting says "label, not name" (#460): unquoted, `combined-cycle` or `CCGT 400MW` was
     unsayable, and a bare word may name a declaration."""
     node = parse_where(text)
     assert isinstance(node, UnresolvedComparisonNode)
-    assert node.value == value
-    assert node.quoted is quoted
+    assert node.right == right
+
+
+def test_a_relation_column_is_named_with_a_dot():
+    """`ends.bus0` is the one place the language names a column, and only a where side admits it."""
+    assert parse_where('ends.bus0 != ends.bus1') == UnresolvedComparisonNode(
+        ColumnNode('ends', 'bus0'), '!=', ColumnNode('ends', 'bus1')
+    )
+    with pytest.raises(SchemaError, match='Failed to parse where string'):
+        parse_where('ends.bus0 + 1 > 0')
 
 
 @pytest.mark.parametrize(
-    ('text', 'op', 'position', 'by'),
+    ('text', 'op', 'right', 'kwargs'),
     [
-        ('position(snapshot) == 0', '==', 0, None),
-        ('position(snapshot) != 0', '!=', 0, None),
-        ('position(snapshot) > 0', '>', 0, None),
-        ('position(snapshot) <= -2', '<=', -2, None),
-        ('position(snapshot) == -1', '==', -1, None),
-        ('position(snapshot, by=period_of) == 0', '==', 0, 'period_of'),
+        ('position(snapshot) == 0', '==', NumberNode(0), {}),
+        ('position(snapshot) != 0', '!=', NumberNode(0), {}),
+        ('position(snapshot) > 0', '>', NumberNode(0), {}),
+        ('position(snapshot) <= -2', '<=', UnaryOperatorNode('-', NumberNode(2)), {}),
+        ('position(snapshot) == -1', '==', UnaryOperatorNode('-', NumberNode(1)), {}),
+        ('position(snapshot, by=period_of) == 0', '==', NumberNode(0), {'by': NameNode('period_of')}),
+        (
+            'position(snapshot, by=period_of, within=[a, b]) == 0',
+            '==',
+            NumberNode(0),
+            {'by': NameNode('period_of'), 'within': NameListNode(('a', 'b'))},
+        ),
     ],
-    ids=['first', 'not first', 'after the first', 'band from the back', 'last', 'grouped'],
+    ids=['first', 'not first', 'after the first', 'band from the back', 'last', 'grouped', 'grouped within columns'],
 )
-def test_position_converts_a_dimension_to_where_a_row_sits(text, op, position, by):
-    """`position(dim)` is the left-hand side, so every comparator reads one way (#32)."""
+def test_position_is_a_call_on_the_left_hand_side(text, op, right, kwargs):
+    """`position(dim)` is the left-hand side, so every comparator reads one way (#32), and it arrives as the
+    call the expression grammar builds; what its arguments may be is resolution's to say."""
     node = parse_where(text)
-    assert isinstance(node, UnresolvedPositionNode)
-    assert node.dimension == 'snapshot'
+    assert isinstance(node, UnresolvedComparisonNode)
+    assert node.left == FunctionCallNode('position', (NameNode('snapshot'),), kwargs)
     assert node.op == op
-    assert node.position == position
-    assert node.by == by
+    assert node.right == right
 
 
-def test_a_position_is_not_confused_with_a_name():
-    """`position` leads the alternation, so it is not read as a bare name."""
-    assert isinstance(parse_where('position(t) == 0 AND p_max > 0'), AndNode)
+@pytest.mark.parametrize(
+    'text',
+    ['p > 0.5 * q', '(a + b) <= c', '-p < 1', 'sum(p, over=g) >= k', '2 < p', 'position(t) + 1 == 0'],
+    ids=[
+        'arithmetic-on-the-right',
+        'a-bracketed-sum',
+        'a-negated-name',
+        'a-reduction',
+        'a-literal-on-the-left',
+        'position-inside-arithmetic',
+    ],
+)
+def test_a_side_is_any_arithmetic_to_the_grammar(text):
+    """The grammar hands both sides over bare; what the language admits on a side is decided in resolution,
+    where the schema is (`test_a_where_side_that_is_arithmetic_is_refused`)."""
+    assert isinstance(parse_where(text), UnresolvedComparisonNode)
+
+
+def test_a_bracketed_predicate_is_still_a_predicate():
+    """`(a > 0) AND b` groups a comparison; only `(a + b) <= c` brackets arithmetic."""
+    assert isinstance(parse_where('(a > 0) AND b'), AndNode)
+
+
+def test_a_where_side_is_held_to_the_depth_an_expression_is():
+    with pytest.raises(SchemaError, match='nests 121 deep'):
+        parse_where(' + '.join(['p'] * 120) + ' > 0')
 
 
 @pytest.mark.parametrize(
@@ -379,8 +418,8 @@ def test_a_where_parse_failure_names_the_rewrite(text, rewrite):
 
 def test_a_legal_where_operator_is_never_diagnosed():
     """`!=`, `<` and `>` are predicates here, unlike on the expression side, so no diagnosis may fire on them."""
-    assert parse_where('status != 0') == UnresolvedComparisonNode('status', '!=', 0.0)
-    assert parse_where('p_max < 5') == UnresolvedComparisonNode('p_max', '<', 5.0)
+    assert parse_where('status != 0') == UnresolvedComparisonNode(NameNode('status'), '!=', NumberNode(0.0))
+    assert parse_where('p_max < 5') == UnresolvedComparisonNode(NameNode('p_max'), '<', NumberNode(5.0))
 
 
 def test_an_unrelated_parse_failure_says_nothing_about_positions():
