@@ -75,8 +75,8 @@ The same `f` is summed twice through two relations, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
 `sum(by=)` consumes a key column and produces a value column. What the call
-reads, what its result carries, and the six rules it keeps are on
-[how a relation is read](relations.md#how-a-relation-is-read).
+reads, what its result carries, and the rules it keeps are on
+[how a relation is used](relations.md#how-a-relation-is-used).
 
 The relation's values are the group labels, checked against their own dimension
 when the data binds. A group with no members contributes nothing, and a member
@@ -88,7 +88,7 @@ coordinate the data never covered is refused. See [absence](absence.md).
 
 `at(x, by=l, over=a, into=b)` walks the same relation the other way. It consumes
 a value column and produces the key, so it reads one coarse value once for each
-fine label that points at it ([walks](relations.md#walks)).
+fine label that points at it ([walks](relations.md#aggregates-and-reads)).
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus, over=bus, into=line)`.

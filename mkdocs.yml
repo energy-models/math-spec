@@ -139,6 +139,8 @@ markdown_extensions:
   - def_list
   - footnotes
   - md_in_html
+  # A list that starts at 5 renders from 5, as it does on GitHub.
+  - sane_lists
   - tables
   - pymdownx.details
   # The math. `generic: true` rewrites `$…$` into `\(…\)` before MathJax runs;

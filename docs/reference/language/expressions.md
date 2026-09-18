@@ -100,18 +100,18 @@ A parameter and a variable both declare `dims`, and every dimension
 argument is name-checked. So **the dimension set of every expression is known
 before any data binds**:
 
-| Node                             | Dim set                           | Error                                                                  |
-| -------------------------------- | --------------------------------- | ---------------------------------------------------------------------- |
-| number                           | `{}`                              |                                                                        |
-| parameter / variable             | its `dims`                        |                                                                        |
-| `-x`, `+x`                       | `dims(x)`                         |                                                                        |
-| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`               |                                                                        |
-| `sum(x)`                         | `{}`                              | error if `dims(x)` is already empty                                    |
-| `sum(x, over=d)`                 | `dims(x) − {d}`                   | error if `d ∉ dims(x)`                                                 |
-| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − consumed) ∪ produced` | the walk's refusals, under [the six rules](relations.md#the-six-rules) |
-| `at(x, by=l, over=a, into=b)`    | `(dims(x) − consumed) ∪ produced` | the same                                                               |
-| `shift(x, along=d, offset=n)`    | `dims(x)`                         | error if `d ∉ dims(x)`                                                 |
-| `sum_back(x, along=d, window=n)` | `dims(x)`                         | error if `d ∉ dims(x)`                                                 |
+| Node                             | Dim set                           | Error                                                                                    |
+| -------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------- |
+| number                           | `{}`                              |                                                                                          |
+| parameter / variable             | its `dims`                        |                                                                                          |
+| `-x`, `+x`                       | `dims(x)`                         |                                                                                          |
+| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`               |                                                                                          |
+| `sum(x)`                         | `{}`                              | error if `dims(x)` is already empty                                                      |
+| `sum(x, over=d)`                 | `dims(x) − {d}`                   | error if `d ∉ dims(x)`                                                                   |
+| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − consumed) ∪ produced` | the walk's refusals, under [how a relation is used](relations.md#how-a-relation-is-used) |
+| `at(x, by=l, over=a, into=b)`    | `(dims(x) − consumed) ∪ produced` | the same                                                                                 |
+| `shift(x, along=d, offset=n)`    | `dims(x)`                         | error if `d ∉ dims(x)`                                                                   |
+| `sum_back(x, along=d, window=n)` | `dims(x)`                         | error if `d ∉ dims(x)`                                                                   |
 
 A binary operator takes the **union** of the two dimension sets, so an outer
 product is allowed wherever the declaration's own dimensions cover the result.
@@ -146,7 +146,7 @@ QUOTED     ::= "'" chars "'" | '"' chars '"'
 | --------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name` (bare)                           | parameter                                | The value is defined here. A `bool` is its own answer. A `str` is defined wherever the table has a row. A number has to have a row and be finite, so `0.0` counts and `inf` does not                                                                                                                        |
 | `name` (bare)                           | variable                                 | The variable exists at this coordinate                                                                                                                                                                                                                                                                      |
-| `name` (bare)                           | relation                                 | A row exists, read at the relation's key — every column, for a bare one. A relation may be [partial](relations.md#how-the-map-is-supplied), and this selects the labels that do map                                                                                                                         |
+| `name` (bare)                           | relation                                 | A row exists, read at the relation's key — every column, for a bare one. A relation may be [partial](relations.md#the-data-contract), and this selects the labels that do map                                                                                                                               |
 | `name` (bare)                           | dimension                                | A load error. It would be true everywhere. Compare it against something instead                                                                                                                                                                                                                             |
 | `name OP value`                         | parameter                                | Element-wise, and a null compares false. The right-hand side is a literal, or a bare name read as a string label                                                                                                                                                                                            |
 | `name OP value`                         | dimension                                | A filter on the frame's own coordinate column                                                                                                                                                                                                                                                               |

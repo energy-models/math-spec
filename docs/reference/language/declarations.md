@@ -12,9 +12,7 @@ text that every tool reading the model keeps, and that the
 ## `parameters`
 
 A parameter declares a shape and nothing more. The engine that builds the model
-supplies the numbers, by name, from its own tables. How the engine reads those
-tables is fixed by [three rules](dimensions.md#where-the-members-come-from) that
-every engine follows.
+supplies the numbers, by name, from its own tables.
 
 ```yaml
 dimensions:
