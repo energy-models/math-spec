@@ -259,17 +259,26 @@ Five refusals draw the line, and each message names the rewrite:
 
 ### Partitions
 
-`shift(x, along=d, by=l)`, `sum_back(x, along=d, by=l)` and `position(d, by=l)`
-walk the one key column over `d`, join on the other key columns, and group by
-the value columns. The frame does not change: the group says which rows are
-neighbours, and nothing lands anywhere.
+`shift(x, along=d, by=l, within=c)`, `sum_back(x, along=d, by=l, within=c)` and
+`position(d, by=l, within=c)` walk the one key column over `d`, join on the
+other key columns, and group by the value columns `within=` names. The frame
+does not change: the group says which rows are neighbours, and nothing lands
+anywhere.
 
-`within=` names the value columns the group is made of where the table has
-several. `shift(x, along=snapshot, by=cal, within=week)` walks within weeks of a
-calendar declared once over `[snapshot, day, week]`, and a value column not
-named is not read. The group may be two columns over one dimension, such as a
+A partition writes `within=` whenever it writes `by=`, for the reason a walk
+writes both of its ends. `shift(x, along=snapshot, by=cal, within=week)` walks
+within weeks of a calendar declared once over `[snapshot, day, week]`, and a
+value column not named is not read. So a table that gains a column changes no
+call through it. The group may be two columns over one dimension, such as a
 line's two buses, because a partition produces no dimension. `within=` naming a
-key column is refused, and a bare relation partitions nothing.
+key column is refused, and a bare relation partitions nothing. The refusal for
+a group left unsaid names the rewrite:
+
+```text
+shift() through a relation leaves within= unsaid.
+A partition names the value columns it groups by, so that a relation may gain a value column without changing what this call means.
+Write: shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>, within=<column>])
+```
 
 A partition keeps rule 4 of the [six rules](#the-six-rules). It joins on every
 key column but the one it steps along, so a key that gains a column re-aims the

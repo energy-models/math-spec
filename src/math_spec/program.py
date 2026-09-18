@@ -520,7 +520,7 @@ class Walk(NamedTuple):
     the join keys on them, and a value role not walked is not read. For a
     partition (``shift``, ``sum_back``, ``position``) ``consumed`` is the key
     role over the dimension walked and ``produced`` the value roles that make
-    the group — every value role unless the call named some with ``within=``.
+    the group, which are the ones ``within=`` named.
     """
 
     relation: RelationDeclaration
