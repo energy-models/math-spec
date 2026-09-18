@@ -6,13 +6,13 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA, the relaxed commitment
 
 Rung 12 of [PyPSA in one file](pypsa.md): `n.optimize(linearized_unit_commitment=True)`, stated on rungs 1 and 7 in a
-file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
+file of its own. Its network is the spine plus the script's own additions.
 
 ## Rung 12 — linearized unit commitment
 
 | PyPSA | status | note |
 | --- | --- | --- |
-| [`Generator-status`, `-start_up`, `-shut_down`](#variable-domains) | done | shares in [0, 1], not binaries |
+| [`Generator-status`, `-start_up`, `-shut_down`](#variable-domains) | done | shares in [0, 1] |
 | [`Generator-com-p-before`](#generator-com-p-before) | done | where start and stop cost the same — a data-prep bool |
 | [`Generator-com-p-current`](#generator-com-p-current) | done | |
 | [`Generator-com-partly-start-up`](#generator-com-partly-start-up) | done | |

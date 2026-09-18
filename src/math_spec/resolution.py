@@ -56,6 +56,7 @@ from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
     BUILTINS,
     EDGE_WRAP,
+    PARTITION_NAMES_ITS_GROUP,
     call_shape_error,
     edge_error,
     unknown_operator_message,
@@ -605,8 +606,10 @@ class _Resolver:
             return value
         named = {k: r for k, r in read.items() if r is not None}
         if operator in ('shift', 'sum_back'):
+            if 'within' not in named:
+                return value  # the call shape refused it already, with the wording that names the rewrite
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            direction = self._partition_direction(name, operator, over_dim, named.get('within'))
+            direction = self._partition_direction(name, operator, over_dim, named['within'])
         else:
             if not ({'over', 'into'} <= set(named)):
                 return value  # the call shape refused it already, with the wording that names the rewrite
@@ -706,16 +709,15 @@ class _Resolver:
         return True
 
     def _partition_direction(
-        self, name: str, operator: str, walked_dim: str | None, within_roles: tuple[str, ...] | None
+        self, name: str, operator: str, walked_dim: str | None, within_roles: tuple[str, ...]
     ) -> Direction | None:
         """Which direction a partition (``shift``, ``sum_back``, ``position``) reads relation *name* in along *walked_dim*.
 
         It takes the one key column over that dimension (a key has one column
         per dimension), joins on the other key columns and groups by the value
-        columns *within_roles* names — every value column where the call names
-        none. ``None`` where the dimension is not one (already refused), the
-        relation has no key column over it, or ``within=`` names a column that is
-        not a value column.
+        columns *within_roles* names. ``None`` where the dimension is not one
+        (already refused), the relation has no key column over it, or
+        ``within=`` names a column that is not a value column.
         """
         context = self.context
         shape = self.ns.shape_of(name)
@@ -736,7 +738,7 @@ class _Resolver:
                 f'{list(shape.key)} — and a partition steps along a key column over the dimension it groups.'
             )
             return None
-        if keyed := [r for r in within_roles or () if r in shape.key]:
+        if keyed := [r for r in within_roles if r in shape.key]:
             self.errors.append(
                 f"{context}: {call}: within={keyed} names a key column of '{name}', and a partition groups by "
                 f'value columns — its value columns are {list(shape.values)}.'
@@ -744,7 +746,7 @@ class _Resolver:
             return None
         (walked,) = over_keys
         joined = tuple(r for r in shape.key if r != walked)
-        return Direction(shape, (walked,), shape.values if within_roles is None else within_roles, joined)
+        return Direction(shape, (walked,), within_roles, joined)
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""
@@ -832,7 +834,7 @@ class _Resolver:
         return node
 
     def _position(self, node: UnresolvedPositionNode) -> DimensionPositionNode | UnresolvedPositionNode:
-        """``position(dim[, by=relation[, within=columns]]) <op> i``: the name a dimension, ``by=`` a relation keyed over it."""
+        """``position(dim[, by=relation, within=columns]) <op> i``: the name a dimension, ``by=`` a relation keyed over it."""
         ns, context = self.ns, self.context
         if node.dimension not in ns.dimensions:
             self.errors.append(
@@ -849,6 +851,13 @@ class _Resolver:
                 f"{context}: '{call}' groups by '{node.by}', which is {_declared_as(ns, node.by)}. "
                 f'``by=`` takes a relation with a key column over that dimension. '
                 f'{did_you_mean(node.by, ns.relations, label="Relations")}'
+            )
+            return node
+        if node.into is None:
+            self.errors.append(
+                f'{context}: {call} leaves within= unsaid. {PARTITION_NAMES_ITS_GROUP} Write '
+                f"position({node.dimension}, by={node.by}, within=<column>) — the value columns of '{node.by}' "
+                f'are {list(ns.shape_of(node.by).values)}.'
             )
             return node
         direction = self._partition_direction(node.by, 'position', node.dimension, node.into)

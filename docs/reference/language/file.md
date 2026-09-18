@@ -8,57 +8,41 @@ SPDX-License-Identifier: CC-BY-4.0
 A model file is a YAML mapping with **ten declaration keys**, plus `version`
 and `description`. Any subset of the ten is accepted.
 
-| Key           |                                                                                                                     |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `dimensions`  | the axes ([dimensions](dimensions.md))                                                                              |
-| `relations`   | named relations between dimensions ([relations](dimensions.md#relations))                                           |
-| `parameters`  | the data the model expects ([declarations](declarations.md))                                                        |
-| `variables`   | what the solver decides                                                                                             |
-| `constraints` | the rules those decisions obey                                                                                      |
-| `objective`   | what is minimised or maximised                                                                                      |
-| `expressions` | named quantities, reusable in the math and readable after a solve ([expressions](expressions.md#named-expressions)) |
-| `macros`      | templates that take arguments ([macros](expressions.md#macros))                                                     |
-| `piecewise`   | piecewise-linear curves ([piecewise](piecewise.md))                                                                 |
-| `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                                      |
+| Key           |                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| `dimensions`  | the axes ([dimensions](dimensions.md))                                                            |
+| `relations`   | named relations between dimensions ([relations](relations.md))                                    |
+| `parameters`  | the data the model expects ([declarations](declarations.md))                                      |
+| `variables`   | what the solver decides                                                                           |
+| `constraints` | the rules those decisions obey                                                                    |
+| `objective`   | what is minimised or maximised                                                                    |
+| `expressions` | named quantities, reusable in the math and readable after a solve ([named expressions](named.md)) |
+| `macros`      | templates that take arguments ([macros](named.md#macros))                                         |
+| `piecewise`   | piecewise-linear curves ([piecewise](piecewise.md))                                               |
+| `sos`         | special-ordered sets ([sos](piecewise.md#sos))                                                    |
 
 A file with no `objective` is a **feasibility problem**: it asks whether the
-constraints can all be met. It loads and solves like any other model, and the
-solver reports an objective of zero.
+constraints can all be met.
 
 ## `description`
 
-Plain prose that says what the file as a whole is. It is optional, it is never
-parsed, and it defaults to `null`. A [typeset document](../typeset.md) prints
-it first.
-
-<!-- doctest: skip -->
+Free text that says what the model is. It is optional, and a
+[typeset document](../typeset.md) prints it first.
 
 ```yaml
 description: Least-cost dispatch of a generator fleet against an hourly load.
-dimensions: ...
 ```
-
-A `#` comment can say the same thing, but the parser throws a comment away.
-A `description:` reaches every tool that reads the model.
 
 ## `version`
 
 The language version the file is written against. It is optional, and it
-defaults to `0`:
-
-<!-- doctest: skip -->
+defaults to `0`, the one version this release knows.
 
 ```yaml
 version: 0
-dimensions: ...
 ```
 
-`0` means that the accepted YAML may change in any release. It becomes `1` only
-with a changelog entry that names what moved. This is a language version, not
-the package version, and most releases do not move it.
-
-A version this release does not know is a load error. The field selects
-nothing else:
+A version this release does not know is a load error:
 
 ```text
 model declares version 1, and math_spec 0.0.1a75 understands [0].
@@ -74,21 +58,11 @@ inside every declaration:
 unknown key 'boundz' … Did you mean 'bounds'?
 ```
 
-An ignored key would change the model silently. A dropped `bounds:` leaves a
-variable unbounded, and a dropped `where:` leaves it unmasked.
-
 ## How the YAML is read
 
-- **Booleans follow YAML 1.2**, so only `true` and `false` are booleans.
-  Everything else follows YAML 1.1. Under 1.1, `on`, `off`, `yes`, `no`, `y`
-  and `n` are booleans, and a declaration named after a country code stops
-  being a name. Here, `no: {dtype: str}` is a dimension called `no`.
-- Implicit timestamps such as `2024-01-01`, and sexagesimal integers such as
-  `12:30`, which reads as `750`, survive. Neither reaches a coordinate, because
-  coordinates are data. The one place such a value is read as a label is a
-  literal in a `where` string, where the `dtype` of the name it is compared
-  against catches it. See [where strings](expressions.md#where-strings).
+- The document is a mapping.
+- Only `true` and `false` are booleans, so `no: {dtype: str}` is a dimension
+  called `no`.
 - A duplicate key is a load error, and the message names both lines.
 - `<<:` merge keys are honoured. A key the mapping declares itself overrides
   the merged value.
-- The document must be a mapping.

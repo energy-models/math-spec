@@ -28,20 +28,20 @@ This page says what the mask means for the rows that are built.
 
 ## What creates absence
 
-| Construct                                     | What is absent                                                       |
-| --------------------------------------------- | -------------------------------------------------------------------- |
-| `where:` on a variable                        | the variable, at the masked coordinates                              |
-| `where:` on a constraint                      | the row                                                              |
-| `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))            |
-| a label a relation does not map               | that label's group membership ([relations](dimensions.md#relations)) |
+| Construct                                     | What is absent                                                              |
+| --------------------------------------------- | --------------------------------------------------------------------------- |
+| `where:` on a variable                        | the variable, at the masked coordinates                                     |
+| `where:` on a constraint                      | the row                                                                     |
+| `shift(x, along=d, offset=n)` without `edge=` | the vacated edge coordinate ([shift](operators.md#shift))                   |
+| a label a relation does not map               | that label's group membership ([relations](relations.md#the-data-contract)) |
 
-Nothing else creates absence. **A missing parameter row is not absence.** A
-sparse table is a compressed dense table, and a missing row reads as the value
-that contributes nothing: `0` as a coefficient, and `false` in a `where`.
+Nothing else creates absence. **A missing parameter row is not absence.** It
+reads as the value that contributes nothing: `0` as a coefficient, and `false`
+in a `where`.
 
-Where no such value exists, loading is refused rather than guessed. There are
-four such positions: a divisor, a `bounds:` entry, the whole constant side of a
-comparison, and a [`piecewise:`](piecewise.md) breakpoint.
+Where no such value exists, loading is refused. There are four such positions:
+a divisor, a `bounds:` entry, the whole constant side of a comparison, and a
+[`piecewise:`](piecewise.md) breakpoint.
 
 ## How absence travels
 
@@ -64,11 +64,9 @@ constraints:
     expression: sum(x, over=g) + sum(y, over=g) >= 1 # x[old] is back in
 ```
 
-`each` has no row at `old`, so there is no `x[old] >= 1`. `total` sums the
-summand wherever the summand exists, so `x[old]` goes away with `y[old]`.
-`split` sums each operand over its own domain, so `x[old]` counts. Rewriting one
-into the other reads the absent `y[old]` as a zero, and they are different
-questions.
+`each` has no row at `old`. `total` sums the summand wherever the summand
+exists, so `x[old]` goes away with `y[old]`. `split` sums each operand over its
+own domain, so `x[old]` counts. The two are different constraints.
 
 Beside a parameter, the rule reads the other way:
 
@@ -83,9 +81,6 @@ Where the variable `y` is masked, the row is gone. Where the parameter `rel_max`
 has no row, it reads as `0`, and the row stands as `x <= 0`. To drop the row
 there instead, write `where: rel_max` on the constraint.
 
-Every operator falls on one side of the line, and one question decides which:
-does an output slot stand for several input slots, or for one?
-
 | Operator                              | An output slot reads            | An absent input                      |
 | ------------------------------------- | ------------------------------- | ------------------------------------ |
 | `sum(x, over=d)`                      | every position along `d`        | is one summand fewer; the row stands |
@@ -94,16 +89,10 @@ does an output slot stand for several input slots, or for one?
 | `shift(x, along=d, offset=n)`         | one position, `n` back          | _is_ the output, so it spreads       |
 | `at(x, by=relation, over=a, into=b)`  | one position, through the map   | _is_ the output, so it spreads       |
 
-The three summing operators put several slots into one, so a missing slot gives a
-shorter sum and the row survives. A window that reaches past the start of its
-axis is short for the same reason. The other two map one slot to one slot, so
-absence passes straight through, and the vacated edge of a bare `shift` takes its
-row with it.
-
 ## What a missing coordinate means
 
 By default a masked coordinate has **no value**. A store that is not there has no
-state of charge, so a row that needs that state is not asserted.
+state of charge, so a row that needs that state is not built.
 
 Some quantities are **zero** outside their mask. A reservoir with no inflow spills
 nothing, and a model like that wants its row. The variable says which reading
@@ -127,44 +116,31 @@ constraints:
 At a storage with a store and no inflow, `balance` reads `inflow - soc == 0`. At
 a storage with inflow and no store, there is no row.
 
-`absence: zero` needs a `where:`. It is the only fill a variable takes, and it
-changes nothing inside a summing operator, because a summing operator never
-spread absence.
+`absence: zero` needs a `where:`. It changes nothing inside a summing operator.
 
 ## Rows with no variable terms
 
 A missing parameter row can leave a row with nothing to decide, such as
-`0 == load` at a bus with no generator. Such a row is not built, whatever left it
-in that shape. An expression that names no variable _in the file_ is a different
-case, and it is refused at load, where the message can quote the line.
-
-The engine that builds the model is the one that knows which rows it did not
-build, so it is the engine that reports them: rows lost to a mask, to a deleted
-variable, and to this rule. The first row of a storage balance is always among
-them, and that is the start of the recurrence rather than a bug.
+`0 == load` at a bus with no generator. Such a row is not built, and the engine
+reports it. An expression that names no variable _in the file_ is refused at
+load.
 
 ## Reported values
 
-A [reported expression](reported.md) is arithmetic over solved numbers, so it
-inherits their absence by the same rule as above. Through pointwise arithmetic,
-a null spreads: `cost / delivered` has no value wherever either operand is
-masked. Out of a summing operator, it does not: `sum(dispatch, over=g)` is one
-summand shorter where a `dispatch[g]` is masked, and stands as long as one slot
-does.
+A [reported expression](named.md#reported-expressions) is arithmetic over
+solved numbers, and it inherits their absence by the rule above. Through
+arithmetic, a null spreads: `cost / delivered` has no value wherever either
+operand is masked. Out of a summing operator, it does not.
 
-A quotient whose divisor solved to zero is absent in the same way. The language
-has one "no value", and an undefined quotient joins it rather than raising a
-separate not-a-number.
-
-`dual(c)` follows the same rule from the constraint side. A row that `c`'s
-`where:` leaves unbuilt has no shadow price, so `dual(c)` has no value there.
+A quotient whose divisor solved to zero is absent in the same way. `dual(c)` has
+no value at a row that `c`'s `where:` leaves unbuilt.
 
 ## Asking for the opposite reading
 
-| You want                                       | You write                                                                                                                    |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| the row kept, the masked variable read as zero | `absence: zero` on the variable                                                                                              |
-| the row dropped where a parameter has no data  | `where: capacity` on the constraint                                                                                          |
-| a vacated shift position to contribute         | `shift(x, along=d, offset=n, edge=0)`                                                                                        |
-| to test whether a variable exists here         | its bare name in a `where`                                                                                                   |
-| a bound only where the data has one            | supply the bound, because `inf` is a value, or mask the variable. These are different models, so the language infers neither |
+| You want                                       | You write                                                                                    |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| the row kept, the masked variable read as zero | `absence: zero` on the variable                                                              |
+| the row dropped where a parameter has no data  | `where: capacity` on the constraint                                                          |
+| a vacated shift position to contribute         | `shift(x, along=d, offset=n, edge=0)`                                                        |
+| to test whether a variable exists here         | its bare name in a `where`                                                                   |
+| a bound only where the data has one            | supply the bound, because `inf` is a value, or mask the variable. These are different models |

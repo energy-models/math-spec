@@ -98,12 +98,12 @@ def namespace() -> Namespace:
         ("shift(p, along=snapshot, offset=spinup, edge='wrap')", {'snapshot', 'generator'}),
         ('sum_back(p, along=snapshot, window=spinup)', {'snapshot', 'generator'}),
         pytest.param(
-            "shift(p, along=snapshot, offset=bus_lead, edge='wrap', by=snap_bus)",
+            "shift(p, along=snapshot, offset=bus_lead, edge='wrap', by=snap_bus, within=bus)",
             {'snapshot', 'generator'},
             id='a-by-makes-an-offset-over-another-dim-readable-one-lag-per-group',
         ),
         pytest.param(
-            'sum_back(p, along=snapshot, window=bus_lead, by=snap_bus)',
+            'sum_back(p, along=snapshot, window=bus_lead, by=snap_bus, within=bus)',
             {'snapshot', 'generator'},
             id='a-by-makes-a-width-over-another-dim-readable-one-window-per-group',
         ),
@@ -124,7 +124,7 @@ def namespace() -> Namespace:
             id='its-pullback-keeps-the-joined-key-too',
         ),
         pytest.param(
-            "shift(p, along=generator, offset=1, edge='wrap', by=gen_zone)",
+            "shift(p, along=generator, offset=1, edge='wrap', by=gen_zone, within=zone)",
             {'snapshot', 'generator'},
             id='a-partition-along-one-key-joined-on-the-other',
         ),
@@ -139,7 +139,7 @@ def namespace() -> Namespace:
             id='a-window-grouped-by-both-value-columns-named',
         ),
         pytest.param(
-            "shift(p, along=generator, offset=1, edge='wrap', by=pair)",
+            "shift(p, along=generator, offset=1, edge='wrap', by=pair, within=[b0, b1])",
             {'snapshot', 'generator'},
             id='a-partition-grouped-by-two-columns-over-one-dimension-lands-nothing',
         ),
@@ -182,7 +182,7 @@ def namespace() -> Namespace:
             'at(p, by=rep_of, over=rep, into=snapshot)', {'snapshot', 'generator'}, id='and-so-does-its-pullback'
         ),
         pytest.param(
-            "shift(p, along=snapshot, offset=1, edge='wrap', by=rep_of)",
+            "shift(p, along=snapshot, offset=1, edge='wrap', by=rep_of, within=rep)",
             {'snapshot', 'generator'},
             id='a-partition-into-its-own-dimension',
         ),
@@ -279,7 +279,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
             id='a-pullback-needs-the-keys-it-joins-on',
         ),
         pytest.param(
-            "shift(cost, along=generator, offset=1, edge='wrap', by=gen_zone)",
+            "shift(cost, along=generator, offset=1, edge='wrap', by=gen_zone, within=zone)",
             r"by=gen_zone\) joins on \['snapshot'\]",
             id='a-partition-needs-the-keys-it-joins-on',
         ),
@@ -427,9 +427,11 @@ class TestTheEdgeRulesAreDecidedAtLoad:
         pytest.param('gen_zone == "z1"', {'generator', 'snapshot'}, id='a-two-key-relation-through-both-keys'),
         pytest.param('gen_zone', {'generator', 'snapshot'}, id='a-bare-two-key-relation-the-same'),
         pytest.param('rep_of == 3', {'snapshot'}, id='a-map-into-its-own-dimension-through-its-key'),
-        pytest.param('position(snapshot, by=rep_of) == 0', {'snapshot'}, id='a-position-within-a-representative'),
         pytest.param(
-            'position(generator, by=gen_zone) == 0',
+            'position(snapshot, by=rep_of, within=rep) == 0', {'snapshot'}, id='a-position-within-a-representative'
+        ),
+        pytest.param(
+            'position(generator, by=gen_zone, within=zone) == 0',
             {'generator', 'snapshot'},
             id='a-position-within-a-group-of-a-two-key-relation-reads-both-keys',
         ),

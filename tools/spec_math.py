@@ -38,11 +38,11 @@ OPERATORS = {
     "shift(array, along=dim, offset=n, edge='wrap')": 'shift_wrap',
     'shift(array, along=dim, offset=n, edge=v)': 'shift_edge',
     'shift(array, along=dim, offset=p, edge=…)': 'shift_by_parameter',
-    'shift(array, along=dim, offset=n, by=relation)': 'shift_partitioned',
+    'shift(array, along=dim, offset=n, by=relation, within=c)': 'shift_partitioned',
     'sum_back(array, along=dim, window=n)': 'sum_back',
     'sum_back(array, along=dim, window=p)': 'sum_back_by_parameter',
     "sum_back(array, along=dim, window=p, edge='wrap')": 'sum_back_wrap',
-    'sum_back(array, along=dim, window=n, by=relation)': 'sum_back_partitioned',
+    'sum_back(array, along=dim, window=n, by=relation, within=c)': 'sum_back_partitioned',
     'dual(constraint)': 'dual',
 }
 

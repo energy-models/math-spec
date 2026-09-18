@@ -51,7 +51,7 @@ class UnresolvedComparisonNode:
 
 @dataclass(frozen=True)
 class UnresolvedPositionNode:
-    """``position(dim[, by=relation[, within=columns]]) <op> i`` before the names are checked; ``resolution.py`` types it."""
+    """``position(dim[, by=relation, within=columns]) <op> i`` before the names are checked; ``resolution.py`` types it."""
 
     dimension: str
     op: PredicateOperator
@@ -77,7 +77,7 @@ class _Quoted(str):
 
 
 def _position_comparison(tokens: pp.ParseResults) -> UnresolvedPositionNode:
-    """``position(dim[, by=relation[, within=columns]]) <op> i`` off the tokens the grammar captured."""
+    """``position(dim[, by=relation, within=columns]) <op> i`` off the tokens the grammar captured."""
     dimension, *call, op, at = tokens
     by = str(call[0]) if call else None
     into = tuple(str(token) for token in call[1]) if len(call) > 1 else None

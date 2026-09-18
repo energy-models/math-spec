@@ -35,8 +35,7 @@ Four rules follow from the test:
   depend on which engine builds the model.
 
 A `piecewise:` block expands into ordinary variables and constraints, so the
-language decides that expansion too. Otherwise two engines could build two
-different curves from one block.
+language decides that expansion too.
 
 ## What each tool decides for itself
 

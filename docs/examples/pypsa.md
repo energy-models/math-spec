@@ -6,33 +6,23 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA in one file
 
 The model a plain `n.optimize()` builds, stated as one file and grown a rung
-at a time towards
-[milestone 1](https://github.com/energy-models/math-spec/milestone/1). The
-index below lists every row PyPSA emits (PyPSA `1.3.0`,
-`pypsa/optimization/`) and links each to its block in the file once it is
-there. The blocks are generated, so a row that stops loading or changes its
-math fails CI.
+at a time. The index below lists every row PyPSA emits (PyPSA `1.3.0`,
+`pypsa/optimization/`) and links each to its block in the file.
 
 Three rules shape the file. Bounds are the explicit rows PyPSA writes, so
-their duals are row duals. Regimes are data columns and `where:` masks, never
-file variants. Names are PyPSA's, `Component_attribute`, with a symbol table
+their duals are row duals. Regimes are data columns and `where:` masks. Names are PyPSA's, `Component_attribute`, with a symbol table
 (`examples/symbols/pypsa.yaml`) making the math read as math.
 
 ## Index
 
-A row is **done** and links once the file states it as the one block PyPSA
-builds — on this branch, as it stands; a fix still on its way stays
-not-done, its PR or issue in the note. Three words say the distance:
-**split** — the same feasible region and optimum under a different
-statement: several `where:` blocks, or a bookkeeping difference the note
-names · **open** — not stated yet · **out** — never stated, deliberately:
-emitted only under the keyword, scope or version the note names. A name carrying `{k}` or `{s}` stands for the family PyPSA numbers per segment or scenario.
+A row is **done** once the file states it as the one block PyPSA builds.
+**split** means the same feasible region and optimum under a different
+statement, such as several `where:` blocks. **open** means not stated yet.
+**out** means never stated, deliberately: emitted only under the keyword,
+scope or version the note names. A name carrying `{k}` or `{s}` stands for the
+family PyPSA numbers per segment or scenario.
 
-Each rung's banner below states what PyPSA solved its reference network
-to. What an engine makes of the same rung — the objective and prices across
-the fence, and the two linopy models label for label — is that engine's own
-record: lpspec certifies itself against these rungs under
-`differential/pypsa/` in its own tree.
+Each rung's banner states what PyPSA solved its reference network to.
 
 <!-- reference:spine:begin -->
 > Every rung's network is `spine.build()` plus the rung's own `n.add` calls, data inline; a keyword not passed is PyPSA's default. A banner states what PyPSA solved the rung to; how an engine binds the network to the file, and what it makes of it, is that engine's own record.
@@ -606,7 +596,7 @@ def build():
 | [`{c}-*-p-fixed-upper`](#generator-status-p-fixed-upper) | done | status, start and stop each at most one, as explicit rows |
 | [`{c}-com-transition-start-up/shut-down`](#generator-com-transition-start-up) | done | the state carried into a snapshot is a cased quantity, so the first snapshot needs no block of its own |
 | [`{c}-com-up-time`, `-down-time`](#generator-com-up-time) | done | `sum_back(window=min_up_time)`                    |
-| [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal, not a parameter |
+| [`{c}-com-status-*-must_stay_up`](#generator-com-status-min_up_time_must_stay_up) | done | the window is a prep mask — `position()` takes a literal |
 | [`stand_by_cost`, `start_up_cost`, `shut_down_cost`](#objective) | done |                                           |
 | [`{c}-com-p-before/-current/-partly-*`](pypsa_linearized_uc.md) | done | rung 12, a file of its own                          |
 

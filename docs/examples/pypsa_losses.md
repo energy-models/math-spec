@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA, the lossy lines
 
 Rung 13 of [PyPSA in one file](pypsa.md): `n.optimize(transmission_losses={'mode': 'tangents', 'segments': K})`, stated on rung 6's lines in a
-file of its own — the model's description below says why. Its network is the spine plus the script's own additions.
+file of its own. Its network is the spine plus the script's own additions.
 
 ## Rung 13 — transmission losses
 

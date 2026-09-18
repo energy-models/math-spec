@@ -19,6 +19,51 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.103](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.102...v0.0.0-alpha.103) (2026-09-18)
+
+
+### Documentation
+
+* the contributing page points at the generated-pages table rather than a stale count ([#555](https://github.com/energy-models/math-spec/issues/555)) ([796ca8a](https://github.com/energy-models/math-spec/commit/796ca8af49b9808d8cd8c3f838daab37692b2c16))
+
+## [0.0.0-alpha.102](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.101...v0.0.0-alpha.102) (2026-09-18)
+
+
+### Documentation
+
+* a rule states what is accepted and stops, rather than naming what it is not ([#552](https://github.com/energy-models/math-spec/issues/552)) ([1019b57](https://github.com/energy-models/math-spec/commit/1019b572a7be7695587b0a1a20bb32b1dbdc3781))
+* every page says what a model author needs and drops rationale, history and internals ([#551](https://github.com/energy-models/math-spec/issues/551)) ([ba6ad9a](https://github.com/energy-models/math-spec/commit/ba6ad9a8815d65da909dea3021162c17802ab9c5))
+
+## [0.0.0-alpha.101](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.100...v0.0.0-alpha.101) (2026-09-18)
+
+
+### Documentation
+
+* **language:** deciding what a column of data is declared as is a how-to, and the dimensions page keeps the axis ([#544](https://github.com/energy-models/math-spec/issues/544)) ([3540c5c](https://github.com/energy-models/math-spec/commit/3540c5c468f9421206aaea587e7b3daa41bacf48))
+* **language:** named expressions, cases and macros get a page, and the reported page folds into it ([#545](https://github.com/energy-models/math-spec/issues/545)) ([4e49fc7](https://github.com/energy-models/math-spec/commit/4e49fc7ca33e7c6ff703a5dc0ec054e5ec0b7ecb))
+* **language:** relations get a page of their own, and the operators page stops restating how a call reads one ([#543](https://github.com/energy-models/math-spec/issues/543)) ([7e9a572](https://github.com/energy-models/math-spec/commit/7e9a572798f73359be7731e84585fb9d90ea7c74))
+* **language:** the reference pages state their rules and stop arguing for them ([#546](https://github.com/energy-models/math-spec/issues/546)) ([efc9404](https://github.com/energy-models/math-spec/commit/efc9404e40d45db4b022ffd316486b073e2b3dff))
+* **language:** the relations page says what a relation is, how it is spelled, what its data owes, and how it is read, in that order ([#549](https://github.com/energy-models/math-spec/issues/549)) ([6f9e1a4](https://github.com/energy-models/math-spec/commit/6f9e1a45713578dc6d257ab30acb3b083db8aed3))
+* **language:** the six rules every walk through a relation keeps ([#539](https://github.com/energy-models/math-spec/issues/539)) ([6e93995](https://github.com/energy-models/math-spec/commit/6e93995363dd59e9525018a4b9162d5c05f3fe9a))
+* pinning a variable and writing a curve out by hand are how-tos ([#547](https://github.com/energy-models/math-spec/issues/547)) ([0bf0924](https://github.com/energy-models/math-spec/commit/0bf09243c822f7331faa238bdac7c8239d1a5d05))
+* reading a loaded model sits beside the Python API rather than among the language pages ([#548](https://github.com/energy-models/math-spec/issues/548)) ([17d1e96](https://github.com/energy-models/math-spec/commit/17d1e96feaa4e5fde5ac9953e28e6e480ae8dc80))
+
+## [0.0.0-alpha.100](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.99...v0.0.0-alpha.100) (2026-09-18)
+
+
+### Features
+
+* **language:** a partition names the value columns it groups by, so a relation may gain one without changing the call ([#540](https://github.com/energy-models/math-spec/issues/540)) ([0da7f50](https://github.com/energy-models/math-spec/commit/0da7f502732618f3e4766afc712ad8306e8f0f70)), closes [#538](https://github.com/energy-models/math-spec/issues/538)
+
+## [0.0.0-alpha.99](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.98...v0.0.0-alpha.99) (2026-09-18)
+
+
+### Features
+
+* **language:** a call walks one relation, so by= names one rather than a list ([#533](https://github.com/energy-models/math-spec/issues/533)) ([b78135d](https://github.com/energy-models/math-spec/commit/b78135d7f55e8e5d5dad6eba1a37228283c4c635))
+* **language:** a relation names the columns its key determines under values: ([#504](https://github.com/energy-models/math-spec/issues/504)) ([d9b0371](https://github.com/energy-models/math-spec/commit/d9b03712a58e0eda8d78fabf79ddce9eb81d4ece))
+* **language:** a walk through a relation names both of its ends, and lands only on dimensions it brings ([#532](https://github.com/energy-models/math-spec/issues/532)) ([26f29b0](https://github.com/energy-models/math-spec/commit/26f29b00df45d6e18d4da4240af736d6a9c97999))
+
 ## [0.0.0-alpha.98](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.97...v0.0.0-alpha.98) (2026-09-18)
 
 

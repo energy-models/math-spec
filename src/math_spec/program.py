@@ -15,7 +15,7 @@ questions over the walk are :func:`walk_regions`, :func:`walk` and the filters
 beside them. A
 resolved ``where`` arrives as a :class:`Mask`. Frozen dataclasses only — no
 execution logic, and nothing imported from a consumer. How a consumer reads
-one: ``docs/reference/language/reading.md``.
+one: ``docs/reference/reading.md``.
 """
 
 from __future__ import annotations
@@ -521,8 +521,7 @@ class Direction(NamedTuple):
     relation): the join keys on them, and a value role left unnamed is not
     read. For a partition (``shift``, ``sum_back``, ``position``) ``consumed``
     is the key role over the dimension walked and ``produced`` the value roles
-    that make the group — every value role unless the call named some with
-    ``within=``.
+    that make the group, which are the ones ``within=`` named.
     """
 
     relation: RelationDeclaration

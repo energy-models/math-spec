@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # PyPSA, the multi-period class
 
 Rung 15 of [PyPSA in one file](pypsa.md): `n.optimize(multi_investment_periods=True)`, stated on rungs 1 and 3 in a
-file of its own — the model's description below says why. Its network is a whole one: eight snapshots over two investment periods, build years and lifetimes on the script.
+file of its own. Its network is a whole one: eight snapshots over two investment periods, build years and lifetimes on the script.
 
 ## Rung 15 — investment periods, with a growth limit
 
@@ -16,7 +16,7 @@ file of its own — the model's description below says why. Its network is a who
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
 | [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period a build stands in; `edge=0` at the first period |
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
-| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period)` has them; a later rung |
+| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period, within=period)` has them; a later rung |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.

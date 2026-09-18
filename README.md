@@ -318,7 +318,7 @@ turned into its variables and constraints. An engine reads the `Program`.
 
 <!--- --8<-- [end:load] -->
 
-[Reading a loaded model](docs/reference/language/reading.md) says what a tool
+[Reading a loaded model](docs/reference/reading.md) says what a tool
 gets from each.
 
 ## Why

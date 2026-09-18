@@ -303,7 +303,7 @@ a translation partitioned by a relation: the group rides on the operator
 ```yaml
 in_season:
   dims: [snapshot, generator]
-  expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of)
+  expression: p <= shift(p, along=snapshot, offset=1, edge='wrap', by=season_of, within=season)
 ```
 
 ```math
@@ -317,7 +317,7 @@ the same group, with a fill: each season's opening row is kept and given a zero
 ```yaml
 held_in_season:
   dims: [snapshot, generator]
-  expression: p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of)
+  expression: p <= shift(p, along=snapshot, offset=1, edge=0, by=season_of, within=season)
 ```
 
 ```math
@@ -359,7 +359,7 @@ a window partitioned by a relation: the group rides on the operator
 ```yaml
 seasonal_window:
   dims: [snapshot, generator]
-  expression: sum_back(on, along=snapshot, window=3, by=season_of) <= units
+  expression: sum_back(on, along=snapshot, window=3, by=season_of, within=season) <= units
 ```
 
 ```math
@@ -515,7 +515,7 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 ```yaml
 zonal_pullback:
   dims: [snapshot, generator]
-  where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
+  where: "gen_zone == 'north' AND position(generator, by=gen_zone, within=zone) == 0"
   expression: p <= at(spill * zone_cap, by=gen_zone, into=generator, over=zone)
 ```
 
@@ -590,7 +590,7 @@ a position in a dimension, and the same position within a group
 ```yaml
 first:
   dims: [snapshot, generator]
-  where: "position(snapshot) == 0 OR position(snapshot, by=season_of) == 0"
+  where: "position(snapshot) == 0 OR position(snapshot, by=season_of, within=season) == 0"
   expression: on == 1
 ```
 
@@ -605,7 +605,7 @@ the same two counted from the end, which print against a size rather than as the
 ```yaml
 last:
   dims: [snapshot, generator]
-  where: "position(snapshot) == -1 OR position(snapshot, by=season_of) == -1"
+  where: "position(snapshot) == -1 OR position(snapshot, by=season_of, within=season) == -1"
   expression: on == 0
 ```
 

@@ -53,8 +53,9 @@ class Builtin:
     #: above — this says only that the operator has an answer without them.
     optional_kwargs: tuple[str, ...] = ()
     #: Kwargs required exactly when the call addresses a relation. A call
-    #: through a relation names both of its ends, so that adding a value
-    #: column to the relation cannot change what an existing call means.
+    #: names both of its ends and a partition names the columns it groups by,
+    #: so that adding a value column to the relation cannot change what an
+    #: existing call means.
     with_relation: tuple[str, ...] = ()
 
     @property
@@ -92,7 +93,8 @@ class Builtin:
 #: and a relation carries its own dimensions, so no sibling kwarg restates them.
 #: On ``shift`` and ``sum_back`` it partitions the axis the operator steps along: it
 #: says which rows are neighbours, not which group a term lands in, and
-#: ``within=`` names the columns whose values that group is read from.
+#: ``within=`` names the value columns the group is made of, on every call
+#: that names a ``by=``.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
         'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>, over=<column>, into=<column>)',
@@ -109,22 +111,24 @@ BUILTINS: dict[str, Builtin] = {
         with_relation=('over', 'into'),
     ),
     'sum_back': Builtin(
-        "sum_back(<expr>, along=<dim>, window=<n|parameter>[, edge='wrap'][, by=<relation>[, within=<column>]])",
+        "sum_back(<expr>, along=<dim>, window=<n|parameter>[, edge='wrap'][, by=<relation>, within=<column>])",
         dimension_kwargs=('along',),
         relation_kwargs=('by',),
         role_kwargs=('within',),
         required_value_kwargs=('window',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by', 'within'),
+        optional_kwargs=('by',),
+        with_relation=('within',),
     ),
     'shift': Builtin(
-        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>[, within=<column>]])",
+        "shift(<expr>, along=<dim>, offset=<n>[, edge='wrap'|<number>][, by=<relation>, within=<column>])",
         dimension_kwargs=('along',),
         relation_kwargs=('by',),
         role_kwargs=('within',),
         required_value_kwargs=('offset',),
         edge_kwargs=('edge',),
-        optional_kwargs=('by', 'within'),
+        optional_kwargs=('by',),
+        with_relation=('within',),
     ),
     'dual': Builtin('dual(<constraint>)'),
 }
@@ -160,12 +164,24 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     return None if fits else f'{name}() expects {builtin.usage}'
 
 
+#: Why a partition writes ``within=`` whenever it writes ``by=``; ``position()``
+#: in a where string says the same, so the sentence has one home.
+PARTITION_NAMES_ITS_GROUP = (
+    'A partition names the value columns it groups by, so that a relation may gain a value '
+    'column without changing what this call means.'
+)
+
+
 def unsaid_ends_error(name: str, unsaid: list[str]) -> str:
-    """Why a call through a relation has to write both of its ends."""
+    """Why a call through a relation has to write every column it reads: both ends of a read, the group of a partition."""
+    reason = (
+        PARTITION_NAMES_ITS_GROUP
+        if 'within' in BUILTINS[name].with_relation
+        else 'A call names both of its ends, so that a relation may gain a value column without changing what this call means.'
+    )
     return (
         f'{name}() through a relation leaves {", ".join(f"{k}=" for k in unsaid)} unsaid.\n'
-        f'A call names both of its ends, so that a relation may gain a value '
-        f'column without changing what this call means.\n'
+        f'{reason}\n'
         f'Write: {BUILTINS[name].usage}'
     )
 

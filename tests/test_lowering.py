@@ -436,7 +436,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-offset-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'shift(p, along=g, offset=1, by=lk, edge=0)',
+            'shift(p, along=g, offset=1, by=lk, within=h, edge=0)',
             Translate(
                 Variable('p'),
                 'g',
@@ -458,7 +458,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
             id='a-named-width-crosses-as-the-parameter-name',
         ),
         pytest.param(
-            'sum_back(p, along=g, window=2, by=lk)',
+            'sum_back(p, along=g, window=2, by=lk, within=h)',
             Window(
                 Variable('p'),
                 'g',
@@ -476,6 +476,41 @@ def test_a_construct_lowers_to_its_node(shapes_schema, expression, expected):
     assert lowered == expected, 'the whole frozen node, so no field is asserted by omission'
 
 
+def test_a_partition_keeps_its_group_when_the_relation_gains_a_value_column():
+    """`within=` is what the call groups by, so a calendar that gains a `week` column regroups no `shift` through it (#538).
+
+    With `within=` optional, an omitted one meant every value column, and the
+    same call grouped by `('day',)` on one calendar and `('day', 'week')` on the
+    next.
+    """
+    grouping = {}
+    for values in ('day', ['day', 'week']):
+        program = to_program(
+            {
+                'dimensions': {'hour': {'dtype': 'int'}, 'day': {}, 'week': {}},
+                'relations': {'cal': {'key': 'hour', 'values': values}},
+                'variables': {'p': {'dims': ['hour']}},
+                'constraints': {
+                    'k': {
+                        'dims': ['hour'],
+                        'expression': 'p >= shift(p, along=hour, offset=1, edge=0, by=cal, within=day)',
+                    }
+                },
+            }
+        )
+        grouping[str(values)] = _partition_of(program.constraints['k']).produced
+    assert grouping == {'day': ('day',), "['day', 'week']": ('day',)}, (
+        'the group is the columns the call named, on both calendars'
+    )
+
+
+def _partition_of(row):
+    """The one partition a constraint row's expression carries."""
+    nodes = [*walk(row.lhs), *walk(row.rhs)]
+    [partition] = [node.partition for node in nodes if isinstance(node, Translate | Window)]
+    return partition
+
+
 def test_a_relation_lowers_with_the_walk_each_call_takes():
     """Every node reading a relation carries its columns, its key and the walk, so a consumer joins on the right columns."""
     program = to_program(
@@ -485,7 +520,10 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
             'parameters': {'price': {'dims': ['snapshot', 'zone']}},
             'variables': {
                 'p': {'dims': ['snapshot', 'generator'], 'where': "zone_of == 'A' AND zone_of"},
-                'first': {'dims': ['snapshot', 'generator'], 'where': 'position(generator, by=zone_of) == 0'},
+                'first': {
+                    'dims': ['snapshot', 'generator'],
+                    'where': 'position(generator, by=zone_of, within=zone) == 0',
+                },
             },
             'constraints': {
                 'zonal': {
