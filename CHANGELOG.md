@@ -19,6 +19,20 @@ contained a literal `## [X.Y.Z]` heading, release-please inserts above the first
 `##` it finds, and so the entire release landed inside the comment and rendered
 nowhere.
 
+## [0.0.0-alpha.101](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.100...v0.0.0-alpha.101) (2026-09-18)
+
+
+### Documentation
+
+* **language:** deciding what a column of data is declared as is a how-to, and the dimensions page keeps the axis ([#544](https://github.com/energy-models/math-spec/issues/544)) ([3540c5c](https://github.com/energy-models/math-spec/commit/3540c5c468f9421206aaea587e7b3daa41bacf48))
+* **language:** named expressions, cases and macros get a page, and the reported page folds into it ([#545](https://github.com/energy-models/math-spec/issues/545)) ([4e49fc7](https://github.com/energy-models/math-spec/commit/4e49fc7ca33e7c6ff703a5dc0ec054e5ec0b7ecb))
+* **language:** relations get a page of their own, and the operators page stops restating how a call reads one ([#543](https://github.com/energy-models/math-spec/issues/543)) ([7e9a572](https://github.com/energy-models/math-spec/commit/7e9a572798f73359be7731e84585fb9d90ea7c74))
+* **language:** the reference pages state their rules and stop arguing for them ([#546](https://github.com/energy-models/math-spec/issues/546)) ([efc9404](https://github.com/energy-models/math-spec/commit/efc9404e40d45db4b022ffd316486b073e2b3dff))
+* **language:** the relations page says what a relation is, how it is spelled, what its data owes, and how it is read, in that order ([#549](https://github.com/energy-models/math-spec/issues/549)) ([6f9e1a4](https://github.com/energy-models/math-spec/commit/6f9e1a45713578dc6d257ab30acb3b083db8aed3))
+* **language:** the six rules every walk through a relation keeps ([#539](https://github.com/energy-models/math-spec/issues/539)) ([6e93995](https://github.com/energy-models/math-spec/commit/6e93995363dd59e9525018a4b9162d5c05f3fe9a))
+* pinning a variable and writing a curve out by hand are how-tos ([#547](https://github.com/energy-models/math-spec/issues/547)) ([0bf0924](https://github.com/energy-models/math-spec/commit/0bf09243c822f7331faa238bdac7c8239d1a5d05))
+* reading a loaded model sits beside the Python API rather than among the language pages ([#548](https://github.com/energy-models/math-spec/issues/548)) ([17d1e96](https://github.com/energy-models/math-spec/commit/17d1e96feaa4e5fde5ac9953e28e6e480ae8dc80))
+
 ## [0.0.0-alpha.100](https://github.com/energy-models/math-spec/compare/v0.0.0-alpha.99...v0.0.0-alpha.100) (2026-09-18)
 
 
