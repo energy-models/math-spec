@@ -204,13 +204,6 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
     partition = node.kwargs.get('by')
     if partition is not None:
         assert isinstance(partition, RelationNode)
-        if len(partition.names) > 1:
-            raise DimensionError(
-                f'{context}: {node.name}(along={over.name}, by={partition.shown}) partitions by '
-                f'several relations at once. A partition says which rows are neighbours rather than '
-                f'which group a term lands in, so it names one relation — partition by a relation whose '
-                f'values already distinguish them.'
-            )
         _check_joined(f'{node.name}(along={over.name}, by={partition.shown})', partition, inner, context)
     return inner
 
@@ -235,22 +228,21 @@ def _check_lands_clear(call: str, produced: set[str], consumed: set[str], inner:
 
 def _check_joined(call: str, by: RelationNode, inner: frozenset[str], context: str) -> None:
     """The columns a walk joins on are read at their dimensions, so the operand carries every one, each once."""
-    for walk in by.walks:
-        dims = walk.joined_dims
-        if missing := sorted(set(dims) - inner):
-            raise DimensionError(
-                f'{context}: {call} joins on {missing} (columns {[r for r in walk.joined if walk.dim(r) in missing]} '
-                f"of '{walk.name}'), which the expression does not carry (dims {sorted(inner)}). A relation is "
-                f'walked between two of its columns and read at the others — index the operand by them, or '
-                f'walk between different columns.'
-            )
-        twice = sorted({d for d in dims if dims.count(d) > 1 or d in by.dimensions})
-        if twice:
-            raise DimensionError(
-                f"{context}: {call} joins '{walk.name}' on {twice} through more than one column, and the operand "
-                f'carries each dimension once. Give the walk different columns, or a relation whose joined '
-                f'columns are over distinct dimensions.'
-            )
+    walk = by.walk
+    dims = walk.joined_dims
+    if missing := sorted(set(dims) - inner):
+        raise DimensionError(
+            f'{context}: {call} joins on {missing} (columns {[r for r in walk.joined if walk.dim(r) in missing]} '
+            f"of '{walk.name}'), which the expression does not carry (dims {sorted(inner)}). A relation is "
+            f'walked between two of its columns and read at the others — index the operand by them, or '
+            f'walk between different columns.'
+        )
+    if twice := sorted({d for d in dims if dims.count(d) > 1 or d in by.dimensions}):
+        raise DimensionError(
+            f"{context}: {call} joins '{walk.name}' on {twice} through more than one column, and the operand "
+            f'carries each dimension once. Give the walk different columns, or a relation whose joined '
+            f'columns are over distinct dimensions.'
+        )
 
 
 #: The dim rule of each built-in, by name.
@@ -430,7 +422,7 @@ def _check_named_amount(node: FunctionCallNode, over: str, inner: frozenset[str]
         )
     partition = node.kwargs.get('by')
     groups = (
-        frozenset(partition.walks[0].dim(v) for v in partition.walks[0].produced)
+        frozenset(partition.walk.dim(v) for v in partition.walk.produced)
         if isinstance(partition, RelationNode)
         else frozenset()
     )

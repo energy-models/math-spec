@@ -182,44 +182,6 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$
 
-### `sum(array, by=[relation, …], over=a, into=[b, …])`
-
-`examples/operators/sum_by_relations.yaml`
-
-```yaml
-description: >-
-  Grouping through several maps at once — `sum(array, by=[relation, …], over=a, into=[b, …])` lands
-  the result on every dimension the relations map into, which is one grouping
-  rather than a composition of two: the generator dimension is consumed once.
-
-dimensions:
-  snapshot: { dtype: int }
-  generator: { dtype: str }
-  bus: { dtype: str }
-  technology: { dtype: str }
-
-relations:
-  gen_bus: { key: generator, values: bus }
-  gen_tech: { key: generator, values: technology }
-
-parameters:
-  limit: { dims: [snapshot, bus, technology] }
-
-variables:
-  p:
-    dims: [snapshot, generator]
-    bounds: { lower: 0 }
-
-constraints:
-  bus_technology_total:
-    dims: [snapshot, bus, technology]
-    expression: sum(p, by=[gen_bus, gen_tech], over=generator, into=[bus, technology]) <= limit
-
-objective: { sense: minimize, expression: sum(p) }
-```
-
-$`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$
-
 ### `at(array, by=relation, over=a, into=b)`
 
 `examples/operators/at.yaml`

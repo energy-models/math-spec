@@ -575,27 +575,30 @@ class _Resolver:
         roles: Mapping[str, ArithmeticNode],
         over: ArithmeticNode | None,
     ) -> ArithmeticNode:
-        """An operator's ``by=``, with the ``over=`` and ``into=`` that say how each relation is walked.
+        """An operator's ``by=``, with the ``over=`` and ``into=`` that say how the relation is walked.
 
         A relation carries its own dimensions, so the call names columns rather
-        than dims: ``over=`` the column consumed, ``into=`` the column produced,
-        every other key column joined on — a value column not walked is not
-        read, and a bare relation's columns are all key. Where the declaration
-        leaves one choice
-        — a key of one column, a value of one column — the call may leave it
-        unsaid. A bracketed list is one grouping through several tables at
-        once rather than a composition of groupings, so its members walk the
-        same dimension, take their defaults, and must not produce the same
-        dim twice.
+        than dims: ``over=`` the column consumed, ``into=`` the column
+        produced, every other key column joined on. A value column not walked
+        is not read, and a bare relation's columns are all key. One call
+        addresses one table, so several columns of one table are a list and
+        several tables are not.
         """
         names = names_in(value)
         if not names:
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a relation.')
             return value
+        if len(names) > 1:
+            self.errors.append(
+                f'{self.context}: {operator}({key}={shown(names)}) names {len(names)} relations, and one call '
+                f'walks one table. Declare one relation with the columns of all of them, or walk them in turn, '
+                f'one call each.'
+            )
+            return value
+        name = names[0]
 
-        problems = [p for p in (self._not_a_relation(n, operator, key) for n in names) if p is not None]
-        if problems:
-            self.errors.extend(problems)
+        if (problem := self._not_a_relation(name, operator, key)) is not None:
+            self.errors.append(problem)
             return value
         read = {k: self._role_name(v, operator, k) for k, v in roles.items()}
         if any(r is None for r in read.values()):
@@ -603,96 +606,20 @@ class _Resolver:
         named = {k: r for k, r in read.items() if r is not None}
         if operator in ('shift', 'sum_back'):
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            walks = [self._partition_walk(n, operator, over_dim, named.get('within')) for n in names]
+            walk = self._partition_walk(name, operator, over_dim, named.get('within'))
         else:
             if not ({'over', 'into'} <= set(named)):
                 return value  # the call shape refused it already, with the wording that names the rewrite
-            per = self._columns_per_relation(names, named, operator, key)
-            if per is None:
-                return value
-            walks = [self._walk(n, operator, per[n].get('over', ()), per[n].get('into', ())) for n in names]
-        if any(w is None for w in walks):
+            walk = self._walk(name, operator, named['over'], named['into'])
+        if walk is None:
             return value
-        resolved = [w for w in walks if w is not None]
 
-        partition = operator in ('shift', 'sum_back')
-
-        def fine_of(w: Walk) -> tuple[str, ...]:
-            return w.produced_dims if operator == 'at' else w.consumed_dims
-
-        def coarse_of(w: Walk) -> tuple[str, ...]:
-            """The dims the call lands on — none for a partition, whose produced columns are a group, not a frame."""
-            if partition:
-                return ()
-            return w.consumed_dims if operator == 'at' else w.produced_dims
-
-        fine = {frozenset(fine_of(w)) for w in resolved}
-        if len(fine) > 1:
-            self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}) groups through relations along different '
-                f'dimensions ({", ".join(f"{w.name} along {sorted(fine_of(w))}" for w in resolved)}). One grouping '
-                f'consumes one set of dimensions, so every relation in the list must walk the same — group through '
-                f'them in turn instead, one call each.'
-            )
-            return value
-        coarse = tuple(dim for w in resolved for dim in coarse_of(w))
-        repeated = sorted({t for t in coarse if coarse.count(t) > 1})
-        if repeated:
-            self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}) produces {repeated} more than once. '
-                f'Each column walked to produces its own dimension, so two that land on the '
-                f'same one would need it twice — drop one.'
-            )
-            return value
-        return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
-
-    def _columns_per_relation(
-        self, names: tuple[str, ...], named: dict[str, tuple[str, ...]], operator: str, key: str
-    ) -> dict[str, dict[str, tuple[str, ...]]] | None:
-        """Which of the named columns belong to each relation in a ``by=``; the refusal where that is not decided.
-
-        A list is one grouping through several tables, so the two sides are
-        addressed differently. Every relation walks the *same* dimensions on
-        the side the grouping shares — the consumed side of a ``sum``, the
-        produced side of an ``at`` — so a column named there is a column each
-        one declares. The other side is where the tables differ, so each
-        column there belongs to exactly one of them. A single relation takes
-        both sides whole.
-        """
-        if len(names) == 1:
-            return {names[0]: dict(named)}
-        shared, apiece = ('over', 'into') if operator == 'sum' else ('into', 'over')
-        per: dict[str, dict[str, tuple[str, ...]]] = {n: {} for n in names}
-        for role in named.get(shared, ()):
-            if absent := [n for n in names if role not in self.ns.shape_of(n).roles]:
-                self.errors.append(
-                    f'{self.context}: {operator}({key}={shown(names)}, {shared}={role}): {absent} '
-                    f'{"declares" if len(absent) == 1 else "declare"} no column {role!r}, and one grouping through '
-                    f'several tables walks them all the same way. Name a column every relation declares, or group '
-                    f'through them in turn, one call each.'
-                )
-                return None
-            for n in names:
-                per[n][shared] = (*per[n].get(shared, ()), role)
-        for role in named.get(apiece, ()):
-            owners = tuple(n for n in names if role in self.ns.shape_of(n).roles)
-            if len(owners) != 1:
-                whose = f'belongs to {list(owners)}' if owners else 'is a column of none of them'
-                self.errors.append(
-                    f'{self.context}: {operator}({key}={shown(names)}, {apiece}={role}): {role!r} {whose}, so '
-                    f'nothing says which table this call walks it through. Name a column one relation declares.'
-                )
-                return None
-            per[owners[0]][apiece] = (*per[owners[0]].get(apiece, ()), role)
-        for name in names:
-            if unsaid := sorted({'over', 'into'} - set(per[name])):
-                self.errors.append(
-                    f'{self.context}: {operator}({key}={shown(names)}): '
-                    f"'{name}' is named no {', '.join(f'{k}=' for k in unsaid)} column, and a walk names both of "
-                    f'its ends. Its columns are {list(self.ns.shape_of(name).roles)}.'
-                )
-                return None
-        return per
+        fine = walk.produced_dims if operator == 'at' else walk.consumed_dims
+        if operator in ('shift', 'sum_back'):
+            coarse: tuple[str, ...] = ()
+        else:
+            coarse = walk.consumed_dims if operator == 'at' else walk.produced_dims
+        return RelationNode(name, dimensions=fine, into=coarse, walk=walk)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""

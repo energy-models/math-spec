@@ -457,10 +457,10 @@ class Walk:
             by = node.kwargs['by']
             assert isinstance(by, RelationNode)
             outer = ctx
-            for walk in by.walks:
-                at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
-                for read in walk.consumed:
-                    ctx = ctx.pulled_back(walk.dim(read), self._relation_read(walk, at, read))
+            walk = by.walk
+            at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
+            for read in walk.consumed:
+                ctx = ctx.pulled_back(walk.dim(read), self._relation_read(walk, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
@@ -469,7 +469,7 @@ class Walk:
             inner = ctx
             for d in by.dimensions:
                 dummies[d], inner = inner.reducing(d)
-            conditions = [c for walk in by.walks for c in self._grouping(walk, dummies, ctx)]
+            conditions = list(self._grouping(by.walk, dummies, ctx))
             domain = (
                 f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
@@ -515,7 +515,7 @@ class Walk:
         if by is None:
             return ''
         assert isinstance(by, RelationNode)
-        walk = by.walks[0]
+        walk = by.walk
         at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
         return self._tuple([self._relation_read(walk, at, r) for r in walk.produced])
 

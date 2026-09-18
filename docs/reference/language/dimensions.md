@@ -198,16 +198,9 @@ and the joined `period` is the second subscript.
   just consumed.
 - **`into=` needs a `by=`**, because a column belongs to a table. `over=`
   without a `by=` names a dimension, as in `sum(p, over=period)`.
-
-`by=[a, b]` is one grouping through several tables at once. The relations share
-the side the grouping walks them all along, and differ on the other. So the
-shared side names a column each one declares, and the other names a column of
-exactly one:
-
-```yaml
-sum(p, by=[gen_bus, gen_tech], over=generator, into=[bus, technology])
-at(tech_cap, by=[gen_bus, gen_tech], over=[bus, technology], into=generator)
-```
+- **One call walks one table.** `by=` names a single relation. To land on
+  columns of two tables at once, declare one relation holding the columns of
+  both, as `gen_bt` does above; to walk them in turn, write one call each.
 
 Five refusals draw the line, and each message names the rewrite:
 
