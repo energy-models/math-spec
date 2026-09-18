@@ -142,8 +142,7 @@ binds.
 | `lp`                    | no weights at all: one row per segment line, plus two rows holding the domain   | the curve as its own lines                                     |
 
 `adjacency` and `sos2` state the same restriction and reach the same optimum.
-They differ in what the solver is handed, so which is faster is a property of the
-solver.
+They differ in what the solver is handed.
 
 `convex` is a different model. It is exact only for a curve whose curvature
 matches the optimisation pressure, and that match is checked against the
@@ -167,21 +166,17 @@ cost_curve:
 ```
 
 `lp` trades columns for rows: one row per segment plus the two domain rows, in
-place of one weight column per breakpoint. On a dispatch model with 20
-generators, 48 snapshots and 6 breakpoints, that is 7680 columns down to 1920
-and 2928 rows up to 6768, at the same optimum
+place of one weight column per breakpoint, at the same optimum
 ([#926](https://github.com/fluxopt/lpspec/pull/926)). Two things follow from
 stating lines rather than weights:
 
-- **The curvature has to match the sign.** Lines that envelope a convex curve
-  cut a concave one, and the solve then comes back optimal with a wrong answer.
-  So `>=` requires a convex curve and `<=` a concave one, checked against the
-  values when the data binds. This check is stricter than the one `convex` runs,
-  which only refuses a mixed curve.
+- **The curvature has to match the sign.** `>=` requires a convex curve and
+  `<=` a concave one, checked against the values when the data binds. This
+  check is stricter than the one `convex` runs, which only refuses a mixed
+  curve.
 - **A line does not stop where its segment does.** The two domain rows hold the
   pinned link inside the breakpoint range, so the formulation cannot extrapolate
-  along the end segments. They are the same rows that `linopy`'s own `lp` method
-  emits.
+  along the end segments.
 
 ### Writing the curve out by hand
 

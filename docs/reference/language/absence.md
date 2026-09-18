@@ -136,12 +136,8 @@ spread absence.
 A missing parameter row can leave a row with nothing to decide, such as
 `0 == load` at a bus with no generator. Such a row is not built, whatever left it
 in that shape. An expression that names no variable _in the file_ is a different
-case, and it is refused at load, where the message can quote the line.
-
-The engine that builds the model is the one that knows which rows it did not
-build, so it is the engine that reports them: rows lost to a mask, to a deleted
-variable, and to this rule. The first row of a storage balance is always among
-them, and that is the start of the recurrence rather than a bug.
+case, and it is refused at load. The engine that builds the model reports the
+rows it did not build.
 
 ## Reported values
 

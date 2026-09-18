@@ -82,8 +82,7 @@ point of the frame is a **coordinate**, here one snapshot for one generator.
 ### The rules that keep the cases apart
 
 - **No two cases may claim one coordinate.** If two `when:` masks can hold at
-  once, the file is refused at load, and the message names the pair, a
-  coordinate both claim, and the rewrite:
+  once, the file is refused at load:
 
   > `Named expression 'previous_status'`: cases `always_on` and `boundary` both
   > claim the value where committable is false, the position of snapshot is 0. A
@@ -91,29 +90,23 @@ point of the frame is a **coordinate**, here one snapshot for one generator.
   > two `when:` strings by the negation of the other, or drop the wider one and
   > let `otherwise:` carry that region.
 
-  That is why `boundary` above says `committable and`. The cases carry no order,
-  so a tool that re-sorts the keys of a file cannot change what it means.
+  That is why `boundary` above says `committable and`. The cases carry no order.
 
 - **A `when:` must be a question the data answers.** `True`, `False`, and a mask
-  that folds to one of them, such as `committable OR True`, are refused. A mask
-  that admits every row leaves `otherwise:` nothing, and one that admits none
-  never applies. A declaration's `where:` is not held to this rule, because
-  there `False` means no rows and `True` means no mask.
+  that folds to one of them, such as `committable OR True`, are refused. A
+  declaration's `where:` is not held to this rule.
 
 - **A pair the check cannot decide is refused.** `position(snapshot) == 0`
   against `position(snapshot) == -1` pick the same row on an axis with one
   member, and how many members an axis has is data. Count from one end only.
 
-- **`otherwise:` is required.** It carries no mask, so it has to hold at every
-  coordinate the cases leave. Without it a coordinate no `when` matched would
-  have no value, and absence [spreads](absence.md), so a constraint reading the
-  expression would lose rows it never masked.
+- **`otherwise:` is required.** It carries no mask, and it holds at every
+  coordinate the cases leave.
 
 - **`dims:` is required with cases, and refused without them.** A case may be
-  a single number while its `when:` ranges over dimensions, as `always_on` does,
-  so the frame cannot fall out of the body. Each `when:` and each value must sit
-  inside the frame. The dimensions of a reference are the declared `dims`,
-  and a narrower case broadcasts as a parameter with fewer dimensions does.
+  a single number while its `when:` ranges over dimensions, as `always_on` does.
+  Each `when:` and each value must sit inside the frame, and a narrower case
+  broadcasts as a parameter with fewer dimensions does.
 
 Claiming a coordinate is not the same as having a value there. The `otherwise:`
 above carries no `edge=`, so its `shift` has no value at the first snapshot, and
@@ -164,17 +157,14 @@ variable in it, such as `(1 + rate) ** period`, is reported all the same.
 
 ### Which restrictions do not apply
 
-The math carries its restrictions because a solver has to build it. A reported
-body is built by nothing, so:
+A reported body is built by no solver, so:
 
 - **There is no degree limit.** `system_cost / delivered` divides one variable
   quantity by another, and `p * p * p` is allowed.
 - **A divisor, a base or an exponent may carry variables, and may be a sum.**
   In the math, `/` and `**` need a variable-free single factor. Here
   `x / (a + b)` and `(1 + rate) ** period` need no precomputed parameter.
-- **Both factors of a product may be sums.** The
-  [one-sum-factor rule](expressions.md#where-a-product-of-two-variables-is-allowed)
-  is about how many rows a product builds, and a reported body builds none.
+- **Both factors of a product may be sums.**
 
 A comparison stays out: an `expressions:` body is arithmetic, and `>=` belongs
 to a constraint.
@@ -192,8 +182,7 @@ by a parameter, or precompute the reciprocal as one.
 ```
 
 The message names the constraint and the operation, not the entry `lcoe`,
-because expansion has already substituted `lcoe` away. If a constraint needs a
-quantity, move that quantity into an entry whose shape the math can read.
+because expansion has already substituted `lcoe` away.
 
 ### Reading a constraint's dual
 
@@ -216,8 +205,7 @@ keep the entry that carries it out of constraints, the objective, bounds and whe
 
 The sign is fixed by the file. `dual(c)` is the rate at which the optimal
 objective improves as `c` is relaxed in the direction its comparator points,
-under the model's own `minimize` or `maximize`. A solver that normalises signs
-its own way reconciles its representation, not the language's.
+under the model's own `minimize` or `maximize`.
 
 A row that a constraint's `where:` deletes has no dual, so `dual(c)` has no
 value there. A solver may also return no dual for a row that would have one in a
