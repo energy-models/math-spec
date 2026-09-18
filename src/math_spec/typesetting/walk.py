@@ -292,7 +292,7 @@ class Walk:
         column of it is a key column, so the row is written out:
         ``(g, b) ∈ connection``.
         """
-        if self.schema.relations[name].values:
+        if self.schema.relations[name].value_roles:
             applied = self.format.apply(self.format.upright(name), self.format.joined(key, ''))
             return f'{applied} {self.format.prose(" is defined")}'
         row = self.format.parenthesise(self.format.joined(key, ''))
@@ -301,8 +301,8 @@ class Walk:
     def _value_read(self, name: str, column: str, ctx: _Context) -> str:
         """A keyed relation's value *column* read at the frame's own indices of its key: ``period_of(t)``."""
         lk = self.schema.relations[name]
-        keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
-        return self.format.apply(self._column(name, column, len(lk.values) == 1), keyed)
+        keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.key_roles], '')
+        return self.format.apply(self._column(name, column, len(lk.value_roles) == 1), keyed)
 
     def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
         """The group a grouped position counts within: the relation's group columns read at the row's key."""
@@ -457,10 +457,10 @@ class Walk:
             by = node.kwargs['by']
             assert isinstance(by, RelationNode)
             outer = ctx
-            for walk in by.walks:
-                at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
-                for read in walk.consumed:
-                    ctx = ctx.pulled_back(walk.dim(read), self._relation_read(walk, at, read))
+            walk = by.walk
+            at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
+            for read in walk.consumed:
+                ctx = ctx.pulled_back(walk.dim(read), self._relation_read(walk, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
@@ -469,7 +469,7 @@ class Walk:
             inner = ctx
             for d in by.dimensions:
                 dummies[d], inner = inner.reducing(d)
-            conditions = [c for walk in by.walks for c in self._grouping(walk, dummies, ctx)]
+            conditions = list(self._grouping(by.walk, dummies, ctx))
             domain = (
                 f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
@@ -515,7 +515,7 @@ class Walk:
         if by is None:
             return ''
         assert isinstance(by, RelationNode)
-        walk = by.walks[0]
+        walk = by.walk
         at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
         return self._tuple([self._relation_read(walk, at, r) for r in walk.produced])
 
@@ -615,7 +615,7 @@ class Walk:
 
         if isinstance(node, RelationDefinedNode):
             lk = self.schema.relations[node.name]
-            return self._relation_row(node.name, [ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys]), comparison
+            return self._relation_row(node.name, [ctx.subscript(dict(lk.pairs)[k]) for k in lk.key_roles]), comparison
 
         if isinstance(node, NotNode):
             return (
@@ -897,8 +897,10 @@ class Walk:
         def product(roles: Iterable[str]) -> str:
             return self.format.joined([self.symbols.set[columns[r]] for r in roles], self._op('times'))
 
-        if lk.values:
-            return f'{self.format.upright(name)}: {product(lk.keys)} {self._op("maps_to")} {product(lk.values)}'
+        if lk.value_roles:
+            return (
+                f'{self.format.upright(name)}: {product(lk.key_roles)} {self._op("maps_to")} {product(lk.value_roles)}'
+            )
         return f'{self.format.upright(name)} {self._op("subset_of")} {product(lk.roles)}'
 
     def _coords(self, dim: str, noticed: Noticed) -> str:

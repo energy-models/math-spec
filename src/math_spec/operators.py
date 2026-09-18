@@ -47,23 +47,22 @@ class Builtin:
     #: One meaning — what leaves the frame — read in the namespace ``by=``
     #: decides.
     dimension_or_role_kwargs: tuple[str, ...] = ()
-    #: Kwargs of which the call carries at most one. Members are excluded from
-    #: the required set; their kind still comes from the tuples above.
-    at_most_one_of: tuple[str, ...] = ()
     edge_kwargs: tuple[str, ...] = ()
     required_value_kwargs: tuple[str, ...] = ()
     #: Kwargs the call may omit. Their *kind* still comes from the tuples
     #: above — this says only that the operator has an answer without them.
     optional_kwargs: tuple[str, ...] = ()
+    #: Kwargs required exactly when the call addresses a relation. A walk
+    #: through a relation names both of its ends, so that adding a value
+    #: column to the relation cannot change what an existing call means.
+    with_relation: tuple[str, ...] = ()
 
     @property
     def required(self) -> frozenset[str]:
         """Every keyword the call must carry."""
         return (
-            (frozenset(self.dimension_kwargs) | frozenset(self.relation_kwargs) | frozenset(self.required_value_kwargs))
-            - frozenset(self.at_most_one_of)
-            - frozenset(self.optional_kwargs)
-        )
+            frozenset(self.dimension_kwargs) | frozenset(self.relation_kwargs) | frozenset(self.required_value_kwargs)
+        ) - frozenset(self.optional_kwargs)
 
     def kind_of(
         self, kwarg: str, *, with_relation: bool = False
@@ -96,17 +95,18 @@ class Builtin:
 #: ``within=`` names the columns whose values that group is read from.
 BUILTINS: dict[str, Builtin] = {
     'sum': Builtin(
-        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>[, over=<column>, into=<column>])',
+        'sum(<expr>), sum(<expr>, over=<dim>) or sum(<expr>, by=<relation>, over=<column>, into=<column>)',
         relation_kwargs=('by',),
         role_kwargs=('into',),
         dimension_or_role_kwargs=('over',),
-        optional_kwargs=('by', 'over', 'into'),
+        optional_kwargs=('by',),
+        with_relation=('over', 'into'),
     ),
     'at': Builtin(
-        'at(<expr>, by=<relation>[, over=<column>, into=<column>])',
+        'at(<expr>, by=<relation>, over=<column>, into=<column>)',
         relation_kwargs=('by',),
         role_kwargs=('over', 'into'),
-        optional_kwargs=('over', 'into'),
+        with_relation=('over', 'into'),
     ),
     'sum_back': Builtin(
         "sum_back(<expr>, along=<dim>, window=<n|parameter>[, edge='wrap'][, by=<relation>[, within=<column>]])",
@@ -150,16 +150,24 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     """Why a call to *name* does not fit its signature; ``None`` if it fits."""
     builtin = BUILTINS[name]
     keys = set(kwargs)
-    if len(keys & set(builtin.at_most_one_of)) > 1:
-        alternatives = ' or '.join(f'{k}=' for k in builtin.at_most_one_of)
-        return (
-            f'{name}() takes at most one of {alternatives} — a relation carries '
-            f'its own dimensions, so by= leaves over= nothing to add.\n'
-            f'Write: {builtin.usage}'
-        )
-    optional = {*builtin.edge_kwargs, *builtin.at_most_one_of, *builtin.optional_kwargs}
-    fits = positional == 1 and keys - optional == builtin.required
+    optional = {*builtin.edge_kwargs, *builtin.optional_kwargs}
+    walks = bool(keys & set(builtin.relation_kwargs))
+    required = builtin.required | frozenset(builtin.with_relation) if walks else builtin.required
+    optional |= set() if walks else set(builtin.with_relation)
+    if walks and (unsaid := sorted(frozenset(builtin.with_relation) - keys)):
+        return unsaid_ends_error(name, unsaid)
+    fits = positional == 1 and keys - optional == required
     return None if fits else f'{name}() expects {builtin.usage}'
+
+
+def unsaid_ends_error(name: str, unsaid: list[str]) -> str:
+    """Why a walk through a relation has to write both of its ends."""
+    return (
+        f'{name}() through a relation leaves {", ".join(f"{k}=" for k in unsaid)} unsaid.\n'
+        f'A walk names both of its ends, so that a relation may gain a value '
+        f'column without changing what this call means.\n'
+        f'Write: {BUILTINS[name].usage}'
+    )
 
 
 def unknown_operator_message(name: str) -> str:

@@ -11,7 +11,7 @@ dimensions:
   season: { dtype: str }
 
 relations:
-  season_of: { key: snapshot, value: season }
+  season_of: { key: snapshot, values: season }
 
 variables:
   p:

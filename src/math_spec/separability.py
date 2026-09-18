@@ -116,8 +116,7 @@ def separabilities(program: Program) -> dict[str, Separability]:
                     )
             elif isinstance(node, At):
                 for dimension in node.into:
-                    for relation in node.coordinate:
-                        waits_on(dimension, label, relation, 'coordinate')
+                    waits_on(dimension, label, node.relation, 'coordinate')
             elif isinstance(node, (Translate, Window)):
                 dimension = node.dimension
                 if node.wrap:

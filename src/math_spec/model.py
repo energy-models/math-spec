@@ -171,15 +171,15 @@ class RelationBlock(_StrictBlock):
 
     Each side is a dimension, a list of them, or a mapping of column name to
     dimension where two columns share one. ``key:`` is the claim the language
-    checks at bind: one row per key tuple, so every ``value:`` column is a
-    function of it. A relation with no ``value:`` is **bare** — every column is
+    checks at bind: one row per key tuple, so every ``values:`` column is a
+    function of it. A relation with no ``values:`` is **bare** — every column is
     in its key, a row is its own identity, and nothing reads it::
 
         relations:
-          gen_bus: {key: generator, value: bus}
-          gen_bt: {key: [generator], value: [bus, technology]}
-          zone_of: {key: [generator, period], value: zone}
-          ends: {key: line, value: {bus0: bus, bus1: bus}}
+          gen_bus: {key: generator, values: bus}
+          gen_bt: {key: [generator], values: [bus, technology]}
+          zone_of: {key: [generator, period], values: zone}
+          ends: {key: line, values: {bus0: bus, bus1: bus}}
           connection: {key: [generator, bus]}
 
     An operator walks the table in the direction the call names
@@ -191,7 +191,7 @@ class RelationBlock(_StrictBlock):
     _label: ClassVar[str] = 'a relation declaration'
 
     key: str | list[str] | dict[str, str]
-    value: str | list[str] | dict[str, str] | None = None
+    values: str | list[str] | dict[str, str] | None = None
     description: str | None = None
 
     @property
@@ -201,7 +201,7 @@ class RelationBlock(_StrictBlock):
         The program calls the same thing :attr:`~math_spec.program.RelationDeclaration.columns`;
         here the table has no field of its own, being what the two sides make.
         """
-        return (*_side(self.key), *_side(self.value))
+        return (*_side(self.key), *_side(self.values))
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -212,14 +212,14 @@ class RelationBlock(_StrictBlock):
         return tuple(dim for _, dim in self.pairs)
 
     @property
-    def keys(self) -> tuple[str, ...]:
+    def key_roles(self) -> tuple[str, ...]:
         """The key roles, however ``key:`` was written."""
         return tuple(role for role, _ in _side(self.key))
 
     @property
-    def values(self) -> tuple[str, ...]:
+    def value_roles(self) -> tuple[str, ...]:
         """The roles the key determines; empty for a bare relation."""
-        return tuple(role for role, _ in _side(self.value))
+        return tuple(role for role, _ in _side(self.values))
 
 
 class DimensionBlock(_StrictBlock):
@@ -875,14 +875,14 @@ class Spec(_StrictBlock):
             if len(lk.pairs) < 2:
                 yield (
                     f"Relation '{lname}' has {len(lk.pairs)} column(s). A relation relates dimensions, so 'key:' and "
-                    f"'value:' name at least two between them — a label on one dimension is a parameter over it."
+                    f"'values:' name at least two between them — a label on one dimension is a parameter over it."
                 )
-            if not lk.keys:
+            if not lk.key_roles:
                 yield (
                     f"Relation '{lname}' names no key column. A relation is keyed by the columns a row is identified "
-                    f"by — name them under 'key:', and leave the columns they determine to 'value:'."
+                    f"by — name them under 'key:', and leave the columns they determine to 'values:'."
                 )
-            for side, written in (('key', lk.key), ('value', lk.value)):
+            for side, written in (('key', lk.key), ('values', lk.values)):
                 yield from (
                     f"Relation '{lname}' names dimension '{d}' twice under '{side}:'. Give the two columns roles: "
                     f'{side}: {{{d}0: {d}, {d}1: {d}}}.'
@@ -890,10 +890,10 @@ class Spec(_StrictBlock):
                     if count > 1 and not isinstance(written, dict)
                 )
             yield from (
-                f"Relation '{lname}' names column '{role}' under both 'key:' and 'value:'. A relation names each "
-                f'column once — name the value column after what it holds: value: {{<name>: {dict(lk.pairs)[role]}}}.'
-                for role in dict.fromkeys(lk.keys)
-                if role in lk.values
+                f"Relation '{lname}' names column '{role}' under both 'key:' and 'values:'. A relation names each "
+                f'column once — name the value column after what it holds: values: {{<name>: {dict(lk.pairs)[role]}}}.'
+                for role in dict.fromkeys(lk.key_roles)
+                if role in lk.value_roles
             )
             yield from (
                 undeclared_dimension('Relation', lname, d) for d in dict.fromkeys(lk.dims) if d not in self.dimensions
@@ -904,13 +904,13 @@ class Spec(_StrictBlock):
                 for role, dim in lk.pairs
                 if role in self.dimensions and role != dim
             )
-            if lk.values:
+            if lk.value_roles:
                 yield from (
                     f"Relation '{lname}' has two key columns over '{d}' "
-                    f'({[k for k in lk.keys if dict(lk.pairs)[k] == d]}). A key that determines a value is read at '
+                    f'({[k for k in lk.key_roles if dict(lk.pairs)[k] == d]}). A key that determines a value is read '
                     f'its dimensions, and no frame carries a dimension twice — key the table by one column over '
                     f'each, or leave one of them a value column.'
-                    for d, count in Counter(dict(lk.pairs)[k] for k in lk.keys).items()
+                    for d, count in Counter(dict(lk.pairs)[k] for k in lk.key_roles).items()
                     if count > 1
                 )
 

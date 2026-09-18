@@ -120,19 +120,18 @@ A parameter and a variable both declare `dims`, and every dimension
 argument is name-checked. So **the dimension set of every expression is known
 before any data binds**:
 
-| Node                             | Dim set                                   | Error                                                                                                                                                                                                 |
-| -------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| number                           | `{}`                                      |                                                                                                                                                                                                       |
-| parameter / variable             | its `dims`                                |                                                                                                                                                                                                       |
-| `-x`, `+x`                       | `dims(x)`                                 |                                                                                                                                                                                                       |
-| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`                       |                                                                                                                                                                                                       |
-| `sum(x)`                         | `{}`                                      | error if `dims(x)` is already empty                                                                                                                                                                   |
-| `sum(x, over=d)`                 | `dims(x) − {d}`                           | error if `d ∉ dims(x)`                                                                                                                                                                                |
-| `sum(x, by=l)`                   | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not in `dims(x)`, or if `l`'s key lies inside the columns `into=` names and the joined columns — that walk is a read, which is `at`'s |
-| `sum(x, by=[l, m])`              | `(dims(x) − from(l)) ∪ into(l) ∪ into(m)` | the same errors, plus an error if `l` and `m` consume different dimensions, or if they produce the same one                                                                                           |
-| `at(x, by=l)`                    | `(dims(x) − from(l)) ∪ into(l)`           | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not, or if `l` has no key inside the columns `into=` names                                                                            |
-| `shift(x, along=d, offset=n)`    | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                                                                                                |
-| `sum_back(x, along=d, window=n)` | `dims(x)`                                 | error if `d ∉ dims(x)`                                                                                                                                                                                |
+| Node                             | Dim set                         | Error                                                                                                                                                                                                 |
+| -------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| number                           | `{}`                            |                                                                                                                                                                                                       |
+| parameter / variable             | its `dims`                      |                                                                                                                                                                                                       |
+| `-x`, `+x`                       | `dims(x)`                       |                                                                                                                                                                                                       |
+| `a + b`, `a * b`, `a / b`        | `dims(a) ∪ dims(b)`             |                                                                                                                                                                                                       |
+| `sum(x)`                         | `{}`                            | error if `dims(x)` is already empty                                                                                                                                                                   |
+| `sum(x, over=d)`                 | `dims(x) − {d}`                 | error if `d ∉ dims(x)`                                                                                                                                                                                |
+| `sum(x, by=l, over=a, into=b)`   | `(dims(x) − from(l)) ∪ into(l)` | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not in `dims(x)`, or if `l`'s key lies inside the columns `into=` names and the joined columns — that walk is a read, which is `at`'s |
+| `at(x, by=l, over=a, into=b)`    | `(dims(x) − from(l)) ∪ into(l)` | error if `from(l) ⊄ dims(x)`, if a joined column's dimension is not, or if `l` has no key inside the columns `into=` names                                                                            |
+| `shift(x, along=d, offset=n)`    | `dims(x)`                       | error if `d ∉ dims(x)`                                                                                                                                                                                |
+| `sum_back(x, along=d, window=n)` | `dims(x)`                       | error if `d ∉ dims(x)`                                                                                                                                                                                |
 
 A binary operator takes the **union** of the two dimension sets, so an outer
 product is allowed wherever the declaration's own dimensions cover the result.
@@ -254,7 +253,7 @@ dimensions:
   snapshot: { dtype: int }
   period: { dtype: int }
 relations:
-  period_of: { key: snapshot, value: period }
+  period_of: { key: snapshot, values: period }
 parameters:
   soc_initial: { dims: [period] }
 variables:
@@ -263,7 +262,7 @@ constraints:
   soc_start:
     dims: [snapshot]
     where: "position(snapshot, by=period_of) == 0"
-    expression: soc == at(soc_initial, by=period_of)
+    expression: soc == at(soc_initial, by=period_of, over=period, into=snapshot)
 ```
 
 The relation must have a key column over the dimension being counted, and its

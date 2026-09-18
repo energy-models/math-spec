@@ -143,7 +143,7 @@ def lower_program(expanded: _ExpandedSpec) -> program.Program:
     dimensions = {
         dname: program.DimensionDeclaration(
             tuple(
-                program.RelationDeclaration(lname, lk.pairs, lk.keys)
+                program.RelationDeclaration(lname, lk.pairs, lk.key_roles)
                 for lname, lk in expanded.relations.items()
                 if dname in lk.dims
             ),
@@ -274,13 +274,13 @@ class _Lowering:
             assert isinstance(consumed, DimensionNode), 'resolution refuses a over= that is not a dimension'
             return program.Sum(operand, (consumed.name,))
         assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.GroupSum(operand, walks=by_node.walks)
+        return program.GroupSum(operand, walk=by_node.walk)
 
     def at(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``at(x, by=relation)`` — the adjoint of :meth:`sum`'s ``by=`` form."""
         by_node = node.kwargs['by']
         assert isinstance(by_node, RelationNode), 'resolution refuses a by= that is not a relation'
-        return program.At(self.expr(node.args[0]), walks=by_node.walks)
+        return program.At(self.expr(node.args[0]), walk=by_node.walk)
 
     def sum_back(self, node: FunctionCallNode) -> program.ExpressionNode:
         """``sum_back(x, along=d, window=w)`` — a trailing window along one dimension.
@@ -353,7 +353,7 @@ def _partition_of(node: FunctionCallNode) -> program.Walk | None:
     if by_node is None:
         return None
     assert isinstance(by_node, RelationNode)
-    return by_node.walks[0]
+    return by_node.walk
 
 
 def _bound_expression(value: float | str) -> program.ExpressionNode:

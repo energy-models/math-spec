@@ -96,26 +96,26 @@ relations:
   Generator_bus:
     description: the bus a generator sits on
     key: generator
-    value: bus
+    values: bus
   Link_bus0:
     description: the bus a link leaves
     key: link
-    value: bus
+    values: bus
   Link_output_link:
     description: the link an output port belongs to
     key: link_output
-    value: link
+    values: link
   Link_output_bus:
     description: >-
       the bus an output port delivers to — PyPSA's `bus1`, `bus2`, … columns.
       A link of three output ports is three labels here rather than a third
       relation, so the file states any number of them
     key: link_output
-    value: bus
+    values: bus
   Load_bus:
     description: the bus a load sits on
     key: load
-    value: bus
+    values: bus
 
 variables:
   Generator_p:
@@ -198,10 +198,10 @@ constraints:
       there
     dims: [scenario, snapshot, bus]
     expression: >-
-      sum(Generator_p, by=Generator_bus)
-      - sum(Link_p, by=Link_bus0)
-      + sum(at(Link_p, by=Link_output_link) * Link_efficiency, by=Link_output_bus)
-      == sum(Load_p_set, by=Load_bus)
+      sum(Generator_p, by=Generator_bus, over=generator, into=bus)
+      - sum(Link_p, by=Link_bus0, over=link, into=bus)
+      + sum(at(Link_p, by=Link_output_link, over=link, into=link_output) * Link_efficiency, by=Link_output_bus, over=link_output, into=bus)
+      == sum(Load_p_set, by=Load_bus, over=load, into=bus)
   CVaR_excess:
     description: "`CVaR-excess-{s}` — a scenario's operating cost beyond the tail's start is its excess; PyPSA names one row per scenario"
     dims: [scenario]

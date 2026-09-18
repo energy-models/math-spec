@@ -135,7 +135,7 @@ class Namespace:
             schema.variables,
             schema.parameters,
             schema.dimensions,
-            {n: RelationDeclaration(n, lk.pairs, lk.keys) for n, lk in schema.relations.items()},
+            {n: RelationDeclaration(n, lk.pairs, lk.key_roles) for n, lk in schema.relations.items()},
             {
                 **{p: pd.dtype for p, pd in schema.parameters.items()},
                 **{d: dd.dtype for d, dd in schema.dimensions.items()},
@@ -575,77 +575,51 @@ class _Resolver:
         roles: Mapping[str, ArithmeticNode],
         over: ArithmeticNode | None,
     ) -> ArithmeticNode:
-        """An operator's ``by=``, with the ``over=`` and ``into=`` that say how each relation is walked.
+        """An operator's ``by=``, with the ``over=`` and ``into=`` that say how the relation is walked.
 
         A relation carries its own dimensions, so the call names columns rather
-        than dims: ``over=`` the column consumed, ``into=`` the column produced,
-        every other key column joined on — a value column not walked is not
-        read, and a bare relation's columns are all key. Where the declaration
-        leaves one choice
-        — a key of one column, a value of one column — the call may leave it
-        unsaid. A bracketed list is one grouping through several tables at
-        once rather than a composition of groupings, so its members walk the
-        same dimension, take their defaults, and must not produce the same
-        dim twice.
+        than dims: ``over=`` the column consumed, ``into=`` the column
+        produced, every other key column joined on. A value column not walked
+        is not read, and a bare relation's columns are all key. One call
+        addresses one table, so several columns of one table are a list and
+        several tables are not.
         """
         names = names_in(value)
         if not names:
             self.errors.append(f'{self.context}: {operator}({key}=...) must name a relation.')
             return value
-
-        problems = [p for p in (self._not_a_relation(n, operator, key) for n in names) if p is not None]
-        if problems:
-            self.errors.extend(problems)
-            return value
-        if len(names) > 1 and roles:
+        if len(names) > 1:
             self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}, {", ".join(f"{k}=" for k in roles)}): a list '
-                f'walks each relation by its declared key and value, so a column keyword has nothing to name. '
-                f'Name one relation, or declare one table with the columns of both.'
+                f'{self.context}: {operator}({key}={shown(names)}) names {len(names)} relations, and one call '
+                f'walks one table. Declare one relation with the columns of all of them, or walk them in turn, '
+                f'one call each.'
             )
             return value
-        named = {k: self._role_name(v, operator, k) for k, v in roles.items()}
-        if any(r is None for r in named.values()):
+        name = names[0]
+
+        if (problem := self._not_a_relation(name, operator, key)) is not None:
+            self.errors.append(problem)
             return value
+        read = {k: self._role_name(v, operator, k) for k, v in roles.items()}
+        if any(r is None for r in read.values()):
+            return value
+        named = {k: r for k, r in read.items() if r is not None}
         if operator in ('shift', 'sum_back'):
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            walks = [self._partition_walk(n, operator, over_dim, named.get('within')) for n in names]
+            walk = self._partition_walk(name, operator, over_dim, named.get('within'))
         else:
-            walks = [self._walk(n, operator, named.get('over'), named.get('into')) for n in names]
-        if any(w is None for w in walks):
+            if not ({'over', 'into'} <= set(named)):
+                return value  # the call shape refused it already, with the wording that names the rewrite
+            walk = self._walk(name, operator, named['over'], named['into'])
+        if walk is None:
             return value
-        resolved = [w for w in walks if w is not None]
 
-        partition = operator in ('shift', 'sum_back')
-
-        def fine_of(w: Walk) -> tuple[str, ...]:
-            return w.produced_dims if operator == 'at' else w.consumed_dims
-
-        def coarse_of(w: Walk) -> tuple[str, ...]:
-            """The dims the call lands on — none for a partition, whose produced columns are a group, not a frame."""
-            if partition:
-                return ()
-            return w.consumed_dims if operator == 'at' else w.produced_dims
-
-        fine = {frozenset(fine_of(w)) for w in resolved}
-        if len(fine) > 1:
-            self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}) groups through relations along different '
-                f'dimensions ({", ".join(f"{w.name} along {sorted(fine_of(w))}" for w in resolved)}). One grouping '
-                f'consumes one set of dimensions, so every relation in the list must walk the same — group through '
-                f'them in turn instead, one call each.'
-            )
-            return value
-        coarse = tuple(dim for w in resolved for dim in coarse_of(w))
-        repeated = sorted({t for t in coarse if coarse.count(t) > 1})
-        if repeated:
-            self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}) produces {repeated} more than once. '
-                f'Each column walked to produces its own dimension, so two that land on the '
-                f'same one would need it twice — drop one.'
-            )
-            return value
-        return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
+        fine = walk.produced_dims if operator == 'at' else walk.consumed_dims
+        if operator in ('shift', 'sum_back'):
+            coarse: tuple[str, ...] = ()
+        else:
+            coarse = walk.consumed_dims if operator == 'at' else walk.produced_dims
+        return RelationNode(name, dimensions=fine, into=coarse, walk=walk)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
@@ -662,17 +636,17 @@ class _Resolver:
         self,
         name: str,
         operator: str,
-        from_roles: tuple[str, ...] | None,
-        into_roles: tuple[str, ...] | None,
+        from_roles: tuple[str, ...],
+        into_roles: tuple[str, ...],
     ) -> Walk | None:
-        """How ``sum`` or ``at`` walks relation *name*, from the columns the call named and the declaration's defaults.
+        """How ``sum`` or ``at`` walks relation *name*, between the columns the call named.
 
-        The call consumes one or more columns and produces one or more; a
-        side it leaves unsaid is taken from the declaration where it has
-        exactly one candidate, and refused with the candidates otherwise.
-        ``at`` needs the walk single-valued and ``sum`` needs it not: a sum
-        that walks to the key has one term per coordinate and adds up nothing,
-        which is a read, so it is refused toward ``at``.
+        Both ends arrive written: the call shape refuses a walk that leaves
+        one unsaid, so that a relation may gain a value column without
+        changing what this call means. ``at`` needs the walk single-valued
+        and ``sum`` needs it not: a sum that walks to the key has one term
+        per coordinate and adds up nothing, which is a read, so it is
+        refused toward ``at``.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
@@ -683,18 +657,6 @@ class _Resolver:
             return None
 
         forward = operator == 'sum'
-        if from_roles is None:
-            side = shape.key if forward else shape.values
-            default = self._default_role(name, call, 'over', side, 'key' if forward else 'value')
-            if default is None:
-                return None
-            from_roles = (default,)
-        if into_roles is None:
-            side = shape.values if forward else shape.key
-            default = self._default_role(name, call, 'into', side, 'value' if forward else 'key')
-            if default is None:
-                return None
-            into_roles = (default,)
         if both := sorted(set(from_roles) & set(into_roles)):
             self.errors.append(
                 f'{context}: {call}: over= and into= both name {both}, and a walk goes between two sets of columns.'
@@ -722,7 +684,7 @@ class _Resolver:
             self.errors.append(
                 f'{context}: {call}: this sum walks to the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
-                f'at(..., by={name}, over={list(from_roles)}, into={list(into_roles)}), or sum toward '
+                f'at(..., by={name}, over={list(into_roles)}, into={list(from_roles)}), or sum toward '
                 f'a value column.'
             )
             return None
@@ -764,7 +726,7 @@ class _Resolver:
             self.errors.append(
                 f"{context}: {call}: '{name}' is a bare relation — every column is in its key — so it makes no "
                 f'groups and no coordinate is in exactly one. Move the columns the group is made of under '
-                f'value:, leaving key: the column {operator} walks.'
+                f'values:, leaving key: the column {operator} walks.'
             )
             return None
         over_keys = [r for r in shape.key if shape.dim(r) == walked_dim]
@@ -783,24 +745,6 @@ class _Resolver:
         (walked,) = over_keys
         joined = tuple(r for r in shape.key if r != walked)
         return Walk(shape, (walked,), shape.values if within_roles is None else within_roles, joined)
-
-    def _default_role(self, name: str, call: str, kwarg: str, side: tuple[str, ...], what: str) -> str | None:
-        """The one column *side* offers, or the refusal naming what the call has to choose from."""
-        if len(side) == 1:
-            return side[0]
-        shape = self.ns.shape_of(name)
-        if not shape.values:
-            self.errors.append(
-                f"{self.context}: {call}: '{name}' is a bare relation — every column is in its key — so nothing "
-                f'says which column {call.split("(", maxsplit=1)[0]} walks. Name both: {kwarg}= among '
-                f'{list(shape.roles)} — or declare the column it walks to under value:.'
-            )
-            return None
-        self.errors.append(
-            f"{self.context}: {call}: '{name}' has {len(side)} {what} columns ({list(side)}), and the call has to say "
-            f'which {kwarg}= names.'
-        )
-        return None
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""
@@ -822,7 +766,7 @@ class _Resolver:
             f'{context}: {operator}({key}={name}) does not name a relation. '
             f'{did_you_mean(name, ns.relations, label="Relations")}\n'
             f"Declare it under 'relations:' — {name}: {{key: <the columns a row is identified by>, "
-            f'value: <the columns they determine>}}.'
+            f'values: <the columns they determine>}}.'
         )
 
     # -- where strings -----------------------------------------------------
@@ -988,7 +932,7 @@ class _Resolver:
         if not shape.values:
             self.errors.append(
                 f"{context}: '{spelling}' compares a column of '{name}', a bare relation — every column is in its "
-                f'key — so it has no one value per coordinate to compare. Declare that column under value:, or '
+                f'key — so it has no one value per coordinate to compare. Declare that column under values:, or '
                 f"test the bare name — '{name}' — for whether a row exists."
             )
             return None

@@ -156,7 +156,7 @@ def test_a_fill_and_a_group_take_the_operators_two_slots(name: FormatName, fmt: 
     """
     model = {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'relations': {'season_of': {'key': 'snapshot', 'value': 'season'}},
+        'relations': {'season_of': {'key': 'snapshot', 'values': 'season'}},
         'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'held': {
@@ -180,7 +180,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
     """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.
 
     Whoever wrote it last used to win: ``at(shift(cap, along=period, offset=1,
-    edge=0), by=period_of)`` printed `cap_{period_of(t)}`, dropping a
+    edge=0), by=period_of, over=period, into=snapshot)`` printed `cap_{period_of(t)}`, dropping a
     translation the plan builds. The subscript is a composition, so it renders
     as one.
     """
@@ -189,13 +189,13 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
             'snapshot': {'dtype': 'int'},
             'period': {'dtype': 'int'},
         },
-        'relations': {'period_of': {'key': 'snapshot', 'value': 'period'}},
+        'relations': {'period_of': {'key': 'snapshot', 'values': 'period'}},
         'parameters': {'cap': {'dims': ['period']}},
         'variables': {'p': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {
             'within': {
                 'dims': ['snapshot'],
-                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of)',
+                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of, over=period, into=snapshot)',
             }
         },
     }
@@ -274,7 +274,7 @@ def _selected(mask: str) -> dict[str, Any]:
     """One constraint carrying *mask*, over a dimension a relation groups."""
     return {
         'dimensions': {'snapshot': {'dtype': 'int'}, 'season': {'dtype': 'str'}},
-        'relations': {'season_of': {'key': 'snapshot', 'value': 'season'}},
+        'relations': {'season_of': {'key': 'snapshot', 'values': 'season'}},
         'variables': {'soc': {'dims': ['snapshot'], 'bounds': {'lower': 0}}},
         'constraints': {'seed': {'dims': ['snapshot'], 'where': mask, 'expression': 'soc == 0'}},
     }
@@ -648,11 +648,16 @@ UNREAD = {
         'technology': {'dtype': 'str'},
     },
     'relations': {
-        'gen_zone': {'key': ['generator', 'snapshot'], 'value': 'zone'},
-        'gen_bt': {'key': 'generator', 'value': ['bus', 'technology']},
+        'gen_zone': {'key': ['generator', 'snapshot'], 'values': 'zone'},
+        'gen_bt': {'key': 'generator', 'values': ['bus', 'technology']},
     },
     'parameters': {'cap': {'dims': []}},
-    'variables': {'p': {'dims': ['snapshot', 'generator']}, 'f': {'dims': ['generator', 'bus']}},
+    'variables': {
+        'p': {'dims': ['snapshot', 'generator']},
+        'f': {'dims': ['generator', 'bus']},
+        # indexed by the key column the walk consumes alone, so the column it lands on is one it brings
+        'u': {'dims': ['generator']},
+    },
 }
 
 
@@ -663,14 +668,14 @@ def _grouped(dims: list[str], expression: str) -> str:
 
 
 def test_a_walk_that_reads_no_value_column_asks_only_that_the_key_has_a_row():
-    """`sum(p, by=gen_zone, over=generator, into=snapshot)` died with `KeyError: 'zone'`.
+    """`sum(u, by=gen_zone, over=generator, into=snapshot)` died with `KeyError: 'zone'`.
 
     The domain was written as a whole row of the table, which needs an index
     for every column, and this walk goes between the two key columns: it reads
     no value column, so there is no index to write in `zone`'s place. What the
     walk asks of the table is that the key it walks between has a row at all.
     """
-    row = _grouped(['snapshot'], 'sum(p, by=gen_zone, over=generator, into=snapshot) <= cap')
+    row = _grouped(['snapshot'], 'sum(u, by=gen_zone, over=generator, into=snapshot) <= cap')
     assert r'\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}}' in row, (
         'the condition is that the row exists, and the unread value column is written nowhere'
     )
@@ -701,7 +706,7 @@ def test_a_value_column_the_walk_consumes_is_a_condition_like_a_produced_one():
 #: scope and bracketing cases are written against.
 BUSES = {
     'dimensions': {'snapshot': {'dtype': 'int'}, 'generator': {'dtype': 'str'}, 'bus': {'dtype': 'str'}},
-    'relations': {'bus_of': {'key': 'generator', 'value': 'bus'}},
+    'relations': {'bus_of': {'key': 'generator', 'values': 'bus'}},
     'parameters': {'load': {'dims': ['snapshot']}, 'k': {'dims': []}, 'flag': {'dims': ['snapshot'], 'dtype': 'bool'}},
     'variables': {'p': {'dims': ['snapshot', 'generator']}, 'q': {'dims': ['snapshot', 'generator']}},
 }
@@ -720,7 +725,7 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
     ('expression', 'expected'),
     [
         pytest.param(
-            'p == at(sum(q, by=bus_of), by=bus_of)',
+            'p == at(sum(q, by=bus_of, over=generator, into=bus), by=bus_of, over=bus, into=generator)',
             r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}",
             id='grouped-by-a-relation',
         ),

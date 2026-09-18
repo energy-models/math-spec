@@ -133,23 +133,21 @@ class NameListNode:
 
 @dataclass(frozen=True)
 class RelationNode:
-    """A resolved ``by=`` — one or more relations, each with the walk the call takes through it.
+    """A resolved ``by=`` — the relation, and the walk the call takes through it.
 
-    ``dimensions`` is the fine side every walk shares — what ``sum`` consumes
-    and ``at`` produces — and ``into`` the coarse dims, in the order the
-    names and their columns are written, which ``sum`` produces and ``at``
-    consumes; ``sum(x, by=[gen_bus, gen_tech])`` is one grouping, not two.
-    The roles joined on are the operand's to carry, and the operator passes
-    them through.
+    ``dimensions`` is the fine side — what ``sum`` consumes and ``at``
+    produces — and ``into`` the coarse dims, which ``sum`` produces and ``at``
+    consumes. The roles joined on are the operand's to carry, and the operator
+    passes them through.
     """
 
-    names: tuple[str, ...]
+    name: str
     dimensions: tuple[str, ...]
     into: tuple[str, ...]
-    walks: tuple[Walk, ...] = ()
+    walk: Walk
 
     def __str__(self) -> str:
-        return shown(self.names)
+        return self.name
 
 
 @dataclass(frozen=True)

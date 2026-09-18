@@ -47,15 +47,14 @@ dimensions:
   technology: { dtype: str }
 
 relations:
-  gen_bus: { key: generator, value: bus }
-  gen_tech: { key: generator, value: technology } # a second map out of `generator`, to group through both at once
-  zone_of: { key: bus, value: zone }
-  area_of: { key: bus, value: zone } # a second map into the same set, to compare against
-  season_of: { key: snapshot, value: season }
-  gen_zone: { key: [generator, snapshot], value: zone } # a map keyed by two dimensions: a call walks one and joins on the other
-  rep_of: { key: snapshot, value: { rep: snapshot } } # a map into its own dimension: the representative snapshot
+  gen_bus: { key: generator, values: bus }
+  zone_of: { key: bus, values: zone }
+  area_of: { key: bus, values: zone } # a second map into the same set, to compare against
+  season_of: { key: snapshot, values: season }
+  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call walks one and joins on the other
+  rep_of: { key: snapshot, values: { rep: snapshot } } # a map into its own dimension: the representative snapshot
   connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, walked only by sum with both ends named
-  gen_bt: { key: generator, value: [bus, technology] } # one table with two value columns, walked to both at once
+  gen_bt: { key: generator, values: [bus, technology] } # one table with two value columns, walked to both at once
 
 parameters:
   p_max: { dims: [generator] }
@@ -77,11 +76,11 @@ parameters:
 | Symbol | Meaning |
 |---|---|
 | $`\mathcal{T}`$ | index $`t`$ — `snapshot` (`int` coordinates) with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\ \mathrm{rep\_of}: \mathcal{T} \to \mathcal{T}`$ |
-| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\ \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B},\ \mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}`$ |
+| $`\mathcal{G}`$ | index $`g`$ — `generator` with $`\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z},\ \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B},\ \mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}`$ |
 | $`\mathcal{B}`$ | index $`b`$ — `bus` with $`\mathrm{gen\_bus}: \mathcal{G} \to \mathcal{B},\ \mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{connection} \subseteq \mathcal{G} \times \mathcal{B},\ \mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}`$ |
 | $`\mathcal{Z}`$ | index $`z`$ — `zone` with $`\mathrm{zone\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{area\_of}: \mathcal{B} \to \mathcal{Z},\ \mathrm{gen\_zone}: \mathcal{G} \times \mathcal{T} \to \mathcal{Z}`$ |
 | $`\mathcal{S}`$ | index $`s`$ — `season` with $`\mathrm{season\_of}: \mathcal{T} \to \mathcal{S}`$ |
-| $`\mathcal{E}`$ | index $`e`$ — `technology` with $`\mathrm{gen\_tech}: \mathcal{G} \to \mathcal{E},\ \mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}`$ |
+| $`\mathcal{E}`$ | index $`e`$ — `technology` with $`\mathrm{gen\_bt}: \mathcal{G} \to \mathcal{B} \times \mathcal{E}`$ |
 
 #### Parameters
 
@@ -190,7 +189,7 @@ sum over a relation
 ```yaml
 balance:
   dims: [snapshot, bus]
-  expression: sum(p, by=gen_bus) + spill - slack == load
+  expression: sum(p, by=gen_bus, over=generator, into=bus) + spill - slack == load
 ```
 
 ```math
@@ -374,7 +373,7 @@ at(), which re-indexes through a relation instead of an offset
 ```yaml
 pullback:
   dims: [snapshot, bus]
-  expression: spill <= at(zone_cap, by=zone_of)
+  expression: spill <= at(zone_cap, by=zone_of, over=zone, into=bus)
 ```
 
 ```math
@@ -388,7 +387,7 @@ one table walked to two value columns: the domain carries a condition per column
 ```yaml
 grouped_once:
   dims: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
+  expression: sum(p, by=gen_bt, into=[bus, technology], over=generator) <= tech_cap
 ```
 
 ```math
@@ -402,7 +401,7 @@ its adjoint, reading one slot through two columns of one table
 ```yaml
 pulled_back_once:
   dims: [generator]
-  expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
+  expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology], into=generator)
 ```
 
 ```math
@@ -460,39 +459,11 @@ a map into its own dimension, walked both ways: the frame is unchanged and the i
 ```yaml
 representative:
   dims: [snapshot]
-  expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
+  expression: sum(spill, by=rep_of, over=snapshot, into=rep) <= at(spill, by=rep_of, over=rep, into=snapshot)
 ```
 
 ```math
 \sum_{t' \in \mathcal{T} \,:\, \mathrm{rep\_of}(t') = t} \mathit{spill}_{t'} \le \mathit{spill}_{\mathrm{rep\_of}(t)} \qquad \forall\, t \in \mathcal{T}
-```
-
-#### `grouped_twice`
-
-one grouping through two maps: the domain carries both conditions
-
-```yaml
-grouped_twice:
-  dims: [snapshot, bus, technology]
-  expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap
-```
-
-```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{tech\_cap}_{b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}
-```
-
-#### `pulled_back_twice`
-
-its adjoint, reading one slot through a pair of labels
-
-```yaml
-pulled_back_twice:
-  dims: [generator]
-  expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
-```
-
-```math
-\mathit{units}_{g} \le \mathrm{tech\_cap}_{\mathrm{gen\_bus}(g),\mathrm{gen\_tech}(g)} \qquad \forall\, g \in \mathcal{G}
 ```
 
 #### `zonal`
@@ -502,7 +473,7 @@ a grouping through a two-key map, walked along one key: the condition reads the 
 ```yaml
 zonal:
   dims: [snapshot, zone]
-  expression: sum(p, by=gen_zone, over=generator) <= zone_cap
+  expression: sum(p, by=gen_zone, over=generator, into=zone) <= zone_cap
 ```
 
 ```math
@@ -516,7 +487,7 @@ the same table walked along its other key
 ```yaml
 zonal_history:
   dims: [generator, zone]
-  expression: sum(p, by=gen_zone, over=snapshot) <= zone_cap
+  expression: sum(p, by=gen_zone, over=snapshot, into=zone) <= zone_cap
 ```
 
 ```math
@@ -530,11 +501,11 @@ the same table walked between its two key columns: no value column is read, so t
 ```yaml
 zonal_membership:
   dims: [snapshot]
-  expression: sum(p, by=gen_zone, over=generator, into=snapshot) <= budget
+  expression: sum(units, by=gen_zone, over=generator, into=snapshot) <= budget
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} p_{t,g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} \mathit{units}_{g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
 ```
 
 #### `zonal_pullback`
@@ -545,7 +516,7 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 zonal_pullback:
   dims: [snapshot, generator]
   where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
-  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
+  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator, over=zone)
 ```
 
 ```math
