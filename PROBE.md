@@ -6,22 +6,26 @@ SPDX-License-Identifier: CC-BY-4.0
 <details>
 <summary>fold</summary>
 
-A: fenced
+A real dollars
 
-```math
-\min \sum_{s} x_s
-```
+$$\min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}$$
 
-B: dollars one line
+B simple dollars
 
 $$\min \sum_{s} x_s$$
 
-C: dollars own lines
+C real verbatim inline
 
-$$
-\min \sum_{s} x_s
-$$
+$`\min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}`$
 
-D: inline in para $\min x$ end.
+D real verbatim double
+
+$$`\min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}`$$
+
+E real heading then dollars
+
+#### Objective
+
+$$\min \sum_{s \in \mathcal{S},\ g \in \mathcal{G}} \mathit{dispatch}_{s,g} \cdot c_{g}$$
 
 </details>
