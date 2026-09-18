@@ -16,7 +16,7 @@ file of its own — the model's description below says why. Its network is a who
 | [`Generator-fix-p-*`, `-ext-p-*`, `-ext-p_nom-*`](#generator-fix-p-lower) | done | rungs 1 and 3, masked by `active` |
 | [`Carrier-growth_limit`](#carrier-growth_limit) | done | counted in the first period a build stands in; `edge=0` at the first period |
 | [objective](#objective) | done | period weight on operation; capacity once per period it stands in |
-| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period)` has them; a later rung |
+| `StorageUnit-energy_balance` per period, ramps at period starts | out | `shift(…, by=snapshot_period, within=period)` has them; a later rung |
 
 <!-- reference:rung_15_multi_period:begin -->
 > ✔ `pypsa 1.3.0` solves this rung's network at objective `12747.19109626398`, 80 rows.

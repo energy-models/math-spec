@@ -82,7 +82,7 @@ def test_a_model_the_axis_ties_together_names_what_ties_it(patch, fragment):
     ('patch', 'reach'),
     [
         pytest.param(
-            _rows('p >= shift(p, along=h, offset=1, by=day_of, edge=0)'),
+            _rows('p >= shift(p, along=h, offset=1, by=day_of, within=day, edge=0)'),
             Reach("constraint 'k'", 'day_of', 'partition'),
             id='a-shift-inside-groups',
         ),
@@ -131,7 +131,10 @@ def test_resolving_keeps_the_static_reach_and_what_a_relation_decides():
         constraints={
             'fixed': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=-2, edge=0)'},
             'named': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=width, edge=0)'},
-            'grouped': {'dims': ['h', 'u'], 'expression': 'p >= shift(p, along=h, offset=1, by=day_of, edge=0)'},
+            'grouped': {
+                'dims': ['h', 'u'],
+                'expression': 'p >= shift(p, along=h, offset=1, by=day_of, within=day, edge=0)',
+            },
         }
     ).resolved({'width': -1})
     assert verdict.ahead == 2, 'a folded value never narrows what the model reads on its own'

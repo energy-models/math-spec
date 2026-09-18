@@ -22,11 +22,11 @@ model can never depend on what a caller registered. A composition of them goes i
 | `shift(array, along=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, along=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
 | `shift(array, along=dim, offset=p, edge=…)`         | `p` is an integer parameter, so each entity is reached by its own offset. Declared over what a `by=` groups into, it gives one lag per group      |
-| `shift(array, along=dim, offset=n, by=relation[, within=c])` | The translation walks inside each group that the relation makes. Neighbours, edges and a wrap all belong to that group                              |
+| `shift(array, along=dim, offset=n, by=relation, within=c)` | The translation walks inside each group that the relation's column `c` makes. Neighbours, edges and a wrap all belong to that group              |
 | `sum_back(array, along=dim, window=n)`              | The sum of the last `n` positions along `dim`, ending at the position being written                                                               |
 | `sum_back(array, along=dim, window=p)`              | `p` is an integer parameter, so each entity gets its own window length                                                                            |
 | `sum_back(array, along=dim, window=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                        |
-| `sum_back(array, along=dim, window=n, by=relation)`   | The window stays inside each group that the relation makes                                                                                          |
+| `sum_back(array, along=dim, window=n, by=relation, within=c)` | The window stays inside each group that the relation's column `c` makes                                                                         |
 
 `array` is any expression with the right dimension set, so each operator reads a
 parameter as readily as a variable. Dimension arguments are name-checked at load,
@@ -224,7 +224,7 @@ variables:
 constraints:
   season_balance:
     dims: [snapshot]
-    expression: soc == shift(soc, along=snapshot, offset=1, edge='wrap', by=season_of) + inflow
+    expression: soc == shift(soc, along=snapshot, offset=1, edge='wrap', by=season_of, within=season) + inflow
 objective: { sense: minimize, expression: sum(soc) }
 ```
 
@@ -233,10 +233,12 @@ coordinate of each group is vacated and its row drops. `edge='wrap'` closes each
 group onto its own last coordinate, which a store that returns to its starting
 level every period asks for. `edge=v` puts `v` at the edge of each group.
 
-`by=` takes a relation with a key column over the dimension being walked, and the
-group is the value columns: all of them, or the ones `within=` names, so one
-calendar table serves `within=day` and `within=week` alike. The group columns are
-what a named `offset=` may vary over, so each group is reached by its own offset.
+`by=` takes a relation with a key column over the dimension being walked, and
+`within=` names the value columns the group is made of. Both are written
+together, always, so one calendar table serves `within=day` and `within=week`
+alike, and a table that gains a column changes no call
+([partitions](dimensions.md#partitions)). The group columns are what a named
+`offset=` may vary over, so each group is reached by its own offset.
 
 A coordinate the relation sends nowhere is in no group, so it reaches nothing, and
 no `edge=` speaks for it. Its row drops under `edge=0` exactly as it does bare.
@@ -310,7 +312,7 @@ variables:
 constraints:
   arrives_after_its_periods_lead:
     dims: [snapshot]
-    expression: shift(order, along=snapshot, offset=lead, by=period_of, edge=0) >= demand
+    expression: shift(order, along=snapshot, offset=lead, by=period_of, within=period, edge=0) >= demand
 objective: { sense: minimize, expression: sum(order) }
 ```
 
@@ -342,11 +344,11 @@ language prints on [Every construct, as math](../notation.md).
 | `shift(array, along=dim, offset=n, edge='wrap')` | $`p_{t} \le p_{t \ominus 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=n, edge=v)` | $`p_{t} \le p_{t \boxminus_{0} 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `shift(array, along=dim, offset=p, edge=…)` | $`\mathit{order}_{t,m \boxminus_{0} \mathrm{lead}} \ge \mathrm{demand}_{t,m} \qquad \forall\, t \in \mathcal{T},\ m \in \mathcal{M}`$ |
-| `shift(array, along=dim, offset=n, by=relation)` | $`p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\, t \in \mathcal{T}`$ |
+| `shift(array, along=dim, offset=n, by=relation, within=c)` | $`p_{t} \le p_{t \ominus^{\mathrm{season\_of}(t)} 1} \qquad \forall\, t \in \mathcal{T}`$ |
 | `sum_back(array, along=dim, window=n)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
 | `sum_back(array, along=dim, window=p)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h - h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
 | `sum_back(array, along=dim, window=p, edge='wrap')` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h \ominus h' < \mathrm{min\_up}} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
-| `sum_back(array, along=dim, window=n, by=relation)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
+| `sum_back(array, along=dim, window=n, by=relation, within=c)` | $`\sum_{h' \in \mathcal{H} \,:\, 0 \le h -^{\mathrm{day\_of}(h)} h' < 3} \mathit{started}_{u,h'} \le \mathit{on}_{u,h} \qquad \forall\, u \in \mathcal{U},\ h \in \mathcal{H}`$ |
 | `dual(constraint)` | $`\mathit{price}_{t} = \lambda_{\mathrm{balance},t} \qquad \forall\, t \in \mathcal{T}`$ |
 
 $`t \ominus k`$ denotes cyclic translation: index $`t-k`$ taken modulo the size of the dimension (`roll`). Plain $`t-k`$ (`shift`) has no wraparound — terms translated past the edge are simply absent.
