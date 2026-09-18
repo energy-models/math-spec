@@ -146,9 +146,10 @@ columns and produces the key.
 
 #### The rules a call keeps
 
-Six rules hold whatever a call looks like: what it computes, which operator is
-legal, and what survives an edit. Any change to the notation is measured
-against them.
+Six rules hold whatever a `sum` or an `at` looks like: what it computes, which
+operator is legal, and what survives an edit. Any change to the notation is
+measured against them. A relation is read in two other ways, which keep fewer
+of them ([below](#where-the-rules-reach)).
 
 1. **The frame law.** `result = (operand − consumed) ∪ produced`. The operand
    carries `consumed ∪ joined`, where `joined = key − (consumed ∪ produced)`.
@@ -167,6 +168,43 @@ against them.
    silently joined: `(produced ∩ operand) − consumed` has to be empty.
 6. **`sum` consumes a key column; `at` consumes none.** Each is refused in the
    other's case.
+
+What the two ends may name follows from rule 6, and nothing else distinguishes
+them:
+
+| operator | `over=`, consumed                      | `into=`, produced |
+| -------- | -------------------------------------- | ----------------- |
+| `sum`    | any columns, at least one a key column | any columns       |
+| `at`     | value columns only                     | any columns       |
+
+A key column named at neither end is joined on, and the operand carries it. A
+value column named at neither end is not read. Neither end may name a column
+twice, name one the other end names, or name two columns over one dimension:
+the operand has one axis per dimension, so nothing would say which column
+indexes it.
+
+#### Where the rules reach
+
+The six above govern the calls that move the frame. The other two ways to read
+a relation move nothing, and keep less:
+
+| reading a relation                                                      | rules that hold  |
+| ----------------------------------------------------------------------- | ---------------- |
+| `sum` and `at`                                                          | all six          |
+| a partition — `shift`, `sum_back`, `position` ([below](#partitions))    | 4, and 3 in part |
+| a relation in a `where` ([where strings](expressions.md#where-strings)) | none of the six  |
+
+A partition names neither end: `along=` picks the key column it steps along,
+and `within=` the value columns the group is made of. The frame law says
+nothing, because the frame does not change. Rule 4 holds with force, since a
+new key column changes which column is stepped along. Rule 3 holds only where
+the call writes `within=`: omitted, it means every value column, so a relation
+that gains one regroups the call
+([#538](https://github.com/energy-models/math-spec/issues/538)).
+
+A `where` builds no direction at all. It reads the relation at the frame's own
+coordinates, so the frame carries the key's dimensions, and nothing is
+consumed, produced or joined.
 
 ```yaml
 dimensions:
