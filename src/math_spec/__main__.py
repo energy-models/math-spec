@@ -4,8 +4,9 @@
 
 """``python -m math_spec <verb> model.yaml`` — the shell front.
 
-``check`` loads the file and prints the language's advice; one further verb
-per typeset format, read off :data:`math_spec.typesetting.FORMATS`.
+``check`` loads the file and prints the language's advice, ``canonical``
+writes the model in the form two files that mean the same thing share, and one
+further verb per typeset format, read off :data:`math_spec.typesetting.FORMATS`.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from pathlib import Path
 from math_spec.advice import advice
 from math_spec.errors import MathSpecError
 from math_spec.typesetting import FORMATS, typeset
+from math_spec.validation import to_spec
 
 
 def parser() -> argparse.ArgumentParser:
@@ -26,6 +28,10 @@ def parser() -> argparse.ArgumentParser:
 
     check = verbs.add_parser('check', help='load a model, and print what the language advises')
     check.add_argument('model', help='path to a math_spec YAML model')
+
+    canonical = verbs.add_parser('canonical', help='write the model in the form two files that mean the same share')
+    canonical.add_argument('model', help='path to a math_spec YAML model')
+    canonical.add_argument('-o', '--out', help='write here instead of stdout')
 
     for name in FORMATS:
         verb = verbs.add_parser(name, help=f'render a model as {name}')
@@ -55,15 +61,22 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         sys.stdout.write(''.join(f'{note}\n' for note in notes))
         return 0
-    text = typeset(
-        args.model,
-        args.verb,
-        symbols=args.symbols,
-        standalone=args.standalone,
-        legend=not args.no_legend,
-        numbered=not args.no_numbers,
-        inline_expressions=args.inline_expressions,
-    )
+    if args.verb == 'canonical':
+        try:
+            text = to_spec(args.model).to_yaml(canonical=True)
+        except MathSpecError as e:
+            sys.stderr.write(f'{e}\n')
+            return 1
+    else:
+        text = typeset(
+            args.model,
+            args.verb,
+            symbols=args.symbols,
+            standalone=args.standalone,
+            legend=not args.no_legend,
+            numbered=not args.no_numbers,
+            inline_expressions=args.inline_expressions,
+        )
     if args.out:
         Path(args.out).write_text(text, encoding='utf-8')
     else:
