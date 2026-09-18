@@ -27,7 +27,7 @@ relations:
 the combination of dimensions that is unique per row: `key: generator` says
 the table has one row per generator. The **values** are what that row
 determines: its bus. With no `values:`, the key is every column, and the table
-is a **bare relation**, a set of rows and nothing more.
+is a **bare relation**.
 
 | Field         |                                                                  |                |
 | ------------- | ---------------------------------------------------------------- | -------------- |
@@ -37,7 +37,7 @@ is a **bare relation**, a set of rows and nothing more.
 
 A column is named after its dimension. Where two columns share a dimension, or
 a column maps a dimension onto itself, the mapping form names them:
-`{bus0: bus, bus1: bus}`. A relation may not take a dimension's name.
+`{bus0: bus, bus1: bus}`.
 
 ### Cardinalities
 
