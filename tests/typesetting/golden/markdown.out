@@ -232,6 +232,12 @@ p_{t,g} \le \mathrm{load}_{t,b} \qquad \forall\, t \in \mathcal{T},\ g \in \math
 \sum_{t \in \mathcal{T} \,:\, \mathrm{gen\_zone}(g,\ t) = z} p_{t,g} \le \mathrm{zone\_cap}_{z} \qquad \forall\, g \in \mathcal{G},\ z \in \mathcal{Z}
 ```
 
+**`zonal_membership`**
+
+```math
+\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} p_{t,g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
+```
+
 **`zonal_pullback`**
 
 ```math

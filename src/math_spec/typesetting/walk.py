@@ -284,10 +284,19 @@ class Walk:
         name = walk.name if len(walk.values) == 1 else f'{walk.name}.{read}'
         return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in walk.key], ''))
 
-    def _relation_member(self, walk: RelationWalk, at: Mapping[str, str]) -> str:
-        """A relation read as a relation: ``(g, b) ∈ gen_bus``, every column in declared order at the index *at* gives it."""
-        row = self.format.parenthesise(self.format.joined([at[r] for r in walk.roles], ''))
-        return f'{row} {self._op("in")} {self.format.upright(walk.name)}'
+    def _relation_row(self, name: str, key: list[str]) -> str:
+        """That relation *name* has a row at *key*, its key columns' indices in declared order.
+
+        A keyed table is a function, so the claim is that it is defined there:
+        ``gen_zone(g, t) is defined``. A bare one is a set of rows, and every
+        column of it is a key column, so the row is written out:
+        ``(g, b) ∈ connection``.
+        """
+        if self.schema.relations[name].values:
+            applied = self.format.apply(self.format.upright(name), self.format.joined(key, ''))
+            return f'{applied} {self.format.prose(" is defined")}'
+        row = self.format.parenthesise(self.format.joined(key, ''))
+        return f'{row} {self._op("in")} {self.format.upright(name)}'
 
     def _value_read(self, name: str, column: str, ctx: _Context) -> str:
         """A keyed relation's value *column* read at the frame's own indices of its key: ``period_of(t)``."""
@@ -479,20 +488,22 @@ class Walk:
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
     def _grouping(self, walk: RelationWalk, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
-        """The conditions a grouped sum's domain carries for one walk: each produced column as a function equal to its target, or one row in the relation.
+        """The conditions a grouped sum's domain carries for one walk: what the walk fixes of the row it joins on.
 
-        The function form holds where the key lies inside the consumed and
-        joined columns — one value per summand — and the relation form is the
-        reading that is always right.
+        A walk fixes its relation's key either way, so each value column it
+        fixes — consumed or produced, one lookup at the key either way — is
+        that column read there. A walk that fixes none of them asks only that
+        the row is there, because a value column the walk does not touch is
+        not read, and a bare relation has no value column to read at all.
         """
         at = {
             **{r: dummies[walk.dim(r)] for r in walk.consumed},
-            **{r: ctx.subscript(walk.dim(r)) for r in walk.joined},
+            **{r: ctx.subscript(walk.dim(r)) for r in (*walk.joined, *walk.produced)},
         }
-        targets = {r: ctx.subscript(walk.dim(r)) for r in walk.produced}
-        if walk.key and set(walk.key) <= set(at) and not set(walk.produced) & set(walk.key):
-            return [f'{self._relation_read(walk, at, r)} {self._op("equal")} {targets[r]}' for r in walk.produced]
-        return [self._relation_member(walk, {**at, **targets})]
+        fixed = [r for r in walk.values if r in at]
+        if not fixed:
+            return [self._relation_row(walk.name, [at[k] for k in walk.key])]
+        return [f'{self._relation_read(walk, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A ``by=`` as the superscript its translation operator carries.
@@ -604,12 +615,7 @@ class Walk:
 
         if isinstance(node, RelationDefinedNode):
             lk = self.schema.relations[node.name]
-            if lk.values:
-                keyed = self.format.joined([ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys], '')
-                applied = self.format.apply(self.format.upright(node.name), keyed)
-                return f'{applied} {self.format.prose(" is defined")}', comparison
-            row = self.format.parenthesise(self.format.joined([ctx.subscript(d) for d in lk.dims], ''))
-            return f'{row} {self._op("in")} {self.format.upright(node.name)}', comparison
+            return self._relation_row(node.name, [ctx.subscript(dict(lk.pairs)[k]) for k in lk.keys]), comparison
 
         if isinstance(node, NotNode):
             return (
