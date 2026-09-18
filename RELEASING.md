@@ -54,14 +54,15 @@ will be created.
 
 ## The alpha stream
 
-The manifest is seeded at `0.0.0-alpha.0`, and the config is in sticky
-`prerelease` mode. So every release is `0.0.0-alpha.N`, which is the
-distribution version `0.0.0aN`.
+The config is in sticky `prerelease` mode, so every release is
+`0.0.1-alpha.N`, which is the distribution version `0.0.1aN`. The manifest
+carries the base, and one thing moves it: a breaking change.
 
-The seed is what pins the `0.0.0`. release-please increments the counter only
-when the version it starts from already carries a prerelease. From a plain
-`0.0.0` it would bump the patch first, and the stream would be
-`0.0.1-alpha.N`.
+The base was `0.0.0` while the stream was pinned there. Under
+`versioning: prerelease` a bump lands on the counter whenever the digits below
+it are already zero, so at `0.0.0` a minor bump was absorbed and a breaking
+marker changed nothing at all. At `0.0.1` the patch is not zero, so the minor
+bump bites and one `feat!:` gives `0.1.0-alpha.N`.
 
 None of these versions carries a semantic promise. The point of them is that an
 early user always has a number to quote in a bug report, instead of a commit
@@ -80,14 +81,14 @@ Two consequences worth knowing:
   that is not a prerelease. So the first official version stops the automation,
   and nobody has to remember to do it. To pause it earlier, set the repository
   variable `AUTO_RELEASE` to `false`, and merge the release PRs by hand.
-- **Breaking markers are refused.** A `!` in the subject, or a
-  `BREAKING CHANGE:` footer, moves the _base_ version rather than the counter.
-  Under `versioning: prerelease`, a zero patch is an absorbing state. So at
-  `0.0.0` a breaking marker is currently harmless. But that immunity disappears
-  the moment the stream moves, and then one `feat!:` turns `0.0.1-alpha.12`
-  into `0.1.0-alpha.12`. So `pr-title.yml` refuses the marker. Describe the
-  break in the PR body instead. The alpha stream carries no compatibility
-  promise, so there is nothing for the version to announce.
+- **A breaking marker bumps the minor.** A `!` in the subject, or a
+  `BREAKING CHANGE:` footer, moves the base from `0.0.1` to `0.1.0`, and the
+  counter carries on rather than restarting. That is the one compatibility
+  signal the stream has: the minor says a consumer has to change something, and
+  the counter says nothing at all. `pr-title.yml` used to refuse the marker,
+  because the base was pinned to `0.0.0` and a marker would have moved it off
+  the stream unannounced. The base is no longer pinned, so the check no longer
+  looks.
 
 ## Leaving the alpha stream
 
@@ -98,8 +99,7 @@ When the project is ready for a real version:
 2. Remove `versioning`, `prerelease` and `prerelease-type` from
    `.release-please-config.json`.
 3. Set the manifest to the last version you want release-please to bump _from_.
-4. Drop the base-version guard from `pr-title.yml`, so `!` works again.
-5. Merge the next release PR by hand.
+4. Merge the next release PR by hand.
 
 ## One-time setup
 

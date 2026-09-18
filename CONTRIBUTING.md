@@ -93,9 +93,9 @@ hidden. A subject the parser cannot read is not an error — the entry
 simply never appears — so the `Conventional commit subject` check enforces the
 format on every pull request.
 
-While the version is pinned to the alpha stream, a breaking marker (`!`, or a
-`BREAKING CHANGE:` footer) is refused, because it moves the base version rather
-than the alpha counter. Describe the break in the PR body instead. See
+A breaking marker (`!`, or a `BREAKING CHANGE:` footer) moves the base version,
+so the alpha stream goes from `0.0.1-alpha.N` to `0.1.0-alpha.N`. Use one where
+a consumer has to change something, and say what in the PR body. See
 [RELEASING.md](https://github.com/energy-models/math-spec/blob/main/RELEASING.md).
 
 Beyond the subject line, write whatever body the change deserves — a paragraph

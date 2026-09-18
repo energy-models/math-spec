@@ -110,7 +110,7 @@ answer here is the mistake.
 
 ## Renaming and deleting
 
-The project is on the `0.0.0-alphaN` stream, and it holds no compatibility
+The project is on the `0.0.1-alphaN` stream, and it holds no compatibility
 promise.
 
 So when you are asked to change something, change it. Rename it, move it, or
@@ -121,11 +121,10 @@ the valid keys, and that is the whole migration story.
 **A test that asserts the old behaviour is not a blocker.** Say in the PR what
 coverage moved where.
 
-There is one place where this costs something. A breaking marker in the PR title
-is **refused** by the `Conventional commit subject` check. A breaking marker is
-a `!`, or a `BREAKING CHANGE:` footer. It is refused because it would move the
-base version rather than the alpha counter. Describe the break in the PR body
-instead.
+This costs one thing. A breaking marker in the PR title moves the minor, so
+the stream goes from `0.0.1-alphaN` to `0.1.0-alphaN`. A breaking marker is a
+`!`, or a `BREAKING CHANGE:` footer. Use one where a consumer has to change
+something, and say what broke in the PR body.
 
 ## Numbers and claims
 
@@ -375,8 +374,8 @@ Then write the subject:
 - **Write a subject the changelog reader can name.** Not `a pass` or `a walk`,
   and not `dim`, `coord` or `AST`.
 
-Use lower case, no full stop, and conventional-commit form. The breaking marker
-is refused. See [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages). The 72
+Use lower case, no full stop, and conventional-commit form. A breaking marker
+bumps the minor. See [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages). The 72
 character warning in `pr-title.yml` is about `git log --oneline`. The changelog
 does not truncate.
 
