@@ -22,7 +22,7 @@ from math_spec.errors import SchemaError
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from math_spec.program import Direction, WhereNode
+    from math_spec.program import Direction, Partition, WhereNode
 
 #: The relation a comparison may carry — the three an expression may be
 #: written with, which is what a constraint's sense is read off.
@@ -115,8 +115,10 @@ class NameListNode:
 
 @dataclass(frozen=True)
 class RelationNode:
-    """A resolved ``by=`` — the relation, and the direction the call reads it in.
+    """A resolved ``by=`` — the relation, and the use the call makes of it.
 
+    ``use`` is a :class:`Direction` for ``sum`` and ``at``, and a
+    :class:`Partition` for ``shift`` and ``sum_back``.
     ``dimensions`` is the fine side — what ``sum`` consumes and ``at``
     produces — and ``into`` the coarse dims, which ``sum`` produces and ``at``
     consumes. The roles joined on are the operand's to carry, and the operator
@@ -126,7 +128,7 @@ class RelationNode:
     name: str
     dimensions: tuple[str, ...]
     into: tuple[str, ...]
-    direction: Direction
+    use: Direction | Partition
 
     @property
     def shown(self) -> str:

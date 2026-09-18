@@ -72,6 +72,7 @@ from math_spec.program import (
     OrNode,
     ParameterComparisonNode,
     ParameterDefinedNode,
+    Partition,
     PredicateOperator,
     RelationComparisonNode,
     RelationDeclaration,
@@ -609,20 +610,18 @@ class _Resolver:
             if 'within' not in named:
                 return value  # the call shape refused it already, with the wording that names the rewrite
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
-            direction = self._partition_direction(name, operator, over_dim, named['within'])
-        else:
-            if not ({'over', 'into'} <= set(named)):
-                return value  # the call shape refused it already, with the wording that names the rewrite
-            direction = self._direction(name, operator, named['over'], named['into'])
+            partition = self._partition(name, operator, over_dim, named['within'])
+            if partition is None:
+                return value
+            return RelationNode(name, dimensions=(partition.along_dim,), into=(), use=partition)
+        if not ({'over', 'into'} <= set(named)):
+            return value  # the call shape refused it already, with the wording that names the rewrite
+        direction = self._direction(name, operator, named['over'], named['into'])
         if direction is None:
             return value
-
         fine = direction.produced_dims if operator == 'at' else direction.consumed_dims
-        if operator in ('shift', 'sum_back'):
-            coarse: tuple[str, ...] = ()
-        else:
-            coarse = direction.consumed_dims if operator == 'at' else direction.produced_dims
-        return RelationNode(name, dimensions=fine, into=coarse, direction=direction)
+        coarse = direction.consumed_dims if operator == 'at' else direction.produced_dims
+        return RelationNode(name, dimensions=fine, into=coarse, use=direction)
 
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
@@ -708,14 +707,14 @@ class _Resolver:
             return False
         return True
 
-    def _partition_direction(
+    def _partition(
         self, name: str, operator: str, along_dim: str | None, within_roles: tuple[str, ...]
-    ) -> Direction | None:
-        """Which direction a partition (``shift``, ``sum_back``, ``position``) reads relation *name* in along *along_dim*.
+    ) -> Partition | None:
+        """How a partition (``shift``, ``sum_back``, ``position``) steps along relation *name* over *along_dim*.
 
-        It takes the one key column over that dimension (a key has one column
-        per dimension), joins on the other key columns and groups by the value
-        columns *within_roles* names. ``None`` where the dimension is not one
+        It steps along the one key column over that dimension (a key has one
+        column per dimension), joins on the other key columns and groups by the
+        value columns *within_roles* names. ``None`` where the dimension is not one
         (already refused), the relation has no key column over it, or
         ``within=`` names a column that is not a value column.
         """
@@ -746,7 +745,7 @@ class _Resolver:
             return None
         (along,) = over_keys
         joined = tuple(r for r in shape.key if r != along)
-        return Direction(shape, (along,), within_roles, joined)
+        return Partition(shape, along, within_roles, joined)
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""
@@ -860,10 +859,10 @@ class _Resolver:
                 f'are {list(ns.shape_of(node.by).values)}.'
             )
             return node
-        direction = self._partition_direction(node.by, 'position', node.dimension, node.into)
-        if direction is None:
+        partition = self._partition(node.by, 'position', node.dimension, node.into)
+        if partition is None:
             return node
-        return DimensionPositionNode(node.dimension, node.op, node.position, direction)
+        return DimensionPositionNode(node.dimension, node.op, node.position, partition)
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
         """``name <op> literal``, or the one structural form ``relation <op> relation``."""
