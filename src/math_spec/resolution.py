@@ -296,12 +296,14 @@ def names_in(value: ArithmeticNode) -> tuple[str, ...]:
 def _refs_in(value: ArithmeticNode) -> tuple[ColumnRefNode | NameNode, ...]:
     """The relation references a ``by=`` carries: one bare or dotted, several bracketed, none otherwise.
 
-    A ``[a, b]`` list groups through several relations; its members are bare
-    names, since a member's own columns are its declared value columns.
+    A ``[a, b.z]`` list groups through several relations; a bare member reads
+    every value column, a dotted one the columns it names — the same reading as
+    a single ``rel`` bare or ``rel.z`` dotted, so the list and the dotted single
+    relation are uniform.
     """
     if isinstance(value, NameNode | ColumnRefNode):
         return (value,)
-    return tuple(NameNode(n) for n in value.names) if isinstance(value, NameListNode) else ()
+    return value.members if isinstance(value, NameListNode) else ()
 
 
 def _shown(refs: tuple[ColumnRefNode | NameNode, ...]) -> str:
@@ -486,7 +488,7 @@ class _Resolver:
         of an ``index`` call, so the same machinery that types
         ``sum(x, by=[rel, …])`` types the read.
         """
-        by = node.relations[0] if len(node.relations) == 1 else NameListNode(tuple(r.name for r in node.relations))
+        by = node.relations[0] if len(node.relations) == 1 else NameListNode(node.relations)
         call = FunctionCallNode('index', (node.operand,), {'by': by})
         return self._call(call)
 
@@ -602,6 +604,9 @@ class _Resolver:
             self.errors.append(_undeclared_dim(self.context, operator, f'{key}={value.name}', value.name, self.ns))
             return value
         if isinstance(value, ColumnRefNode):
+            if problem := self._not_a_relation(value.name, operator, key):
+                self.errors.append(problem)
+                return value
             if operator in ('shift', 'sum_back'):
                 partition = self._partition(value, operator, key, within)
                 return value if partition is None else partition
@@ -654,6 +659,9 @@ class _Resolver:
         decls = tuple(self.ns.shape_of(r.name) for r in refs)
         cols = tuple(s for s in selected if s is not None)
         if operator == 'index':
+            read = tuple(d.dim(c) for d, s in zip(decls, cols, strict=True) for c in (s or d.values))
+            if self._index_collision(read, refs, operator, key):
+                return value
             return IndexRelationNode(decls, cols)
         summed = {frozenset(d.dim(k) for k in d.key) for d in decls}
         if len(summed) > 1:
@@ -672,6 +680,27 @@ class _Resolver:
             )
             return value
         return SumRelationNode(decls, cols)
+
+    def _index_collision(
+        self, read: tuple[str, ...], refs: tuple[ColumnRefNode | NameNode, ...], operator: str, key: str
+    ) -> bool:
+        """Whether a read consumes one value dimension twice, recording the refusal where it does.
+
+        A read consumes each value dimension it reads, so two value columns over
+        one dimension — one relation's ``rel.[a, b]`` over one dim, or two
+        relations each reading it — would consume that dimension twice. Two
+        relations keyed over one dimension is not this: they join at a shared
+        key the result carries once, which is what ``tech_cap[gen_bus, gen_tech]``
+        does.
+        """
+        if repeated := sorted({dim for dim in read if read.count(dim) > 1}):
+            self.errors.append(
+                f'{self.context}: {operator}({key}={_shown(refs)}) reads {repeated} through more than one value '
+                f'column, and a read consumes each dimension once. Name one value column per dimension, or read '
+                f'through relations over distinct dimensions.'
+            )
+            return True
+        return False
 
     def _value_columns(self, ref: ColumnRefNode | NameNode, operator: str, key: str) -> tuple[str, ...] | None:
         """The value columns a ``by=`` or ``index`` reads from one relation: those named or every one.
@@ -770,10 +799,13 @@ class _Resolver:
         """The value columns ``within=`` names, each a value column of the relation; the refusal otherwise."""
         if isinstance(within, NameNode):
             names: tuple[str, ...] = (within.name,)
-        elif isinstance(within, NameListNode):
+        elif isinstance(within, NameListNode) and all(isinstance(m, NameNode) for m in within.members):
             names = within.names
         else:
-            self.errors.append(f'{self.context}: {call}: within=… names value columns — a bare name, or a list.')
+            self.errors.append(
+                f'{self.context}: {call}: within=… names value columns of the partition relation, written bare — '
+                f'a name, or a list of names. Drop the relation before the dot.'
+            )
             return None
         if keyed := [r for r in names if r in shape.key]:
             self.errors.append(
@@ -914,7 +946,11 @@ class _Resolver:
             return node
         ref = ColumnRefNode(node.by, (node.dimension,))
         within = (
-            None if node.into is None else (NameNode(node.into[0]) if len(node.into) == 1 else NameListNode(node.into))
+            None
+            if node.into is None
+            else (
+                NameNode(node.into[0]) if len(node.into) == 1 else NameListNode(tuple(NameNode(n) for n in node.into))
+            )
         )
         partition = self._partition(ref, 'position', 'along', within)
         if partition is None:

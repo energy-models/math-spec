@@ -157,6 +157,11 @@ def namespace() -> Namespace:
             id='a-value-list-lands-on-a-product-from-one-table',
         ),
         pytest.param(
+            'sum(p, by=[gen_bz.bus, gen_bz.zone])',
+            {'snapshot', 'bus', 'zone'},
+            id='a-list-of-dotted-members-is-uniform-with-the-dotted-single-relation',
+        ),
+        pytest.param(
             'bz[gen_bz.[bus, zone]]',
             {'generator'},
             id='an-index-reads-two-value-columns-at-once',

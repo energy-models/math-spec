@@ -100,17 +100,26 @@ class DimensionNode:
 
 @dataclass(frozen=True)
 class NameListNode:
-    """A bracketed list of names in a kwarg value — ``sum(x, by=[a, b])``.
+    """A bracketed list in a kwarg value — ``sum(x, by=[a, b.z])``.
 
+    Members are bare or dotted (``by=[a, b.z]``), since a relation list is
+    uniform with a single dotted relation: ``by=rel.[x, y]`` and
+    ``by=[rel.x, rel.y]`` mean the same grouping. A value-column list such as
+    ``within=[v1, v2]`` is bare, and reads its members through :attr:`names`.
     Unresolved: which kind of name the kwarg admits is the operator's business.
     """
 
-    names: tuple[str, ...]
+    members: tuple[NameNode | ColumnRefNode, ...]
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        """The member relation names, dropping any dotted columns — for a bare list such as ``within=``."""
+        return tuple(m.name for m in self.members)
 
     @property
     def shown(self) -> str:
         """The kwarg value as the author wrote it, for an error message."""
-        return shown(self.names)
+        return f'[{", ".join(m.shown if isinstance(m, ColumnRefNode) else m.name for m in self.members)}]'
 
 
 @dataclass(frozen=True)
@@ -539,12 +548,12 @@ def _build_grammar() -> pp.ParserElement:
     name_node = name.copy().set_parse_action(lambda t: NameNode(t[0]))
 
     quoted = (pp.QuotedString("'") | pp.QuotedString('"')).set_parse_action(lambda t: KeywordNode(str(t[0])))
-    name_list = (pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')).set_parse_action(
-        lambda t: NameListNode(tuple(str(x) for x in t))
-    )
     column_list = pp.Suppress('[') + pp.DelimitedList(name) + pp.Suppress(']')
     column_ref = (name + pp.Suppress('.') + (column_list | name)).set_parse_action(_make_column_ref)
     relation_ref = column_ref | name_node
+    name_list = (pp.Suppress('[') + pp.DelimitedList(relation_ref) + pp.Suppress(']')).set_parse_action(
+        lambda t: NameListNode(tuple(cast('NameNode | ColumnRefNode', x) for x in t))
+    )
     index_operand = name_node | pp.Group(pp.Suppress('(') + arith + pp.Suppress(')'))
     index = (index_operand + pp.Suppress('[') + pp.DelimitedList(relation_ref) + pp.Suppress(']')).set_parse_action(
         _make_index

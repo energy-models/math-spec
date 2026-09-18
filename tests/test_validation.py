@@ -635,6 +635,11 @@ class TestRulesDecidedWithoutData:
                 id='over-a-column-that-is-not-a-key',
             ),
             pytest.param(
+                {'objective': {'expression': 'sum(sum(p, over=nosuch.g))'}},
+                ('sum(over=nosuch) does not name a relation',),
+                id='over-a-dotted-name-that-is-not-a-relation',
+            ),
+            pytest.param(
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': 'g', 'value': ['h', 'z']},
@@ -841,6 +846,30 @@ class TestRulesDecidedWithoutData:
                 {'objective': {'expression': 'sum(sum(p, by=[lk, lk]))'}},
                 ("lands on ['h'] more than once",),
                 id='by-the-same-target-twice',
+            ),
+            pytest.param(
+                {
+                    'relations.lz': {'key': 'g', 'value': {'h0': 'h', 'h1': 'h'}},
+                    'objective': {'expression': 'sum(q[lz.[h0, h1]])'},
+                },
+                ("reads ['h'] through more than one value column", 'consumes each dimension once'),
+                id='an-index-reading-two-value-columns-over-one-dimension',
+            ),
+            pytest.param(
+                {
+                    'relations.lz': {'key': 'g', 'value': {'h0': 'h', 'h1': 'h'}},
+                    'objective': {'expression': 'sum(q[lz])'},
+                },
+                ("reads ['h'] through more than one value column",),
+                id='an-index-through-a-bare-relation-with-two-values-over-one-dim',
+            ),
+            pytest.param(
+                {
+                    'relations.mk': {'key': 'g', 'value': {'h2': 'h'}},
+                    'objective': {'expression': 'sum(q[lk, mk])'},
+                },
+                ("reads ['h'] through more than one value column",),
+                id='an-index-through-two-relations-reading-one-dimension',
             ),
             pytest.param(
                 {

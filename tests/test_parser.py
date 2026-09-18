@@ -17,6 +17,7 @@ import pytest
 import math_spec.program as program_module
 from math_spec._expression_parser import (
     BinaryOperatorNode,
+    ColumnRefNode,
     ComparisonNode,
     FunctionCallNode,
     NameListNode,
@@ -190,7 +191,13 @@ def test_a_keyword_given_twice_is_refused_not_overwritten():
 def test_a_list_of_names_is_a_kwarg_value():
     """`by=[a, b]` is one value, so the operator reads one grouping and not two."""
     node = parse_expression('sum(p, by=[a, b])')
-    assert node.kwargs['by'] == NameListNode(('a', 'b'))
+    assert node.kwargs['by'] == NameListNode((NameNode('a'), NameNode('b')))
+
+
+def test_a_list_of_dotted_relations_is_a_kwarg_value():
+    """`by=[a.x, b.y]` carries each member's columns, uniform with the single dotted `by=rel.[x, y]`."""
+    node = parse_expression('sum(p, by=[a.x, b.y])')
+    assert node.kwargs['by'] == NameListNode((ColumnRefNode('a', ('x',)), ColumnRefNode('b', ('y',))))
 
 
 @pytest.mark.parametrize(

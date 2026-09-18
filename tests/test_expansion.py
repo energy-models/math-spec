@@ -111,6 +111,46 @@ def test_a_call_expands_to_core_ast(expressions, macros, call, want):
     assert _bodies(expanded) == parse_expression(want)
 
 
+@pytest.mark.parametrize(
+    ('template', 'call', 'want'),
+    [
+        pytest.param('sum(x[rel])', 'mac(gen_bus)', 'sum(x[gen_bus])', id='a-formal-in-index-brackets'),
+        pytest.param('sum(x[rel.b])', 'mac(gen_bus)', 'sum(x[gen_bus.b])', id='a-formal-before-a-dot-in-an-index'),
+        pytest.param('sum(x, by=rel.b)', 'mac(gen_bus)', 'sum(x, by=gen_bus.b)', id='a-formal-before-a-dot-in-by'),
+        pytest.param(
+            'sum(x, over=rel.g)', 'mac(gen_bus)', 'sum(x, over=gen_bus.g)', id='a-formal-before-a-dot-in-over'
+        ),
+        pytest.param(
+            'sum(x, by=[rel, gen_tech])', 'mac(gen_bus)', 'sum(x, by=[gen_bus, gen_tech])', id='a-formal-in-a-by-list'
+        ),
+    ],
+)
+def test_a_relation_formal_substitutes_where_a_relation_stands(template, call, want):
+    """A macro formal bound to a relation is substituted in an index bracket and before a dot, not just as a bare kwarg."""
+    macros = {'mac': {'args': ['rel'], 'template': template}}
+    model = {
+        'dimensions': {'g': {'dtype': 'str'}, 'b': {'dtype': 'str'}},
+        'relations': {'gen_bus': {'key': 'g', 'value': 'b'}, 'gen_tech': {'key': 'g', 'value': {'t': 'b'}}},
+        'variables': {'x': {'dims': ['g', 'b']}},
+    }
+    expanded = parse_and_expand(call, schema_of(model, macros=macros), 'expression')
+    assert _bodies(expanded) == parse_expression(want)
+
+
+@pytest.mark.parametrize('template', ['sum(x[rel])', 'sum(x, by=rel.b)'], ids=['in-an-index', 'before-a-dot'])
+def test_a_relation_formal_bound_to_a_non_name_is_refused(template):
+    """A formal standing where a relation does binds to a relation name, so an expression argument is refused, not crashed."""
+    macros = {'mac': {'args': ['rel'], 'template': template}}
+    model = {
+        'dimensions': {'g': {'dtype': 'str'}, 'b': {'dtype': 'str'}},
+        'relations': {'gen_bus': {'key': 'g', 'value': 'b'}},
+        'parameters': {'c': {'dims': ['g']}},
+        'variables': {'x': {'dims': ['g', 'b']}},
+    }
+    with pytest.raises(LanguageError, match='where a relation belongs, but the argument is not a relation name'):
+        parse_and_expand('mac(c + 1)', schema_of(model, macros=macros), 'expression')
+
+
 def test_a_named_expression_arrives_under_the_node_carrying_its_name():
     expanded = parse_and_expand('sum(gen_cost, over=generator)', schema(expressions={'gen_cost': 'p * cost'}), 'e')
     assert expanded.args[0] == DefinitionNode('gen_cost', parse_expression('p * cost')), (

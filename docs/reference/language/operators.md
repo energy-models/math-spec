@@ -17,7 +17,7 @@ model can never depend on what a caller registered. A composition of them goes i
 | `sum(array, over=dim)`                             | `dim` collapses. `array` must carry `dim`                                                                                                         |
 | `sum(array, over=relation.k)`                        | Key column `k` is summed away. The other key columns are joined on, so the array carries them and the result keeps them, and the value rides in on the join |
 | `sum(array, by=relation.v)`                          | The whole key is summed away and terms group onto value column `v`                                                                                 |
-| `sum(array, by=[relation, …])`                       | The same, onto every relation's value column. All the relations must sum away the same dimension                                                    |
+| `sum(array, by=[relation, …])`                       | The same, onto every relation's value column. A member takes a dot to pick columns, so `by=[a.x, b.y]` matches `by=rel.[x, y]`. All the relations must sum away the same dimension |
 | `sum(array, over=relation.[a, …])` / `by=relation.[b, …]` | Several columns on either side: summed away together, or grouped onto a product                                                              |
 | `array[relation]`                                   | The value column is read at the key, so the result lands on the key column                                                                        |
 | `array[relation.v]`                                 | Value column `v` is read at the key, one value per coordinate, so the key lies in the join. `v` may be a list                                     |

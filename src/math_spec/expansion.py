@@ -12,9 +12,12 @@ from math_spec._expression_parser import (
     ArithmeticNode,
     CaseArm,
     CasesNode,
+    ColumnRefNode,
     ComparisonNode,
     DefinitionNode,
     FunctionCallNode,
+    IndexNode,
+    NameListNode,
     NameNode,
     ParsedNode,
     parse_expression,
@@ -168,7 +171,38 @@ def _expand_macro(
 
 
 def _substitute(node: ArithmeticNode, bindings: dict[str, ArithmeticNode]) -> ArithmeticNode:
-    """Replace formal-name NameNodes in *node* with their bound subtrees."""
+    """Replace formal-name NameNodes in *node* with their bound subtrees.
+
+    A formal standing where a relation does — bare in ``x[rel]`` or before a dot
+    in ``by=rel.v`` — binds to the relation the call passes, which is a name.
+    """
     if isinstance(node, NameNode) and node.name in bindings:
         return bindings[node.name]
+    if isinstance(node, ColumnRefNode) and node.name in bindings:
+        return ColumnRefNode(_bound_relation(node.name, bindings, node.shown), node.columns)
+    if isinstance(node, IndexNode):
+        return IndexNode(
+            _substitute(node.operand, bindings), tuple(_substitute_ref(r, bindings) for r in node.relations)
+        )
+    if isinstance(node, NameListNode):
+        return NameListNode(tuple(_substitute_ref(m, bindings) for m in node.members))
     return with_children(node, lambda child: _substitute(child, bindings))
+
+
+def _substitute_ref(ref: NameNode | ColumnRefNode, bindings: dict[str, ArithmeticNode]) -> NameNode | ColumnRefNode:
+    """A relation reference — a member of an index or a ``by=`` list — with its formal name resolved to the passed relation."""
+    if ref.name not in bindings:
+        return ref
+    name = _bound_relation(ref.name, bindings, ref.shown if isinstance(ref, ColumnRefNode) else ref.name)
+    return ColumnRefNode(name, ref.columns) if isinstance(ref, ColumnRefNode) else NameNode(name)
+
+
+def _bound_relation(formal: str, bindings: dict[str, ArithmeticNode], shown: str) -> str:
+    """The relation name a formal binds to; a formal bound to anything but a name where a relation belongs is refused."""
+    bound = bindings[formal]
+    if not isinstance(bound, NameNode):
+        raise SchemaError(
+            f"'{shown}' passes {formal}= where a relation belongs, but the argument is not a relation name. "
+            f'Pass the relation bare.'
+        )
+    return bound.name

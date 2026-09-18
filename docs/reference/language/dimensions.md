@@ -207,6 +207,9 @@ period])` sums both key columns away at once. `tech_cap[gen_bt]` reads
   `tech_cap` at each generator's bus and technology together.
 - **`sum(x, by=[rel, rel2])` is one grouping onto what both values produce.** The
   relations sum away the same key dimension, and no two land on the same one.
+- **A list member takes a dot too.** `by=[rel.a, rel2.b]` picks one value column
+  from each relation, and `by=rel.[a, b]` is the same grouping written from one
+  relation. An index list is the same: `x[rel.a, rel2.b]`.
 
 Two refusals draw the line, and each message names the rewrite:
 
