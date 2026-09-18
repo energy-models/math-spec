@@ -144,6 +144,27 @@ the operand had, less the consumed dimensions, plus the produced ones.
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
 
+#### The rules a call keeps
+
+Five rules hold whatever a call looks like. They are what makes a relation safe
+to edit, and any change to the notation is measured against them.
+
+1. **The frame law.** `result = (operand − consumed) ∪ produced`. The operand
+   carries `consumed ∪ joined`, where `joined = key − (consumed ∪ produced)`.
+2. **The result gains a dimension only from the operand**, never from an edit to
+   the relation.
+3. **Adding a value column is safe.** A relation that gains one changes no
+   existing call. A call names both of its ends, and a value column it does not
+   name is not read.
+4. **The key is fixed.** A relation that gains or loses a key column is a
+   different table. Every call through it joins on the key columns it named at
+   neither end, so an edit to the key re-aims them all. Declare a new relation
+   instead.
+5. **An operand may grow.** A call means the same when the operand gains a
+   dimension the relation does not name. That dimension passes through to the
+   result. Growing it into a dimension the call lands on is refused rather than
+   silently joined: `(produced ∩ operand) − consumed` has to be empty.
+
 ```yaml
 dimensions:
   generator: { dtype: str }
