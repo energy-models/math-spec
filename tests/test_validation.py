@@ -930,40 +930,12 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {
+                    'relations.lk2': {'key': 'g', 'values': 'z'},
                     'dimensions.z': {},
-                    'dimensions.w': {},
-                    'relations.lka': {'key': {'k': 'g'}, 'values': 'h'},
-                    'relations.lkb': {'key': {'k': 'z'}, 'values': 'w'},
-                    'variables.q.dims': ['g', 'z'],
-                    'objective': {'expression': 'sum(sum(q, by=[lka, lkb], over=k, into=[h, w]))'},
+                    'objective': {'expression': 'sum(sum(p, by=[lk, lk2], over=g, into=[h, z]))'},
                 },
-                ('groups through relations along different dimensions',),
-                id='by-relations-over-different-dimensions',
-            ),
-            pytest.param(
-                {
-                    'relations.lh': {'key': 'g', 'values': {'h2': 'h'}},
-                    'objective': {'expression': 'sum(sum(p, by=[lk, lh], over=g, into=[h, h2]))'},
-                },
-                ("produces ['h'] more than once",),
-                id='by-the-same-target-twice',
-            ),
-            pytest.param(
-                {
-                    'dimensions.z': {},
-                    'relations.lz': {'key': 'h', 'values': 'z'},
-                    'objective': {'expression': 'sum(sum(q, by=[lk, lz], over=g, into=[h, z]))'},
-                },
-                ("['lz'] declares no column 'g', and one grouping through several tables walks them all the same way",),
-                id='a-list-whose-relations-do-not-share-the-consumed-column',
-            ),
-            pytest.param(
-                {
-                    'relations.lk2': {'key': 'g', 'values': 'h'},
-                    'objective': {'expression': 'sum(sum(p, by=[lk, lk2], over=g, into=h))'},
-                },
-                ("'h' belongs to ['lk', 'lk2'], so nothing says which table this call walks it through",),
-                id='a-list-whose-relations-share-the-produced-column',
+                ('names 2 relations, and one call walks one table',),
+                id='several-relations-in-one-by',
             ),
             pytest.param(
                 {

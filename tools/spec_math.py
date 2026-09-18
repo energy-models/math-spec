@@ -32,7 +32,6 @@ OPERATORS = {
     'sum(array, by=relation, over=a, into=b)': 'sum_by',
     'sum(array, by=relation, over=a, into=b), joining on the rest of the key': 'sum_by_columns',
     'sum(array, by=relation, over=[a, …], into=[b, …])': 'sum_by_column_lists',
-    'sum(array, by=[relation, …], over=a, into=[b, …])': 'sum_by_relations',
     'at(array, by=relation, over=a, into=b)': 'at',
     'at(array, by=relation, over=a, into=b), two columns over one dimension': 'at_columns',
     'shift(array, along=dim, offset=n)': 'shift',
