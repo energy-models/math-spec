@@ -52,25 +52,37 @@ def _signed(sign: Sign, node: ArithmeticNode) -> tuple[Sign, ArithmeticNode]:
     return sign, node
 
 
-def _signed_terms(node: ArithmeticNode) -> Iterator[tuple[Sign, ArithmeticNode]]:
-    """The sum *node* is, as each term with the sign it carries.
+def _signed_terms(node: ArithmeticNode, sign: Sign = '+') -> Iterator[tuple[Sign, ArithmeticNode]]:
+    """The sum *node* stands for under *sign*, as each term with the sign it carries.
 
-    Only the left spine is followed, which is how ``a + b - c`` associates. A
-    bracketed right operand stays one term, so ``a - (b - c)`` keeps the group
-    the file wrote rather than being redistributed into ``a - b + c``.
+    A sum under a plus is spliced into the sum around it, on either side. A
+    group left whole here would be printed into flat text and read back as one
+    term per line, which is a different tree from the one printed — the two
+    bugs in #530 were both that.
+
+    A sum under a minus keeps its brackets and stays one term, so
+    ``a - (b - c)`` is not redistributed into ``a - b + c``. Splicing it would
+    flip every sign inside, which rewrites what the file wrote rather than
+    ordering it.
     """
-    if isinstance(node, BinaryOperatorNode) and node.op in ('+', '-'):
+    sign, node = _signed(sign, node)
+    if sign == '+' and isinstance(node, BinaryOperatorNode) and node.op in ('+', '-'):
         yield from _signed_terms(node.left)
-        yield _signed(node.op, node.right)
+        yield from _signed_terms(node.right, node.op)
     else:
-        yield _signed('+', node)
+        yield sign, node
 
 
 def _factors(node: ArithmeticNode) -> Iterator[ArithmeticNode]:
-    """The product *node* is, as its factors. A division stays one factor, its own node."""
+    """The product *node* is, as its factors, on either side.
+
+    A division stays one factor, its own node. A product is spliced for the
+    reason a sum is: ``(a * b) * c`` and ``a * (b * c)`` print the same flat
+    text, so a group left whole here would not survive being read back.
+    """
     if isinstance(node, BinaryOperatorNode) and node.op == '*':
         yield from _factors(node.left)
-        yield node.right
+        yield from _factors(node.right)
     else:
         yield node
 
@@ -108,6 +120,12 @@ def normalised(node: ParsedNode) -> ParsedNode:
     operands that print alike are one tree. Addition and multiplication
     commute and are sorted. Subtraction, division, exponentiation and a call's
     positional arguments are not, and keep the order the file wrote.
+
+    Each term and factor is flattened *after* it is normalised as well as
+    before, because normalising reveals sums and products the written tree
+    hid — a unary plus over a product is one factor until the plus is folded
+    away. A group left whole here would print into flat text and read back as
+    several terms, which is a different tree from the one printed.
     """
     if isinstance(node, ComparisonNode):
         left, right = (normalised(side) for side in (node.left, node.right))
@@ -119,13 +137,20 @@ def normalised(node: ParsedNode) -> ParsedNode:
             {key: normalised(value) for key, value in sorted(node.kwargs.items())},
         )
     if isinstance(node, UnaryOperatorNode):
-        return UnaryOperatorNode(node.op, normalised(node.operand))
+        sign, inner = _signed('+', node)
+        under = normalised(inner)
+        return under if sign == '+' else UnaryOperatorNode('-', under)
     if isinstance(node, BinaryOperatorNode):
         if node.op in ('+', '-'):
-            terms: list[tuple[Sign, ArithmeticNode]] = [(sign, normalised(term)) for sign, term in _signed_terms(node)]
+            terms: list[tuple[Sign, ArithmeticNode]] = []
+            for sign, term in _signed_terms(node):
+                terms.extend(_signed_terms(normalised(term), sign))
             return _sum(sorted(terms, key=_order))
         if node.op == '*':
-            factors: list[ArithmeticNode] = sorted((normalised(factor) for factor in _factors(node)), key=str)
+            factors: list[ArithmeticNode] = []
+            for factor in _factors(node):
+                factors.extend(_factors(normalised(factor)))
+            factors.sort(key=str)
             product: ArithmeticNode = factors[0]
             for factor in factors[1:]:
                 product = BinaryOperatorNode('*', product, factor)

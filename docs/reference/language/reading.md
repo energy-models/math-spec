@@ -252,6 +252,10 @@ order of a `cases:` block's regions, the order of a declaration's `dims`, and
 the order of a piecewise block's links. A difference in any of them is a
 difference in the text.
 
+Sorting `variables:` changes the order a [`piecewise:`](piecewise.md) expansion
+meets them in, so a constraint the expansion emits can carry its dims in another
+order. The frame is the same set of dimensions.
+
 The normal form loads to the same model. It does not load to a `Spec` equal to
 the original: a reprinted expression is a different string. Writing the form out
 again gives the same text, which is what the line above says.
