@@ -37,20 +37,20 @@ is a **bare relation**, a set of rows and nothing more.
 
 A column is named after its dimension. Where two columns share a dimension, or
 a column maps a dimension onto itself, the mapping form names them:
-`{bus0: bus, bus1: bus}`. A relation may not take a dimension's name.
+`{bus0: bus, bus1: bus}`.
 
 ### Cardinalities
 
-| to say                                                | write                                                     |
-| ----------------------------------------------------- | --------------------------------------------------------- |
-| many-to-one, each generator on one bus                | `{key: generator, values: bus}`                           |
-| one-to-many, a bus and its generators                 | the same table, read the other way                        |
-| many-to-many, a generator on several buses            | `{key: [generator, bus]}`, no `values:`                   |
-| one value per pair, a generator's zone in each period | `{key: [generator, period], values: zone}`                |
-| two columns over one dimension, a line's two ends     | `{key: line, values: {bus0: bus, bus1: bus}}`             |
-| a dimension onto itself, a snapshot's representative  | `{key: snapshot, values: {rep: snapshot}}`                |
-| a neighbour table, which nothing reads                | `{key: {from: snapshot, to: snapshot}}`                   |
-| one-to-one                                            | not a claim the language has: a key is one set of columns |
+| to say                                                        | write                                                                                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| many-to-one, each generator on one bus                        | `{key: generator, values: bus}`                                                                                     |
+| one-to-many, a bus and its generators                         | the same table, read the other way                                                                                  |
+| many-to-many, a generator on several buses                    | `{key: [generator, bus]}`, no `values:`                                                                             |
+| one value per pair, a generator's zone in each period         | `{key: [generator, period], values: zone}`                                                                          |
+| two columns over one dimension, a line's two ends             | `{key: line, values: {bus0: bus, bus1: bus}}`                                                                       |
+| a dimension onto itself, a snapshot's representative          | `{key: snapshot, values: {rep: snapshot}}`                                                                          |
+| pairs of one dimension, a snapshot and each of its neighbours | `{key: {from: snapshot, to: snapshot}}`, no `values:`. `sum` walks it either way, and nothing reads a value from it |
+| one-to-one                                                    | not a claim the language has: a key is one set of columns                                                           |
 
 A key that determines a value holds one column per dimension, so
 `{key: {bus0: bus, bus1: bus}, values: line}` is refused. A bare relation may
