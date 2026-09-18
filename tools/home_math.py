@@ -97,26 +97,27 @@ def block() -> str:
     )
 
 
-#: The body of one ``math`` fence, which is what :func:`to_markdown` prints a
-#: block of math as.
+#: The body of one ``math`` fence, which is what a block of math prints as.
 FENCED = re.compile(r'```math\n(.*?)\n```', re.DOTALL)
 
 
-def unfenced(markdown: str) -> str:
-    """*markdown* with every math fence rewritten as ``$$…$$`` on one line.
+def verbatim(markdown: str) -> str:
+    """*markdown* with every math fence rewritten into the pair a fold renders.
 
-    GitHub turns a ``math`` fence into display math at the top level of a page
+    GitHub makes display math of a ``math`` fence at the top level of a page
     only. Inside a ``<details>`` the fence stays a code block, and the fold
-    prints the TeX instead of the equation. The dollar pair renders in both
-    places, so the fold takes that spelling. It has to be one line, because
-    GitHub reads the pair as an inline span, which a newline ends; TeX reads a
-    newline as a space, so joining the lines prints the same math.
+    prints the TeX rather than the equation. ``$$…$$`` is no fix: inside a fold
+    it goes through Markdown's escape pass, which reads ``dispatch_{s,g} \\cdot
+    c_{g}`` as an emphasis span. The verbatim pair renders there, and hands the
+    math over untouched, which is why
+    :meth:`~math_spec.typesetting.markdown.MarkdownFormat.math` already prints
+    inline math in it.
 
-    The fences outside the folds keep their own spelling, which is what
-    :func:`~math_spec.typesetting.to_markdown` prints and what the README says
-    renders as-is.
+    It costs the display style, because GitHub has no verbatim block pair, and
+    it costs one line: the pair is an inline span, which a newline ends. TeX
+    reads a newline as a space, so joining the lines prints the same math.
     """
-    return FENCED.sub(lambda m: f'$${" ".join(m[1].splitlines())}$$', markdown)
+    return FENCED.sub(lambda m: f'$`{" ".join(m[1].splitlines())}`$', markdown)
 
 
 def details(summary: str, body: str) -> str:
@@ -142,7 +143,7 @@ def readme_block() -> str:
             to_markdown(spec, numbered=False, legend=False).strip(),
             details(
                 'The whole document: a symbol table, and the legend it prints',
-                unfenced(to_markdown(spec, symbols=symbols, numbered=False).strip()),
+                verbatim(to_markdown(spec, symbols=symbols, numbered=False).strip()),
             ),
             details(
                 'The same document as LaTeX',
