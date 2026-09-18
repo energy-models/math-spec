@@ -162,10 +162,6 @@ class Namespace:
             return 'relation'
         return None
 
-    def shape_of(self, relation: str) -> RelationDeclaration:
-        """The columns and key of *relation*, as declared."""
-        return self.relations[relation]
-
     def unknown(self, name: str, context: str, *, allow_dims: bool, formals: Iterable[str] = ()) -> str:
         """The refusal for a *name* declared nowhere, listing what it could have been.
 
@@ -225,12 +221,16 @@ class Resolved:
         constraints: Each constraint's comparison and ``where``.
         objective: The objective's expression, ``None`` where the file
             declares none.
+        relations: Each relation's columns and key, as declared — the one
+            copy, which every :class:`~math_spec.program.Direction` and
+            :class:`~math_spec.program.Partition` in the trees holds.
     """
 
     expressions: dict[str, CasesNode | DefinitionNode]
     variables: dict[str, Mask | None]
     constraints: dict[str, ResolvedConstraint]
     objective: ArithmeticNode | None
+    relations: dict[str, RelationDeclaration]
 
     @cached_property
     def read_by_the_math(self) -> frozenset[str]:
@@ -646,7 +646,7 @@ class _Resolver:
         refused toward ``at``.
         """
         ns, context = self.ns, self.context
-        shape = ns.shape_of(name)
+        shape = ns.relations[name]
         call = f'{operator}(by={name})'
         if not (
             self._known_roles(name, call, from_roles, 'over') and self._known_roles(name, call, into_roles, 'into')
@@ -689,7 +689,7 @@ class _Resolver:
 
     def _known_roles(self, name: str, call: str, roles: tuple[str, ...], kwarg: str) -> bool:
         """Whether every role *kwarg* names is a column of relation *name*, each once; the refusal otherwise."""
-        shape = self.ns.shape_of(name)
+        shape = self.ns.relations[name]
         for role in roles:
             if role not in shape.roles:
                 self.errors.append(
@@ -714,7 +714,7 @@ class _Resolver:
         ``within=`` names a column that is not a value column.
         """
         context = self.context
-        shape = self.ns.shape_of(name)
+        shape = self.ns.relations[name]
         call = f'{operator}(by={name})'
         if along_dim is None or not self._known_roles(name, call, within_roles, 'within'):
             return None
@@ -806,7 +806,7 @@ class _Resolver:
                     f'Remove it, or compare it: where: "{node.name} > 0".'
                 )
             case 'relation':
-                shape = ns.shape_of(node.name)
+                shape = ns.relations[node.name]
                 dims = tuple(shape.dim(k) for k in shape.key)
                 if len(set(dims)) < len(dims):
                     self.errors.append(
@@ -851,7 +851,7 @@ class _Resolver:
             self.errors.append(
                 f'{context}: {call} leaves within= unsaid. {PARTITION_NAMES_ITS_GROUP} Write '
                 f"position({node.dimension}, by={node.by}, within=<column>) — the value columns of '{node.by}' "
-                f'are {list(ns.shape_of(node.by).values)}.'
+                f'are {list(ns.relations[node.by].values)}.'
             )
             return node
         partition = self._partition(node.by, 'position', node.dimension, node.into)
@@ -875,7 +875,7 @@ class _Resolver:
                     if (refusal := _relation_pair_error(context, node, value, ns, left, right)) is not None:
                         self.errors.append(refusal)
                         return node
-                    dims = tuple(ns.shape_of(left_name).dim(k) for k in ns.shape_of(left_name).key)
+                    dims = tuple(ns.relations[left_name].dim(k) for k in ns.relations[left_name].key)
                     return RelationPairComparisonNode(left_name, left, right_name, right, node.op, dims)
                 self.errors.append(_declared_rhs_error(context, node, value, rhs_kind))
                 return node
@@ -896,7 +896,7 @@ class _Resolver:
             column = self._relation_column(left_name, left_column or None, node.name, node.op)
             if column is None:
                 return node
-            dtype = ns.dtypes[ns.shape_of(left_name).dim(column)]
+            dtype = ns.dtypes[ns.relations[left_name].dim(column)]
         elif kind in ('parameter', 'dimension'):
             dtype = ns.dtypes[left_name]
         if dtype is not None:
@@ -913,7 +913,7 @@ class _Resolver:
                 return DimensionComparisonNode(left_name, node.op, value)
             case 'relation':
                 assert column is not None
-                shape = ns.shape_of(left_name)
+                shape = ns.relations[left_name]
                 return RelationComparisonNode(left_name, column, node.op, value, tuple(shape.dim(k) for k in shape.key))
             case 'variable':
                 self.errors.append(
@@ -931,7 +931,7 @@ class _Resolver:
         column where there is exactly one.
         """
         ns, context = self.ns, self.context
-        shape = ns.shape_of(name)
+        shape = ns.relations[name]
         if not shape.values:
             self.errors.append(
                 f"{context}: '{spelling}' compares a column of '{name}', a bare relation — every column is in its "
@@ -1111,7 +1111,7 @@ def _relation_pair_error(
     """
     comparison = f"'{node.name} {node.op} {other}'"
     left_name, right_name = node.name.partition('.')[0], other.partition('.')[0]
-    ls, rs = ns.shape_of(left_name), ns.shape_of(right_name)
+    ls, rs = ns.relations[left_name], ns.relations[right_name]
     left_keys, right_keys = {ls.dim(k) for k in ls.key}, {rs.dim(k) for k in rs.key}
     if left_keys != right_keys:
         return (

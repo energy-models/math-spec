@@ -164,7 +164,7 @@ def validate_expressions(schema: Spec) -> Resolved:
     if errors:
         raise SchemaError(_once(errors))
 
-    resolved = Resolved(expressions, variables, constraints, objective)
+    resolved = Resolved(expressions, variables, constraints, objective, ns.relations)
     check_schema(schema, resolved)
     return resolved
 
