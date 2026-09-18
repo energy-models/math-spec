@@ -7,8 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 An operator reduces an expression along a dimension, or moves its values along
 one. The set is **closed**: these four, and [`dual`](named.md#reading-a-constraints-dual)
-in a reported expression, are all of them. There is no registry to add to, so a
-model can never depend on what a caller registered. A composition of them goes in
+in a reported expression, are all of them. A composition of them goes in
 [`macros:`](named.md#macros).
 
 | Operator                                           | Result                                                                                                                                            |
@@ -29,8 +28,8 @@ model can never depend on what a caller registered. A composition of them goes i
 | `sum_back(array, along=dim, window=n, by=relation, within=c)` | The window stays inside each group that the relation's column `c` makes                                                                         |
 
 `array` is any expression with the right dimension set, so each operator reads a
-parameter as readily as a variable. Dimension arguments are name-checked at load,
-so `sum(p, over=snapshto)` is an error rather than a silent no-op.
+parameter as readily as a variable. Dimension arguments are name-checked at
+load.
 [Every operator as math](#every-operator-as-math) shows how each row prints.
 
 ## `sum`
@@ -103,8 +102,8 @@ That matches the null group in `sum(by=)`.
 ending at the position being written. It states a minimum up time, a rolling
 budget or a delivery horizon. A width of `1` is `x` itself.
 
-The dimension **survives**. `sum` reduces it away, but `sum_back` leaves one
-value per position, and each value reads a window of its own.
+The dimension **survives**: `sum_back` leaves one value per position, and each
+value reads a window of its own.
 
 ```yaml
 dimensions:
@@ -127,21 +126,16 @@ objective: { sense: minimize, expression: sum(on) }
 ```
 
 `window=` takes a number or the name of an integer parameter, and never an
-expression. With a parameter, each entity gets a window of its own length. A
-fixed width can be written as a run of `shift`s; a width that is a column
-cannot. Two rules hold for a named width, and breaking either is a load error:
+expression. With a parameter, each entity gets a window of its own length. Two
+rules hold for a named width, and breaking either is a load error:
 
-- **The width is integral.** A width counts positions, so the parameter is
-  `dtype: int`, and an `int` declaration binds only an integer column.
-- **The width does not vary along the dimension being summed.** A width that
-  changed along that axis would give a different window at every position.
+- **The width is integral.** The parameter is `dtype: int`.
+- **The width does not vary along the dimension being summed.**
 
 `edge=` takes `'wrap'` or nothing. A window that reaches past the start of the
-axis is **short**, not empty: the position being written is always inside its own
-window, so no row is lost and there is nothing vacated to fill. A number here is
-a load error, because the expression can add a constant itself. `edge='wrap'`
-makes the window reach around the axis, which a representative period that
-repeats asks for.
+axis is **short**, not empty, so no row is lost and there is nothing vacated to
+fill. A number here is a load error. `edge='wrap'` makes the window reach
+around the axis.
 
 `by=` keeps the window inside each group that a relation makes, so no window
 reaches out of its own group. The relation obeys the rules given for
@@ -170,34 +164,26 @@ constraints:
     expression: soc == shift(soc, along=snapshot, offset=1, edge='wrap') + charge * eta - discharge
 ```
 
-`edge='wrap'` makes a battery cyclic without a boundary condition written out:
-the first snapshot reads the last.
+`edge='wrap'` makes the store cyclic: the first snapshot reads the last.
 
 `edge=` has three settings:
 
 - **Bare.** The vacated coordinate is [absent](absence.md). Absence spreads, so
-  the row it would have fed is not built. An acyclic recurrence then has no row
-  at its first coordinate, and the model states the initial condition itself
-  under a complementary `where`. See
-  [two regimes, two blocks](declarations.md#constraints).
+  the row it would have fed is not built, and the model states the initial
+  condition in a block of its own
+  ([a rule that differs by regime](../../howto/regimes.md)).
 - **`'wrap'`.** The translation is cyclic, so nothing is vacated.
 - **A number.** That number stands where the slot was vacated, and the row
-  survives. It is a number rather than a flag because the identity depends on
-  the position: `0` in a sum, and `1` in a product.
+  survives: `0` in a sum, and `1` in a product.
 
 Two rules hold across all three:
 
 - **Over a variable, the only numeric edge is `0`.** A vacated slot then
-  contributes no term. A non-zero number would be a constant standing where a
-  term used to be.
+  contributes no term.
 - **A bare `shift` over an expression with no variable is a load error.** A
   parameter's missing row is a zero coefficient, so there is no absence for the
-  vacated slot to carry, and inventing one would turn
-  `x <= shift(dt, along=t, offset=1)` into `x <= 0`. The error names the
-  rewrites: `edge='wrap'`, `edge=0`, or `edge=0` together with a `where` that
-  excludes the vacated coordinate. A `where` on its own does not lift the
-  refusal, and `edge=0` on its own leaves a row at that coordinate bounded by
-  zero.
+  vacated slot to carry. The error names the rewrites: `edge='wrap'`, `edge=0`,
+  or `edge=0` together with a `where` that excludes the vacated coordinate.
 
 `shift` reads parameters too. `shift(dt, along=t, offset=1, edge=0)` is the
 previous snapshot's duration, without a pre-shifted copy of the table.
@@ -227,8 +213,7 @@ objective: { sense: minimize, expression: sum(soc) }
 
 Every `edge=` setting then applies one group at a time. Bare, the first
 coordinate of each group is vacated and its row drops. `edge='wrap'` closes each
-group onto its own last coordinate, which a store that returns to its starting
-level every period asks for. `edge=v` puts `v` at the edge of each group.
+group onto its own last coordinate. `edge=v` puts `v` at the edge of each group.
 
 `by=` takes a relation with a key column over the dimension being walked, and
 `within=` names the value columns the group is made of
@@ -268,52 +253,17 @@ objective: { sense: minimize, expression: sum(order) }
 Three rules keep this a translation. Breaking any of them is a load error that
 names its rewrite:
 
-- **The parameter is integral.** An offset lands on a coordinate, so it is
-  `dtype: int`, and an `int` declaration binds only an integer column.
-- **The parameter does not vary along the dimension being translated.** An
-  offset that varied along the axis it moves along would be a permutation, not
-  a lag.
+- **The parameter is integral.** It is `dtype: int`.
+- **The parameter does not vary along the dimension being translated.**
 - **The parameter varies only over dimensions where the shift can read it.**
-  Those are the dimensions of the shifted expression, and the dimension a `by=`
-  relation groups into.
+  Those are the dimensions of the shifted expression, and the dimension a
+  [`by=`](#a-translation-that-stops-at-each-groups-edge) relation groups into,
+  so `offset=lead` with `lead: {dims: [period]}` under `by=period_of` gives one
+  lag per period.
 
-A named offset may be bare. Its vacated positions differ per entity, and they
-are absent exactly as a numeric offset's are. A bare `shift` over an expression
-with no variable stays refused, for the reason given [above](#shift).
-
-The sign travels in the values. `offset=-lead` is refused, so a row that points
-backwards says so where the data is read.
-
-### A lag that differs per group
-
-`offset=` may name a parameter declared over the dimension that a
-[`by=`](#a-translation-that-stops-at-each-groups-edge) relation groups into. Then
-every snapshot of a period moves by that period's own lead time, and no
-coordinate reaches out of its own group:
-
-```yaml
-dimensions:
-  snapshot: { dtype: int }
-  period: { dtype: int }
-relations:
-  period_of: { key: snapshot, values: period }
-parameters:
-  lead: { dims: [period], dtype: int }
-  demand: { dims: [snapshot] }
-variables:
-  order:
-    dims: [snapshot]
-    bounds: { lower: 0 }
-constraints:
-  arrives_after_its_periods_lead:
-    dims: [snapshot]
-    expression: shift(order, along=snapshot, offset=lead, by=period_of, within=period, edge=0) >= demand
-objective: { sense: minimize, expression: sum(order) }
-```
-
-The offset is legal here because the partition puts each snapshot's period within
-reach. The two keys compose: `lead: {dims: [technology, period]}` gives one lag
-per technology per period.
+A named offset may be bare, and its vacated positions are absent exactly as a
+numeric offset's are. The sign travels in the values: `offset=-lead` is
+refused.
 
 ## Every operator as math
 

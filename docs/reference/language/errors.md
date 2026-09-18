@@ -95,13 +95,6 @@ and [the limits](../../about/limits.md) gives the reasons.
 | filling a missing value (`.fillna`)                                            | Data preparation, or a `where` if the coordinate should not exist. Inside the language, only `shift(..., edge=)` fills ([absence](absence.md))                      |
 | schema migrations                                                              | —                                                                                                                                                                   |
 
-A model built with linopy or Pyomo calls cannot be turned into a `.yaml` file.
-The arrays it holds would build the same model, but an `expression:` string and a
-`where:` string cannot be recovered from them, so the result would be nothing a
-reviewer could read. A library that wants a file passes a `dict` with the file's
-keys to `to_spec`, and calls `to_yaml()`.
-
 The language has no escape hatch. Math it cannot express is a gap in the
 language, and a gap closes as a macro, a primitive or a formulation
-([the limits](../../about/limits.md)). Where the table above has a row, that row
-names what to write instead.
+([the limits](../../about/limits.md)).

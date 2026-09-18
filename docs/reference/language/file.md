@@ -38,8 +38,8 @@ description: Least-cost dispatch of a generator fleet against an hourly load.
 dimensions: ...
 ```
 
-A `#` comment can say the same thing, but the parser throws a comment away.
-A `description:` reaches every tool that reads the model.
+A `#` comment is thrown away by the parser. A `description:` reaches every tool
+that reads the model.
 
 ## `version`
 
@@ -74,15 +74,11 @@ inside every declaration:
 unknown key 'boundz' … Did you mean 'bounds'?
 ```
 
-An ignored key would change the model silently. A dropped `bounds:` leaves a
-variable unbounded, and a dropped `where:` leaves it unmasked.
-
 ## How the YAML is read
 
-- **Booleans follow YAML 1.2**, so only `true` and `false` are booleans.
-  Everything else follows YAML 1.1. Under 1.1, `on`, `off`, `yes`, `no`, `y`
-  and `n` are booleans, and a declaration named after a country code stops
-  being a name. Here, `no: {dtype: str}` is a dimension called `no`.
+- **Booleans follow YAML 1.2**, so only `true` and `false` are booleans, and
+  `no: {dtype: str}` is a dimension called `no`. Everything else follows
+  YAML 1.1.
 - Implicit timestamps such as `2024-01-01`, and sexagesimal integers such as
   `12:30`, which reads as `750`, survive. Neither reaches a coordinate, because
   coordinates are data. The one place such a value is read as a label is a

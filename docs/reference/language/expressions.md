@@ -53,16 +53,10 @@ One that nothing in the math reads is [reported](named.md#reported-expressions),
 and no degree limit applies to it.
 
 `/` needs a divisor that carries no variable and is a single factor, not a sum.
-A variable divisor is rational rather than polynomial, which is outside the
-language at any degree.
 
 `**` needs a base and an exponent that both carry no variable and neither of
-which adds. `growth ** period` is one number per coordinate, so it is the same
-arithmetic that `*` already does. `(1 + rate) ** period` is refused, because
-addition does not distribute over `**`; bind the factor itself as a parameter.
-A variable under `**` is refused because the exponent would decide the degree:
-`p ** n` is affine at `n = 1` and quadratic at `n = 2`, and `to_spec` reads no
-data. Write `x * x` for a square.
+which adds. `growth ** period` is allowed, and `(1 + rate) ** period` is
+refused: bind the factor itself as a parameter. Write `x * x` for a square.
 
 ## Name resolution
 
@@ -72,8 +66,7 @@ could write that key.
 
 One flat namespace covers dimensions, relations, parameters, variables, named
 expressions, macros and the built-in operators. A collision is a load error that
-names both declarations. There is no shadowing: with shadowing, a new parameter
-named `snapshot` would silently change what `where: "snapshot > 0"` means.
+names both declarations, and nothing shadows anything.
 
 Position decides which kinds of name are legal, and the kind of every name is
 fixed at load:
@@ -88,17 +81,13 @@ fixed at load:
 | the `edge` key of `shift`              | `'wrap'` in quotes, or a bare number. Never a dimension                                                            |
 | `dual` argument (`dual(c)`)            | a constraint. It resolves against the constraints alone ([named expressions](named.md#reading-a-constraints-dual)) |
 
-A bare word in the value of a keyword argument is a name to resolve. That is why
-`wrap` is quoted: `shift(x, along=wrap, edge='wrap')` reads one way, even in a
-model with a dimension called `wrap`. `edge` is the one keyword whose _key_ is
-fixed rather than naming a dimension, so a dimension called `edge` changes
-nothing.
+A bare word in the value of a keyword argument is a name to resolve, which is
+why `wrap` is quoted. A keyword's key is never a name, so a dimension called
+`edge` changes nothing.
 
-A dimension where a value belongs is an error. A dimension is a coordinate
-space, not data; to use its coordinates as data, declare a parameter over it. A
-`str` or `bool` parameter where a value belongs is also an error: a label
-selects rows and a flag masks rows, and both belong in a `where`. Only
-`dtype: float` and `dtype: int` stand as a coefficient, a term or a divisor.
+A dimension, a `str` parameter or a `bool` parameter where a value belongs is
+an error. Only `dtype: float` and `dtype: int` stand as a coefficient, a term
+or a divisor ([parameters](declarations.md#parameters)).
 
 Constraints sit outside the flat namespace. The one position that names a
 constraint is [`dual`'s argument](named.md#reading-a-constraints-dual), so a
@@ -126,15 +115,12 @@ before any data binds**:
 
 A binary operator takes the **union** of the two dimension sets, so an outer
 product is allowed wherever the declaration's own dimensions cover the result.
-Those dimensions are the declaration's **frame**. What is never allowed is a
-declaration that disagrees with its expression:
+Those dimensions are the declaration's **frame**. A declaration may not
+disagree with its expression:
 
-- A constraint requires `dims(lhs) ∪ dims(rhs)` to **equal** its `dims`. A
-  stray dimension multiplies the rows, and a declared dimension the expression
-  does not carry repeats
-  one row across them.
-- An objective must carry **no dimensions**. It is one number, and the sums that
-  reduce it to one number are written in the expression.
+- A constraint requires `dims(lhs) ∪ dims(rhs)` to **equal** its `dims`.
+- An objective must carry **no dimensions**. The sums that reduce it to one
+  number are written in the expression.
 - A `where` predicate and a bound parameter must not **exceed** the frame they
   sit in.
 
@@ -184,18 +170,15 @@ that is not declared is a load error.
 ### The right-hand side of a comparison
 
 A bare name on the right is read as a string label when the model does not
-declare it. A declared name there is a load error that names the near miss,
-because reading it as text would compare a column against another declaration's
-name and mask everything out.
+declare it. A declared name there is a load error that names the near miss.
 
 Quote a label that is not an identifier, and quote a date: `'combined-cycle'`,
 `'IT-north'`, `'2030-01-01'`. A quoted word is never read as a declaration.
 
 A comparison is checked against the declared `dtype`. A `datetime` dimension is
 compared against a quoted ISO date such as `snapshot > '2030-01-01'` or
-`'2030-01-01T06:00'`. A number against a `datetime` dimension is a load error,
-because it would silently mean "after 1970-01-01". Calendar arithmetic and
-resampling stay in data preparation.
+`'2030-01-01T06:00'`, and a number against it is a load error. Calendar
+arithmetic and resampling stay in data preparation.
 
 String labels compare bytewise, whatever order the dimension declared them in,
 so `node >= 'b'` means the same however the nodes were listed. A label the
@@ -205,9 +188,7 @@ rather than an error.
 Comparing two parameters, or two dimensions, is not in the language. Precompute a
 boolean parameter instead. Two relation columns are the exception, where the two
 relations are keyed over the same dimensions and the two columns are over one
-dimension. Keyed alike, they are two columns of one key table, so the comparison
-filters that table rather than joining two. Over one dimension they draw from one
-label set, so a match is possible at all.
+dimension.
 
 ### `position()`
 
@@ -234,8 +215,7 @@ leaves the recurrence unanchored. `position(snapshot) == 0` still names the firs
 row.
 
 `-1` is the last position, and `-2` the one before it. A position that no
-coordinate occupies is an error when the data binds, not an empty mask, because
-seeding no row is the failure the clause was written to prevent.
+coordinate occupies is an error when the data binds, not an empty mask.
 
 `by=` counts inside each group that a relation makes. That gives one seeded row per
 period, however long each period is:

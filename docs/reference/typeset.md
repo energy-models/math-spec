@@ -89,6 +89,15 @@ a flag.
   load-time checks as everything else.
 - Lines are not broken. A wide equation runs off the page.
 
+## Descriptions
+
+A `description:` is **plain prose, with one piece of notation**. A name in
+backticks, such as `` `capital_cost` ``, sets in monospace in every output
+format. Everything else is text, and each format escapes whatever its own
+syntax would read as markup: an underscore stays an underscore, and `$\ell$`
+prints as those five characters. The legend prints the description of every
+dimension, parameter and variable.
+
 ## Printing one declaration on its own
 
 `typeset_declaration` returns the line the document prints for one named

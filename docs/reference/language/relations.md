@@ -128,20 +128,12 @@ them.
 ## How the map is supplied
 
 The data for `gen_bus` arrives under the key `gen_bus`, as a table with one
-column per declared column, named after it:
+column per declared column, named after it.
 
-```python
-sources = {
-    'generator': ['g1', 'g2', 'g3'],
-    'gen_bus': pl.DataFrame({'generator': ['g1', 'g2'], 'bus': ['north', 'south']}),
-}
-```
-
-**A partial map is the rows it has.** `g3` is in no row, so `g3` sits on no
-bus. Absence is the missing row, as it is for a parameter. A null in any column
-is refused, because a row that is present and empty says both at once. The
-table holds one row per key tuple. A value that matches no label of its
-dimension is refused as a typo, never added as a member.
+**A partial map is the rows it has.** A generator in no row sits on no bus.
+Absence is the missing row, as it is for a parameter. A null in any column is
+refused. The table holds one row per key tuple. A value that matches no label
+of its dimension is refused as a typo, never added as a member.
 
 A relation's table stands on its own, so a model gains a relation the way it
 gains a parameter: one more table, and no change to the others. **A column named
