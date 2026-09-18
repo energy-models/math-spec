@@ -17,6 +17,7 @@ from dataclasses import dataclass, replace
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never, cast
 
+import math_spec.degree as degree
 from math_spec._expression_parser import (
     ArithmeticNode,
     BinaryOperatorNode,
@@ -52,8 +53,9 @@ from math_spec._where_parser import (
     UnresolvedWhereNode,
     parse_where,
 )
+from math_spec.dimensions import dims_of
 from math_spec.errors import LanguageError, did_you_mean
-from math_spec.expansion import parse_and_expand
+from math_spec.expansion import expand, parse_and_expand
 from math_spec.model import NUMERIC_DTYPES
 from math_spec.operators import (
     BUILTINS,
@@ -65,6 +67,7 @@ from math_spec.operators import (
 )
 from math_spec.program import (
     AndNode,
+    ArithmeticComparisonNode,
     BooleanLiteralNode,
     DimensionComparisonNode,
     DimensionPositionNode,
@@ -103,7 +106,7 @@ class Namespace:
     A name has one kind: model.py refuses one declared under two sections.
     """
 
-    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'parameters', 'relations', 'variables')
+    __slots__ = ('constraints', 'dimensions', 'dtypes', 'leaf_dims', 'parameters', 'relations', 'schema', 'variables')
 
     def __init__(
         self,
@@ -114,7 +117,12 @@ class Namespace:
         dtypes: Mapping[str, DeclaredDtype],
         leaf_dims: Mapping[str, tuple[str, ...]],
         constraints: Iterable[str],
+        schema: Spec,
     ) -> None:
+        #: The schema the names come from — what a where comparison's sides
+        #: are expanded and dim-checked against, since those read operators
+        #: and named expressions that the flat listing above cannot answer for.
+        self.schema = schema
         self.variables = frozenset(variables)
         self.parameters = frozenset(parameters)
         self.dimensions = frozenset(dimensions)
@@ -149,6 +157,7 @@ class Namespace:
                 **{v: tuple(vd.dims) for v, vd in schema.variables.items()},
             },
             schema.constraints,
+            schema,
         )
 
     def kind(self, name: str) -> DeclarationKind | None:
@@ -827,18 +836,31 @@ class _Resolver:
         return node
 
     def _comparison(self, node: UnresolvedComparisonNode) -> WhereNode | UnresolvedWhereNode:
-        """``side <op> side``, read for what each side is: a ``position()`` call, or a name against a literal or a column.
+        """``side <op> side``, read for what each side is.
 
-        The grammar admits any arithmetic on a side, and this is where the
-        language decides what it accepts there.
+        A ``position()`` call on the left is the position form. A name against
+        a literal or a second column is the plain form the dtype rules are
+        written for, unless a side names a parameter or an ``expressions:``
+        entry against the other, which is arithmetic however plain it looks.
+        Everything else is a comparison of expressions.
         """
         if isinstance(node.left, FunctionCallNode) and node.left.name == 'position':
             return self._position(node.left, node)
         plain = self._plain(node)
-        return node if plain is None else self._plain_comparison(node, plain)
+        if plain is None or self._reads_arithmetic(plain):
+            return self._expression_comparison(node)
+        return self._plain_comparison(node, plain)
+
+    def _reads_arithmetic(self, plain: _Plain) -> bool:
+        """Whether a plain-looking comparison is arithmetic after all: a side that is a value against a side that is a value."""
+        ns = self.ns
+        left_value = plain.name in ns.schema.expressions
+        right = plain.value if not plain.quoted and isinstance(plain.value, str) else None
+        right_value = right is not None and (right in ns.schema.expressions or ns.kind(right) == 'parameter')
+        return left_value or right_value
 
     def _plain(self, node: UnresolvedComparisonNode) -> _Plain | None:
-        """The comparison as ``name <op> literal`` or ``name <op> name``, or ``None`` with the refusal appended."""
+        """The comparison as ``name <op> literal`` or ``name <op> name``, or ``None`` where a side is arithmetic."""
         name, right = _side_name(node.left), node.right
         value: float | str | None
         quoted = isinstance(right, QuotedNode)
@@ -851,13 +873,55 @@ class _Resolver:
         else:
             value = _side_name(right)
         if name is None or value is None:
-            self.errors.append(
-                f'{self.context}: a where-comparison tests one name, relation column or position() against a '
-                f'literal or a second column, and a side here is arithmetic, which is not in the language. '
-                f'Precompute the test as a boolean parameter in data prep and test that.'
-            )
             return None
         return _Plain(name, node.op, value, quoted)
+
+    def _expression_comparison(
+        self, node: UnresolvedComparisonNode
+    ) -> ArithmeticComparisonNode | UnresolvedComparisonNode:
+        """``expression <op> expression``: each side expanded, typed and held to what a mask may read.
+
+        A side is read as an expression is — macros and named expressions
+        expand, every operator and dim rule applies — except that it names no
+        variable and no dual, since a mask is built before either exists.
+        """
+        ns, context = self.ns, self.context
+        found = len(self.errors)
+        sides = []
+        for side in (node.left, node.right):
+            if isinstance(side, ColumnNode | QuotedNode):
+                self.errors.append(_not_arithmetic(context, side))
+                continue
+            try:
+                expanded = expand(side, ns.schema, context)
+            except ValueError as e:
+                self.errors.append(str(e) if str(e).startswith(context) else f'{context}: {e}')
+                continue
+            sides.append(self._arith(expanded))
+        if len(self.errors) > found:
+            return node
+        dims: set[str] = set()
+        for side in sides:
+            if degree.carries_variable(side):
+                self.errors.append(
+                    f'{context}: a where compares expressions, and one side names a variable. A where mask '
+                    f'is built before variables exist — it may test parameters and dimension coordinates only.'
+                )
+            elif degree.calls_dual(side):
+                self.errors.append(
+                    f'{context}: a where compares expressions, and one side reads a dual, which only a solve '
+                    f'produces. A mask is built before it — test the data instead.'
+                )
+            else:
+                try:
+                    degree.check_expression(side, context, ceiling=1)
+                    dims |= dims_of(side, ns.schema, context)
+                except LanguageError as e:
+                    self.errors.append(str(e))
+        if len(self.errors) > found:
+            return node
+        left, right = sides
+        return ArithmeticComparisonNode(left, node.op, right, tuple(d for d in ns.schema.dimensions if d in dims))
 
     def _position(
         self, call: FunctionCallNode, node: UnresolvedComparisonNode
@@ -1150,16 +1214,23 @@ def _literal(value: ArithmeticNode) -> NumberNode | None:
     return None
 
 
-def _declared_rhs_error(context: str, node: _Plain, value: str, kind: str) -> str:
-    """Why the right-hand side of a where-comparison may not name a declaration."""
-    comparison = f"'{node.name} {node.op} {value}'"
-    if kind == 'parameter':
+def _not_arithmetic(context: str, side: ColumnNode | QuotedNode) -> str:
+    """Why a relation column or a quoted label may not stand on a side of a comparison of expressions."""
+    if isinstance(side, ColumnNode):
         return (
-            f'{context}: {comparison} compares two parameters, which is not in the '
-            f'language — a where-comparison tests one parameter or dimension against '
-            f'a literal. Precompute the comparison as a boolean parameter in data '
-            f'prep and test that.'
+            f"{context}: '{side.shown}' is a column of a relation, which is compared against a literal or a "
+            f'second column and is not read in arithmetic. Compare it on its own, or carry the value in a '
+            f'parameter and test that.'
         )
+    return (
+        f"{context}: '{side.value}' is a quoted label, which is compared against one name. Put the name alone on "
+        f'the other side, or drop the quotes if it is a number.'
+    )
+
+
+def _declared_rhs_error(context: str, node: _Plain, value: str, kind: str) -> str:
+    """Why the right-hand side of a where-comparison may not name a variable, a relation or a dimension."""
+    comparison = f"'{node.name} {node.op} {value}'"
     if kind == 'variable':
         return (
             f'{context}: {comparison} compares against variable {value!r}. '
