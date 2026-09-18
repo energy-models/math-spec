@@ -136,10 +136,27 @@ a many-to-many relation can say, and all it can say.
 
 ### Walks
 
-A walk consumes one or more columns of a relation, produces one or more, and
-joins on every other key column. The call writes both ends. The operand carries
-every dimension the walk consumes and every one it joins on. The result is what
-the operand had, less the consumed dimensions, plus the produced ones.
+A relation says which rows exist and what identifies them. An operator says what
+to do with the rows a coordinate finds. The key is the hinge: consume a key
+column and the row is no longer pinned, so many rows share what is left; leave
+the key whole and exactly one row is found.
+
+| a coordinate finds                            | what is done with it          | that is                         | the frame |
+| --------------------------------------------- | ----------------------------- | ------------------------------- | --------- |
+| many rows                                     | they are added up             | `sum`                           | moves     |
+| one row, whose value becomes a coordinate     | the operand is read at it     | `at`                            | moves     |
+| one row, whose value becomes a label          | the coordinate joins a group  | `shift`, `sum_back`, `position` | unchanged |
+| one row or none, whose presence is the answer | the coordinate is kept or cut | a relation in a `where`         | unchanged |
+
+Only the first finds more than one row, which is why only `sum` adds anything
+up. The rest of this section is about the two that move the frame: a partition
+is [below](#partitions), and a `where` is
+[where strings](expressions.md#where-strings).
+
+A call consumes one or more columns of a relation, produces one or more, and
+joins on every other key column. It writes both ends. The operand carries every
+dimension consumed and every one joined on. The result is what the operand had,
+less the consumed dimensions, plus the produced ones.
 
 `sum` consumes key columns and produces value columns. `at` consumes value
 columns and produces the key.
@@ -185,14 +202,8 @@ indexes it.
 
 #### Where the rules reach
 
-The six above govern the calls that move the frame. The other two ways to read
-a relation move nothing, and keep less:
-
-| reading a relation                                                      | rules that hold  |
-| ----------------------------------------------------------------------- | ---------------- |
-| `sum` and `at`                                                          | all six          |
-| a partition — `shift`, `sum_back`, `position` ([below](#partitions))    | 4, and 3 in part |
-| a relation in a `where` ([where strings](expressions.md#where-strings)) | none of the six  |
+The six above govern the calls that move the frame. The other two readings keep
+less.
 
 A partition names neither end: `along=` picks the key column it steps along,
 and `within=` the value columns the group is made of. The frame law says
