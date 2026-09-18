@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 description: >-
-  Grouping through several maps at once — `sum(array, by=[relation, …])` lands
+  Grouping through several maps at once — `sum(array, by=[relation, …], over=a, into=[b, …])` lands
   the result on every dimension the relations map into, which is one grouping
   rather than a composition of two: the generator dimension is consumed once.
 
@@ -28,6 +28,6 @@ variables:
 constraints:
   bus_technology_total:
     dims: [snapshot, bus, technology]
-    expression: sum(p, by=[gen_bus, gen_tech]) <= limit
+    expression: sum(p, by=[gen_bus, gen_tech], over=generator, into=[bus, technology]) <= limit
 
 objective: { sense: minimize, expression: sum(p) }

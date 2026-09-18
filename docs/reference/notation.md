@@ -190,7 +190,7 @@ sum over a relation
 ```yaml
 balance:
   dims: [snapshot, bus]
-  expression: sum(p, by=gen_bus) + spill - slack == load
+  expression: sum(p, by=gen_bus, over=generator, into=bus) + spill - slack == load
 ```
 
 ```math
@@ -374,7 +374,7 @@ at(), which re-indexes through a relation instead of an offset
 ```yaml
 pullback:
   dims: [snapshot, bus]
-  expression: spill <= at(zone_cap, by=zone_of)
+  expression: spill <= at(zone_cap, by=zone_of, over=zone, into=bus)
 ```
 
 ```math
@@ -388,7 +388,7 @@ one table walked to two value columns: the domain carries a condition per column
 ```yaml
 grouped_once:
   dims: [snapshot, bus, technology]
-  expression: sum(p, by=gen_bt, into=[bus, technology]) <= tech_cap
+  expression: sum(p, by=gen_bt, into=[bus, technology], over=generator) <= tech_cap
 ```
 
 ```math
@@ -402,7 +402,7 @@ its adjoint, reading one slot through two columns of one table
 ```yaml
 pulled_back_once:
   dims: [generator]
-  expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology])
+  expression: units <= at(tech_cap, by=gen_bt, over=[bus, technology], into=generator)
 ```
 
 ```math
@@ -460,7 +460,7 @@ a map into its own dimension, walked both ways: the frame is unchanged and the i
 ```yaml
 representative:
   dims: [snapshot]
-  expression: sum(spill, by=rep_of) <= at(spill, by=rep_of)
+  expression: sum(spill, by=rep_of, over=snapshot, into=rep) <= at(spill, by=rep_of, over=rep, into=snapshot)
 ```
 
 ```math
@@ -474,7 +474,7 @@ one grouping through two maps: the domain carries both conditions
 ```yaml
 grouped_twice:
   dims: [snapshot, bus, technology]
-  expression: sum(p, by=[gen_bus, gen_tech]) <= tech_cap
+  expression: sum(p, by=[gen_bus, gen_tech], over=generator, into=[bus, technology]) <= tech_cap
 ```
 
 ```math
@@ -488,7 +488,7 @@ its adjoint, reading one slot through a pair of labels
 ```yaml
 pulled_back_twice:
   dims: [generator]
-  expression: units <= at(tech_cap, by=[gen_bus, gen_tech])
+  expression: units <= at(tech_cap, by=[gen_bus, gen_tech], over=[bus, technology], into=generator)
 ```
 
 ```math
@@ -502,7 +502,7 @@ a grouping through a two-key map, walked along one key: the condition reads the 
 ```yaml
 zonal:
   dims: [snapshot, zone]
-  expression: sum(p, by=gen_zone, over=generator) <= zone_cap
+  expression: sum(p, by=gen_zone, over=generator, into=zone) <= zone_cap
 ```
 
 ```math
@@ -516,7 +516,7 @@ the same table walked along its other key
 ```yaml
 zonal_history:
   dims: [generator, zone]
-  expression: sum(p, by=gen_zone, over=snapshot) <= zone_cap
+  expression: sum(p, by=gen_zone, over=snapshot, into=zone) <= zone_cap
 ```
 
 ```math
@@ -530,11 +530,11 @@ the same table walked between its two key columns: no value column is read, so t
 ```yaml
 zonal_membership:
   dims: [snapshot]
-  expression: sum(p, by=gen_zone, over=generator, into=snapshot) <= budget
+  expression: sum(units, by=gen_zone, over=generator, into=snapshot) <= budget
 ```
 
 ```math
-\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} p_{t,g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
+\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}} \mathit{units}_{g} \le \mathrm{budget} \qquad \forall\, t \in \mathcal{T}
 ```
 
 #### `zonal_pullback`
@@ -545,7 +545,7 @@ its adjoint, reading the slot the row's own snapshot puts the generator in
 zonal_pullback:
   dims: [snapshot, generator]
   where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"
-  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator)
+  expression: p <= at(spill * zone_cap, by=gen_zone, into=generator, over=zone)
 ```
 
 ```math

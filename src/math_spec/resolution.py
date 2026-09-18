@@ -597,21 +597,20 @@ class _Resolver:
         if problems:
             self.errors.extend(problems)
             return value
-        if len(names) > 1 and roles:
-            self.errors.append(
-                f'{self.context}: {operator}({key}={shown(names)}, {", ".join(f"{k}=" for k in roles)}): a list '
-                f'walks each relation by its declared key and value, so a column keyword has nothing to name. '
-                f'Name one relation, or declare one table with the columns of both.'
-            )
+        read = {k: self._role_name(v, operator, k) for k, v in roles.items()}
+        if any(r is None for r in read.values()):
             return value
-        named = {k: self._role_name(v, operator, k) for k, v in roles.items()}
-        if any(r is None for r in named.values()):
-            return value
+        named = {k: r for k, r in read.items() if r is not None}
         if operator in ('shift', 'sum_back'):
             over_dim = over.name if isinstance(over, NameNode | DimensionNode) else None
             walks = [self._partition_walk(n, operator, over_dim, named.get('within')) for n in names]
         else:
-            walks = [self._walk(n, operator, named.get('over'), named.get('into')) for n in names]
+            if not ({'over', 'into'} <= set(named)):
+                return value  # the call shape refused it already, with the wording that names the rewrite
+            per = self._columns_per_relation(names, named, operator, key)
+            if per is None:
+                return value
+            walks = [self._walk(n, operator, per[n].get('over', ()), per[n].get('into', ())) for n in names]
         if any(w is None for w in walks):
             return value
         resolved = [w for w in walks if w is not None]
@@ -647,6 +646,54 @@ class _Resolver:
             return value
         return RelationNode(names, dimensions=fine_of(resolved[0]), into=coarse, walks=tuple(resolved))
 
+    def _columns_per_relation(
+        self, names: tuple[str, ...], named: dict[str, tuple[str, ...]], operator: str, key: str
+    ) -> dict[str, dict[str, tuple[str, ...]]] | None:
+        """Which of the named columns belong to each relation in a ``by=``; the refusal where that is not decided.
+
+        A list is one grouping through several tables, so the two sides are
+        addressed differently. Every relation walks the *same* dimensions on
+        the side the grouping shares — the consumed side of a ``sum``, the
+        produced side of an ``at`` — so a column named there is a column each
+        one declares. The other side is where the tables differ, so each
+        column there belongs to exactly one of them. A single relation takes
+        both sides whole.
+        """
+        if len(names) == 1:
+            return {names[0]: dict(named)}
+        shared, apiece = ('over', 'into') if operator == 'sum' else ('into', 'over')
+        per: dict[str, dict[str, tuple[str, ...]]] = {n: {} for n in names}
+        for role in named.get(shared, ()):
+            if absent := [n for n in names if role not in self.ns.shape_of(n).roles]:
+                self.errors.append(
+                    f'{self.context}: {operator}({key}={shown(names)}, {shared}={role}): {absent} '
+                    f'{"declares" if len(absent) == 1 else "declare"} no column {role!r}, and one grouping through '
+                    f'several tables walks them all the same way. Name a column every relation declares, or group '
+                    f'through them in turn, one call each.'
+                )
+                return None
+            for n in names:
+                per[n][shared] = (*per[n].get(shared, ()), role)
+        for role in named.get(apiece, ()):
+            owners = tuple(n for n in names if role in self.ns.shape_of(n).roles)
+            if len(owners) != 1:
+                whose = f'belongs to {list(owners)}' if owners else 'is a column of none of them'
+                self.errors.append(
+                    f'{self.context}: {operator}({key}={shown(names)}, {apiece}={role}): {role!r} {whose}, so '
+                    f'nothing says which table this call walks it through. Name a column one relation declares.'
+                )
+                return None
+            per[owners[0]][apiece] = (*per[owners[0]].get(apiece, ()), role)
+        for name in names:
+            if unsaid := sorted({'over', 'into'} - set(per[name])):
+                self.errors.append(
+                    f'{self.context}: {operator}({key}={shown(names)}): '
+                    f"'{name}' is named no {', '.join(f'{k}=' for k in unsaid)} column, and a walk names both of "
+                    f'its ends. Its columns are {list(self.ns.shape_of(name).roles)}.'
+                )
+                return None
+        return per
+
     def _role_name(self, value: ArithmeticNode, operator: str, key: str) -> tuple[str, ...] | None:
         """``over=`` or ``into=`` as the column names it must be — one bare name, or a bracketed list of them."""
         if isinstance(value, NameNode):
@@ -662,17 +709,17 @@ class _Resolver:
         self,
         name: str,
         operator: str,
-        from_roles: tuple[str, ...] | None,
-        into_roles: tuple[str, ...] | None,
+        from_roles: tuple[str, ...],
+        into_roles: tuple[str, ...],
     ) -> Walk | None:
-        """How ``sum`` or ``at`` walks relation *name*, from the columns the call named and the declaration's defaults.
+        """How ``sum`` or ``at`` walks relation *name*, between the columns the call named.
 
-        The call consumes one or more columns and produces one or more; a
-        side it leaves unsaid is taken from the declaration where it has
-        exactly one candidate, and refused with the candidates otherwise.
-        ``at`` needs the walk single-valued and ``sum`` needs it not: a sum
-        that walks to the key has one term per coordinate and adds up nothing,
-        which is a read, so it is refused toward ``at``.
+        Both ends arrive written: the call shape refuses a walk that leaves
+        one unsaid, so that a relation may gain a value column without
+        changing what this call means. ``at`` needs the walk single-valued
+        and ``sum`` needs it not: a sum that walks to the key has one term
+        per coordinate and adds up nothing, which is a read, so it is
+        refused toward ``at``.
         """
         ns, context = self.ns, self.context
         shape = ns.shape_of(name)
@@ -683,18 +730,6 @@ class _Resolver:
             return None
 
         forward = operator == 'sum'
-        if from_roles is None:
-            side = shape.key if forward else shape.values
-            default = self._default_role(name, call, 'over', side, 'key' if forward else 'value')
-            if default is None:
-                return None
-            from_roles = (default,)
-        if into_roles is None:
-            side = shape.values if forward else shape.key
-            default = self._default_role(name, call, 'into', side, 'value' if forward else 'key')
-            if default is None:
-                return None
-            into_roles = (default,)
         if both := sorted(set(from_roles) & set(into_roles)):
             self.errors.append(
                 f'{context}: {call}: over= and into= both name {both}, and a walk goes between two sets of columns.'
@@ -722,7 +757,7 @@ class _Resolver:
             self.errors.append(
                 f'{context}: {call}: this sum walks to the key {list(shape.key)}, so each coordinate has one '
                 f"term and nothing is added up — that is a read, which is at()'s. Write "
-                f'at(..., by={name}, over={list(from_roles)}, into={list(into_roles)}), or sum toward '
+                f'at(..., by={name}, over={list(into_roles)}, into={list(from_roles)}), or sum toward '
                 f'a value column.'
             )
             return None
@@ -783,24 +818,6 @@ class _Resolver:
         (walked,) = over_keys
         joined = tuple(r for r in shape.key if r != walked)
         return Walk(shape, (walked,), shape.values if within_roles is None else within_roles, joined)
-
-    def _default_role(self, name: str, call: str, kwarg: str, side: tuple[str, ...], what: str) -> str | None:
-        """The one column *side* offers, or the refusal naming what the call has to choose from."""
-        if len(side) == 1:
-            return side[0]
-        shape = self.ns.shape_of(name)
-        if not shape.values:
-            self.errors.append(
-                f"{self.context}: {call}: '{name}' is a bare relation — every column is in its key — so nothing "
-                f'says which column {call.split("(", maxsplit=1)[0]} walks. Name both: {kwarg}= among '
-                f'{list(shape.roles)} — or declare the column it walks to under values:.'
-            )
-            return None
-        self.errors.append(
-            f"{self.context}: {call}: '{name}' has {len(side)} {what} columns ({list(side)}), and the call has to say "
-            f'which {kwarg}= names.'
-        )
-        return None
 
     def _not_a_relation(self, name: str, operator: str, key: str) -> str | None:
         """Why *name* is not a relation; ``None`` where it is one."""

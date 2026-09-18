@@ -308,7 +308,7 @@ class TestDimensionKwargs:
         ('expression', 'dims'),
         [
             pytest.param('sum(p, over=generator) == load', ['snapshot'], id='a-sum'),
-            pytest.param('sum(p, by=zone) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
+            pytest.param('sum(p, by=zone, over=generator, into=bus) == load', ['snapshot', 'bus'], id='a-grouped-sum'),
             pytest.param(
                 "shift(p, along=snapshot, offset=1, edge='wrap') == load",
                 ['snapshot', 'generator'],
@@ -683,13 +683,13 @@ class TestRulesDecidedWithoutData:
                     'dimensions.z': {},
                     'relations.lk': {'key': ['g', 'z'], 'values': 'h'},
                     'variables.q.dims': ['g', 'h', 'z'],
-                    'objective': {'expression': 'sum(sum(q, by=lk))'},
+                    'objective': {'expression': 'sum(sum(q, by=lk, over=g, into=h))'},
                 },
-                ("'lk' has 2 key columns (['g', 'z']), and the call has to say which over= names",),
-                id='by-a-two-key-relation-without-from',
+                ("sum(by=lk) lands on ['h'], which the expression already carries",),
+                id='landing-on-a-dim-the-operand-carries',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=lk, over=z))'}},
+                {'objective': {'expression': 'sum(sum(p, by=lk, over=z, into=h))'}},
                 ("over=z names no column of 'lk', whose columns are ['g', 'h']",),
                 id='from-a-column-the-relation-lacks',
             ),
@@ -702,7 +702,7 @@ class TestRulesDecidedWithoutData:
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': 'g', 'values': ['h', 'z']},
-                    'objective': {'expression': 'sum(sum(p, by=lz, into=[h, h]))'},
+                    'objective': {'expression': 'sum(sum(p, by=lz, over=g, into=[h, h]))'},
                 },
                 ("into=['h', 'h'] names a column twice",),
                 id='a-to-list-naming-a-column-twice',
@@ -753,7 +753,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'relations.rel': {'key': ['g', 'h']}, 'objective': {'expression': 'sum(sum(p, by=rel))'}},
-                ("'rel' is a bare relation — every column is in its key — so nothing says which column sum walks",),
+                ('sum() through a relation leaves into=, over= unsaid',),
                 id='a-bare-relation-needs-both-ends-named',
             ),
             pytest.param(
@@ -930,14 +930,21 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {
-                    'relations.hk': {'key': 'h', 'values': 'g'},
-                    'objective': {'expression': 'sum(sum(q, by=[lk, hk]))'},
+                    'dimensions.z': {},
+                    'dimensions.w': {},
+                    'relations.lka': {'key': {'k': 'g'}, 'values': 'h'},
+                    'relations.lkb': {'key': {'k': 'z'}, 'values': 'w'},
+                    'variables.q.dims': ['g', 'z'],
+                    'objective': {'expression': 'sum(sum(q, by=[lka, lkb], over=k, into=[h, w]))'},
                 },
                 ('groups through relations along different dimensions',),
                 id='by-relations-over-different-dimensions',
             ),
             pytest.param(
-                {'objective': {'expression': 'sum(sum(p, by=[lk, lk]))'}},
+                {
+                    'relations.lh': {'key': 'g', 'values': {'h2': 'h'}},
+                    'objective': {'expression': 'sum(sum(p, by=[lk, lh], over=g, into=[h, h2]))'},
+                },
                 ("produces ['h'] more than once",),
                 id='by-the-same-target-twice',
             ),
@@ -945,19 +952,18 @@ class TestRulesDecidedWithoutData:
                 {
                     'dimensions.z': {},
                     'relations.lz': {'key': 'h', 'values': 'z'},
-                    'objective': {'expression': 'sum(sum(q, by=[lk, lz]))'},
+                    'objective': {'expression': 'sum(sum(q, by=[lk, lz], over=g, into=[h, z]))'},
                 },
-                ('groups through relations along different dimensions',),
-                id='by-relations-walking-different-dimensions',
+                ("['lz'] declares no column 'g', and one grouping through several tables walks them all the same way",),
+                id='a-list-whose-relations-do-not-share-the-consumed-column',
             ),
             pytest.param(
                 {
-                    'dimensions.z': {},
-                    'relations.lz': {'key': ['g', 'z'], 'values': 'h'},
-                    'objective': {'expression': 'sum(sum(q, by=[lk, lz], over=g))'},
+                    'relations.lk2': {'key': 'g', 'values': 'h'},
+                    'objective': {'expression': 'sum(sum(p, by=[lk, lk2], over=g, into=h))'},
                 },
-                ('a list walks each relation by its declared key and value, so a column keyword has nothing to name',),
-                id='by-a-list-with-from',
+                ("'h' belongs to ['lk', 'lk2'], so nothing says which table this call walks it through",),
+                id='a-list-whose-relations-share-the-produced-column',
             ),
             pytest.param(
                 {

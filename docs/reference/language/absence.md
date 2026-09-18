@@ -86,13 +86,13 @@ there instead, write `where: rel_max` on the constraint.
 Every operator falls on one side of the line, and one question decides which:
 does an output slot stand for several input slots, or for one?
 
-| Operator                         | An output slot reads            | An absent input                      |
-| -------------------------------- | ------------------------------- | ------------------------------------ |
-| `sum(x, over=d)`                 | every position along `d`        | is one summand fewer; the row stands |
-| `sum(x, by=relation)`            | every member of the group       | is one summand fewer; the row stands |
-| `sum_back(x, along=d, window=w)` | the positions the window covers | is one summand fewer; the row stands |
-| `shift(x, along=d, offset=n)`    | one position, `n` back          | _is_ the output, so it spreads       |
-| `at(x, by=relation)`             | one position, through the map   | _is_ the output, so it spreads       |
+| Operator                              | An output slot reads            | An absent input                      |
+| ------------------------------------- | ------------------------------- | ------------------------------------ |
+| `sum(x, over=d)`                      | every position along `d`        | is one summand fewer; the row stands |
+| `sum(x, by=relation, over=a, into=b)` | every member of the group       | is one summand fewer; the row stands |
+| `sum_back(x, along=d, window=w)`      | the positions the window covers | is one summand fewer; the row stands |
+| `shift(x, along=d, offset=n)`         | one position, `n` back          | _is_ the output, so it spreads       |
+| `at(x, by=relation, over=a, into=b)`  | one position, through the map   | _is_ the output, so it spreads       |
 
 The three summing operators put several slots into one, so a missing slot gives a
 shorter sum and the row survives. A window that reaches past the start of its

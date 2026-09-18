@@ -180,7 +180,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
     """``at`` and ``shift`` both re-index at the leaf, and the leaf has one subscript.
 
     Whoever wrote it last used to win: ``at(shift(cap, along=period, offset=1,
-    edge=0), by=period_of)`` printed `cap_{period_of(t)}`, dropping a
+    edge=0), by=period_of, over=period, into=snapshot)`` printed `cap_{period_of(t)}`, dropping a
     translation the plan builds. The subscript is a composition, so it renders
     as one.
     """
@@ -195,7 +195,7 @@ def test_a_translation_under_a_pullback_survives_it(name: FormatName, fmt: Forma
         'constraints': {
             'within': {
                 'dims': ['snapshot'],
-                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of)',
+                'expression': 'p <= at(shift(cap, along=period, offset=1, edge=0), by=period_of, over=period, into=snapshot)',
             }
         },
     }
@@ -652,7 +652,12 @@ UNREAD = {
         'gen_bt': {'key': 'generator', 'values': ['bus', 'technology']},
     },
     'parameters': {'cap': {'dims': []}},
-    'variables': {'p': {'dims': ['snapshot', 'generator']}, 'f': {'dims': ['generator', 'bus']}},
+    'variables': {
+        'p': {'dims': ['snapshot', 'generator']},
+        'f': {'dims': ['generator', 'bus']},
+        # indexed by the key column the walk consumes alone, so the column it lands on is one it brings
+        'u': {'dims': ['generator']},
+    },
 }
 
 
@@ -663,14 +668,14 @@ def _grouped(dims: list[str], expression: str) -> str:
 
 
 def test_a_walk_that_reads_no_value_column_asks_only_that_the_key_has_a_row():
-    """`sum(p, by=gen_zone, over=generator, into=snapshot)` died with `KeyError: 'zone'`.
+    """`sum(u, by=gen_zone, over=generator, into=snapshot)` died with `KeyError: 'zone'`.
 
     The domain was written as a whole row of the table, which needs an index
     for every column, and this walk goes between the two key columns: it reads
     no value column, so there is no index to write in `zone`'s place. What the
     walk asks of the table is that the key it walks between has a row at all.
     """
-    row = _grouped(['snapshot'], 'sum(p, by=gen_zone, over=generator, into=snapshot) <= cap')
+    row = _grouped(['snapshot'], 'sum(u, by=gen_zone, over=generator, into=snapshot) <= cap')
     assert r'\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_zone}(g,\ t) \text{ is defined}}' in row, (
         'the condition is that the row exists, and the unread value column is written nowhere'
     )
@@ -720,7 +725,7 @@ def _row(expression: str, where: str | None = None, **patch: object) -> str:
     ('expression', 'expected'),
     [
         pytest.param(
-            'p == at(sum(q, by=bus_of), by=bus_of)',
+            'p == at(sum(q, by=bus_of, over=generator, into=bus), by=bus_of, over=bus, into=generator)',
             r"\sum_{g' \in \mathcal{G} \,:\, \mathrm{bus\_of}(g') = \mathrm{bus\_of}(g)} q_{t,g'}",
             id='grouped-by-a-relation',
         ),

@@ -207,7 +207,7 @@ constraints:
     expression: sum(weight, over=bp) == 1
   on_the_curve: # one row per flow — this is where the count goes
     dims: [flow, time]
-    expression: rate == sum(at(weight, by=converter_of) * bp_rate, over=bp)
+    expression: rate == sum(at(weight, by=converter_of, over=converter, into=flow) * bp_rate, over=bp)
 ```
 
 Making the tie a row turns the count into data: a converter with a fourth flow is

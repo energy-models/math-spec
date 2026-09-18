@@ -163,6 +163,7 @@ def _sum_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, conte
                 'drop the sum, or fix the dim',
             )
         )
+    _check_lands_clear(f'sum(by={by.shown})', set(by.into), set(by.dimensions), inner, context)
     _check_joined(f'sum(by={by.shown})', by, inner, context)
     return (inner - set(by.dimensions)) | set(by.into)
 
@@ -179,6 +180,7 @@ def _at_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spec, contex
             f'{sorted(inner)}). A pullback needs the coarse dims to read *from* — '
             f'sum is the direction that produces them.'
         )
+    _check_lands_clear(f'at(by={by.shown})', set(by.dimensions), set(by.into), inner, context)
     _check_joined(f'at(by={by.shown})', by, inner, context)
     return (inner - set(by.into)) | set(by.dimensions)
 
@@ -211,6 +213,24 @@ def _translation_dims(node: FunctionCallNode, inner: frozenset[str], schema: Spe
             )
         _check_joined(f'{node.name}(along={over.name}, by={partition.shown})', partition, inner, context)
     return inner
+
+
+def _check_lands_clear(call: str, produced: set[str], consumed: set[str], inner: frozenset[str], context: str) -> None:
+    """The dims a walk lands on are its own to bring, so the operand does not already carry one.
+
+    Where it does, the walk would tie the operand's axis to the one it
+    produces rather than adding it, and the call reads the same either way.
+    A relation into its own dimension is not that case: there the dim landed
+    on is the dim just consumed, so every factor is read at the coordinate
+    the walk sums over, and nothing is tied.
+    """
+    if clash := sorted((produced & inner) - consumed):
+        raise DimensionError(
+            f'{context}: {call} lands on {clash}, which the expression already carries.\n'
+            f'A walk brings the dims it lands on, so that reading the call tells you what it '
+            f'adds. Move the factor carrying {clash} outside the operator, or walk to a column '
+            f'over another dimension.'
+        )
 
 
 def _check_joined(call: str, by: RelationNode, inner: frozenset[str], context: str) -> None:
