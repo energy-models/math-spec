@@ -6,12 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Typeset the math
 
 `to_latex`, `to_typst` and `to_markdown` print a model as the equations it
-stands for, from the file alone. No data binds, and no solver runs. Print a model
-to check that the YAML says what you meant, and to publish the math beside the
-file that states it.
-
-[Print a model as math](../howto/print.md) is the recipe;
-[every construct, as math](notation.md) shows what each construct prints.
+stands for, from the file alone. No data binds, and no solver runs.
 
 ```python
 import math_spec as ms
@@ -24,10 +19,7 @@ print(ms.to_markdown(spec))  # renders as-is on GitHub
 ```
 
 Each function takes what `to_spec` takes: a path, the YAML, a mapping or a
-`Spec`. Hand it a `Spec` to read and check the file once rather than once per
-format.
-
-The same three formats come from a shell:
+`Spec`. The same three formats come from a shell:
 
 ```bash
 python -m math_spec latex model.yaml --symbols model.symbols.yaml --standalone -o model.tex
@@ -35,25 +27,8 @@ python -m math_spec typst model.yaml --standalone -o model.typ
 python -m math_spec markdown model.yaml
 ```
 
-[Every construct, as math](notation.md) shows every construct the language has
-beside the math it prints. Look there when the question is whether the notation
-is right.
-
-## Markdown's delimiters
-
-`to_markdown` prints math between the two pairs GitHub reads verbatim: ``$`…`$``
-inline, and a ` ```math ` fence for a block. It never prints `$…$` or `$$…$$`.
-
-GitHub runs Markdown's own escape pass inside a `$…$` span, before MathJax sees
-the span. That pass strips the backslash from every escape TeX needs.
-`\mathrm{gen\_bus}` arrives as `\mathrm{gen_bus}`, which sets a subscript, and
-`\{0, 1\}` arrives as a set with no braces. The two verbatim pairs sit outside
-the pass, so `to_markdown` prints the math `to_latex` prints, character for
-character.
-
-The pairs are GitHub's and GitLab's. A renderer that reads `$…$` alone shows
-the delimiters to the reader as characters. Print for that renderer with
-`to_latex`, and write its own delimiters around the result.
+[Print a model as math](../howto/print.md) is the recipe, and
+[every construct, as math](notation.md) shows what each construct prints.
 
 ## Options
 
@@ -70,42 +45,37 @@ a flag.
 
 `-o FILE` writes to a file instead of stdout.
 
-- The model's `description:` opens the document, whatever the options say. No
-  symbol table touches it.
-- A `piecewise:` block prints as the variables and constraints it expands into,
-  because the expansion is the math the solver receives.
+- The model's `description:` opens the document.
+- A `piecewise:` block prints as the variables and constraints it expands into.
 - A [named expression](language/named.md) prints its symbol where it is used
-  and its body once, under a **Definitions** heading between _Subject to_ and
-  _Variable domains_, in declaration order. The symbol is italic where a
-  variable reaches the body and upright where none does. It joins the symbol
-  pool, so a [symbol table](#symbol-tables) can rename it.
-- Inlining reaches only an expression that the math reads. A `cases:` block has
-  no single body to substitute, and a
-  [reported entry](language/named.md#reported-expressions) is read by nothing,
-  so both keep their definition line under either setting.
+  and its body once, under a **Definitions** heading, in declaration order. A
+  `cases:` block and a [reported entry](language/named.md#reported-expressions)
+  keep their definition line under either `inline_expressions` setting.
 - Wherever the math moves an index, which every `shift` does, the document
   prints a line saying what that notation means.
-- A model that does not load does not print. Typesetting runs the same
-  load-time checks as everything else.
+- A model that does not load does not print.
 - Lines are not broken. A wide equation runs off the page.
+
+## Markdown's delimiters
+
+`to_markdown` prints math between the two pairs GitHub and GitLab read
+verbatim: ``$`…`$`` inline, and a ` ```math ` fence for a block. It never
+prints `$…$` or `$$…$$`. For a renderer that reads `$…$` alone, print with
+`to_latex` and write that renderer's delimiters around the result.
 
 ## Descriptions
 
 A `description:` is **plain prose, with one piece of notation**. A name in
 backticks, such as `` `capital_cost` ``, sets in monospace in every output
 format. Everything else is text, and each format escapes whatever its own
-syntax would read as markup: an underscore stays an underscore, and `$\ell$`
-prints as those five characters. The legend prints the description of every
+syntax would read as markup. The legend prints the description of every
 dimension, parameter and variable.
 
 ## Printing one declaration on its own
 
 `typeset_declaration` returns the line the document prints for one named
 expression, constraint or variable, with its quantifier and without a document,
-a label, a number or math delimiters. Use it for a docstring, a table cell or a
-comment beside the value it computes:
-
-<!-- doctest: skip -->
+a label, a number or math delimiters:
 
 ```python
 ms.typeset_declaration('model.yaml', 'spend', 'latex')
@@ -118,29 +88,24 @@ It takes what the other functions take, plus the name, the format and an
 optional `symbols` table. A Markdown line arrives without delimiters too, so put
 it inside the inline pair:
 
-<!-- doctest: skip -->
-
 ```python
 line = ms.typeset_declaration('model.yaml', 'balance', 'markdown')
 print(f'The balance holds: $`{line}`$')
 ```
 
 A line on its own has no _Definitions_ section beside it, so the plain named
-expressions it uses are substituted unless you say otherwise. A cased expression
-prints by symbol, and a second call with its name prints its block.
+expressions it uses are substituted. A cased expression prints by symbol, and a
+second call with its name prints its block.
 
 A name that is none of the three kinds is refused with the near miss. A name that
 is both a constraint and a variable is refused too, because one line can print
-only one of them. Constraints sit outside the
-[flat namespace](language/expressions.md#name-resolution), so a model may use one
-name for both.
+only one of them.
 
 ## Symbol tables
 
 With no table, the symbols are **derived** from the names in the file, such as
-$\mathrm{load}_t$ and $\mathrm{capacity}_g$. A derived symbol names one
-declaration and no other, so a model prints with no setup. A symbol table makes
-the output conventional:
+$\mathrm{load}_t$ and $\mathrm{capacity}_g$. A symbol table makes the output
+conventional:
 
 ```python
 symbols = {
@@ -161,8 +126,6 @@ ms.to_latex('dispatch.yaml', symbols=symbols)
 
 Pass a dict, a path to a YAML file, or a `ms.SymbolTable`. As a file:
 
-<!-- doctest: skip -->
-
 ```yaml
 # dispatch.symbols.yaml — not a model, so nothing here is checked against the schema
 notation: latex
@@ -181,13 +144,9 @@ names:
 | `dimensions` | For each dimension, an `index` letter and a `set` symbol. Either may be omitted |
 | `names`      | For each parameter, variable or named expression, its symbol                    |
 
-Every spelling is printed as you wrote it, and nothing translates notation. That
-is why `notation:` is required, and why rendering a LaTeX table as Typst is
-refused.
+Every spelling is printed as you wrote it, and nothing translates notation, so
+rendering a LaTeX table as Typst is refused. A key that names nothing in the
+model is an error with the near miss.
 
-A key that names nothing in the model is an error with the near miss. The
-alternative is a symbol that silently never applies.
-
-Nothing in a symbol table changes what the file means, and no solver reads it.
-What a declaration _is_ stays in its own `description:`, which every tool that
-reads the model can print. See [declarations](language/declarations.md).
+Nothing in a symbol table changes what the file means. What a declaration _is_
+stays in its own `description:`.

@@ -25,7 +25,6 @@ what the math does with the column, not what the column holds.
 Two rules decide the cases the table does not list:
 
 1. **If `b` has one value per `a`, declare `b` as a relation keyed by `a`**,
-   not as a dimension. A dimension is an axis, and `b` is a column along `a`.
-2. **Two dimensions that depend on each other are one relation.** Declared as
-   a `dims` product and cut back with a mask, they cost a dense frame and a
-   `where` for what one keyed table says outright.
+   not as a dimension.
+2. **Two dimensions that depend on each other are one relation**, not a `dims`
+   product cut back with a mask.

@@ -39,26 +39,26 @@ the same checks and the rest of the gate by hand:
 - `pixi run lint`: every commit hook, over every file.
 - `pixi run test`: the test suite. `pixi run test-coverage` adds coverage.
 - `pixi run compile-tex`: print every model in the tree to standalone LaTeX and
-  compile it, which is how the typeset output is proven to be a real document.
-- `pixi run ci`: lint, tests, a strict docs build and the LaTeX compile, in the
-  order a failure is cheapest to read. This is what CI runs. Run it before you
-  push.
+  compile it.
+- `pixi run ci`: lint, tests, a strict docs build and the LaTeX compile. This is
+  what CI runs. Run it before you push.
 
 ## Documentation
 
 The pages under `docs/` are Markdown, built by [MkDocs](https://www.mkdocs.org/)
 with the [Material](https://squidfunk.github.io/mkdocs-material/) theme. The
 build is strict: a page with no `nav` entry in `mkdocs.yml`, a dead link or a
-stale anchor fails it.
+stale anchor fails it. `pixi run docs-serve` builds the site and serves it at
+<http://127.0.0.1:8000>, rebuilding when a page changes.
 
 ??? question "I have updated the README.md"
 
     The home page includes named sections of the README rather than a copy: the
-    badges, the diagram, the model, the load snippet, the development install and
-    the status note. A section is delimited in the README by
-    `:::md <!--- --8<-- [start:name] -->` and `:::md <!--- --8<-- [end:name] -->`,
-    and `docs/index.md` pulls it in with `:::md --8<-- "README.md:name"`. Edit
-    inside the markers, and the site follows.
+    badges, the model, the development install and the status note. A section
+    is delimited in the README by `:::md <!--- --8<-- [start:name] -->` and
+    `:::md <!--- --8<-- [end:name] -->`, and `docs/index.md` pulls it in with
+    `:::md --8<-- "README.md:name"`. Edit inside the markers, and the site
+    follows.
 
     Keep the sections link-free, or link absolutely. A relative link resolves
     against `docs/index.md` on the site and against the repository root on GitHub,
@@ -89,42 +89,13 @@ stale anchor fails it.
       - My Page: my-page.md
     ```
 
-    Without a title in `nav`, the page's first heading names it.
-
-??? question "I want to add images to my docs"
-
-    Put the image under `resources/` and reference it from the Markdown:
-
-    ``` md
-    ![accessible alternative text](../resources/filename.png)
-    ```
-
-    For a caption, use a `<figure>` with an `<img>` and a `<figcaption>`.
-
-??? question "I want to update the Python API docs"
-
-    These pages are generated. A new class or module appears in the next build.
-
-??? question "I want to process files into pages automatically"
-
-    Add the workflow to `docs/hooks.py`, beside the one that builds the Python
-    API pages.
-
-??? question "I want to view my documentation changes locally"
-
-    `pixi run docs-serve` builds the site and serves it, usually at
-    <http://127.0.0.1:8000>. It rebuilds when a page changes.
-
-??? question "I want to do something else"
-
-    The [MkDocs](https://www.mkdocs.org/) and
-    [Material](https://squidfunk.github.io/mkdocs-material/) documentation
-    answers what this page does not.
+    The Python API pages are generated from the docstrings, so a new class or
+    module appears in the next build.
 
 ## Naming across the layers
 
 The same construct passes through three layers, and each names it in full. The
-suffix says which layer, which keeps the three vocabularies from colliding:
+suffix says which layer:
 
 | Layer                           | Suffix               | Example                                   |
 | ------------------------------- | -------------------- | ----------------------------------------- |
@@ -132,13 +103,8 @@ suffix says which layer, which keeps the three vocabularies from colliding:
 | Core AST (`math_spec.*_parser`) | `Node`               | `VariableNode`, `DimensionComparisonNode` |
 | Program (`math_spec.program`)   | none / `Declaration` | `Variable`, `VariableDeclaration`         |
 
-Two rules follow, and a PR that adds a construct keeps them:
-
-- **A node names the coordinate map, not a spelling in the file.** The
-  translation node is `Translate`, and it stayed that way when the file's
-  spelling became a single `shift(…, edge=)`.
-- **Nothing is abbreviated.** `Cmp` became `ParameterComparison`, and `vtype`
-  became `domain`.
+A node names the coordinate map, not a spelling in the file: the translation
+node is `Translate`, whatever `shift` is spelled. Nothing is abbreviated.
 
 ## Adding an operator
 
@@ -149,10 +115,6 @@ validation and lowering all read it from there. Then write the dimension rule in
 `dimensions.py`, the degree verdict in `degree.py`, the node it lowers to in
 `program.py`, and the entry in the
 [language reference](reference/language/operators.md).
-
-A consumer that builds models cannot lower an operator that the version it pins
-does not parse, so the operator lands here before any consumer's half. What a
-consumer owns is the building: the query or call it makes for the node.
 
 ## Submitting changes
 

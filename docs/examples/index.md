@@ -5,13 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Examples
 
-Each page here shows one whole model as the file and as the math it prints. The
-reference pages take the language one construct at a time; these take it one
-model at a time.
-
-Every model is a file under `examples/` in the repository. The test suite loads
-the same files, and the LaTeX gate compiles them, so a model that stops loading
-or starts printing different math fails CI.
+Each page here shows one whole model as the file and as the math it prints.
+Every model is a file under `examples/` in the repository.
 
 - [Least-cost dispatch](dispatch.md) is the smallest whole model. It has a
   balance, a bound and a cost to minimise.

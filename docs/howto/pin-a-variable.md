@@ -31,7 +31,6 @@ between the two. The data does.
    and a pinned variable is still a variable
    ([variables](../reference/language/declarations.md#variables)).
 
-A pinned variable keeps two rules of a variable. `size * on` is still
-`variable * variable`, so it is legal only in a constraint or the objective. And
-a pinned variable cannot stand in another variable's `bounds:`, so where a
-bound has to come from it, ship the column as a parameter too.
+A pinned variable is still a variable: `size * on` is `variable * variable`,
+and `size` cannot stand in another variable's `bounds:`. Where a bound has to
+come from it, ship the column as a parameter too.

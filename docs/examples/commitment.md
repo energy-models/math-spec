@@ -6,15 +6,11 @@ SPDX-License-Identifier: CC-BY-4.0
 # Unit commitment
 
 This model adds a commitment decision and a start-up ramp to least-cost
-dispatch. It is the model that
-[`cases:`](../reference/language/named.md#cases)
-exists for. Read `previous_status` first, then `ramp_up`.
-
-The cases carry no order. No two of them can claim one coordinate, and that is
-proved at load, before any data binds. `otherwise:` carries every coordinate the
-cases leave. So every coordinate has exactly one value, and `ramp_up` uses the
-quantity the way it uses a parameter. `ramp_up` prints the quantity's symbol,
-and the block itself prints once below, under **Definitions**.
+dispatch. Read `previous_status` first, then `ramp_up`: the state a unit
+carries into a snapshot has three regimes, stated once as a
+[`cases:`](../reference/language/named.md#cases) block, and `ramp_up` reads it
+the way it reads a parameter. The block prints once below, under
+**Definitions**.
 
 <!-- gallery:begin -->
 ```yaml
