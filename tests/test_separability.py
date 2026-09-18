@@ -25,7 +25,7 @@ FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'every_program_node.yam
 
 BASE: dict[str, Any] = {
     'dimensions': {'h': {'dtype': 'int'}, 'u': {'dtype': 'str'}, 'zone': {'dtype': 'str'}, 'day': {'dtype': 'int'}},
-    'relations': {'zone_of': {'key': 'u', 'value': 'zone'}, 'day_of': {'key': 'h', 'value': 'day'}},
+    'relations': {'zone_of': {'key': 'u', 'values': 'zone'}, 'day_of': {'key': 'h', 'values': 'day'}},
     'parameters': {
         'cost': {'dims': ['u']},
         'budget': {'dims': []},
@@ -147,9 +147,9 @@ def test_resolving_a_name_nothing_waits_on_is_refused():
 
 
 def test_a_read_through_a_relation_is_undecided_on_the_axis_it_reads():
-    """`at(cap, by=zone_of)` reads `zone` at whatever coordinate the relation
+    """`at(cap, by=zone_of, over=zone, into=u)` reads `zone` at whatever coordinate the relation
     chooses, so how far that reaches along `zone` is the relation's data to say."""
-    verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of) <= 0'))
+    verdict = _verdict('zone', **_rows('p - at(cap, by=zone_of, over=zone, into=u) <= 0'))
     assert not verdict.windowable and not verdict.coupled, 'undecided until the relation binds'
     assert verdict.undecided == (Reach("constraint 'k'", 'zone_of', 'coordinate'),), (
         'the report names the relation a driver has to read'
@@ -211,7 +211,10 @@ def test_the_lookahead_is_the_widest_reach_of_any_block():
 
 def test_a_grouping_that_consumes_the_axis_couples_it():
     program = ms.to_program(
-        {**BASE, 'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, by=zone_of) <= cap'}}}
+        {
+            **BASE,
+            'constraints': {'z': {'dims': ['h', 'zone'], 'expression': 'sum(p, by=zone_of, over=u, into=zone) <= cap'}},
+        }
     )
     verdict = program.separability['u']
     assert not verdict.windowable, 'the grouping consumes u, so a window of u is a different sum'

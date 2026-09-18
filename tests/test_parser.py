@@ -42,7 +42,15 @@ from math_spec._where_parser import (
     parse_where,
 )
 from math_spec.errors import SchemaError
-from math_spec.program import AndNode, BooleanLiteralNode, NotNode, OrNode, _conjuncts
+from math_spec.program import (
+    AndNode,
+    BooleanLiteralNode,
+    NotNode,
+    OrNode,
+    RelationDeclaration,
+    Walk,
+    _conjuncts,
+)
 
 
 def test_the_grammar_builds_the_program_s_own_node_classes():
@@ -501,7 +509,11 @@ def test_a_node_prints_as_the_file_writes_it(text, printed):
         pytest.param(ParameterNode('cost'), 'cost', id='a-parameter'),
         pytest.param(DimensionNode('t'), 't', id='a-dimension'),
         pytest.param(DualNode('budget'), 'dual(budget)', id='a-dual'),
-        pytest.param(RelationNode(('zone_of',), ('u',), ('zone',)), 'zone_of', id='a-relation'),
+        pytest.param(
+            RelationNode('zone_of', ('u',), ('zone',), Walk(RelationDeclaration('zone_of', ()), (), (), ())),
+            'zone_of',
+            id='a-relation',
+        ),
         pytest.param(EdgeNode(), "'wrap'", id='a-resolved-edge'),
         pytest.param(DefinitionNode('headroom', NameNode('p')), 'headroom', id='a-named-expression-prints-its-name'),
         pytest.param(CasesNode('startup', ()), 'startup', id='and-so-does-a-cased-one'),

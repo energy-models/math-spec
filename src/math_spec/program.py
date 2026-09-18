@@ -265,77 +265,69 @@ class Sum(Expression):
 
 @dataclass(frozen=True)
 class GroupSum(Expression):
-    """Sum ``operand`` through relations, consuming the dims ``over`` and producing ``into``.
+    """Sum ``operand`` through a relation, consuming the dims ``over`` and producing ``into``.
 
-    ``walks`` says, per relation, which columns are consumed, which produced
-    and which joined on, and is the one fact the node holds: ``coordinate``
-    names the relations, ``over`` is the dims every walk consumes, ``into``
-    the dims they produce, in walk order, and ``joined`` the dims they join
-    on, so that several coordinates are one grouping into a product of
-    targets, consumed in a single join. The result replaces every dim in
-    ``over`` with every dim in ``into`` and keeps every dim in ``joined``. The
-    join keys on the consumed columns and every joined column, and on a
-    produced column too where the operand already carries its dimension.
+    ``walk`` says which columns are consumed, which produced and which joined
+    on, and is the one fact the node holds: ``over`` is the dims the walk
+    consumes, ``into`` the dims it produces, and ``joined`` the dims it joins
+    on. The result replaces every dim in ``over`` with every dim in ``into``
+    and keeps every dim in ``joined``. The join keys on the consumed columns
+    and every joined column.
     """
 
     operand: ExpressionNode
-    walks: tuple[Walk, ...]
+    walk: Walk
 
     @property
-    def coordinate(self) -> tuple[str, ...]:
-        return tuple(walk.name for walk in self.walks)
+    def relation(self) -> str:
+        return self.walk.name
 
     @property
     def over(self) -> tuple[str, ...]:
-        return self.walks[0].consumed_dims
+        return self.walk.consumed_dims
 
     @property
     def into(self) -> tuple[str, ...]:
-        return tuple(dim for walk in self.walks for dim in walk.produced_dims)
+        return self.walk.produced_dims
 
     @property
     def joined(self) -> tuple[str, ...]:
-        """The dims the walks join on, each once — the key columns neither consumed nor produced, which the operand carries."""
-        return _joined_dims(self.walks)
+        """The dims the walk joins on — the key columns neither consumed nor produced, which the operand carries."""
+        return self.walk.joined_dims
 
 
 @dataclass(frozen=True)
 class At(Expression):
-    """Read ``operand`` through relations — the adjoint of :class:`GroupSum`.
+    """Read ``operand`` through a relation — the adjoint of :class:`GroupSum`.
 
-    Same tables, walked the other way: this consumes the dims in ``into`` and
-    produces the dims in ``over``, one value per coordinate because every
+    The same table, walked the other way: this consumes the dims in ``into``
+    and produces the dims in ``over``, one value per coordinate because the
     walk reads value columns at a key the operand fixes
     (``Walk.is_function_read``). The join fans out, many ``over`` tuples
     sharing one ``into`` tuple — at each coordinate of the joined columns,
     which the operand carries and the result keeps. As on
-    :class:`GroupSum`, ``walks`` is the fact and the four are read off it.
+    :class:`GroupSum`, ``walk`` is the fact and the rest are read off it.
     """
 
     operand: ExpressionNode
-    walks: tuple[Walk, ...]
+    walk: Walk
 
     @property
-    def coordinate(self) -> tuple[str, ...]:
-        return tuple(walk.name for walk in self.walks)
+    def relation(self) -> str:
+        return self.walk.name
 
     @property
     def over(self) -> tuple[str, ...]:
-        return self.walks[0].produced_dims
+        return self.walk.produced_dims
 
     @property
     def into(self) -> tuple[str, ...]:
-        return tuple(dim for walk in self.walks for dim in walk.consumed_dims)
+        return self.walk.consumed_dims
 
     @property
     def joined(self) -> tuple[str, ...]:
-        """The dims the walks join on, each once — the key columns neither consumed nor produced, which the operand carries."""
-        return _joined_dims(self.walks)
-
-
-def _joined_dims(walks: tuple[Walk, ...]) -> tuple[str, ...]:
-    """The dims *walks* join on, each once, in walk order — the rule :attr:`GroupSum.joined` and :attr:`At.joined` share."""
-    return tuple(dict.fromkeys(dim for walk in walks for dim in walk.joined_dims))
+        """The dims the walk joins on — the key columns neither consumed nor produced, which the operand carries."""
+        return self.walk.joined_dims
 
 
 @dataclass(frozen=True)
@@ -901,16 +893,16 @@ class Separability:
             reported rather than refused.
         linking_rows: Each constraint no one window holds whole, in declaration
             order: one the axis does not index, whose row stands in every
-            window, and one :attr:`coupled` names. A constraint waiting on an
-            :attr:`undecided` reach is not among them, because how far it
-            reaches is the data's to say — the boundary :attr:`windowable`
-            already draws.
+            window, and one :attr:`coupled` names. A reach the data decides is
+            not one, so a row waiting on :attr:`undecided` may span two windows.
         linking_columns: Each variable the axis does not index, in declaration
             order, whose column every window reads. A decomposition calls a
             window a block, and with :attr:`linking_rows` this is the border of
-            a bordered block-diagonal form cut along the axis. The form is
-            exactly that where :attr:`ahead` is ``0``: a positive lookahead is
-            neighbouring blocks overlapping by that much.
+            a bordered block-diagonal form cut along the axis, whole where
+            nothing is :attr:`undecided` and no set runs through it. A set
+            couples the axis without building a row, so it stands in neither
+            field. The form is exactly that where :attr:`ahead` is ``0``: a
+            positive lookahead is neighbouring blocks overlapping by that much.
     """
 
     dimension: str

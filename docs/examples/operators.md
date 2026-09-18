@@ -73,13 +73,13 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G}} p_{t,g} \le \mathrm{limit}_{t} \qquad \forall\, t \in \mathcal{T}`$
 
-### `sum(array, by=relation)`
+### `sum(array, by=relation, over=a, into=b)`
 
 `examples/operators/sum_by.yaml`
 
 ```yaml
 description: >-
-  The membership reduction — `sum(array, by=relation)` lands the result on the
+  The membership reduction — `sum(array, by=relation, over=a, into=b)` lands the result on the
   column the relation is walked to, which is what makes topology data rather than
   structure.
 
@@ -89,7 +89,7 @@ dimensions:
   bus: { dtype: str }
 
 relations:
-  gen_bus: { key: generator, value: bus }
+  gen_bus: { key: generator, values: bus }
 
 parameters:
   limit: { dims: [snapshot, bus] }
@@ -102,52 +102,14 @@ variables:
 constraints:
   bus_total:
     dims: [snapshot, bus]
-    expression: sum(p, by=gen_bus) <= limit
+    expression: sum(p, by=gen_bus, over=generator, into=bus) <= limit
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b} p_{t,g} \le \mathrm{limit}_{t,b} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B}`$
 
-### `sum(array, by=[relation, …])`
-
-`examples/operators/sum_by_relations.yaml`
-
-```yaml
-description: >-
-  Grouping through several maps at once — `sum(array, by=[relation, …])` lands
-  the result on every dimension the relations map into, which is one grouping
-  rather than a composition of two: the generator dimension is consumed once.
-
-dimensions:
-  snapshot: { dtype: int }
-  generator: { dtype: str }
-  bus: { dtype: str }
-  technology: { dtype: str }
-
-relations:
-  gen_bus: { key: generator, value: bus }
-  gen_tech: { key: generator, value: technology }
-
-parameters:
-  limit: { dims: [snapshot, bus, technology] }
-
-variables:
-  p:
-    dims: [snapshot, generator]
-    bounds: { lower: 0 }
-
-constraints:
-  bus_technology_total:
-    dims: [snapshot, bus, technology]
-    expression: sum(p, by=[gen_bus, gen_tech]) <= limit
-
-objective: { sense: minimize, expression: sum(p) }
-```
-
-$`\sum_{g \in \mathcal{G} \,:\, \mathrm{gen\_bus}(g) = b \wedge \mathrm{gen\_tech}(g) = e} p_{t,g} \le \mathrm{limit}_{t,b,e} \qquad \forall\, t \in \mathcal{T},\ b \in \mathcal{B},\ e \in \mathcal{E}`$
-
-### `sum(array, by=relation, over=a, into=b)`
+### `sum(array, by=relation, over=a, into=b), joining on the rest of the key`
 
 `examples/operators/sum_by_columns.yaml`
 
@@ -163,7 +125,7 @@ dimensions:
   zone: { dtype: str }
 
 relations:
-  zone_of: { key: [generator, period], value: zone }
+  zone_of: { key: [generator, period], values: zone }
 
 parameters:
   demand: { dims: [zone, period] }
@@ -200,7 +162,7 @@ dimensions:
   technology: { dtype: str }
 
 relations:
-  slot_of: { key: [generator, period], value: [bus, technology] }
+  slot_of: { key: [generator, period], values: [bus, technology] }
 
 parameters:
   cap: { dims: [bus, technology] }
@@ -220,13 +182,13 @@ objective: { sense: minimize, expression: sum(p) }
 
 $`\sum_{g \in \mathcal{G},\ e \in \mathcal{E} \,:\, \mathrm{slot\_of.bus}(g,\ e) = b \wedge \mathrm{slot\_of.technology}(g,\ e) = t} p_{g,e} \le \mathrm{cap}_{b,t} \qquad \forall\, b \in \mathcal{B},\ t \in \mathcal{T}`$
 
-### `at(array, by=relation)`
+### `at(array, by=relation, over=a, into=b)`
 
 `examples/operators/at.yaml`
 
 ```yaml
 description: >-
-  The adjoint of the membership reduction — `at(array, by=relation)` reads one
+  The adjoint of the membership reduction — `at(array, by=relation, over=a, into=b)` reads one
   coarse value once per fine label pointing at it.
 
 dimensions:
@@ -234,7 +196,7 @@ dimensions:
   period: { dtype: int }
 
 relations:
-  period_of: { key: snapshot, value: period }
+  period_of: { key: snapshot, values: period }
 
 parameters:
   cap: { dims: [period] }
@@ -247,14 +209,14 @@ variables:
 constraints:
   within_cap:
     dims: [snapshot]
-    expression: p <= at(cap, by=period_of)
+    expression: p <= at(cap, by=period_of, over=period, into=snapshot)
 
 objective: { sense: minimize, expression: sum(p) }
 ```
 
 $`p_{t} \le \mathrm{cap}_{\mathrm{period\_of}(t)} \qquad \forall\, t \in \mathcal{T}`$
 
-### `at(array, by=relation, over=a, into=b)`
+### `at(array, by=relation, over=a, into=b), two columns over one dimension`
 
 `examples/operators/at_columns.yaml`
 
@@ -269,7 +231,7 @@ dimensions:
   bus: { dtype: str }
 
 relations:
-  ends: { key: line, value: { bus0: bus, bus1: bus } }
+  ends: { key: line, values: { bus0: bus, bus1: bus } }
 
 parameters:
   cap: { dims: [bus] }
@@ -417,7 +379,7 @@ dimensions:
   season: { dtype: str }
 
 relations:
-  season_of: { key: snapshot, value: season }
+  season_of: { key: snapshot, values: season }
 
 variables:
   p:
@@ -552,7 +514,7 @@ dimensions:
   day: { dtype: str }
 
 relations:
-  day_of: { key: hour, value: day }
+  day_of: { key: hour, values: day }
 
 variables:
   started:

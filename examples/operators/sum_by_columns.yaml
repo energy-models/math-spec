@@ -13,7 +13,7 @@ dimensions:
   zone: { dtype: str }
 
 relations:
-  zone_of: { key: [generator, period], value: zone }
+  zone_of: { key: [generator, period], values: zone }
 
 parameters:
   demand: { dims: [zone, period] }
