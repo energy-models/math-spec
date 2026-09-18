@@ -31,6 +31,7 @@ from math_spec.program import (
     Constant,
     DimensionComparisonNode,
     DimensionDeclaration,
+    Direction,
     Divide,
     Dual,
     ExpressionNode,
@@ -51,7 +52,6 @@ from math_spec.program import (
     Sum,
     Translate,
     Variable,
-    Walk,
     Window,
     children,
     divisor_parameters,
@@ -86,7 +86,7 @@ TINY = {
 #: `lk` as `sum` walks it: key consumed, value produced, nothing joined.
 LK = RelationDeclaration('lk', (('g', 'g'), ('h', 'h')), ('g',))
 LK2 = RelationDeclaration('lk2', (('g', 'g'), ('z', 'z')), ('g',))
-LK_WALK = Walk(LK, ('g',), ('h',), ())
+LK_DIRECTION = Direction(LK, ('g',), ('h',), ())
 AT_BUS = RelationDeclaration('at_bus', (('g', 'g'), ('bus', 'bus')), ('g',))
 
 #: `fixtures.SMALL_MODEL` plus a second relation and a per-entity
@@ -412,12 +412,12 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
         pytest.param('sum(q, over=h)', Sum(Variable('q'), ('h',)), id='an-over-consumes-the-dim-it-names'),
         pytest.param(
             'sum(p, by=lk, over=g, into=h)',
-            GroupSum(Variable('p'), walk=LK_WALK),
+            GroupSum(Variable('p'), direction=LK_DIRECTION),
             id='a-grouped-sum-names-the-dim-it-consumes-and-the-one-it-lands-on',
         ),
         pytest.param(
             'at(r, by=lk, over=h, into=g)',
-            At(Variable('r'), walk=Walk(LK, ('h',), ('g',), ())),
+            At(Variable('r'), direction=Direction(LK, ('h',), ('g',), ())),
             id='a-pullback-walks-the-same-table-back',
         ),
         pytest.param(
@@ -443,7 +443,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 offset=1,
                 wrap=False,
                 fill=0.0,
-                partition=Walk(LK, ('g',), ('h',), ()),
+                partition=Direction(LK, ('g',), ('h',), ()),
             ),
             id='a-translation-stops-at-the-edges-of-the-relation-it-names',
         ),
@@ -464,7 +464,7 @@ def test_a_power_lowers_to_a_node_of_its_own(dispatch_schema):
                 'g',
                 width=2,
                 wrap=False,
-                partition=Walk(LK, ('g',), ('h',), ()),
+                partition=Direction(LK, ('g',), ('h',), ()),
             ),
             id='a-window-stops-at-the-edges-of-the-relation-it-names',
         ),
@@ -510,7 +510,7 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
     assert program.dimension('zone').relations == (declared,), 'and under its last'
     assert program.relations == {'zone_of': declared}, 'and once in the program'
     zonal = program.constraints['zonal'].lhs
-    assert zonal == GroupSum(Variable('p'), walk=Walk(declared, ('generator',), ('zone',), ('snapshot',))), (
+    assert zonal == GroupSum(Variable('p'), direction=Direction(declared, ('generator',), ('zone',), ('snapshot',))), (
         'a grouped sum names the column it consumes, the one it produces and the one it joins on'
     )
     assert isinstance(zonal, GroupSum)
@@ -521,10 +521,10 @@ def test_a_relation_lowers_with_the_walk_each_call_takes():
         'zone_of',
     ), 'the dims a consumer reads are read off the walk'
     assert program.constraints['history'].lhs == GroupSum(
-        Variable('p'), walk=Walk(declared, ('snapshot',), ('zone',), ('generator',))
+        Variable('p'), direction=Direction(declared, ('snapshot',), ('zone',), ('generator',))
     ), 'the same table walked from its other key column'
     priced = program.constraints['priced'].rhs
-    assert priced == At(Parameter('price'), walk=Walk(declared, ('zone',), ('generator',), ('snapshot',))), (
+    assert priced == At(Parameter('price'), direction=Direction(declared, ('zone',), ('generator',), ('snapshot',))), (
         'and its adjoint consumes the value column and produces the key column'
     )
     assert isinstance(priced, At)
@@ -553,7 +553,7 @@ def test_a_divisor_under_a_pullback_is_still_named():
     """`children` has to descend through every node, or a refusal loses its name."""
     quotient = Divide(Variable('x'), Parameter('rate'))
     component_of = RelationDeclaration('component_of', (('flow', 'flow'), ('component', 'component')), ('flow',))
-    pulled = At(quotient, walk=Walk(component_of, ('component',), ('flow',), ()))
+    pulled = At(quotient, direction=Direction(component_of, ('component',), ('flow',), ()))
 
     assert divisor_parameters(pulled) == frozenset({'rate'}), 'the walk descends through `At`'
     assert divisor_parameters(Sum(pulled, ('flow',))) == frozenset({'rate'}), 'and through a `Sum` over it'
@@ -628,8 +628,8 @@ FAN_IN = {
     Power(Parameter('c'), Constant(2.0)): 'one-to-one',
     Divide(Variable('p'), Parameter('c')): 'one-to-one',
     Sum(Variable('p'), ('g',)): 'many-to-one',
-    GroupSum(Variable('p'), walk=Walk(AT_BUS, ('g',), ('bus',), ())): 'many-to-one',
-    At(Variable('p'), walk=Walk(AT_BUS, ('bus',), ('g',), ())): 'one-to-one',
+    GroupSum(Variable('p'), direction=Direction(AT_BUS, ('g',), ('bus',), ())): 'many-to-one',
+    At(Variable('p'), direction=Direction(AT_BUS, ('bus',), ('g',), ())): 'one-to-one',
     Translate(Variable('p'), 't', offset=1, wrap=False, fill=0.0): 'one-to-one',
     Window(Variable('p'), 't', width=2, wrap=False): 'one-to-many',
     Cases((Region(Mask(ParameterDefinedNode('c', ('g',))), Variable('p')),)): 'one-to-one',

@@ -25,10 +25,10 @@ relations:
   zone_of: { key: bus, values: zone }
   area_of: { key: bus, values: zone } # a second map into the same set, to compare against
   season_of: { key: snapshot, values: season }
-  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call walks one and joins on the other
+  gen_zone: { key: [generator, snapshot], values: zone } # a map keyed by two dimensions: a call consumes one and joins on the other
   rep_of: { key: snapshot, values: { rep: snapshot } } # a map into its own dimension: the representative snapshot
-  connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, walked only by sum with both ends named
-  gen_bt: { key: generator, values: [bus, technology] } # one table with two value columns, walked to both at once
+  connection: { key: [generator, bus] } # a bare relation, with no value columns: many-to-many, read only by sum with both ends named
+  gen_bt: { key: generator, values: [bus, technology] } # one table with two value columns, read to both at once
 
 parameters:
   p_max: { dims: [generator] }
@@ -149,7 +149,7 @@ constraints:
   pullback: # at(), which re-indexes through a relation instead of an offset
     dims: [snapshot, bus]
     expression: spill <= at(zone_cap, by=zone_of, over=zone, into=bus)
-  grouped_once: # one table walked to two value columns: the domain carries a condition per column
+  grouped_once: # one table read to two value columns: the domain carries a condition per column
     dims: [snapshot, bus, technology]
     expression: sum(p, by=gen_bt, into=[bus, technology], over=generator) <= tech_cap
   pulled_back_once: # its adjoint, reading one slot through two columns of one table
@@ -166,16 +166,16 @@ constraints:
     dims: [snapshot, generator, bus]
     where: "connection"
     expression: p <= load
-  representative: # a map into its own dimension, walked both ways: the frame is unchanged and the index is primed
+  representative: # a map into its own dimension, read both ways: the frame is unchanged and the index is primed
     dims: [snapshot]
     expression: sum(spill, by=rep_of, over=snapshot, into=rep) <= at(spill, by=rep_of, over=rep, into=snapshot)
-  zonal: # a grouping through a two-key map, walked along one key: the condition reads the other, and the row keeps it
+  zonal: # a grouping through a two-key map, consuming one key: the condition reads the other, and the row keeps it
     dims: [snapshot, zone]
     expression: sum(p, by=gen_zone, over=generator, into=zone) <= zone_cap
-  zonal_history: # the same table walked along its other key
+  zonal_history: # the same table consuming its other key
     dims: [generator, zone]
     expression: sum(p, by=gen_zone, over=snapshot, into=zone) <= zone_cap
-  zonal_membership: # the same table walked between its two key columns: no value column is read, so the domain asks only that the row is there
+  zonal_membership: # the same table read between its two key columns: no value column is read, so the domain asks only that the row is there
     dims: [snapshot]
     expression: sum(units, by=gen_zone, over=generator, into=snapshot) <= budget
   zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in

@@ -22,7 +22,7 @@ model can never depend on what a caller registered. A composition of them goes i
 | `shift(array, along=dim, offset=n, edge='wrap')`    | The value `n` positions earlier, counted cyclically, so nothing is vacated                                                                        |
 | `shift(array, along=dim, offset=n, edge=v)`         | The value `n` positions earlier, with the number `v` standing where the edge was vacated                                                          |
 | `shift(array, along=dim, offset=p, edge=…)`         | `p` is an integer parameter, so each entity is reached by its own offset. Declared over what a `by=` groups into, it gives one lag per group      |
-| `shift(array, along=dim, offset=n, by=relation[, within=c])` | The translation walks inside each group that the relation makes. Neighbours, edges and a wrap all belong to that group                              |
+| `shift(array, along=dim, offset=n, by=relation[, within=c])` | The translation steps inside each group that the relation makes. Neighbours, edges and a wrap all belong to that group                              |
 | `sum_back(array, along=dim, window=n)`              | The sum of the last `n` positions along `dim`, ending at the position being written                                                               |
 | `sum_back(array, along=dim, window=p)`              | `p` is an integer parameter, so each entity gets its own window length                                                                            |
 | `sum_back(array, along=dim, window=p, edge='wrap')` | The window reaches around the axis, instead of stopping short at its start                                                                        |
@@ -76,7 +76,7 @@ The same `f` is summed twice through two relations, once as inflow and once as
 outflow, with no adjacency matrix and no join written by hand.
 
 `sum(by=)` consumes a key column and produces a value column. `over=` and
-`into=` name them, on every call ([walks](dimensions.md#walks)),
+`into=` name them, on every call ([directions](dimensions.md#directions)),
 and every other key column is joined on, so each group is one coordinate of it.
 A bare relation, one with no `values:`, is summed with both ends named.
 
@@ -88,11 +88,11 @@ coordinate the data never covered is refused. See [absence](absence.md).
 
 ## `at`
 
-`at(x, by=l, over=a, into=b)` walks the same relation the other way. It consumes
+`at(x, by=l, over=a, into=b)` reads the same relation the other way. It consumes
 a value column and produces the key, so it reads one coarse value once for each
 fine label that points at it, and a bare relation is never read by `at`. `over=`
 and `into=` name the columns on every call, and every other key column is read at
-the row's own coordinate ([walks](dimensions.md#walks)).
+the row's own coordinate ([directions](dimensions.md#directions)).
 
 `at` reads a variable as readily as a parameter. One decision taken per bus, read
 once by every line that touches the bus, is `at(decision, by=line_bus, over=bus, into=line)`.
@@ -207,7 +207,7 @@ previous snapshot's duration, without a pre-shifted copy of the table.
 
 ### A translation that stops at each group's edge
 
-`by=` partitions the axis the operator walks, so the neighbour of a coordinate
+`by=` partitions the axis the operator steps along, so the neighbour of a coordinate
 is the coordinate before it in its own group. A group can be a season, an
 investment period or a representative day:
 
@@ -233,7 +233,7 @@ coordinate of each group is vacated and its row drops. `edge='wrap'` closes each
 group onto its own last coordinate, which a store that returns to its starting
 level every period asks for. `edge=v` puts `v` at the edge of each group.
 
-`by=` takes a relation with a key column over the dimension being walked, and the
+`by=` takes a relation with a key column over the dimension being stepped along, and the
 group is the value columns: all of them, or the ones `within=` names, so one
 calendar table serves `within=day` and `within=week` alike. The group columns are
 what a named `offset=` may vary over, so each group is reached by its own offset.

@@ -225,7 +225,7 @@ def test_a_bare_name_reaches_the_variable_a_dual_the_same_named_constraint():
         ),
         pytest.param(
             'sum(load, by=gen_bus, over=generator, into=bus)',
-            r"sum\(by=gen_bus\) consumes \['generator'\], the dims it walks from",
+            r"sum\(by=gen_bus\) consumes \['generator'\], the dims it reads from",
             id='sum-requires-the-grouped-dim',
         ),
         pytest.param(

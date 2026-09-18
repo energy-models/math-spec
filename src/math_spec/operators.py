@@ -39,11 +39,11 @@ class Builtin:
     dimension_kwargs: tuple[str, ...] = ()
     relation_kwargs: tuple[str, ...] = ()
     #: Kwargs naming a column of the relation ``by=`` names — ``over=`` and
-    #: ``into=`` — which resolution folds into the relation's walk.
+    #: ``into=`` — which resolution folds into the direction it is read in.
     role_kwargs: tuple[str, ...] = ()
     #: Kwargs naming a dimension on their own and a column of the relation where
     #: ``by=`` names one. ``sum(x, over=generator)`` reduces the dimension
-    #: away; ``sum(x, by=l, over=c)`` names the column the walk consumes.
+    #: away; ``sum(x, by=l, over=c)`` names the column the call consumes.
     #: One meaning — what leaves the frame — read in the namespace ``by=``
     #: decides.
     dimension_or_role_kwargs: tuple[str, ...] = ()
@@ -52,7 +52,7 @@ class Builtin:
     #: Kwargs the call may omit. Their *kind* still comes from the tuples
     #: above — this says only that the operator has an answer without them.
     optional_kwargs: tuple[str, ...] = ()
-    #: Kwargs required exactly when the call addresses a relation. A walk
+    #: Kwargs required exactly when the call addresses a relation. A call
     #: through a relation names both of its ends, so that adding a value
     #: column to the relation cannot change what an existing call means.
     with_relation: tuple[str, ...] = ()
@@ -90,7 +90,7 @@ class Builtin:
 
 #: The closed operator set. ``by=`` is the one keyword that addresses a relation,
 #: and a relation carries its own dimensions, so no sibling kwarg restates them.
-#: On ``shift`` and ``sum_back`` it partitions the axis the operator walks: it
+#: On ``shift`` and ``sum_back`` it partitions the axis the operator steps along: it
 #: says which rows are neighbours, not which group a term lands in, and
 #: ``within=`` names the columns whose values that group is read from.
 BUILTINS: dict[str, Builtin] = {
@@ -151,20 +151,20 @@ def call_shape_error(name: str, positional: int, kwargs: Iterable[str]) -> str |
     builtin = BUILTINS[name]
     keys = set(kwargs)
     optional = {*builtin.edge_kwargs, *builtin.optional_kwargs}
-    walks = bool(keys & set(builtin.relation_kwargs))
-    required = builtin.required | frozenset(builtin.with_relation) if walks else builtin.required
-    optional |= set() if walks else set(builtin.with_relation)
-    if walks and (unsaid := sorted(frozenset(builtin.with_relation) - keys)):
+    reads = bool(keys & set(builtin.relation_kwargs))
+    required = builtin.required | frozenset(builtin.with_relation) if reads else builtin.required
+    optional |= set() if reads else set(builtin.with_relation)
+    if reads and (unsaid := sorted(frozenset(builtin.with_relation) - keys)):
         return unsaid_ends_error(name, unsaid)
     fits = positional == 1 and keys - optional == required
     return None if fits else f'{name}() expects {builtin.usage}'
 
 
 def unsaid_ends_error(name: str, unsaid: list[str]) -> str:
-    """Why a walk through a relation has to write both of its ends."""
+    """Why a call through a relation has to write both of its ends."""
     return (
         f'{name}() through a relation leaves {", ".join(f"{k}=" for k in unsaid)} unsaid.\n'
-        f'A walk names both of its ends, so that a relation may gain a value '
+        f'A call names both of its ends, so that a relation may gain a value '
         f'column without changing what this call means.\n'
         f'Write: {BUILTINS[name].usage}'
     )

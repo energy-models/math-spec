@@ -766,7 +766,7 @@ class TestRulesDecidedWithoutData:
             ),
             pytest.param(
                 {'objective': {'expression': 'sum(sum(q, by=lk, over=h, into=g))'}},
-                ("this sum walks to the key ['g']", 'that is a read, which is', 'at(..., by=lk'),
+                ("this sum lands on the key ['g']", 'that is a read, which is', 'at(..., by=lk'),
                 id='a-sum-that-walks-to-the-key-is-a-read',
             ),
             pytest.param(
@@ -934,7 +934,7 @@ class TestRulesDecidedWithoutData:
                     'dimensions.z': {},
                     'objective': {'expression': 'sum(sum(p, by=[lk, lk2], over=g, into=[h, z]))'},
                 },
-                ('names 2 relations, and one call walks one table',),
+                ('names 2 relations, and one call reads one table',),
                 id='several-relations-in-one-by',
             ),
             pytest.param(

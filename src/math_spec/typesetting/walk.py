@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from math_spec.model import RelationBlock, SosBlock, _ExpandedSpec
-    from math_spec.program import Walk as RelationWalk
+    from math_spec.program import Direction
     from math_spec.typesetting.format import Format
     from math_spec.typesetting.symbols import Symbols
 
@@ -274,15 +274,15 @@ class Walk:
         self.noticed.grouped = True
         return self.format.superscript(operator, step.within)
 
-    def _relation_read(self, walk: RelationWalk, at: Mapping[str, str], read: str) -> str:
+    def _relation_read(self, direction: Direction, at: Mapping[str, str], read: str) -> str:
         """A relation's column *read* as a function at the columns *at* fixes: ``bus(g)``, ``zone_of(g, p)`` or ``ends.bus0(l)``.
 
         *at* maps each key role to the index it is read at. The function is
         named after the relation alone where the key determines one column, and
         after the column read otherwise.
         """
-        name = walk.name if len(walk.values) == 1 else f'{walk.name}.{read}'
-        return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in walk.key], ''))
+        name = direction.name if len(direction.values) == 1 else f'{direction.name}.{read}'
+        return self.format.apply(self.format.upright(name), self.format.joined([at[k] for k in direction.key], ''))
 
     def _relation_row(self, name: str, key: list[str]) -> str:
         """That relation *name* has a row at *key*, its key columns' indices in declared order.
@@ -307,10 +307,12 @@ class Walk:
     def _position_group(self, node: DimensionPositionNode, ctx: _Context) -> str:
         """The group a grouped position counts within: the relation's group columns read at the row's key."""
         assert node.partition is not None
-        walk = node.partition
-        keyed = self.format.joined([ctx.subscript(walk.dim(k)) for k in walk.key], '')
-        single = len(walk.values) == 1
-        reads = [self.format.apply(self._column(walk.name, column, single), keyed) for column in walk.produced]
+        direction = node.partition
+        keyed = self.format.joined([ctx.subscript(direction.dim(k)) for k in direction.key], '')
+        single = len(direction.values) == 1
+        reads = [
+            self.format.apply(self._column(direction.name, column, single), keyed) for column in direction.produced
+        ]
         return self._tuple(reads)
 
     def _tuple(self, reads: list[str]) -> str:
@@ -457,10 +459,10 @@ class Walk:
             by = node.kwargs['by']
             assert isinstance(by, RelationNode)
             outer = ctx
-            walk = by.walk
-            at = {r: outer.subscript(walk.dim(r)) for r in (*walk.produced, *walk.joined)}
-            for read in walk.consumed:
-                ctx = ctx.pulled_back(walk.dim(read), self._relation_read(walk, at, read))
+            direction = by.direction
+            at = {r: outer.subscript(direction.dim(r)) for r in (*direction.produced, *direction.joined)}
+            for read in direction.consumed:
+                ctx = ctx.pulled_back(direction.dim(read), self._relation_read(direction, at, read))
             return self._arithmetic(node.args[0], ctx)
 
         if (by := node.kwargs.get('by')) is not None:
@@ -469,7 +471,7 @@ class Walk:
             inner = ctx
             for d in by.dimensions:
                 dummies[d], inner = inner.reducing(d)
-            conditions = list(self._grouping(by.walk, dummies, ctx))
+            conditions = list(self._grouping(by.direction, dummies, ctx))
             domain = (
                 f'{self.format.joined([self._membership(d, dummies[d]) for d in by.dimensions], "")} '
                 f'{self._op("such_that")} {self.format.joined(conditions, self._op("and"))}'
@@ -487,23 +489,23 @@ class Walk:
             domain = self.format.joined(memberships, '')
         return self.format.summation(domain, self._reduction_body(node.args[0], inner)), _PRECEDENCE['+']
 
-    def _grouping(self, walk: RelationWalk, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
-        """The conditions a grouped sum's domain carries for one walk: what the walk fixes of the row it joins on.
+    def _grouping(self, direction: Direction, dummies: Mapping[str, str], ctx: _Context) -> list[str]:
+        """The conditions a grouped sum's domain carries for one direction: what it fixes of the row it joins on.
 
-        A walk fixes its relation's key either way, so each value column it
-        fixes — consumed or produced, one lookup at the key either way — is
-        that column read there. A walk that fixes none of them asks only that
-        the row is there, because a value column the walk does not touch is
-        not read, and a bare relation has no value column to read at all.
+        A direction fixes its relation's key either way, so each value column
+        it fixes — consumed or produced, one lookup at the key either way — is
+        that column read there. One that fixes none of them asks only that the
+        row is there, because a value column it does not touch is not read,
+        and a bare relation has no value column to read at all.
         """
         at = {
-            **{r: dummies[walk.dim(r)] for r in walk.consumed},
-            **{r: ctx.subscript(walk.dim(r)) for r in (*walk.joined, *walk.produced)},
+            **{r: dummies[direction.dim(r)] for r in direction.consumed},
+            **{r: ctx.subscript(direction.dim(r)) for r in (*direction.joined, *direction.produced)},
         }
-        fixed = [r for r in walk.values if r in at]
+        fixed = [r for r in direction.values if r in at]
         if not fixed:
-            return [self._relation_row(walk.name, [at[k] for k in walk.key])]
-        return [f'{self._relation_read(walk, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
+            return [self._relation_row(direction.name, [at[k] for k in direction.key])]
+        return [f'{self._relation_read(direction, at, r)} {self._op("equal")} {at[r]}' for r in fixed]
 
     def _group(self, by: ArithmeticNode | None, dim: str) -> str:
         """A ``by=`` as the superscript its translation operator carries.
@@ -515,9 +517,9 @@ class Walk:
         if by is None:
             return ''
         assert isinstance(by, RelationNode)
-        walk = by.walk
-        at = {r: self.symbols.index[walk.dim(r)] for r in (*walk.consumed, *walk.joined)}
-        return self._tuple([self._relation_read(walk, at, r) for r in walk.produced])
+        direction = by.direction
+        at = {r: self.symbols.index[direction.dim(r)] for r in (*direction.consumed, *direction.joined)}
+        return self._tuple([self._relation_read(direction, at, r) for r in direction.produced])
 
     def _width(self, node: ArithmeticNode) -> str:
         """``sum_back``'s ``window=``: a number, or a parameter's own symbol.
