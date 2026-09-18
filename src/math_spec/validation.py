@@ -36,7 +36,7 @@ from math_spec.errors import LanguageError, SchemaError
 from math_spec.exclusivity import overlapping
 from math_spec.expansion import expand, parse_and_expand, parse_template
 from math_spec.model import Spec
-from math_spec.operators import BUILTINS, unknown_operator_message
+from math_spec.operators import BUILTINS, call_shape_error, unknown_operator_message
 from math_spec.program import BooleanLiteralNode
 from math_spec.resolution import (
     Namespace,
@@ -312,8 +312,10 @@ def _check_template_names(
     formals: frozenset[str],
     errors: list[str],
 ) -> None:
-    """Name-check a macro body treating formals as bound — not resolution, since a formal has no kind until a call site binds it.
+    """Check a macro body's names and call shapes, treating formals as bound — not resolution, since a formal has no kind until a call site binds it.
 
+    An operator call is refused by its signature here, as at a call site, so a
+    keyword the operator does not declare is caught in a template nothing calls.
     A case arm's value only: its ``when`` is the declaration's, checked there.
     """
     if isinstance(node, NumberNode | VariableNode | ParameterNode | DualNode | KwargNode | KeywordNode | NameListNode):
@@ -333,6 +335,10 @@ def _check_template_names(
         builtin = BUILTINS.get(node.name)
         if builtin is None:
             errors.append(f'{context}: {unknown_operator_message(node.name)}')
+        else:
+            shape_error = call_shape_error(node.name, len(node.args), node.kwargs)
+            if shape_error is not None:
+                errors.append(f'{context}: {shape_error}')
         if node.name == 'dual':
             errors.extend(
                 ns.unknown_constraint(arg.name, context, formals=formals)
@@ -363,6 +369,8 @@ def _check_template_names(
                     pass
                 case 'edge':
                     pass  # a keyword or a number: nothing in it to name
+                case None:
+                    pass  # a keyword the operator does not declare; the shape error above named it
         return
 
     assert_never(node)

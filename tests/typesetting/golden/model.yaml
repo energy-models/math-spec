@@ -182,6 +182,9 @@ constraints:
   zonal_history: # the same table walked along its other key
     dims: [generator, zone]
     expression: sum(p, by=gen_zone, over=snapshot) <= zone_cap
+  zonal_membership: # the same table walked between its two key columns: no value column is read, so the domain asks only that the row is there
+    dims: [snapshot]
+    expression: sum(p, by=gen_zone, over=generator, into=snapshot) <= budget
   zonal_pullback: # its adjoint, reading the slot the row's own snapshot puts the generator in
     dims: [snapshot, generator]
     where: "gen_zone == 'north' AND position(generator, by=gen_zone) == 0"

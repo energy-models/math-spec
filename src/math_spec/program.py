@@ -11,7 +11,8 @@ nothing here re-checks a hand-built one.
 
 Node and declaration classes are matched with ``isinstance``. The rules a
 node's structure does not show are :func:`children` and :func:`fan_in`; the
-questions over the walk are :func:`walk` and the filters beside it. A
+questions over the walk are :func:`walk_regions`, :func:`walk` and the filters
+beside them. A
 resolved ``where`` arrives as a :class:`Mask`. Frozen dataclasses only — no
 execution logic, and nothing imported from a consumer. How a consumer reads
 one: ``docs/reference/language/reading.md``.
@@ -113,6 +114,7 @@ __all__ = [
     'quotients',
     'variables_of',
     'walk',
+    'walk_regions',
     'where_children',
 ]
 
@@ -864,13 +866,15 @@ class Separability:
     """What building one dimension a window at a time asks of a driver, and what it would break.
 
     A rolling-horizon or myopic driver cuts an axis into windows and builds
-    each on its own. What the program can say is whether every row it builds
-    is then complete inside some window: how far a row reads ahead along the
-    axis, and which declarations tie the axis together so that no window
-    holds them. It cannot say whether the windowed answer is the one a
-    whole-horizon solve would give — a store carried over one row windows
-    cleanly, and a rolling solve of it is still a different answer — which is
-    the driver's design and not the model's.
+    each on its own, and a decomposition cuts the same axis and solves each
+    piece on its own. What the program can say is whether every row it builds
+    is then complete inside one window: how far a row reads ahead along the
+    axis, which declarations tie the axis together so that no window holds
+    them, and — the same fact read as a set — which rows and columns are left
+    over as the border every window shares. It cannot say whether the windowed
+    answer is the one a whole-horizon solve would give — a store carried over
+    one row windows cleanly, and a rolling solve of it is still a different
+    answer — which is the driver's design and not the model's.
 
     What a row reads *behind* is not reported. A window starts where the
     driver puts it, and what its first rows meet there is the edge policy:
@@ -895,6 +899,18 @@ class Separability:
             window restarts at its first row. Whether that is wanted — a seed
             once per window, or once per horizon — is the modeller's, so it is
             reported rather than refused.
+        linking_rows: Each constraint no one window holds whole, in declaration
+            order: one the axis does not index, whose row stands in every
+            window, and one :attr:`coupled` names. A reach the data decides is
+            not one, so a row waiting on :attr:`undecided` may span two windows.
+        linking_columns: Each variable the axis does not index, in declaration
+            order, whose column every window reads. A decomposition calls a
+            window a block, and with :attr:`linking_rows` this is the border of
+            a bordered block-diagonal form cut along the axis, whole where
+            nothing is :attr:`undecided` and no set runs through it. A set
+            couples the axis without building a row, so it stands in neither
+            field. The form is exactly that where :attr:`ahead` is ``0``: a
+            positive lookahead is neighbouring blocks overlapping by that much.
     """
 
     dimension: str
@@ -902,6 +918,8 @@ class Separability:
     coupled: Mapping[str, str]
     undecided: tuple[Reach, ...]
     restarts: Mapping[str, str]
+    linking_rows: tuple[str, ...]
+    linking_columns: tuple[str, ...]
 
     @property
     def windowable(self) -> bool:
@@ -1045,19 +1063,52 @@ class Program:
 # --------------------------------------------------------------------------
 
 
-def walk(*expressions: ExpressionNode) -> Iterator[ExpressionNode]:
-    """Every node under *expressions*, each expression itself included, parents first.
+def walk_regions(*expressions: ExpressionNode) -> Iterator[tuple[ExpressionNode, tuple[Mask, ...]]]:
+    """Every node under *expressions*, each with the regions it stands inside, outermost first.
 
     The traversal every *question* about a program is a filter of — which names
     it mentions, whether a variable stands under it, which divisions it
-    contains. One generator rather than that five-line recursion once per
-    question: how a program is traversed is one fact, so a node kind
-    :func:`children` learns to descend into reaches every caller at once
-    rather than the callers that remembered.
+    contains, which rows a piece owes data at. One generator rather than that
+    five-line recursion once per question: how a program is traversed is one
+    fact, so a node kind :func:`children` learns to descend into reaches every
+    caller at once rather than the callers that remembered.
+
+    The regions are the ``when`` of every :class:`Cases` region the node's
+    value stands under, the outermost first, which is the order the masks
+    conjoin in. A node outside any ``cases:`` block carries the empty tuple,
+    and a ``Cases`` node carries only the regions above it, not its own. The
+    tuple rather than one conjoined mask: what a consumer does with the
+    regions is its own, and the conjunction is one ``&`` away.
+    """
+    yield from _walk_regions(expressions, ())
+
+
+def _walk_regions(
+    expressions: tuple[ExpressionNode, ...], above: tuple[Mask, ...]
+) -> Iterator[tuple[ExpressionNode, tuple[Mask, ...]]]:
+    """The recursion under :func:`walk_regions`, with the regions above *expressions* carried down.
+
+    A ``Cases`` descends by its regions rather than by :func:`children`, because
+    only the region pairs a value with its ``when``; every other node kind
+    descends by :func:`children`, which stays the one home of what sits under
+    a node.
     """
     for expression in expressions:
-        yield expression
-        yield from walk(*children(expression))
+        yield expression, above
+        if isinstance(expression, Cases):
+            for region in expression.regions:
+                yield from _walk_regions((region.value,), (*above, region.when))
+        else:
+            yield from _walk_regions(children(expression), above)
+
+
+def walk(*expressions: ExpressionNode) -> Iterator[ExpressionNode]:
+    """Every node under *expressions*, each expression itself included, parents first.
+
+    :func:`walk_regions` with the regions dropped, for the questions that do
+    not ask where a node stands.
+    """
+    return (node for node, _ in walk_regions(*expressions))
 
 
 def is_quadratic(expression: ExpressionNode) -> bool:

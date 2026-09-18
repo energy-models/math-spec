@@ -98,7 +98,10 @@ data.
 
 You never build a node yourself. The node classes are exported so that you can
 test one with `isinstance` and read its fields. `children()` walks an expression
-node's operands, and `where_children()` walks a predicate's.
+node's operands, and `where_children()` walks a predicate's. `walk()` yields
+every node under an expression, parents first. `walk_regions()` yields each node
+with the `cases:` regions it stands inside, outermost first, so an engine that
+asks which rows a piece owes data at does not recurse for the answer itself.
 
 Every `where` arrives as a `Mask`. Its `.root` is the resolved predicate, which
 is the node an engine tests with `isinstance`. The mask also answers four
@@ -156,6 +159,8 @@ either way, so nothing later would tell you.
 
 ```python
 program.separability['bp'].windowable  # False
+program.separability['generator'].linking_rows  # ('target',)
+program.separability['generator'].linking_columns  # ()
 tied = program.separability['generator'].coupled["constraint 'target'"]
 tied.partition(' — ')[0]  # 'sums over generator'
 'sum_back(window=n)' in tied  # True
@@ -180,6 +185,11 @@ expansion introduced is named under the declaration the expansion emitted.
   not a number, so it stays undecided.
 - `restarts` names each declaration that counts a `position()` along the axis,
   because a window restarts that count at its first row.
+- `linking_rows` names each constraint that no single window holds. Two shapes
+  reach it: a row the axis does not index, which stands in every window, and a
+  row that `coupled` also names.
+- `linking_columns` names each variable the axis does not index, whose column
+  every window reads.
 - `ahead` is how many coordinates a window must see past its last row: `0` where
   every row is pointwise, and `2` for a `shift` of `-2`. What a row reads behind
   is not reported, because what a window's first rows meet is the opening state
@@ -189,6 +199,13 @@ expansion introduced is named under the declaration the expansion emitted.
 
 A sum over the axis ties every window to every other window in a constraint, and
 not in the objective, because an objective is a sum of windows already.
+
+A decomposition cuts the same axis and calls each window a block. `linking_rows`
+and `linking_columns` are the border of that cut. With nothing `undecided` and
+no set over the axis, every row and column they do not name belongs to one
+block. Where `ahead` is `0` the matrix is bordered block-diagonal, which is one
+block per window and the border they share. A positive lookahead means
+neighbouring blocks overlap by that much.
 
 The report does not say whether the windowed answer equals the whole-horizon
 answer: a store carried over one row windows cleanly, and a rolling solve of it
