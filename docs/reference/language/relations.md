@@ -79,7 +79,7 @@ key column named at neither end is **joined on**: the operand carries its
 dimension, and the result keeps it. A value column named at neither end is not
 read. A relation is read in four ways:
 
-| reading   | in ten words                                | by                                                    |
+| kind      | what it does                                | written as                                            |
 | --------- | ------------------------------------------- | ----------------------------------------------------- |
 | aggregate | many rows of the operand collapse onto one  | `sum(x, by=l, over=a, into=b)`                        |
 | read      | one row's value becomes a coordinate        | `at(x, by=l, over=a, into=b)`                         |
